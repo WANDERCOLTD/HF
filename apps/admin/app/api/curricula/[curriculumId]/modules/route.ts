@@ -243,8 +243,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // #834 — bulk upsert may have created, updated, or rewritten LOs.
     // Stamp the owning playbook so callers recompose on next call.
-    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
-    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
+    // #1034 — CC-B fanout: bump every sibling Playbook sharing this Curriculum.
+    const playbookIds = await resolvePlaybookIdForCurriculum(curriculumId);
+    for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
 
     return NextResponse.json({ ok: true, modules, count: result.length }, { status: 201 });
   } catch (error: any) {
@@ -280,8 +281,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
     );
 
     // #834 — sortOrder feeds into modules-loader scheduling. Bump.
-    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
-    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
+    // #1034 — CC-B fanout: bump every sibling Playbook sharing this Curriculum.
+    const playbookIds = await resolvePlaybookIdForCurriculum(curriculumId);
+    for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {

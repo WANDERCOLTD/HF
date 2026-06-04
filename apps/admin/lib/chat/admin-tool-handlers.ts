@@ -1408,15 +1408,20 @@ async function handleUpdateCurriculumModule(input: Record<string, any>) {
     },
   });
 
-  const playbookId = await resolvePlaybookIdForCurriculum(existing.curriculumId);
+  // #1034 — CC-B fanout: bump every sibling Playbook sharing this Curriculum.
+  // The pendingChange payload below is scoped to the representative (first =
+  // primary by ordering of resolvePlaybookIdForCurriculum) so tray notifications
+  // stay focused, while the staleness bump fans out to every sibling.
+  const playbookIds = await resolvePlaybookIdForCurriculum(existing.curriculumId);
+  const playbookId: string | null = playbookIds[0] ?? null;
   let timestampBumped = false;
-  if (playbookId) {
-    await bumpPlaybookComposeTimestamp(playbookId);
+  for (const pbId of playbookIds) {
+    await bumpPlaybookComposeTimestamp(pbId);
     timestampBumped = true;
   }
 
   console.log(
-    `[admin-tools] Updated module "${existing.slug}". Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
+    `[admin-tools] Updated module "${existing.slug}". Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped} (${playbookIds.length} sibling${playbookIds.length === 1 ? "" : "s"}). Reason: ${input.reason || "(not given)"}`,
   );
 
   // #873 follow-up — emit pendingChange when the timestamp bumped. AI
@@ -1941,17 +1946,20 @@ async function handleUpdateLearningObjective(input: Record<string, any>) {
     },
   });
 
+  // #1034 — CC-B fanout: bump every sibling Playbook sharing this Curriculum.
   let timestampBumped = false;
+  let siblingCount = 0;
   if (existing.module?.curriculumId) {
-    const playbookId = await resolvePlaybookIdForCurriculum(existing.module.curriculumId);
-    if (playbookId) {
-      await bumpPlaybookComposeTimestamp(playbookId);
+    const playbookIds = await resolvePlaybookIdForCurriculum(existing.module.curriculumId);
+    siblingCount = playbookIds.length;
+    for (const pbId of playbookIds) {
+      await bumpPlaybookComposeTimestamp(pbId);
       timestampBumped = true;
     }
   }
 
   console.log(
-    `[admin-tools] Updated LO ${existing.ref}. Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
+    `[admin-tools] Updated LO ${existing.ref}. Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped} (${siblingCount} sibling${siblingCount === 1 ? "" : "s"}). Reason: ${input.reason || "(not given)"}`,
   );
 
   // #873 follow-up — emit pendingChange when the timestamp bumped.
