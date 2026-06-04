@@ -23,11 +23,11 @@ export const runtime = "nodejs";
  *
  *   Events handled:
  *   - end-of-call-report: Create Call record from the normalised event;
- *     persists recordingUrl, stereoRecordingUrl, vapiDurationSeconds,
- *     vapiEndedReason, vapiCostUsd, and the analysis.{summary,
- *     structuredData, successEvaluation} block when present.
- *     The schema rename (#1020) will retire the vapi*-prefixed columns
- *     in favour of canonical voice* fields.
+ *     persists recordingUrl, stereoRecordingUrl, voiceDurationSeconds,
+ *     voiceEndedReason, voiceCostUsd, and the analysis.{summary,
+ *     structuredData, successEvaluation} block when present (now
+ *     stored in voiceAnalysisSummary / voiceStructuredData /
+ *     voiceSuccessEvaluation columns post-#1020).
  *   - status-update: Log call status changes
  *
  *   Ref: https://docs.vapi.ai/server-url/events
@@ -134,18 +134,20 @@ async function handleEndOfCallReport(event: {
   // Resolve default playbook for course-scoped calls
   const playbookId = callerId ? await resolvePlaybookId(callerId) : null;
 
-  // Translate canonical capture keys to the current schema column names.
-  // After #1020 this block becomes a direct spread (`...capture`) because
-  // capture keys and column names will align.
+  // Map canonical capture keys to the current schema column names.
+  // Post-#1020 the column names are voice*-prefixed; the mapping is
+  // mostly a 1:1 prefix swap but kept explicit so the writer is
+  // grep-able and future provider adapters know exactly what shape
+  // the Call row expects.
   const persistableCapture: Record<string, unknown> = {};
   if (capture.recordingUrl !== undefined) persistableCapture.recordingUrl = capture.recordingUrl;
   if (capture.stereoRecordingUrl !== undefined) persistableCapture.stereoRecordingUrl = capture.stereoRecordingUrl;
-  if (capture.durationSeconds !== undefined) persistableCapture.vapiDurationSeconds = capture.durationSeconds;
-  if (capture.endedReason !== undefined) persistableCapture.vapiEndedReason = capture.endedReason;
-  if (capture.costUsd !== undefined) persistableCapture.vapiCostUsd = capture.costUsd;
-  if (capture.analysisSummary !== undefined) persistableCapture.vapiAnalysisSummary = capture.analysisSummary;
-  if (capture.structuredData !== undefined) persistableCapture.vapiStructuredData = capture.structuredData as Prisma.InputJsonValue;
-  if (capture.successEvaluation !== undefined) persistableCapture.vapiSuccessEvaluation = capture.successEvaluation;
+  if (capture.durationSeconds !== undefined) persistableCapture.voiceDurationSeconds = capture.durationSeconds;
+  if (capture.endedReason !== undefined) persistableCapture.voiceEndedReason = capture.endedReason;
+  if (capture.costUsd !== undefined) persistableCapture.voiceCostUsd = capture.costUsd;
+  if (capture.analysisSummary !== undefined) persistableCapture.voiceAnalysisSummary = capture.analysisSummary;
+  if (capture.structuredData !== undefined) persistableCapture.voiceStructuredData = capture.structuredData as Prisma.InputJsonValue;
+  if (capture.successEvaluation !== undefined) persistableCapture.voiceSuccessEvaluation = capture.successEvaluation;
 
   // Stamp callSequence (1, 2, 3...) so the prompt timeline can label this
   // call as "Call N". Without it, the UI shows "—" or jumps. Only meaningful
@@ -232,23 +234,25 @@ async function triggerPipeline(callId: string, callerId: string) {
 }
 
 /**
- * Re-export for backward compatibility — the existing test
- * `tests/lib/vapi-extract-capture.test.ts` imports this name. The canonical
- * extractor lives at `lib/voice/providers/vapi::extractVapiCapture` and
- * returns provider-neutral key names; this shim translates those back to
- * the current Call-column names (the schema rename #1020 retires the
- * shim along with the columns).
+ * Re-export for backward compatibility — the existing test at
+ * `tests/lib/vapi-extract-capture.test.ts` imports this name. The
+ * canonical extractor lives at `lib/voice/providers/vapi::extractVapiCapture`
+ * and returns provider-neutral key names; this shim translates those to
+ * the post-#1020 Call-column names (`voice*`-prefixed). The shim now
+ * exists purely to keep the test surface stable — once the test imports
+ * directly from the canonical extractor + asserts canonical keys, this
+ * re-export goes away.
  */
 export function extractVapiCapture(message: unknown): Record<string, unknown> {
   const c = extractCanonicalCapture(message);
   const out: Record<string, unknown> = {};
   if (c.recordingUrl !== undefined) out.recordingUrl = c.recordingUrl;
   if (c.stereoRecordingUrl !== undefined) out.stereoRecordingUrl = c.stereoRecordingUrl;
-  if (c.durationSeconds !== undefined) out.vapiDurationSeconds = c.durationSeconds;
-  if (c.endedReason !== undefined) out.vapiEndedReason = c.endedReason;
-  if (c.costUsd !== undefined) out.vapiCostUsd = c.costUsd;
-  if (c.analysisSummary !== undefined) out.vapiAnalysisSummary = c.analysisSummary;
-  if (c.structuredData !== undefined) out.vapiStructuredData = c.structuredData;
-  if (c.successEvaluation !== undefined) out.vapiSuccessEvaluation = c.successEvaluation;
+  if (c.durationSeconds !== undefined) out.voiceDurationSeconds = c.durationSeconds;
+  if (c.endedReason !== undefined) out.voiceEndedReason = c.endedReason;
+  if (c.costUsd !== undefined) out.voiceCostUsd = c.costUsd;
+  if (c.analysisSummary !== undefined) out.voiceAnalysisSummary = c.analysisSummary;
+  if (c.structuredData !== undefined) out.voiceStructuredData = c.structuredData;
+  if (c.successEvaluation !== undefined) out.voiceSuccessEvaluation = c.successEvaluation;
   return out;
 }

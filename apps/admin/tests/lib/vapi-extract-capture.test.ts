@@ -22,16 +22,16 @@ describe("extractVapiCapture", () => {
     expect(result).toEqual({
       recordingUrl: "https://storage.vapi.ai/recordings/abc-123-mono.mp3",
       stereoRecordingUrl: "https://storage.vapi.ai/recordings/abc-123-stereo.wav",
-      vapiDurationSeconds: 187.4,
-      vapiEndedReason: "customer-ended-call",
-      vapiCostUsd: 0.0734,
-      vapiAnalysisSummary: expect.stringContaining("IELTS speaking practice"),
-      vapiStructuredData: {
+      voiceDurationSeconds: 187.4,
+      voiceEndedReason: "customer-ended-call",
+      voiceCostUsd: 0.0734,
+      voiceAnalysisSummary: expect.stringContaining("IELTS speaking practice"),
+      voiceStructuredData: {
         topic: "IELTS speaking",
         callType: "intake",
         fluencyIndicative: 6.5,
       },
-      vapiSuccessEvaluation: "true",
+      voiceSuccessEvaluation: "true",
     });
   });
 
@@ -61,25 +61,25 @@ describe("extractVapiCapture", () => {
   });
 
   it("omits durationSeconds when NaN / Infinity / non-number", () => {
-    expect(extractVapiCapture({ durationSeconds: "100" }).vapiDurationSeconds).toBeUndefined();
-    expect(extractVapiCapture({ durationSeconds: NaN }).vapiDurationSeconds).toBeUndefined();
-    expect(extractVapiCapture({ durationSeconds: Infinity }).vapiDurationSeconds).toBeUndefined();
-    expect(extractVapiCapture({ durationSeconds: 12.5 }).vapiDurationSeconds).toBe(12.5);
+    expect(extractVapiCapture({ durationSeconds: "100" }).voiceDurationSeconds).toBeUndefined();
+    expect(extractVapiCapture({ durationSeconds: NaN }).voiceDurationSeconds).toBeUndefined();
+    expect(extractVapiCapture({ durationSeconds: Infinity }).voiceDurationSeconds).toBeUndefined();
+    expect(extractVapiCapture({ durationSeconds: 12.5 }).voiceDurationSeconds).toBe(12.5);
   });
 
   it("reads cost as a number directly", () => {
-    expect(extractVapiCapture({ cost: 0.05 }).vapiCostUsd).toBe(0.05);
+    expect(extractVapiCapture({ cost: 0.05 }).voiceCostUsd).toBe(0.05);
   });
 
   it("reads cost.total when cost is an object", () => {
-    expect(extractVapiCapture({ cost: { total: 0.12, llm: 0.08 } }).vapiCostUsd).toBe(0.12);
+    expect(extractVapiCapture({ cost: { total: 0.12, llm: 0.08 } }).voiceCostUsd).toBe(0.12);
   });
 
   it("omits cost when neither shape provides a finite number", () => {
-    expect(extractVapiCapture({ cost: "0.10" }).vapiCostUsd).toBeUndefined();
-    expect(extractVapiCapture({ cost: { total: "0.10" } }).vapiCostUsd).toBeUndefined();
-    expect(extractVapiCapture({ cost: { other: 0.10 } }).vapiCostUsd).toBeUndefined();
-    expect(extractVapiCapture({ cost: NaN }).vapiCostUsd).toBeUndefined();
+    expect(extractVapiCapture({ cost: "0.10" }).voiceCostUsd).toBeUndefined();
+    expect(extractVapiCapture({ cost: { total: "0.10" } }).voiceCostUsd).toBeUndefined();
+    expect(extractVapiCapture({ cost: { other: 0.10 } }).voiceCostUsd).toBeUndefined();
+    expect(extractVapiCapture({ cost: NaN }).voiceCostUsd).toBeUndefined();
   });
 
   it("omits analysis fields when analysis is missing or wrong shape", () => {
@@ -89,13 +89,13 @@ describe("extractVapiCapture", () => {
   });
 
   it("omits summary when not a string", () => {
-    expect(extractVapiCapture({ analysis: { summary: 42 } }).vapiAnalysisSummary).toBeUndefined();
-    expect(extractVapiCapture({ analysis: { summary: null } }).vapiAnalysisSummary).toBeUndefined();
+    expect(extractVapiCapture({ analysis: { summary: 42 } }).voiceAnalysisSummary).toBeUndefined();
+    expect(extractVapiCapture({ analysis: { summary: null } }).voiceAnalysisSummary).toBeUndefined();
   });
 
   it("omits structuredData when it's an array (must be an object record)", () => {
     expect(
-      extractVapiCapture({ analysis: { structuredData: [1, 2, 3] } }).vapiStructuredData,
+      extractVapiCapture({ analysis: { structuredData: [1, 2, 3] } }).voiceStructuredData,
     ).toBeUndefined();
   });
 
@@ -103,26 +103,26 @@ describe("extractVapiCapture", () => {
     const result = extractVapiCapture({
       analysis: { structuredData: { topic: "x", n: 1 } },
     });
-    expect(result.vapiStructuredData).toEqual({ topic: "x", n: 1 });
+    expect(result.voiceStructuredData).toEqual({ topic: "x", n: 1 });
   });
 
   it("coerces successEvaluation booleans to strings", () => {
-    expect(extractVapiCapture({ analysis: { successEvaluation: true } }).vapiSuccessEvaluation).toBe("true");
-    expect(extractVapiCapture({ analysis: { successEvaluation: false } }).vapiSuccessEvaluation).toBe("false");
+    expect(extractVapiCapture({ analysis: { successEvaluation: true } }).voiceSuccessEvaluation).toBe("true");
+    expect(extractVapiCapture({ analysis: { successEvaluation: false } }).voiceSuccessEvaluation).toBe("false");
   });
 
   it("coerces successEvaluation numbers to strings", () => {
-    expect(extractVapiCapture({ analysis: { successEvaluation: 0.75 } }).vapiSuccessEvaluation).toBe("0.75");
-    expect(extractVapiCapture({ analysis: { successEvaluation: 1 } }).vapiSuccessEvaluation).toBe("1");
+    expect(extractVapiCapture({ analysis: { successEvaluation: 0.75 } }).voiceSuccessEvaluation).toBe("0.75");
+    expect(extractVapiCapture({ analysis: { successEvaluation: 1 } }).voiceSuccessEvaluation).toBe("1");
   });
 
   it("preserves successEvaluation string verbatim (e.g. rubric labels)", () => {
-    expect(extractVapiCapture({ analysis: { successEvaluation: "PASS" } }).vapiSuccessEvaluation).toBe("PASS");
+    expect(extractVapiCapture({ analysis: { successEvaluation: "PASS" } }).voiceSuccessEvaluation).toBe("PASS");
   });
 
   it("omits successEvaluation for unknown shapes (object, array, null)", () => {
-    expect(extractVapiCapture({ analysis: { successEvaluation: { rubric: "x" } } }).vapiSuccessEvaluation).toBeUndefined();
-    expect(extractVapiCapture({ analysis: { successEvaluation: null } }).vapiSuccessEvaluation).toBeUndefined();
+    expect(extractVapiCapture({ analysis: { successEvaluation: { rubric: "x" } } }).voiceSuccessEvaluation).toBeUndefined();
+    expect(extractVapiCapture({ analysis: { successEvaluation: null } }).voiceSuccessEvaluation).toBeUndefined();
   });
 
   it("does not throw on a payload with unrelated extra keys", () => {

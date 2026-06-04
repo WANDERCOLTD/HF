@@ -1464,20 +1464,35 @@ model Call {
   // referencing the VoiceProvider table.)
   voiceProvider String @default("vapi")
 
-  // VAPI end-of-call payload capture (Phase 0 of plan-voice-analysis.md). Captured
-  // verbatim from VAPI's `end-of-call-report` message body — see
-  // https://docs.vapi.ai/server-url/events. All nullable so SIM, manual, and
-  // legacy paths continue to create Call rows with these fields unset.
-  // No consumer reads them today; AssemblyAI / voice-analysis pipeline (deferred)
-  // will be the first reader.
+  // Voice end-of-call capture — canonical, provider-neutral columns
+  // populated by the adapter's normaliseEndOfCallEvent (#1017 / #1020).
+  // Canonical typed columns for fields every voice provider has an
+  // analogue for (duration, cost, ended-reason, analysis summary,
+  // success evaluation). Provider-specific extras land in
+  // voiceProviderRaw Json so the typed surface stays portable.
+  //
+  // recordingUrl / stereoRecordingUrl predate the rename and were
+  // already neutral, so they keep their names.
+  //
+  // Renamed from vapi*-prefixed columns in #1020. Pre-rename the names
+  // leaked VAPI vocabulary into a model meant to span every provider —
+  // direct violation of the I-VP3 invariant in CHAIN-CONTRACTS.md Link
+  // 3 sub-contract (COMPOSE → VOICE PROVIDER).
   recordingUrl          String?
   stereoRecordingUrl    String?
-  vapiDurationSeconds   Float?
-  vapiEndedReason       String?
-  vapiCostUsd           Float?
-  vapiAnalysisSummary   String? @db.Text
-  vapiStructuredData    Json?
-  vapiSuccessEvaluation String?
+  voiceDurationSeconds  Float?
+  voiceEndedReason      String?
+  voiceCostUsd          Float?
+  voiceAnalysisSummary  String? @db.Text
+  voiceStructuredData   Json?
+  voiceSuccessEvaluation String?
+  /// Provider-specific extras the adapter wants to stash that don't
+  /// fit a canonical column. Anything in here is opaque to HF —
+  /// only the provider that wrote it knows the shape. Do NOT query
+  /// or index fields inside this blob in shared code; if a field
+  /// is read by anything other than its provider's own adapter,
+  /// promote it to a canonical column.
+  voiceProviderRaw      Json?
 
   @@index([source])
   @@index([externalId])
