@@ -23,19 +23,19 @@ import type {
 } from "@tallyseal/admin-bridge";
 
 export const bundleSource: BridgeBundleSource = {
-  async load(_intentId) {
+  async load() {
     return null;
   },
 };
 
 export const intentLister: BridgeIntentLister = {
-  async list(_filter) {
+  async list() {
     return [];
   },
 };
 
 export const accessRecorder: BridgeAccessRecorder = {
-  async record(_args) {
+  async record() {
     // No-op for Phase 1. Q-BRIDGE-RECORDER-DURABILITY tracks the
     // Sprint E durable recorder wired through writeEvent().
   },

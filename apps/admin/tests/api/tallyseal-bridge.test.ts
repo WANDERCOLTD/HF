@@ -20,9 +20,9 @@ import type { IntentId } from "@tallyseal/crawcus-spec";
 // =====================================================
 
 const mockHandler = vi.fn();
-const mockToNextRouteHandler = vi.fn((..._args: unknown[]) => mockHandler);
-const mockCreateBridgeRouter = vi.fn((..._args: unknown[]) => ({}));
-const mockBridgeAuthFromStaticKey = vi.fn((..._args: unknown[]) => vi.fn());
+const mockToNextRouteHandler = vi.fn(() => mockHandler);
+const mockCreateBridgeRouter = vi.fn(() => ({}));
+const mockBridgeAuthFromStaticKey = vi.fn(() => vi.fn());
 
 const { mockGetEventStore } = vi.hoisted(() => ({
   mockGetEventStore: vi.fn().mockResolvedValue({}),
