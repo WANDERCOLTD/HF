@@ -1785,11 +1785,11 @@ async function handleListCurriculumModules(input: Record<string, any>) {
   }
 
   if (!curriculumId && playbookId) {
-    const curr = await prisma.curriculum.findFirst({
-      where: { playbookId },
-      select: { id: true },
-    });
-    if (!curr) {
+    // #1034 — variant Playbooks share the parent's Curriculum via
+    // PlaybookCurriculum; the helper handles both paths.
+    const { resolveCurriculumIdForPlaybook } = await import("@/lib/curriculum/resolve-module");
+    const resolved = await resolveCurriculumIdForPlaybook(playbookId);
+    if (!resolved) {
       return {
         ok: true,
         playbook_id: playbookId,
@@ -1799,7 +1799,7 @@ async function handleListCurriculumModules(input: Record<string, any>) {
         note: "No Curriculum linked to this playbook yet.",
       };
     }
-    curriculumId = curr.id;
+    curriculumId = resolved;
   }
 
   const modules = await prisma.curriculumModule.findMany({
@@ -1992,9 +1992,12 @@ async function handleUpdateCurriculumMetadata(input: Record<string, any>) {
   const curriculumId = typeof input.curriculum_id === "string" ? input.curriculum_id : "";
   if (!curriculumId) return { error: "curriculum_id is required" };
 
+  // #1034 — Don't read the deprecated `playbookId` column directly;
+  // resolve all sibling Playbooks via PlaybookCurriculum so the staleness
+  // bump fans out across the variant Course product line.
   const existing = await prisma.curriculum.findUnique({
     where: { id: curriculumId },
-    select: { id: true, name: true, playbookId: true },
+    select: { id: true, name: true },
   });
   if (!existing) return { error: `Curriculum ${curriculumId} not found.` };
 
@@ -2025,14 +2028,18 @@ async function handleUpdateCurriculumMetadata(input: Record<string, any>) {
     },
   });
 
+  // #1034 — CC-B fanout: bump every sibling Playbook sharing this Curriculum.
+  // pendingChange.scopeId is the representative (first = primary by ordering).
+  const playbookIds = await resolvePlaybookIdForCurriculum(curriculumId);
+  const representativePlaybookId: string | null = playbookIds[0] ?? null;
   let timestampBumped = false;
-  if (existing.playbookId) {
-    await bumpPlaybookComposeTimestamp(existing.playbookId);
+  for (const pbId of playbookIds) {
+    await bumpPlaybookComposeTimestamp(pbId);
     timestampBumped = true;
   }
 
   console.log(
-    `[admin-tools] Updated curriculum "${existing.name}" → "${updated.name}". Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
+    `[admin-tools] Updated curriculum "${existing.name}" → "${updated.name}". Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped} (${playbookIds.length} sibling${playbookIds.length === 1 ? "" : "s"}). Reason: ${input.reason || "(not given)"}`,
   );
 
   // #873 follow-up — emit pendingChange when the timestamp bumped.
@@ -2041,7 +2048,7 @@ async function handleUpdateCurriculumMetadata(input: Record<string, any>) {
     timestampBumped && curFields.length > 0
       ? buildPendingChangePayload({
           scope: "playbook",
-          scopeId: existing.playbookId,
+          scopeId: representativePlaybookId,
           scopeLabel: `Curriculum ${existing.name}`,
           key: curFields[0],
           label: curFields[0],
