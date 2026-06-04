@@ -91,6 +91,7 @@
   - [Users](#users)
   - [Vapi](#vapi)
   - [Visualizations](#visualizations)
+  - [Voice](#voice)
   - [Wizard](#wizard)
   - [Workflow](#workflow)
 - [Architecture Notes](#architecture-notes)
@@ -14396,6 +14397,126 @@ Returns a hierarchical tree of the full taxonomy:
 
 ---
 
+## Voice
+
+### `GET` /api/voice-providers
+
+List all registered voice providers. Credentials are MASKED
+
+**Auth**: session ADMIN · **Scope**: `voice-providers:read`
+
+**Response** `200`
+```json
+{ ok: true, providers: VoiceProvider[] (credentials masked) }
+```
+
+---
+
+### `POST` /api/voice-providers
+
+Create a new voice provider. `adapterKey` must match an
+
+**Auth**: session ADMIN · **Scope**: `voice-providers:write`
+
+**Response** `201`
+```json
+{ ok: true, provider: VoiceProvider (credentials masked) }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — validation or unknown adapterKey
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "slug already exists" }
+```
+
+---
+
+### `DELETE` /api/voice-providers/[id]
+
+Delete a voice provider. Cannot delete the row with
+
+**Auth**: session ADMIN · **Scope**: `voice-providers:write`
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not found" }
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "cannot delete the default provider" }
+```
+
+---
+
+### `GET` /api/voice-providers/[id]
+
+Get a single voice provider by id. Credentials masked.
+
+**Auth**: session ADMIN · **Scope**: `voice-providers:read`
+
+**Response** `200`
+```json
+{ ok: true, provider: VoiceProvider (credentials masked) }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not found" }
+```
+
+---
+
+### `PATCH` /api/voice-providers/[id]
+
+Update a voice provider. `slug` is immutable (would orphan
+
+**Auth**: session ADMIN · **Scope**: `voice-providers:write`
+
+**Response** `200`
+```json
+{ ok: true, provider: VoiceProvider (credentials masked) }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not found" }
+```
+
+---
+
+### `POST` /api/voice-providers/[id]/test-connection
+
+Test the connection for a voice provider. Instantiates
+
+**Auth**: session ADMIN · **Scope**: `voice-providers:test`
+
+**Response** `200`
+```json
+{ ok: true, ping: { reachable: boolean, detail: string } }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not found" }
+```
+
+---
+
 ## Wizard
 
 ### `POST` /api/teach-wizard/launch
@@ -14584,8 +14705,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 465 |
-| Files with annotations | 457 |
+| Route files found | 468 |
+| Files with annotations | 460 |
 | Files missing annotations | 8 |
 | Coverage | 98.3% |
 

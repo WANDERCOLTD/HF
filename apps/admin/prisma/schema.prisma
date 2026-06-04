@@ -185,15 +185,6 @@ enum CallActionSource {
   MANUAL // Operator/admin created
 }
 
-// Identifies which voice provider served a given Call. Adapter dispatch and
-// per-caller routing read this field; the implicit `!!externalId` check it
-// replaces silently coupled "is this VAPI?" to a column shared by every
-// provider. Add new providers as enum values (e.g. RETELL, TWILIO) — never
-// branch on raw `source` strings outside the channel normaliser. (#1025)
-enum VoiceProviderSlug {
-  VAPI
-}
-
 // Goal lifecycle status
 enum GoalStatus {
   ACTIVE // Currently being pursued
@@ -870,6 +861,15 @@ model Caller {
   userId String?
   user   User?   @relation(fields: [userId], references: [id])
 
+  // Per-caller voice provider override (AnyVoice #1027 / #1031). Nullable =
+  // inherit from the system default via the cascade resolver at
+  // lib/voice/resolve-voice-provider.ts (caller → cohort → playbook → SYSTEM).
+  // String references VoiceProvider.slug — admins manage the provider set
+  // via /x/settings/voice-providers (#1031). Educators set this to route a
+  // single learner to a different provider for cost/quality/experimental
+  // reasons without changing system config.
+  voiceProvider String?
+
   // Domain assignment - each caller belongs to exactly one domain
   domainId          String?
   domain            Domain? @relation(fields: [domainId], references: [id])
@@ -1455,11 +1455,14 @@ model Call {
   endedAt  DateTime? // null = call may still be active (or pre-feature calls)
   messages CallMessage[]
 
-  // Voice provider that served this call. Default VAPI covers every historical
-  // row and every new row written before per-caller routing (#1027) ships.
+  // Voice provider slug that served this call. References VoiceProvider.slug
+  // (data-driven — admins manage providers via /x/settings/voice-providers
+  // per #1031). Default "vapi" covers historical rows; per-caller routing
+  // (#1027) selects a different slug when Caller.voiceProvider is set.
   // Adapter dispatch reads this; do not infer provider identity from other
-  // columns. (#1025)
-  voiceProvider VoiceProviderSlug @default(VAPI)
+  // columns. (#1025 shipped this as an enum; #1031 supersedes with a string
+  // referencing the VoiceProvider table.)
+  voiceProvider String @default("vapi")
 
   // VAPI end-of-call payload capture (Phase 0 of plan-voice-analysis.md). Captured
   // verbatim from VAPI's `end-of-call-report` message body — see
@@ -4493,4 +4496,38 @@ model ChannelConfig {
 
   @@unique([domainId, channelType])
   @@index([channelType])
+}
+
+// Voice call provider registration (AnyVoice #1031). Replaces the previously
+// hardcoded `VoiceProviderSlug` enum + factory map from #1025/#1017 — adapters
+// register themselves as data, not code, per CLAUDE.md "Configuration over
+// Code / Database over Filesystem". Pattern mirrors VoiceAnalysisProvider in
+// docs/PLAN-voice-analysis.md (kept separate — different lifecycle: call-time
+// real-time vs analysis-time async; credential shapes differ).
+//
+// `adapterKey` maps to a class in lib/voice/adapter-registry.ts (the one
+// unavoidable code seam — adding a class = one new entry there).
+//
+// `credentials` stores plaintext per-provider secrets ({apiKey, webhookSecret,
+// ...}). Masked in every GET response by lib/voice/mask-credentials.ts (suffix
+// match: *Key / *Secret / *Token / *Password). Encryption-at-rest is tracked
+// tech debt (see R1 in #1031 — non-blocking, post-market-test follow-up).
+//
+// "One default" is enforced in application logic (PATCH isDefault: true sets
+// all others to false in the same transaction). Prisma can't express this as
+// a partial unique index on a boolean cleanly.
+model VoiceProvider {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  displayName String
+  adapterKey  String
+  credentials Json     @default("{}")
+  config      Json     @default("{}")
+  isDefault   Boolean  @default(false)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isDefault])
 }

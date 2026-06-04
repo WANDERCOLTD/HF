@@ -27,7 +27,7 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
-    const provider = getVoiceProvider("vapi");
+    const provider = await getVoiceProvider("vapi");
     const authError = provider.verifyInboundRequest(request, rawBody);
     if (authError) return authError;
 

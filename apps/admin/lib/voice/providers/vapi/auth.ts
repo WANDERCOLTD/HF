@@ -1,27 +1,34 @@
 /**
- * VAPI Webhook Authentication
+ * VAPI Webhook Authentication (AnyVoice #1031).
  *
- * Verifies VAPI webhook signatures using HMAC-SHA256.
- * All VAPI endpoints should call verifyVapiRequest() before processing.
+ * Verifies VAPI webhook signatures using HMAC-SHA256. The secret comes
+ * from the `VoiceProvider.credentials.webhookSecret` field (DB) via the
+ * factory + adapter constructor — NOT from env vars after #1031.
+ *
+ * Pure function: pass the secret in. The VapiProvider class is the only
+ * caller and it resolves the secret at construction time from its
+ * `credentials` constructor arg. A transient env-var fallback exists in
+ * VapiProvider itself for the deploy-window before the seed has run.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { config } from "@/lib/config";
 import crypto from "node:crypto";
 
 /**
  * Verify a VAPI webhook request signature.
  * Returns null if valid, or a 401 NextResponse if invalid.
  *
- * When VAPI_WEBHOOK_SECRET is not configured, requests pass through
- * (allows local dev without VAPI integration).
+ * When the secret is unset (empty string or undefined), requests pass
+ * through — preserves local-dev ergonomics. Production safety is the
+ * caller's responsibility (the VapiProvider constructor will warn when
+ * the secret is missing during the deploy-window cutover).
  */
 export function verifyVapiRequest(
   request: NextRequest,
   rawBody: string,
+  secret: string | undefined,
 ): NextResponse | null {
-  const secret = config.vapi.webhookSecret;
-  if (!secret) return null; // No secret configured → allow (local dev)
+  if (!secret) return null;
 
   const signature = request.headers.get("x-vapi-signature");
   if (!signature) {
@@ -34,7 +41,6 @@ export function verifyVapiRequest(
     .update(rawBody)
     .digest("hex");
 
-  // Use timing-safe comparison, but handle length mismatch
   if (signature.length !== expected.length) {
     console.warn("[vapi/auth] Invalid webhook signature (length mismatch)");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
@@ -50,5 +56,5 @@ export function verifyVapiRequest(
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  return null; // Valid
+  return null;
 }

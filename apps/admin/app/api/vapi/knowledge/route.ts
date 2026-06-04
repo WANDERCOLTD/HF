@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const rawBody = await request.text();
-    const provider = getVoiceProvider("vapi");
+    const provider = await getVoiceProvider("vapi");
     const authError = provider.verifyInboundRequest(request, rawBody);
     if (authError) return authError;
 
@@ -184,6 +184,6 @@ export async function POST(request: NextRequest) {
     // Return empty results on error — don't break the call.
     // Use a fresh provider lookup since the outer try-block may have failed
     // before `provider` was assigned (very unlikely but defensive).
-    return NextResponse.json(getVoiceProvider("vapi").buildKnowledgeResponse([]));
+    return NextResponse.json((await getVoiceProvider("vapi")).buildKnowledgeResponse([]));
   }
 }
