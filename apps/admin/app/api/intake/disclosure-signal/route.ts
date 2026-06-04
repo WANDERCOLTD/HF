@@ -12,8 +12,13 @@
 // data subject had an opportunity to perceive the notice, never
 // affirmative acknowledgment.
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  getDisclosureStore,
+  deriveDisclosureId,
+} from "@/lib/intake/hf-adapter/disclosure-store";
 import {
   appendEvent,
   getSession,
@@ -67,6 +72,32 @@ export async function POST(req: NextRequest) {
     purpose: PURPOSE.courseDelivery,
     dataSubjectIds: [],
   });
+
+  // Q-CR9 write-path: record the signal into tallyseal_disclosure_signal
+  // (separate table from tallyseal_disclosure — the SDK's structural
+  // SIGNAL-not-gate guarantee). Server derives the canonical
+  // disclosureId so a tampered client payload can't redirect the
+  // signal to a different disclosure row. Best-effort — failure logs
+  // but doesn't block the learner.
+  try {
+    const store = await getDisclosureStore();
+    const observedAt = new Date(body.signal.observedAt);
+    await store.recordSignal({
+      id: `sig_${randomUUID()}`,
+      tenantId: session.tenant.id,
+      disclosureId: deriveDisclosureId(body.intentId, body.signal.requirementId),
+      requirementId: body.signal.requirementId,
+      signalType: body.signal.signalType,
+      contentHash: body.signal.contentHash,
+      observedAt,
+      ...(body.signal.viewMs !== undefined ? { viewMs: body.signal.viewMs } : {}),
+    } as never);
+  } catch (err) {
+    console.error(
+      "[intake/disclosure-signal] disclosureStore.recordSignal failed (continuing):",
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }
