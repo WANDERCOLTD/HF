@@ -18,6 +18,19 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // MOCK SETUP
 // =====================================================
 
+/** Build a Request with a NextRequest-shaped `cookies.get()` stub. */
+function makeRequest(body: Record<string, unknown>): Request {
+  const req = new Request("http://localhost/api/join/validtok", {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+  });
+  Object.defineProperty(req, "cookies", {
+    value: { get: () => undefined },
+  });
+  return req;
+}
+
 const mockPrisma = {
   cohortGroup: {
     findUnique: vi.fn(),
@@ -89,15 +102,11 @@ describe("/api/join/[token] — ageRange propagation (#1036)", () => {
     );
 
     const { POST } = await import("../../app/api/join/[token]/route");
-    const request = new Request("http://localhost/api/join/validtok", {
-      method: "POST",
-      body: JSON.stringify({
-        firstName: "Tessa",
-        lastName: "Bloom",
-        email: "tessa@example.com",
-        ageRange: "25-34",
-      }),
-      headers: { "Content-Type": "application/json" },
+    const request = makeRequest({
+      firstName: "Tessa",
+      lastName: "Bloom",
+      email: "tessa@example.com",
+      ageRange: "25-34",
     });
     await POST(request as never, { params: Promise.resolve({ token: "validtok" }) });
 
@@ -125,15 +134,11 @@ describe("/api/join/[token] — ageRange propagation (#1036)", () => {
 
   it("returns 400 for ageRange=under-18 (defence-in-depth vs URL tampering)", async () => {
     const { POST } = await import("../../app/api/join/[token]/route");
-    const request = new Request("http://localhost/api/join/validtok", {
-      method: "POST",
-      body: JSON.stringify({
-        firstName: "Tessa",
-        lastName: "Bloom",
-        email: "tessa@example.com",
-        ageRange: "under-18",
-      }),
-      headers: { "Content-Type": "application/json" },
+    const request = makeRequest({
+      firstName: "Tessa",
+      lastName: "Bloom",
+      email: "tessa@example.com",
+      ageRange: "under-18",
     });
     const response = await POST(request as never, {
       params: Promise.resolve({ token: "validtok" }),
@@ -165,14 +170,10 @@ describe("/api/join/[token] — ageRange propagation (#1036)", () => {
     );
 
     const { POST } = await import("../../app/api/join/[token]/route");
-    const request = new Request("http://localhost/api/join/validtok", {
-      method: "POST",
-      body: JSON.stringify({
-        firstName: "Alice",
-        lastName: "Smith",
-        email: "alice@school.com",
-      }),
-      headers: { "Content-Type": "application/json" },
+    const request = makeRequest({
+      firstName: "Alice",
+      lastName: "Smith",
+      email: "alice@school.com",
     });
     await POST(request as never, { params: Promise.resolve({ token: "validtok" }) });
 
