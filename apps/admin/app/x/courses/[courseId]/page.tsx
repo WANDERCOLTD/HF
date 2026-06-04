@@ -177,6 +177,12 @@ export default function CourseDetailPage() {
   const [showSimModal, setShowSimModal] = useState(false);
   const [showFullRegen, setShowFullRegen] = useState(false);
   const [showDryRun, setShowDryRun] = useState(false);
+  // #1034 — Create Variant flow
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [variantName, setVariantName] = useState('');
+  const [variantPreset, setVariantPreset] = useState<'' | 'revision' | 'popquiz' | 'exam'>('');
+  const [variantCreating, setVariantCreating] = useState(false);
+  const [variantError, setVariantError] = useState<string | null>(null);
   const [joinToken, setJoinToken] = useState<string | null>(null);
   const [joinCopied, setJoinCopied] = useState(false);
   const [chatJoinCopied, setChatJoinCopied] = useState(false);
@@ -627,6 +633,42 @@ export default function CourseDetailPage() {
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
+    }
+  };
+
+  // ── Create Variant handler (#1034) ──
+  // Creates a sibling Course sharing the parent's Curriculum + Subjects +
+  // Sources. The new Course gets its own teaching profile (Pop Quiz /
+  // Revision Aid / Exam Assessment via preset) but Caller mastery flows
+  // naturally between siblings — same shared CurriculumModule UUIDs.
+  const handleCreateVariant = async () => {
+    if (!detail) return;
+    const name = variantName.trim();
+    if (!name) {
+      setVariantError('Variant name is required.');
+      return;
+    }
+    setVariantCreating(true);
+    setVariantError(null);
+    try {
+      const res = await fetch(`/api/playbooks/${detail.id}/variant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          ...(variantPreset ? { preset: variantPreset } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        router.push(`/x/courses/${data.variantPlaybookId}`);
+      } else {
+        setVariantError(data.error || `Failed (status ${res.status})`);
+      }
+    } catch (e) {
+      setVariantError(e instanceof Error ? e.message : 'Create Variant failed');
+    } finally {
+      setVariantCreating(false);
     }
   };
 
@@ -1147,6 +1189,21 @@ export default function CourseDetailPage() {
             <PlayCircle size={14} />
             Try It
           </button>
+          {isOperator && (
+            <button
+              className="hf-btn hf-btn-secondary hf-nowrap"
+              onClick={() => {
+                setVariantName('');
+                setVariantPreset('');
+                setVariantError(null);
+                setShowVariantModal(true);
+              }}
+              title="Create a sibling Course sharing this Course's content but with a different teaching profile (Pop Quiz, Revision Aid, Exam Assessment)"
+            >
+              <Copy size={14} />
+              Create Variant
+            </button>
+          )}
           <Link
             href={`/x/playbooks/${detail.id}`}
             className="hf-btn hf-btn-secondary hf-nowrap"
@@ -1803,6 +1860,93 @@ export default function CourseDetailPage() {
             window.location.reload();
           }}
         />
+      )}
+
+      {/* #1034 — Create Variant modal */}
+      {showVariantModal && detail && (
+        <div
+          className="hf-modal-overlay"
+          onClick={() => !variantCreating && setShowVariantModal(false)}
+        >
+          <div
+            className="hf-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="hf-modal-header">
+              <h3 className="hf-modal-title">Create Variant Course</h3>
+              <button
+                className="hf-btn-ghost hf-text-sm"
+                onClick={() => setShowVariantModal(false)}
+                disabled={variantCreating}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="hf-modal-body">
+              <p className="hf-text-sm hf-text-muted hf-mb-md">
+                Creates a sibling Course that shares <strong>{detail.name}</strong>&rsquo;s
+                Curriculum, Subjects, and Sources. Learner mastery flows naturally
+                between the two — the variant carries its own teaching profile.
+              </p>
+
+              <label className="hf-label hf-mb-xs" htmlFor="variant-name">
+                Variant Course name
+              </label>
+              <input
+                id="variant-name"
+                type="text"
+                className="hf-input hf-w-full hf-mb-md"
+                placeholder="Pop Quiz — The Standard"
+                value={variantName}
+                onChange={(e) => setVariantName(e.target.value)}
+                disabled={variantCreating}
+                autoFocus
+                maxLength={200}
+              />
+
+              <label className="hf-label hf-mb-xs" htmlFor="variant-preset">
+                Teaching profile preset (optional)
+              </label>
+              <select
+                id="variant-preset"
+                className="hf-select hf-w-full hf-mb-md"
+                value={variantPreset}
+                onChange={(e) =>
+                  setVariantPreset(e.target.value as '' | 'revision' | 'popquiz' | 'exam')
+                }
+                disabled={variantCreating}
+              >
+                <option value="">None — empty config</option>
+                <option value="revision">Revision Aid (coaching-led, ~25 min)</option>
+                <option value="popquiz">Pop Quiz (assessment-led, ~8 min)</option>
+                <option value="exam">Exam Assessment (discussion-led, ~35 min)</option>
+              </select>
+
+              {variantError && (
+                <p className="hf-text-sm hf-text-error hf-mb-md" role="alert">
+                  {variantError}
+                </p>
+              )}
+            </div>
+            <div className="hf-modal-footer">
+              <button
+                className="hf-btn hf-btn-secondary"
+                onClick={() => setShowVariantModal(false)}
+                disabled={variantCreating}
+              >
+                Cancel
+              </button>
+              <button
+                className="hf-btn hf-btn-primary"
+                onClick={handleCreateVariant}
+                disabled={variantCreating || !variantName.trim()}
+              >
+                {variantCreating ? 'Creating…' : 'Create Variant'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
