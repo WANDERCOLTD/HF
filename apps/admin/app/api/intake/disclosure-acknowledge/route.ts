@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   // bootstrap (Q-CR9 write-path coherence; both routes must agree on
   // the typed-table row identity).
   const disclosureId = deriveDisclosureId(body.intentId, body.requirementId);
-  const acknowledgedAtIso = new Date().toISOString();
+  const acknowledgedAt = new Date();
 
   appendEvent(session, {
     kind: "DisclosureAcknowledged",
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     await store.markAcknowledged(
       session.tenant.id as never,
       disclosureId as never,
-      acknowledgedAtIso as never,
+      acknowledgedAt as never,
     );
   } catch (err) {
     console.error(

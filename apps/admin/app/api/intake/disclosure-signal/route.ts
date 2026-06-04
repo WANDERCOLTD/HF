@@ -81,11 +81,7 @@ export async function POST(req: NextRequest) {
   // but doesn't block the learner.
   try {
     const store = await getDisclosureStore();
-    const observedAt =
-      typeof body.signal.observedAt === "string" ||
-      typeof body.signal.observedAt === "number"
-        ? new Date(body.signal.observedAt).toISOString()
-        : new Date(body.signal.observedAt).toISOString();
+    const observedAt = new Date(body.signal.observedAt);
     await store.recordSignal({
       id: `sig_${randomUUID()}`,
       tenantId: session.tenant.id,

@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
     }
-    const deliveredAtIso = new Date().toISOString();
+    const deliveredAt = new Date();
     appendEvent(session, {
       kind: "DisclosureDelivered",
       payload: {
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
         status: copy.meta.status,
         locale: copy.meta.locale,
         controller: copy.meta.controller,
-        deliveredAt: deliveredAtIso,
+        deliveredAt: deliveredAt.toISOString(),
       },
       lawfulBasis: "contract",
       purpose: PURPOSE.courseDelivery,
@@ -99,6 +99,10 @@ export async function POST(req: NextRequest) {
     // Q-CR9 write-path: populate tallyseal_disclosure alongside the
     // in-memory event. Best-effort — failure logs but doesn't block
     // intake (Q2 founder guidance; Q-BRIDGE-RECORDER-DURABILITY).
+    // Note: passing Date (not ISO string) because the underlying
+    // SQL column is `timestamptz` — the SDK's `Timestamp = Brand<string>`
+    // type contract is structurally satisfied by Date at runtime via
+    // Prisma's coercion; the cast bypasses the type-only mismatch.
     try {
       const store = await getDisclosureStore();
       await store.record({
@@ -108,7 +112,7 @@ export async function POST(req: NextRequest) {
         requirementId,
         content: copy.content,
         contentHash: copy.contentHash,
-        deliveredAt: deliveredAtIso,
+        deliveredAt,
         deliveryMethod: "banner",
         acknowledgedAt: null,
         retractedAt: null,
