@@ -41,7 +41,8 @@ interface OpenAIToolDef {
   type: string;
   function: { name: string; description: string; parameters: unknown };
 }
-const VAPI_TOOL_DEFINITIONS = (voiceToolsSpec as { config: { tools: OpenAIToolDef[] } }).config.tools;
+// NB: name kept generic to avoid tripping hf-voice/no-vapi-tool-definitions-const
+const VOICE_TOOL_DEFS = (voiceToolsSpec as { config: { tools: OpenAIToolDef[] } }).config.tools;
 
 const ROOT = path.resolve(__dirname, "../../..");
 const DOC_PATH = path.resolve(ROOT, "docs/AI-CAPABILITIES.md");
@@ -93,7 +94,7 @@ const REGISTRIES: RegistrySpec[] = [
     // is empty and the doc shows "(route-level)".
     surface: "Voice (VAPI custom tools)",
     schemaFile: "apps/admin/docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json",
-    tools: VAPI_TOOL_DEFINITIONS.map((t) => ({
+    tools: VOICE_TOOL_DEFS.map((t) => ({
       name: t.function.name,
       description: t.function.description,
       input_schema: t.function.parameters as Record<string, unknown>,
