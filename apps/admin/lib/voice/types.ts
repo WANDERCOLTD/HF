@@ -92,6 +92,12 @@ export interface NormalisedEndOfCallEvent {
   transcript: string;
   /** Canonical capture fields. Keys mirror Call schema post-#1020. */
   capture: NormalisedEndOfCallCapture;
+  /** Verbatim inbound body — stored to Call.voiceProviderRaw (#1021).
+   *  Opaque to HF; only the provider that wrote it knows the shape.
+   *  Use voiceProviderRaw for forensic debugging and one-off analytics;
+   *  promote a field to a canonical capture key if shared code needs
+   *  to read it. */
+  providerRaw: unknown;
 }
 
 export interface NormalisedEndOfCallCapture {
@@ -103,7 +109,11 @@ export interface NormalisedEndOfCallCapture {
   endedReason?: string;
   costUsd?: number;
   analysisSummary?: string;
-  /** Provider-specific extras destined for Call.voiceProviderRaw Json. */
+  /** Provider-extracted structured analysis — written to
+   *  Call.voiceStructuredData (#1020). Distinct from voiceProviderRaw
+   *  on the event: structuredData is the analysis-plan output (every
+   *  voice provider has an analogue); providerRaw is the whole inbound
+   *  message body for forensic use. */
   structuredData?: unknown;
   successEvaluation?: string;
 }

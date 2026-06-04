@@ -84,8 +84,9 @@ async function handleEndOfCallReport(event: {
   customerName: string | null;
   transcript: string;
   capture: NormalisedEndOfCallCapture;
+  providerRaw: unknown;
 }) {
-  const { externalCallId, customerPhone, customerName, transcript, capture } = event;
+  const { externalCallId, customerPhone, customerName, transcript, capture, providerRaw } = event;
 
   // Check for duplicate
   const existing = await prisma.call.findFirst({
@@ -148,6 +149,12 @@ async function handleEndOfCallReport(event: {
   if (capture.analysisSummary !== undefined) persistableCapture.voiceAnalysisSummary = capture.analysisSummary;
   if (capture.structuredData !== undefined) persistableCapture.voiceStructuredData = capture.structuredData as Prisma.InputJsonValue;
   if (capture.successEvaluation !== undefined) persistableCapture.voiceSuccessEvaluation = capture.successEvaluation;
+  // Always persist the verbatim provider body (#1021). Forensic-only —
+  // do not query fields inside this blob in shared code. The provider
+  // adapter that wrote it is the only canonical reader.
+  if (providerRaw !== undefined && providerRaw !== null) {
+    persistableCapture.voiceProviderRaw = providerRaw as Prisma.InputJsonValue;
+  }
 
   // Stamp callSequence (1, 2, 3...) so the prompt timeline can label this
   // call as "Call N". Without it, the UI shows "—" or jumps. Only meaningful

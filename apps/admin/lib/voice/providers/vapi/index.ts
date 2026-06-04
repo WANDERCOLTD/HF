@@ -150,6 +150,11 @@ export class VapiProvider implements VoiceProvider {
       customerName,
       transcript,
       capture: extractVapiCapture(message),
+      // Verbatim inbound message → Call.voiceProviderRaw (#1021). Stored
+      // for forensic debugging and one-off analytics; do NOT read this
+      // field in shared code — promote to a canonical capture key if
+      // any consumer beyond a one-off needs the data.
+      providerRaw: message,
     };
   }
 
