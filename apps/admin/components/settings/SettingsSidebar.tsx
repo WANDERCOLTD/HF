@@ -2,7 +2,7 @@
 
 import {
   Sun, Activity, Brain, Target, ShieldCheck, Sparkles, Search,
-  Gauge, Shield, Camera, Mail, Lock, Phone, Building2, LayoutGrid, Zap, Braces,
+  Gauge, Shield, Camera, Mail, Lock, Phone, PhoneCall, Building2, LayoutGrid, Zap, Braces,
 } from "lucide-react";
 import {
   type SettingsPanel,
@@ -15,7 +15,7 @@ import {
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
   Sun, Activity, Brain, Target, ShieldCheck, Sparkles, Search,
-  Gauge, Shield, Camera, Mail, Lock, Phone, Building2, LayoutGrid, Zap, Braces,
+  Gauge, Shield, Camera, Mail, Lock, Phone, PhoneCall, Building2, LayoutGrid, Zap, Braces,
 };
 
 // ── Props ───────────────────────────────────────────

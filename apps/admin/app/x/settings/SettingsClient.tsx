@@ -27,11 +27,16 @@ import { FallbacksPanel } from "@/components/settings/FallbacksPanel";
 import { PanelLayoutPanel } from "@/components/settings/PanelLayoutPanel";
 import { InstitutionTypesPanel } from "@/components/settings/InstitutionTypesPanel";
 import { ConstantsReferencePanel } from "@/components/settings/ConstantsReferencePanel";
+import { VoiceProvidersPanel } from "@/components/settings/VoiceProvidersPanel";
 
 // ── Build the unified panel registry ────────────────
 
 function ChannelsPanelAdapter(_props: PanelProps) {
   return <ChannelsPanel />;
+}
+
+function VoiceProvidersPanelAdapter(_props: PanelProps) {
+  return <VoiceProvidersPanel />;
 }
 
 // Ordered: foundational setup → operational → security → personal → advanced
@@ -47,6 +52,12 @@ const CUSTOM_PANELS: SettingsPanel[] = [
     "Configure delivery channels for sharing content",
     "communications", ChannelsPanelAdapter,
     ["channels", "sim", "whatsapp", "sms", "delivery"],
+  ),
+  registerCustomPanel(
+    "voice_providers", "Voice Providers", "PhoneCall",
+    "CRUD voice-call providers (VAPI etc.) — credentials, defaults, archive",
+    "communications", VoiceProvidersPanelAdapter,
+    ["voice", "provider", "vapi", "credentials", "api key", "webhook", "archive", "call"],
   ),
   registerCustomPanel(
     "security", "Access Matrix", "Lock",

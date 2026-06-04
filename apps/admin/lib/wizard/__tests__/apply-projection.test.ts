@@ -184,6 +184,14 @@ function buildMockPrisma() {
       create: vi.fn().mockResolvedValue({}),
       update: vi.fn().mockResolvedValue({}),
     },
+    // #1034 — bump-curriculum-fanout helper + ensureCurriculum read
+    // playbookCurriculum to detect shared-curriculum links. Empty findMany
+    // keeps the fanout helper's `.length` access from NPE'ing.
+    playbookCurriculum: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({}),
+    },
     $transaction: vi.fn(),
   };
 }
