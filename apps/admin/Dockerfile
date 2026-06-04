@@ -24,6 +24,13 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Tallyseal packages are vendored as local tarballs (items 12+13 onward).
+# package-lock.json carries `file:vendor/tallyseal/*.tgz` references — npm ci
+# resolves these against the working directory, so vendor/ MUST exist BEFORE
+# the install. Pre-2026-06-04 this directory was empty so the bug stayed
+# latent; #1012 added 13 file: references and #1013 resynced the lock, which
+# is when Cloud Build started failing with ENOENT on the tarballs.
+COPY vendor ./vendor
 RUN npm ci
 # Prisma generate happens once here so all downstream targets share the cached client.
 COPY prisma ./prisma
