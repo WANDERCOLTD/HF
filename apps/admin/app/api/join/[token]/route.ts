@@ -133,7 +133,20 @@ export async function POST(
   const body = await request.json();
   const v = validateBody(joinPostSchema, body);
   if (!v.ok) return v.error;
-  const { firstName, lastName, email, playbookId, skipOnboarding } = v.data;
+  const { firstName, lastName, email, ageRange, playbookId, skipOnboarding } = v.data;
+
+  // Defence-in-depth against URL tampering. The intake spec's
+  // `ageBand.adultOnly()` invariant already rejects `under-18` before
+  // ProjectionCommit fires (see `apps/admin/lib/intake/specs/enrollment.intent.ts`
+  // line ~186), so this should never legitimately reach the endpoint.
+  // If it does, refuse the join — the compliance trail must record
+  // adult declaration only. See #1036.
+  if (ageRange === "under-18") {
+    return NextResponse.json(
+      { ok: false, error: "Under-18 enrollment is not supported via this flow." },
+      { status: 400 }
+    );
+  }
 
   // Don't overwrite session cookie for admins/operators testing the join flow
   const skipCookie = await hasHigherRoleSession(request);
@@ -235,6 +248,25 @@ export async function POST(
       },
     });
 
+    // Persist the declared age band as a CallerAttribute for the
+    // compliance trail — #1036. The `intake.ageRange` key + GLOBAL
+    // scope mirror existing person-level attributes; valueType STRING
+    // because AGE_BAND_VALUES is an enum tuple of strings.
+    if (ageRange) {
+      await prisma.callerAttribute.upsert({
+        where: { callerId_key_scope: { callerId: newCaller.id, key: "intake.ageRange", scope: "GLOBAL" } },
+        create: {
+          callerId: newCaller.id,
+          key: "intake.ageRange",
+          scope: "GLOBAL",
+          valueType: "STRING",
+          stringValue: ageRange,
+          sourceSpecSlug: "EnrollmentIntake",
+        },
+        update: { stringValue: ageRange },
+      });
+    }
+
     // Create join table membership
     await prisma.callerCohortMembership.create({
       data: { callerId: newCaller.id, cohortGroupId: cohort.id },
@@ -296,6 +328,24 @@ export async function POST(
         externalId: `join-${newUser.id}`,
       },
     });
+
+    // Persist the declared age band as a CallerAttribute for the
+    // compliance trail — #1036. Same pattern as the existing-user path
+    // above; here we write inside the user+caller transaction.
+    if (ageRange) {
+      await tx.callerAttribute.upsert({
+        where: { callerId_key_scope: { callerId: newCaller.id, key: "intake.ageRange", scope: "GLOBAL" } },
+        create: {
+          callerId: newCaller.id,
+          key: "intake.ageRange",
+          scope: "GLOBAL",
+          valueType: "STRING",
+          stringValue: ageRange,
+          sourceSpecSlug: "EnrollmentIntake",
+        },
+        update: { stringValue: ageRange },
+      });
+    }
 
     // Create join table membership
     await tx.callerCohortMembership.create({

@@ -126,9 +126,15 @@ function buildContinueUrl(token: string, values: Readonly<Record<string, unknown
   const firstName = values.firstName;
   const lastName = values.lastName;
   const email = values.email;
+  const ageRange = values.ageRange;
   if (typeof firstName === "string") params.set("firstName", firstName);
   if (typeof lastName === "string") params.set("lastName", lastName);
   if (typeof email === "string") params.set("email", email);
+  // ageRange propagation per #1036 — persisted as CallerAttribute
+  // `intake.ageRange` on /join/[token] POST. `under-18` is rejected by
+  // `ageBand.adultOnly()` at intake, so this should never be present
+  // as that value, but the route handler defends against URL tampering.
+  if (typeof ageRange === "string") params.set("ageRange", ageRange);
   const qs = params.toString();
   return `/join/${encodeURIComponent(token)}${qs ? `?${qs}` : ""}`;
 }
