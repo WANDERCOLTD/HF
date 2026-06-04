@@ -151,6 +151,40 @@ Flag (soft warning — promoted to error once #911 lands and the existing violat
 
 This check is the static sibling of audit counter `authoringBehTargetBypassCount` in `apps/admin/scripts/audit-epic-100.ts`. See `docs/CHAIN-CONTRACTS.md` Link 3a and ADR `docs/decisions/2026-05-26-tray-model-a-semantics.md` for the sibling tray-label-honesty invariant surfaced in the same debugging session.
 
+### Check VP1 — No `vapi`-prefixed Call columns (AnyVoice I-VP3)
+
+For any change touching `apps/admin/**/*.{ts,tsx}` outside `_archived/` and `prisma/migrations/`:
+
+```bash
+grep -rn "vapi\(DurationSeconds\|EndedReason\|CostUsd\|AnalysisSummary\|StructuredData\|SuccessEvaluation\)" apps/admin --include="*.ts" --include="*.tsx" | grep -v "_archived\|prisma/migrations"
+```
+
+Any hit is a violation. The 6 columns were renamed to `voice*` in #1020; the pre-rename names are forbidden in application code. Build-time enforced by `hf-voice/no-vapi-column-ref` ESLint rule (#1024). The arch-checker is the second-line guard for cases where the rule somehow slipped (e.g. an eslint-disable that should not have been added).
+
+Flag (error severity once the audit counter `vapiNamedColumnsOnCallModel` reads 0 — it should always be 0 post-#1020):
+
+- Any code-side reference to one of the 6 forbidden names outside the allowed paths
+- A new `// eslint-disable` line silencing `hf-voice/no-vapi-column-ref` without a documented rationale
+
+See `docs/CHAIN-CONTRACTS.md` Link 3 sub-contract "COMPOSE → VOICE PROVIDER (transport adapter)" I-VP3.
+
+### Check VP2 — No `VAPI_TOOL_DEFINITIONS` constant (AnyVoice I-VP2)
+
+For any change touching `apps/admin/**/*.{ts,tsx}` outside `_archived/`:
+
+```bash
+grep -rn "VAPI_TOOL_DEFINITIONS" apps/admin --include="*.ts" --include="*.tsx" | grep -v "_archived"
+```
+
+Any hit declaring the const is a violation. The tool list moved to the `TOOLS-001` AnalysisSpec in #1019; loaded at runtime via `lib/voice/load-tool-definitions.ts`. Build-time enforced by `hf-voice/no-vapi-tool-definitions-const` ESLint rule (#1024).
+
+Flag (error):
+
+- New `const VAPI_TOOL_DEFINITIONS = [...]` or `export const VAPI_TOOL_DEFINITIONS = [...]`
+- Re-importing from a place that re-declares it
+
+See `docs/CHAIN-CONTRACTS.md` Link 3 sub-contract I-VP2 and audit counter `vapiToolDefinitionsConstantPresent`.
+
 ---
 
 ## Step 3 — Memory Doc Freshness

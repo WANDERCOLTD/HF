@@ -8,6 +8,8 @@ import noDirectSpecConfigWrite from "./eslint-rules/no-direct-spec-config-write.
 import noAiFanoutAll from "./eslint-rules/no-ai-fanout-all.mjs";
 import noAiForbiddenFields from "./eslint-rules/no-ai-forbidden-fields.mjs";
 import noOrphanInstructionFallback from "./eslint-rules/no-orphan-instruction-fallback.mjs";
+import noVapiColumnRef from "./eslint-rules/hf-voice/no-vapi-column-ref.mjs";
+import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-definitions-const.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -107,6 +109,18 @@ const eslintConfig = defineConfig([
           "no-orphan-instruction-fallback": noOrphanInstructionFallback,
         },
       },
+      // AnyVoice #1024 — block reintroduction of pre-rename vapi*
+      // column refs and the removed VAPI_TOOL_DEFINITIONS TS const.
+      // Both audit counters (vapiNamedColumnsOnCallModel,
+      // vapiToolDefinitionsConstantPresent) read 0 after #1019/#1020;
+      // these rules keep them at 0. See chain-contracts.md Link 3
+      // sub-contract I-VP2 + I-VP3.
+      "hf-voice": {
+        rules: {
+          "no-vapi-column-ref": noVapiColumnRef,
+          "no-vapi-tool-definitions-const": noVapiToolDefinitionsConst,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -119,6 +133,8 @@ const eslintConfig = defineConfig([
       // once `composeGenericNounFallbackCount` reads 0 in dev/test/prod for
       // ≥7 days (per the chain-contract severity-escalation path).
       "hf-compose/no-orphan-instruction-fallback": "warn",
+      "hf-voice/no-vapi-column-ref": "error",
+      "hf-voice/no-vapi-tool-definitions-const": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
