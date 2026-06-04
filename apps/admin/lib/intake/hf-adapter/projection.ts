@@ -17,12 +17,20 @@
 // README ("thin re-export only").
 
 import { PrismaNoopProjection } from "@tallyseal/prisma-adapter";
+import type { ProjectionPort } from "@tallyseal/core";
+import type { Intent } from "@tallyseal/crawcus-spec";
 
-let projectionSingleton: PrismaNoopProjection | null = null;
+let projectionSingleton: ProjectionPort<Intent> | null = null;
 
-export function getProjection(): PrismaNoopProjection {
+export function getProjection(): ProjectionPort<Intent> {
   if (!projectionSingleton) {
-    projectionSingleton = new PrismaNoopProjection();
+    // PrismaNoopProjection `implements ProjectionPort` (T defaults to
+    // `unknown`). The bridge requires `ProjectionPort<Intent>`. The
+    // cast is safe in Phase 1 because the bridge only calls
+    // `current()`, which returns `null` regardless of T. Phase 2
+    // replaces this with a real `ProjectionPort<Intent>` implementation
+    // (depends on tallyseal TKT-PRISMA-ADAPTER-PRIMITIVES-10-14).
+    projectionSingleton = new PrismaNoopProjection() as unknown as ProjectionPort<Intent>;
   }
   return projectionSingleton;
 }
