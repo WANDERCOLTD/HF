@@ -11472,6 +11472,45 @@ Returns all triggers and actions across all specs in this playbook,
 
 ---
 
+### `POST` /api/playbooks/:playbookId/variant
+
+Create a sibling Variant Playbook against the parent's
+
+**Auth**: session (OPERATOR or higher) · **Scope**: `playbook:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| playbookId | path | string | Yes | The PARENT Playbook to sibling-clone. |
+| name | body | string | No | Display name for the new variant Course (required, max 200). |
+| reason | body | string | No | Free-form audit trail note (optional). |
+
+**Response** `201`
+```json
+{ ok: true, variantPlaybookId: string, sharedCurriculumId: string|null, subjectLinks: number, sourceLinks: number, unlinkedDuplicateSubjects: number }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Parent Playbook not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/playbooks/available-items
 
 Get all active specs (by scope) and prompt templates available for building playbooks
@@ -14584,8 +14623,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 466 |
-| Files with annotations | 457 |
+| Route files found | 467 |
+| Files with annotations | 458 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 
