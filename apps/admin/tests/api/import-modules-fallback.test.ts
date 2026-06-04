@@ -36,6 +36,14 @@ const { mockPrisma, mockRequireAuth, mockIsAuthError } = vi.hoisted(() => ({
     learningObjective: {
       findMany: vi.fn(),
     },
+    // Added 2026-06-04: peer #1034 added prisma.playbookCurriculum
+    // calls in lib/curriculum/resolve-module.ts +
+    // lib/curriculum/resolve-playbook-for-curriculum.ts. Without this
+    // mock the route 500s on "Cannot read properties of undefined".
+    playbookCurriculum: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+    },
   },
   mockRequireAuth: vi.fn(),
   mockIsAuthError: vi.fn(),

@@ -16,6 +16,14 @@ const mockPrisma = {
   caller: { update: vi.fn() },
   goal: { findUnique: vi.fn(), update: vi.fn() },
   callerAttribute: { findFirst: vi.fn(), update: vi.fn() },
+  // Added 2026-06-04: peer #1034's bump-curriculum-fanout helper +
+  // resolve-* read prisma.playbookCurriculum. Without this the
+  // update_curriculum_module tool 500s in this test. findMany returns
+  // [] so the fanout helper's `.length` access doesn't NPE.
+  playbookCurriculum: {
+    findFirst: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+  },
 };
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 

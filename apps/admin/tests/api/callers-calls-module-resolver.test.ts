@@ -20,6 +20,10 @@ const mockPrisma = vi.hoisted(() => ({
   },
   curriculum: { findFirst: vi.fn() },
   curriculumModule: { findFirst: vi.fn() },
+  // Added 2026-06-04: resolveCurriculumIdForPlaybook from #1034 reads
+  // PlaybookCurriculum to map playbookId → curriculumId. Without this
+  // mock the test 500s on "Cannot read properties of undefined".
+  playbookCurriculum: { findFirst: vi.fn() },
 }));
 
 const mockRequireAuth = vi.hoisted(() => vi.fn());

@@ -24,6 +24,11 @@ vi.mock("@/lib/prisma", () => {
     playbookSource: { findMany: vi.fn() },
     behaviorTarget: { findMany: vi.fn() },
     contentAssertion: { findMany: vi.fn() },
+    // Added 2026-06-04: SectionDataLoader subjectSources loader reads
+    // prisma.playbookCurriculum.findFirst (peer #1034). Without this
+    // mock the tutorOnly-hint test 500s. Returns null → loader falls
+    // through to its existing curriculum-by-name path.
+    playbookCurriculum: { findFirst: vi.fn() },
   };
   return { prisma: mock, db: () => mock };
 });
