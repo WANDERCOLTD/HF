@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-06-04T16:30:00.000Z",
-  "_note": "Baseline snapshot of Epic 100 audit counters. INVARIANTS block CI when above target (exit 1). INFORMATIONAL counters report leak surface / historical drift and never fail the build. Re-snap on VM after each story merges via `npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json`. #1008: added composeGenericNounFallbackCount, composeMemorylessReminisceCount, composeCallCounterIncoherent (target 0 each). Initial baseline=0 pending re-snap on DEV after deploy. #1016 (AnyVoice): added vapiNamedColumnsOnCallModel (current 6, target 0, drives #1020) and vapiToolDefinitionsConstantPresent (current 1, target 0, drives #1019). Both are static counters (filesystem-only, no DB query) so CI runs them without a live database.",
+  "_note": "Baseline snapshot of Epic 100 audit counters. INVARIANTS block CI when above target (exit 1). INFORMATIONAL counters report leak surface / historical drift and never fail the build. Re-snap on VM after each story merges via `npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json`. #1008: added composeGenericNounFallbackCount, composeMemorylessReminisceCount, composeCallCounterIncoherent (target 0 each). Initial baseline=0 pending re-snap on DEV after deploy. #1016 (AnyVoice): added vapiNamedColumnsOnCallModel + vapiToolDefinitionsConstantPresent. Post-epic (#1015 closed): both now read 0. Build-time enforced by hf-voice/no-vapi-column-ref + hf-voice/no-vapi-tool-definitions-const ESLint rules from #1024.",
   "counters": [
     {
       "key": "duplicatePlaybookSubjects",
@@ -132,19 +132,19 @@
       "key": "vapiNamedColumnsOnCallModel",
       "story": "#1016",
       "kind": "invariant",
-      "count": 6,
+      "count": 0,
       "target": 0,
-      "status": "fail",
-      "description": "Count of vapi-prefixed columns on the Call model in prisma/schema.prisma. Catches the I-VP3 anti-pattern (provider-specific column names leaking into the canonical Call schema). #1020 renames vapi* → voice* + voiceProviderRaw Json; this counter drives that work."
+      "status": "pass",
+      "description": "Count of vapi-prefixed columns on the Call model in prisma/schema.prisma. Catches the I-VP3 anti-pattern. #1020 renamed all 6 to voice* + added voiceProviderRaw Json. Build-time enforced by ESLint rule hf-voice/no-vapi-column-ref (#1024). Static grep over the Call model block. Post-epic value: 0."
     },
     {
       "key": "vapiToolDefinitionsConstantPresent",
       "story": "#1016",
       "kind": "invariant",
-      "count": 1,
+      "count": 0,
       "target": 0,
-      "status": "fail",
-      "description": "Presence (0 or 1) of the VAPI_TOOL_DEFINITIONS TypeScript constant outside _archived/. Catches the I-VP2 anti-pattern (tool list lives as code, not as a spec). #1019 migrates the array into the TOOLS-001 spec and removes the constant; this counter drives that work."
+      "status": "pass",
+      "description": "Presence (0 or 1) of the VAPI_TOOL_DEFINITIONS TypeScript constant outside _archived/. Catches the I-VP2 anti-pattern. #1019 migrated the array into the TOOLS-001 spec and removed the constant. Build-time enforced by ESLint rule hf-voice/no-vapi-tool-definitions-const (#1024). Post-epic value: 0."
     }
   ]
 }

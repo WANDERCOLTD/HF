@@ -4,7 +4,7 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-06-04T21:42:08.998Z
+> Last generated: 2026-06-04T21:51:58.533Z
 > Surfaces: 4
 > Total tools: 58 (52 live, 6 roadmap stubs)
 

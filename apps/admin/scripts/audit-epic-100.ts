@@ -511,15 +511,24 @@ const counters: CounterDefinition[] = [
 
   /* #1016 — AnyVoice transport-adapter contract (chain-contracts Link 3 sub)
    *
-   * Static counters. Both target 0 by epic completion:
-   *   - vapiNamedColumnsOnCallModel  → 0 after #1020 renames vapi* → voice*.
-   *   - vapiToolDefinitionsConstantPresent → 0 after #1019 migrates the
-   *     constant into the TOOLS-001 spec.
+   * Static counters. Both at target 0 post-epic completion:
+   *   - vapiNamedColumnsOnCallModel  → 0 (#1020 renamed vapi* → voice*).
+   *   - vapiToolDefinitionsConstantPresent → 0 (#1019 migrated to TOOLS-001).
    *
-   * These read the source tree, not the database — they verify the code
-   * shape promised by the I-VP2 / I-VP3 invariants in
-   * docs/CHAIN-CONTRACTS.md "Link 3 sub-contract — COMPOSE → VOICE PROVIDER
-   * (transport adapter)". Filesystem-only so they work on CI without DB.
+   * Both also enforced at BUILD TIME by ESLint rules from #1024:
+   *   - hf-voice/no-vapi-column-ref     blocks reintroduction of any of
+   *     the 6 forbidden Call.vapi* column names in app code
+   *   - hf-voice/no-vapi-tool-definitions-const  blocks reintroduction of
+   *     the VAPI_TOOL_DEFINITIONS TS constant
+   *
+   * The audit counters here remain as a runtime sanity check on the
+   * schema/source tree itself; the ESLint rules block identifier-level
+   * regressions in PRs before they hit main.
+   *
+   * Read the source tree, not the database — they verify the code shape
+   * promised by the I-VP2 / I-VP3 invariants in docs/CHAIN-CONTRACTS.md
+   * "Link 3 sub-contract — COMPOSE → VOICE PROVIDER (transport adapter)".
+   * Filesystem-only so they work on CI without DB.
    */
   {
     key: "vapiNamedColumnsOnCallModel",
