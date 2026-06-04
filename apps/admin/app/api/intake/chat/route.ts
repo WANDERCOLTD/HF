@@ -128,6 +128,16 @@ export async function POST(req: NextRequest) {
     assistantReply = stubResult.reply;
   }
 
+  // Normalize email to lowercase. The spec validates format but does
+  // not transform; the AI / stub paths capture whatever case the
+  // learner typed. Aligns with /api/join/[token]'s `emailSchema`
+  // which `.toLowerCase()`s at zod validation, so downstream
+  // routes don't see case-divergent shapes for the same address.
+  if (typeof session.values.email === "string") {
+    const lower = session.values.email.toLowerCase();
+    if (lower !== session.values.email) session.values.email = lower;
+  }
+
   // Fallback narration. Claude commonly returns a tool call with no
   // accompanying text after `update-setup` fires; an empty assistant
   // reply makes the chat look stuck even though the fields were
