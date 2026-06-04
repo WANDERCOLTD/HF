@@ -13,28 +13,29 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { IntentId } from "@tallyseal/crawcus-spec";
 
 // =====================================================
 // MOCK SETUP
 // =====================================================
 
 const mockHandler = vi.fn();
-const mockToNextRouteHandler = vi.fn(() => mockHandler);
-const mockCreateBridgeRouter = vi.fn(() => ({}));
-const mockBridgeAuthFromStaticKey = vi.fn(() => vi.fn());
+const mockToNextRouteHandler = vi.fn((..._args: unknown[]) => mockHandler);
+const mockCreateBridgeRouter = vi.fn((..._args: unknown[]) => ({}));
+const mockBridgeAuthFromStaticKey = vi.fn((..._args: unknown[]) => vi.fn());
 
 const { mockGetEventStore } = vi.hoisted(() => ({
   mockGetEventStore: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock("@tallyseal/admin-bridge", () => ({
-  createBridgeRouter: (...args: unknown[]) => mockCreateBridgeRouter(...args),
-  bridgeAuthFromStaticKey: (...args: unknown[]) => mockBridgeAuthFromStaticKey(...args),
-  toNextRouteHandler: (...args: unknown[]) => mockToNextRouteHandler(...args),
+  createBridgeRouter: mockCreateBridgeRouter,
+  bridgeAuthFromStaticKey: mockBridgeAuthFromStaticKey,
+  toNextRouteHandler: mockToNextRouteHandler,
 }));
 
 vi.mock("@/lib/intake/hf-adapter/event-store", () => ({
-  getEventStore: (...args: unknown[]) => mockGetEventStore(...args),
+  getEventStore: mockGetEventStore,
 }));
 
 vi.mock("@/lib/intake/hf-adapter/projection", () => {
@@ -118,7 +119,7 @@ describe("tallyseal-bridge route.ts — lazy singleton (AC6)", () => {
     const req = new Request("http://localhost/api/tallyseal-bridge/health");
     await GET(req);
 
-    const [config] = mockCreateBridgeRouter.mock.calls[0] as [Record<string, unknown>];
+    const [config] = mockCreateBridgeRouter.mock.calls[0] as unknown as [Record<string, unknown>];
     const scopes = config.intentScopes as {
       defaultPolicy: string;
       perIntent: Record<string, { allowedRoles: string[]; allowedSections: string[] }>;
@@ -170,7 +171,7 @@ describe("tallyseal-bridge route.ts — lazy singleton (AC6)", () => {
 describe("bridge-callbacks — Phase 1 no-op stubs (AC3 + AC4)", () => {
   it("bundleSource.load returns null for any intentId", async () => {
     const { bundleSource } = await import("@/lib/intake/hf-adapter/bridge-callbacks");
-    const result = await bundleSource.load("any-intent-id");
+    const result = await bundleSource.load("any-intent-id" as IntentId);
     expect(result).toBeNull();
   });
 
@@ -182,7 +183,13 @@ describe("bridge-callbacks — Phase 1 no-op stubs (AC3 + AC4)", () => {
 
   it("accessRecorder.record resolves without throwing", async () => {
     const { accessRecorder } = await import("@/lib/intake/hf-adapter/bridge-callbacks");
-    await expect(accessRecorder.record({ intentId: "x", actorId: "y", section: "events" })).resolves.toBeUndefined();
+    // The recorder is a no-op in Phase 1 — any payload resolves. Cast bypasses
+    // the strict BridgeAccessPayload shape since we're proving no-op behaviour,
+    // not payload validation.
+    type RecordArgs = Parameters<typeof accessRecorder.record>[0];
+    await expect(
+      accessRecorder.record({ payload: {}, actor: {} } as unknown as RecordArgs),
+    ).resolves.toBeUndefined();
   });
 });
 
