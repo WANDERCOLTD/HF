@@ -16,6 +16,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     curriculumModule: { findFirst: vi.fn() },
     curriculum: { findFirst: vi.fn() },
+    // #1034 — resolveCurriculumIdForPlaybook reads PlaybookCurriculum
+    // first; without this mock the read fails with "undefined.findFirst".
+    playbookCurriculum: { findFirst: vi.fn().mockResolvedValue(null) },
   },
 }));
 
