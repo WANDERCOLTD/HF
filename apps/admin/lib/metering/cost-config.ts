@@ -141,6 +141,26 @@ export const DEFAULT_COST_RATES: Record<
     unitType: "count",
     description: "VAPI API call",
   },
+
+  // =========================
+  // VOICE CALL COSTS (per minute)
+  // =========================
+  // AnyVoice #1028 — voice providers bill by minutes, not per-call
+  // counts. Keep these under VOICE, NOT EXTERNAL — mixing per-call and
+  // per-minute under the same category corrupts rollups in
+  // lib/metering/rollup.ts. Per-direction (inbound vs outbound) so the
+  // cost model can express asymmetric billing (some providers charge
+  // more for outbound dialled calls).
+  "VOICE:vapi:inbound": {
+    costPerUnit: 0.05,
+    unitType: "minutes",
+    description: "VAPI inbound voice minutes (PSTN-in / web → VAPI)",
+  },
+  "VOICE:vapi:outbound": {
+    costPerUnit: 0.07,
+    unitType: "minutes",
+    description: "VAPI outbound voice minutes (VAPI → PSTN-out)",
+  },
 };
 
 // Cache for DB rates (5 minute TTL)
@@ -256,6 +276,14 @@ export function calculateCost(
     case "mb":
       // quantity is in bytes, convert to MB
       normalizedQty = quantity / (1024 * 1024);
+      break;
+    case "minutes":
+      // Voice (#1028) — quantity arrives in seconds (VAPI's
+      // durationSeconds), convert to minutes for per-minute billing.
+      normalizedQty = quantity / 60;
+      break;
+    case "seconds":
+      // Voice (#1028) — pass through for providers that bill per-second.
       break;
     default:
       // "count", "ms", etc. - use as-is

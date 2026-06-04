@@ -14535,6 +14535,29 @@ Test the connection for a voice provider. Instantiates
 
 ---
 
+### `GET` /api/voice/costs
+
+Returns voice-call cost rollups for a chosen scope. Reads
+
+**Auth**: session (OPERATOR for scoped; ADMIN for system-wide) · **Scope**: `voice:costs:read`
+
+**Response** `200`
+```json
+{ ok: true, summary: VoiceCostSummary }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "scope required" | "id required" }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "system scope requires ADMIN" }
+```
+
+---
+
 ## Wizard
 
 ### `POST` /api/teach-wizard/launch
@@ -14723,8 +14746,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 469 |
-| Files with annotations | 461 |
+| Route files found | 470 |
+| Files with annotations | 462 |
 | Files missing annotations | 8 |
 | Coverage | 98.3% |
 

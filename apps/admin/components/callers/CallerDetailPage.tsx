@@ -11,6 +11,7 @@ import { FancySelect, type FancySelectOption } from "@/components/shared/FancySe
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
 import { VoiceProviderOverride } from "@/components/callers/VoiceProviderOverride";
+import { VoiceCostPanel } from "@/components/callers/VoiceCostPanel";
 import { SimChat } from "@/components/sim/SimChat";
 import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from "@/components/sim/ModulePickerBanners";
 import { SimStateBreadcrumb } from "@/components/sim/SimStateBreadcrumb";
@@ -1158,6 +1159,11 @@ export default function CallerDetailPage() {
           {/* Per-caller voice provider override (AnyVoice #1027). */}
           {showDomainSection && data.caller.id ? (
             <VoiceProviderOverride callerId={data.caller.id} />
+          ) : null}
+
+          {/* Per-caller voice spend summary (AnyVoice #1028). */}
+          {showDomainSection && data.caller.id ? (
+            <VoiceCostPanel callerId={data.caller.id} />
           ) : null}
 
           {insights ? (

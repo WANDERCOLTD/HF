@@ -3269,6 +3269,12 @@ enum UsageCategory {
   COMPUTE // CPU-intensive operations (pipeline runs, analysis)
   STORAGE // File storage operations
   EXTERNAL // Third-party API calls (webhooks, external services)
+  // AnyVoice #1028 — voice call usage (per-minute billing). Distinct
+  // from EXTERNAL because providers bill by minutes/seconds, not per-
+  // call counts. calculateCost has a "minutes"/"seconds" arm for this
+  // category. Do NOT log voice calls under EXTERNAL:vapi — that rate is
+  // per-call count, would corrupt minute-based rollups.
+  VOICE
 }
 
 enum RollupPeriod {
