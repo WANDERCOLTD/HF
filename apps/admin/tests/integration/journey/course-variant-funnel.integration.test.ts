@@ -75,7 +75,7 @@ beforeAll(async () => {
     create: {
       slug: DOMAIN_SLUG,
       name: `${PFX} domain`,
-      kind: "STANDARD",
+      kind: "INSTITUTION",
     },
     select: { id: true },
   });
@@ -149,27 +149,40 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Cleanup in FK-safe order. Cascade handles most of the join rows.
-  await prisma.callerAttribute.deleteMany({ where: { key: { startsWith: `lo_mastery:${MODULE_SLUG_A}:` } } });
-  await prisma.callerAttribute.deleteMany({ where: { key: { startsWith: `lo_mastery:${MODULE_SLUG_B}:` } } });
-  await prisma.caller.deleteMany({ where: { name: { startsWith: PFX } } });
+  // Guard against partial-setup runs — if beforeAll threw mid-way, undefined
+  // FKs would turn deleteMany() into "match-everything" and nuke unrelated rows.
+  try {
+    if (curriculumId) {
+      await prisma.callerAttribute.deleteMany({
+        where: { key: { startsWith: `lo_mastery:${MODULE_SLUG_A}:` } },
+      });
+      await prisma.callerAttribute.deleteMany({
+        where: { key: { startsWith: `lo_mastery:${MODULE_SLUG_B}:` } },
+      });
+      await prisma.caller.deleteMany({ where: { name: { startsWith: PFX } } });
+    }
 
-  // Drop variant Playbooks (cascade clears PlaybookCurriculum + Subject + Source links).
-  await prisma.playbook.deleteMany({
-    where: {
-      OR: [
-        { name: { startsWith: PFX } },
-        { id: parentPlaybookId },
-      ],
-    },
-  });
-  // PlaybookCurriculum primary row was cascaded; Curriculum + Modules remain.
-  await prisma.curriculumModule.deleteMany({ where: { curriculumId } });
-  await prisma.curriculum.delete({ where: { id: curriculumId } });
-  await prisma.subject.delete({ where: { id: subjectId } });
-  await prisma.domain.delete({ where: { id: domainId } });
-  await prisma.user.delete({ where: { id: actorUserId } });
-  await prisma.$disconnect();
+    // Drop variant + parent Playbooks (cascade clears PlaybookCurriculum +
+    // Subject + Source links). Scope to our prefix so dangling Playbooks
+    // from a half-failed run still get cleaned.
+    await prisma.playbook.deleteMany({
+      where: {
+        OR: [
+          { name: { startsWith: PFX } },
+          ...(parentPlaybookId ? [{ id: parentPlaybookId }] : []),
+        ],
+      },
+    });
+    if (curriculumId) {
+      await prisma.curriculumModule.deleteMany({ where: { curriculumId } });
+      await prisma.curriculum.delete({ where: { id: curriculumId } }).catch(() => {});
+    }
+    if (subjectId) await prisma.subject.delete({ where: { id: subjectId } }).catch(() => {});
+    if (domainId) await prisma.domain.delete({ where: { id: domainId } }).catch(() => {});
+    if (actorUserId) await prisma.user.delete({ where: { id: actorUserId } }).catch(() => {});
+  } finally {
+    await prisma.$disconnect();
+  }
 });
 
 describe("#1034 Course Variant funnel — CHAIN tests", () => {
