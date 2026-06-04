@@ -233,19 +233,50 @@ async function ensureCurriculum(
   tx: Tx,
   playbookId: string,
 ): Promise<{ id: string; created: boolean }> {
+  // #1034 — Prefer PlaybookCurriculum (join). Variant Playbooks may already
+  // be linked to the parent's Curriculum via a `linked` row; in that case
+  // the wizard projection should target the SHARED Curriculum, not create
+  // a fork. Falls back to the deprecated Curriculum.playbookId column.
+  const existingLink = await tx.playbookCurriculum.findFirst({
+    where: { playbookId },
+    orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+    select: { curriculumId: true },
+  });
+  if (existingLink) return { id: existingLink.curriculumId, created: false };
+
   const existing = await tx.curriculum.findFirst({
     where: { playbookId },
     select: { id: true },
   });
-  if (existing) return { id: existing.id, created: false };
+  if (existing) {
+    // Heal: legacy Curriculum exists but no join row yet — backfill the
+    // join inside the same transaction so subsequent reads pick it up.
+    await tx.playbookCurriculum.upsert({
+      where: { playbookId_curriculumId: { playbookId, curriculumId: existing.id } },
+      create: { playbookId, curriculumId: existing.id, role: "primary" },
+      update: {},
+    });
+    return { id: existing.id, created: false };
+  }
 
   const created = await tx.curriculum.create({
     data: {
       slug: `course-${playbookId.slice(0, 8)}-${Date.now()}`,
       name: "Authored modules",
+      // #1034 — Keep the deprecated owner pointer in sync with the join row
+      // for one release (dropped in #1038). Two-write divergence is a real
+      // bug class — both rows MUST land in this same transaction.
       playbookId,
     },
     select: { id: true },
+  });
+  // #1034 — Write the primary PlaybookCurriculum row in the same transaction.
+  await tx.playbookCurriculum.create({
+    data: {
+      playbookId,
+      curriculumId: created.id,
+      role: "primary",
+    },
   });
   return { id: created.id, created: true };
 }
