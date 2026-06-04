@@ -197,13 +197,13 @@ function PickerContent() {
       //      pickup #274 + tutor lockedModule narrative #266) — when returnTo points at
       //      /x/sim/[id] the picker rewrites the URL with ?requestedModuleId and SimChat
       //      forwards it on call init.
-      //   ⏳ VAPI / real voice dial path: NOT YET wired. The picker still bounces back to
+      //   ⏳ voice dial path: NOT YET wired. The picker still bounces back to
       //      a SIM session for voice scenarios; voice FOH integration would consume the
       //      same /api/student/module-status data and pass requestedModuleId to the dial.
       //      Tracked under #242 Slice 3 (in-chat picker — voice). Do not remove this
       //      comment until Slice 3 lands.
       console.info(
-        "[picker] selected moduleId=%s for course=%s — SIM path active, VAPI dial deferred to #242 Slice 3",
+        "[picker] selected moduleId=%s for course=%s — SIM path active, voice dial deferred to #242 Slice 3",
         moduleId,
         courseId,
       );
@@ -312,7 +312,7 @@ function PickerContent() {
                 aria-live="polite"
                 className="hf-banner learner-picker-page__banner"
               >
-                <strong>Placeholder:</strong> VAPI call would start now —
+                <strong>Placeholder:</strong> Voice call would start now —
                 returning to the simulator with the selected module.
               </div>
             )}

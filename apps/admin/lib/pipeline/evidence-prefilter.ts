@@ -106,7 +106,7 @@ export function getEvidenceKeywords(param: PrefilterParameter): {
 /**
  * Splits a transcript into the User-side text only. Pattern matches the
  * "User: ..." / "Assistant: ..." line shape produced by every Call writer
- * (sim-drive-call.ts, VAPI webhook, manual ingestion).
+ * (sim-drive-call.ts, voice webhook, manual ingestion).
  */
 export function extractLearnerText(transcript: string | null | undefined): string {
   if (!transcript) return "";

@@ -198,7 +198,7 @@ async function loadCurrentModuleContext(
   // ── #284 Path 0b: authored-module fallback ──
   // Authored-module playbooks (modulesAuthored=true) store the canonical
   // module catalogue in `Playbook.config.modules[]`. When the caller has no
-  // `requestedModuleId` (every VAPI background call) we never used to look
+  // `requestedModuleId` (every inbound voice-provider background call) we never used to look
   // here — Path 1's CONTENT-spec lookup misses, Path 2's curriculum.notableInfo
   // is empty, and the function returned null. Result: `learningAssessment`
   // never fires and `CallerModuleProgress` never gets written. That's the
@@ -3768,7 +3768,7 @@ export async function POST(
   const log = createLogger();
 
   try {
-    // Allow internal service-to-service calls (VAPI webhook → pipeline)
+    // Allow internal service-to-service calls (voice webhook → pipeline)
     const internalSecret = request.headers.get("x-internal-secret");
     const isInternalCall = internalSecret && internalSecret === appConfig.security.internalApiSecret;
 

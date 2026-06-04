@@ -8,7 +8,7 @@ import type { AssembledContext } from "../types";
 import type { SpecConfig } from "@/lib/types/json-fields";
 
 /**
- * Compute voice-specific guidance for VAPI/voice AI.
+ * Compute voice-specific guidance for voice AI.
  * Uses voiceSpec config when available, falls back to defaults.
  */
 registerTransform("computeVoiceGuidance", (

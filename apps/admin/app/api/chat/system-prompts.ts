@@ -240,7 +240,7 @@ You have tools to **query and modify** the database:
 - **add_content_assertions** — Add teaching points to a source (AI generates from knowledge)
 - **link_subject_to_domain** — Connect a subject to a domain
 - **generate_curriculum** — Trigger AI curriculum generation from assertions
-- **system_ini_check** — Run a full system initialization check (SUPERADMIN only). Returns pass/fail/warn for 10 checks covering env vars, database, specs, domains, contracts, admin users, parameters, AI services, VAPI, and storage.
+- **system_ini_check** — Run a full system initialization check (SUPERADMIN only). Returns pass/fail/warn for 10 checks covering env vars, database, specs, domains, contracts, admin users, parameters, AI services, voice provider, and storage.
 
 Use tools proactively. If the user asks about a spec or domain, look it up yourself.
 
@@ -1024,7 +1024,7 @@ async function getDomainContext(domainId: string): Promise<string | null> {
 /**
  * Build CALL mode prompt using the actual composed prompt for the caller.
  *
- * Uses renderProviderPrompt() for the same voice-optimized format that VAPI receives,
+ * Uses renderProviderPrompt() for the same voice-optimized format the voice provider receives,
  * giving a realistic simulation of the actual call experience.
  */
 async function buildCallSimPrompt(entityContext: EntityBreadcrumb[], terms?: TermMap, termBlock?: string): Promise<SystemPromptResult> {
@@ -1035,7 +1035,7 @@ async function buildCallSimPrompt(entityContext: EntityBreadcrumb[], terms?: Ter
     : "";
 
   if (!callerEntity) {
-    return { prompt: `You are simulating a VAPI voice AI call.
+    return { prompt: `You are simulating a voice AI call.
 
 No caller is currently selected. Please navigate to a caller to enable personalized simulation.
 
@@ -1053,7 +1053,7 @@ For now, respond as a friendly, helpful voice AI assistant. Keep responses short
     if (composedPrompt?.llmPrompt) {
       const voicePrompt = renderProviderPrompt(composedPrompt.llmPrompt as any);
       return {
-        prompt: `You are simulating a VAPI voice AI call. This is the EXACT prompt the voice AI receives.
+        prompt: `You are simulating a voice AI call. This is the EXACT prompt the voice AI receives.
 Keep responses SHORT (1-3 sentences) — this is voice, not text.
 ${goalPrefix}${voicePrompt}${termBlock || ""}`,
         llmPrompt: composedPrompt.llmPrompt,
@@ -1077,7 +1077,7 @@ ${goalPrefix}${voicePrompt}${termBlock || ""}`,
     });
 
     const parts = [
-      `You are simulating a VAPI voice AI call with ${caller?.name || "a caller"}.
+      `You are simulating a voice AI call with ${caller?.name || "a caller"}.
 
 No composed prompt found — run "Compose Prompt" for this caller first for the full experience.
 
@@ -1096,7 +1096,7 @@ No composed prompt found — run "Compose Prompt" for this caller first for the 
 
     return { prompt: parts.join("\n") + (termBlock || "") };
   } catch {
-    return { prompt: `You are simulating a VAPI voice AI call with caller ${callerEntity.label}.
+    return { prompt: `You are simulating a voice AI call with caller ${callerEntity.label}.
 
 Keep responses short (1-3 sentences) and conversational.
 Be helpful, warm, and natural.${termBlock || ""}` };

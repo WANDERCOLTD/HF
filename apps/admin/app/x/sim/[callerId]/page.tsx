@@ -49,7 +49,7 @@ export default function SimConversationPage() {
   const communityName = searchParams.get('communityName') || undefined;
   const forceFirstCall = searchParams.get('forceFirstCall') === 'true';
   // #242 Slice 2 placeholder: surface the moduleId chosen in the picker.
-  // No real VAPI dial wiring yet — the banner just confirms the round-trip.
+  // No real voice dial wiring yet — the banner just confirms the round-trip.
   const requestedModuleId = searchParams.get('requestedModuleId') || undefined;
 
   const targetOverrides = useMemo(() => {

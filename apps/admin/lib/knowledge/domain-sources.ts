@@ -6,7 +6,7 @@
  * Domain-wide:  Domain → SubjectDomain → Subject → SubjectSource → ContentSource
  * Course-scoped: Playbook → PlaybookSubject → Subject → SubjectSource → ContentSource
  *
- * Used by VAPI knowledge endpoint, call sim, prompt composition, and
+ * Used by voice knowledge endpoint, call sim, prompt composition, and
  * content-breakdown API to scope content retrieval.
  *
  * Playbook-scoped functions fall back to domain-wide when no
@@ -372,7 +372,7 @@ export async function getSubjectsForPlaybook(playbookId: string, domainId: strin
  * Get teaching source IDs for a domain, EXCLUDING teacher-only documents.
  * Uses isStudentVisibleDefault() to filter — only READING_PASSAGE, WORKSHEET,
  * COMPREHENSION, and EXAMPLE documents are included.
- * Used by VAPI knowledge retrieval to prevent teacher materials from
+ * Used by voice knowledge retrieval to prevent teacher materials from
  * being served as student content during calls.
  */
 export async function getTeachingSourceIdsForDomain(domainId: string): Promise<string[]> {
@@ -392,7 +392,7 @@ export async function getTeachingSourceIdsForDomain(domainId: string): Promise<s
  * Get teaching source IDs for a playbook, EXCLUDING teacher-only documents.
  * Uses isStudentVisibleDefault() to filter — only READING_PASSAGE, WORKSHEET,
  * COMPREHENSION, and EXAMPLE documents are included.
- * Used by VAPI knowledge retrieval to prevent teacher materials from
+ * Used by voice knowledge retrieval to prevent teacher materials from
  * being served as student content during calls.
  */
 export async function getTeachingSourceIdsForPlaybook(playbookId: string): Promise<string[]> {

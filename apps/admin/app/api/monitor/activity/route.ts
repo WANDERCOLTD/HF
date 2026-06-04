@@ -39,7 +39,7 @@ export async function GET() {
       openTickets,
       aiStats,
     ] = await Promise.all([
-      // Live = endedAt null + started recently (proxy; no real VAPI session feed)
+      // Live = endedAt null + started recently (proxy; no real voice session feed)
       prisma.call.count({
         where: { endedAt: null, createdAt: { gte: fiveMinAgo } },
       }),
