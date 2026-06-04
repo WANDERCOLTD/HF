@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderPromptSummary, renderVoicePrompt } from "@/lib/prompt/composition/renderPromptSummary";
+import { renderPromptSummary, renderProviderPrompt } from "@/lib/prompt/composition/renderPromptSummary";
 
 describe("renderPromptSummary", () => {
   it("renders a complete prompt with all sections", () => {
@@ -86,7 +86,7 @@ describe("renderPromptSummary", () => {
   });
 });
 
-describe("renderVoicePrompt — pacing rules", () => {
+describe("renderProviderPrompt — pacing rules", () => {
   const PACING_RULES = [
     "Confirm readiness before moving to a new topic",
     "Do not give answers before the student has attempted",
@@ -99,10 +99,10 @@ describe("renderVoicePrompt — pacing rules", () => {
     // computePreamble — see lib/prompt/composition/transforms/preamble.ts.
     // The first entry is `RETURNING_CALLER_BY_MODE.recall`; for the practice
     // archetype computePreamble swaps it for the warm-up-attempt rule
-    // (#604). This test only validates that renderVoicePrompt emits the
+    // (#604). This test only validates that renderProviderPrompt emits the
     // 4 pacing rules under [RULES] regardless of which RETURNING_CALLER
     // variant precedes them.
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _preamble: {
         criticalRules: [
           "If RETURNING_CALLER: ALWAYS review before new material",
@@ -125,7 +125,7 @@ describe("renderVoicePrompt — pacing rules", () => {
   });
 
   it("renders all 4 pacing rules when criticalRules has 8 entries (no-curriculum path)", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _preamble: {
         criticalRules: [
           "Do NOT invent, assume, or fabricate specific academic topics, modules, or curriculum.",
@@ -147,7 +147,7 @@ describe("renderVoicePrompt — pacing rules", () => {
   });
 });
 
-describe("renderVoicePrompt — pacing rules (practice-archetype shape, #604)", () => {
+describe("renderProviderPrompt — pacing rules (practice-archetype shape, #604)", () => {
   const PACING_RULES = [
     "Confirm readiness before moving to a new topic",
     "Do not give answers before the student has attempted",
@@ -160,7 +160,7 @@ describe("renderVoicePrompt — pacing rules (practice-archetype shape, #604)", 
     // teachingMode='practice': the first entry is the warm-up-attempt
     // rule instead of the review-first one. Renderer must not depend on
     // which RETURNING_CALLER variant precedes the pacing rules.
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _preamble: {
         criticalRules: [
           "RETURNING_CALLER: Begin with a warm-up attempt, not a recall check. The attempt IS the diagnostic.",
@@ -184,9 +184,9 @@ describe("renderVoicePrompt — pacing rules (practice-archetype shape, #604)", 
   });
 });
 
-describe("renderVoicePrompt — physical materials", () => {
+describe("renderProviderPrompt — physical materials", () => {
   it("renders [PHYSICAL MATERIALS] section when physicalMaterials is set", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       physicalMaterials: { description: "CGP KS2 English, pages 12–45" },
     } as any);
 
@@ -196,21 +196,21 @@ describe("renderVoicePrompt — physical materials", () => {
   });
 
   it("omits [PHYSICAL MATERIALS] section when physicalMaterials is absent", () => {
-    const result = renderVoicePrompt({} as any);
+    const result = renderProviderPrompt({} as any);
     expect(result).not.toContain("[PHYSICAL MATERIALS]");
   });
 
   it("omits [PHYSICAL MATERIALS] section when description is empty string", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       physicalMaterials: { description: "" },
     } as any);
     expect(result).not.toContain("[PHYSICAL MATERIALS]");
   });
 });
 
-describe("renderVoicePrompt — constraints", () => {
+describe("renderProviderPrompt — constraints", () => {
   it("renders constraints in IDENTITY section", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _quickStart: {
         you_are: "A Hebrew tutor",
         constraints: "NEVER: drill vocabulary in isolation\nNEVER: skip cultural context",
@@ -223,7 +223,7 @@ describe("renderVoicePrompt — constraints", () => {
   });
 
   it("omits constraints when not set", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _quickStart: {
         you_are: "A maths tutor",
       },
@@ -233,9 +233,9 @@ describe("renderVoicePrompt — constraints", () => {
   });
 });
 
-describe("renderVoicePrompt — working_toward", () => {
+describe("renderProviderPrompt — working_toward", () => {
   it("renders working_toward after goals section", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _quickStart: {
         this_caller: "Sarah (call #4)",
         working_toward: "• Pass the Beit Din (60% ready, target: 80%)",
@@ -248,7 +248,7 @@ describe("renderVoicePrompt — working_toward", () => {
   });
 
   it("omits working_toward when null", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _quickStart: {
         this_caller: "Bob (call #2)",
       },
@@ -258,9 +258,9 @@ describe("renderVoicePrompt — working_toward", () => {
   });
 });
 
-describe("renderVoicePrompt — session pacing + scheduler preset", () => {
+describe("renderProviderPrompt — session pacing + scheduler preset", () => {
   it("renders session pacing in SESSION PLAN section", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _quickStart: {
         session_pacing: "30 min per session",
       },
@@ -271,7 +271,7 @@ describe("renderVoicePrompt — session pacing + scheduler preset", () => {
   });
 
   it("renders scheduler preset in SESSION PLAN section", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _quickStart: {
         scheduler_preset: "BALANCED",
       },
@@ -281,7 +281,7 @@ describe("renderVoicePrompt — session pacing + scheduler preset", () => {
   });
 
   it("omits pacing and scheduler when not set", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _quickStart: {},
     } as any);
 
@@ -290,9 +290,9 @@ describe("renderVoicePrompt — session pacing + scheduler preset", () => {
   });
 });
 
-describe("renderVoicePrompt — post-coverage guidance", () => {
+describe("renderProviderPrompt — post-coverage guidance", () => {
   it("renders post-coverage block when postCoverageGuidance is present", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       instructions: {
         session_pedagogy: {
           sessionType: "INTRODUCE",
@@ -308,7 +308,7 @@ describe("renderVoicePrompt — post-coverage guidance", () => {
   });
 
   it("omits post-coverage block when not present", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       instructions: {
         session_pedagogy: {
           sessionType: "INTRODUCE",
@@ -321,7 +321,7 @@ describe("renderVoicePrompt — post-coverage guidance", () => {
   });
 
   it("renders offboarding guidance when present", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       _quickStart: {
         offboarding_guidance: "SUMMARISE: Recap key concepts\nREFLECT: Ask what was most valuable",
       },
@@ -332,7 +332,7 @@ describe("renderVoicePrompt — post-coverage guidance", () => {
   });
 
   it("includes DELIVERY rule 6 referencing post-coverage flow", () => {
-    const result = renderVoicePrompt({
+    const result = renderProviderPrompt({
       instructions: {
         teaching_content: "## TEACHING CONTENT\nSome points here",
       },
@@ -343,8 +343,8 @@ describe("renderVoicePrompt — post-coverage guidance", () => {
 
   // #212: welcome flow / discovery_guidance must reach the AI
   describe("discovery_guidance (#212)", () => {
-    it("renderVoicePrompt emits a [WELCOME] section when discovery_guidance is set", () => {
-      const result = renderVoicePrompt({
+    it("renderProviderPrompt emits a [WELCOME] section when discovery_guidance is set", () => {
+      const result = renderProviderPrompt({
         _quickStart: {
           this_caller: "Alice",
           discovery_guidance:
@@ -355,8 +355,8 @@ describe("renderVoicePrompt — post-coverage guidance", () => {
       expect(result).toContain("Do NOT ask the learner for their name");
     });
 
-    it("renderVoicePrompt skips the [WELCOME] section when discovery_guidance is null/absent", () => {
-      const result = renderVoicePrompt({
+    it("renderProviderPrompt skips the [WELCOME] section when discovery_guidance is null/absent", () => {
+      const result = renderProviderPrompt({
         _quickStart: { this_caller: "Alice" },
       });
       expect(result).not.toContain("[WELCOME]");

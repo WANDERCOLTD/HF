@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { renderVoicePrompt } from "@/lib/prompt/composition/renderPromptSummary";
+import { renderProviderPrompt } from "@/lib/prompt/composition/renderPromptSummary";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { resolveSourceFiles, getClaudeMdContext, type BugContext } from "@/lib/chat/bug-context";
 import { resolveTerminology, TECHNICAL_TERMS, type TermMap } from "@/lib/terminology";
@@ -1024,7 +1024,7 @@ async function getDomainContext(domainId: string): Promise<string | null> {
 /**
  * Build CALL mode prompt using the actual composed prompt for the caller.
  *
- * Uses renderVoicePrompt() for the same voice-optimized format that VAPI receives,
+ * Uses renderProviderPrompt() for the same voice-optimized format that VAPI receives,
  * giving a realistic simulation of the actual call experience.
  */
 async function buildCallSimPrompt(entityContext: EntityBreadcrumb[], terms?: TermMap, termBlock?: string): Promise<SystemPromptResult> {
@@ -1051,7 +1051,7 @@ For now, respond as a friendly, helpful voice AI assistant. Keep responses short
 
     // If we have a composed prompt with llmPrompt JSON, use the voice-optimized renderer
     if (composedPrompt?.llmPrompt) {
-      const voicePrompt = renderVoicePrompt(composedPrompt.llmPrompt as any);
+      const voicePrompt = renderProviderPrompt(composedPrompt.llmPrompt as any);
       return {
         prompt: `You are simulating a VAPI voice AI call. This is the EXACT prompt the voice AI receives.
 Keep responses SHORT (1-3 sentences) — this is voice, not text.

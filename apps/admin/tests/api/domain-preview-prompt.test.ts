@@ -77,7 +77,7 @@ vi.mock('@/lib/prompt/composition', () => ({
 
 vi.mock('@/lib/prompt/composition/renderPromptSummary', () => ({
   renderPromptSummary: vi.fn().mockReturnValue("# SESSION PROMPT\n## Quick Start\nYou are a test tutor."),
-  renderVoicePrompt: vi.fn().mockReturnValue("[IDENTITY]\nA test tutor helping learners."),
+  renderProviderPrompt: vi.fn().mockReturnValue("[IDENTITY]\nA test tutor helping learners."),
 }));
 
 // =====================================================

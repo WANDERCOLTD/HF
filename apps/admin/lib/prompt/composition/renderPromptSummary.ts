@@ -158,7 +158,14 @@ function pct(score: number): string {
  * so the AI knows WHAT to teach. Additional content is served via Custom KB
  * retrieval during the call for follow-up questions.
  */
-export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
+/**
+ * Render the voice-optimised system prompt the active voice provider sends
+ * to the LLM. Provider-agnostic by design — VAPI is one consumer, SIM
+ * (sim-drive-call.ts) is another, the chat preview route is a third.
+ * Renamed from `renderVoicePrompt` in AnyVoice #1017 so the symbol
+ * doesn't suggest VAPI-specificity.
+ */
+export function renderProviderPrompt(llmPrompt: LLMPrompt): string {
   const parts: string[] = [];
   const qs = llmPrompt._quickStart;
   const id = llmPrompt.identity;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyVapiRequest } from "@/lib/vapi/auth";
+import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { getActivitiesConfig } from "@/lib/fallback-settings";
 import { resolveChannel } from "@/lib/channels/router";
 import { dispatchMedia } from "@/lib/channels/dispatch";
@@ -29,18 +29,12 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
-    const authError = verifyVapiRequest(request, rawBody);
+    const provider = getVoiceProvider("vapi");
+    const authError = provider.verifyInboundRequest(request, rawBody);
     if (authError) return authError;
 
     const body = JSON.parse(rawBody);
-    const toolCalls =
-      body.message?.toolCallList ||
-      body.toolCallList ||
-      [];
-
-    const customerPhone =
-      body.message?.call?.customer?.number ||
-      body.call?.customer?.number;
+    const { toolCalls, customerPhone } = provider.normaliseToolCallList(body);
 
     // Resolve caller
     let callerId: string | null = null;
@@ -55,19 +49,11 @@ export async function POST(request: NextRequest) {
     const results = [];
 
     for (const toolCall of toolCalls) {
-      const funcName =
-        toolCall.function?.name ||
-        toolCall.functionCall?.name ||
-        toolCall.name;
-      const params =
-        toolCall.function?.arguments ||
-        toolCall.functionCall?.parameters ||
-        toolCall.parameters ||
-        {};
-      const toolCallId = toolCall.id || toolCall.toolCallId;
-
-      // Parse arguments if string
-      const args = typeof params === "string" ? JSON.parse(params) : params;
+      const { funcName, args: rawArgs, toolCallId } = toolCall;
+      // Cast args narrowly per handler — each handle* function declares its
+      // own argument shape. The adapter has already parsed JSON-string args
+      // into plain objects.
+      const args = rawArgs as any;
 
       let result: any;
 

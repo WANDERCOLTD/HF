@@ -1,5 +1,6 @@
 /**
- * Tests for lib/vapi/auth.ts — VAPI Webhook Authentication
+ * Tests for lib/voice/providers/vapi/auth.ts — VAPI Webhook Authentication
+ * (moved from lib/vapi/auth.ts in AnyVoice #1017).
  *
  * Covers:
  * - No secret configured → pass through (local dev)
@@ -20,7 +21,7 @@ vi.mock("@/lib/config", () => ({
 }));
 
 // ── Import after mocks ───────────────────────────────
-import { verifyVapiRequest } from "@/lib/vapi/auth";
+import { verifyVapiRequest } from "@/lib/voice/providers/vapi/auth";
 import { NextRequest } from "next/server";
 
 // ── Helpers ──────────────────────────────────────────
