@@ -39,6 +39,13 @@ const {
     curriculumModule: {
       findMany: vi.fn(),
     },
+    // Added 2026-06-04: peer #1034 added prisma.playbookCurriculum
+    // calls in lib/curriculum/resolve-*. Without this mock the
+    // empty-state path 500s on "Cannot read properties of undefined".
+    playbookCurriculum: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+    },
     // #245: import-modules POST now wraps the playbook update + module sync
     // in a transaction. The mock invokes the callback with a tx that proxies
     // playbook.update so existing assertions still see the call.

@@ -9,6 +9,21 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 // ── Mock VAPI auth ─────────────────────────────────
+// AnyVoice #1031 — knowledge route reads getVoiceProvider("vapi")
+// which DB-loads VoiceProvider. Short-circuit via factory mock so
+// this wire-format test stays focused on RAG response shape, not
+// the provider table.
+vi.mock("@/lib/voice/provider-factory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/voice/provider-factory")>();
+  return {
+    ...actual,
+    getVoiceProvider: vi.fn(async () => {
+      const { VapiProvider } = await import("@/lib/voice/providers/vapi");
+      return new VapiProvider({ webhookSecret: "" }, {});
+    }),
+  };
+});
+
 vi.mock("@/lib/voice/providers/vapi/auth", () => ({
   verifyVapiRequest: vi.fn().mockReturnValue(null), // Auth passes
 }));

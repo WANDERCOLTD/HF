@@ -21,6 +21,17 @@ const mockPrisma = {
   curriculumModule: { findMany: vi.fn() },
   goal: { findMany: vi.fn() },
   learningObjective: { findUnique: vi.fn(), update: vi.fn() },
+  // Added 2026-06-04: peer #1034's resolveCurriculumIdForPlaybook + the
+  // bump-curriculum-fanout helper read prisma.playbookCurriculum. Without
+  // this the read-parity tests for update_curriculum_module +
+  // list_curriculum_modules + update_curriculum_metadata +
+  // update_learning_objective throw. findMany returns [] so the fanout
+  // helper's `.length` access doesn't NPE — tests that need rows back
+  // override per-test via `playbookCurriculum.findMany.mockResolvedValueOnce`.
+  playbookCurriculum: {
+    findFirst: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+  },
 };
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 

@@ -21,16 +21,46 @@ vi.mock("@/lib/system-settings", () => ({
 
 // ── Mock prisma ────────────────────────────────────
 const mockCallerFindFirst = vi.fn();
+const mockCallerFindUnique = vi.fn();
 const mockComposedPromptFindFirst = vi.fn();
+// AnyVoice #1027 — assistant-request route now calls
+// resolveVoiceProviderForCaller(callerId), which reads
+// prisma.caller.findUnique({ select: { voiceProvider, cohortGroupId } }).
+// Default returns null voiceProvider so the cascade falls through to
+// SYSTEM default via getDefaultVoiceProviderSlug (mocked below).
+const mockVoiceProviderFindFirst = vi.fn();
+const mockVoiceProviderFindUnique = vi.fn();
 
 vi.mock("@/lib/prisma", () => {
   const _p = {
   prisma: {
-    caller: { findFirst: (...args: any[]) => mockCallerFindFirst(...args) },
+    caller: {
+      findFirst: (...args: any[]) => mockCallerFindFirst(...args),
+      findUnique: (...args: any[]) => mockCallerFindUnique(...args),
+    },
     composedPrompt: { findFirst: (...args: any[]) => mockComposedPromptFindFirst(...args) },
+    voiceProvider: {
+      findFirst: (...args: any[]) => mockVoiceProviderFindFirst(...args),
+      findUnique: (...args: any[]) => mockVoiceProviderFindUnique(...args),
+    },
   },
 };
   return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
+});
+
+// AnyVoice #1031 — factory reads VoiceProvider from DB. Mock the
+// adapter directly so the cost-of-instantiation + VAPI-spec coupling
+// stay out of these wire-format tests.
+vi.mock("@/lib/voice/provider-factory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/voice/provider-factory")>();
+  return {
+    ...actual,
+    getVoiceProvider: vi.fn(async () => {
+      const { VapiProvider } = await import("@/lib/voice/providers/vapi");
+      return new VapiProvider({ webhookSecret: "" }, {});
+    }),
+    getDefaultVoiceProviderSlug: vi.fn(async () => "vapi"),
+  };
 });
 
 // ── Mock config ────────────────────────────────────
@@ -41,7 +71,18 @@ vi.mock("@/lib/config", () => ({
       openai: { model: "gpt-4o" },
       claude: { model: "claude-sonnet-4-5-20250929" },
     },
+    // AnyVoice #1019 — loadToolDefinitions reads config.specs.voiceTools.
+    specs: {
+      voiceTools: "TOOLS-001",
+    },
   },
+}));
+
+// AnyVoice #1019 — loadToolDefinitions otherwise tries to read the
+// AnalysisSpec from prisma; short-circuit with empty tools array so
+// these wire-format tests stay focused on assistant-config shape.
+vi.mock("@/lib/voice/load-tool-definitions", () => ({
+  loadToolDefinitions: vi.fn().mockResolvedValue([]),
 }));
 
 // ── Mock fallback-settings (prevents config.ai.claude crash) ──
@@ -190,6 +231,13 @@ describe("POST /api/vapi/assistant-request", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetVoiceCallSettings.mockResolvedValue({ ...defaultSettings });
+    // AnyVoice #1027 — default: caller has no override, cascade falls
+    // through to SYSTEM default ("vapi"). Per-test can override
+    // mockCallerFindUnique to return a different voiceProvider.
+    mockCallerFindUnique.mockResolvedValue({
+      voiceProvider: null,
+      cohortGroupId: null,
+    });
   });
 
   it("uses provider and model from VoiceCallSettings", async () => {
@@ -246,6 +294,16 @@ describe("POST /api/vapi/assistant-request", () => {
   });
 
   it("filters out disabled tools", async () => {
+    // AnyVoice #1019 — tool defs come from TOOLS-001 spec.
+    // Re-mock loadToolDefinitions for this test so it returns all 10
+    // tools; the route's per-tool enablement filter then drops the
+    // three flipped to false below.
+    const { loadToolDefinitions } = await import("@/lib/voice/load-tool-definitions");
+    const toolsSpec = await import("../../docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json");
+    (loadToolDefinitions as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      (toolsSpec as any).default.config.tools,
+    );
+
     mockGetVoiceCallSettings.mockResolvedValue({
       ...defaultSettings,
       toolLookupTeachingPoint: false,

@@ -255,6 +255,25 @@ vi.mock('@prisma/client', () => {
       create: vi.fn(),
       update: vi.fn(),
     },
+    // Added 2026-06-04 — peer #1034 introduced runtime calls to
+    // prisma.playbookCurriculum (the join table between Playbook and
+    // Curriculum) from lib/curriculum/resolve-module.ts and
+    // lib/curriculum/resolve-playbook-for-curriculum.ts. Without this
+    // mock, every test that exercises module-slug resolution throws
+    // "Cannot read properties of undefined (reading 'findFirst')".
+    // Confirmed empirically — 3 test files (callers-calls-module-
+    // resolver, import-modules-fallback, import-modules-recommendation,
+    // import-modules-status-badges) failed in CI on the post-#1065
+    // main run; same failure on a fresh checkout of main without any
+    // AnyVoice code.
+    playbookCurriculum: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
     userTask: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -263,16 +282,65 @@ vi.mock('@prisma/client', () => {
       update: vi.fn(),
     },
     $disconnect: vi.fn(),
-    $transaction: vi.fn().mockImplementation((fn: any) => {
-      if (typeof fn === 'function') return fn(mockPrismaClient);
-      return Promise.all(fn);
-    }),
+    // $transaction assigned after proxiedClient is constructed so the
+    // transaction's tx argument is the proxied (auto-stub) client too.
+    $transaction: undefined as unknown as ReturnType<typeof vi.fn>,
   };
 
-  // Create a mock class
-  const MockPrismaClient = function(this: any) {
-    Object.assign(this, mockPrismaClient);
+  // Self-healing Proxy fallback — return an auto-stub for any model
+  // access that wasn't explicitly defined above. This stops the
+  // recurring "Cannot read properties of undefined (reading 'findX')"
+  // failures every time the runtime adds a new model query (peer's
+  // #1034 hit 4 test files this way; #1031's VoiceProvider model
+  // would have hit similar paths without the explicit mock added in
+  // that PR's tests).
+  //
+  // The auto-stub exposes every method the Prisma client surface uses
+  // (findMany / findUnique / findFirst / create / createMany /
+  // update / updateMany / delete / deleteMany / upsert / count /
+  // aggregate / groupBy). Each is a fresh vi.fn() per access — tests
+  // that need specific behaviour for a model continue to either set
+  // up the explicit mock above OR call `prisma.<model>.<fn>.mockResolvedValue(...)`
+  // inside the test (the auto-stub is a real vi.fn()).
+  //
+  // Cached per-property so two reads of the same model return the
+  // same stub (so test setup via `prisma.foo.findMany.mockResolvedValue(x)`
+  // is visible at the call site).
+  const autoStubCache = new Map<string, Record<string, ReturnType<typeof vi.fn>>>();
+  const PRISMA_MODEL_METHODS = [
+    "findMany", "findUnique", "findFirst", "findUniqueOrThrow", "findFirstOrThrow",
+    "create", "createMany", "update", "updateMany", "delete", "deleteMany",
+    "upsert", "count", "aggregate", "groupBy",
+  ];
+  const makeAutoStub = () => {
+    const stub: Record<string, ReturnType<typeof vi.fn>> = {};
+    for (const m of PRISMA_MODEL_METHODS) stub[m] = vi.fn();
+    return stub;
   };
+  const proxiedClient = new Proxy(mockPrismaClient, {
+    get(target, prop: string | symbol) {
+      if (prop in target) return (target as Record<string | symbol, unknown>)[prop];
+      if (typeof prop !== "string") return undefined;
+      // Skip vitest-internal probes + Symbol-shaped probes
+      if (prop.startsWith("$") || prop.startsWith("_") || prop === "then") return undefined;
+      if (!autoStubCache.has(prop)) autoStubCache.set(prop, makeAutoStub());
+      return autoStubCache.get(prop);
+    },
+  });
+
+  // Wire $transaction to pass the proxied client so callbacks see
+  // the same auto-stub fallback for any unmocked models.
+  mockPrismaClient.$transaction = vi.fn().mockImplementation((fn: any) => {
+    if (typeof fn === 'function') return fn(proxiedClient);
+    return Promise.all(fn);
+  });
+
+  // Create a mock class — instances are themselves Proxies over the
+  // shared mockPrismaClient (so explicit + auto-stub mocks behave
+  // identically across `new PrismaClient()` and the singleton import).
+  const MockPrismaClient = function(this: any) {
+    return proxiedClient;
+  } as unknown as { new (): typeof proxiedClient };
 
   return {
     PrismaClient: MockPrismaClient,
