@@ -10,6 +10,7 @@ import noAiForbiddenFields from "./eslint-rules/no-ai-forbidden-fields.mjs";
 import noOrphanInstructionFallback from "./eslint-rules/no-orphan-instruction-fallback.mjs";
 import noVapiColumnRef from "./eslint-rules/hf-voice/no-vapi-column-ref.mjs";
 import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-definitions-const.mjs";
+import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -121,6 +122,15 @@ const eslintConfig = defineConfig([
           "no-vapi-tool-definitions-const": noVapiToolDefinitionsConst,
         },
       },
+      // #1078 — V6 wizard Phase 1 spike. Catches `has('typo')` against
+      // an undeclared field inside `defineCrawcusSpec` — the runtime
+      // would silently make the dependent field unreachable and the
+      // wizard would appear to skip a step for no obvious reason.
+      "hf-wizard-v6": {
+        rules: {
+          "no-undeclared-field-require": noUndeclaredFieldRequire,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -135,6 +145,7 @@ const eslintConfig = defineConfig([
       "hf-compose/no-orphan-instruction-fallback": "warn",
       "hf-voice/no-vapi-column-ref": "error",
       "hf-voice/no-vapi-tool-definitions-const": "error",
+      "hf-wizard-v6/no-undeclared-field-require": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

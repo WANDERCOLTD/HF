@@ -2393,25 +2393,25 @@ model Curriculum {
   version String @default("1.0")
 
   // === Content Trust & Source Authority ===
-  trustLevel          ContentTrustLevel @default(UNVERIFIED)
-  primarySourceId     String? // FK to ContentSource (main authority for this curriculum)
-  primarySource       ContentSource?    @relation("CurriculumPrimarySource", fields: [primarySourceId], references: [id], onDelete: SetNull)
-  qualificationBody   String? // "CII", "Highfield", "Ofqual"
-  qualificationNumber String? // "603/4937/2" or "R04"
-  qualificationLevel  String? // "Level 2", "Diploma", "Certificate"
+  trustLevel               ContentTrustLevel @default(UNVERIFIED)
+  primarySourceId          String? // FK to ContentSource (main authority for this curriculum)
+  primarySource            ContentSource?    @relation("CurriculumPrimarySource", fields: [primarySourceId], references: [id], onDelete: SetNull)
+  qualificationBody        String? // "CII", "Highfield", "Ofqual"
+  qualificationNumber      String? // "603/4937/2" or "R04"
+  qualificationLevel       String? // "Level 2", "Diploma", "Certificate"
   // qualificationAnchor — labelling/grouping field (NOT a visibility gate or mastery
   // sharing mechanism). Groups Curricula teaching the same regulated qualification
   // for CI guards (slug/ref set divergence detection) and admin rollups. Mastery
   // sharing itself comes from the PlaybookCurriculum(role: linked) variant pattern
   // — one Curriculum, multiple Playbooks — not from this field. See #1081.
-  qualificationAnchor String?
+  qualificationAnchor      String?
   // crossCuttingSkillsConfig — #1098 Slice A. Per-qualification declaration of
   // cross-cutting skills + tier rubrics (e.g. CIO/CTO Standard's 10 skills × 4
   // tiers). Populated by ingest from course-reference markdown. Read by the
   // qualification dashboard and SIM context panels. Null = no skills section.
   crossCuttingSkillsConfig Json?
-  validFrom           DateTime? // When this curriculum version becomes active
-  validUntil          DateTime? // When this curriculum version expires
+  validFrom                DateTime? // When this curriculum version becomes active
+  validUntil               DateTime? // When this curriculum version expires
 
   // Subject linkage (legacy — being replaced by playbookId)
   subjectId String?
@@ -2917,6 +2917,12 @@ model Playbook {
   composedPrompts ComposedPrompt[] @relation("PlaybookPrompts")
   invites         Invite[]
 
+  // #1078 — V6 wizard session back-relation. Multiple sessions per
+  // playbook allowed (back-navigation, multiple drafts). The
+  // "at most one ACTIVE session per playbook" invariant is
+  // application-layer (see WizardSessionStatus).
+  wizardSessions WizardSession[]
+
   @@index([domainId])
   @@index([domainId, sortOrder])
   @@index([status])
@@ -3253,11 +3259,11 @@ model CallerIdentityChallenge {
   pinHash String
 
   // Delivery channel — "email" today; "sms" stubbed for slice 2.
-  channel   String   @default("email")
+  channel   String @default("email")
   recipient String // email address or phone number used at issuance
 
   // Issuance + lifecycle timestamps
-  issuedAt  DateTime  @default(now())
+  issuedAt  DateTime @default(now())
   expiresAt DateTime // issuedAt + 24h (configurable via lib/config.ts)
 
   // Verification
@@ -4675,6 +4681,44 @@ model VoiceProvider {
   @@index([isDefault])
 }
 
+// =========================
+// V6 WIZARD (Phase 1 spike — #1078)
+// =========================
+//
+// HF-owned wrapper around tallyseal adapter-owned sessions. The tallyseal
+// adapter writes sessions/events into tallyseal_intent + tallyseal_event
+// via @tallyseal/prisma-adapter. WizardSession is an HF-side join shim
+// that ties a tallyseal session into the Playbook ownership graph so:
+//
+//   - Cascade-delete works when a Playbook is removed
+//   - We can express "at most one ACTIVE session per playbook" at the
+//     application layer (status enum, NOT a unique index — multiple
+//     COMPLETED / ABANDONED rows per playbook are expected)
+//
+// Phase 2 (#1074) replaces this with HF-owned WizardEvent + WizardProjection
+// models; this shim survives the cutover as the session ledger.
+
+enum WizardSessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+model WizardSession {
+  id          String              @id @default(cuid())
+  playbookId  String
+  specKey     String
+  specVersion Int
+  status      WizardSessionStatus @default(ACTIVE)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  Playbook Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+
+  @@index([playbookId, status])
+  @@index([specKey, specVersion])
+}
+
 // SpeechAssessmentProvider — multi-vendor abstraction for SPEECH SCORING
 // vendors (SpeechAce, SpeechSuper). Parallel pattern to VoiceProvider —
 // different domain (scoring uploaded audio, not transporting voice calls)
@@ -4727,20 +4771,20 @@ model SpeechAssessmentProvider {
 //     AND no row has `isDefault: true`. Treated as the system default
 //     for outbound routing. Empty string disables the fallback.
 model VoiceSystemSettings {
-  id                     String   @id @default("singleton")
-  fallbackOnAdapterError String   @default("throw")
+  id                     String @id @default("singleton")
+  fallbackOnAdapterError String @default("throw")
   maxCostPerCallUsd      Float?
-  auditRetentionDays     Int      @default(90)
-  defaultProviderSlug    String   @default("")
+  auditRetentionDays     Int    @default(90)
+  defaultProviderSlug    String @default("")
 
   // Per-call cost-safety knobs injected into the inline assistant config
   // built for both Web SDK and PSTN calls. Defaults reflect safe values
   // — operators can tighten via /x/settings/voice-providers/[id] without
   // a code deploy. See lib/voice/providers/vapi/index.ts::buildAssistantConfig.
-  silenceTimeoutSeconds    Int      @default(30)
-  maxDurationSeconds       Int      @default(600)
-  voicemailDetectionEnabled Boolean @default(true)
-  endCallPhrases           String[] @default(["goodbye", "bye", "talk to you later", "see you later", "have a nice day"])
+  silenceTimeoutSeconds     Int      @default(30)
+  maxDurationSeconds        Int      @default(600)
+  voicemailDetectionEnabled Boolean  @default(true)
+  endCallPhrases            String[] @default(["goodbye", "bye", "talk to you later", "see you later", "have a nice day"])
 
   // Vendor scoring timeout — used by the PROSODY pipeline stage (#1119)
   // when calling SpeechAce / SpeechSuper / future scoring vendors.

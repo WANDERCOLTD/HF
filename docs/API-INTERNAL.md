@@ -92,6 +92,7 @@
   - [Visualizations](#visualizations)
   - [Voice](#voice)
   - [Wizard](#wizard)
+  - [Wizard V6](#wizard-v6)
   - [Workflow](#workflow)
 - [Architecture Notes](#architecture-notes)
 - [Environment Variables](#environment-variables)
@@ -15185,6 +15186,108 @@ Load wizard step definitions from a spec. Accepts either `wizard` (name resolved
 Mark a partially-built wizard attempt as abandoned so the next
 
 **Auth**: bearer (OPERATOR+) · **Scope**: `wizard:write`
+
+---
+
+## Wizard V6
+
+### `POST` /api/wizard-v6/field-answered
+
+Record a FieldAnswered event + project the new snapshot
+
+**Auth**: Session · **Scope**: `wizard-v6:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| sessionId | body | string | No | WizardSession id |
+| fieldKey | body | string | No | Spec field key (e.g. "title") |
+| fieldValue | body | unknown | No | Captured value (JSON-serialisable) |
+
+**Response** `200`
+```json
+{ eventId, eventVersion, nextSnapshot, elapsedMs }
+```
+
+**Response** `400`
+```json
+{ error: string } - Bad request body
+```
+
+**Response** `404`
+```json
+{ error: "Session not found" }
+```
+
+**Response** `409`
+```json
+{ error: "Session is COMPLETED/ABANDONED, not ACTIVE" }
+```
+
+**Response** `500`
+```json
+{ error, kind: "wizard-v6:write-rejected" } - CHAIN violation
+```
+
+---
+
+### `POST` /api/wizard-v6/session
+
+Open a V6 wizard session for the given playbook + spec. Any
+
+**Auth**: Session · **Scope**: `wizard-v6:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| playbookId | body | string | No | Playbook to host the V6 snapshot |
+| specKey | body | string | No | CrawcusSpec key (e.g. "CreateRecipe") |
+| specVersion | body | number | No | CrawcusSpec version integer |
+
+**Response** `200`
+```json
+{ sessionId: string }
+```
+
+**Response** `400`
+```json
+{ error: string } - Bad request body
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" }
+```
+
+---
+
+### `GET` /api/wizard-v6/snapshot
+
+Read the materialised V6 snapshot from
+
+**Auth**: Session · **Scope**: `wizard-v6:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| sessionId | query | string | No | WizardSession id (required) |
+
+**Response** `200`
+```json
+{ sessionId, playbookId, specKey, specVersion, status, answeredFields, lastEventSequence }
+```
+
+**Response** `400`
+```json
+{ error: "sessionId required" }
+```
+
+**Response** `404`
+```json
+{ error: "Session not found" }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" }
+```
 
 ---
 

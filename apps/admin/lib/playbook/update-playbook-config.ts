@@ -36,7 +36,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { Playbook } from "@prisma/client";
+import type { Playbook, Prisma } from "@prisma/client";
 import {
   composeAffectingChanged,
   COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS,
@@ -71,6 +71,21 @@ export interface UpdatePlaybookConfigOptions {
    * the value is surfaced in the result for upstream code to act on.
    */
   fanoutScope?: 'none' | 'caller' | 'all';
+  /**
+   * #1078 — Optional Prisma interactive-transaction client.
+   *
+   * When the V6 wizard projector runs, the trigger-required
+   * `SET LOCAL hf.v6_projector = ...` marker is transaction-scoped. The
+   * marker write, the snapshot write, and the event write must all
+   * happen on the SAME transaction client or the marker is invisible to
+   * the Playbook.config write — the DB trigger then (correctly) rejects
+   * the snapshot write.
+   *
+   * Default (undefined) keeps the existing behaviour — uses the global
+   * `prisma` client, no transaction. Pass `tx` to participate in an
+   * outer transaction.
+   */
+  tx?: Prisma.TransactionClient;
 }
 
 export interface UpdatePlaybookConfigResult {
@@ -96,7 +111,12 @@ export async function updatePlaybookConfig(
     throw new Error("updatePlaybookConfig: playbookId is required");
   }
 
-  const current = await prisma.playbook.findUnique({
+  // #1078 — read + write through the provided tx client when one is
+  // supplied (so V6 `SET LOCAL hf.v6_projector` marker is visible to
+  // the DB trigger). Fall through to the global client otherwise.
+  const db = options.tx ?? prisma;
+
+  const current = await db.playbook.findUnique({
     where: { id: playbookId },
     select: { config: true },
   });
@@ -117,7 +137,7 @@ export async function updatePlaybookConfig(
   );
   const shouldBumpTimestamp = composeAffected && !options.skipTimestamp;
 
-  const playbook = await prisma.playbook.update({
+  const playbook = await db.playbook.update({
     where: { id: playbookId },
     data: {
       config: nextConfig as object,

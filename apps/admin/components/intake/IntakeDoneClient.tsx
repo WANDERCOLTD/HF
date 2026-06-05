@@ -79,6 +79,8 @@ export function IntakeDoneClient() {
     };
   }, [intentId]);
 
+  const valuesDisplay = useMemo(() => deriveValuesDisplay(), []);
+
   if (error) {
     return <div className="hf-banner hf-banner-error" data-testid="intake-done-error">{error}</div>;
   }
@@ -86,7 +88,6 @@ export function IntakeDoneClient() {
     return <div className="hf-section-desc">Loading audit trail…</div>;
   }
 
-  const valuesDisplay = useMemo(() => deriveValuesDisplay(), []);
   const captured = valuesDisplay.filter(([k]) => snapshot.values[k] !== undefined);
   const continueUrl = token ? buildContinueUrl(token, snapshot.values) : null;
   const bundleUrl = `/api/intake/audit-bundle/${encodeURIComponent(intentId!)}?format=jsonl`;
