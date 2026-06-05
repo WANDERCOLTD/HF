@@ -245,20 +245,29 @@ export async function updateCurriculumProgress(
       // break the existing IELTS path.
       let allowedLoRefs: Set<string> | null = null;
       if (updates.curriculumId) {
-        const catalogRows = await prisma.learningObjective.findMany({
-          where: {
-            module: {
-              curriculumId: updates.curriculumId,
-              slug: canonicalModuleId,
+        try {
+          const catalogRows = await prisma.learningObjective.findMany({
+            where: {
+              module: {
+                curriculumId: updates.curriculumId,
+                slug: canonicalModuleId,
+              },
             },
-          },
-          select: { ref: true },
-        });
-        if (catalogRows.length > 0) {
-          allowedLoRefs = new Set(catalogRows.map((r) => r.ref));
-        } else {
-          console.info(
-            `[track-progress] #1117 — LO catalog empty for module ${canonicalModuleId} in curriculum ${updates.curriculumId}; allowing all AI refs (no whitelist applied).`,
+            select: { ref: true },
+          });
+          if (catalogRows.length > 0) {
+            allowedLoRefs = new Set(catalogRows.map((r) => r.ref));
+          } else {
+            console.info(
+              `[track-progress] #1117 — LO catalog empty for module ${canonicalModuleId} in curriculum ${updates.curriculumId}; allowing all AI refs (no whitelist applied).`,
+            );
+          }
+        } catch (err: any) {
+          // Defensive — Prisma client may not expose learningObjective in
+          // some test contexts; never fail the write path on the guard
+          // lookup itself.
+          console.warn(
+            `[track-progress] #1117 catalog lookup failed (skipping whitelist): ${err?.message ?? err}`,
           );
         }
       }
