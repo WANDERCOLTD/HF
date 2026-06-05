@@ -47,6 +47,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+import { assertValidLoRefBatch } from "@/lib/curriculum/validate-lo-refs";
 import type {
   GoalTemplate,
   PlaybookConfig,
@@ -460,7 +461,7 @@ async function diffCurriculumModules(
 
     // Sync LearningObjective rows for this module. Key: (moduleId, ref).
     // Issue #365.
-    const loDiff = await diffLearningObjectives(tx, moduleId, m.learningObjectives);
+    const loDiff = await diffLearningObjectives(tx, moduleId, m.learningObjectives, m.slug);
     loCreated += loDiff.created;
     loUpdated += loDiff.updated;
     loRemoved += loDiff.removed;
@@ -491,7 +492,12 @@ async function diffLearningObjectives(
   tx: Tx,
   moduleId: string,
   desired: ProjectedLearningObjective[],
+  moduleSlug?: string,
 ): Promise<LearningObjectiveDiff> {
+  // #1117 — reject placeholder refs + duplicates before any DB write.
+  // Applies to both CERTIFIED and UNCERTIFIED courses (anchor-agnostic).
+  assertValidLoRefBatch(desired.map((lo) => lo.ref), moduleSlug);
+
   const existing = await tx.learningObjective.findMany({
     where: { moduleId },
     select: { id: true, ref: true, description: true, sortOrder: true },

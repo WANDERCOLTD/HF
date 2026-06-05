@@ -22,6 +22,10 @@ import { prisma } from "@/lib/prisma";
 import { isValidLoPair, sanitiseLORef } from "@/lib/content-trust/validate-lo-linkage";
 import { reconcileAssertionLOs } from "@/lib/content-trust/reconcile-lo-linkage";
 import {
+  assertValidLoRefBatch,
+  InvalidLoRefError,
+} from "@/lib/curriculum/validate-lo-refs";
+import {
   AUDIENCE_AWARE_LO_SELECT,
   filterLOsForAudience,
   parseAudience,
@@ -157,6 +161,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
 
       if (learningObjectives !== undefined) {
+        // #1117 — reject placeholder refs + intra-batch duplicates before any
+        // DB write. Anchor-agnostic (CERTIFIED + UNCERTIFIED courses).
+        const moduleSlugRow = await tx.curriculumModule.findUnique({
+          where: { id: moduleId },
+          select: { slug: true },
+        });
+        assertValidLoRefBatch(
+          learningObjectives.map((lo) => sanitiseLORef(lo.ref) ?? lo.ref),
+          moduleSlugRow?.slug ?? undefined,
+        );
         // #317 — upsert-by-ref instead of deleteMany+create. The author UI edits
         // `description` only; classifier-owned columns (originalText,
         // learnerVisible, performanceStatement, systemRole, humanOverriddenAt)
@@ -231,6 +245,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({ ok: true, module: result });
   } catch (error: any) {
+    // #1117 — surface InvalidLoRefError as a 400 with the canonical fix
+    // suggestion (operator-actionable instead of opaque 500).
+    if (error instanceof InvalidLoRefError) {
+      return NextResponse.json(
+        { error: error.message, code: "INVALID_LO_REF", ref: error.ref },
+        { status: 400 },
+      );
+    }
     console.error("[curricula/:id/modules/:id] PATCH error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
