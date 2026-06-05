@@ -35,6 +35,10 @@ export interface VoiceSystemSettings {
   maxDurationSeconds: number;
   voicemailDetectionEnabled: boolean;
   endCallPhrases: string[];
+  /** #1119 — Vendor scoring timeout used by the PROSODY pipeline stage
+   *  when calling SpeechAce / SpeechSuper. Default 30s leaves headroom
+   *  inside Cloud Run's 60s request budget. */
+  vendorTimeoutMs: number;
 }
 
 export const VOICE_SYSTEM_DEFAULTS: VoiceSystemSettings = {
@@ -52,6 +56,7 @@ export const VOICE_SYSTEM_DEFAULTS: VoiceSystemSettings = {
     "see you later",
     "have a nice day",
   ],
+  vendorTimeoutMs: 30000,
 };
 
 const SINGLETON_ID = "singleton";
@@ -77,6 +82,7 @@ function rowToSettings(
     maxDurationSeconds: row.maxDurationSeconds,
     voicemailDetectionEnabled: row.voicemailDetectionEnabled,
     endCallPhrases: row.endCallPhrases,
+    vendorTimeoutMs: row.vendorTimeoutMs,
   };
 }
 

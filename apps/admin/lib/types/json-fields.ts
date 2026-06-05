@@ -447,6 +447,25 @@ export interface PlaybookConfig {
     };
   };
   /**
+   * #1119 — IELTS mode detection for the PROSODY pipeline stage.
+   *
+   * When set to `"ielts-speaking"`, PROSODY calls the configured
+   * SpeechAssessmentProvider with `mode: "ielts"` and the resulting
+   * sub-bands flow into the 4 IELTS skill `CallScore` rows via
+   * AGGREGATE. When unset or any other value, PROSODY scores in
+   * `general` mode and produces voice-signal envelopes consumed by
+   * `CONV_PACE` / `pace_indicators` BehaviorParameter deltas.
+   *
+   * Distinct from `skillTierMapping` above — that drives band labels
+   * shown to operators; this drives the scoring mode requested from
+   * the vendor.
+   *
+   * Source of truth for the allowed values is
+   * `lib/banding/presets.ts::TierPresetId`. Type imported lazily there
+   * to avoid a circular import via the JSON-shape file.
+   */
+  tierPresetId?: "ielts-speaking" | "cefr" | "5-level" | "custom";
+  /**
    * #779 — Felt Progress S1. Controls the `progressNarrative` composer
    * section that gives the AI evidence of LO mastery for mid-call
    * acknowledgement. Sensible defaults mean no required setup; UI surface in
