@@ -3323,6 +3323,23 @@ Returns the most recent COURSE_REFERENCE markdown document
 
 ---
 
+### `GET` /api/v1/identity/challenge-status
+
+Whether the learner has an outstanding first-call PIN challenge
+
+**Auth**: session (STUDENT+)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | query | string | No |  |
+
+**Response** `200`
+```json
+{ ok: true, needsPin: boolean, locked: boolean, recipient: string | null }
+```
+
+---
+
 ### `POST` /api/v1/identity/resend-pin
 
 Re-issue a first-call PIN to the caller's on-file email. Caps

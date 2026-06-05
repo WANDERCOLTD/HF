@@ -9862,6 +9862,23 @@ Unlink a subject from this domain (deletes SubjectDomain join row)
 
 ---
 
+### `GET` /api/identity/challenge-status
+
+Whether the learner has an outstanding first-call PIN challenge
+
+**Auth**: session (STUDENT+)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | query | string | No |  |
+
+**Response** `200`
+```json
+{ ok: true, needsPin: boolean, locked: boolean, recipient: string | null }
+```
+
+---
+
 ### `POST` /api/identity/resend-pin
 
 Re-issue a first-call PIN to the caller's on-file email. Caps
@@ -15080,8 +15097,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 483 |
-| Files with annotations | 474 |
+| Route files found | 484 |
+| Files with annotations | 475 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 
