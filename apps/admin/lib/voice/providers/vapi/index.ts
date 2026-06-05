@@ -148,6 +148,9 @@ export class VapiProvider implements VoiceProvider {
     }
 
     return {
+      // VAPI fires a single end-of-call event with everything attached
+      // (#1079). Pipeline trigger always fires for "full".
+      eventKind: "full",
       externalCallId,
       customerPhone,
       customerName,

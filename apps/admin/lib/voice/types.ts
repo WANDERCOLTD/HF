@@ -72,16 +72,37 @@ export interface ProviderToolDefinition {
       required?: string[];
     };
   };
+  /** Provider-specific extension fields keyed by adapter slug (#1079).
+   *  Passed through to the adapter at `buildAssistantConfig`; opaque
+   *  to HF core. Example: `{ vapi: { async: false }, retell: {
+   *  speak_during_execution: true, execution_message_type: "prompt" } }` */
+  providerExtensions?: Record<string, Record<string, unknown>>;
 }
 
 /** Provider-shaped assistant config returned to the inbound webhook.
  *  Each adapter knows what its provider expects; the route just JSONs it. */
 export type ProviderAssistantConfig = Record<string, unknown>;
 
+/**
+ * End-of-call event kind (AnyVoice #1079). Most providers fire a single
+ * webhook with full data (`"full"`). Retell splits into two events:
+ * `call_ended` ("basic" — transcript + disconnect reason) followed by
+ * `call_analyzed` ("analysis" — summary + structured data + success).
+ *
+ * The webhook route uses this to decide whether to fire the pipeline
+ * trigger now (`"full"` / `"analysis"`) or only persist basic capture
+ * and wait for the analysis event (`"basic"`).
+ */
+export type EndOfCallEventKind = "full" | "basic" | "analysis";
+
 /** End-of-call event normalised across providers. The adapter extracts
  *  these fields from its provider's payload; downstream code writes them
  *  to canonical Call.voice* columns (#1020). */
 export interface NormalisedEndOfCallEvent {
+  /** Which slice of the end-of-call data this event carries (#1079).
+   *  VAPI returns `"full"` always; Retell returns `"basic"` then
+   *  `"analysis"` later. */
+  eventKind: EndOfCallEventKind;
   /** Provider's own call id (becomes Call.externalId). */
   externalCallId: string;
   /** Caller phone from the customer block, or null. */
@@ -250,8 +271,23 @@ export interface VoiceProvider {
   /**
    * Extract canonical tool-call batch from the provider's tools-route
    * payload. Returns an empty batch when no tool calls are present.
+   *
+   * For HTTP-tools providers (VAPI). WSS-tools providers should still
+   * implement this — they return an empty batch when the HTTP tools
+   * route receives spurious traffic (Retell does this).
    */
   normaliseToolCallList(body: unknown): NormalisedToolCallBatch;
+
+  /**
+   * Extract a single tool call from a WebSocket message (#1079, Retell
+   * custom-LLM). Returns null when the message isn't a tool-call frame
+   * (most messages aren't). HTTP-only adapters can omit this — the
+   * WSS route checks `getCapabilities().toolCallsOverWebSocket` before
+   * invoking. Optional: presence is the signal.
+   */
+  normaliseToolCallFromWebSocketMessage?(
+    msg: unknown,
+  ): NormalisedToolCall | null;
 
   /**
    * Parse the provider's per-turn knowledge-base callback into a

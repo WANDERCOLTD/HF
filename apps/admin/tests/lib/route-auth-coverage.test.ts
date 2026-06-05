@@ -30,10 +30,14 @@ const PUBLIC_ROUTES = new Set([
   "app/api/invite/route.ts",         // Accept invite (token-based, not session)
   "app/api/invite/accept/route.ts",
   "app/api/invite/verify/route.ts",  // Token-based invite verification (no session)
-  "app/api/vapi/assistant-request/route.ts", // VAPI webhook (webhook-secret auth)
-  "app/api/vapi/knowledge/route.ts",         // VAPI webhook (webhook-secret auth)
-  "app/api/vapi/tools/route.ts",             // VAPI webhook (webhook-secret auth)
-  "app/api/vapi/webhook/route.ts",           // VAPI webhook (webhook-secret auth)
+  "app/api/vapi/assistant-request/route.ts", // 307 → /api/voice/vapi/* (AnyVoice #1079)
+  "app/api/vapi/knowledge/route.ts",         // 307 → /api/voice/vapi/* (AnyVoice #1079)
+  "app/api/vapi/tools/route.ts",             // 307 → /api/voice/vapi/* (AnyVoice #1079)
+  "app/api/vapi/webhook/route.ts",           // 307 → /api/voice/vapi/* (AnyVoice #1079)
+  "app/api/voice/[slug]/assistant-request/route.ts", // Canonical voice route (webhook-secret auth, #1079)
+  "app/api/voice/[slug]/knowledge/route.ts",         // Canonical voice route (webhook-secret auth, #1079)
+  "app/api/voice/[slug]/tools/route.ts",             // Canonical voice route (webhook-secret auth, #1079)
+  "app/api/voice/[slug]/webhook/route.ts",           // Canonical voice route (webhook-secret auth, #1079)
   "app/api/join/[token]/route.ts",           // Public magic join link (token-based, no session)
 ]);
 

@@ -116,7 +116,14 @@ vi.mock("@/app/api/vapi/tools/route", () => ({
 }));
 
 // ── Import route AFTER mocks ───────────────────────
-const { POST } = await import("@/app/api/vapi/assistant-request/route");
+// Post-#1079: the canonical handler lives in lib/voice/route-handlers.
+// `app/api/vapi/assistant-request/route.ts` is now a 307 redirect.
+// We test the slug-aware handler directly because the slug-route
+// invokes it after `await params`.
+const { handleVoiceAssistantRequestPost } = await import(
+  "@/lib/voice/route-handlers"
+);
+const POST = (req: any) => handleVoiceAssistantRequestPost(req, "vapi");
 
 // ── Helpers ────────────────────────────────────────
 
