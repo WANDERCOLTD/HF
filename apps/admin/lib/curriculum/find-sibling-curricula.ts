@@ -99,3 +99,41 @@ export async function findCurriculumByAnchor(
     matches.map((c) => c.id),
   );
 }
+
+/**
+ * Find ALL Curricula sharing the given anchor across ALL domains (#1098 Slice A).
+ *
+ * Used by the readiness-rollups writer (`computeReadinessRollups`) for the
+ * AC2 cross-course dedup: a learner whose `lo_mastery:*` evidence lives under
+ * one Curriculum slug must still contribute to `unit_readiness` / `qualification_readiness`
+ * keyed by the qualification anchor, not the Curriculum slug. The rollup
+ * reader enumerates sibling Curricula via this helper, then merges their
+ * `CurriculumModule + LearningObjective` sets to compute the readiness shape.
+ *
+ * Domain scope is intentionally NOT applied here. The rollup reader runs in
+ * the AGGREGATE pipeline stage which already has a single learner's
+ * playbookId/curriculumId context; cross-domain anchor reuse is a
+ * separate concern (see findCurriculumByAnchor for the domain-scoped variant
+ * used by ingest paths).
+ *
+ * @returns empty array if `anchor` is falsy or no Curricula match.
+ *   Order is unspecified.
+ */
+export async function findSiblingCurricula(
+  anchor: string | null | undefined,
+): Promise<SiblingCurriculum[]> {
+  if (!anchor) return [];
+
+  return prisma.curriculum.findMany({
+    where: { qualificationAnchor: anchor },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      qualificationAnchor: true,
+      qualificationBody: true,
+      qualificationNumber: true,
+      qualificationLevel: true,
+    },
+  });
+}

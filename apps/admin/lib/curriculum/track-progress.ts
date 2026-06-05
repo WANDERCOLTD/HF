@@ -26,6 +26,7 @@ import {
   clampNumberToTier,
   type MasteryTier,
 } from "@/lib/curriculum/mastery-tiers";
+import { computeReadinessRollups } from "@/lib/curriculum/readiness-rollups";
 
 interface ProgressUpdate {
   currentModuleId?: string;
@@ -196,6 +197,12 @@ export async function updateCurriculumProgress(
   // Falsy `curriculumId` → legacy behaviour (use the raw moduleId). Once all
   // callers thread curriculumId through, the fallback path can be removed
   // (tracked as a follow-on once data migration is complete).
+  //
+  // #1098 Slice A — when at least one canonical lo_mastery:* write fires (i.e.
+  // not the useFreshMastery → scratchMastery scratch-routing path), flag for
+  // a post-write readiness-rollup pass. The rollup itself runs after
+  // `await Promise.all(writes)` so it sees the fresh lo_mastery row state.
+  let didWriteCanonicalLoMastery = false;
   if (updates.loMastery) {
     let canonicalModuleId: string | null = updates.loMastery.moduleId;
     if (updates.curriculumId && updates.loMastery.moduleId) {
@@ -292,6 +299,7 @@ export async function updateCurriculumProgress(
             },
           })
         );
+        didWriteCanonicalLoMastery = true;
       }
     }
   }
@@ -325,6 +333,16 @@ export async function updateCurriculumProgress(
   }
 
   await Promise.all(writes);
+
+  // #1098 Slice A — derive qualification-family readiness rollups after the
+  // per-LO writes settle. Only meaningful for qualification-anchored Curricula
+  // (the rollup writer no-ops for unanchored ones), and only when a canonical
+  // lo_mastery:* write actually happened (the useFreshMastery scratch path
+  // routes evidence to Call.scratchMastery, so AC3 — exam mocks don't shift
+  // the long-term readiness — is preserved by construction here).
+  if (didWriteCanonicalLoMastery && updates.curriculumId) {
+    await computeReadinessRollups(callerId, updates.curriculumId);
+  }
 
   // Dual-write: also update CallerModuleProgress if moduleId maps to a DB record.
   // When LO scores accompany this module's mastery, the dual-write derives mastery
