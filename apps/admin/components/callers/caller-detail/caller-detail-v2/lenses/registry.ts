@@ -19,9 +19,11 @@ import { ExamLens } from "./ExamLens";
 import { OverviewLens } from "./OverviewLens";
 import { PlanLens } from "./PlanLens";
 import { TrajectoryLens } from "./TrajectoryLens";
+import { QualificationLens } from "./QualificationLens";
 
 export type LensId =
   | "overview"
+  | "qualification"
   | "parameters"
   | "adaptation"
   | "modules"
@@ -55,6 +57,7 @@ export type LensDef = {
 
 export const LENS_ORDER: LensId[] = [
   "overview",
+  "qualification",
   "parameters",
   "adaptation",
   "modules",
@@ -71,6 +74,12 @@ export const LENSES: Record<LensId, LensDef> = {
     iconKey: "Gauge",
     blurb: "30-second read across this learner's whole progress picture.",
     Component: OverviewLens,
+  },
+  qualification: {
+    label: "Qualification",
+    iconKey: "Award",
+    blurb: "Unit-by-unit + LO readiness across the whole regulated qualification family — Foundation, Developing, Practitioner, Distinction.",
+    Component: QualificationLens,
   },
   parameters: {
     label: "Parameters",
