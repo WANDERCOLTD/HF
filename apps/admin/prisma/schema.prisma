@@ -2394,6 +2394,11 @@ model Curriculum {
   // sharing itself comes from the PlaybookCurriculum(role: linked) variant pattern
   // — one Curriculum, multiple Playbooks — not from this field. See #1081.
   qualificationAnchor String?
+  // crossCuttingSkillsConfig — #1098 Slice A. Per-qualification declaration of
+  // cross-cutting skills + tier rubrics (e.g. CIO/CTO Standard's 10 skills × 4
+  // tiers). Populated by ingest from course-reference markdown. Read by the
+  // qualification dashboard and SIM context panels. Null = no skills section.
+  crossCuttingSkillsConfig Json?
   validFrom           DateTime? // When this curriculum version becomes active
   validUntil          DateTime? // When this curriculum version expires
 
