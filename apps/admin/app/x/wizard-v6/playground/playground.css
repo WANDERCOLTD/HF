@@ -1,0 +1,104 @@
+/* #1078 — V6 wizard Phase 1 spike: playground layout.
+ *
+ * Two-pane split. CSS variables from globals.css; never inline hex.
+ * `color-mix()` for alpha per CLAUDE.md UI design system rule.
+ */
+
+.wizard-v6-playground {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.wizard-v6-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.wizard-v6-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 960px) {
+  .wizard-v6-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wizard-v6-chat,
+.wizard-v6-snapshot {
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+}
+
+.wizard-v6-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.wizard-v6-field {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+}
+
+.wizard-v6-field[data-filled="true"] {
+  border-color: color-mix(in oklab, var(--status-success-text), transparent 60%);
+  background: color-mix(in oklab, var(--status-success-text), transparent 92%);
+}
+
+.wizard-v6-field dt {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wizard-v6-field dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875rem;
+  word-break: break-word;
+}
+
+.wizard-v6-field-type {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+
+.wizard-v6-field-value {
+  color: var(--status-success-text);
+}
+
+.wizard-v6-field-input {
+  grid-column: 1 / span 2;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.wizard-v6-field-input input {
+  flex: 1;
+}
+
+.wizard-v6-footer {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}

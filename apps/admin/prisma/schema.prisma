@@ -2886,6 +2886,12 @@ model Playbook {
   composedPrompts ComposedPrompt[] @relation("PlaybookPrompts")
   invites         Invite[]
 
+  // #1078 — V6 wizard session back-relation. Multiple sessions per
+  // playbook allowed (back-navigation, multiple drafts). The
+  // "at most one ACTIVE session per playbook" invariant is
+  // application-layer (see WizardSessionStatus).
+  wizardSessions WizardSession[]
+
   @@index([domainId])
   @@index([domainId, sortOrder])
   @@index([status])
@@ -4596,4 +4602,42 @@ model VoiceProvider {
 
   @@index([slug])
   @@index([isDefault])
+}
+
+// =========================
+// V6 WIZARD (Phase 1 spike — #1078)
+// =========================
+//
+// HF-owned wrapper around tallyseal adapter-owned sessions. The tallyseal
+// adapter writes sessions/events into tallyseal_intent + tallyseal_event
+// via @tallyseal/prisma-adapter. WizardSession is an HF-side join shim
+// that ties a tallyseal session into the Playbook ownership graph so:
+//
+//   - Cascade-delete works when a Playbook is removed
+//   - We can express "at most one ACTIVE session per playbook" at the
+//     application layer (status enum, NOT a unique index — multiple
+//     COMPLETED / ABANDONED rows per playbook are expected)
+//
+// Phase 2 (#1074) replaces this with HF-owned WizardEvent + WizardProjection
+// models; this shim survives the cutover as the session ledger.
+
+enum WizardSessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+model WizardSession {
+  id           String              @id @default(cuid())
+  playbookId   String
+  specKey      String
+  specVersion  Int
+  status       WizardSessionStatus @default(ACTIVE)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  Playbook Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+
+  @@index([playbookId, status])
+  @@index([specKey, specVersion])
 }
