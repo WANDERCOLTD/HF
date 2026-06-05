@@ -171,7 +171,10 @@ export function RosterRow({
   return (
     <div
       className={rowClass}
-      onClick={() => inCallId && onObserve ? onObserve(inCallId) : onNavigate(caller.id)}
+      // Row click ALWAYS opens caller detail. Observe is the dedicated
+      // button in the actions cell — clicking the row used to jump to
+      // observe whenever a caller was in-call, which surprised users.
+      onClick={() => onNavigate(caller.id)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") onNavigate(caller.id); }}
