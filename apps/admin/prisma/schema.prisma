@@ -1496,6 +1496,13 @@ model Call {
   /// is read by anything other than its provider's own adapter,
   /// promote it to a canonical column.
   voiceProviderRaw       Json?
+  /// Normalised voice-prosody features emitted by the PROSODY pipeline
+  /// stage (#1119). Forensic receipt — the live pipeline signal is the
+  /// VOICE_PROSODY_V1 DataContract. Shape matches `VoiceProsodyFeatures`
+  /// in `lib/pipeline/prosody-types.ts`: { mode, ieltsScores?, generalSignals?,
+  /// errorReason?, rawVendor? }. Populated post-fix once the PROSODY
+  /// stage runs; null for sim runs / pre-#1119 calls.
+  voiceProsody           Json?
 
   // Per-call scratch state for Playbook.config.useFreshMastery — read-only after write.
   // AGGREGATE writes; ADAPT/COMPOSE read. Shape: { [key: string]: number | string }
@@ -2249,6 +2256,7 @@ enum AnalysisOutputType {
   COMPOSE // Compose prompts from gathered context → ComposedPrompt
   REWARD // Compute reward scores from behavior measurements → RewardScore
   SUPERVISE // Enforce guardrails and safety bounds on computed values
+  PROSODY // Score uploaded audio for IELTS / general voice signals (#1119) → Call.voiceProsody + VOICE_PROSODY_V1 contract
 }
 
 // Spec type: differentiates system-wide specs from domain-specific specs
@@ -4733,6 +4741,15 @@ model VoiceSystemSettings {
   maxDurationSeconds       Int      @default(600)
   voicemailDetectionEnabled Boolean @default(true)
   endCallPhrases           String[] @default(["goodbye", "bye", "talk to you later", "see you later", "have a nice day"])
+
+  // Vendor scoring timeout — used by the PROSODY pipeline stage (#1119)
+  // when calling SpeechAce / SpeechSuper / future scoring vendors.
+  // Default 30s leaves headroom inside Cloud Run's 60s request budget.
+  // If a future provider needs > 30s, raise this; never raise it to
+  // consume the full request window. On timeout, PROSODY emits
+  // mode:"unavailable" + errorReason:"vendor_timeout" — pipeline
+  // continues, AGGREGATE skips prosody-dependent writes for the call.
+  vendorTimeoutMs          Int      @default(30000)
 
   updatedAt              DateTime @updatedAt
   createdAt              DateTime @default(now())

@@ -41,6 +41,13 @@
             "batched": true
           },
           {
+            "name": "PROSODY",
+            "order": 15,
+            "outputTypes": ["PROSODY"],
+            "description": "Score Call.stereoRecordingUrl via SpeechAssessmentProvider; emit VOICE_PROSODY_V1 contract (#1119)",
+            "batched": false
+          },
+          {
             "name": "SCORE_AGENT",
             "order": 20,
             "outputTypes": ["MEASURE_AGENT"],
