@@ -14578,6 +14578,124 @@ Returns a hierarchical tree of the full taxonomy:
 
 ## Voice
 
+### `GET` /api/speech-assessment-providers
+
+List all registered speech assessment providers (SpeechAce,
+
+**Auth**: session ADMIN · **Scope**: `speech-assessment-providers:read`
+
+**Response** `200`
+```json
+{ ok: true, providers: SpeechAssessmentProvider[] (credentials masked) }
+```
+
+---
+
+### `POST` /api/speech-assessment-providers
+
+Create a new speech assessment provider. `adapterKey` must
+
+**Auth**: session ADMIN · **Scope**: `speech-assessment-providers:write`
+
+**Response** `201`
+```json
+{ ok: true, provider: SpeechAssessmentProvider (credentials masked) }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "slug already exists" }
+```
+
+---
+
+### `DELETE` /api/speech-assessment-providers/[id]
+
+Delete a speech assessment provider. Refuses if the row
+
+**Auth**: session ADMIN · **Scope**: `speech-assessment-providers:write`
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not found" }
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "cannot delete the default provider" }
+```
+
+---
+
+### `GET` /api/speech-assessment-providers/[id]
+
+Get a single speech assessment provider by id. Credentials
+
+**Auth**: session ADMIN · **Scope**: `speech-assessment-providers:read`
+
+**Response** `200`
+```json
+{ ok: true, provider, configSchema, capabilities }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not found" }
+```
+
+---
+
+### `PATCH` /api/speech-assessment-providers/[id]
+
+Update a speech assessment provider. `slug` is immutable
+
+**Auth**: session ADMIN · **Scope**: `speech-assessment-providers:write`
+
+**Response** `200`
+```json
+{ ok: true, provider (credentials masked) }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not found" }
+```
+
+---
+
+### `POST` /api/speech-assessment-providers/[id]/test-connection
+
+Test that the adapter for a speech assessment provider is
+
+**Auth**: session ADMIN · **Scope**: `speech-assessment-providers:test`
+
+**Response** `200`
+```json
+{ ok: true, ping: { reachable: boolean, capabilities?, detail } }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not found" }
+```
+
+---
+
 ### `GET` /api/voice-providers
 
 List all registered voice providers. Credentials are MASKED
@@ -15196,8 +15314,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 487 |
-| Files with annotations | 478 |
+| Route files found | 490 |
+| Files with annotations | 481 |
 | Files missing annotations | 9 |
 | Coverage | 98.2% |
 
