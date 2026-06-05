@@ -362,6 +362,73 @@ async function loadCurrentModuleContext(
     }
   }
 
+  // Path 2.5 (#1117) — first-class CurriculumModule fallback.
+  //
+  // Modern courses (#1034 PlaybookCurriculum + first-class CurriculumModule
+  // rows + first-class LearningObjective rows) don't necessarily cache the
+  // catalog in Playbook.config.modules[] or Curriculum.notableInfo.modules[].
+  // The CIO/CTO Standard family hit this gap: modulesAuthored=true but the
+  // modules[] cache was never populated, so Paths 0b / 1 / 2 all returned null
+  // and per-LO scoring never fired. Read directly from CurriculumModule +
+  // LearningObjective when the JSON caches are absent or empty. This is the
+  // universal fallback that unblocks every Curriculum-anchored course.
+  if (resolvedPlaybookId) {
+    const pbcLink = await prisma.playbookCurriculum.findFirst({
+      where: { playbookId: resolvedPlaybookId },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+      select: { curriculumId: true, curriculum: { select: { slug: true } } },
+    });
+    if (pbcLink?.curriculumId && pbcLink.curriculum?.slug) {
+      const moduleRows = await prisma.curriculumModule.findMany({
+        where: { curriculumId: pbcLink.curriculumId, isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          masteryThreshold: true,
+          learningObjectives: {
+            where: { learnerVisible: true },
+            orderBy: { sortOrder: "asc" },
+            select: { ref: true },
+          },
+        },
+      });
+      if (moduleRows.length > 0) {
+        const defaultThreshold =
+          (await ContractRegistry.getThresholds("CURRICULUM_PROGRESS_V1"))
+            ?.masteryComplete ?? 0.7;
+        const progress = await getCurriculumProgress(callerId, pbcLink.curriculum.slug);
+        const masteryByModuleKey = new Map(
+          Object.entries(progress.modulesMastery || {}) as [string, number][],
+        );
+        // Pick the first module whose mastery is below the threshold; falls
+        // back to the first authored module when all are above threshold.
+        const next =
+          moduleRows.find((m) => {
+            const masteryKey = m.slug || m.id;
+            const mastery = masteryByModuleKey.get(masteryKey) ?? 0;
+            return mastery < (m.masteryThreshold ?? defaultThreshold);
+          }) ?? moduleRows[0];
+        const refs = next.learningObjectives.map((lo) => lo.ref);
+        log.info("#1117 Path 2.5 — module context from first-class CurriculumModule rows", {
+          curriculumSlug: pbcLink.curriculum.slug,
+          moduleSlug: next.slug,
+          loCount: refs.length,
+          availableModules: moduleRows.length,
+        });
+        return {
+          specSlug: pbcLink.curriculum.slug,
+          moduleId: next.slug || next.id,
+          moduleName: next.title || next.slug || next.id,
+          learningOutcomes: refs,
+          masteryThreshold: next.masteryThreshold ?? defaultThreshold,
+          allModuleIds: moduleRows.map((m) => m.slug || m.id),
+        };
+      }
+    }
+  }
+
   // Path 3: Domain-wide Subject curriculum fallback (legacy)
   const caller = await prisma.caller.findUnique({
     where: { id: callerId },
@@ -858,36 +925,59 @@ async function runBatchedCallerAnalysis(
 
   const measureParams = Array.from(paramMap.values());
 
-  // Check if LEARN-ASSESS-001 (or any spec with assessmentMode) is active.
-  // #164: LEARN-ASSESS runs unconditionally. Retrieval practice injects questions
-  // on every call (including teach-mode), and the learning-assessment path picks
-  // up answers from the transcript. The event-gate (skipMeasure) only blocks
-  // MEASURE parameter scoring, not curriculum mastery tracking.
+  // #164 + #1117 — LO scoring is universal by default, with an explicit-spec
+  // override path.
+  //
+  // Today, IELTS Playbooks carry a LEARN spec whose `config.assessmentMode ===
+  // "curriculum_mastery"` to opt into per-LO scoring. #1098's qualification
+  // dashboard exposed the gap: the CIO/CTO Standard Playbooks (and any future
+  // course not explicitly seeded with that spec config) silently produce zero
+  // `lo_mastery:*` rows because the gate never opens. The dashboard then sits
+  // at "Not yet assessed" forever even after real calls.
+  //
+  // The fix: always attempt to load `moduleContext`. If the caller's enrolment
+  // resolves to a Curriculum + Module with LOs, the downstream batched AI
+  // prompt automatically picks up the LO scoring instructions (the existing
+  // `if (moduleContext?.learningOutcomes?.length)` branch in
+  // `buildBatchedMeasurePrompt`) and emits `learning.outcomes`, which flows
+  // through `updateCurriculumProgress({ loMastery })` → `lo_mastery:*` writes.
+  // When no module resolves (content-only courses, personality-only enrolments,
+  // SIM testers without enrolment), `loadCurrentModuleContext` returns null
+  // and the existing non-LO path runs unchanged.
+  //
+  // The explicit `assessmentSpec` path is preserved as a (1) marker for IELTS
+  // back-compat logging and (2) `masteryThreshold` override hook.
   const assessmentSpec = learnSpecs.find(
     (s) => (s.config as SpecConfig)?.assessmentMode === "curriculum_mastery",
   );
   let moduleContext: Awaited<ReturnType<typeof loadCurrentModuleContext>> = null;
 
-  if (assessmentSpec) {
-    const assessConfig = assessmentSpec.config as Record<string, any>;
-    try {
-      moduleContext = await loadCurrentModuleContext(callerId, log, {
-        requestedModuleId: call.requestedModuleId ?? null,
-        callPlaybookId: call.playbookId ?? null,
-      });
-      if (moduleContext) {
-        // Use mastery threshold from spec config (overrides default)
+  try {
+    moduleContext = await loadCurrentModuleContext(callerId, log, {
+      requestedModuleId: call.requestedModuleId ?? null,
+      callPlaybookId: call.playbookId ?? null,
+    });
+    if (moduleContext) {
+      if (assessmentSpec) {
+        // Explicit-spec override: honour the spec's masteryThreshold.
+        const assessConfig = assessmentSpec.config as Record<string, any>;
         moduleContext.masteryThreshold = assessConfig.masteryThreshold ?? moduleContext.masteryThreshold;
-        log.info(`LEARN-ASSESS spec active (${assessmentSpec.slug}): module context loaded`, {
+      }
+      log.info(
+        assessmentSpec
+          ? `LEARN-ASSESS spec active (${assessmentSpec.slug}): module context loaded`
+          : `#1117 universal LO scoring: module context loaded by default`,
+        {
           specSlug: moduleContext.specSlug,
           moduleId: moduleContext.moduleId,
           loCount: moduleContext.learningOutcomes.length,
           threshold: moduleContext.masteryThreshold,
-        });
-      }
-    } catch (err: any) {
-      log.warn(`Failed to load module context (non-blocking): ${err.message}`);
+          mode: assessmentSpec ? "spec-driven" : "universal-default",
+        },
+      );
     }
+  } catch (err: any) {
+    log.warn(`Failed to load module context (non-blocking): ${err.message}`);
   }
 
   log.info(`Batched caller analysis`, {

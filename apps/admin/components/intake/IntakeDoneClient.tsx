@@ -8,10 +8,14 @@
 // CallerPlaybook). If no token, the "Continue" button is hidden —
 // the platform-level demo path stops here.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { IntakeCoCPanel } from "./IntakeCoCPanel";
 import type { Event } from "@/lib/intake/tallyseal";
+import {
+  EnrollmentIntake,
+  INTERNAL_FIELDS,
+} from "@/lib/intake/specs/enrollment.intent";
 
 interface SessionSnapshot {
   readonly intentId: string;
@@ -20,17 +24,29 @@ interface SessionSnapshot {
   readonly values: Readonly<Record<string, unknown>>;
 }
 
-const VALUES_DISPLAY: ReadonlyArray<readonly [string, string]> = [
-  ["firstName", "First name"],
-  ["lastName", "Last name"],
-  ["email", "Email"],
-  ["displayName", "Display name"],
-  ["timezone", "Timezone"],
-  ["preferredContactMethod", "Preferred contact"],
-  ["marketingOptIn", "Marketing opt-in"],
-  ["accessibilityNote", "Accessibility note"],
-  ["ageRange", "Age range"],
-];
+/**
+ * Spec-driven list of [key, label] pairs to render on the recap.
+ * Iterates `EnrollmentIntake.fields` in declaration order, skips
+ * internal/derived fields, reads each field's `label.en` from the
+ * spec metadata. Add a field to the spec → it appears here. No
+ * parallel hand-edit needed.
+ */
+function deriveValuesDisplay(): ReadonlyArray<readonly [string, string]> {
+  const internal = new Set<string>(INTERNAL_FIELDS);
+  const out: Array<readonly [string, string]> = [];
+  for (const [key, fieldSpec] of Object.entries(EnrollmentIntake.fields)) {
+    if (internal.has(key)) continue;
+    const labelMeta = fieldSpec.metadata.label;
+    const label =
+      typeof labelMeta === "string"
+        ? labelMeta
+        : labelMeta && typeof labelMeta === "object" && "en" in labelMeta
+          ? String((labelMeta as Record<string, unknown>).en ?? key)
+          : key;
+    out.push([key, label] as const);
+  }
+  return out;
+}
 
 export function IntakeDoneClient() {
   const params = useSearchParams();
@@ -70,7 +86,8 @@ export function IntakeDoneClient() {
     return <div className="hf-section-desc">Loading audit trail…</div>;
   }
 
-  const captured = VALUES_DISPLAY.filter(([k]) => snapshot.values[k] !== undefined);
+  const valuesDisplay = useMemo(() => deriveValuesDisplay(), []);
+  const captured = valuesDisplay.filter(([k]) => snapshot.values[k] !== undefined);
   const continueUrl = token ? buildContinueUrl(token, snapshot.values) : null;
   const bundleUrl = `/api/intake/audit-bundle/${encodeURIComponent(intentId!)}?format=jsonl`;
 
@@ -121,20 +138,34 @@ export function IntakeDoneClient() {
   );
 }
 
+/**
+ * Spec-driven URL builder: iterates every non-internal spec field and
+ * propagates whatever the learner captured to /join/[token]. Strings
+ * are trim-and-skip-if-empty; booleans are stringified; numbers go
+ * via String(). Add a spec field → it propagates. Single source.
+ *
+ * The /join/[token] POST handler decides what it does with each key;
+ * unknown keys are ignored there (zod strip).
+ */
 function buildContinueUrl(token: string, values: Readonly<Record<string, unknown>>): string {
+  const internal = new Set<string>(INTERNAL_FIELDS);
   const params = new URLSearchParams();
-  const firstName = values.firstName;
-  const lastName = values.lastName;
-  const email = values.email;
-  const ageRange = values.ageRange;
-  if (typeof firstName === "string") params.set("firstName", firstName);
-  if (typeof lastName === "string") params.set("lastName", lastName);
-  if (typeof email === "string") params.set("email", email);
-  // ageRange propagation per #1036 — persisted as CallerAttribute
-  // `intake.ageRange` on /join/[token] POST. `under-18` is rejected by
-  // `ageBand.adultOnly()` at intake, so this should never be present
-  // as that value, but the route handler defends against URL tampering.
-  if (typeof ageRange === "string") params.set("ageRange", ageRange);
+  for (const [key, fieldSpec] of Object.entries(EnrollmentIntake.fields)) {
+    if (internal.has(key)) continue;
+    const v = values[key];
+    if (v === undefined || v === null) continue;
+    if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed.length === 0) continue;
+      params.set(key, trimmed);
+    } else if (typeof v === "boolean" || typeof v === "number") {
+      params.set(key, String(v));
+    }
+    // Arrays / objects intentionally skipped — none of the current
+    // user-facing fields are composite. If a future spec adds one
+    // it can serialise via a separate convention (JSON in URL).
+    void fieldSpec;
+  }
   const qs = params.toString();
   return `/join/${encodeURIComponent(token)}${qs ? `?${qs}` : ""}`;
 }

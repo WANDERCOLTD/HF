@@ -28,9 +28,14 @@ import { getIntakeAIPort } from "@/lib/intake/hf-adapter/ai";
 import {
   applyUpdateSetup,
   specToUpdateSetupTool,
+  specToSystemPrompt,
   UPDATE_SETUP_TOOL_NAME,
 } from "@/lib/intake/spec-tools";
-import { EnrollmentIntake, INTERNAL_FIELDS } from "@/lib/intake/specs/enrollment.intent";
+import {
+  EnrollmentIntake,
+  INTERNAL_FIELDS,
+  REQUIRED_FIELDS,
+} from "@/lib/intake/specs/enrollment.intent";
 import type {
   AIPort,
   EventAIProvenance,
@@ -55,29 +60,27 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // claude-opus-4-7 + claude-sonnet-4-6 — keep this list in step with
 // lib/intake/compliance.ts ai.allowedModels.
 const INTAKE_MODEL = "claude-sonnet-4-6";
-const INTAKE_PROMPT_VERSION = "intake/v0.4.0-DRAFT";
+// Prompt version derives from the spec version + the generator. When the
+// spec changes, the prompt regenerates and this version reflects it
+// automatically — no hand-bumps. The audit chain records this string in
+// every CapturedTurn's `ai.promptTemplateVersion`.
+const INTAKE_PROMPT_VERSION = `intake/spec-v${EnrollmentIntake.version}-generated`;
 const INTAKE_MAX_COST_USD = 0.5; // == compliance.ai.costCeilingPerIntent
 
 const UPDATE_SETUP_TOOL: ToolDefinition = specToUpdateSetupTool(EnrollmentIntake, {
   excludeFields: INTERNAL_FIELDS,
 });
 
-const SYSTEM_PROMPT = `You are HumanFirst Foundation's enrolment assistant. Politely capture FOUR required values from the learner: first name, last name, age range, and email.
-
-How to capture:
-- When the learner shares one or more field values — even multiple in a single message — call the \`update-setup\` tool with every value they provided. Pass each value under its field key (firstName / lastName / email / ageRange / displayName / preferredContactMethod / marketingOptIn / accessibilityNote / timezone). Omit fields they did not share.
-- Never invent values. Only capture what the learner explicitly stated.
-- Email must look like X@Y.Z. If it doesn't, do not capture it — ask them to try again.
-- For ageRange, accept ONLY one of these exact values: '18-24' / '25-34' / '35-44' / '45-54' / '55-64' / '65-plus' / 'prefer-not-to-say'. (HumanFirst is adult-only; 'under-18' is not valid and the system will reject it.) If the learner gives a specific age (e.g. "I'm 32"), map it to the right band. If they decline, refuse to say, or ask why, capture 'prefer-not-to-say'.
-
-How to reply (in the same turn as the tool call, when applicable):
-- Be warm, concise, professional. No emoji. No filler.
-- One short sentence per reply.
-- Never describe your own tool-calling reasoning to the learner. Do not say things like "I need to capture X simultaneously" or "I'm mapping Y to band Z" — that is internal scratchpad, never user-facing. Write a normal natural reply, e.g. "Got it — what's your email?"
-- Ask in this STRICT order, one field at a time: firstName → lastName → ageRange → email. (Email is asked LAST because the enrolment commits as soon as all four required values are in.)
-- If a greeting or affirmation ("hi", "ok", "yes") arrives in place of a name, re-prompt for that name. Do not capture greetings.
-- ageRange is REQUIRED. After capturing lastName, your VERY NEXT reply MUST ask for the learner's age range — do NOT ask for email yet. The email question only comes AFTER ageRange has a value (or 'prefer-not-to-say'). If you find yourself about to ask for email and ageRange is still missing, stop and ask for ageRange instead.
-- When all four required fields (firstName, lastName, ageRange, email) are captured, confirm the enrolment is being submitted and that a confirmation email will follow.`;
+// SYSTEM_PROMPT is generated from the spec. To add a field that the AI
+// asks about, edit the spec at `lib/intake/specs/enrollment.intent.ts`
+// — DO NOT edit a string here. To change required vs optional, toggle
+// `REQUIRED_FIELDS` in the spec module. The prompt picks both up
+// automatically and the version string above bumps with the spec
+// version.
+const SYSTEM_PROMPT = specToSystemPrompt(EnrollmentIntake, {
+  excludeFields: INTERNAL_FIELDS,
+  requiredFields: REQUIRED_FIELDS,
+});
 
 const AFFIRMATION_RE = /^(hi|hello|hey|yo|ok|okay|sure|yes|yeah|yep|y|n|no|nope|start)\b[!.,? ]*$/i;
 

@@ -28,6 +28,7 @@ import { PanelLayoutPanel } from "@/components/settings/PanelLayoutPanel";
 import { InstitutionTypesPanel } from "@/components/settings/InstitutionTypesPanel";
 import { ConstantsReferencePanel } from "@/components/settings/ConstantsReferencePanel";
 import { VoiceProvidersPanel } from "@/components/settings/VoiceProvidersPanel";
+import { VoiceScoringProvidersPanel } from "@/components/settings/VoiceScoringProvidersPanel";
 import { VoiceToolsPanel } from "@/components/settings/VoiceToolsPanel";
 
 // ── Build the unified panel registry ────────────────
@@ -38,6 +39,10 @@ function ChannelsPanelAdapter(_props: PanelProps) {
 
 function VoiceProvidersPanelAdapter(_props: PanelProps) {
   return <VoiceProvidersPanel />;
+}
+
+function VoiceScoringProvidersPanelAdapter(_props: PanelProps) {
+  return <VoiceScoringProvidersPanel />;
 }
 
 function VoiceToolsPanelAdapter(_props: PanelProps) {
@@ -63,6 +68,12 @@ const CUSTOM_PANELS: SettingsPanel[] = [
     "CRUD voice-call providers (VAPI etc.) — credentials, defaults, archive",
     "communications", VoiceProvidersPanelAdapter,
     ["voice", "provider", "vapi", "credentials", "api key", "webhook", "archive", "call"],
+  ),
+  registerCustomPanel(
+    "voice_scoring_providers", "Voice Scoring", "Activity",
+    "CRUD speech-assessment providers (SpeechAce, SpeechSuper) — credentials, defaults, archive",
+    "communications", VoiceScoringProvidersPanelAdapter,
+    ["speech", "scoring", "pronunciation", "ielts", "prosody", "speechace", "speechsuper", "fluency"],
   ),
   registerCustomPanel(
     "voice_tools", "Voice Tools", "Wrench",

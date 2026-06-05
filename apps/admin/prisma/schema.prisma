@@ -4711,6 +4711,33 @@ model WizardSession {
   @@index([specKey, specVersion])
 }
 
+// SpeechAssessmentProvider — multi-vendor abstraction for SPEECH SCORING
+// vendors (SpeechAce, SpeechSuper). Parallel pattern to VoiceProvider —
+// different domain (scoring uploaded audio, not transporting voice calls)
+// so kept as a separate model rather than discriminating on a `kind` field.
+// Architecture rationale: docs-memory/project_voice_chain_contracts_boundary.md.
+//
+// Adapter resolution: lib/speech-assessment/provider-factory.ts uses
+// `adapterKey` to look up a registered adapter constructor in
+// lib/speech-assessment/adapter-registry.ts. `slug` is the stable
+// identifier callers reference (resolveSpeechAssessmentProviderForCaller);
+// it's immutable post-creation because Call FK references could rot.
+model SpeechAssessmentProvider {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  displayName String
+  adapterKey  String
+  credentials Json     @default("{}")
+  config      Json     @default("{}")
+  isDefault   Boolean  @default(false)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isDefault])
+}
+
 // VoiceSystemSettings — cross-provider voice settings (AnyVoice #1044).
 //
 // Single-row settings document. Applies to every VoiceProvider — held
