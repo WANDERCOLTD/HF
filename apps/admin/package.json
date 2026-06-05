@@ -94,7 +94,6 @@
     "eval:wizard:tone": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-conversational-tone.yaml --no-cache",
     "eval:wizard:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-welcome-flow.yaml --no-cache",
     "eval:wizard:v5:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-welcome-flow.yaml --no-cache",
-    "eval:wizard:v4:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v4-welcome-flow.yaml --no-cache",
     "eval:wizard:continuous": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-continuous-course.yaml --no-cache",
     "eval:wizard:doc-derived": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-doc-derived-fields.yaml --no-cache",
     "eval:wizard:all": "npm run eval:wizard && npm run eval:wizard:intake && npm run eval:wizard:proposal && npm run eval:wizard:content && npm run eval:wizard:community && npm run eval:wizard:amendment && npm run eval:wizard:tone && npm run eval:wizard:welcome && npm run eval:wizard:continuous && npm run eval:wizard:doc-derived",
