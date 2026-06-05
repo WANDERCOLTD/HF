@@ -154,6 +154,12 @@ export interface NormalisedToolCallBatch {
   toolCalls: NormalisedToolCall[];
   /** Caller phone from the inbound payload's customer block. */
   customerPhone: string | null;
+  /** Provider's external call id from the inbound payload (#1092). The
+   *  tools handler resolves this to a local `Call.id` via
+   *  `prisma.call.findFirst({externalId, source: slug})` so that rail-
+   *  routing (chat-via-SSE vs SMS) can look up the SSE-subscriber
+   *  registry by `Call.id`. Null when the provider didn't send one. */
+  externalCallId: string | null;
 }
 
 /** Single knowledge-base result the route produced from RAG retrieval. */

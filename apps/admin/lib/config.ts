@@ -232,6 +232,18 @@ export const config = {
     get contentScopeSubjectFallbackEnabled(): boolean {
       return optionalBool("CONTENT_SCOPE_SUBJECT_FALLBACK_ENABLED", false);
     },
+    /**
+     * Local Whisper STT + OpenAI TTS voice mode on SimChat (#1092). When
+     * true the existing mic-icon toggle stays visible and `useVoiceMode`
+     * remains functional — useful for offline dev / regression testing.
+     * When false (default once `[Call me]` ships) the mic icon is hidden
+     * from the SIM and learners use the provider-backed call button.
+     * Tests set this to true in tests/setup.ts so the existing useVoiceMode
+     * tests stay green.
+     */
+    get localSimVoiceMode(): boolean {
+      return optionalBool("LOCAL_SIM_VOICE_MODE", false);
+    },
   },
 
   // ---------------------------------------------------------------------------

@@ -48,7 +48,6 @@
   - [Curriculum](#curriculum)
   - [Dashboard](#dashboard)
   - [Data Dictionary](#data-dictionary)
-  - [Dev](#dev)
   - [Dev Tools](#dev-tools)
   - [Domains](#domains)
   - [Educator](#educator)
@@ -6261,27 +6260,6 @@ Find cross-references for template variables and key prefixes across the system.
 **Response** `500`
 ```json
 { ok: false, error: "Failed to fetch cross-references" }
-```
-
----
-
-## Dev
-
-### `POST` /api/wizard-lab
-
-Test endpoint for the wizard framework. Creates a task that
-
-**Auth**: ADMIN+ · **Scope**: `dev:wizard-lab`
-
-| Parameter | In | Type | Required | Description |
-|-----------|-----|------|----------|-------------|
-| name | body | string | No | Topic name from intent step |
-| emphasis | body | string | No | Teaching emphasis |
-| duration | body | string | No | Session duration |
-
-**Response** `200`
-```json
-{ ok: true, taskId: "..." }
 ```
 
 ---
@@ -14718,6 +14696,67 @@ Shared voice provider webhook endpoint (AnyVoice #1079).
 
 ---
 
+### `GET` /api/voice/calls/[callId]/stream
+
+Server-Sent Events stream for a live provider call (#1092).
+
+**Auth**: session ANY (STUDENT scoped to own caller via learner-scope) · **Scope**: `voice:calls:stream`
+
+**Response** `200`
+```json
+(event-stream)
+```
+
+**Response** `401`
+```json
+(unauthenticated)
+```
+
+**Response** `403`
+```json
+(STUDENT subscribing to another caller's call)
+```
+
+**Response** `404`
+```json
+(Call not found)
+```
+
+---
+
+### `POST` /api/voice/calls/start
+
+Start a provider call (#1092). Resolves the active voice
+
+**Auth**: session ANY · **Scope**: `voice:calls:start`
+
+**Response** `200`
+```json
+{
+```
+
+**Response** `400`
+```json
+{ ok: false, error: zod issues }
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "No learner profile" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+---
+
 ### `GET` /api/voice/costs
 
 Returns voice-call cost rollups for a chosen scope. Reads
@@ -14970,8 +15009,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 480 |
-| Files with annotations | 471 |
+| Route files found | 481 |
+| Files with annotations | 472 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 

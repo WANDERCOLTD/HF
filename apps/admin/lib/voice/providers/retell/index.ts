@@ -174,7 +174,7 @@ export class RetellProvider implements VoiceProvider {
    */
   normaliseToolCallList(_body: unknown): NormalisedToolCallBatch {
     void _body;
-    return { toolCalls: [], customerPhone: null };
+    return { toolCalls: [], customerPhone: null, externalCallId: null };
   }
 
   /**
