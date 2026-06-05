@@ -101,11 +101,14 @@ export async function POST(req: Request) {
   }
 
   const firstName = caller.name?.trim().split(/\s+/)[0];
+  // originUrl from the resend request so the new PIN email's button URL
+  // matches where the learner is sitting (same hotfix as the join route).
   await issueFirstCallPin({
     callerId,
     email: caller.email,
     firstName,
     isResend: true,
+    originUrl: new URL(req.url).origin,
   });
 
   return NextResponse.json({ ok: true });
