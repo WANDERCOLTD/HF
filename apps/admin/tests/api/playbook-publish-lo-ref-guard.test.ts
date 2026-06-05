@@ -14,7 +14,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockPrisma = {
-  playbook: { findUnique: vi.fn(), update: vi.fn() },
+  playbook: {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+  },
   playbookCurriculum: { findMany: vi.fn() },
   learningObjective: { findMany: vi.fn() },
 };
@@ -33,7 +37,8 @@ function makePlaybook(overrides: Record<string, unknown> = {}) {
   return {
     id: "pb-1",
     status: "DRAFT",
-    domain: { id: "d-1" },
+    domainId: "d-1",
+    domain: { id: "d-1", slug: "d", name: "Domain" },
     items: [
       {
         id: "it-1",
@@ -43,6 +48,18 @@ function makePlaybook(overrides: Record<string, unknown> = {}) {
       },
     ],
     ...overrides,
+  };
+}
+
+function makePublishedShape() {
+  // What the route's playbook.update() returns when publish succeeds — only
+  // the fields the response body marshals are needed.
+  return {
+    id: "pb-1",
+    status: "PUBLISHED",
+    publishedAt: new Date(),
+    domain: { id: "d-1", slug: "d", name: "Domain" },
+    items: [],
   };
 }
 
@@ -73,7 +90,7 @@ describe("POST /api/playbooks/:id/publish — #1117 LO ref guard", () => {
       { ref: "STD-09-01" },
       { ref: "STD-09-02" },
     ]);
-    mockPrisma.playbook.update.mockResolvedValue({ id: "pb-1", status: "PUBLISHED" });
+    mockPrisma.playbook.update.mockResolvedValue(makePublishedShape());
 
     const res = await POST(buildReq(), buildParams());
     expect(res.status).toBe(200);
@@ -130,7 +147,7 @@ describe("POST /api/playbooks/:id/publish — #1117 LO ref guard", () => {
   it("does not run the LO guard when the Playbook has no PlaybookCurriculum link (content-only course)", async () => {
     mockPrisma.playbook.findUnique.mockResolvedValue(makePlaybook());
     mockPrisma.playbookCurriculum.findMany.mockResolvedValue([]);
-    mockPrisma.playbook.update.mockResolvedValue({ id: "pb-1", status: "PUBLISHED" });
+    mockPrisma.playbook.update.mockResolvedValue(makePublishedShape());
 
     const res = await POST(buildReq(), buildParams());
     const body = await res.json();
@@ -149,7 +166,7 @@ describe("POST /api/playbooks/:id/publish — #1117 LO ref guard", () => {
       { ref: "GOOD-1" },
       { ref: "GOOD-2" },
     ]);
-    mockPrisma.playbook.update.mockResolvedValue({ id: "pb-1", status: "PUBLISHED" });
+    mockPrisma.playbook.update.mockResolvedValue(makePublishedShape());
 
     await POST(buildReq(), buildParams());
     const findManyCall = mockPrisma.learningObjective.findMany.mock.calls[0][0];

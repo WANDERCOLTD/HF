@@ -41,10 +41,17 @@ function parseLORef(
 }
 
 describe("backfill-modules::parseLORef — #1117 module-scoped refs", () => {
-  it("extracts canonical refs verbatim (e.g. OUT-01, AC1.2, R04-LO2)", () => {
-    expect(parseLORef("OUT-01: Plan capacity", 0, "standard-unit-04").ref).toBe("OUT-01");
+  it("extracts canonical refs verbatim when they match LO_REF_PATTERN (AC*, R*-LO*)", () => {
+    // The regex matches LO\d+ | AC[\d.]+ | R\d+-LO\d+. OUT-NN is NOT in the
+    // regex — for OUT-NN the parser falls back to {moduleSlug}-LO{N}. That's
+    // intentional: production OUT-NN refs come from the authored project
+    // path (lib/wizard/project-course-reference.ts), not via parseLORef.
     expect(parseLORef("AC1.2: Detail", 0, "module-x").ref).toBe("AC1.2");
     expect(parseLORef("R04-LO2: Define", 0, "any").ref).toBe("R04-LO2");
+    // OUT-NN demonstrates the fallback path (no canonical match in regex).
+    expect(parseLORef("OUT-01: Plan capacity", 0, "standard-unit-04").ref).toBe(
+      "standard-unit-04-LO1",
+    );
   });
 
   it("normalises placeholder LO\\d+ refs by prefixing the moduleSlug", () => {
