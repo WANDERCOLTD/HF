@@ -22,6 +22,10 @@ import { prisma } from "@/lib/prisma";
 import { parseLoLine } from "@/lib/content-trust/validate-lo-linkage";
 import { reconcileAssertionLOs } from "@/lib/content-trust/reconcile-lo-linkage";
 import {
+  assertValidLoRefBatch,
+  InvalidLoRefError,
+} from "@/lib/curriculum/validate-lo-refs";
+import {
   AUDIENCE_AWARE_LO_SELECT,
   filterLOsForAudience,
   parseAudience,
@@ -200,6 +204,9 @@ export async function POST(req: NextRequest, { params }: Params) {
             await tx.learningObjective.deleteMany({ where: { id: { in: removedIds } } });
           }
 
+          // #1117 — reject placeholder refs + intra-batch duplicates before
+          // any DB write. Anchor-agnostic (CERTIFIED + UNCERTIFIED courses).
+          assertValidLoRefBatch(parsed.map((lo) => lo.ref), upserted.slug);
           for (const lo of parsed) {
             await tx.learningObjective.upsert({
               where: { moduleId_ref: { moduleId: upserted.id, ref: lo.ref } },
@@ -249,6 +256,15 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({ ok: true, modules, count: result.length }, { status: 201 });
   } catch (error: any) {
+    // #1117 — surface the LO-ref guard's reason as a 400 with the canonical
+    // fix suggestion, so operators get an actionable error instead of an
+    // opaque 500.
+    if (error instanceof InvalidLoRefError) {
+      return NextResponse.json(
+        { error: error.message, code: "INVALID_LO_REF", ref: error.ref },
+        { status: 400 },
+      );
+    }
     console.error("[curricula/:id/modules] POST error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

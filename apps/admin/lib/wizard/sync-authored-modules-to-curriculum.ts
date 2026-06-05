@@ -28,6 +28,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { AuthoredModule } from "@/lib/types/json-fields";
 import { detectMockShapeCovers } from "./detect-mock-shape-modules";
+import { assertValidLoRefBatch } from "@/lib/curriculum/validate-lo-refs";
 
 // #317 — LO audience classification is NOT run from this helper because it
 // receives an open transaction (`tx`) and the classifier runs its own
@@ -166,6 +167,9 @@ export async function syncAuthoredModulesToCurriculum(
     // exists for downstream tagging but lacks a friendly description —
     // the extractor's garbage-guard will warn).
     if (Array.isArray(m.outcomesPrimary) && m.outcomesPrimary.length > 0) {
+      // #1117 — reject placeholder refs + intra-batch duplicates before any
+      // DB write. Anchor-agnostic (CERTIFIED + UNCERTIFIED courses).
+      assertValidLoRefBatch(m.outcomesPrimary, m.slug);
       for (const [loIdx, ref] of m.outcomesPrimary.entries()) {
         const description = outcomes?.[ref] ?? ref;
         await tx.learningObjective.upsert({

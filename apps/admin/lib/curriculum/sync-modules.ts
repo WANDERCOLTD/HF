@@ -17,6 +17,7 @@ import { reconcileAssertionLOs, type ReconcileResult } from "@/lib/content-trust
 import { sanitizeModuleTitle } from "@/lib/content-trust/sanitize-module";
 import type { AssertionTag } from "@/lib/content-trust/extract-curriculum";
 import { reclassifyLearningObjectives, type ReclassifyLosResult } from "@/lib/curriculum/reclassify-los";
+import { assertValidLoRefBatch } from "@/lib/curriculum/validate-lo-refs";
 
 export type SyncModulesMode = "merge" | "replace";
 
@@ -243,6 +244,9 @@ export async function syncModulesToDB(
           await tx.learningObjective.deleteMany({ where: { id: { in: removedIds } } });
         }
 
+        // #1117 — reject placeholder refs + intra-batch duplicates before any
+        // DB write. Anchor-agnostic (CERTIFIED + UNCERTIFIED courses).
+        assertValidLoRefBatch(parsed.map((lo) => lo.ref), upserted.slug);
         for (const lo of parsed) {
           await tx.learningObjective.upsert({
             where: { moduleId_ref: { moduleId: upserted.id, ref: lo.ref } },

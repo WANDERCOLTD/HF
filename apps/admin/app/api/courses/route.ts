@@ -200,13 +200,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the playbook
+    // #1117 — create as DRAFT, not PUBLISHED.
+    //
+    // The previous PUBLISHED-on-create behaviour bypassed the publish-time
+    // LO-ref guard (rule 7 of `publish/route.ts`) entirely: the Playbook
+    // shipped straight to PUBLISHED, and any LOs added later via the
+    // curricula/[id]/modules routes never re-triggered validation. By the
+    // time the operator noticed the dashboard sitting at "Not yet
+    // assessed", the placeholder refs had silently entered the catalog.
+    //
+    // Callers must now follow create with POST /api/playbooks/{id}/publish,
+    // which runs the full validation chain including the LO-ref
+    // placeholder + cross-module-duplicate gate. The write-site guards
+    // (assertValidLoRefBatch at every LearningObjective writer) catch any
+    // bad ref before it lands in the catalog at all.
     const playbook = await prisma.playbook.create({
       data: {
         name: courseName,
         domainId,
         groupId: groupId || undefined,
-        status: 'PUBLISHED',
+        status: 'DRAFT',
         description: learningOutcomes?.join('\n') || '',
       },
       include: {
