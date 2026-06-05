@@ -4511,6 +4511,29 @@ Soft-restart a completed course. Resets goals, curriculum progress, surveys, and
 
 ---
 
+### `GET` /api/v1/student/qualification-progress
+
+Returns the learner's progress against their active qualification —
+
+**Auth**: Session · **Scope**: `progress:read`
+
+**Response** `200`
+```json
+{ ok: true, qualification: Qualification | null, units: Unit[],
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "no active enrollment" }
+```
+
+---
+
 ## Subjects
 
 ### `GET` /api/v1/subjects/:subjectId/curriculum

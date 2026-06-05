@@ -13021,6 +13021,29 @@ Mark onboarding as complete for a caller.
 
 ---
 
+### `GET` /api/student/qualification-progress
+
+Returns the learner's progress against their active qualification —
+
+**Auth**: Session · **Scope**: `progress:read`
+
+**Response** `200`
+```json
+{ ok: true, qualification: Qualification | null, units: Unit[],
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "no active enrollment" }
+```
+
+---
+
 ### `GET` /api/student/survey-config
 
 **Auth**: STUDENT | OPERATOR+ (with callerId param)
@@ -15009,8 +15032,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 481 |
-| Files with annotations | 472 |
+| Route files found | 482 |
+| Files with annotations | 473 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 
