@@ -4597,3 +4597,37 @@ model VoiceProvider {
   @@index([slug])
   @@index([isDefault])
 }
+
+// VoiceSystemSettings — cross-provider voice settings (AnyVoice #1044).
+//
+// Single-row settings document. Applies to every VoiceProvider — held
+// outside the per-provider row so changing the cost cap once propagates
+// to all providers without N updates. Read via
+// `lib/voice/system-settings.ts::getVoiceSystemSettings` (cached).
+//
+// `id` is a fixed sentinel ("singleton") so the row can be upserted
+// without a discovery step. Application code never queries by anything
+// else — see the lib helper.
+//
+// Fields:
+//   fallbackOnAdapterError — "silent" | "throw" | "escalate". When the
+//     adapter dispatch raises (factory miss, credential decryption fail,
+//     etc.), the voice route either returns ok/empty (silent), throws
+//     a 500 (throw), or escalates to a sentry-style logger (escalate).
+//   maxCostPerCallUsd — hard cap consumed by AnyVoice #1080 telemetry
+//     story. The cost-cap watcher invokes `requestEndCall` on the active
+//     adapter when cumulative cost during a live call exceeds this.
+//   auditRetentionDays — how long voice UsageEvent rows are retained
+//     before the rollup-and-purge job archives them. Default 90 days.
+//   defaultProviderSlug — fallback when `Caller.voiceProvider` is null
+//     AND no row has `isDefault: true`. Treated as the system default
+//     for outbound routing. Empty string disables the fallback.
+model VoiceSystemSettings {
+  id                     String   @id @default("singleton")
+  fallbackOnAdapterError String   @default("throw")
+  maxCostPerCallUsd      Float?
+  auditRetentionDays     Int      @default(90)
+  defaultProviderSlug    String   @default("")
+  updatedAt              DateTime @updatedAt
+  createdAt              DateTime @default(now())
+}

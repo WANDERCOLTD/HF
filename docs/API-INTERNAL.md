@@ -14574,6 +14574,32 @@ Test the connection for a voice provider. Instantiates
 
 ---
 
+### `GET` /api/voice-system-settings
+
+Read cross-provider voice settings (cost cap, default
+
+**Auth**: session ADMIN · **Scope**: `voice-system-settings:read`
+
+**Response** `200`
+```json
+{ ok: true, settings: VoiceSystemSettings }
+```
+
+---
+
+### `PATCH` /api/voice-system-settings
+
+Update one or more cross-provider voice settings. Partial
+
+**Auth**: session ADMIN · **Scope**: `voice-system-settings:write`
+
+**Response** `200`
+```json
+{ ok: true, settings: VoiceSystemSettings }
+```
+
+---
+
 ### `GET` /api/voice-tools
 
 List voice tools from the active TOOLS-001 spec. Each entry
@@ -14811,8 +14837,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 473 |
-| Files with annotations | 464 |
+| Route files found | 474 |
+| Files with annotations | 465 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 

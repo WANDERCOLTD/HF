@@ -158,6 +158,64 @@ export interface KnowledgeBaseRequest {
 }
 
 /**
+ * Field descriptor in a provider's config schema (AnyVoice #1044).
+ *
+ * Drives the admin UI form: each entry becomes one form field on
+ * `/x/settings/voice-providers/[id]`. `sensitive: true` routes the
+ * value into `VoiceProvider.credentials` (Json, masked on read);
+ * everything else routes into `VoiceProvider.config`.
+ */
+export interface ProviderConfigField {
+  /** Storage key on credentials / config. */
+  key: string;
+  /** UI label. */
+  label: string;
+  /** Form input type. */
+  type: "string" | "number" | "boolean" | "enum";
+  /** Helper text rendered under the field. */
+  help?: string;
+  /** Allowed values for type === "enum". */
+  enumValues?: string[];
+  /** Pre-fill when creating a new provider row. */
+  default?: unknown;
+  /** Mask + route to credentials. */
+  sensitive?: boolean;
+  /** Required field — PATCH validation rejects empty / null. */
+  required?: boolean;
+}
+
+export interface ProviderConfigSchema {
+  fields: ProviderConfigField[];
+}
+
+/**
+ * Capability declaration (AnyVoice #1044, consumed by #1079 + #1080).
+ *
+ * Tells the route layer which HTTP/WSS surfaces this provider exposes
+ * and how end-of-call events arrive. Lets the admin UI render only the
+ * webhook URLs that apply and the telemetry layer apply only the
+ * controls the provider supports.
+ */
+export interface VoiceProviderCapabilities {
+  /** "single" = one end-of-call webhook (VAPI). "split" = two webhooks
+   *  merged by externalCallId (Retell: call_ended + call_analyzed). */
+  endOfCallEvents: "single" | "split";
+  /** True when the provider fires an HTTP per-turn knowledge callback
+   *  (VAPI's Custom Knowledge Base). False for providers that consume
+   *  pre-uploaded knowledge IDs (Retell). Drives the knowledge route
+   *  capability guard in #1079. */
+  hasKnowledgeCallback: boolean;
+  /** True when tool calls arrive via WebSocket (Retell custom-LLM)
+   *  instead of HTTP POST (VAPI). The HTTP tools route returns 404 for
+   *  WS-only providers; the WSS handler dispatches instead. */
+  toolCallsOverWebSocket: boolean;
+  /** Provider supports proactive end-call from server (cost-cap, abuse
+   *  prevention). When false, the cost-cap watcher in #1080 logs but
+   *  cannot terminate the call. */
+  supportsRequestEndCall: boolean;
+}
+
+/**
  * The adapter contract. Each method is one transport seam.
  *
  * IMPORTANT: implementations MUST be stateless. The same instance is
@@ -212,4 +270,18 @@ export interface VoiceProvider {
    * other providers may need a different envelope.
    */
   buildKnowledgeResponse(results: KnowledgeResult[]): unknown;
+
+  /**
+   * Describe this provider's credentials + config fields (AnyVoice #1044).
+   * Drives the schema-form rendered at `/x/settings/voice-providers/[id]`
+   * and the PATCH validation pass. Pure function — must not hit DB.
+   */
+  getConfigSchema(): ProviderConfigSchema;
+
+  /**
+   * Declare which HTTP/WSS surfaces this provider uses and how it emits
+   * end-of-call events (AnyVoice #1044). Drives capability-aware
+   * dispatch in #1079 + #1080. Pure function — must not hit DB.
+   */
+  getCapabilities(): VoiceProviderCapabilities;
 }

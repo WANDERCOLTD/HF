@@ -29,7 +29,9 @@ import type {
   NormalisedToolCall,
   NormalisedToolCallBatch,
   ProviderAssistantConfig,
+  ProviderConfigSchema,
   VoiceProvider,
+  VoiceProviderCapabilities,
 } from "../../types";
 import { verifyVapiRequest } from "./auth";
 
@@ -235,6 +237,50 @@ export class VapiProvider implements VoiceProvider {
 
   buildKnowledgeResponse(results: KnowledgeResult[]): unknown {
     return { results };
+  }
+
+  /**
+   * VAPI config schema (AnyVoice #1044). VAPI carries only two
+   * credentials and no provider-specific config today — keep the
+   * schema tight so the admin form stays focused. Operators changing
+   * the model / voice settings do that inside the VAPI dashboard,
+   * not here.
+   */
+  getConfigSchema(): ProviderConfigSchema {
+    return {
+      fields: [
+        {
+          key: "apiKey",
+          label: "VAPI API key",
+          type: "string",
+          help: "Server-side API key for outbound REST calls (assistant updates, end-call requests). Found in VAPI dashboard → API keys.",
+          sensitive: true,
+          required: false,
+        },
+        {
+          key: "webhookSecret",
+          label: "Webhook secret (HMAC)",
+          type: "string",
+          help: "Shared secret used to sign inbound webhooks. Set the same value in VAPI's server-url config. Leave blank for local-dev pass-through.",
+          sensitive: true,
+          required: false,
+        },
+      ],
+    };
+  }
+
+  /**
+   * VAPI capability declaration (AnyVoice #1044). Single end-of-call
+   * event, HTTP tools + knowledge callbacks, server-side end-call via
+   * `POST /call/{id}/end` (used by the cost-cap watcher in #1080).
+   */
+  getCapabilities(): VoiceProviderCapabilities {
+    return {
+      endOfCallEvents: "single",
+      hasKnowledgeCallback: true,
+      toolCallsOverWebSocket: false,
+      supportsRequestEndCall: true,
+    };
   }
 }
 
