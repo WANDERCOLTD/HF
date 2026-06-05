@@ -2388,6 +2388,12 @@ model Curriculum {
   qualificationBody   String? // "CII", "Highfield", "Ofqual"
   qualificationNumber String? // "603/4937/2" or "R04"
   qualificationLevel  String? // "Level 2", "Diploma", "Certificate"
+  // qualificationAnchor — labelling/grouping field (NOT a visibility gate or mastery
+  // sharing mechanism). Groups Curricula teaching the same regulated qualification
+  // for CI guards (slug/ref set divergence detection) and admin rollups. Mastery
+  // sharing itself comes from the PlaybookCurriculum(role: linked) variant pattern
+  // — one Curriculum, multiple Playbooks — not from this field. See #1081.
+  qualificationAnchor String?
   validFrom           DateTime? // When this curriculum version becomes active
   validUntil          DateTime? // When this curriculum version expires
 
@@ -2418,6 +2424,7 @@ model Curriculum {
   @@index([validUntil])
   @@index([subjectId])
   @@index([playbookId])
+  @@index([qualificationAnchor])
 }
 
 // =============================================================================
