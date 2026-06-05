@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { config } from "@/lib/config";
+import { updateAnalysisSpecConfig } from "@/lib/analysis-spec/update-analysis-spec-config";
 
 export const runtime = "nodejs";
 
@@ -105,10 +106,23 @@ export async function PATCH(req: Request) {
     );
   }
 
-  tools[idx] = { ...tools[idx], enabled: parsed.data.enabled };
-  await prisma.analysisSpec.update({
-    where: { id: spec.id },
-    data: { config: { ...cfg, tools } as object },
+  // Use the scope-aware helper instead of a direct prisma.update (per
+  // hf-spec/no-direct-config-write — see docs/CHAIN-CONTRACTS.md §3
+  // Link 3 + #829). The helper bumps the per-scope timestamp so
+  // downstream callers know to recompose.
+  await updateAnalysisSpecConfig(spec.id, (current) => {
+    const currentCfg = (current.config ?? {}) as ToolsSpecConfig;
+    const currentTools = currentCfg.tools ?? [];
+    const ix = currentTools.findIndex(
+      (t) => t.function.name === parsed.data.name,
+    );
+    if (ix === -1) return current;
+    const nextTools = [...currentTools];
+    nextTools[ix] = { ...nextTools[ix], enabled: parsed.data.enabled };
+    return {
+      ...current,
+      config: { ...currentCfg, tools: nextTools } as object,
+    };
   });
 
   return NextResponse.json({

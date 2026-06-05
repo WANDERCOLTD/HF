@@ -272,6 +272,7 @@ vi.mock('@prisma/client', () => {
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      upsert: vi.fn(),
       delete: vi.fn(),
     },
     userTask: {
