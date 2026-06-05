@@ -768,6 +768,39 @@ export function SimChat({
   const handleEndCall = useCallback(async () => {
     setIsEnding(true);
 
+    // Tear down any live voice channel BEFORE saving the transcript.
+    // WebRTC: providerCall.end() calls vapi.stop() so the mic/audio
+    // socket closes immediately. PSTN: reset local UI; the actual VAPI
+    // call ends via the user hanging up or hitting the max-duration cap.
+    const voiceWasActive =
+      providerCall.status === 'starting' ||
+      providerCall.status === 'connecting' ||
+      providerCall.status === 'active' ||
+      outboundDial.status === 'dialing' ||
+      outboundDial.status === 'ringing' ||
+      outboundDial.status === 'needs-phone' ||
+      outboundDial.status === 'saving-phone';
+    try {
+      if (
+        providerCall.status === 'starting' ||
+        providerCall.status === 'connecting' ||
+        providerCall.status === 'active'
+      ) {
+        await providerCall.end();
+      }
+      if (
+        outboundDial.status === 'dialing' ||
+        outboundDial.status === 'ringing' ||
+        outboundDial.status === 'needs-phone' ||
+        outboundDial.status === 'saving-phone'
+      ) {
+        outboundDial.reset();
+      }
+    } catch (voiceErr) {
+      console.warn('[sim] Voice teardown failed:', voiceErr);
+      // Non-fatal — continue with transcript save.
+    }
+
     try {
       // Build transcript from messages
       const transcript = messages
@@ -775,6 +808,14 @@ export function SimChat({
         .join('\n');
 
       if (!callId) {
+        if (voiceWasActive) {
+          // Voice-only bail-out: no chat callId was ever created (e.g.
+          // user hung up while still in lobby). Voice is already torn
+          // down — just close the sheet and reset cleanly.
+          setShowEndSheet(false);
+          setIsEnding(false);
+          return;
+        }
         console.error('[sim] No callId — call record was never created');
         showToast('Error: call was not created');
         setIsEnding(false);
@@ -875,7 +916,7 @@ export function SimChat({
       showToast('Failed to save call');
       setIsEnding(false);
     }
-  }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onCallStateChange, onBack, journey]);
+  }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onCallStateChange, onBack, journey, providerCall, outboundDial]);
 
   const isEmbedded = mode === 'embedded';
 
@@ -928,7 +969,18 @@ export function SimChat({
         titleEditDisabled={callPhase === 'active'}
         mediaLibraryActive={showMediaLibrary}
         voiceActive={localSimVoiceModeEnabled && voiceMode.state !== 'off'}
-        callActive={callPhase === 'active' && messages.length > 0}
+        callActive={
+          // Chat-call active (had at least one message exchanged) OR a
+          // voice channel is anywhere between launching and ended. The
+          // operator must always have an out — without this, the [Talk
+          // Here] / [Call me] flows stranded users with no way to hang up.
+          (callPhase === 'active' && messages.length > 0) ||
+          providerCall.status === 'starting' ||
+          providerCall.status === 'connecting' ||
+          providerCall.status === 'active' ||
+          outboundDial.status === 'dialing' ||
+          outboundDial.status === 'ringing'
+        }
         avatarColor={hashColor(callerId)}
         onProgressPanel={() => {
           setShowProgressPanel(prev => !prev);
