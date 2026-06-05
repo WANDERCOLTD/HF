@@ -259,6 +259,95 @@ async function ensureCurriculum(
     return { id: existing.id, created: false };
   }
 
+  // #1081 Slice 2B.2 — anchor-aware sibling-link. Before minting a fresh
+  // Curriculum, see if this Playbook's domain already hosts a Curriculum
+  // teaching the same regulated qualification. If so, LINK the new Playbook
+  // via PlaybookCurriculum(role: "linked") and reuse the shared Curriculum.
+  // Mastery sharing flows naturally from the shared CurriculumModule UUIDs
+  // (CC-E in docs/chain-contracts.md).
+  //
+  // We pull qualification metadata from the Playbook's primary Subject
+  // (Subject.qualificationBody + Subject.qualificationRef) — that's the
+  // existing source-of-truth for Curriculum.qualificationBody /
+  // qualificationNumber. See app/api/subjects/[subjectId]/curriculum
+  // route.ts:228-230.
+  const { deriveQualificationAnchor, isAnchorSafe } = await import(
+    "@/lib/curriculum/qualification-anchor"
+  );
+  const { findCurriculumByAnchor, QualificationAnchorAmbiguity } = await import(
+    "@/lib/curriculum/find-sibling-curricula"
+  );
+
+  const playbookForAnchor = await tx.playbook.findUnique({
+    where: { id: playbookId },
+    select: {
+      domainId: true,
+      subjects: {
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: {
+          subject: {
+            select: {
+              qualificationBody: true,
+              qualificationRef: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const subjectForAnchor = playbookForAnchor?.subjects[0]?.subject;
+  const derivedAnchor = subjectForAnchor
+    ? deriveQualificationAnchor(
+        subjectForAnchor.qualificationBody,
+        subjectForAnchor.qualificationRef,
+      )
+    : null;
+
+  // Anchor-aware sibling lookup — only when derived anchor passes the
+  // AI-to-DB safety guard. Unsafe anchors fall through to mint-fresh with
+  // the anchor still stamped for labelling.
+  if (derivedAnchor && isAnchorSafe(derivedAnchor) && playbookForAnchor?.domainId) {
+    try {
+      // findCurriculumByAnchor uses the outer prisma client, not tx — sibling
+      // search reads committed state, not in-flight tx data. That's correct
+      // here: we want to avoid linking to a Curriculum being created in
+      // a racing transaction.
+      const sibling = await findCurriculumByAnchor(
+        derivedAnchor,
+        playbookForAnchor.domainId,
+      );
+      if (sibling) {
+        // Link the new Playbook to the existing sibling Curriculum.
+        await tx.playbookCurriculum.create({
+          data: {
+            playbookId,
+            curriculumId: sibling.id,
+            role: "linked",
+          },
+        });
+        console.log(
+          `[apply-projection] Linked playbook ${playbookId} to sibling ` +
+            `Curriculum ${sibling.id} via qualificationAnchor="${derivedAnchor}"`,
+        );
+        return { id: sibling.id, created: false };
+      }
+    } catch (err: unknown) {
+      if (err instanceof QualificationAnchorAmbiguity) {
+        // Refuse to guess — surface to caller.
+        throw err;
+      }
+      throw err;
+    }
+  } else if (derivedAnchor && !isAnchorSafe(derivedAnchor)) {
+    console.warn(
+      `[apply-projection] derived qualificationAnchor failed safety check, ` +
+        `treating as null for sibling lookup (still stamped for labelling): ` +
+        `"${derivedAnchor}"`,
+    );
+  }
+
   const created = await tx.curriculum.create({
     data: {
       slug: `course-${playbookId.slice(0, 8)}-${Date.now()}`,
@@ -267,6 +356,10 @@ async function ensureCurriculum(
       // for one release (dropped in #1038). Two-write divergence is a real
       // bug class — both rows MUST land in this same transaction.
       playbookId,
+      // #1081 Slice 2B.2 — stamp the derived anchor on the new Curriculum
+      // so subsequent siblings in the same domain find it. Null when no
+      // qualification metadata is available.
+      qualificationAnchor: derivedAnchor,
     },
     select: { id: true },
   });

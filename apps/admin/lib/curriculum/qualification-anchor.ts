@@ -52,3 +52,35 @@ function slugify(s: string): string {
     .replace(/^-+|-+$/g, "")
     .substring(0, 80);
 }
+
+/**
+ * AI-to-DB guard (#1081 Slice 2B.2) — validate that a derived anchor is safe
+ * to use as a sibling lookup key. Two acceptance paths:
+ *   (a) The anchor is in the canonical override table (vetted by a human).
+ *   (b) The anchor matches strict slug shape — only the slugify fallback
+ *       above produces these, so an educator's free-text input sanitised
+ *       through slugify will always pass; a future AI-generated anchor
+ *       containing whitespace, punctuation, or unusual length will not.
+ *
+ * Caller pattern (see .claude/rules/ai-to-db-guard.md):
+ *   const anchor = deriveQualificationAnchor(body, ref);
+ *   if (anchor && !isAnchorSafe(anchor)) {
+ *     console.warn("anchor failed safety check, treating as null");
+ *     // proceed to mint fresh — still set anchor for labelling but skip lookup
+ *   }
+ *   if (anchor && isAnchorSafe(anchor)) {
+ *     const sibling = await findCurriculumByAnchor(anchor, domainId);
+ *     if (sibling) return linkToSibling(sibling);
+ *   }
+ *   return mintFresh({ qualificationAnchor: anchor });
+ */
+export function isAnchorSafe(anchor: string | null | undefined): boolean {
+  if (!anchor) return false;
+  // (a) Known canonical anchors from the override table.
+  const known = new Set(KNOWN_QUALIFICATIONS.map(([, , a]) => a));
+  if (known.has(anchor)) return true;
+  // (b) Slug-form anchors. Single-char anchors (e.g. "a") are accepted; the
+  // multi-char path requires alphanumeric start + alphanumeric end with
+  // lowercase + hyphens between, length 2..80.
+  return /^[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$|^[a-z0-9]$/.test(anchor);
+}

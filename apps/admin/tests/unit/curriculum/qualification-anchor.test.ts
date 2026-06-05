@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { deriveQualificationAnchor } from "@/lib/curriculum/qualification-anchor";
+import { deriveQualificationAnchor, isAnchorSafe } from "@/lib/curriculum/qualification-anchor";
 
 describe("deriveQualificationAnchor", () => {
   it("returns canonical anchor for known-qualification override match (Ofqual case)", () => {
@@ -69,5 +69,64 @@ describe("deriveQualificationAnchor", () => {
     const result = deriveQualificationAnchor(null, huge);
     expect(result).not.toBeNull();
     expect(result!.length).toBeLessThanOrEqual(80);
+  });
+});
+
+/**
+ * #1081 Slice 2B.2 — isAnchorSafe() unit tests (AI-to-DB guard).
+ *
+ * The guard ensures we only use anchors that are either (a) canonical
+ * known-qualifications, or (b) match strict slug shape (lowercase
+ * alphanumeric + hyphens, no leading/trailing hyphens). This blocks
+ * typo'd or AI-injected anchors from collapsing two unrelated
+ * qualifications onto the same Curriculum.
+ */
+describe("isAnchorSafe", () => {
+  it("accepts the canonical SIAS CIO/CTO override anchor", () => {
+    expect(isAnchorSafe("sias-cio-cto-v6")).toBe(true);
+  });
+
+  it("accepts a single-char slug-form anchor", () => {
+    expect(isAnchorSafe("a")).toBe(true);
+    expect(isAnchorSafe("7")).toBe(true);
+  });
+
+  it("accepts well-formed slug anchors (lowercase + hyphens + digits)", () => {
+    expect(isAnchorSafe("ofqual-some-quality-v2")).toBe(true);
+    expect(isAnchorSafe("highfield-l2-food-safety")).toBe(true);
+    expect(isAnchorSafe("a1")).toBe(true);
+  });
+
+  it("rejects null/undefined/empty", () => {
+    expect(isAnchorSafe(null)).toBe(false);
+    expect(isAnchorSafe(undefined)).toBe(false);
+    expect(isAnchorSafe("")).toBe(false);
+  });
+
+  it("rejects anchors with uppercase letters", () => {
+    expect(isAnchorSafe("SIAS-CIO-CTO-V6")).toBe(false);
+    expect(isAnchorSafe("Some-Anchor")).toBe(false);
+  });
+
+  it("rejects anchors with whitespace", () => {
+    expect(isAnchorSafe("sias cio cto v6")).toBe(false);
+    expect(isAnchorSafe(" leading-space")).toBe(false);
+  });
+
+  it("rejects anchors with leading or trailing hyphens", () => {
+    expect(isAnchorSafe("-leading-hyphen")).toBe(false);
+    expect(isAnchorSafe("trailing-hyphen-")).toBe(false);
+  });
+
+  it("rejects anchors with punctuation other than hyphen", () => {
+    expect(isAnchorSafe("sias_cio_cto")).toBe(false); // underscore
+    expect(isAnchorSafe("sias.cio.cto")).toBe(false); // dot
+    expect(isAnchorSafe("sias/cio")).toBe(false); // slash
+  });
+
+  it("rejects anchors longer than 80 chars", () => {
+    const long = "a" + "b".repeat(80);
+    expect(long.length).toBe(81);
+    expect(isAnchorSafe(long)).toBe(false);
   });
 });

@@ -36,6 +36,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { unlinkNonPrimaryPlaybookSubjects } from "@/lib/knowledge/cleanup-placeholder-subjects";
 import { auditLog, AuditAction } from "@/lib/audit";
+import {
+  deriveQualificationAnchor,
+  isAnchorSafe,
+} from "@/lib/curriculum/qualification-anchor";
 
 export type VariantPreset = "revision" | "popquiz" | "exam";
 
@@ -244,6 +248,53 @@ export async function createPlaybookVariant(
       primarySubjectId,
     );
     unlinkedDuplicateSubjects = unlink.removed;
+  }
+
+  // #1081 Slice 2B.2 — anchor backfill on the shared Curriculum.
+  // Variants share their parent's Curriculum; if that Curriculum was
+  // minted before Slice 2B existed, its `qualificationAnchor` may be
+  // null even though qualification metadata is now declared on the
+  // primary Subject. Derive + stamp once (idempotent — only writes when
+  // current value is null). The anchor label propagates upward so
+  // SIBLING variants on FUTURE create paths can find each other.
+  if (sharedCurriculumId && primarySubjectId) {
+    try {
+      const [sharedCurr, primarySubject] = await Promise.all([
+        prisma.curriculum.findUnique({
+          where: { id: sharedCurriculumId },
+          select: { qualificationAnchor: true },
+        }),
+        prisma.subject.findUnique({
+          where: { id: primarySubjectId },
+          select: { qualificationBody: true, qualificationRef: true },
+        }),
+      ]);
+      if (sharedCurr && !sharedCurr.qualificationAnchor && primarySubject) {
+        const anchor = deriveQualificationAnchor(
+          primarySubject.qualificationBody,
+          primarySubject.qualificationRef,
+        );
+        if (anchor && isAnchorSafe(anchor)) {
+          await prisma.curriculum.update({
+            where: { id: sharedCurriculumId },
+            data: { qualificationAnchor: anchor },
+          });
+          console.log(
+            `[playbooks/create-variant] Backfilled qualificationAnchor=` +
+              `"${anchor}" on shared Curriculum ${sharedCurriculumId} ` +
+              `during variant creation`,
+          );
+        }
+      }
+    } catch (err: unknown) {
+      // Best-effort — variant creation must not fail because anchor
+      // backfill hiccupped. Log + continue.
+      console.warn(
+        `[playbooks/create-variant] qualificationAnchor backfill failed for ` +
+          `Curriculum ${sharedCurriculumId} (non-fatal):`,
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   // POST-tx — audit row. CREATED_PLAYBOOK + variant metadata so the
