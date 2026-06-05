@@ -73,6 +73,13 @@ export default function VoiceProviderTelemetryPage() {
       <h1 className="hf-page-title">
         Voice telemetry — {providerSlug || "provider"}
       </h1>
+      <p className="hf-section-desc">
+        <Link href={`/x/settings/voice-providers/${id}`}>
+          &larr; Back to provider
+        </Link>
+        {" · "}
+        <Link href="/x/settings/voice-providers">All providers</Link>
+      </p>
       <p className="hf-page-subtitle">
         {drillCallId ? (
           <>
