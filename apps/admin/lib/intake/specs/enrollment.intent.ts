@@ -55,6 +55,26 @@ export const INTERNAL_FIELDS = [
   "classroomName",
 ] as const;
 
+/**
+ * Field keys that must be captured before this intent's `readiness()`
+ * gate returns true. SINGLE SOURCE OF TRUTH — `readiness()` below
+ * iterates this list, and `specToSystemPrompt()` in spec-tools.ts
+ * reads it to frame the prompt's required/optional split.
+ *
+ * Add a new required field: append the key here and add the field
+ * declaration below. Nothing else to edit — the chat prompt, the
+ * readiness gate, and (after #1129) the recap UI all derive from this.
+ *
+ * When the CRUD surface lands, this list is what an admin toggles
+ * "required" on in the field editor.
+ */
+export const REQUIRED_FIELDS = [
+  "firstName",
+  "lastName",
+  "email",
+  "ageRange",
+] as const;
+
 // Adult-learner basic email pattern. NOT RFC-5322 complete — we use a
 // pragmatic check matching the join form's existing behaviour. Real
 // validation happens server-side via deliverability check (deferred).
@@ -175,7 +195,7 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
 
   readiness: (ctx: unknown) => {
     const { has } = ctx as { has: (...keys: string[]) => boolean };
-    return has("firstName", "lastName", "email", "ageRange");
+    return has(...REQUIRED_FIELDS);
   },
 
   contracts: {
