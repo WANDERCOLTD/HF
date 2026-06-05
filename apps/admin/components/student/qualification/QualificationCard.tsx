@@ -49,17 +49,19 @@ export function QualificationCard({
   onStartCall,
 }: QualificationCardProps): React.ReactElement | null {
   const { qualification, units, skills, nextBestStep } = data;
-  if (!qualification) return null;
 
-  const initialExpanded = qualification.weakestUnitSlug ?? units[0]?.moduleSlug ?? null;
+  const initialExpanded = qualification?.weakestUnitSlug ?? units[0]?.moduleSlug ?? null;
   const [expandedUnit, setExpandedUnit] = useState<string | null>(initialExpanded);
 
   const fraction = useMemo(() => {
-    if (qualification.losTotal === 0) return null;
+    if (!qualification || qualification.losTotal === 0) return null;
     return qualification.losAtTierOrAbove / qualification.losTotal;
-  }, [qualification.losAtTierOrAbove, qualification.losTotal]);
+  }, [qualification]);
 
   const sortedSkills = useMemo(() => sortByTierDesc(skills), [skills]);
+
+  if (!qualification) return null;
+
   const isColdStart = qualification.tier == null;
 
   return (
