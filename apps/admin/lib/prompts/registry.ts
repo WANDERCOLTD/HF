@@ -268,24 +268,27 @@ Rules:
 6. Target 3-5 modules for most courses. Only create more when the content volume genuinely demands it (e.g. 100+ student-facing assertions across very different topics). Prefer fewer, richer modules over more, thinner ones.
 
 LEARNING OUTCOMES — STRICT FORMAT
-Each learning outcome MUST be a single string in the EXACT format: "LOn: full descriptive sentence"
-  - "LOn" is the structured ref (LO1, LO2, LO3, ...)
+Each learning outcome MUST be a single string in the EXACT format: "{ref}: full descriptive sentence"
+  - "{ref}" is a module-scoped structured ref — see the LO NUMBERING block below
   - Followed by ": " (colon + space)
   - Followed by a COMPLETE descriptive sentence using measurable verbs (Identify, Explain, Analyse, Apply, Evaluate, Compare)
-  - The descriptive sentence must be a REAL learning outcome about the subject matter — NEVER the word "Identify..." or "LO1" or a placeholder
+  - The descriptive sentence must be a REAL learning outcome about the subject matter — NEVER the word "Identify..." or a placeholder
   - Minimum 5 words, maximum 30 words after the colon — always complete the sentence (never truncate mid-word)
   - If a concept needs more detail, prefer a precise short sentence over a long rambling one
-  - Wrong: "LO1" | "LO1:" | "LO1: Identify..." | "Character analysis"
-  - Right: "LO1: Identify the main themes and recurring motifs in a literary passage"
-  - Right: "LO2: Explain how sentence structure affects the reader's interpretation"
+  - Wrong: "LO1" | "LO1:" | "MOD-1-LO1: Identify..." | "Character analysis"
+  - Right: "MOD-1-LO1: Identify the main themes and recurring motifs in a literary passage"
+  - Right: "MOD-2-LO1: Explain how sentence structure affects the reader's interpretation"
 
-LO NUMBERING — GLOBAL UNIQUENESS (CRITICAL)
-Number learning outcomes sequentially across the ENTIRE curriculum, NOT per module.
-  - MOD-1's first LO is "LO1", MOD-1's last LO is the next integer (e.g. "LO3")
-  - MOD-2's first LO continues from where MOD-1 left off (e.g. "LO4")
-  - The ref namespace is globally unique — each "LOn" appears exactly once in the whole curriculum
-  - Wrong: MOD-1 has LO1/LO2/LO3, MOD-2 has LO1/LO2/LO3 (ref collision)
-  - Right: MOD-1 has LO1/LO2/LO3, MOD-2 has LO4/LO5/LO6 (continuous numbering)
+LO NUMBERING — MODULE-SCOPED UNIQUE REFS (CRITICAL)
+Refs MUST follow the format "{moduleSlug}-LO{N}" where N restarts at 1 per module.
+  - moduleSlug is the module's structured id (e.g. "MOD-1", "MOD-2", "part1", "unit-04")
+  - MOD-1's first LO is "MOD-1-LO1", MOD-1's last LO is "MOD-1-LO{n}" where n = number of LOs in MOD-1
+  - MOD-2's first LO is "MOD-2-LO1" (NOT continuous from MOD-1)
+  - The ref namespace is globally unique because the module prefix differs across modules
+  - NEVER emit a bare "LO\d+" ref (e.g. "LO1", "LO5") — the write-boundary guard rejects these as placeholders and the LO score is silently dropped (#1117)
+  - Wrong: MOD-1 has LO1/LO2/LO3, MOD-2 has LO1/LO2/LO3 (ref collision + placeholder pattern)
+  - Wrong: MOD-1 has LO1/LO2/LO3, MOD-2 has LO4/LO5/LO6 (still placeholder pattern even though unique)
+  - Right: MOD-1 has MOD-1-LO1/MOD-1-LO2/MOD-1-LO3, MOD-2 has MOD-2-LO1/MOD-2-LO2/MOD-2-LO3
 
 ASSERTION TAGGING (REQUIRED)
 Each input assertion was presented with a leading index in square brackets, e.g. [12] (chapter > section) [category] text.

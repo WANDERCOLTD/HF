@@ -23,6 +23,8 @@ import { getConfiguredMeteredAICompletion, logMockAIUsage } from "@/lib/metering
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { runAggregateSpecs } from "@/lib/pipeline/aggregate-runner";
+import { runProsodyStage } from "@/lib/pipeline/prosody-runner";
+import { applyProsodyContractToAggregate } from "@/lib/pipeline/prosody-consumer";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
@@ -3374,6 +3376,40 @@ const stageExecutors: Record<string, StageExecutor> = {
     };
   },
 
+  // PROSODY stage (#1119): Score the call's stereo recording via the
+  // configured SpeechAssessmentProvider. Emits a VOICE_PROSODY_V1
+  // contract envelope persisted to Call.voiceProsody. Failure modes
+  // (no recording, vendor error, timeout, no provider) encode as
+  // `mode: "unavailable"` rather than throwing — pipeline continues.
+  // AGGREGATE consumes the envelope and writes CallScore (IELTS mode)
+  // or BehaviorParameter deltas (general mode). PROSODY itself writes
+  // ZERO downstream rows. NOT added to parallelStages — sequential.
+  PROSODY: async (ctx, stage) => {
+    ctx.log.info(`Stage ${stage.name}: ${stage.description}`);
+    const result = await runProsodyStage({
+      callId: ctx.callId,
+      callerId: ctx.callerId,
+      force: ctx.force,
+    });
+    ctx.log.info("PROSODY stage complete", {
+      callId: ctx.callId,
+      mode: result.envelope.mode,
+      errorReason: result.envelope.errorReason,
+      vendorCalled: result.vendorCalled,
+      skippedReason: result.skippedReason,
+    });
+    return {
+      mode: result.envelope.mode,
+      vendorCalled: result.vendorCalled,
+      ...(result.envelope.errorReason
+        ? { errorReason: result.envelope.errorReason }
+        : {}),
+      ...(result.skippedReason
+        ? { skippedReason: result.skippedReason }
+        : {}),
+    };
+  },
+
   // SCORE_AGENT stage: Score agent behavior (batched)
   SCORE_AGENT: async (ctx, stage) => {
     ctx.log.info(`Stage ${stage.name}: ${stage.description}`);
@@ -3418,6 +3454,24 @@ const stageExecutors: Record<string, StageExecutor> = {
       profileUpdates: aggregateResult.profileUpdates,
       errors: aggregateResult.errors
     });
+
+    // 2.5. #1119 — Consume VOICE_PROSODY_V1 envelope written by the
+    // PROSODY stage earlier in the pipeline. Writes 4 IELTS skill
+    // CallScore rows (mode=ielts) or 2 general-mode CallScore rows
+    // (mode=general). No-op when mode=unavailable / envelope missing.
+    try {
+      const prosodyResult = await applyProsodyContractToAggregate(
+        ctx.callId,
+        ctx.callerId,
+      );
+      ctx.log.info("Prosody aggregate applied", prosodyResult);
+    } catch (prosodyErr) {
+      // Non-fatal — log and continue. Prosody is a nice-to-have signal;
+      // the other AGGREGATE work must complete regardless.
+      ctx.log.warn(
+        `Prosody aggregate failed (non-fatal): ${prosodyErr instanceof Error ? prosodyErr.message : String(prosodyErr)}`,
+      );
+    }
 
     // 3. #491 Slice 1.3 + 1.4 — increment CallerModuleProgress.callCount for
     // every module credited by this call. Slice 1.3 credited only the bound

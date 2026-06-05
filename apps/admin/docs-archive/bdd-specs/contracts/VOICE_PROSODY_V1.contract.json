@@ -1,0 +1,87 @@
+{
+  "contractId": "VOICE_PROSODY_V1",
+  "version": "1.0",
+  "status": "active",
+  "description": "Normalised voice-prosody features emitted by the PROSODY pipeline stage (#1119). Consumed by AGGREGATE — general signals → BehaviorParameter deltas (CONV_PACE, pace_indicators); IELTS signals → CallScore rows on the 4 IELTS speaking skill parameters. Also available for ADAPT / COMPOSE downstream readers via the registry.",
+
+  "appliesTo": {
+    "specRoles": ["AGGREGATE", "ADAPT", "COMPOSE"],
+    "domains": ["voice", "scoring", "ielts", "prosody"]
+  },
+
+  "storage": {
+    "keyPattern": "Call.voiceProsody",
+    "description": "Persisted on Call.voiceProsody as the forensic receipt. The live pipeline signal is this contract envelope; the column is the audit trail."
+  },
+
+  "dataSchema": {
+    "mode": {
+      "type": "string",
+      "description": "Scoring mode used by the vendor — drives downstream consumption.",
+      "enum": ["ielts", "general", "unavailable"],
+      "required": true
+    },
+    "ieltsScores": {
+      "type": "object",
+      "description": "IELTS Speaking band scores (0.0–9.0). Only present when mode === 'ielts'. Sub-scores map to skill_fluency_and_coherence_fc, skill_lexical_resource_lr, skill_grammatical_range_and_accuracy_gra, skill_pronunciation_p when AGGREGATE writes CallScore rows.",
+      "required": false
+    },
+    "generalSignals": {
+      "type": "object",
+      "description": "Generic voice signals not tied to an IELTS rubric — only present when mode === 'general'. paceWpm → CONV_PACE, hesitationRate → pace_indicators. confidenceProxy is emitted but has no BehaviorParameter consumer in #1119 (needs a learner-facing parameter to land first).",
+      "required": false
+    },
+    "errorReason": {
+      "type": "string",
+      "description": "Only present when mode === 'unavailable'. Distinguishes the failure mode so downstream stages can decide whether to retry, log, or silently skip.",
+      "enum": ["no_recording", "vendor_error", "vendor_timeout", "no_provider_configured"],
+      "required": false
+    },
+    "rawVendor": {
+      "type": "object",
+      "description": "Unmodified vendor response. Forensic only — never read in shared code (promote to a canonical field if any consumer beyond a one-off needs it).",
+      "required": false
+    }
+  },
+
+  "thresholds": {
+    "vendorTimeoutMsDefault": 30000,
+    "description": "Timeout budget for the vendor scoring call. Override per-installation via VoiceSystemSettings.vendorTimeoutMs. 30s leaves headroom inside Cloud Run's 60s request budget."
+  },
+
+  "config": {
+    "notes": [
+      "PROSODY produces this contract — fetches Call.stereoRecordingUrl, calls the configured SpeechAssessmentProvider, normalises the vendor response, persists to Call.voiceProsody, emits the contract.",
+      "AGGREGATE consumes this contract — writes 4 CallScore rows for IELTS skill parameters (mode==='ielts') OR BehaviorParameter deltas on CONV_PACE + pace_indicators (mode==='general'). mode==='unavailable' → AGGREGATE skips all prosody-dependent writes.",
+      "Idempotency: if Call.voiceProsody is already populated AND the pipeline isn't running with force=true, PROSODY returns the existing contract WITHOUT calling the vendor. Guards against per-minute re-payment on admin 'rerun' clicks.",
+      "Sim-safe: Call.stereoRecordingUrl === null → mode === 'unavailable', errorReason === 'no_recording', pipeline continues normally.",
+      "Failure modes do NOT abort the pipeline. Vendor 5xx → mode === 'unavailable', errorReason === 'vendor_error'. Vendor timeout → errorReason === 'vendor_timeout'. AGGREGATE skips prosody writes; other stages run unaffected."
+    ],
+    "examples": [
+      {
+        "mode": "ielts",
+        "ieltsScores": {
+          "overall": 6.5,
+          "fluencyCoherence": 6.0,
+          "pronunciation": 7.0,
+          "lexicalResource": 6.5,
+          "grammaticalRange": 6.5
+        }
+      },
+      {
+        "mode": "general",
+        "generalSignals": {
+          "paceWpm": 130,
+          "hesitationRate": 0.18,
+          "meanEnergyDb": -22.4,
+          "pitchRangeHz": 84,
+          "confidenceProxy": 0.72
+        }
+      },
+      {
+        "mode": "unavailable",
+        "errorReason": "no_recording"
+      }
+    ]
+  }
+}
