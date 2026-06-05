@@ -167,7 +167,11 @@ export class VapiProvider implements VoiceProvider {
   }
 
   normaliseToolCallList(body: unknown): NormalisedToolCallBatch {
-    const empty: NormalisedToolCallBatch = { toolCalls: [], customerPhone: null };
+    const empty: NormalisedToolCallBatch = {
+      toolCalls: [],
+      customerPhone: null,
+      externalCallId: null,
+    };
     if (!body || typeof body !== "object") return empty;
     const root = body as Record<string, unknown>;
     const message = (root.message ?? root) as Record<string, unknown>;
@@ -180,6 +184,15 @@ export class VapiProvider implements VoiceProvider {
     const call = (message.call ?? root.call) as Record<string, unknown> | undefined;
     const customer = call?.customer as Record<string, unknown> | undefined;
     const customerPhone = (customer?.number as string | undefined) ?? null;
+    // #1092 — externalCallId threading for rail routing. The webhook
+    // route resolves this to a local Call.id via findFirst({externalId,
+    // source: slug}) so the SSE registry can answer "chat surface open?"
+    // for share_content / send_text / request_artifact dispatch.
+    const externalCallId =
+      (call?.id as string | undefined) ??
+      (call?.callId as string | undefined) ??
+      (call?.call_id as string | undefined) ??
+      null;
 
     const toolCalls: NormalisedToolCall[] = [];
     for (const raw of rawList) {
@@ -206,7 +219,7 @@ export class VapiProvider implements VoiceProvider {
       toolCalls.push({ toolCallId, funcName, args });
     }
 
-    return { toolCalls, customerPhone };
+    return { toolCalls, customerPhone, externalCallId };
   }
 
   parseKnowledgeBaseRequest(body: unknown): KnowledgeBaseRequest | null {

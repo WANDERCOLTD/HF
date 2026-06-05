@@ -55,6 +55,7 @@ import type {
 } from "@/lib/voice/types";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
+import { broadcastToCall } from "@/lib/voice/sse-registry";
 
 /** Extract a human-readable message from a caught unknown-typed value. */
 function errorMessage(e: unknown): string {
@@ -144,6 +145,26 @@ export async function handleVoiceWebhookPost(
         });
       });
       endSpan({ metadata: { kind: "status-update" } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // #1092 — incremental transcript broadcast. VAPI fires both
+    // `conversation-update` (full transcript so far) and
+    // `transcript` (partial chunks). Either shape carries enough
+    // for the chat surface to show the running conversation. Broadcast
+    // via setImmediate so the webhook response stays inside VAPI's
+    // ack budget.
+    const transcriptUpdate = parseTranscriptUpdate(body, slug);
+    if (transcriptUpdate) {
+      setImmediate(() => {
+        processTranscriptUpdate(transcriptUpdate, slug).catch((err) => {
+          console.error(
+            `[voice/${slug}/webhook] transcript broadcast failed:`,
+            err,
+          );
+        });
+      });
+      endSpan({ metadata: { kind: "transcript-update" } });
       return NextResponse.json({ ok: true });
     }
 
@@ -259,6 +280,85 @@ async function processStatusUpdate(
 export function _resetTrickleState(): void {
   _lastCumulativeUsdByCallId.clear();
   _endingCalls.clear();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Transcript broadcast (#1092)
+// ═══════════════════════════════════════════════════════════════════
+
+interface ParsedTranscriptUpdate {
+  externalCallId: string;
+  role: "learner" | "assistant";
+  text: string;
+}
+
+/**
+ * Parse VAPI's `conversation-update` / `transcript` event into a
+ * normalised shape. Returns null when the event isn't a transcript or
+ * carries no incremental text. Retell support arrives with the WSS
+ * route in a follow-up story; for now this is VAPI-shaped.
+ */
+function parseTranscriptUpdate(
+  body: unknown,
+  slug: string,
+): ParsedTranscriptUpdate | null {
+  if (slug !== "vapi") return null;
+  if (!body || typeof body !== "object") return null;
+  const root = body as Record<string, unknown>;
+  const message = (root.message ?? root) as Record<string, unknown>;
+  const type = (message.type ?? root.type) as string | undefined;
+  if (type !== "transcript" && type !== "conversation-update") return null;
+
+  const call = (message.call ?? root.call) as
+    | Record<string, unknown>
+    | undefined;
+  const externalCallId =
+    (call?.id as string | undefined) ??
+    (call?.callId as string | undefined) ??
+    (call?.call_id as string | undefined);
+  if (!externalCallId) return null;
+
+  // VAPI's `transcript` event shape: { type: "transcript",
+  // transcript: "...", role: "user"|"assistant", transcriptType: ... }
+  const rawText =
+    (message.transcript as string | undefined) ??
+    (message.text as string | undefined) ??
+    "";
+  if (!rawText) return null;
+
+  const rawRole = (message.role as string | undefined) ?? "user";
+  const role: "learner" | "assistant" =
+    rawRole === "assistant" ? "assistant" : "learner";
+
+  return { externalCallId, role, text: rawText };
+}
+
+async function processTranscriptUpdate(
+  parsed: ParsedTranscriptUpdate,
+  slug: string,
+): Promise<void> {
+  const callRow = await prisma.call.findFirst({
+    where: { externalId: parsed.externalCallId, source: slug },
+    select: { id: true, callerId: true },
+  });
+  if (!callRow) return;
+
+  await broadcastToCall({
+    type: "transcript-partial",
+    callId: callRow.id,
+    role: parsed.role,
+    text: parsed.text,
+    timestampMs: Date.now(),
+  });
+
+  logVoiceEvent({
+    slug,
+    operation: `voice:${slug}:webhook:transcript-update`,
+    durationMs: 0,
+    callId: callRow.id,
+    callerId: callRow.callerId,
+    metadata: { role: parsed.role, chars: parsed.text.length },
+  });
 }
 
 async function handleEndOfCallEvent(
@@ -389,6 +489,22 @@ async function handleEndOfCallEvent(
       (callerId ? ` for caller ${callerId}` : ""),
   );
 
+  // #1092 — broadcast call-ended so any subscribed chat surface can
+  // tear down the SSE / change its UI. Fire-and-forget so the webhook
+  // response stays inside VAPI's ack budget.
+  broadcastToCall({
+    type: "call-ended",
+    callId: newCall.id,
+    reason: capture.endedReason ?? null,
+    totalDurationMs:
+      typeof capture.durationSeconds === "number"
+        ? Math.round(capture.durationSeconds * 1000)
+        : null,
+    timestampMs: Date.now(),
+  }).catch((err) =>
+    console.warn(`[voice/${slug}/webhook] call-ended broadcast failed:`, err),
+  );
+
   // Pipeline gating per #1079: skip on bare "basic" — analysis will
   // arrive later and fire the pipeline against the merged row.
   if (eventKind !== "basic") {
@@ -480,7 +596,8 @@ export async function handleVoiceToolsPost(
       );
     }
 
-    const { toolCalls, customerPhone } = provider.normaliseToolCallList(body);
+    const { toolCalls, customerPhone, externalCallId } =
+      provider.normaliseToolCallList(body);
 
     let callerId: string | null = null;
     if (customerPhone) {
@@ -491,19 +608,39 @@ export async function handleVoiceToolsPost(
       callerId = caller?.id || null;
     }
 
+    // #1092 — resolve local Call.id from the provider's externalCallId
+    // so the rail router can check the SSE subscriber registry.
+    // Scoped by source=slug per the merge invariant in #1079 (externalId
+    // is indexed but not unique; two providers could share a value).
+    let callId: string | null = null;
+    if (externalCallId) {
+      const callRow = await prisma.call.findFirst({
+        where: { externalId: externalCallId, source: slug },
+        select: { id: true },
+      });
+      callId = callRow?.id ?? null;
+    }
+
     const results = [];
     for (const toolCall of toolCalls) {
       const toolStart = Date.now();
-      const out = await routeToolCall(toolCall, { callerId, customerPhone });
+      const out = await routeToolCall(toolCall, {
+        callerId,
+        customerPhone,
+        callId,
+        voiceProviderSlug: slug,
+      });
       const actualMs = Date.now() - toolStart;
       logVoiceEvent({
         slug,
         operation: `voice:${slug}:tool:${toolCall.funcName}`,
         durationMs: actualMs,
         callerId,
+        callId,
         metadata: {
           actualMs,
           toolCallId: toolCall.toolCallId,
+          rail: out.rail ?? "inline",
           // budgetExceeded flag wired in once TOOLS-001 entries
           // carry maxLatencyMs (#1080 acceptance criterion).
         },
