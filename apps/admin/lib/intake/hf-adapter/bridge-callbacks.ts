@@ -68,7 +68,7 @@ export const intentLister: BridgeIntentLister = {
     const rows = await prisma.$queryRaw<IntentSummaryRow[]>`
       SELECT id, key, state, created_at, updated_at
       FROM tallyseal_intent
-      WHERE ${Prisma.join(conditions, Prisma.sql` AND `)}
+      WHERE ${Prisma.join(conditions, " AND ")}
       ORDER BY updated_at DESC
       LIMIT ${cap}
     `;
