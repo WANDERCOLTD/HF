@@ -14696,6 +14696,67 @@ Shared voice provider webhook endpoint (AnyVoice #1079).
 
 ---
 
+### `GET` /api/voice/calls/[callId]/stream
+
+Server-Sent Events stream for a live provider call (#1092).
+
+**Auth**: session ANY (STUDENT scoped to own caller via learner-scope) · **Scope**: `voice:calls:stream`
+
+**Response** `200`
+```json
+(event-stream)
+```
+
+**Response** `401`
+```json
+(unauthenticated)
+```
+
+**Response** `403`
+```json
+(STUDENT subscribing to another caller's call)
+```
+
+**Response** `404`
+```json
+(Call not found)
+```
+
+---
+
+### `POST` /api/voice/calls/start
+
+Start a provider call (#1092). Resolves the active voice
+
+**Auth**: session ANY · **Scope**: `voice:calls:start`
+
+**Response** `200`
+```json
+{
+```
+
+**Response** `400`
+```json
+{ ok: false, error: zod issues }
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "No learner profile" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+---
+
 ### `GET` /api/voice/costs
 
 Returns voice-call cost rollups for a chosen scope. Reads
@@ -14948,8 +15009,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 479 |
-| Files with annotations | 470 |
+| Route files found | 481 |
+| Files with annotations | 472 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 

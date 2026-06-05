@@ -121,6 +121,23 @@ export class VapiProvider implements VoiceProvider {
       };
     }
 
+    // Cost-safety knobs (PR voice-cost-knobs). Without these VAPI's
+    // defaults can run a call for up to 10 minutes of silence and never
+    // catch a voicemail loop. We inject the system-settings values so
+    // the runaway-call exposure stays bounded regardless of caller
+    // behaviour. See VoiceSystemSettings + admin panel.
+    const knobs = ctx.costSafetyKnobs;
+    if (knobs) {
+      assistant.silenceTimeoutSeconds = knobs.silenceTimeoutSeconds;
+      assistant.maxDurationSeconds = knobs.maxDurationSeconds;
+      if (knobs.voicemailDetectionEnabled) {
+        assistant.voicemailDetectionEnabled = true;
+      }
+      if (knobs.endCallPhrases && knobs.endCallPhrases.length > 0) {
+        assistant.endCallPhrases = knobs.endCallPhrases;
+      }
+    }
+
     return { assistant };
   }
 

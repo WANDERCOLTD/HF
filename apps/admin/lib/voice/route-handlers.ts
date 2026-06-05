@@ -58,6 +58,10 @@ import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
 
+// `getVoiceSystemSettings` is imported for the existing cost-cap
+// trickle below AND for the assistant-request handler's cost-safety
+// knobs (PR voice-cost-knobs).
+
 /** Extract a human-readable message from a caught unknown-typed value. */
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -726,8 +730,17 @@ export async function handleVoiceAssistantRequestPost(
     }
 
     const vs = await getVoiceCallSettings();
+    const sys = await getVoiceSystemSettings();
     const serverUrlBase = `${config.app.url}/api/voice/${slug}`;
     const enabledTools = await loadToolDefinitions();
+    // Per-call cost-safety knobs (PR voice-cost-knobs) — same for every
+    // call regardless of which fallback branch we hit below.
+    const costSafetyKnobs = {
+      silenceTimeoutSeconds: sys.silenceTimeoutSeconds,
+      maxDurationSeconds: sys.maxDurationSeconds,
+      voicemailDetectionEnabled: sys.voicemailDetectionEnabled,
+      endCallPhrases: sys.endCallPhrases,
+    };
 
     const normalizedPhone = customerPhone.replace(/\s+/g, "");
     const caller = await prisma.caller.findFirst({
@@ -749,6 +762,7 @@ export async function handleVoiceAssistantRequestPost(
           modelConfig: { provider: vs.provider, model: vs.model },
           unknownCallerPrompt: vs.unknownCallerPrompt,
           noActivePromptFallback: vs.noActivePromptFallback,
+          costSafetyKnobs,
         }),
       );
     }
@@ -793,6 +807,7 @@ export async function handleVoiceAssistantRequestPost(
           modelConfig: { provider: vs.provider, model: vs.model },
           unknownCallerPrompt: vs.unknownCallerPrompt,
           noActivePromptFallback: vs.noActivePromptFallback,
+          costSafetyKnobs,
         }),
       );
     }
@@ -831,6 +846,7 @@ export async function handleVoiceAssistantRequestPost(
         modelConfig: { provider: vs.provider, model: vs.model },
         unknownCallerPrompt: vs.unknownCallerPrompt,
         noActivePromptFallback: vs.noActivePromptFallback,
+        costSafetyKnobs,
       }),
     );
     endSpan({

@@ -4648,6 +4648,16 @@ model VoiceSystemSettings {
   maxCostPerCallUsd      Float?
   auditRetentionDays     Int      @default(90)
   defaultProviderSlug    String   @default("")
+
+  // Per-call cost-safety knobs injected into the inline assistant config
+  // built for both Web SDK and PSTN calls. Defaults reflect safe values
+  // — operators can tighten via /x/settings/voice-providers/[id] without
+  // a code deploy. See lib/voice/providers/vapi/index.ts::buildAssistantConfig.
+  silenceTimeoutSeconds    Int      @default(30)
+  maxDurationSeconds       Int      @default(600)
+  voicemailDetectionEnabled Boolean @default(true)
+  endCallPhrases           String[] @default(["goodbye", "bye", "talk to you later", "see you later", "have a nice day"])
+
   updatedAt              DateTime @updatedAt
   createdAt              DateTime @default(now())
 }
