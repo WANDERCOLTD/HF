@@ -907,6 +907,9 @@ model Caller {
   // CallerIdentities (phone numbers, etc.) linked to this caller
   callerIdentities CallerIdentity[]
 
+  // First-call PIN identity challenges (#1101 — continuity attestation)
+  identityChallenges CallerIdentityChallenge[]
+
   // AI-composed prompts for this caller
   composedPrompts ComposedPrompt[]
 
@@ -3223,6 +3226,47 @@ model CallerIdentity {
   @@index([callerId])
   @@index([externalId])
   @@index([segmentId])
+}
+
+// =========================
+// CALLER IDENTITY CHALLENGE (#1101 — continuity attestation, slice 1)
+// =========================
+// One row per PIN challenge issued to a learner. Created at enrolment
+// (initial issuance, resendCount = 0). Resends increment resendCount and
+// invalidate prior unverified challenges for the same caller. Verification
+// stamps verifiedAt; lockout stamps lockedAt after 5 failed attempts in a
+// 24h window. See .claude/rules/ai-to-db-guard.md and issue #1101.
+model CallerIdentityChallenge {
+  id       String @id @default(uuid())
+  callerId String
+  caller   Caller @relation(fields: [callerId], references: [id], onDelete: Cascade)
+
+  // PIN material — hashed (bcrypt). Plaintext never stored.
+  pinHash String
+
+  // Delivery channel — "email" today; "sms" stubbed for slice 2.
+  channel   String   @default("email")
+  recipient String // email address or phone number used at issuance
+
+  // Issuance + lifecycle timestamps
+  issuedAt  DateTime  @default(now())
+  expiresAt DateTime // issuedAt + 24h (configurable via lib/config.ts)
+
+  // Verification
+  verifiedAt DateTime? // null = unverified
+
+  // Failed-attempt tracking — 5 in any 24h window triggers lockout
+  attemptCount Int       @default(0)
+  lockedAt     DateTime? // admin unlock clears both lockedAt AND attemptCount
+
+  // Resend audit — initial issuance has resendCount = 0; each resend
+  // increments and updates lastResentAt. Cap query at /api/identity/resend-pin
+  // counts rows with resendCount > 0 in the last 24h (max 3).
+  resendCount  Int       @default(0)
+  lastResentAt DateTime?
+
+  @@index([callerId, issuedAt])
+  @@index([callerId, verifiedAt])
 }
 
 // =========================

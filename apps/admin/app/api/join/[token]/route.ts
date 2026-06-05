@@ -7,6 +7,7 @@ import { enrollCaller, enrollCallerInCohortPlaybooks } from "@/lib/enrollment";
 import { applySkipOnboarding } from "@/lib/enrollment/skip-onboarding";
 import { mintAndSetSessionCookie } from "@/lib/auth-session-cookie";
 import { ROLE_LEVEL } from "@/lib/roles";
+import { issueFirstCallPin } from "@/lib/identity/issue-pin";
 import type { UserRole } from "@prisma/client";
 
 const SESSION_COOKIE_NAMES = [
@@ -293,6 +294,14 @@ export async function POST(
       await applySkipOnboarding(newCaller.id, cohort.domainId);
     }
 
+    // Issue first-call PIN (#1101). Best-effort — SMTP failure won't roll
+    // back the Caller; the learner can request a resend on the sim page.
+    await issueFirstCallPin({
+      callerId: newCaller.id,
+      email: email.trim().toLowerCase(),
+      firstName: firstName.trim(),
+    });
+
     const existingResponse = NextResponse.json({
       ok: true,
       message: "Joined classroom",
@@ -376,6 +385,14 @@ export async function POST(
   if (skipOnboarding && cohort.domainId) {
     await applySkipOnboarding(result.newCallerId, cohort.domainId);
   }
+
+  // Issue first-call PIN (#1101). Outside the transaction by design — SMTP
+  // failure must not roll back the user+caller create. TL review note.
+  await issueFirstCallPin({
+    callerId: result.newCallerId,
+    email: email.trim().toLowerCase(),
+    firstName: firstName.trim(),
+  });
 
   const response = NextResponse.json({
     ok: true,
