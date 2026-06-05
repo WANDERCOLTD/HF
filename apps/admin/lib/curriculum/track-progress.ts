@@ -272,13 +272,29 @@ export async function updateCurriculumProgress(
         }
       }
 
-      for (const [loRef, score] of Object.entries(updates.loMastery.outcomes)) {
-        if (allowedLoRefs && !allowedLoRefs.has(loRef)) {
-          console.warn(
-            `[track-progress] #1117 — refusing lo_mastery write: AI returned ref "${loRef}" not in catalog for module ${canonicalModuleId} (curriculum ${updates.curriculumId}). ${allowedLoRefs.size} valid refs known.`,
-          );
-          continue;
-        }
+      // #1117 follow-up — validate per-LO outcomes at the write boundary, not
+      // just inside `updateModuleMastery` further down. This applies both
+      // guards in one pass:
+      //   - Placeholder `/^LO\d+$/` refs are rejected (#403 — these are what
+      //     the AI returns when it doesn't recognise the LO list as real
+      //     refs; #558 fallback would otherwise synthesise zero-score rows
+      //     against the placeholders, polluting CallerAttribute).
+      //   - Refs not in the resolved module's catalog are rejected (#1117).
+      // Both surfaces converge through `validateLoScores`.
+      const { filtered: filteredOutcomes, rejected: rejectedRefs } =
+        validateLoScores(updates.loMastery.outcomes, allowedLoRefs ?? undefined);
+      if (rejectedRefs.length > 0) {
+        console.warn(
+          `[track-progress] #1117 — rejected ${rejectedRefs.length} LO ref(s) for module ${canonicalModuleId}`,
+          {
+            curriculumId: updates.curriculumId ?? null,
+            rejected: rejectedRefs,
+            catalogSize: allowedLoRefs?.size ?? null,
+          },
+        );
+      }
+
+      for (const [loRef, score] of Object.entries(filteredOutcomes)) {
         const key = await buildStorageKey(specSlug, 'loMastery', canonicalModuleId, loRef);
 
         // AC11 — useFreshMastery routes per-LO mastery into Call.scratchMastery.

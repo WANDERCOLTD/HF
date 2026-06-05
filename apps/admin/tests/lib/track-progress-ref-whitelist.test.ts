@@ -181,4 +181,27 @@ describe("updateCurriculumProgress — per-LO write filters AI-hallucinated refs
     // Both refs written.
     expect(prismaMock.callerAttribute.upsert).toHaveBeenCalledTimes(2);
   });
+
+  it("#1117 follow-up — placeholder LO\\d+ refs rejected at write boundary even without curriculumId", async () => {
+    prismaMock.callerAttribute.findUnique.mockResolvedValue(null);
+    prismaMock.callerAttribute.upsert.mockResolvedValue({});
+
+    await mod.updateCurriculumProgress("caller-1", "spec-y", {
+      loMastery: {
+        moduleId: "module-y",
+        outcomes: {
+          LO1: 0.0,
+          LO2: 0.0,
+          "REAL-REF": 0.6,
+        },
+      },
+      callId: "call-3",
+      // No curriculumId — but the LO\d+ placeholder check still fires.
+    });
+
+    // Only the real ref was upserted; LO1 / LO2 placeholder refs rejected.
+    expect(prismaMock.callerAttribute.upsert).toHaveBeenCalledTimes(1);
+    const call = prismaMock.callerAttribute.upsert.mock.calls[0][0];
+    expect(call.where.callerId_key_scope.key).toContain(":lo_mastery:module-y:REAL-REF");
+  });
 });
