@@ -34,6 +34,11 @@ const patchSchema = z
     maxCostPerCallUsd: z.number().positive().nullable().optional(),
     auditRetentionDays: z.number().int().positive().max(3650).optional(),
     defaultProviderSlug: z.string().max(64).optional(),
+    // Cost-safety knobs (PR voice-cost-knobs)
+    silenceTimeoutSeconds: z.number().int().min(5).max(600).optional(),
+    maxDurationSeconds: z.number().int().min(30).max(7200).optional(),
+    voicemailDetectionEnabled: z.boolean().optional(),
+    endCallPhrases: z.array(z.string().min(1).max(80)).max(20).optional(),
   })
   .strict();
 

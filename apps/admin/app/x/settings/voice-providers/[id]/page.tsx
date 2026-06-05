@@ -53,6 +53,11 @@ interface SystemSettings {
   maxCostPerCallUsd: number | null;
   auditRetentionDays: number;
   defaultProviderSlug: string;
+  // PR voice-cost-knobs — per-call cost-safety knobs
+  silenceTimeoutSeconds: number;
+  maxDurationSeconds: number;
+  voicemailDetectionEnabled: boolean;
+  endCallPhrases: string[];
 }
 
 export default function VoiceProviderEditPage() {
@@ -346,6 +351,95 @@ export default function VoiceProviderEditPage() {
           />
           <p className="hf-section-desc">
             Fallback when <code>Caller.voiceProvider</code> is null AND no row is marked default.
+          </p>
+
+          {/* Cost-safety knobs — applied to every call via the inline
+              assistant config so runaway / silent / voicemail loops
+              can't burn the per-minute budget. PR voice-cost-knobs. */}
+          <h3 className="hf-section-title">Cost safety</h3>
+
+          <label className="hf-label" htmlFor="silenceTimeoutSeconds">
+            Silence timeout (seconds)
+          </label>
+          <input
+            id="silenceTimeoutSeconds"
+            className="hf-input"
+            type="number"
+            min="5"
+            max="600"
+            step="1"
+            value={String(systemSettings.silenceTimeoutSeconds)}
+            onChange={(e) =>
+              setSystemSettings({
+                ...systemSettings,
+                silenceTimeoutSeconds: Number(e.target.value),
+              })
+            }
+          />
+          <p className="hf-section-desc">
+            Hang up after this many seconds of silence. VAPI default 30; tighten if learners walk away.
+          </p>
+
+          <label className="hf-label" htmlFor="maxDurationSeconds">
+            Max call duration (seconds)
+          </label>
+          <input
+            id="maxDurationSeconds"
+            className="hf-input"
+            type="number"
+            min="30"
+            max="7200"
+            step="1"
+            value={String(systemSettings.maxDurationSeconds)}
+            onChange={(e) =>
+              setSystemSettings({
+                ...systemSettings,
+                maxDurationSeconds: Number(e.target.value),
+              })
+            }
+          />
+          <p className="hf-section-desc">
+            Absolute ceiling per call. VAPI default 600 (10 min). Combine with the cost cap above.
+          </p>
+
+          <label className="hf-label" htmlFor="voicemailDetectionEnabled">
+            <input
+              id="voicemailDetectionEnabled"
+              type="checkbox"
+              checked={systemSettings.voicemailDetectionEnabled}
+              onChange={(e) =>
+                setSystemSettings({
+                  ...systemSettings,
+                  voicemailDetectionEnabled: e.target.checked,
+                })
+              }
+            />{" "}
+            Voicemail detection
+          </label>
+          <p className="hf-section-desc">
+            When the AI dials and gets voicemail, end the call instead of talking to the recording.
+          </p>
+
+          <label className="hf-label" htmlFor="endCallPhrases">
+            End-call phrases (comma-separated)
+          </label>
+          <input
+            id="endCallPhrases"
+            className="hf-input"
+            type="text"
+            value={systemSettings.endCallPhrases.join(", ")}
+            onChange={(e) =>
+              setSystemSettings({
+                ...systemSettings,
+                endCallPhrases: e.target.value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter((s) => s.length > 0),
+              })
+            }
+          />
+          <p className="hf-section-desc">
+            When the AI says any of these, VAPI ends the call. Lets the AI terminate naturally instead of needing a tool call.
           </p>
 
           <button

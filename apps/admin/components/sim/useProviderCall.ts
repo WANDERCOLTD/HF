@@ -44,6 +44,10 @@ interface ProviderCallStartResponse {
     sdk: "vapi" | "retell";
     publicKey?: string;
     callerName?: string | null;
+    /** Inline assistant config built server-side (PR voice-cost-knobs).
+     *  Web SDK consumes this directly via vapi.start(assistantConfig)
+     *  — no assistant-request webhook involved on the WebRTC path. */
+    assistantConfig?: Record<string, unknown>;
   };
   expiresAt?: string;
   error?: string;
@@ -197,12 +201,22 @@ export function useProviderCall(
           on: (event: string, cb: (...args: unknown[]) => void) => void;
         };
         sdkRef.current = vapi;
-        // For the in-flight call, the assistant config will come from
-        // /api/voice/vapi/assistant-request which the VAPI dashboard
-        // server-URL has been pointed at. We start with an empty
-        // assistant id — the dashboard's "Server URL Assistant" hands
-        // back our config.
-        await vapi.start({});
+        // Path B (PR voice-cost-knobs): HF built the full assistant
+        // config server-side and we pass it inline. The Web SDK does
+        // NOT trigger our /api/voice/vapi/assistant-request webhook —
+        // that's only for PSTN dial-in. So inline is mandatory.
+        const assistantConfig = body.webrtcConfig.assistantConfig;
+        if (!assistantConfig) {
+          throw new Error(
+            "Server did not return an inline assistant config. The Web SDK can't start without one.",
+          );
+        }
+        // Our builder returns `{ assistant: {...} }`; the Web SDK
+        // accepts the inner assistant object. Strip the envelope.
+        const inlineAssistant =
+          (assistantConfig as { assistant?: Record<string, unknown> })
+            .assistant ?? assistantConfig;
+        await vapi.start(inlineAssistant);
         setStatus("active");
 
         vapi.on("call-end", () => {

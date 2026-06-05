@@ -27,6 +27,14 @@ export interface VoiceSystemSettings {
   /** Fallback when Caller.voiceProvider is null AND no row has
    *  isDefault: true. Empty string disables the fallback. */
   defaultProviderSlug: string;
+  /** Per-call cost-safety knobs injected into the VAPI assistant config
+   *  (PR voice-cost-knobs). VAPI's defaults can run a call for up to 10
+   *  minutes of silence if undetected; tightening these in code stops
+   *  runaway calls from burning the per-minute budget. */
+  silenceTimeoutSeconds: number;
+  maxDurationSeconds: number;
+  voicemailDetectionEnabled: boolean;
+  endCallPhrases: string[];
 }
 
 export const VOICE_SYSTEM_DEFAULTS: VoiceSystemSettings = {
@@ -34,6 +42,16 @@ export const VOICE_SYSTEM_DEFAULTS: VoiceSystemSettings = {
   maxCostPerCallUsd: null,
   auditRetentionDays: 90,
   defaultProviderSlug: "",
+  silenceTimeoutSeconds: 30,
+  maxDurationSeconds: 600,
+  voicemailDetectionEnabled: true,
+  endCallPhrases: [
+    "goodbye",
+    "bye",
+    "talk to you later",
+    "see you later",
+    "have a nice day",
+  ],
 };
 
 const SINGLETON_ID = "singleton";
@@ -55,6 +73,10 @@ function rowToSettings(
     maxCostPerCallUsd: row.maxCostPerCallUsd,
     auditRetentionDays: row.auditRetentionDays,
     defaultProviderSlug: row.defaultProviderSlug,
+    silenceTimeoutSeconds: row.silenceTimeoutSeconds,
+    maxDurationSeconds: row.maxDurationSeconds,
+    voicemailDetectionEnabled: row.voicemailDetectionEnabled,
+    endCallPhrases: row.endCallPhrases,
   };
 }
 

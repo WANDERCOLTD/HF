@@ -58,6 +58,17 @@ export interface AssistantRequestContext {
   /** Fallback prompt when caller is known but no active ComposedPrompt
    *  exists (e.g. wizard-stage caller without a composed prompt yet). */
   noActivePromptFallback: string;
+  /** Per-call cost-safety knobs sourced from `VoiceSystemSettings`
+   *  (PR voice-cost-knobs). The adapter weaves these into the inline
+   *  assistant config so a hung call dies on silence, voicemail loops
+   *  end before chewing minutes, and the AI can self-terminate by
+   *  recognising a goodbye phrase. */
+  costSafetyKnobs?: {
+    silenceTimeoutSeconds: number;
+    maxDurationSeconds: number;
+    voicemailDetectionEnabled: boolean;
+    endCallPhrases: string[];
+  };
 }
 
 /** Provider tool shape — OpenAI function-call format (the lingua franca). */

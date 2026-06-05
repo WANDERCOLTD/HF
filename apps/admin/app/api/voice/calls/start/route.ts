@@ -10,6 +10,7 @@ import {
   resolveVoiceProviderForCaller,
 } from "@/lib/voice/resolve-voice-provider";
 import { startVoiceSpan } from "@/lib/voice/telemetry";
+import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
 
 export const runtime = "nodejs";
 
@@ -181,6 +182,19 @@ export async function POST(request: Request) {
           ? "retell"
           : "vapi";
 
+    // Path B: build the full inline assistant config server-side and
+    // hand it to the browser. The Web SDK doesn't trigger our
+    // assistant-request webhook — it expects an inline config — so the
+    // browser passes this object straight to vapi.start(assistantConfig).
+    // Includes cost-safety knobs from VoiceSystemSettings (silence
+    // timeout, max duration, voicemail detection, end-call phrases).
+    const built = await buildAssistantConfigForCaller({
+      callerId: caller.id,
+      slug: providerRow.slug,
+      intent: parsed.data.intent,
+      callIdForRuntime: placeholderCall.id,
+    });
+
     const response = NextResponse.json({
       ok: true,
       callId: placeholderCall.id,
@@ -190,11 +204,11 @@ export async function POST(request: Request) {
       webrtcConfig: {
         sdk,
         publicKey,
-        // The Vapi Web SDK can take an assistantId or an in-line
-        // assistant override. For our model the prompt is per-caller
-        // and resolved at the provider's `assistant-request` webhook,
-        // so the SDK only needs the publicKey + caller metadata.
         callerName: caller.name,
+        // Inline assistant config — Web SDK consumes this directly.
+        // PSTN dial-in uses the assistant-request webhook instead;
+        // both paths share the same builder so behaviour is identical.
+        assistantConfig: built.assistantConfig,
       },
       expiresAt,
     });
