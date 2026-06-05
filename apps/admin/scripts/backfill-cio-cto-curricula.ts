@@ -1,40 +1,58 @@
 /**
- * Backfill — mirror the Revision Aid Curriculum onto Pop Quiz + Exam Assessment
+ * Backfill — LINK the Revision Aid Curriculum onto Pop Quiz + Exam Assessment
  * Playbooks for the CIO/CTO Standard pilot.
  *
  * Why this script exists
  * ----------------------
  * The CIO/CTO Standard pilot has three Playbooks but only ONE has a Curriculum
- * wired (Revision Aid). Mastery is keyed `lo_mastery:{moduleSlug}:{loRef}` per
- * `.claude/rules/ai-to-db-guard.md` (#611 / #614 drain) — keyed by SLUG, not by
- * UUID. So if all three Playbooks have Curricula whose modules use the SAME
- * slug + LO ref set, mastery will share across all three courses automatically
- * with no schema change. Today, Pop Quiz + Exam Assessment have no Curriculum
- * → no modules → no LO mastery → tutor dead-ends when asked to scope per Unit.
+ * wired (Revision Aid). The other two (Pop Quiz, Exam Assessment) need to share
+ * the SAME modules + LOs so mastery accumulates across all three courses for
+ * the same Caller.
  *
- * Fix: clone Revision Aid's curriculum structure (slug-for-slug, ref-for-ref)
- * onto each of the two missing Playbooks. Modules get NEW UUIDs but IDENTICAL
- * slugs (per-curriculum unique — see #407 / `lib/curriculum/resolve-module.ts`).
- * LearningObjectives get NEW UUIDs but IDENTICAL refs.
+ * Tech Lead review (Stream B) found that mastery sharing requires a SINGLE
+ * Curriculum + multiple Playbooks linked via `PlaybookCurriculum(role: linked)`
+ * rows — NOT three separate cloned Curricula. The compose layer (#1034 /
+ * `lib/prompt/composition/lo-mastery-map.ts`) keys mastery reads by
+ * `curriculum:<slug>:lo_mastery:<...>`. Separate Curricula (even with matching
+ * module slugs + LO refs) produce DIFFERENT prefixes — mastery would silently
+ * fragment per Playbook. The variant-route mechanism shipped in #1034 already
+ * solves this with `PlaybookCurriculum(role: linked)`.
+ *
+ * What this script does
+ * ---------------------
+ * For each target Playbook (Pop Quiz, Exam Assessment):
+ *   - Create ONE `PlaybookCurriculum(role: linked)` row pointing at Revision
+ *     Aid's existing Curriculum.
+ *
+ * This script makes NO writes to:
+ *   - The Curriculum table (no clones)
+ *   - CurriculumModule / LearningObjective (no module/LO writes at all)
+ *   - Revision Aid's existing PlaybookCurriculum row (untouched)
  *
  * Safety
  * ------
  * - DRY RUN by default. `--apply` actually writes.
- * - Wrapped in `prisma.$transaction` per target (partial failures roll back).
- * - Idempotent: if a Curriculum already exists for a target Playbook (either
- *   via `Curriculum.playbookId` or via `PlaybookCurriculum`), that target is
- *   skipped — no clobbering.
- * - Verification summary at the end confirms identical slugs + refs across
- *   all three Playbooks.
+ * - Wrapped in `prisma.$transaction` per target.
+ * - Defensive re-check inside the transaction (peer-write race).
+ * - Idempotent: skips targets already linked to the source Curriculum.
+ * - Aborts (exit 2) if a target Playbook is already linked to a DIFFERENT
+ *   Curriculum (either via PlaybookCurriculum or via the deprecated
+ *   `Curriculum.playbookId` pointer). Operator must investigate.
+ * - Verification summary at the end confirms 1 primary + 2 linked PlaybookCurriculum
+ *   rows on the source Curriculum, and that `resolveCurriculumIdForPlaybook`
+ *   returns the SAME curriculumId for all three Playbooks (→ same mastery prefix).
  *
  * Usage
  * -----
  *   npx tsx scripts/backfill-cio-cto-curricula.ts            # dry run
  *   npx tsx scripts/backfill-cio-cto-curricula.ts --apply    # commit
+ *
+ * Exit codes
+ * ----------
+ *   0  — clean run (dry or applied)
+ *   1  — unexpected error
+ *   2  — validation abort (e.g. target already links a different Curriculum)
  */
-
-import { ContentTrustLevel, LoSystemRole } from "@prisma/client";
-import slugify from "slugify";
 
 import { prisma } from "../lib/prisma";
 import { resolveCurriculumIdForPlaybook } from "../lib/curriculum/resolve-module";
@@ -45,7 +63,6 @@ import { resolveCurriculumIdForPlaybook } from "../lib/curriculum/resolve-module
 
 const SOURCE_PLAYBOOK_ID = "5bbdbe7e-c32f-490e-8ff8-a938ddfc49a0"; // Revision Aid
 const SOURCE_CURRICULUM_ID = "0ccb2874-f2d5-4431-96d0-0c0faf342636";
-const SHARED_SUBJECT_ID = "a52307dd-d49c-4c8e-b080-22288aadab43";
 
 const TARGETS: Array<{ playbookId: string; label: string }> = [
   {
@@ -59,596 +76,313 @@ const TARGETS: Array<{ playbookId: string; label: string }> = [
 ];
 
 // =============================================================================
-// Types — narrow rows so we copy "every field that exists" deterministically
+// CLI
 // =============================================================================
 
-type SourceLO = {
-  ref: string;
-  description: string;
-  sortOrder: number;
-  masteryThreshold: number | null;
-  originalText: string | null;
-  learnerVisible: boolean;
-  performanceStatement: string | null;
-  systemRole: LoSystemRole;
-  humanOverriddenAt: Date | null;
-};
-
-type SourceModule = {
-  slug: string;
-  title: string;
-  description: string | null;
-  sortOrder: number;
-  estimatedDurationMinutes: number | null;
-  masteryThreshold: number | null;
-  prerequisites: string[];
-  keyTerms: string[];
-  assessmentCriteria: string[];
-  terminal: boolean;
-  coversModules: string[];
-  isActive: boolean;
-  sourceContentId: string | null;
-  learningObjectives: SourceLO[];
-};
-
-type SourceCurriculum = {
-  id: string;
-  name: string;
-  description: string | null;
-  authors: string[];
-  sourceTitle: string | null;
-  sourceYear: number | null;
-  notableInfo: unknown;
-  coreArgument: unknown;
-  caseStudies: unknown;
-  discussionQuestions: unknown;
-  critiques: unknown;
-  deliveryConfig: unknown;
-  constraints: unknown;
-  sourceSpecId: string | null;
-  version: string;
-  trustLevel: ContentTrustLevel;
-  primarySourceId: string | null;
-  qualificationBody: string | null;
-  qualificationNumber: string | null;
-  qualificationLevel: string | null;
-  validFrom: Date | null;
-  validUntil: Date | null;
-  subjectId: string | null;
-  modules: SourceModule[];
-};
+const APPLY = process.argv.includes("--apply");
 
 // =============================================================================
-// Source-of-truth read
+// Per-target plan
 // =============================================================================
 
-async function loadSourceCurriculum(): Promise<SourceCurriculum> {
-  const row = await prisma.curriculum.findUnique({
-    where: { id: SOURCE_CURRICULUM_ID },
-    include: {
-      modules: {
-        orderBy: { sortOrder: "asc" },
-        include: {
-          learningObjectives: {
-            orderBy: { sortOrder: "asc" },
-          },
-        },
-      },
-    },
+type Plan =
+  | { kind: "skip"; reason: string }
+  | { kind: "link" }
+  | { kind: "abort"; reason: string };
+
+async function planForTarget(playbookId: string, label: string): Promise<Plan> {
+  // 1. Existing PlaybookCurriculum rows on this Playbook (any role).
+  const existingLinks = await prisma.playbookCurriculum.findMany({
+    where: { playbookId },
+    select: { curriculumId: true, role: true },
   });
 
-  if (!row) {
-    throw new Error(
-      `Source curriculum ${SOURCE_CURRICULUM_ID} not found in DB. ` +
-        `Cannot proceed — verify you are connected to the correct database.`,
-    );
-  }
-
-  if (row.modules.length === 0) {
-    throw new Error(
-      `Source curriculum ${SOURCE_CURRICULUM_ID} has zero modules. ` +
-        `Refusing to clone an empty structure.`,
-    );
-  }
-
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    authors: row.authors,
-    sourceTitle: row.sourceTitle,
-    sourceYear: row.sourceYear,
-    notableInfo: row.notableInfo,
-    coreArgument: row.coreArgument,
-    caseStudies: row.caseStudies,
-    discussionQuestions: row.discussionQuestions,
-    critiques: row.critiques,
-    deliveryConfig: row.deliveryConfig,
-    constraints: row.constraints,
-    sourceSpecId: row.sourceSpecId,
-    version: row.version,
-    trustLevel: row.trustLevel,
-    primarySourceId: row.primarySourceId,
-    qualificationBody: row.qualificationBody,
-    qualificationNumber: row.qualificationNumber,
-    qualificationLevel: row.qualificationLevel,
-    validFrom: row.validFrom,
-    validUntil: row.validUntil,
-    subjectId: row.subjectId,
-    modules: row.modules.map((m) => ({
-      slug: m.slug,
-      title: m.title,
-      description: m.description,
-      sortOrder: m.sortOrder,
-      estimatedDurationMinutes: m.estimatedDurationMinutes,
-      masteryThreshold: m.masteryThreshold,
-      prerequisites: m.prerequisites,
-      keyTerms: m.keyTerms,
-      assessmentCriteria: m.assessmentCriteria,
-      terminal: m.terminal,
-      coversModules: m.coversModules,
-      isActive: m.isActive,
-      sourceContentId: m.sourceContentId,
-      learningObjectives: m.learningObjectives.map((lo) => ({
-        ref: lo.ref,
-        description: lo.description,
-        sortOrder: lo.sortOrder,
-        masteryThreshold: lo.masteryThreshold,
-        originalText: lo.originalText,
-        learnerVisible: lo.learnerVisible,
-        performanceStatement: lo.performanceStatement,
-        systemRole: lo.systemRole,
-        humanOverriddenAt: lo.humanOverriddenAt,
-      })),
-    })),
-  };
-}
-
-// =============================================================================
-// Target enumeration
-// =============================================================================
-
-type TargetPlan =
-  | {
-      kind: "skip";
-      playbookId: string;
-      label: string;
-      reason: string;
-      existingCurriculumId: string;
-    }
-  | {
-      kind: "clone";
-      playbookId: string;
-      label: string;
-      playbookName: string;
-      newCurriculumSlug: string;
+  const alreadyLinkedToSource = existingLinks.find(
+    (l) => l.curriculumId === SOURCE_CURRICULUM_ID,
+  );
+  if (alreadyLinkedToSource) {
+    return {
+      kind: "skip",
+      reason: `PlaybookCurriculum(role=${alreadyLinkedToSource.role}) already points at source Curriculum`,
     };
-
-async function planTargets(): Promise<TargetPlan[]> {
-  const plans: TargetPlan[] = [];
-
-  for (const t of TARGETS) {
-    const playbook = await prisma.playbook.findUnique({
-      where: { id: t.playbookId },
-      select: { id: true, name: true },
-    });
-
-    if (!playbook) {
-      throw new Error(
-        `Target Playbook ${t.playbookId} (${t.label}) not found in DB. ` +
-          `Aborting — wrong environment, or pilot data not yet seeded.`,
-      );
-    }
-
-    // Use the canonical resolver so we honour BOTH the deprecated
-    // `Curriculum.playbookId` pointer AND the new `PlaybookCurriculum`
-    // join (#1034). Either match means "already wired — leave alone".
-    const existingCurriculumId = await resolveCurriculumIdForPlaybook(
-      t.playbookId,
-    );
-
-    if (existingCurriculumId) {
-      plans.push({
-        kind: "skip",
-        playbookId: t.playbookId,
-        label: t.label,
-        existingCurriculumId,
-        reason: "Curriculum already exists for this playbookId",
-      });
-      continue;
-    }
-
-    // Curriculum slug is globally unique — generate a stable derivation
-    // from the playbook name. e.g. "The CIO/CTO Standard — Pop Quiz"
-    // → "the-cio-cto-standard-pop-quiz-curriculum".
-    const baseSlug = slugify(playbook.name, { lower: true, strict: true });
-    const newCurriculumSlug = `${baseSlug}-curriculum`;
-
-    // Pre-flight: refuse to collide on the global unique slug.
-    const collision = await prisma.curriculum.findUnique({
-      where: { slug: newCurriculumSlug },
-      select: { id: true, playbookId: true },
-    });
-    if (collision) {
-      throw new Error(
-        `Generated curriculum slug "${newCurriculumSlug}" already exists ` +
-          `(curriculum id ${collision.id}, playbookId ${collision.playbookId ?? "null"}). ` +
-          `This indicates a partial prior run — investigate before re-running.`,
-      );
-    }
-
-    plans.push({
-      kind: "clone",
-      playbookId: t.playbookId,
-      label: t.label,
-      playbookName: playbook.name,
-      newCurriculumSlug,
-    });
   }
 
-  return plans;
+  const linkedElsewhere = existingLinks.find(
+    (l) => l.curriculumId !== SOURCE_CURRICULUM_ID,
+  );
+  if (linkedElsewhere) {
+    return {
+      kind: "abort",
+      reason: `${label} already has PlaybookCurriculum(role=${linkedElsewhere.role}, curriculumId=${linkedElsewhere.curriculumId}) — investigate before re-running`,
+    };
+  }
+
+  // 2. Deprecated `Curriculum.playbookId` pointer.
+  const deprecatedOwned = await prisma.curriculum.findFirst({
+    where: { playbookId },
+    select: { id: true, slug: true },
+  });
+  if (deprecatedOwned) {
+    return {
+      kind: "abort",
+      reason: `${label} is owned by Curriculum(id=${deprecatedOwned.id}, slug=${deprecatedOwned.slug}) via the deprecated Curriculum.playbookId pointer — investigate before re-running`,
+    };
+  }
+
+  return { kind: "link" };
 }
 
 // =============================================================================
-// Clone (transactional, one target at a time)
+// Apply (per-target transaction with defensive re-check)
 // =============================================================================
 
-async function cloneCurriculum(
-  source: SourceCurriculum,
-  plan: Extract<TargetPlan, { kind: "clone" }>,
-): Promise<{
-  curriculumId: string;
-  moduleCount: number;
-  loCount: number;
-}> {
-  return prisma.$transaction(async (tx) => {
-    // Defensive re-check inside the txn: a peer process could have wired
-    // a Curriculum between planTargets() and now. Bail out gracefully.
-    const racedJoin = await tx.playbookCurriculum.findFirst({
-      where: { playbookId: plan.playbookId },
-      select: { curriculumId: true },
+async function applyLink(playbookId: string, label: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    // Re-check inside the transaction — defends against a peer that linked
+    // the target between plan and apply.
+    const existing = await tx.playbookCurriculum.findFirst({
+      where: { playbookId },
+      select: { curriculumId: true, role: true },
     });
-    if (racedJoin) {
+    if (existing && existing.curriculumId === SOURCE_CURRICULUM_ID) {
+      console.log(
+        `  [${label}] already linked (race with peer) — no-op`,
+      );
+      return;
+    }
+    if (existing && existing.curriculumId !== SOURCE_CURRICULUM_ID) {
       throw new Error(
-        `Race condition: PlaybookCurriculum row for ${plan.playbookId} ` +
-          `appeared between plan and write (curriculumId ${racedJoin.curriculumId}). ` +
-          `Aborting this target's transaction.`,
+        `[${label}] race detected: PlaybookCurriculum(role=${existing.role}, curriculumId=${existing.curriculumId}) appeared mid-flight — abort`,
       );
     }
-    const racedDeprecated = await tx.curriculum.findFirst({
-      where: { playbookId: plan.playbookId },
+    const deprecated = await tx.curriculum.findFirst({
+      where: { playbookId },
       select: { id: true },
     });
-    if (racedDeprecated) {
+    if (deprecated) {
       throw new Error(
-        `Race condition: Curriculum.playbookId pointer for ${plan.playbookId} ` +
-          `appeared between plan and write (curriculum id ${racedDeprecated.id}). ` +
-          `Aborting this target's transaction.`,
+        `[${label}] race detected: Curriculum.playbookId=${playbookId} appeared mid-flight — abort`,
       );
     }
 
-    const newCurriculum = await tx.curriculum.create({
-      data: {
-        // id, createdAt, updatedAt — auto-generated
-        slug: plan.newCurriculumSlug,
-        name: `${plan.playbookName} — Curriculum`,
-        description: source.description,
-        authors: source.authors,
-        sourceTitle: source.sourceTitle,
-        sourceYear: source.sourceYear,
-        notableInfo: source.notableInfo as never,
-        coreArgument: source.coreArgument as never,
-        caseStudies: source.caseStudies as never,
-        discussionQuestions: source.discussionQuestions as never,
-        critiques: source.critiques as never,
-        deliveryConfig: source.deliveryConfig as never,
-        constraints: source.constraints as never,
-        sourceSpecId: source.sourceSpecId,
-        version: source.version,
-        trustLevel: source.trustLevel,
-        primarySourceId: source.primarySourceId,
-        qualificationBody: source.qualificationBody,
-        qualificationNumber: source.qualificationNumber,
-        qualificationLevel: source.qualificationLevel,
-        validFrom: source.validFrom,
-        validUntil: source.validUntil,
-        subjectId: SHARED_SUBJECT_ID,
-        // playbookId: deprecated pointer (#1034) — write it for back-compat
-        // with any reader that hasn't yet migrated to PlaybookCurriculum.
-        // Dropped in #1038; harmless to write now.
-        playbookId: plan.playbookId,
-      },
-    });
-
-    // Dual-write to PlaybookCurriculum (canonical join — #1034).
     await tx.playbookCurriculum.create({
       data: {
-        playbookId: plan.playbookId,
-        curriculumId: newCurriculum.id,
-        role: "primary",
+        playbookId,
+        curriculumId: SOURCE_CURRICULUM_ID,
+        role: "linked",
       },
     });
-
-    let loCount = 0;
-
-    for (const m of source.modules) {
-      const newModule = await tx.curriculumModule.create({
-        data: {
-          curriculumId: newCurriculum.id,
-          slug: m.slug, // IDENTICAL to source — required for mastery sharing
-          title: m.title,
-          description: m.description,
-          sortOrder: m.sortOrder,
-          estimatedDurationMinutes: m.estimatedDurationMinutes,
-          masteryThreshold: m.masteryThreshold,
-          prerequisites: m.prerequisites,
-          keyTerms: m.keyTerms,
-          assessmentCriteria: m.assessmentCriteria,
-          terminal: m.terminal,
-          coversModules: m.coversModules,
-          isActive: m.isActive,
-          sourceContentId: m.sourceContentId,
-        },
-      });
-
-      if (m.learningObjectives.length > 0) {
-        await tx.learningObjective.createMany({
-          data: m.learningObjectives.map((lo) => ({
-            moduleId: newModule.id,
-            ref: lo.ref, // IDENTICAL to source — required for mastery sharing
-            description: lo.description,
-            sortOrder: lo.sortOrder,
-            masteryThreshold: lo.masteryThreshold,
-            originalText: lo.originalText,
-            learnerVisible: lo.learnerVisible,
-            performanceStatement: lo.performanceStatement,
-            systemRole: lo.systemRole,
-            humanOverriddenAt: lo.humanOverriddenAt,
-          })),
-        });
-        loCount += m.learningObjectives.length;
-      }
-    }
-
-    return {
-      curriculumId: newCurriculum.id,
-      moduleCount: source.modules.length,
-      loCount,
-    };
   });
 }
 
 // =============================================================================
-// Verification — confirm all three Playbooks have identical structure
+// Source verification — sanity check before any per-target work
 // =============================================================================
 
-async function verifyAllThree(): Promise<void> {
-  const playbookIds = [SOURCE_PLAYBOOK_ID, ...TARGETS.map((t) => t.playbookId)];
-  const rows: Array<{
-    playbookId: string;
-    label: string;
-    curriculumId: string | null;
-    moduleSlugs: string[];
-    moduleCount: number;
-    loCount: number;
-    loRefsSorted: string[];
-  }> = [];
-
-  for (const playbookId of playbookIds) {
-    const label =
-      playbookId === SOURCE_PLAYBOOK_ID
-        ? "Revision Aid (source)"
-        : TARGETS.find((t) => t.playbookId === playbookId)?.label ?? "(unknown)";
-
-    const curriculumId = await resolveCurriculumIdForPlaybook(playbookId);
-    if (!curriculumId) {
-      rows.push({
-        playbookId,
-        label,
-        curriculumId: null,
-        moduleSlugs: [],
-        moduleCount: 0,
-        loCount: 0,
-        loRefsSorted: [],
-      });
-      continue;
-    }
-
-    const modules = await prisma.curriculumModule.findMany({
-      where: { curriculumId },
-      orderBy: { sortOrder: "asc" },
-      select: {
-        slug: true,
-        learningObjectives: {
-          select: { ref: true },
-        },
-      },
-    });
-
-    const moduleSlugs = modules.map((m) => m.slug);
-    const loRefs = modules.flatMap((m) =>
-      m.learningObjectives.map((lo) => `${m.slug}/${lo.ref}`),
+async function verifySource(): Promise<void> {
+  const curr = await prisma.curriculum.findUnique({
+    where: { id: SOURCE_CURRICULUM_ID },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      playbookId: true,
+      _count: { select: { modules: true } },
+    },
+  });
+  if (!curr) {
+    throw new Error(
+      `Source Curriculum ${SOURCE_CURRICULUM_ID} not found — aborting`,
     );
-
-    rows.push({
-      playbookId,
-      label,
-      curriculumId,
-      moduleSlugs,
-      moduleCount: modules.length,
-      loCount: loRefs.length,
-      loRefsSorted: loRefs.sort(),
-    });
+  }
+  if (curr._count.modules === 0) {
+    throw new Error(
+      `Source Curriculum ${SOURCE_CURRICULUM_ID} has 0 modules — aborting`,
+    );
   }
 
+  const loCount = await prisma.learningObjective.count({
+    where: { module: { curriculumId: SOURCE_CURRICULUM_ID } },
+  });
+  if (loCount === 0) {
+    throw new Error(
+      `Source Curriculum ${SOURCE_CURRICULUM_ID} has 0 LearningObjectives — aborting`,
+    );
+  }
+
+  // Confirm Revision Aid already has its primary row (or owns via deprecated col).
+  const sourcePbcRow = await prisma.playbookCurriculum.findUnique({
+    where: {
+      playbookId_curriculumId: {
+        playbookId: SOURCE_PLAYBOOK_ID,
+        curriculumId: SOURCE_CURRICULUM_ID,
+      },
+    },
+    select: { role: true },
+  });
+
+  console.log("Source:");
+  console.log(
+    `  Revision Aid Playbook    : ${SOURCE_PLAYBOOK_ID}`,
+  );
+  console.log(
+    `  Curriculum               : ${curr.slug} (${curr.id})`,
+  );
+  console.log(`  Curriculum.name          : ${curr.name}`);
+  console.log(`  Curriculum.playbookId    : ${curr.playbookId ?? "(null)"}`);
+  console.log(`  Modules                  : ${curr._count.modules}`);
+  console.log(`  LearningObjectives       : ${loCount}`);
+  console.log(
+    `  PlaybookCurriculum row   : ${sourcePbcRow ? `role=${sourcePbcRow.role}` : "(missing — Revision Aid has no PlaybookCurriculum row, relying on deprecated col)"}`,
+  );
   console.log("");
-  console.log("=== Verification ===");
+}
+
+// =============================================================================
+// Post-apply verification
+// =============================================================================
+
+async function verifyPostApply(): Promise<void> {
+  console.log("Post-apply verification:");
+
+  const rows = await prisma.playbookCurriculum.findMany({
+    where: { curriculumId: SOURCE_CURRICULUM_ID },
+    select: {
+      playbookId: true,
+      role: true,
+      playbook: { select: { name: true } },
+    },
+    orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+  });
+
+  console.log(
+    `  PlaybookCurriculum rows on Curriculum ${SOURCE_CURRICULUM_ID}:`,
+  );
   for (const r of rows) {
     console.log(
-      `  ${r.label.padEnd(28)} curriculum=${r.curriculumId ?? "(none)"} modules=${r.moduleCount} LOs=${r.loCount}`,
-    );
-    console.log(`    moduleSlugs: [${r.moduleSlugs.join(", ")}]`);
-  }
-
-  // Identity check across all three (only meaningful when all three have rows).
-  const wired = rows.filter((r) => r.curriculumId !== null);
-  if (wired.length === 3) {
-    const baselineSlugs = JSON.stringify(wired[0].moduleSlugs);
-    const baselineLORefs = JSON.stringify(wired[0].loRefsSorted);
-    const slugsMatch = wired.every(
-      (r) => JSON.stringify(r.moduleSlugs) === baselineSlugs,
-    );
-    const lorefsMatch = wired.every(
-      (r) => JSON.stringify(r.loRefsSorted) === baselineLORefs,
-    );
-
-    console.log("");
-    console.log(
-      `  module-slug identity:  ${slugsMatch ? "OK — all three share identical module slugs" : "MISMATCH — mastery will NOT share across courses"}`,
-    );
-    console.log(
-      `  LO-ref identity:       ${lorefsMatch ? "OK — all three share identical LO refs" : "MISMATCH — mastery will NOT share across courses"}`,
-    );
-  } else {
-    console.log("");
-    console.log(
-      `  (skipped identity check — only ${wired.length}/3 Playbooks have a Curriculum wired)`,
+      `    - ${r.playbook.name.padEnd(20)} role=${r.role.padEnd(7)} playbookId=${r.playbookId}`,
     );
   }
+
+  // Confirm resolveCurriculumIdForPlaybook returns the SAME curriculumId for all
+  // three Playbooks (→ buildLoMasteryMap produces the same prefix).
+  const allThree = [
+    { id: SOURCE_PLAYBOOK_ID, label: "Revision Aid" },
+    ...TARGETS,
+  ];
+  console.log("");
+  console.log(
+    "  resolveCurriculumIdForPlaybook (drives buildLoMasteryMap prefix):",
+  );
+  let allMatch = true;
+  for (const p of allThree) {
+    const resolved = await resolveCurriculumIdForPlaybook(
+      "id" in p ? p.id : p.playbookId,
+    );
+    const matches = resolved === SOURCE_CURRICULUM_ID;
+    if (!matches) allMatch = false;
+    console.log(
+      `    - ${p.label.padEnd(20)} -> ${resolved ?? "(null)"}  ${matches ? "OK" : "MISMATCH"}`,
+    );
+  }
+  if (!allMatch) {
+    throw new Error(
+      "Verification FAILED: not all three Playbooks resolve to the source Curriculum",
+    );
+  }
+
+  // The slug-prefix produced by `buildLoMasteryMap`.
+  const curr = await prisma.curriculum.findUnique({
+    where: { id: SOURCE_CURRICULUM_ID },
+    select: { slug: true },
+  });
+  console.log("");
+  console.log(
+    `  Shared mastery prefix    : curriculum:${curr?.slug ?? "?"}:lo_mastery:`,
+  );
+  console.log("");
 }
 
 // =============================================================================
-// Dry-run rendering
+// Main
 // =============================================================================
 
-function renderPlanTree(
-  source: SourceCurriculum,
-  plans: TargetPlan[],
-): void {
+async function main(): Promise<number> {
+  console.log("=".repeat(72));
+  console.log(`Backfill CIO/CTO Curricula — LINK mode (${APPLY ? "APPLY" : "DRY RUN"})`);
+  console.log("=".repeat(72));
   console.log("");
-  console.log("=== Source (template) ===");
-  console.log(
-    `  Curriculum ${source.id} "${source.name}"`,
-  );
-  console.log(`    ${source.modules.length} modules:`);
-  for (const m of source.modules) {
-    console.log(
-      `      - slug="${m.slug}" title="${m.title}" sortOrder=${m.sortOrder} LOs=${m.learningObjectives.length}`,
-    );
-    for (const lo of m.learningObjectives) {
-      console.log(
-        `          ref="${lo.ref}" sortOrder=${lo.sortOrder} learnerVisible=${lo.learnerVisible}`,
-      );
-    }
-  }
 
+  await verifySource();
+
+  // Plan first.
+  console.log("Plan:");
+  const plans: Array<{ target: (typeof TARGETS)[number]; plan: Plan }> = [];
+  let abortReason: string | null = null;
+  for (const target of TARGETS) {
+    const plan = await planForTarget(target.playbookId, target.label);
+    plans.push({ target, plan });
+    if (plan.kind === "abort") {
+      abortReason = `${target.label}: ${plan.reason}`;
+    }
+    const verb =
+      plan.kind === "skip"
+        ? `SKIP   (${plan.reason})`
+        : plan.kind === "abort"
+          ? `ABORT  (${plan.reason})`
+          : `LINK   PlaybookCurriculum(role=linked) -> Curriculum ${SOURCE_CURRICULUM_ID}`;
+    console.log(`  - ${target.label.padEnd(20)} : ${verb}`);
+  }
   console.log("");
-  console.log("=== Plan ===");
-  for (const p of plans) {
-    if (p.kind === "skip") {
-      console.log(
-        `  SKIP   ${p.label} (playbook=${p.playbookId}) — ${p.reason} (existing curriculum=${p.existingCurriculumId})`,
-      );
-    } else {
-      const totalLOs = source.modules.reduce(
-        (sum, m) => sum + m.learningObjectives.length,
-        0,
-      );
-      console.log(
-        `  CLONE  ${p.label} (playbook=${p.playbookId})`,
-      );
-      console.log(`         → new Curriculum slug="${p.newCurriculumSlug}"`);
-      console.log(`         → new Curriculum name="${p.playbookName} — Curriculum"`);
-      console.log(`         → subjectId=${SHARED_SUBJECT_ID} (shared)`);
-      console.log(
-        `         → will create ${source.modules.length} CurriculumModule rows (identical slugs)`,
-      );
-      console.log(
-        `         → will create ${totalLOs} LearningObjective rows (identical refs)`,
-      );
-      console.log(
-        `         → will create 1 PlaybookCurriculum (role=primary) + write Curriculum.playbookId for back-compat`,
-      );
-    }
-  }
-}
 
-// =============================================================================
-// Entry point
-// =============================================================================
-
-async function main(): Promise<void> {
-  const apply = process.argv.includes("--apply");
-  const mode = apply ? "APPLY" : "DRY-RUN";
-
-  console.log(`[backfill-cio-cto-curricula] mode=${mode}`);
-  console.log(
-    `[backfill-cio-cto-curricula] source playbook=${SOURCE_PLAYBOOK_ID} (Revision Aid)`,
-  );
-  console.log(
-    `[backfill-cio-cto-curricula] source curriculum=${SOURCE_CURRICULUM_ID}`,
-  );
-  console.log(
-    `[backfill-cio-cto-curricula] shared subject=${SHARED_SUBJECT_ID}`,
-  );
-
-  // Sanity: ensure the source Playbook also points at the source Curriculum.
-  // If not, the operator is pointed at the wrong DB or the IDs have drifted.
-  const sourcePlaybookCurriculumId = await resolveCurriculumIdForPlaybook(
-    SOURCE_PLAYBOOK_ID,
-  );
-  if (sourcePlaybookCurriculumId !== SOURCE_CURRICULUM_ID) {
+  if (abortReason) {
+    console.error("ABORT: " + abortReason);
+    console.error("");
     console.error(
-      `[backfill-cio-cto-curricula] FATAL: source Playbook ${SOURCE_PLAYBOOK_ID} ` +
-        `resolves to curriculum ${sourcePlaybookCurriculumId ?? "(none)"}, ` +
-        `expected ${SOURCE_CURRICULUM_ID}. Wrong DB or drifted IDs.`,
+      "No writes performed. Investigate the conflicting link(s) and re-run.",
     );
-    process.exit(2);
+    return 2;
   }
 
-  const source = await loadSourceCurriculum();
-  console.log(
-    `[backfill-cio-cto-curricula] loaded source: ${source.modules.length} modules, ` +
-      `${source.modules.reduce((s, m) => s + m.learningObjectives.length, 0)} LOs`,
-  );
-
-  const plans = await planTargets();
-  renderPlanTree(source, plans);
-
-  if (!apply) {
+  if (!APPLY) {
+    console.log("[dry run] No DB writes. Re-run with --apply to commit.");
     console.log("");
-    console.log("Run with --apply to commit.");
-    await verifyAllThree();
-    await prisma.$disconnect();
-    return;
+    return 0;
   }
 
-  console.log("");
-  console.log("=== Apply ===");
-  for (const p of plans) {
-    if (p.kind === "skip") {
-      console.log(`  SKIP   ${p.label} — ${p.reason}`);
+  // Apply.
+  console.log("Applying...");
+  for (const { target, plan } of plans) {
+    if (plan.kind === "skip") {
+      console.log(`  [${target.label}] SKIP — ${plan.reason}`);
       continue;
     }
-    console.log(`  CLONE  ${p.label}...`);
-    try {
-      const result = await cloneCurriculum(source, p);
-      console.log(
-        `         OK — curriculum=${result.curriculumId} modules=${result.moduleCount} LOs=${result.loCount}`,
-      );
-    } catch (err) {
-      console.error(`         FAIL — ${(err as Error).message}`);
-      throw err;
-    }
+    if (plan.kind !== "link") continue;
+    await applyLink(target.playbookId, target.label);
+    console.log(
+      `  [${target.label}] LINKED → PlaybookCurriculum(role=linked, curriculumId=${SOURCE_CURRICULUM_ID})`,
+    );
   }
-
-  await verifyAllThree();
   console.log("");
-  console.log("Backfill complete.");
-  await prisma.$disconnect();
+
+  await verifyPostApply();
+
+  console.log("Done.");
+  return 0;
 }
 
-main().catch((err) => {
-  console.error("[backfill-cio-cto-curricula] FATAL:", err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error("");
+    console.error("FATAL:", err instanceof Error ? err.message : err);
+    if (err instanceof Error && err.stack) {
+      console.error(err.stack);
+    }
+    process.exitCode = 1;
+  })
+  .then((code) => {
+    if (typeof code === "number" && process.exitCode == null) {
+      process.exitCode = code;
+    }
+    return prisma.$disconnect();
+  });
