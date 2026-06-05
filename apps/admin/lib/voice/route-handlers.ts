@@ -25,6 +25,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { renderProviderPrompt } from "@/lib/prompt/composition/renderPromptSummary";
+import { resolveRuntimeFeatures } from "@/lib/voice/runtime-features";
 import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { resolveVoiceProviderForCaller } from "@/lib/voice/resolve-voice-provider";
 import { getVoiceCallSettings } from "@/lib/system-settings";
@@ -797,8 +798,21 @@ export async function handleVoiceAssistantRequestPost(
     }
 
     const llmPrompt = composedPrompt.llmPrompt as Record<string, unknown>;
+    // #1093 — pass the resolved provider capabilities + runtime rail
+    // snapshot into the renderer so the same ComposedPrompt produces
+    // the correct text for VAPI vs Retell vs (no chat rail) etc.
+    // `responseProvider` is the cascade-resolved adapter; its
+    // capability set is the right source of truth here.
+    const responseCaps = responseProvider.getCapabilities();
+    const runtime = await resolveRuntimeFeatures({
+      callId: null,
+      callerId: caller.id,
+      intent: "chat",
+    });
     const voicePrompt = renderProviderPrompt(
       llmPrompt as Parameters<typeof renderProviderPrompt>[0],
+      responseCaps,
+      runtime,
     );
     const firstLine =
       ((llmPrompt._quickStart as Record<string, unknown> | undefined)

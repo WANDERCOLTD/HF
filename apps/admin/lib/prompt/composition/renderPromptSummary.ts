@@ -5,9 +5,26 @@
  * DETERMINISTIC - no AI calls, just data formatting.
  *
  * Replaces the AI-generated placeholder-filled summary with actual data.
+ *
+ * #1093 — provider capability-aware rendering. The same ComposedPrompt
+ * row produces N different rendered prompts for N voice providers
+ * without recomposing. The renderer reads the provider's
+ * `VoiceProviderCapabilities` (#1044) plus the inbound call's runtime
+ * features (#1092, e.g. is the chat surface live?) and branches:
+ *   - Knowledge plan section says "use lookup_teaching_point" only
+ *     when the provider supports HTTP knowledge callbacks; otherwise
+ *     it tells the AI knowledge is pre-loaded
+ *   - Tool guidance section omits tools the provider can't deliver
+ *   - Mid-call reach-in section's instructions match the live rails
+ *     (chat / SMS / WhatsApp / none) rather than promising channels
+ *     that aren't reachable
  */
 
 import { narrativeFrame } from "./transforms/instructions";
+import type {
+  VoiceProviderCapabilities,
+} from "@/lib/voice/types";
+import type { VoiceRuntimeFeatures } from "@/lib/voice/runtime-features";
 
 interface LLMPrompt {
   _preamble?: {
@@ -159,13 +176,50 @@ function pct(score: number): string {
  * retrieval during the call for follow-up questions.
  */
 /**
+ * Default capabilities used when the caller (SIM, dry-run, chat preview,
+ * historical pre-#1093 wire-sites) doesn't supply a provider capability
+ * bundle. Mirrors VAPI's contract — the "richest" feature set — so the
+ * rendered prompt stays current for the only provider that's live today.
+ */
+export const DEFAULT_RENDER_CAPABILITIES: VoiceProviderCapabilities = {
+  endOfCallEvents: "single",
+  hasKnowledgeCallback: true,
+  toolCallsOverWebSocket: false,
+  supportsRequestEndCall: true,
+};
+
+/**
+ * Default runtime features — chat-surface presence assumed (SIM is the
+ * chat surface). Wire-sites without a real call (preview, dry-run, sim)
+ * inherit this; provider-backed calls supply a resolved bundle from
+ * `resolveRuntimeFeatures` (#1092).
+ */
+export const DEFAULT_RENDER_RUNTIME: VoiceRuntimeFeatures = {
+  callId: null,
+  hasChatRail: true,
+  hasSmsRail: false,
+  hasWhatsAppRail: false,
+};
+
+/**
  * Render the voice-optimised system prompt the active voice provider sends
  * to the LLM. Provider-agnostic by design — VAPI is one consumer, SIM
  * (sim-drive-call.ts) is another, the chat preview route is a third.
  * Renamed from `renderVoicePrompt` in AnyVoice #1017 so the symbol
  * doesn't suggest VAPI-specificity.
+ *
+ * #1093 — `capabilities` + `runtime` are optional second/third args. When
+ * omitted, the renderer assumes VAPI-richest defaults so pre-#1093 wire
+ * sites (SIM, dry-run, preview) keep producing identical output. The
+ * voice route handler in `lib/voice/route-handlers.ts` threads the real
+ * provider's capabilities (already resolved once for the assistant
+ * config) + the resolved runtime features (chat/SMS rails).
  */
-export function renderProviderPrompt(llmPrompt: LLMPrompt): string {
+export function renderProviderPrompt(
+  llmPrompt: LLMPrompt,
+  capabilities: VoiceProviderCapabilities = DEFAULT_RENDER_CAPABILITIES,
+  runtime: VoiceRuntimeFeatures = DEFAULT_RENDER_RUNTIME,
+): string {
   const parts: string[] = [];
   const qs = llmPrompt._quickStart;
   const id = llmPrompt.identity;
@@ -479,12 +533,21 @@ export function renderProviderPrompt(llmPrompt: LLMPrompt): string {
     parts.push("");
   }
 
-  // --- RETRIEVAL ---
+  // --- RETRIEVAL --- (#1093 — capability-aware)
   parts.push("[RETRIEVAL]");
-  if (teachingContent) {
-    parts.push("The teaching points above are your primary material. For follow-up questions or topics beyond this session's scope, the system will automatically retrieve additional content from the knowledge base.");
+  if (capabilities.hasKnowledgeCallback) {
+    // HTTP knowledge callback is live (VAPI today). Knowledge is fetched
+    // per-turn; tell the AI to lean on it.
+    if (teachingContent) {
+      parts.push("The teaching points above are your primary material. For follow-up questions or topics beyond this session's scope, the system will automatically retrieve additional content from the knowledge base.");
+    } else {
+      parts.push("You have access to the caller's knowledge base. When the caller asks about specific topics, teaching content, or curriculum details, the system will automatically provide relevant material.");
+    }
   } else {
-    parts.push("You have access to the caller's knowledge base. When the caller asks about specific topics, teaching content, or curriculum details, the system will automatically provide relevant material.");
+    // No HTTP knowledge callback (Retell-style — knowledge_base_ids
+    // are pre-uploaded). Tell the AI no mid-turn retrieval will fire;
+    // the teaching content above is everything available.
+    parts.push("Your reference knowledge has been pre-loaded with this prompt — there is no mid-turn retrieval available on this call. Work from the teaching points above directly. If the caller asks about a topic that isn't covered, acknowledge the limit rather than fabricating.");
   }
   if (pedMode?.knowledgeGuidance) {
     parts.push(pedMode.knowledgeGuidance);
@@ -494,6 +557,30 @@ export function renderProviderPrompt(llmPrompt: LLMPrompt): string {
     parts.push(`Techniques available: ${techNames.join(", ")}`);
   }
   parts.push("");
+
+  // --- MID-CALL CHANNELS --- (#1093 — runtime rail-aware)
+  // Tells the AI which delivery rails are live so it can phrase
+  // share_content / send_text / request_artifact responses correctly.
+  // When callId is set we ALWAYS render the section (even if no rail
+  // is live) — the AI needs to know not to promise channels. When
+  // callId is null (preview / dry-run) we only render if at least one
+  // rail is live to avoid cluttering capability-blind output.
+  const inLiveCall = runtime.callId !== null;
+  const anyRail =
+    runtime.hasChatRail || runtime.hasSmsRail || runtime.hasWhatsAppRail;
+  if (inLiveCall || anyRail) {
+    parts.push("[MID-CALL CHANNELS]");
+    if (runtime.hasChatRail) {
+      parts.push("The learner has the chat surface open. When you call share_content / send_text_to_caller / request_artifact, the result appears INLINE in the chat. Refer to it verbally — \"take a look at the chat\" or \"see the diagram I just dropped in\".");
+    } else if (runtime.hasSmsRail) {
+      parts.push("The learner is on the phone only — no chat surface. share_content / send_text_to_caller / request_artifact deliver via SMS. Phrase it accordingly — \"I'm texting you the formula now\".");
+    } else if (runtime.hasWhatsAppRail) {
+      parts.push("The learner is reachable via WhatsApp. share_content / send_text_to_caller / request_artifact deliver there. Phrase it as \"I'm sending it to you on WhatsApp\".");
+    } else {
+      parts.push("No live mid-call rail is available. Avoid share_content / send_text_to_caller / request_artifact — offer to follow up after the call instead.");
+    }
+    parts.push("");
+  }
 
   // --- OPENING ---
   if (qs?.first_line) {
