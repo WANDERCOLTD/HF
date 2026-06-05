@@ -246,7 +246,12 @@ async function writeGoalTemplates(playbookId: string, templates: ReturnType<type
   });
   const cfg = (playbook?.config as Record<string, unknown> | null) ?? {};
   const variantTemplates = templates.map((t) => ({ ...t, isAssessmentTarget: isExamAssessment }));
-  const nextConfig = { ...cfg, goals: variantTemplates };
+  // `modulesAuthored: true` drives the ProgressionModePill in the course header to
+  // render "Learner picks" instead of the orange "Mode not set" warning. All three
+  // CIO/CTO courses use the five SIAS Units as their authored modules, with the
+  // learner choosing which Unit to work on each session (see each course-ref's
+  // "Default mode: learner-picks" line).
+  const nextConfig = { ...cfg, goals: variantTemplates, modulesAuthored: true };
   await prisma.playbook.update({ where: { id: playbookId }, data: { config: nextConfig } });
   return variantTemplates.length;
 }
