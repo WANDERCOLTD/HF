@@ -38,7 +38,7 @@ async function main() {
       `SELECT COUNT(*)::bigint AS count FROM tallyseal_intent WHERE id = $1`,
       FIXTURE_ID,
     );
-    if (exists[0]?.count && exists[0].count > 0n) {
+    if (exists[0]?.count && Number(exists[0].count) > 0) {
       console.log(`Fixture intent ${FIXTURE_ID} already present — skipping.`);
       return;
     }
