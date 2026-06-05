@@ -231,6 +231,9 @@ export function VoiceProvidersPanel({ showHeading = false }: Props = {}) {
                         <Link href={`/x/settings/voice-providers/${row.id}`} className="hf-btn hf-btn-secondary">
                           Edit
                         </Link>
+                        <Link href={`/x/settings/voice-providers/${row.id}/telemetry`} className="hf-btn hf-btn-secondary">
+                          Telemetry
+                        </Link>
                         {!row.isDefault && row.enabled ? (
                           <button
                             type="button"

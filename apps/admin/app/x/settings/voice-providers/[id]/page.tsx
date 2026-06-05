@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface ConfigField {
   key: string;
@@ -237,6 +238,17 @@ export default function VoiceProviderEditPage() {
       <p className="hf-page-subtitle">
         slug: <code>{row.slug}</code> · adapter: <code>{row.adapterKey}</code>
         {row.isDefault ? " · default" : ""}
+      </p>
+
+      {/* Quick nav — telemetry per provider, tools system-wide */}
+      <p className="hf-section-desc">
+        <Link href={`/x/settings/voice-providers/${row.id}/telemetry`}>
+          View telemetry &rarr;
+        </Link>
+        {" · "}
+        <Link href="/x/settings/voice-tools">Voice tools (system-wide)</Link>
+        {" · "}
+        <Link href="/x/settings/voice-providers">All providers</Link>
       </p>
 
       {err && (
