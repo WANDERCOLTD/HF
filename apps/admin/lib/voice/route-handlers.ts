@@ -56,6 +56,11 @@ import type {
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 
+/** Extract a human-readable message from a caught unknown-typed value. */
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 // In-memory state for the trickle handler (AnyVoice #1080).
 // Reset on process restart — the cold-start case logs one event with
 // the full cumulative (looks like a spike) which is acceptable and
@@ -145,11 +150,11 @@ export async function handleVoiceWebhookPost(
     // Unhandled event types (ping, etc.) just ack.
     endSpan({ metadata: { kind: "ignored" } });
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[voice/${slug}/webhook] Error:`, error);
-    endSpan({ errorMessage: error?.message ?? "Webhook processing failed" });
+    endSpan({ errorMessage: errorMessage(error) ?? "Webhook processing failed" });
     return NextResponse.json(
-      { error: error?.message || "Webhook processing failed" },
+      { error: errorMessage(error) || "Webhook processing failed" },
       { status: 500 },
     );
   }
@@ -411,9 +416,9 @@ async function triggerPipeline(callId: string, callerId: string): Promise<void> 
     },
     body: JSON.stringify({ callerId, mode: "prompt" }),
   });
-  let body: Record<string, any> | null = null;
+  let body: Record<string, unknown> | null = null;
   try {
-    body = await response.json();
+    body = (await response.json()) as Record<string, unknown>;
   } catch {
     /* non-JSON response */
   }
@@ -507,10 +512,10 @@ export async function handleVoiceToolsPost(
     }
 
     return NextResponse.json({ results });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[voice/${slug}/tools] Error:`, error);
     return NextResponse.json(
-      { error: error?.message || "Tool dispatch failed" },
+      { error: errorMessage(error) || "Tool dispatch failed" },
       { status: 500 },
     );
   }
@@ -546,9 +551,9 @@ export async function handleVoiceAssistantRequestPost(
       return authError;
     }
 
-    let body: any;
+    let body: Record<string, unknown>;
     try {
-      body = JSON.parse(rawBody);
+      body = JSON.parse(rawBody) as Record<string, unknown>;
     } catch {
       return NextResponse.json(
         { error: "Invalid JSON body" },
@@ -556,14 +561,24 @@ export async function handleVoiceAssistantRequestPost(
       );
     }
 
-    const messageType = body.message?.type || body.type;
+    const messageType =
+      (body.message as Record<string, unknown> | undefined)?.type ?? body.type;
     if (messageType && messageType !== "assistant-request") {
       return NextResponse.json({ ok: true });
     }
 
+    const message = body.message as Record<string, unknown> | undefined;
+    const messageCall = message?.call as Record<string, unknown> | undefined;
+    const messageCallCustomer = messageCall?.customer as
+      | Record<string, unknown>
+      | undefined;
+    const rootCall = body.call as Record<string, unknown> | undefined;
+    const rootCallCustomer = rootCall?.customer as
+      | Record<string, unknown>
+      | undefined;
     const customerPhone =
-      body.message?.call?.customer?.number ||
-      body.call?.customer?.number ||
+      (messageCallCustomer?.number as string | undefined) ??
+      (rootCallCustomer?.number as string | undefined) ??
       null;
     if (!customerPhone) {
       return NextResponse.json(
@@ -644,9 +659,13 @@ export async function handleVoiceAssistantRequestPost(
       );
     }
 
-    const voicePrompt = renderProviderPrompt(composedPrompt.llmPrompt as any);
+    const llmPrompt = composedPrompt.llmPrompt as Record<string, unknown>;
+    const voicePrompt = renderProviderPrompt(
+      llmPrompt as Parameters<typeof renderProviderPrompt>[0],
+    );
     const firstLine =
-      (composedPrompt.llmPrompt as any)?._quickStart?.first_line ?? null;
+      ((llmPrompt._quickStart as Record<string, unknown> | undefined)
+        ?.first_line as string | null | undefined) ?? null;
 
     const response = NextResponse.json(
       responseProvider.buildAssistantConfig({
@@ -671,11 +690,11 @@ export async function handleVoiceAssistantRequestPost(
       },
     });
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[voice/${slug}/assistant-request] Error:`, error);
-    endSpan({ errorMessage: error?.message ?? "Internal error" });
+    endSpan({ errorMessage: errorMessage(error) ?? "Internal error" });
     return NextResponse.json(
-      { error: error?.message || "Internal error" },
+      { error: errorMessage(error) || "Internal error" },
       { status: 500 },
     );
   }
@@ -740,9 +759,9 @@ export async function handleVoiceKnowledgePost(
     const ks = await getKnowledgeRetrievalSettings();
 
     const userMessages = messages
-      .filter((m: any) => m.role === "user" && m.content)
+      .filter((m) => m.role === "user" && m.content)
       .slice(-ks.queryMessageCount);
-    const queryText = userMessages.map((m: any) => m.content).join(" ");
+    const queryText = userMessages.map((m) => m.content).join(" ");
 
     if (!queryText) {
       return NextResponse.json(provider.buildKnowledgeResponse([]));
@@ -833,9 +852,9 @@ export async function handleVoiceKnowledgePost(
 
     endSpan({ metadata: { resultCount: topResults.length, callerId } });
     return NextResponse.json(provider.buildKnowledgeResponse(topResults));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[voice/${slug}/knowledge] Error:`, error);
-    endSpan({ errorMessage: error?.message ?? "Knowledge error" });
+    endSpan({ errorMessage: errorMessage(error) ?? "Knowledge error" });
     try {
       const provider = await getVoiceProvider(slug);
       return NextResponse.json(provider.buildKnowledgeResponse([]));

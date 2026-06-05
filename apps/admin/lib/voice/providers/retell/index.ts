@@ -55,6 +55,7 @@ export class RetellProvider implements VoiceProvider {
     credentials: Record<string, unknown>,
     _config: Record<string, unknown>,
   ) {
+    void _config;
     const creds = credentials as RetellCredentials;
     this._apiKey = creds.apiKey;
     this._webhookSecret = creds.webhookSecret;
@@ -70,6 +71,8 @@ export class RetellProvider implements VoiceProvider {
     _req: NextRequest,
     _rawBody: string,
   ): NextResponse | null {
+    void _req;
+    void _rawBody;
     // TODO(#1079-follow-up): verify x-retell-signature against
     // crypto.createHmac("sha256", this._apiKey).update(rawBody).
     return null;
@@ -83,6 +86,7 @@ export class RetellProvider implements VoiceProvider {
    * (WSS mode).
    */
   buildAssistantConfig(_ctx: AssistantRequestContext): ProviderAssistantConfig {
+    void _ctx;
     return {};
   }
 
@@ -169,6 +173,7 @@ export class RetellProvider implements VoiceProvider {
    * for "this HTTP route should not have been called for me".
    */
   normaliseToolCallList(_body: unknown): NormalisedToolCallBatch {
+    void _body;
     return { toolCalls: [], customerPhone: null };
   }
 
@@ -180,6 +185,7 @@ export class RetellProvider implements VoiceProvider {
   normaliseToolCallFromWebSocketMessage(
     _msg: unknown,
   ): NormalisedToolCall | null {
+    void _msg;
     return null;
   }
 
@@ -189,12 +195,14 @@ export class RetellProvider implements VoiceProvider {
    *  knowledge route's capability guard returns 404 before this is
    *  invoked in practice. */
   parseKnowledgeBaseRequest(_body: unknown): KnowledgeBaseRequest | null {
+    void _body;
     return null;
   }
 
   /** Never called (capability says no knowledge callback). Throwing
    *  here is a fail-loud assertion that the capability guard worked. */
   buildKnowledgeResponse(_results: KnowledgeResult[]): unknown {
+    void _results;
     throw new Error(
       "Retell has no HTTP knowledge callback — knowledge_base_ids on the agent are the path.",
     );
