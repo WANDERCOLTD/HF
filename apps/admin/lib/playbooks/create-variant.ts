@@ -26,8 +26,9 @@
  * Out of scope (deferred):
  *   • Curriculum cloning — variants NEVER write CurriculumModule rows.
  *     The shared moduleId UUID is what makes the funnel work.
- *   • PlaybookConfig preset wiring — the five preset config keys are
- *     forward-declared and have no runtime effect today.
+ *   • PlaybookConfig preset wiring — `useFreshMastery` + `maxMasteryTier`
+ *     are LIVE as of #1081 Slice 1 (enforced at AGGREGATE write site).
+ *     `bloomLevelOverride` + `modelTier` remain forward-declared.
  *   • Cohort/Invite — caller layers handle enrolment separately.
  */
 
@@ -43,7 +44,7 @@ export interface CreateVariantInput {
   parentPlaybookId: string;
   /** Display name for the new variant Course (e.g. "Pop Quiz — The Standard"). */
   name: string;
-  /** Optional teaching-profile preset. Stored as JSON on Playbook.config; no runtime effect today (forward-declared keys). */
+  /** Optional teaching-profile preset. Stored as JSON on Playbook.config; mastery-discipline keys are LIVE (see PRESET_CONFIGS comment). */
   preset?: VariantPreset;
   /** The User performing the create — for audit trail. */
   actorUserId: string;
@@ -65,12 +66,15 @@ export interface CreateVariantResult {
 }
 
 /**
- * Preset PlaybookConfig seeds. All five keys (teachingProfile,
- * bloomLevelOverride, useFreshMastery, modelTier, welcomeMessage)
- * are forward-declared per the #1034 TL review — stored on
- * Playbook.config as JSON but not read by the runtime today. Cost
- * tiering (modelTier) and Bloom override (bloomLevelOverride) ship
- * in follow-up stories.
+ * Preset PlaybookConfig seeds. Cost tiering (modelTier) and Bloom override
+ * (bloomLevelOverride) ship in follow-up stories.
+ *
+ * Mastery-discipline keys (#1081 Slice 1) are LIVE — both fields are read at
+ * the AGGREGATE write site (`lib/curriculum/track-progress.ts`) and enforced:
+ *   - `useFreshMastery: true` → mastery writes go to `Call.scratchMastery`
+ *     instead of `CallerAttribute.lo_mastery:*` (Exam Assessment isolation).
+ *   - `maxMasteryTier: "DEVELOPING"` → write-site cap on the per-LO mastery
+ *     contribution; max(existing, clamped) prevents downgrade (Pop Quiz cap).
  */
 const PRESET_CONFIGS: Record<VariantPreset, Prisma.JsonObject> = {
   revision: {
@@ -79,6 +83,8 @@ const PRESET_CONFIGS: Record<VariantPreset, Prisma.JsonObject> = {
     maxCallDurationSeconds: 1500,
     modelTier: "sonnet",
     bloomLevelOverride: { floor: "L2", ceiling: "L4" },
+    // Revision Aid intentionally has NO maxMasteryTier — it can take an LO
+    // all the way to DISTINCTION. This is the funnel's anchor.
   },
   popquiz: {
     teachingProfile: "assessment-led",
@@ -87,6 +93,9 @@ const PRESET_CONFIGS: Record<VariantPreset, Prisma.JsonObject> = {
     modelTier: "haiku",
     scope: "single-module",
     bloomLevelOverride: { floor: "L1", ceiling: "L3" },
+    // #1081 Slice 1 — Pop Quiz can probe gaps but cannot promote an LO past
+    // "Developing". Enforced at the AGGREGATE write site.
+    maxMasteryTier: "DEVELOPING",
   },
   exam: {
     teachingProfile: "discussion-led",
@@ -94,6 +103,9 @@ const PRESET_CONFIGS: Record<VariantPreset, Prisma.JsonObject> = {
     maxCallDurationSeconds: 2400,
     modelTier: "sonnet",
     bloomLevelOverride: { floor: "L3", ceiling: "L5" },
+    // #1081 Slice 1 — Exam Assessment scores into per-call scratch only.
+    // Long-term mastery state is untouched — the learner takes the exam,
+    // then walks away with the same mastery they walked in with.
     useFreshMastery: true,
   },
 };
