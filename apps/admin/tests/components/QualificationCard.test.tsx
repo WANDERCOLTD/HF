@@ -132,10 +132,14 @@ describe("QualificationCard — #1098 Slice B", () => {
   });
 
   it("expands the weakest Unit by default + highlights weakest LO", () => {
-    const { container, getByText } = render(<QualificationCard data={makeFixture()} />);
-    // standard-unit-09 is weakest → its LO list rendered.
-    expect(getByText("Define enterprise model")).toBeDefined();
-    expect(getByText("Map business capabilities")).toBeDefined();
+    const { container } = render(<QualificationCard data={makeFixture()} />);
+    // standard-unit-09 is weakest → its LO list rendered. Scope to the LO
+    // list region because Slice D's CTA now also surfaces the LO display
+    // name "Map business capabilities" in the focus line.
+    const loList = container.querySelector(".hf-qualification-lo-list");
+    expect(loList).not.toBeNull();
+    expect(loList!.textContent).toContain("Define enterprise model");
+    expect(loList!.textContent).toContain("Map business capabilities");
     // Weakest LO row carries the weakest modifier class.
     const weakestRow = container.querySelector(".hf-qualification-lo-row--weakest");
     expect(weakestRow).not.toBeNull();
