@@ -53,6 +53,17 @@ import type {
   NormalisedEndOfCallCapture,
   NormalisedEndOfCallEvent,
 } from "@/lib/voice/types";
+import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
+import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
+
+// In-memory state for the trickle handler (AnyVoice #1080).
+// Reset on process restart — the cold-start case logs one event with
+// the full cumulative (looks like a spike) which is acceptable and
+// documented behaviour. Cross-instance state is intentional: cap dedup
+// works per-instance and the duplicate end-call API call is harmless
+// (provider returns 4xx for already-ended calls).
+const _lastCumulativeUsdByCallId = new Map<string, number>();
+const _endingCalls = new Set<string>();
 
 // ═══════════════════════════════════════════════════════════════════
 // WEBHOOK
@@ -75,16 +86,29 @@ export async function handleVoiceWebhookPost(
   request: NextRequest,
   slug: string,
 ): Promise<NextResponse> {
+  const endSpan = startVoiceSpan({
+    slug,
+    operation: `voice:${slug}:webhook`,
+  });
   try {
     const rawBody = await request.text();
     const provider = await getVoiceProvider(slug);
     const authError = provider.verifyInboundRequest(request, rawBody);
-    if (authError) return authError;
+    if (authError) {
+      logVoiceEvent({
+        slug,
+        operation: `voice:${slug}:auth:invalid-signature`,
+        durationMs: 0,
+      });
+      endSpan({ metadata: { authFailed: true } });
+      return authError;
+    }
 
     let body: unknown;
     try {
       body = JSON.parse(rawBody);
     } catch {
+      endSpan({ errorMessage: "Invalid JSON body" });
       return NextResponse.json(
         { error: "Invalid JSON body" },
         { status: 400 },
@@ -93,18 +117,143 @@ export async function handleVoiceWebhookPost(
 
     const event = provider.normaliseEndOfCallEvent(body);
     if (event) {
-      return handleEndOfCallEvent(event, slug);
+      const resp = await handleEndOfCallEvent(event, slug);
+      endSpan({
+        metadata: { kind: "end-of-call", eventKind: event.eventKind },
+      });
+      return resp;
     }
 
-    // Unhandled event types (status-update, ping, etc.) just ack.
+    // Status-update trickle + cost cap (AnyVoice #1080). Adapter
+    // declares the parser; if it doesn't, this branch no-ops. Response
+    // returns IMMEDIATELY — the trickle/cap work runs in setImmediate
+    // so we don't block VAPI's webhook timeout.
+    const statusUpdate = provider.normaliseStatusUpdate?.(body);
+    if (statusUpdate) {
+      setImmediate(() => {
+        processStatusUpdate(statusUpdate, slug, provider).catch((err) => {
+          console.error(
+            `[voice/${slug}/webhook] status-update post-process error:`,
+            err,
+          );
+        });
+      });
+      endSpan({ metadata: { kind: "status-update" } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Unhandled event types (ping, etc.) just ack.
+    endSpan({ metadata: { kind: "ignored" } });
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error(`[voice/${slug}/webhook] Error:`, error);
+    endSpan({ errorMessage: error?.message ?? "Webhook processing failed" });
     return NextResponse.json(
       { error: error?.message || "Webhook processing failed" },
       { status: 500 },
     );
   }
+}
+
+/**
+ * Status-update post-processor (AnyVoice #1080). Runs in setImmediate
+ * — must not throw past `processStatusUpdate`'s catch — and writes
+ * one UsageEvent per delta-minute. Triggers requestEndCall when
+ * cumulative cost crosses the system cap.
+ */
+async function processStatusUpdate(
+  status: {
+    externalCallId: string;
+    costSoFarUsd: number | null;
+    durationSecondsSoFar: number | null;
+  },
+  slug: string,
+  provider: Awaited<ReturnType<typeof getVoiceProvider>>,
+): Promise<void> {
+  const { externalCallId, costSoFarUsd } = status;
+  if (costSoFarUsd === null) return;
+
+  const prev = _lastCumulativeUsdByCallId.get(externalCallId) ?? 0;
+
+  // Out-of-order guard: VAPI is at-least-once delivery. If a delayed
+  // earlier event arrives, skip the write — no negative deltas.
+  if (costSoFarUsd <= prev) return;
+
+  const deltaUsd = costSoFarUsd - prev;
+  _lastCumulativeUsdByCallId.set(externalCallId, costSoFarUsd);
+
+  // Resolve callId — look up the Call row by externalId + source. Best
+  // effort; if no row yet (basic event still in-flight) we still log
+  // the event with callId=null.
+  const callRow = await prisma.call.findFirst({
+    where: { externalId: externalCallId, source: slug },
+    select: { id: true, callerId: true },
+  });
+
+  logVoiceEvent({
+    slug,
+    operation: `voice:${slug}:webhook:status-update`,
+    durationMs: 0,
+    costCents: Math.round(deltaUsd * 100),
+    callId: callRow?.id ?? null,
+    callerId: callRow?.callerId ?? null,
+    metadata: {
+      cumulativeUsd: costSoFarUsd,
+      deltaUsd,
+      durationSecondsSoFar: status.durationSecondsSoFar,
+    },
+  });
+
+  // Cost-cap check
+  const sys = await getVoiceSystemSettings();
+  const cap = sys.maxCostPerCallUsd;
+  if (cap === null || cap === undefined) return;
+  if (costSoFarUsd < cap) return;
+
+  // Cap tripped. Dedup with in-memory set.
+  if (_endingCalls.has(externalCallId)) return;
+  _endingCalls.add(externalCallId);
+
+  const caps = provider.getCapabilities();
+  if (!caps.supportsRequestEndCall || !provider.requestEndCall) {
+    logVoiceEvent({
+      slug,
+      operation: `voice:${slug}:webhook:cap-tripped`,
+      durationMs: 0,
+      callId: callRow?.id ?? null,
+      callerId: callRow?.callerId ?? null,
+      metadata: {
+        cumulativeUsd: costSoFarUsd,
+        capUsd: cap,
+        ended: false,
+        reason: "provider-does-not-support-end-call",
+      },
+    });
+    return;
+  }
+
+  try {
+    await provider.requestEndCall(externalCallId);
+    logVoiceEvent({
+      slug,
+      operation: `voice:${slug}:webhook:cap-tripped`,
+      durationMs: 0,
+      callId: callRow?.id ?? null,
+      callerId: callRow?.callerId ?? null,
+      metadata: { cumulativeUsd: costSoFarUsd, capUsd: cap, ended: true },
+    });
+  } catch (err) {
+    console.error(
+      `[voice/${slug}/webhook] requestEndCall failed for ${externalCallId}:`,
+      err,
+    );
+  }
+}
+
+/** For tests: clear in-memory trickle/cap state between runs. */
+export function _resetTrickleState(): void {
+  _lastCumulativeUsdByCallId.clear();
+  _endingCalls.clear();
 }
 
 async function handleEndOfCallEvent(
@@ -307,7 +456,14 @@ export async function handleVoiceToolsPost(
 
     const rawBody = await request.text();
     const authError = provider.verifyInboundRequest(request, rawBody);
-    if (authError) return authError;
+    if (authError) {
+      logVoiceEvent({
+        slug,
+        operation: `voice:${slug}:auth:invalid-signature`,
+        durationMs: 0,
+      });
+      return authError;
+    }
 
     let body: unknown;
     try {
@@ -332,7 +488,21 @@ export async function handleVoiceToolsPost(
 
     const results = [];
     for (const toolCall of toolCalls) {
+      const toolStart = Date.now();
       const out = await routeToolCall(toolCall, { callerId, customerPhone });
+      const actualMs = Date.now() - toolStart;
+      logVoiceEvent({
+        slug,
+        operation: `voice:${slug}:tool:${toolCall.funcName}`,
+        durationMs: actualMs,
+        callerId,
+        metadata: {
+          actualMs,
+          toolCallId: toolCall.toolCallId,
+          // budgetExceeded flag wired in once TOOLS-001 entries
+          // carry maxLatencyMs (#1080 acceptance criterion).
+        },
+      });
       results.push({ toolCallId: toolCall.toolCallId, result: out.raw });
     }
 
@@ -358,11 +528,23 @@ export async function handleVoiceAssistantRequestPost(
   request: NextRequest,
   slug: string,
 ): Promise<NextResponse> {
+  const endSpan = startVoiceSpan({
+    slug,
+    operation: `voice:${slug}:assistant-request`,
+  });
   try {
     const rawBody = await request.text();
     const inbound = await getVoiceProvider(slug);
     const authError = inbound.verifyInboundRequest(request, rawBody);
-    if (authError) return authError;
+    if (authError) {
+      logVoiceEvent({
+        slug,
+        operation: `voice:${slug}:auth:invalid-signature`,
+        durationMs: 0,
+      });
+      endSpan({ metadata: { authFailed: true } });
+      return authError;
+    }
 
     let body: any;
     try {
@@ -466,7 +648,7 @@ export async function handleVoiceAssistantRequestPost(
     const firstLine =
       (composedPrompt.llmPrompt as any)?._quickStart?.first_line ?? null;
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       responseProvider.buildAssistantConfig({
         callerId: caller.id,
         callerName: caller.name,
@@ -481,8 +663,17 @@ export async function handleVoiceAssistantRequestPost(
         noActivePromptFallback: vs.noActivePromptFallback,
       }),
     );
+    endSpan({
+      callerId: caller.id,
+      metadata: {
+        promptChars: voicePrompt.length,
+        toolCount: enabledTools.length,
+      },
+    });
+    return response;
   } catch (error: any) {
     console.error(`[voice/${slug}/assistant-request] Error:`, error);
+    endSpan({ errorMessage: error?.message ?? "Internal error" });
     return NextResponse.json(
       { error: error?.message || "Internal error" },
       { status: 500 },
@@ -504,10 +695,15 @@ export async function handleVoiceKnowledgePost(
   request: NextRequest,
   slug: string,
 ): Promise<NextResponse> {
+  const endSpan = startVoiceSpan({
+    slug,
+    operation: `voice:${slug}:knowledge-base-request`,
+  });
   try {
     const provider = await getVoiceProvider(slug);
 
     if (!provider.getCapabilities().hasKnowledgeCallback) {
+      endSpan({ metadata: { noKnowledgeCallback: true } });
       return NextResponse.json(
         {
           error: `Provider "${slug}" does not expose an HTTP knowledge callback. Configure knowledge via the provider's own mechanism (e.g. pre-uploaded knowledge_base_ids).`,
@@ -518,7 +714,15 @@ export async function handleVoiceKnowledgePost(
 
     const rawBody = await request.text();
     const authError = provider.verifyInboundRequest(request, rawBody);
-    if (authError) return authError;
+    if (authError) {
+      logVoiceEvent({
+        slug,
+        operation: `voice:${slug}:auth:invalid-signature`,
+        durationMs: 0,
+      });
+      endSpan({ metadata: { authFailed: true } });
+      return authError;
+    }
 
     let body: unknown;
     try {
@@ -627,9 +831,11 @@ export async function handleVoiceKnowledgePost(
     results.sort((a, b) => b.similarity - a.similarity);
     const topResults = results.slice(0, ks.topResults);
 
+    endSpan({ metadata: { resultCount: topResults.length, callerId } });
     return NextResponse.json(provider.buildKnowledgeResponse(topResults));
   } catch (error: any) {
     console.error(`[voice/${slug}/knowledge] Error:`, error);
+    endSpan({ errorMessage: error?.message ?? "Knowledge error" });
     try {
       const provider = await getVoiceProvider(slug);
       return NextResponse.json(provider.buildKnowledgeResponse([]));

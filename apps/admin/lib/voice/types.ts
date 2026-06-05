@@ -290,6 +290,33 @@ export interface VoiceProvider {
   ): NormalisedToolCall | null;
 
   /**
+   * Extract per-call cost + duration from a mid-call status update
+   * (AnyVoice #1080). VAPI fires `status-update` events with running
+   * cost-so-far; the trickle handler logs the delta as a VOICE
+   * UsageEvent and checks the cost cap.
+   *
+   * Returns null when the body isn't a status-update for this provider
+   * (e.g. a ping or a non-cost-bearing status arrives). Optional: a
+   * provider that doesn't emit live status events can skip this method
+   * and the trickle handler short-circuits.
+   */
+  normaliseStatusUpdate?(body: unknown): {
+    externalCallId: string;
+    costSoFarUsd: number | null;
+    durationSecondsSoFar: number | null;
+  } | null;
+
+  /**
+   * End an in-flight call from the server (AnyVoice #1080 cost-cap).
+   * VAPI: `POST https://api.vapi.ai/call/{id}/end`. Retell:
+   * `POST /v2/end-call`. Optional — provider that can't terminate
+   * server-side declares `supportsRequestEndCall: false` in
+   * capabilities and the cost-cap watcher logs but cannot kill the
+   * call. Implementation should be idempotent for already-ended calls.
+   */
+  requestEndCall?(externalCallId: string): Promise<void>;
+
+  /**
    * Parse the provider's per-turn knowledge-base callback into a
    * canonical {messages, callId, customerPhone} shape. Returns null
    * when the body doesn't match this provider's knowledge-request

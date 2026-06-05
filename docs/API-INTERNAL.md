@@ -14741,6 +14741,47 @@ Returns voice-call cost rollups for a chosen scope. Reads
 
 ---
 
+### `GET` /api/voice/health/[providerId]
+
+Health snapshot for a voice provider (AnyVoice #1080).
+
+**Auth**: session OPERATOR OR x-internal-secret · **Scope**: `voice:health:read`
+
+**Response** `200`
+```json
+{ ok: true, providerId, slug, since, stats }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" } (neither session nor secret)
+```
+
+**Response** `404`
+```json
+{ error: "Provider not found" }
+```
+
+---
+
+### `GET` /api/voice/telemetry/[providerId]
+
+Recent telemetry rows for a voice provider (AnyVoice
+
+**Auth**: session ADMIN · **Scope**: `voice:telemetry:read`
+
+**Response** `200`
+```json
+{ ok: true, providerId, events: [...] }
+```
+
+**Response** `404`
+```json
+{ error: "Provider not found" }
+```
+
+---
+
 ## Wizard
 
 ### `POST` /api/teach-wizard/launch
@@ -14929,8 +14970,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 478 |
-| Files with annotations | 469 |
+| Route files found | 480 |
+| Files with annotations | 471 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 

@@ -3327,6 +3327,11 @@ model UsageEvent {
   @@index([operation])
   @@index([userId])
   @@index([callerId])
+  // AnyVoice #1080: per-call telemetry drill-down (the admin
+  // /x/settings/voice-providers/[id]/telemetry panel queries
+  // findMany({ where: { callId } }). Without this composite the
+  // table scans on UsageEvent which can hold many millions of rows.
+  @@index([callId])
   @@index([createdAt])
   @@index([sourceOp])
 }
