@@ -29,6 +29,26 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c 
 
 Report what changed (new commits, updated packages). If the SSH command fails with exit code 255, wait 3 seconds and retry once.
 
+### 1a. Drift sentinel — warn if VM working tree diverged from origin/main
+
+```bash
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c '
+  cd ~/HF
+  git fetch origin --quiet 2>/dev/null || true
+  if [ "${HF_VM_DRIFT_OK:-0}" != "1" ]; then
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$BRANCH" = "main" ] && ! git diff origin/main --quiet 2>/dev/null; then
+      COUNT=$(git diff --name-only origin/main 2>/dev/null | wc -l | tr -d " ")
+      echo "⚠  VM drift: $COUNT tracked file(s) differ from origin/main."
+      echo "   Inspect: git diff origin/main --stat"
+      echo "   Clean slate: git stash push --include-untracked -m drift-reset-$(date +%s) && git reset --hard origin/main"
+    fi
+  fi
+'
+```
+
+Surfaces accumulated working-tree drift on the VM before it bites at runtime (e.g. stale wizard-v6 lab residue or schema.prisma divergence). Warn-only; doesn't block the pull. Set `HF_VM_DRIFT_OK=1` to silence when intentionally on a feature branch.
+
 If there are merge conflicts, show them and stop — do NOT force resolve.
 
 ## 2. Ask about restart
