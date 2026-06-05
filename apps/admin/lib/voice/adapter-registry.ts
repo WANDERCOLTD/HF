@@ -19,6 +19,7 @@
  * blob — but registration/credentials/config/enable-state are all data.
  */
 
+import { RetellProvider } from "./providers/retell";
 import { VapiProvider } from "./providers/vapi";
 import type { VoiceProvider } from "./types";
 
@@ -34,6 +35,7 @@ export interface VoiceProviderConstructor {
  */
 export const VOICE_ADAPTERS: Record<string, VoiceProviderConstructor> = {
   vapi: VapiProvider as unknown as VoiceProviderConstructor,
+  retell: RetellProvider as unknown as VoiceProviderConstructor,
 };
 
 /** For tests / health checks — list registered adapter keys without

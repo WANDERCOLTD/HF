@@ -1,0 +1,132 @@
+/* SIM qualification surfaces — #1098 Slice C.
+ *
+ * Both pre- and post-call live inside the SIM frame, so styles share
+ * tokens with the rest of the SimChat surface. No hard-coded colors;
+ * uses the global CSS custom properties with safe fallbacks.
+ */
+
+/* ─── Pre-call context strip ─────────────────────────────────────────── */
+
+.hf-sim-qual-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 6%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-primary, #6366f1) 25%, transparent);
+  font-size: 12px;
+  color: var(--text-secondary, #374151);
+}
+.hf-sim-qual-strip-line1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.hf-sim-qual-strip-line2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+}
+.hf-sim-qual-strip-anchor {
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+.hf-sim-qual-strip-unit {
+  color: var(--text-primary, #111827);
+}
+.hf-sim-qual-strip-tier {
+  font-weight: 600;
+  color: var(--accent-primary, #6366f1);
+}
+.hf-sim-qual-strip-dot {
+  color: var(--text-muted, #9ca3af);
+}
+.hf-sim-qual-strip-loref {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  background: color-mix(in srgb, var(--text-primary, #111827) 8%, transparent);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ─── Post-call session summary ──────────────────────────────────────── */
+
+.hf-sim-qual-summary {
+  margin: 12px 8px;
+  padding: 14px 16px;
+  background: var(--surface-primary, var(--card-bg, #ffffff));
+  border: 1px solid var(--border-primary, var(--card-border, #e5e7eb));
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hf-sim-qual-summary-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hf-sim-qual-summary-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary, #111827);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.hf-sim-qual-summary-line {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary, #374151);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.hf-sim-qual-summary-anchor {
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+.hf-sim-qual-summary-tier {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 12%, transparent);
+  color: var(--accent-primary, #6366f1);
+}
+.hf-sim-qual-summary-unitline {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  background: var(--surface-secondary, #f9fafb);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary, #374151);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.hf-sim-qual-summary-unit {
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+.hf-sim-qual-summary-unittier {
+  color: var(--text-secondary, #374151);
+}
+.hf-sim-qual-summary-link {
+  align-self: flex-end;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-primary, #6366f1);
+  text-decoration: none;
+  margin-top: 4px;
+}
+.hf-sim-qual-summary-link:hover {
+  text-decoration: underline;
+}

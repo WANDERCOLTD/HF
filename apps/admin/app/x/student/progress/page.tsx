@@ -5,6 +5,8 @@ import { TrendingUp, Target, Phone, BookOpen, Lightbulb, MessageSquare, Clipboar
 import Link from "next/link";
 import StudentOnboarding from "@/components/student/StudentOnboarding";
 import { useStudentCallerId } from "@/hooks/useStudentCallerId";
+import { useQualificationProgress } from "@/hooks/useQualificationProgress";
+import { QualificationCard } from "@/components/student/qualification/QualificationCard";
 
 interface TopicEntry {
   topic: string;
@@ -73,6 +75,10 @@ function StudentProgressContent() {
   const [showSurveyBanner, setShowSurveyBanner] = useState(false);
   const [surveyBannerMsg, setSurveyBannerMsg] = useState<string>('');
   const [journey, setJourney] = useState<JourneyData | null>(null);
+  // #1098 Slice B — qualification dashboard data. Renders above the stats grid
+  // when the learner's active Curriculum has a qualificationAnchor; otherwise
+  // the hook returns qualification:null and QualificationCard renders nothing.
+  const qualification = useQualificationProgress();
 
   useEffect(() => {
     if (isAdmin && !hasSelection) { setLoading(false); return; }
@@ -203,6 +209,31 @@ function StudentProgressContent() {
       {data.testScores && (data.testScores.preTest != null || data.testScores.postTest != null) && (
         <TestScoreCard testScores={data.testScores} />
       )}
+
+      {/* #1098 Slice B — Qualification dashboard. Renders only when the learner's
+          active Curriculum has a qualificationAnchor (the card returns null
+          otherwise so non-qualification learners see the existing page unchanged).
+          Slice D — explicit error+retry surface so the card doesn't silently
+          disappear on hook failure (ux-reviewer #1). */}
+      {qualification.error ? (
+        <div
+          role="alert"
+          className="hf-qualification-error"
+        >
+          <p className="hf-qualification-error-message">
+            Couldn&apos;t load your qualification progress.
+          </p>
+          <button
+            type="button"
+            onClick={() => qualification.refetch()}
+            className="hf-qualification-error-retry"
+          >
+            Try again
+          </button>
+        </div>
+      ) : qualification.data?.qualification ? (
+        <QualificationCard data={qualification.data} />
+      ) : null}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">

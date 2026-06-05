@@ -45,6 +45,7 @@ PACKAGES=(
   generator
   extractor
   server
+  admin-bridge
 )
 
 if [[ ! -d "${TALLYSEAL_ROOT}" ]]; then

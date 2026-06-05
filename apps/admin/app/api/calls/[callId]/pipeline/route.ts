@@ -2669,6 +2669,13 @@ async function trackCurriculumAfterCall(
     allModuleIds: string[];
   } | null,
   callId?: string,
+  /**
+   * #1081 Slice 1 — Playbook owning this call. Threaded through to
+   * `updateCurriculumProgress` so the AGGREGATE write site can apply
+   * `useFreshMastery` routing + `maxMasteryTier` capping. Falsy = no
+   * Playbook context → standard CallerAttribute write path.
+   */
+  playbookId?: string | null,
 ): Promise<boolean> {
   // If we have a learning assessment, write mastery and potentially advance
   if (learningAssessment) {
@@ -2697,6 +2704,9 @@ async function trackCurriculumAfterCall(
         lastAccessedAt: new Date(),
         callId,
         curriculumId: curriculumForSpec?.id ?? null,
+        // #1081 Slice 1 — enable per-Playbook mastery discipline at the
+        // AGGREGATE write site (useFreshMastery routing + maxMasteryTier cap).
+        playbookId: playbookId ?? null,
       });
       log.info(`Mastery written for ${specSlug}:${moduleId}`, { mastery: overallMastery, threshold: masteryThreshold, loCount: Object.keys(outcomes).length });
 
@@ -3173,7 +3183,16 @@ const stageExecutors: Record<string, StageExecutor> = {
     const [currSettled, onboardSettled, lessonSettled, artifactSettled, actionSettled] =
       await Promise.allSettled([
         // 1. Curriculum progress + CurriculumModule FK write
-        trackCurriculumAfterCall(ctx.callerId, ctx.log, callerResult.learningAssessment, ctx.callId)
+        // #1081 Slice 1 — `callerResult.playbookUsed` threaded through so the
+        // AGGREGATE write site can apply per-Playbook mastery discipline
+        // (useFreshMastery routing + maxMasteryTier cap).
+        trackCurriculumAfterCall(
+          ctx.callerId,
+          ctx.log,
+          callerResult.learningAssessment,
+          ctx.callId,
+          callerResult.playbookUsed ?? null,
+        )
           .then(async (updated) => {
             if (callerResult.learningAssessment?.moduleId) {
               // Two-step scope chain (#407): caller → playbook → curriculum →

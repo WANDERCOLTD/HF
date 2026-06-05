@@ -28,6 +28,7 @@ import { PanelLayoutPanel } from "@/components/settings/PanelLayoutPanel";
 import { InstitutionTypesPanel } from "@/components/settings/InstitutionTypesPanel";
 import { ConstantsReferencePanel } from "@/components/settings/ConstantsReferencePanel";
 import { VoiceProvidersPanel } from "@/components/settings/VoiceProvidersPanel";
+import { VoiceToolsPanel } from "@/components/settings/VoiceToolsPanel";
 
 // ── Build the unified panel registry ────────────────
 
@@ -37,6 +38,10 @@ function ChannelsPanelAdapter(_props: PanelProps) {
 
 function VoiceProvidersPanelAdapter(_props: PanelProps) {
   return <VoiceProvidersPanel />;
+}
+
+function VoiceToolsPanelAdapter(_props: PanelProps) {
+  return <VoiceToolsPanel />;
 }
 
 // Ordered: foundational setup → operational → security → personal → advanced
@@ -58,6 +63,12 @@ const CUSTOM_PANELS: SettingsPanel[] = [
     "CRUD voice-call providers (VAPI etc.) — credentials, defaults, archive",
     "communications", VoiceProvidersPanelAdapter,
     ["voice", "provider", "vapi", "credentials", "api key", "webhook", "archive", "call"],
+  ),
+  registerCustomPanel(
+    "voice_tools", "Voice Tools", "Wrench",
+    "Enable or disable individual tools (lookup_teaching_point, check_mastery, …) available to voice callers",
+    "communications", VoiceToolsPanelAdapter,
+    ["voice", "tools", "enable", "disable", "lookup", "mastery", "TOOLS-001"],
   ),
   registerCustomPanel(
     "security", "Access Matrix", "Lock",

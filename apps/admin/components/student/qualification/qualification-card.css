@@ -1,0 +1,367 @@
+/* QualificationCard styles — #1098 Slice B.
+ *
+ * Uses CSS custom properties from the global theme. No hardcoded colors.
+ * Tier colours map through `--tier-{tier}` vars (defined here, may move to
+ * the global tokens in a follow-up). progress-bar fills are written via the
+ * `data-width` attribute + a CSS `attr()` width to dodge inline styles.
+ */
+
+.hf-qualification-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: var(--surface-primary, var(--card-bg, #ffffff));
+  border: 1px solid var(--border-primary, var(--card-border, #e5e7eb));
+  border-radius: 12px;
+  margin: 16px 0;
+}
+
+/* Tier tokens — mapped to existing status colors. */
+.hf-qualification-card {
+  --tier-foundation: var(--status-warning-text, #b45309);
+  --tier-developing: var(--status-info-text, #0369a1);
+  --tier-practitioner: var(--status-success-text, #15803d);
+  --tier-distinction: var(--accent-primary, #6366f1);
+  --tier-none: var(--text-muted, #9ca3af);
+}
+
+/* -- Header --------------------------------------------------------------- */
+
+.hf-qualification-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.hf-qualification-header-text {
+  flex: 1;
+  min-width: 0;
+}
+.hf-qualification-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text-primary, #111827);
+}
+.hf-qualification-subtitle {
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+  margin: 0 0 8px;
+}
+.hf-qualification-readiness {
+  font-size: 14px;
+  color: var(--text-secondary, #374151);
+  margin: 0;
+}
+.hf-qualification-readiness--cold {
+  color: var(--text-muted, #9ca3af);
+  font-style: italic;
+}
+.hf-qualification-tier-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 12%, transparent);
+  color: var(--accent-primary, #6366f1);
+}
+.hf-qualification-header-donut {
+  flex-shrink: 0;
+}
+.hf-qualification-donut-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+/* -- Cold-start banner ---------------------------------------------------- */
+
+.hf-qualification-coldstart {
+  margin: 0;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 6%, transparent);
+  border-left: 3px solid var(--accent-primary, #6366f1);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--text-secondary, #374151);
+}
+
+/* Error / retry surface — Slice D */
+.hf-qualification-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  background: color-mix(in srgb, var(--status-error-text, #b91c1c) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-error-text, #b91c1c) 30%, transparent);
+  border-radius: 8px;
+}
+.hf-qualification-error-message {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-primary, #111827);
+}
+.hf-qualification-error-retry {
+  padding: 8px 14px;
+  background: var(--surface-primary, #ffffff);
+  border: 1px solid var(--border-primary, #e5e7eb);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  cursor: pointer;
+}
+.hf-qualification-error-retry:hover {
+  border-color: var(--accent-primary, #6366f1);
+}
+
+/* -- Next Best Step CTA -------------------------------------------------- */
+
+.hf-qualification-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #6366f1) 30%, transparent);
+  border-radius: 8px;
+}
+.hf-qualification-cta-body {
+  flex: 1;
+  min-width: 0;
+}
+.hf-qualification-cta-headline {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 2px;
+  color: var(--text-primary, #111827);
+}
+.hf-qualification-cta-reason {
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+  margin: 0;
+}
+.hf-qualification-cta-focus {
+  font-size: 12px;
+  color: var(--text-muted, #6b7280);
+  margin: 4px 0 0;
+}
+.hf-qualification-cta-focus-name {
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+.hf-qualification-cta-button {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  background: var(--accent-primary, #6366f1);
+  color: var(--accent-on-primary, #ffffff);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.hf-qualification-cta-button:hover {
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 85%, black);
+}
+
+/* -- Unit tiles grid ----------------------------------------------------- */
+
+.hf-qualification-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.hf-qualification-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px;
+  background: var(--surface-secondary, #f9fafb);
+  border: 1px solid var(--border-primary, #e5e7eb);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, transform 0.05s;
+}
+.hf-qualification-tile:hover {
+  border-color: var(--accent-primary, #6366f1);
+}
+.hf-qualification-tile:active {
+  transform: translateY(1px);
+}
+.hf-qualification-tile--expanded {
+  border-color: var(--accent-primary, #6366f1);
+  background: color-mix(in srgb, var(--accent-primary, #6366f1) 6%, var(--surface-secondary, #f9fafb));
+}
+.hf-qualification-tile-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+.hf-qualification-tile-tier {
+  font-size: 12px;
+  color: var(--text-secondary, #374151);
+}
+.hf-qualification-tile-fraction {
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+}
+
+/* Tier color accents on tile borders */
+.hf-qualification-tile--tier-foundation { border-left: 4px solid var(--tier-foundation); }
+.hf-qualification-tile--tier-developing { border-left: 4px solid var(--tier-developing); }
+.hf-qualification-tile--tier-practitioner { border-left: 4px solid var(--tier-practitioner); }
+.hf-qualification-tile--tier-distinction { border-left: 4px solid var(--tier-distinction); }
+.hf-qualification-tile--tier-none { border-left: 4px solid var(--tier-none); }
+
+/* -- Progress bar -------------------------------------------------------- */
+
+.hf-qualification-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--surface-tertiary, #e5e7eb);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.hf-qualification-progress-bar-fill {
+  height: 100%;
+  background: var(--accent-primary, #6366f1);
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+/* Discrete bar widths driven by data-width attribute (avoids inline style). */
+.hf-qualification-progress-bar-fill[data-width="0"] { width: 0%; }
+.hf-qualification-progress-bar-fill[data-width="5"] { width: 5%; }
+.hf-qualification-progress-bar-fill[data-width="10"] { width: 10%; }
+.hf-qualification-progress-bar-fill[data-width="15"] { width: 15%; }
+.hf-qualification-progress-bar-fill[data-width="20"] { width: 20%; }
+.hf-qualification-progress-bar-fill[data-width="25"] { width: 25%; }
+.hf-qualification-progress-bar-fill[data-width="30"] { width: 30%; }
+.hf-qualification-progress-bar-fill[data-width="33"] { width: 33%; }
+.hf-qualification-progress-bar-fill[data-width="35"] { width: 35%; }
+.hf-qualification-progress-bar-fill[data-width="40"] { width: 40%; }
+.hf-qualification-progress-bar-fill[data-width="43"] { width: 43%; }
+.hf-qualification-progress-bar-fill[data-width="45"] { width: 45%; }
+.hf-qualification-progress-bar-fill[data-width="50"] { width: 50%; }
+.hf-qualification-progress-bar-fill[data-width="55"] { width: 55%; }
+.hf-qualification-progress-bar-fill[data-width="60"] { width: 60%; }
+.hf-qualification-progress-bar-fill[data-width="65"] { width: 65%; }
+.hf-qualification-progress-bar-fill[data-width="67"] { width: 67%; }
+.hf-qualification-progress-bar-fill[data-width="70"] { width: 70%; }
+.hf-qualification-progress-bar-fill[data-width="75"] { width: 75%; }
+.hf-qualification-progress-bar-fill[data-width="80"] { width: 80%; }
+.hf-qualification-progress-bar-fill[data-width="85"] { width: 85%; }
+.hf-qualification-progress-bar-fill[data-width="90"] { width: 90%; }
+.hf-qualification-progress-bar-fill[data-width="95"] { width: 95%; }
+.hf-qualification-progress-bar-fill[data-width="100"] { width: 100%; }
+
+/* -- LO list ------------------------------------------------------------- */
+
+.hf-qualification-lo-list {
+  border: 1px solid var(--border-primary, #e5e7eb);
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: var(--surface-secondary, #f9fafb);
+}
+.hf-qualification-lo-list-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text-primary, #111827);
+}
+.hf-qualification-lo-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hf-qualification-lo-row {
+  display: grid;
+  grid-template-columns: 20px 90px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.hf-qualification-lo-row--weakest {
+  background: color-mix(in srgb, var(--status-warning-text, #b45309) 10%, transparent);
+}
+.hf-qualification-lo-indicator {
+  font-size: 14px;
+  text-align: center;
+}
+.hf-qualification-lo-ref {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+}
+.hf-qualification-lo-name {
+  color: var(--text-primary, #111827);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hf-qualification-lo-tier {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+}
+.hf-qualification-lo--tier-foundation .hf-qualification-lo-tier { color: var(--tier-foundation); }
+.hf-qualification-lo--tier-developing .hf-qualification-lo-tier { color: var(--tier-developing); }
+.hf-qualification-lo--tier-practitioner .hf-qualification-lo-tier { color: var(--tier-practitioner); }
+.hf-qualification-lo--tier-distinction .hf-qualification-lo-tier { color: var(--tier-distinction); }
+
+/* -- Skills list --------------------------------------------------------- */
+
+.hf-qualification-skills {
+  border: 1px solid var(--border-primary, #e5e7eb);
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: var(--surface-secondary, #f9fafb);
+}
+.hf-qualification-skills-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text-primary, #111827);
+}
+.hf-qualification-skills-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hf-qualification-skill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.hf-qualification-skill-name {
+  color: var(--text-primary, #111827);
+}
+.hf-qualification-skill-tier {
+  font-size: 11px;
+  font-weight: 600;
+}
+.hf-qualification-skill--tier-foundation .hf-qualification-skill-tier { color: var(--tier-foundation); }
+.hf-qualification-skill--tier-developing .hf-qualification-skill-tier { color: var(--tier-developing); }
+.hf-qualification-skill--tier-practitioner .hf-qualification-skill-tier { color: var(--tier-practitioner); }
+.hf-qualification-skill--tier-distinction .hf-qualification-skill-tier { color: var(--tier-distinction); }
+.hf-qualification-skill--tier-none .hf-qualification-skill-tier { color: var(--tier-none); }

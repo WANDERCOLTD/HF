@@ -54,6 +54,7 @@
   - [System](#system)
   - [Transcripts](#transcripts)
   - [Vapi](#vapi)
+  - [Voice](#voice)
 - [Voice Integration](#voice-integration)
 - [Deployment](#deployment)
 - [Versioning](#versioning)
@@ -3322,6 +3323,94 @@ Returns the most recent COURSE_REFERENCE markdown document
 
 ---
 
+### `GET` /api/v1/identity/challenge-status
+
+Whether the learner has an outstanding first-call PIN challenge
+
+**Auth**: session (STUDENT+)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | query | string | No |  |
+
+**Response** `200`
+```json
+{ ok: true, needsPin: boolean, locked: boolean, recipient: string | null }
+```
+
+---
+
+### `POST` /api/v1/identity/resend-pin
+
+Re-issue a first-call PIN to the caller's on-file email. Caps
+
+**Auth**: session (STUDENT+)
+
+**Response** `200`
+```json
+{ ok: true } — fresh PIN sent
+```
+
+**Response** `200`
+```json
+{ ok: false, resendCapReached: true } — 3 resends already today
+```
+
+**Response** `200`
+```json
+{ ok: false, cooldownSecondsRemaining: number } — within 60s window
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveCaller: true } — caller has no email on file
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+---
+
+### `POST` /api/v1/identity/verify-pin
+
+Verify a learner's first-call PIN. STUDENT sessions are locked
+
+**Auth**: session (STUDENT+)
+
+**Response** `200`
+```json
+{ ok: true } — PIN correct, challenge marked verified
+```
+
+**Response** `200`
+```json
+{ ok: false, expired: true } — PIN matched but past TTL; does NOT count toward lockout
+```
+
+**Response** `200`
+```json
+{ ok: false, locked: true } — caller is in 24h lockout window
+```
+
+**Response** `200`
+```json
+{ ok: false, attemptsRemaining: number } — wrong PIN
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveChallenge: true } — no challenge to verify (request resend)
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+---
+
 ### `GET` /api/v1/join/[token]
 
 Verify a classroom/community join token. Returns group info if valid.
@@ -4510,6 +4599,29 @@ Soft-restart a completed course. Resets goals, curriculum progress, surveys, and
 
 ---
 
+### `GET` /api/v1/student/qualification-progress
+
+Returns the learner's progress against their active qualification —
+
+**Auth**: Session · **Scope**: `progress:read`
+
+**Response** `200`
+```json
+{ ok: true, qualification: Qualification | null, units: Unit[],
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "no active enrollment" }
+```
+
+---
+
 ## Subjects
 
 ### `GET` /api/v1/subjects/:subjectId/curriculum
@@ -4703,7 +4815,7 @@ Imports transcript files into the database. Supports three modes: JSON body with
 
 ### `POST` /api/v1/vapi/assistant-request
 
-VAPI calls this at call start to get a per-caller assistant
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:assistant`
 
@@ -4711,7 +4823,7 @@ VAPI calls this at call start to get a per-caller assistant
 
 ### `POST` /api/v1/vapi/knowledge
 
-VAPI Custom Knowledge Base endpoint. Called every conversation turn.
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:knowledge`
 
@@ -4719,7 +4831,7 @@ VAPI Custom Knowledge Base endpoint. Called every conversation turn.
 
 ### `POST` /api/v1/vapi/tools
 
-VAPI Custom Tools endpoint. Called when the voice AI decides
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:tools`
 
@@ -4727,9 +4839,103 @@ VAPI Custom Tools endpoint. Called when the voice AI decides
 
 ### `POST` /api/v1/vapi/webhook
 
-Receives VAPI webhook events. Handles end-of-call-report to
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:webhook`
+
+---
+
+## Voice
+
+### `POST` /api/v1/voice/[slug]/assistant-request
+
+Shared voice provider call-start endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:assistant`
+
+**Response** `200`
+```json
+(provider-shaped assistant config)
+```
+
+**Response** `400`
+```json
+{ error: "No customer phone number provided" }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+---
+
+### `POST` /api/v1/voice/[slug]/knowledge
+
+Shared voice provider per-turn knowledge callback
+
+**Auth**: webhook-secret · **Scope**: `voice:knowledge`
+
+**Response** `200`
+```json
+(provider-shaped knowledge response)
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+**Response** `404`
+```json
+(no-knowledge-callback provider)
+```
+
+---
+
+### `POST` /api/v1/voice/[slug]/tools
+
+Shared voice provider tool-call endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:tools`
+
+**Response** `200`
+```json
+{ results: [{ toolCallId, result }] }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+**Response** `404`
+```json
+(WS-tools provider)
+```
+
+---
+
+### `POST` /api/v1/voice/[slug]/webhook
+
+Shared voice provider webhook endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:webhook`
+
+**Response** `200`
+```json
+{ ok: true, callId, callerId? }
+```
+
+**Response** `400`
+```json
+{ error: "Invalid JSON body" }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
 
 ---
 

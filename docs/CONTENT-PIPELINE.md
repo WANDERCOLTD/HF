@@ -83,6 +83,7 @@ All values authoritative as of 2026-05-11. Cite the file:line in any PR that cha
 | `DomainKind` | INSTITUTION / COMMUNITY | `prisma/schema.prisma:541-544` | Terminology + wizard defaults |
 | `SegmentType` | COMPANY / COMMUNITY / DOMAIN / COHORT | `prisma/schema.prisma:513-518` | Multi-tenant scoping |
 | `GroupType` | DEPARTMENT / YEAR_GROUP / DIVISION / TRACK / CUSTOM | `prisma/schema.prisma:546-551` | Org chart |
+| `Curriculum.qualificationAnchor` | string slug (e.g. `sias-cio-cto-v6`) or null | `prisma/schema.prisma::model Curriculum` + `lib/curriculum/qualification-anchor.ts::deriveQualificationAnchor` | Labelling/grouping ONLY — **not a veto, not a visibility gate**. Groups sibling Curricula teaching the same regulated qualification for CI guards (slug/ref set divergence — `scripts/check-anchor-divergence.ts`, #1081 Slice 2B.3) and admin rollups (deferred to Slice 3). Mastery sharing itself comes from `PlaybookCurriculum(role: linked)` — see [ENTITIES.md](./ENTITIES.md) §3. |
 
 ### 3.1 ContentAssertion.category — full taxonomy
 

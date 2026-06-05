@@ -133,6 +133,67 @@ export async function sendInviteEmail({
   });
 }
 
+// ── Identity PIN email (#1101 — first-call continuity attestation) ──────
+
+interface SendIdentityPinEmailParams {
+  to: string;
+  firstName?: string;
+  pin: string;
+  callerSimUrl: string;
+  isResend?: boolean;
+}
+
+/**
+ * Email the learner their first-call PIN. Reuses the shared transporter and
+ * renderEmailHtml. PIN is rendered as a prominent code block in the body and
+ * also surfaced in the subject-line-adjacent space; the button takes the
+ * learner to /x/sim/[callerId] where they enter it.
+ *
+ * Subject differs on resend so a learner's inbox makes the new code obvious
+ * when there are multiple in a thread.
+ */
+export async function sendIdentityPinEmail({
+  to,
+  firstName,
+  pin,
+  callerSimUrl,
+  isResend = false,
+}: SendIdentityPinEmailParams) {
+  const fromAddress = process.env.EMAIL_FROM || EMAIL_FROM_DEFAULT;
+  const greeting = firstName ? `Hi ${firstName},` : "Hi there,";
+  const heading = isResend ? "Your new sign-in code" : "Your sign-in code";
+  const subject = isResend
+    ? `Your new sign-in code: ${pin}`
+    : `Your sign-in code: ${pin}`;
+
+  const pinDisplay = `<div style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 32px; letter-spacing: 8px; font-weight: 700; text-align: center; padding: 24px; margin: 16px 0; background: #f4f4f5; border-radius: 8px; color: #18181b;">${pin}</div>`;
+
+  const bodyHtml = [
+    `<p style="font-size: 16px; margin: 0 0 16px;">${greeting}</p>`,
+    `<p style="font-size: 16px; margin: 0 0 16px;">Enter this code on the page below to start your first call. It expires in 24 hours.</p>`,
+    pinDisplay,
+    `<p style="font-size: 14px; color: #71717a; margin: 16px 0 0;">If you didn't request this code, you can safely ignore this email.</p>`,
+  ].join("\n");
+
+  const html = renderEmailHtml({
+    heading,
+    bodyHtml,
+    buttonText: "Enter your code",
+    buttonUrl: callerSimUrl,
+    footer: "This code lets us confirm it's really you on your first call.",
+  });
+
+  const text = `${greeting}\n\nYour sign-in code is: ${pin}\n\nIt expires in 24 hours. Enter it here: ${callerSimUrl}\n\nIf you didn't request this code, you can safely ignore this email.`;
+
+  await transporter.sendMail({
+    from: fromAddress,
+    to,
+    subject,
+    text,
+    html,
+  });
+}
+
 // ── Password reset email ────────────────────────────────────
 
 interface SendPasswordResetEmailParams {

@@ -26,8 +26,9 @@
  * Out of scope (deferred):
  *   • Curriculum cloning — variants NEVER write CurriculumModule rows.
  *     The shared moduleId UUID is what makes the funnel work.
- *   • PlaybookConfig preset wiring — the five preset config keys are
- *     forward-declared and have no runtime effect today.
+ *   • PlaybookConfig preset wiring — `useFreshMastery` + `maxMasteryTier`
+ *     are LIVE as of #1081 Slice 1 (enforced at AGGREGATE write site).
+ *     `bloomLevelOverride` + `modelTier` remain forward-declared.
  *   • Cohort/Invite — caller layers handle enrolment separately.
  */
 
@@ -35,6 +36,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { unlinkNonPrimaryPlaybookSubjects } from "@/lib/knowledge/cleanup-placeholder-subjects";
 import { auditLog, AuditAction } from "@/lib/audit";
+import {
+  deriveQualificationAnchor,
+  isAnchorSafe,
+} from "@/lib/curriculum/qualification-anchor";
 
 export type VariantPreset = "revision" | "popquiz" | "exam";
 
@@ -43,7 +48,7 @@ export interface CreateVariantInput {
   parentPlaybookId: string;
   /** Display name for the new variant Course (e.g. "Pop Quiz — The Standard"). */
   name: string;
-  /** Optional teaching-profile preset. Stored as JSON on Playbook.config; no runtime effect today (forward-declared keys). */
+  /** Optional teaching-profile preset. Stored as JSON on Playbook.config; mastery-discipline keys are LIVE (see PRESET_CONFIGS comment). */
   preset?: VariantPreset;
   /** The User performing the create — for audit trail. */
   actorUserId: string;
@@ -65,12 +70,15 @@ export interface CreateVariantResult {
 }
 
 /**
- * Preset PlaybookConfig seeds. All five keys (teachingProfile,
- * bloomLevelOverride, useFreshMastery, modelTier, welcomeMessage)
- * are forward-declared per the #1034 TL review — stored on
- * Playbook.config as JSON but not read by the runtime today. Cost
- * tiering (modelTier) and Bloom override (bloomLevelOverride) ship
- * in follow-up stories.
+ * Preset PlaybookConfig seeds. Cost tiering (modelTier) and Bloom override
+ * (bloomLevelOverride) ship in follow-up stories.
+ *
+ * Mastery-discipline keys (#1081 Slice 1) are LIVE — both fields are read at
+ * the AGGREGATE write site (`lib/curriculum/track-progress.ts`) and enforced:
+ *   - `useFreshMastery: true` → mastery writes go to `Call.scratchMastery`
+ *     instead of `CallerAttribute.lo_mastery:*` (Exam Assessment isolation).
+ *   - `maxMasteryTier: "DEVELOPING"` → write-site cap on the per-LO mastery
+ *     contribution; max(existing, clamped) prevents downgrade (Pop Quiz cap).
  */
 const PRESET_CONFIGS: Record<VariantPreset, Prisma.JsonObject> = {
   revision: {
@@ -79,6 +87,8 @@ const PRESET_CONFIGS: Record<VariantPreset, Prisma.JsonObject> = {
     maxCallDurationSeconds: 1500,
     modelTier: "sonnet",
     bloomLevelOverride: { floor: "L2", ceiling: "L4" },
+    // Revision Aid intentionally has NO maxMasteryTier — it can take an LO
+    // all the way to DISTINCTION. This is the funnel's anchor.
   },
   popquiz: {
     teachingProfile: "assessment-led",
@@ -87,6 +97,9 @@ const PRESET_CONFIGS: Record<VariantPreset, Prisma.JsonObject> = {
     modelTier: "haiku",
     scope: "single-module",
     bloomLevelOverride: { floor: "L1", ceiling: "L3" },
+    // #1081 Slice 1 — Pop Quiz can probe gaps but cannot promote an LO past
+    // "Developing". Enforced at the AGGREGATE write site.
+    maxMasteryTier: "DEVELOPING",
   },
   exam: {
     teachingProfile: "discussion-led",
@@ -94,6 +107,9 @@ const PRESET_CONFIGS: Record<VariantPreset, Prisma.JsonObject> = {
     maxCallDurationSeconds: 2400,
     modelTier: "sonnet",
     bloomLevelOverride: { floor: "L3", ceiling: "L5" },
+    // #1081 Slice 1 — Exam Assessment scores into per-call scratch only.
+    // Long-term mastery state is untouched — the learner takes the exam,
+    // then walks away with the same mastery they walked in with.
     useFreshMastery: true,
   },
 };
@@ -232,6 +248,53 @@ export async function createPlaybookVariant(
       primarySubjectId,
     );
     unlinkedDuplicateSubjects = unlink.removed;
+  }
+
+  // #1081 Slice 2B.2 — anchor backfill on the shared Curriculum.
+  // Variants share their parent's Curriculum; if that Curriculum was
+  // minted before Slice 2B existed, its `qualificationAnchor` may be
+  // null even though qualification metadata is now declared on the
+  // primary Subject. Derive + stamp once (idempotent — only writes when
+  // current value is null). The anchor label propagates upward so
+  // SIBLING variants on FUTURE create paths can find each other.
+  if (sharedCurriculumId && primarySubjectId) {
+    try {
+      const [sharedCurr, primarySubject] = await Promise.all([
+        prisma.curriculum.findUnique({
+          where: { id: sharedCurriculumId },
+          select: { qualificationAnchor: true },
+        }),
+        prisma.subject.findUnique({
+          where: { id: primarySubjectId },
+          select: { qualificationBody: true, qualificationRef: true },
+        }),
+      ]);
+      if (sharedCurr && !sharedCurr.qualificationAnchor && primarySubject) {
+        const anchor = deriveQualificationAnchor(
+          primarySubject.qualificationBody,
+          primarySubject.qualificationRef,
+        );
+        if (anchor && isAnchorSafe(anchor)) {
+          await prisma.curriculum.update({
+            where: { id: sharedCurriculumId },
+            data: { qualificationAnchor: anchor },
+          });
+          console.log(
+            `[playbooks/create-variant] Backfilled qualificationAnchor=` +
+              `"${anchor}" on shared Curriculum ${sharedCurriculumId} ` +
+              `during variant creation`,
+          );
+        }
+      }
+    } catch (err: unknown) {
+      // Best-effort — variant creation must not fail because anchor
+      // backfill hiccupped. Log + continue.
+      console.warn(
+        `[playbooks/create-variant] qualificationAnchor backfill failed for ` +
+          `Curriculum ${sharedCurriculumId} (non-fatal):`,
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   // POST-tx — audit row. CREATED_PLAYBOOK + variant metadata so the

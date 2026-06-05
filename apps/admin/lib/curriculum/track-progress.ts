@@ -17,6 +17,16 @@ import { prisma } from "@/lib/prisma";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import { getTrustSettings, TRUST_DEFAULTS } from "@/lib/system-settings";
 import { resolveModuleByLogicalId, resolveModuleSlug } from "@/lib/curriculum/resolve-module";
+import {
+  getMaxMasteryTier,
+  isUseFreshMastery,
+} from "@/lib/curriculum/playbook-mastery-config";
+import { writeScratchMastery } from "@/lib/curriculum/scratch-mastery";
+import {
+  clampNumberToTier,
+  type MasteryTier,
+} from "@/lib/curriculum/mastery-tiers";
+import { computeReadinessRollups } from "@/lib/curriculum/readiness-rollups";
 
 interface ProgressUpdate {
   currentModuleId?: string;
@@ -42,6 +52,24 @@ interface ProgressUpdate {
    * See: docs/epic-100-chain-walk.md (Link 4 / Link 6).
    */
   curriculumId?: string | null;
+  /**
+   * #1081 Slice 1 — Playbook owning this call. Used by the AGGREGATE write
+   * site to read two mastery-discipline config fields:
+   *   - `Playbook.config.useFreshMastery: true` → route lo_mastery writes to
+   *     `Call.scratchMastery` instead of CallerAttribute (Exam Assessment).
+   *   - `Playbook.config.maxMasteryTier: MasteryTier` → cap the contribution
+   *     to this tier; existing mastery is never downgraded (Pop Quiz).
+   * Falsy = no Playbook context → no caps applied, standard CallerAttribute
+   * write path (back-compat for callers that haven't been wired through yet).
+   */
+  playbookId?: string | null;
+  /**
+   * #1081 Slice 1 — explicit override for the per-Playbook mastery-tier cap.
+   * When set, replaces the value read from `Playbook.config.maxMasteryTier`.
+   * Use only for one-off contexts (e.g. seed scripts, harnesses). Production
+   * callers should leave this unset and rely on the per-Playbook config.
+   */
+  maxMasteryTierOverride?: MasteryTier | null;
 }
 
 /**
@@ -169,6 +197,12 @@ export async function updateCurriculumProgress(
   // Falsy `curriculumId` → legacy behaviour (use the raw moduleId). Once all
   // callers thread curriculumId through, the fallback path can be removed
   // (tracked as a follow-on once data migration is complete).
+  //
+  // #1098 Slice A — when at least one canonical lo_mastery:* write fires (i.e.
+  // not the useFreshMastery → scratchMastery scratch-routing path), flag for
+  // a post-write readiness-rollup pass. The rollup itself runs after
+  // `await Promise.all(writes)` so it sees the fresh lo_mastery row state.
+  let didWriteCanonicalLoMastery = false;
   if (updates.loMastery) {
     let canonicalModuleId: string | null = updates.loMastery.moduleId;
     if (updates.curriculumId && updates.loMastery.moduleId) {
@@ -185,8 +219,65 @@ export async function updateCurriculumProgress(
       }
     }
     if (canonicalModuleId) {
+      // #1081 Slice 1 — mastery discipline.
+      //
+      // Resolve the two Playbook-config knobs at the start so the per-LO
+      // loop doesn't re-fetch on every iteration. Both accessors are
+      // cached for 30s per playbookId.
+      const useFresh = updates.playbookId
+        ? await isUseFreshMastery(updates.playbookId)
+        : false;
+      const cap = updates.maxMasteryTierOverride
+        ?? (updates.playbookId ? await getMaxMasteryTier(updates.playbookId) : null);
+
       for (const [loRef, score] of Object.entries(updates.loMastery.outcomes)) {
         const key = await buildStorageKey(specSlug, 'loMastery', canonicalModuleId, loRef);
+
+        // AC11 — useFreshMastery routes per-LO mastery into Call.scratchMastery.
+        // The long-term CallerAttribute row is left untouched, which is the
+        // whole point: Exam Assessment must not pollute the learner's mastery.
+        if (useFresh) {
+          if (!updates.callId) {
+            console.warn(
+              `[track-progress] #1081 useFreshMastery requires callId for scratch routing — skipping ${key}.`,
+            );
+            continue;
+          }
+          writes.push(writeScratchMastery(updates.callId, key, score));
+          continue;
+        }
+
+        // AC10 — apply the per-Playbook tier cap to the CONTRIBUTION, then
+        // take max(existing, clamped) so the cap NEVER downgrades existing
+        // mastery (Pop Quiz cap can't undo a Practitioner result the learner
+        // already earned in Revision Aid).
+        const clamped = cap != null ? clampNumberToTier(score, cap) : score;
+        if (clamped !== score) {
+          console.info(
+            `[mastery] capped contribution`,
+            {
+              playbookId: updates.playbookId ?? null,
+              callerId,
+              key,
+              original: score,
+              clamped,
+              cap,
+            },
+          );
+        }
+
+        // Read-existing-then-upsert. We can't compute max(existing, clamped)
+        // inside a single Prisma upsert without raw SQL, so this is a
+        // read-modify-write per LO. The pipeline already runs in series
+        // per call, and per-call LO counts are small (<20), so the round
+        // trips are not a hot path.
+        const existingRow = await prisma.callerAttribute.findUnique({
+          where: { callerId_key_scope: { callerId, key, scope: 'CURRICULUM' } },
+          select: { numberValue: true },
+        });
+        const existing = existingRow?.numberValue ?? null;
+        const finalValue = existing != null ? Math.max(existing, clamped) : clamped;
+
         writes.push(
           prisma.callerAttribute.upsert({
             where: {
@@ -201,13 +292,14 @@ export async function updateCurriculumProgress(
               key,
               scope: 'CURRICULUM',
               valueType: 'NUMBER',
-              numberValue: score,
+              numberValue: finalValue,
             },
             update: {
-              numberValue: score,
+              numberValue: finalValue,
             },
           })
         );
+        didWriteCanonicalLoMastery = true;
       }
     }
   }
@@ -241,6 +333,16 @@ export async function updateCurriculumProgress(
   }
 
   await Promise.all(writes);
+
+  // #1098 Slice A — derive qualification-family readiness rollups after the
+  // per-LO writes settle. Only meaningful for qualification-anchored Curricula
+  // (the rollup writer no-ops for unanchored ones), and only when a canonical
+  // lo_mastery:* write actually happened (the useFreshMastery scratch path
+  // routes evidence to Call.scratchMastery, so AC3 — exam mocks don't shift
+  // the long-term readiness — is preserved by construction here).
+  if (didWriteCanonicalLoMastery && updates.curriculumId) {
+    await computeReadinessRollups(callerId, updates.curriculumId);
+  }
 
   // Dual-write: also update CallerModuleProgress if moduleId maps to a DB record.
   // When LO scores accompany this module's mastery, the dual-write derives mastery

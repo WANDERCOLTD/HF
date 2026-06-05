@@ -183,6 +183,40 @@ describe("createPlaybookVariant — #1034", () => {
     });
   });
 
+  it("#1081 Slice 1 — popquiz preset writes maxMasteryTier: DEVELOPING into Playbook.config", async () => {
+    await mod.createPlaybookVariant({
+      parentPlaybookId: "pb-parent",
+      name: "Pop Quiz — The Standard",
+      preset: "popquiz",
+      actorUserId: "user-1",
+    });
+    const data = mockTx.playbook.create.mock.calls[0][0].data;
+    expect(data.config).toMatchObject({ maxMasteryTier: "DEVELOPING" });
+  });
+
+  it("#1081 Slice 1 — exam preset writes useFreshMastery: true into Playbook.config", async () => {
+    await mod.createPlaybookVariant({
+      parentPlaybookId: "pb-parent",
+      name: "Exam — The Standard",
+      preset: "exam",
+      actorUserId: "user-1",
+    });
+    const data = mockTx.playbook.create.mock.calls[0][0].data;
+    expect(data.config).toMatchObject({ useFreshMastery: true });
+  });
+
+  it("#1081 Slice 1 — revision preset has no mastery-discipline cap (intentional)", async () => {
+    await mod.createPlaybookVariant({
+      parentPlaybookId: "pb-parent",
+      name: "Revision Aid — The Standard",
+      preset: "revision",
+      actorUserId: "user-1",
+    });
+    const data = mockTx.playbook.create.mock.calls[0][0].data;
+    expect(data.config).not.toHaveProperty("maxMasteryTier");
+    expect(data.config).not.toHaveProperty("useFreshMastery");
+  });
+
   it("preset=undefined seeds an empty config (forward-declared keys absent)", async () => {
     await mod.createPlaybookVariant({
       parentPlaybookId: "pb-parent",

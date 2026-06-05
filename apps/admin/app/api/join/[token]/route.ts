@@ -7,6 +7,7 @@ import { enrollCaller, enrollCallerInCohortPlaybooks } from "@/lib/enrollment";
 import { applySkipOnboarding } from "@/lib/enrollment/skip-onboarding";
 import { mintAndSetSessionCookie } from "@/lib/auth-session-cookie";
 import { ROLE_LEVEL } from "@/lib/roles";
+import { issueFirstCallPin } from "@/lib/identity/issue-pin";
 import type { UserRole } from "@prisma/client";
 
 const SESSION_COOKIE_NAMES = [
@@ -133,7 +134,13 @@ export async function POST(
   const body = await request.json();
   const v = validateBody(joinPostSchema, body);
   if (!v.ok) return v.error;
-  const { firstName, lastName, email, ageRange, playbookId, skipOnboarding } = v.data;
+  const { firstName, lastName, email, ageRange, playbookId, skipOnboarding, phone } = v.data;
+  // E.164-ish normalisation: strip spaces / dashes / parens. Full
+  // validation lives in the just-in-time capture modal; this keeps the
+  // existing-tests-still-green when learners never supply a number.
+  const normalizedPhone = phone
+    ? phone.replace(/[\s\-()]/g, "") || null
+    : null;
 
   // Defence-in-depth against URL tampering. The intake spec's
   // `ageBand.adultOnly()` invariant already rejects `under-18` before
@@ -245,6 +252,7 @@ export async function POST(
         domainId: cohort.domainId,
         cohortGroupId: cohort.id, // legacy FK
         externalId: `join-${existingUser.id}-${cohort.id}`,
+        ...(normalizedPhone ? { phone: normalizedPhone } : {}),
       },
     });
 
@@ -286,6 +294,18 @@ export async function POST(
       await applySkipOnboarding(newCaller.id, cohort.domainId);
     }
 
+    // Issue first-call PIN (#1101). Best-effort — SMTP failure won't roll
+    // back the Caller; the learner can request a resend on the sim page.
+    // originUrl ensures the email's button URL matches the env the learner
+    // enrolled in (localhost vs Cloud Run dev vs prod) — hotfix for the
+    // localhost-enrolment → dev.humanfirstfoundation.com link mismatch.
+    await issueFirstCallPin({
+      callerId: newCaller.id,
+      email: email.trim().toLowerCase(),
+      firstName: firstName.trim(),
+      originUrl: request.nextUrl.origin,
+    });
+
     const existingResponse = NextResponse.json({
       ok: true,
       message: "Joined classroom",
@@ -326,6 +346,7 @@ export async function POST(
         domainId: cohort.domainId,
         cohortGroupId: cohort.id, // legacy FK
         externalId: `join-${newUser.id}`,
+        ...(normalizedPhone ? { phone: normalizedPhone } : {}),
       },
     });
 
@@ -368,6 +389,17 @@ export async function POST(
   if (skipOnboarding && cohort.domainId) {
     await applySkipOnboarding(result.newCallerId, cohort.domainId);
   }
+
+  // Issue first-call PIN (#1101). Outside the transaction by design — SMTP
+  // failure must not roll back the user+caller create. TL review note.
+  // originUrl from the actual request so localhost enrollees get a localhost
+  // link, dev.humanfirstfoundation.com enrollees get a dev link, etc.
+  await issueFirstCallPin({
+    callerId: result.newCallerId,
+    email: email.trim().toLowerCase(),
+    firstName: firstName.trim(),
+    originUrl: request.nextUrl.origin,
+  });
 
   const response = NextResponse.json({
     ok: true,

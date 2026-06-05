@@ -48,7 +48,6 @@
   - [Curriculum](#curriculum)
   - [Dashboard](#dashboard)
   - [Data Dictionary](#data-dictionary)
-  - [Dev](#dev)
   - [Dev Tools](#dev-tools)
   - [Domains](#domains)
   - [Educator](#educator)
@@ -3126,6 +3125,39 @@ Compute uplift metrics for a learner — survey deltas, score trends, adaptation
 **Response** `404`
 ```json
 { ok: false, error: "Caller not found" }
+```
+
+---
+
+### `PATCH` /api/callers/[callerId]/phone
+
+Just-in-time phone capture for the [Call me] button.
+
+**Auth**: session ANY (STUDENT scoped to own caller via learner-scope) · **Scope**: `callers:update-phone`
+
+**Response** `200`
+```json
+{ ok: true, callerId, phone (normalised) }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: zod issues }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "Forbidden" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "Phone already in use" }
 ```
 
 ---
@@ -6262,27 +6294,6 @@ Find cross-references for template variables and key prefixes across the system.
 **Response** `500`
 ```json
 { ok: false, error: "Failed to fetch cross-references" }
-```
-
----
-
-## Dev
-
-### `POST` /api/wizard-lab
-
-Test endpoint for the wizard framework. Creates a task that
-
-**Auth**: ADMIN+ · **Scope**: `dev:wizard-lab`
-
-| Parameter | In | Type | Required | Description |
-|-----------|-----|------|----------|-------------|
-| name | body | string | No | Topic name from intent step |
-| emphasis | body | string | No | Teaching emphasis |
-| duration | body | string | No | Session duration |
-
-**Response** `200`
-```json
-{ ok: true, taskId: "..." }
 ```
 
 ---
@@ -9885,6 +9896,94 @@ Unlink a subject from this domain (deletes SubjectDomain join row)
 
 ---
 
+### `GET` /api/identity/challenge-status
+
+Whether the learner has an outstanding first-call PIN challenge
+
+**Auth**: session (STUDENT+)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | query | string | No |  |
+
+**Response** `200`
+```json
+{ ok: true, needsPin: boolean, locked: boolean, recipient: string | null }
+```
+
+---
+
+### `POST` /api/identity/resend-pin
+
+Re-issue a first-call PIN to the caller's on-file email. Caps
+
+**Auth**: session (STUDENT+)
+
+**Response** `200`
+```json
+{ ok: true } — fresh PIN sent
+```
+
+**Response** `200`
+```json
+{ ok: false, resendCapReached: true } — 3 resends already today
+```
+
+**Response** `200`
+```json
+{ ok: false, cooldownSecondsRemaining: number } — within 60s window
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveCaller: true } — caller has no email on file
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+---
+
+### `POST` /api/identity/verify-pin
+
+Verify a learner's first-call PIN. STUDENT sessions are locked
+
+**Auth**: session (STUDENT+)
+
+**Response** `200`
+```json
+{ ok: true } — PIN correct, challenge marked verified
+```
+
+**Response** `200`
+```json
+{ ok: false, expired: true } — PIN matched but past TTL; does NOT count toward lockout
+```
+
+**Response** `200`
+```json
+{ ok: false, locked: true } — caller is in 24h lockout window
+```
+
+**Response** `200`
+```json
+{ ok: false, attemptsRemaining: number } — wrong PIN
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveChallenge: true } — no challenge to verify (request resend)
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+---
+
 ### `GET` /api/institution/branding
 
 Get branding for the current user's institution.
@@ -13044,6 +13143,29 @@ Mark onboarding as complete for a caller.
 
 ---
 
+### `GET` /api/student/qualification-progress
+
+Returns the learner's progress against their active qualification —
+
+**Auth**: Session · **Scope**: `progress:read`
+
+**Response** `200`
+```json
+{ ok: true, qualification: Qualification | null, units: Unit[],
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "no active enrollment" }
+```
+
+---
+
 ### `GET` /api/student/survey-config
 
 **Auth**: STUDENT | OPERATOR+ (with callerId param)
@@ -14359,7 +14481,7 @@ Returns the most recent 100 caller personality profiles with associated caller d
 
 ### `POST` /api/vapi/assistant-request
 
-VAPI calls this at call start to get a per-caller assistant
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:assistant`
 
@@ -14367,7 +14489,7 @@ VAPI calls this at call start to get a per-caller assistant
 
 ### `POST` /api/vapi/knowledge
 
-VAPI Custom Knowledge Base endpoint. Called every conversation turn.
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:knowledge`
 
@@ -14375,7 +14497,7 @@ VAPI Custom Knowledge Base endpoint. Called every conversation turn.
 
 ### `POST` /api/vapi/tools
 
-VAPI Custom Tools endpoint. Called when the voice AI decides
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:tools`
 
@@ -14383,7 +14505,7 @@ VAPI Custom Tools endpoint. Called when the voice AI decides
 
 ### `POST` /api/vapi/webhook
 
-Receives VAPI webhook events. Handles end-of-call-report to
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:webhook`
 
@@ -14575,6 +14697,254 @@ Test the connection for a voice provider. Instantiates
 
 ---
 
+### `GET` /api/voice-system-settings
+
+Read cross-provider voice settings (cost cap, default
+
+**Auth**: session ADMIN · **Scope**: `voice-system-settings:read`
+
+**Response** `200`
+```json
+{ ok: true, settings: VoiceSystemSettings }
+```
+
+---
+
+### `PATCH` /api/voice-system-settings
+
+Update one or more cross-provider voice settings. Partial
+
+**Auth**: session ADMIN · **Scope**: `voice-system-settings:write`
+
+**Response** `200`
+```json
+{ ok: true, settings: VoiceSystemSettings }
+```
+
+---
+
+### `GET` /api/voice-tools
+
+List voice tools from the active TOOLS-001 spec. Each entry
+
+**Auth**: session ADMIN · **Scope**: `voice-tools:read`
+
+**Response** `200`
+```json
+{ ok: true, tools: Array<{ name, description, enabled }> }
+```
+
+---
+
+### `PATCH` /api/voice-tools
+
+Toggle a single tool's `enabled` flag inside the active
+
+**Auth**: session ADMIN · **Scope**: `voice-tools:write`
+
+**Response** `200`
+```json
+{ ok: true, tool: { name, enabled } }
+```
+
+---
+
+### `POST` /api/voice/[slug]/assistant-request
+
+Shared voice provider call-start endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:assistant`
+
+**Response** `200`
+```json
+(provider-shaped assistant config)
+```
+
+**Response** `400`
+```json
+{ error: "No customer phone number provided" }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+---
+
+### `POST` /api/voice/[slug]/knowledge
+
+Shared voice provider per-turn knowledge callback
+
+**Auth**: webhook-secret · **Scope**: `voice:knowledge`
+
+**Response** `200`
+```json
+(provider-shaped knowledge response)
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+**Response** `404`
+```json
+(no-knowledge-callback provider)
+```
+
+---
+
+### `POST` /api/voice/[slug]/tools
+
+Shared voice provider tool-call endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:tools`
+
+**Response** `200`
+```json
+{ results: [{ toolCallId, result }] }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+**Response** `404`
+```json
+(WS-tools provider)
+```
+
+---
+
+### `POST` /api/voice/[slug]/webhook
+
+Shared voice provider webhook endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:webhook`
+
+**Response** `200`
+```json
+{ ok: true, callId, callerId? }
+```
+
+**Response** `400`
+```json
+{ error: "Invalid JSON body" }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+---
+
+### `GET` /api/voice/calls/[callId]/stream
+
+Server-Sent Events stream for a live provider call (#1092).
+
+**Auth**: session ANY (STUDENT scoped to own caller via learner-scope) · **Scope**: `voice:calls:stream`
+
+**Response** `200`
+```json
+(event-stream)
+```
+
+**Response** `401`
+```json
+(unauthenticated)
+```
+
+**Response** `403`
+```json
+(STUDENT subscribing to another caller's call)
+```
+
+**Response** `404`
+```json
+(Call not found)
+```
+
+---
+
+### `POST` /api/voice/calls/outbound-dial
+
+PSTN outbound dial — VAPI rings `Caller.phone` and the
+
+**Auth**: session ANY (STUDENT scoped to own caller) · **Scope**: `voice:calls:outbound-dial`
+
+**Response** `200`
+```json
+{ ok: true, callId, vapiCallId, providerSlug, status }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: zod issues }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "Forbidden" } (STUDENT cross-caller)
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "Caller has no phone on file" }
+```
+
+**Response** `502`
+```json
+{ ok: false, error: "VAPI returned …" }
+```
+
+**Response** `503`
+```json
+{ ok: false, error: "Provider not configured for outbound dial" }
+```
+
+---
+
+### `POST` /api/voice/calls/start
+
+Start a provider call (#1092). Resolves the active voice
+
+**Auth**: session ANY · **Scope**: `voice:calls:start`
+
+**Response** `200`
+```json
+{
+```
+
+**Response** `400`
+```json
+{ ok: false, error: zod issues }
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "No learner profile" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+---
+
 ### `GET` /api/voice/costs
 
 Returns voice-call cost rollups for a chosen scope. Reads
@@ -14594,6 +14964,47 @@ Returns voice-call cost rollups for a chosen scope. Reads
 **Response** `403`
 ```json
 { ok: false, error: "system scope requires ADMIN" }
+```
+
+---
+
+### `GET` /api/voice/health/[providerId]
+
+Health snapshot for a voice provider (AnyVoice #1080).
+
+**Auth**: session OPERATOR OR x-internal-secret · **Scope**: `voice:health:read`
+
+**Response** `200`
+```json
+{ ok: true, providerId, slug, since, stats }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" } (neither session nor secret)
+```
+
+**Response** `404`
+```json
+{ error: "Provider not found" }
+```
+
+---
+
+### `GET` /api/voice/telemetry/[providerId]
+
+Recent telemetry rows for a voice provider (AnyVoice
+
+**Auth**: session ADMIN · **Scope**: `voice:telemetry:read`
+
+**Response** `200`
+```json
+{ ok: true, providerId, events: [...] }
+```
+
+**Response** `404`
+```json
+{ error: "Provider not found" }
 ```
 
 ---
@@ -14888,10 +15299,10 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 475 |
-| Files with annotations | 466 |
+| Route files found | 487 |
+| Files with annotations | 478 |
 | Files missing annotations | 9 |
-| Coverage | 98.1% |
+| Coverage | 98.2% |
 
 ### Files missing `@api` annotations
 

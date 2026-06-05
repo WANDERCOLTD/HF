@@ -318,6 +318,12 @@ export async function getKnowledgeRetrievalSettings(): Promise<KnowledgeRetrieva
 // 7. VOICE CALLS (provider-agnostic call service config)
 // ═══════════════════════════════════════════════════════
 
+/**
+ * Per-tool boolean fields (toolLookupTeachingPoint etc.) were removed in
+ * #1043 — per-tool enablement moved to TOOLS-001 spec's `enabled` field.
+ * Historical settings rows under the `voice.tool_*` keys are ignored at
+ * read time; admins disable a tool by editing the spec.
+ */
 export interface VoiceCallSettings {
   // Provider & model (provider-agnostic — works with any call service)
   provider: string;
@@ -326,17 +332,6 @@ export interface VoiceCallSettings {
   knowledgePlanEnabled: boolean;
   // Pipeline
   autoPipeline: boolean;
-  // Tool toggles
-  toolLookupTeachingPoint: boolean;
-  toolCheckMastery: boolean;
-  toolRecordObservation: boolean;
-  toolGetPracticeQuestion: boolean;
-  toolGetNextModule: boolean;
-  toolLogActivityResult: boolean;
-  toolSendText: boolean;
-  toolRequestArtifact: boolean;
-  toolShareContent: boolean;
-  toolLookupVocabulary: boolean;
   // Fallback prompts
   unknownCallerPrompt: string;
   noActivePromptFallback: string;
@@ -347,16 +342,6 @@ export const VOICE_CALL_DEFAULTS: VoiceCallSettings = {
   model: config.ai.openai.model,
   knowledgePlanEnabled: false,
   autoPipeline: true,
-  toolLookupTeachingPoint: true,
-  toolCheckMastery: true,
-  toolRecordObservation: true,
-  toolGetPracticeQuestion: true,
-  toolGetNextModule: true,
-  toolLogActivityResult: true,
-  toolSendText: true,
-  toolRequestArtifact: true,
-  toolShareContent: true,
-  toolLookupVocabulary: true,
   unknownCallerPrompt: "You are a helpful voice assistant. This caller is not yet registered in the system. Have a friendly conversation and gather their name.",
   noActivePromptFallback: "You are a helpful voice tutor. No personalized prompt is available yet — have a warm, friendly conversation.",
 };
@@ -366,16 +351,6 @@ const VOICE_CALL_KEYS: Record<keyof VoiceCallSettings, string> = {
   model: "voice.model",
   knowledgePlanEnabled: "voice.knowledge_plan_enabled",
   autoPipeline: "voice.auto_pipeline",
-  toolLookupTeachingPoint: "voice.tool_lookup_teaching_point",
-  toolCheckMastery: "voice.tool_check_mastery",
-  toolRecordObservation: "voice.tool_record_observation",
-  toolGetPracticeQuestion: "voice.tool_get_practice_question",
-  toolGetNextModule: "voice.tool_get_next_module",
-  toolLogActivityResult: "voice.tool_log_activity_result",
-  toolSendText: "voice.tool_send_text",
-  toolRequestArtifact: "voice.tool_request_artifact",
-  toolShareContent: "voice.tool_share_content",
-  toolLookupVocabulary: "voice.tool_lookup_vocabulary",
   unknownCallerPrompt: "voice.unknown_caller_prompt",
   noActivePromptFallback: "voice.no_active_prompt_fallback",
 };
@@ -971,19 +946,14 @@ export const SETTINGS_REGISTRY: SettingGroup[] = [
     label: "Voice Calls",
     icon: "Phone",
     description: "Call service provider, model, per-turn RAG, tool enablement, and fallback prompts",
+    // Per-tool toggles removed in AnyVoice #1043 — moved to the TOOLS-001
+    // spec's per-tool `enabled` field. Admin surface is the Voice Tools
+    // section of /x/settings/voice-providers.
     settings: [
       { key: "voice.provider", label: "LLM provider", description: "Which provider serves the voice model (e.g. openai, anthropic, google)", type: "text", default: "openai", placeholder: "openai" },
       { key: "voice.model", label: "Voice model", description: "Model ID used for the voice assistant (e.g. gpt-4o, claude-sonnet-4-5-20250929)", type: "text", default: "gpt-4o", placeholder: "gpt-4o" },
       { key: "voice.knowledge_plan_enabled", label: "Per-turn RAG", description: "Automatically retrieve knowledge every conversation turn. Disable to rely on tools + front-loaded prompt instead", type: "bool", default: true },
       { key: "voice.auto_pipeline", label: "Auto-pipeline", description: "Automatically trigger analysis pipeline when a call ends", type: "bool", default: true },
-      { key: "voice.tool_lookup_teaching_point", label: "Tool: Lookup teaching point", description: "Let the AI look up teaching content mid-call", type: "bool", default: true },
-      { key: "voice.tool_check_mastery", label: "Tool: Check mastery", description: "Let the AI check caller mastery before teaching new material", type: "bool", default: true },
-      { key: "voice.tool_record_observation", label: "Tool: Record observation", description: "Let the AI record caller observations in real-time", type: "bool", default: true },
-      { key: "voice.tool_get_practice_question", label: "Tool: Practice question", description: "Let the AI fetch practice questions for a topic", type: "bool", default: true },
-      { key: "voice.tool_get_next_module", label: "Tool: Next module", description: "Let the AI look up the next curriculum module", type: "bool", default: true },
-      { key: "voice.tool_log_activity_result", label: "Tool: Log activity", description: "Let the AI log activity results (quiz, MCQ, teach-back)", type: "bool", default: true },
-      { key: "voice.tool_send_text", label: "Tool: Send text to caller", description: "Let the AI send SMS during calls (requires text provider config)", type: "bool", default: true },
-      { key: "voice.tool_request_artifact", label: "Tool: Request artifact", description: "Let the AI request study artifacts be sent after the call", type: "bool", default: true },
       { key: "voice.unknown_caller_prompt", label: "Unknown caller prompt", description: "System prompt used when the caller isn't registered", type: "textarea", default: "You are a helpful voice assistant. This caller is not yet registered in the system. Have a friendly conversation and gather their name." },
       { key: "voice.no_active_prompt_fallback", label: "No-prompt fallback", description: "System prompt used when a known caller has no active composed prompt", type: "textarea", default: "You are a helpful voice tutor. No personalized prompt is available yet — have a warm, friendly conversation." },
     ],

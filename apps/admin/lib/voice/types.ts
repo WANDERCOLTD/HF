@@ -58,6 +58,17 @@ export interface AssistantRequestContext {
   /** Fallback prompt when caller is known but no active ComposedPrompt
    *  exists (e.g. wizard-stage caller without a composed prompt yet). */
   noActivePromptFallback: string;
+  /** Per-call cost-safety knobs sourced from `VoiceSystemSettings`
+   *  (PR voice-cost-knobs). The adapter weaves these into the inline
+   *  assistant config so a hung call dies on silence, voicemail loops
+   *  end before chewing minutes, and the AI can self-terminate by
+   *  recognising a goodbye phrase. */
+  costSafetyKnobs?: {
+    silenceTimeoutSeconds: number;
+    maxDurationSeconds: number;
+    voicemailDetectionEnabled: boolean;
+    endCallPhrases: string[];
+  };
 }
 
 /** Provider tool shape — OpenAI function-call format (the lingua franca). */
@@ -72,16 +83,37 @@ export interface ProviderToolDefinition {
       required?: string[];
     };
   };
+  /** Provider-specific extension fields keyed by adapter slug (#1079).
+   *  Passed through to the adapter at `buildAssistantConfig`; opaque
+   *  to HF core. Example: `{ vapi: { async: false }, retell: {
+   *  speak_during_execution: true, execution_message_type: "prompt" } }` */
+  providerExtensions?: Record<string, Record<string, unknown>>;
 }
 
 /** Provider-shaped assistant config returned to the inbound webhook.
  *  Each adapter knows what its provider expects; the route just JSONs it. */
 export type ProviderAssistantConfig = Record<string, unknown>;
 
+/**
+ * End-of-call event kind (AnyVoice #1079). Most providers fire a single
+ * webhook with full data (`"full"`). Retell splits into two events:
+ * `call_ended` ("basic" — transcript + disconnect reason) followed by
+ * `call_analyzed` ("analysis" — summary + structured data + success).
+ *
+ * The webhook route uses this to decide whether to fire the pipeline
+ * trigger now (`"full"` / `"analysis"`) or only persist basic capture
+ * and wait for the analysis event (`"basic"`).
+ */
+export type EndOfCallEventKind = "full" | "basic" | "analysis";
+
 /** End-of-call event normalised across providers. The adapter extracts
  *  these fields from its provider's payload; downstream code writes them
  *  to canonical Call.voice* columns (#1020). */
 export interface NormalisedEndOfCallEvent {
+  /** Which slice of the end-of-call data this event carries (#1079).
+   *  VAPI returns `"full"` always; Retell returns `"basic"` then
+   *  `"analysis"` later. */
+  eventKind: EndOfCallEventKind;
   /** Provider's own call id (becomes Call.externalId). */
   externalCallId: string;
   /** Caller phone from the customer block, or null. */
@@ -133,6 +165,12 @@ export interface NormalisedToolCallBatch {
   toolCalls: NormalisedToolCall[];
   /** Caller phone from the inbound payload's customer block. */
   customerPhone: string | null;
+  /** Provider's external call id from the inbound payload (#1092). The
+   *  tools handler resolves this to a local `Call.id` via
+   *  `prisma.call.findFirst({externalId, source: slug})` so that rail-
+   *  routing (chat-via-SSE vs SMS) can look up the SSE-subscriber
+   *  registry by `Call.id`. Null when the provider didn't send one. */
+  externalCallId: string | null;
 }
 
 /** Single knowledge-base result the route produced from RAG retrieval. */
@@ -155,6 +193,64 @@ export interface KnowledgeBaseRequest {
   /** Caller phone from the customer block, normalised. Used to resolve
    *  per-caller scope (course/playbook sources). */
   customerPhone: string | null;
+}
+
+/**
+ * Field descriptor in a provider's config schema (AnyVoice #1044).
+ *
+ * Drives the admin UI form: each entry becomes one form field on
+ * `/x/settings/voice-providers/[id]`. `sensitive: true` routes the
+ * value into `VoiceProvider.credentials` (Json, masked on read);
+ * everything else routes into `VoiceProvider.config`.
+ */
+export interface ProviderConfigField {
+  /** Storage key on credentials / config. */
+  key: string;
+  /** UI label. */
+  label: string;
+  /** Form input type. */
+  type: "string" | "number" | "boolean" | "enum";
+  /** Helper text rendered under the field. */
+  help?: string;
+  /** Allowed values for type === "enum". */
+  enumValues?: string[];
+  /** Pre-fill when creating a new provider row. */
+  default?: unknown;
+  /** Mask + route to credentials. */
+  sensitive?: boolean;
+  /** Required field — PATCH validation rejects empty / null. */
+  required?: boolean;
+}
+
+export interface ProviderConfigSchema {
+  fields: ProviderConfigField[];
+}
+
+/**
+ * Capability declaration (AnyVoice #1044, consumed by #1079 + #1080).
+ *
+ * Tells the route layer which HTTP/WSS surfaces this provider exposes
+ * and how end-of-call events arrive. Lets the admin UI render only the
+ * webhook URLs that apply and the telemetry layer apply only the
+ * controls the provider supports.
+ */
+export interface VoiceProviderCapabilities {
+  /** "single" = one end-of-call webhook (VAPI). "split" = two webhooks
+   *  merged by externalCallId (Retell: call_ended + call_analyzed). */
+  endOfCallEvents: "single" | "split";
+  /** True when the provider fires an HTTP per-turn knowledge callback
+   *  (VAPI's Custom Knowledge Base). False for providers that consume
+   *  pre-uploaded knowledge IDs (Retell). Drives the knowledge route
+   *  capability guard in #1079. */
+  hasKnowledgeCallback: boolean;
+  /** True when tool calls arrive via WebSocket (Retell custom-LLM)
+   *  instead of HTTP POST (VAPI). The HTTP tools route returns 404 for
+   *  WS-only providers; the WSS handler dispatches instead. */
+  toolCallsOverWebSocket: boolean;
+  /** Provider supports proactive end-call from server (cost-cap, abuse
+   *  prevention). When false, the cost-cap watcher in #1080 logs but
+   *  cannot terminate the call. */
+  supportsRequestEndCall: boolean;
 }
 
 /**
@@ -192,8 +288,50 @@ export interface VoiceProvider {
   /**
    * Extract canonical tool-call batch from the provider's tools-route
    * payload. Returns an empty batch when no tool calls are present.
+   *
+   * For HTTP-tools providers (VAPI). WSS-tools providers should still
+   * implement this — they return an empty batch when the HTTP tools
+   * route receives spurious traffic (Retell does this).
    */
   normaliseToolCallList(body: unknown): NormalisedToolCallBatch;
+
+  /**
+   * Extract a single tool call from a WebSocket message (#1079, Retell
+   * custom-LLM). Returns null when the message isn't a tool-call frame
+   * (most messages aren't). HTTP-only adapters can omit this — the
+   * WSS route checks `getCapabilities().toolCallsOverWebSocket` before
+   * invoking. Optional: presence is the signal.
+   */
+  normaliseToolCallFromWebSocketMessage?(
+    msg: unknown,
+  ): NormalisedToolCall | null;
+
+  /**
+   * Extract per-call cost + duration from a mid-call status update
+   * (AnyVoice #1080). VAPI fires `status-update` events with running
+   * cost-so-far; the trickle handler logs the delta as a VOICE
+   * UsageEvent and checks the cost cap.
+   *
+   * Returns null when the body isn't a status-update for this provider
+   * (e.g. a ping or a non-cost-bearing status arrives). Optional: a
+   * provider that doesn't emit live status events can skip this method
+   * and the trickle handler short-circuits.
+   */
+  normaliseStatusUpdate?(body: unknown): {
+    externalCallId: string;
+    costSoFarUsd: number | null;
+    durationSecondsSoFar: number | null;
+  } | null;
+
+  /**
+   * End an in-flight call from the server (AnyVoice #1080 cost-cap).
+   * VAPI: `POST https://api.vapi.ai/call/{id}/end`. Retell:
+   * `POST /v2/end-call`. Optional — provider that can't terminate
+   * server-side declares `supportsRequestEndCall: false` in
+   * capabilities and the cost-cap watcher logs but cannot kill the
+   * call. Implementation should be idempotent for already-ended calls.
+   */
+  requestEndCall?(externalCallId: string): Promise<void>;
 
   /**
    * Parse the provider's per-turn knowledge-base callback into a
@@ -212,4 +350,18 @@ export interface VoiceProvider {
    * other providers may need a different envelope.
    */
   buildKnowledgeResponse(results: KnowledgeResult[]): unknown;
+
+  /**
+   * Describe this provider's credentials + config fields (AnyVoice #1044).
+   * Drives the schema-form rendered at `/x/settings/voice-providers/[id]`
+   * and the PATCH validation pass. Pure function — must not hit DB.
+   */
+  getConfigSchema(): ProviderConfigSchema;
+
+  /**
+   * Declare which HTTP/WSS surfaces this provider uses and how it emits
+   * end-of-call events (AnyVoice #1044). Drives capability-aware
+   * dispatch in #1079 + #1080. Pure function — must not hit DB.
+   */
+  getCapabilities(): VoiceProviderCapabilities;
 }

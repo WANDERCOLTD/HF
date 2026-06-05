@@ -1216,6 +1216,23 @@ html.light {
   margin-bottom: 16px;
 }
 
+/* Form field presence badges — used to indicate whether a sensitive or
+   config field already has a saved value. Sits inline after the field
+   label so the operator can tell at a glance without typing into a
+   masked field to "see what's there". */
+.hf-presence-set,
+.hf-presence-unset {
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 6px;
+}
+.hf-presence-set {
+  color: var(--status-success-text);
+}
+.hf-presence-unset {
+  color: var(--text-muted);
+}
+
 /* Info footer blocks */
 .hf-info-footer {
   padding: 16px;

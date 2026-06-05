@@ -1,0 +1,21 @@
+-- #1098 Slice A: add crossCuttingSkillsConfig column on Curriculum.
+--
+-- Backs the qualification dashboard's "Cross-cutting Skills" section.
+-- Populated by ingest from course-reference markdown (e.g. CIO/CTO Standard
+-- declares 10 skills × 4 tiers in docs/courses/cio-cto-standard/*.course-ref.md).
+-- Read by lib/curriculum/display-names.ts::getSkillDisplayName and the
+-- /api/student/qualification-progress route.
+--
+-- Shape (when populated):
+--   {
+--     "skills": [
+--       { "ref": "SKILL-01", "name": "Stakeholder anticipation", "tierRubric": { ... } },
+--       ...
+--     ]
+--   }
+--
+-- Null = no cross-cutting skill data for this qualification. The UI hides the
+-- Skills section in that case (graceful degrade).
+
+-- AlterTable
+ALTER TABLE "Curriculum" ADD COLUMN "crossCuttingSkillsConfig" JSONB;

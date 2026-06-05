@@ -22,6 +22,11 @@ const mockPrisma = {
   callerAttribute: {
     upsert: vi.fn(),
     findMany: vi.fn(),
+    // #1081 Slice 1 — updateCurriculumProgress now reads existing lo_mastery
+    // rows so the max(existing, clamped) discipline can be applied. The
+    // canonical-key test doesn't exercise the cap path (no maxMasteryTier on
+    // the test Playbook config), so the read just needs to resolve to null.
+    findUnique: vi.fn().mockResolvedValue(null),
     deleteMany: vi.fn(),
   },
   curriculum: {
@@ -76,6 +81,7 @@ describe("#611 Fix A — canonical moduleId in lo_mastery storage keys", () => {
     mockGetStorageKeys.mockResolvedValue(CURRICULUM_STORAGE_KEYS);
     mockPrisma.callerAttribute.upsert.mockResolvedValue({});
     mockPrisma.callerAttribute.findMany.mockResolvedValue([]);
+    mockPrisma.callerAttribute.findUnique.mockResolvedValue(null);
     mockPrisma.curriculum.findFirst.mockResolvedValue(null);
 
     const mod = await import("@/lib/curriculum/track-progress");

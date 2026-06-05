@@ -11,6 +11,8 @@ import { deriveParameterMap } from '@/lib/agent-tuner/derive';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
 import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from '@/components/sim/ModulePickerBanners';
 import { SimStateBreadcrumb } from '@/components/sim/SimStateBreadcrumb';
+import { QualificationContextStrip } from '@/components/sim/qualification/QualificationContextStrip';
+import { FirstCallPinGate } from '@/components/identity/FirstCallPinGate';
 
 interface PastCall {
   transcript: string;
@@ -28,7 +30,7 @@ export default function SimConversationPage() {
   const router = useRouter();
   const { callerId } = useParams<{ callerId: string }>();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const { isDesktop } = useResponsive();
   const isStudent = session?.user?.role === 'STUDENT';
   const sessionGoal = searchParams.get('goal') || undefined;
@@ -66,6 +68,13 @@ export default function SimConversationPage() {
   }, [searchParams]);
 
   const [caller, setCaller] = useState<CallerInfo | null>(null);
+  // #1101 — first-call PIN gate. Only STUDENT sessions are gated; OPERATOR+
+  // admin browsing of a learner's sim page is unaffected. 'loading' until the
+  // challenge-status fetch returns; 'verified' once the gate posts ok.
+  const [pinGateStatus, setPinGateStatus] = useState<
+    'loading' | 'needsPin' | 'verified'
+  >('loading');
+  const [pinGateRecipient, setPinGateRecipient] = useState<string | null>(null);
   const [playbookName, setPlaybookName] = useState<string | undefined>(undefined);
   const [subjectDiscipline, setSubjectDiscipline] = useState<string | undefined>(undefined);
   const [modulesAuthored, setModulesAuthored] = useState<boolean>(false);
@@ -170,6 +179,56 @@ export default function SimConversationPage() {
     return () => { cancelled = true; };
   }, [callerId, expectedDomainId, playbookId, router]);
 
+  // #1101 — fetch challenge status once we know the session role. Skip for
+  // OPERATOR+ so admin browsing of a learner's sim page is unaffected.
+  // HOTFIX: previously gated on `isStudent` while session was still loading,
+  // which set pinGateStatus='verified' eagerly. Now wait for the session to
+  // RESOLVE before deciding (status === 'loading' → stay in 'loading'); also
+  // fail CLOSED on non-JSON / non-ok responses (was: silently treat as
+  // verified, which masked auth middleware 307 redirects).
+  useEffect(() => {
+    if (sessionStatus === 'loading') return; // wait — don't pre-decide
+    if (!isStudent) {
+      setPinGateStatus('verified');
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/identity/challenge-status?callerId=${encodeURIComponent(callerId)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`status ${r.status}`);
+        const ct = r.headers.get('content-type') ?? '';
+        if (!ct.includes('application/json')) throw new Error(`non-JSON: ${ct}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (!data?.ok) {
+          // Server replied but not in the expected shape — gate fail-closed
+          // so we never silently let a real learner skip the PIN.
+          setPinGateRecipient(null);
+          setPinGateStatus('needsPin');
+          return;
+        }
+        if (data.needsPin) {
+          setPinGateRecipient(data.recipient ?? null);
+          setPinGateStatus('needsPin');
+        } else {
+          setPinGateStatus('verified');
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Network/redirect/parse failure — fail CLOSED. Better to show a PIN
+        // gate the learner can't bypass than silently let them past.
+        console.warn('[pin-gate] challenge-status fetch failed:', err);
+        setPinGateRecipient(null);
+        setPinGateStatus('needsPin');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [callerId, isStudent, sessionStatus]);
+
   const handleStudentCallEnd = useCallback(() => {
     if (isStudent) {
       setTimeout(() => router.push('/x/student'), 1500);
@@ -208,7 +267,7 @@ export default function SimConversationPage() {
     );
   }
 
-  if (!caller) {
+  if (!caller || pinGateStatus === 'loading') {
     return (
       <>
         <WhatsAppHeader title="Loading..." />
@@ -216,6 +275,23 @@ export default function SimConversationPage() {
           <div className="hf-spinner" style={{ width: 28, height: 28 }} />
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading...</p>
         </div>
+      </>
+    );
+  }
+
+  // #1101 — gate first-call STUDENT sessions on PIN verification before the
+  // chat renders. OPERATOR+ skip this branch (pinGateStatus pre-set to verified).
+  if (pinGateStatus === 'needsPin') {
+    const callerFirstName = caller.name?.trim().split(/\s+/)[0];
+    return (
+      <>
+        <WhatsAppHeader title="Verify your code" />
+        <FirstCallPinGate
+          callerId={callerId}
+          recipient={pinGateRecipient}
+          callerFirstName={callerFirstName}
+          onVerified={() => setPinGateStatus('verified')}
+        />
       </>
     );
   }
@@ -229,6 +305,9 @@ export default function SimConversationPage() {
         modules={authoredModules}
         onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
       />
+      {/* #1098 Slice C — Qualification context strip (renders only when the
+          learner's active Curriculum has a qualificationAnchor). */}
+      <QualificationContextStrip requestedModuleId={requestedModuleId ?? null} />
       {requestedModuleId ? (
         <ModulePickerSelectionBanner
           moduleId={requestedModuleId}

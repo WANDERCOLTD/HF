@@ -141,7 +141,6 @@ export const ROUTE_LABELS: Record<string, string | { termKey: TermKey; plural?: 
   "/x/data-management": "Seed Data",
   "/x/snapshots": "Snapshots",
   "/x/smoke-test": "Smoke Test",
-  "/x/wizard-lab": "Wizard Lab",
 
   // Launch wizards
   "/x/get-started-v5": "Build Course",

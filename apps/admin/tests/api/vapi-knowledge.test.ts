@@ -105,7 +105,11 @@ vi.mock("@/lib/knowledge/domain-sources", () => ({
   getTeachingSourceIdsForPlaybook: vi.fn().mockResolvedValue([]),
 }));
 
-import { POST } from "@/app/api/vapi/knowledge/route";
+// Post-#1079: canonical handler lives in lib/voice/route-handlers.
+// /api/vapi/knowledge is now a 307 redirect; the handler is tested
+// directly with the "vapi" slug to mirror the redirect target.
+import { handleVoiceKnowledgePost } from "@/lib/voice/route-handlers";
+const POST = (req: any) => handleVoiceKnowledgePost(req, "vapi");
 
 function makeRequest(messages: Array<{ role: string; content: string }>) {
   const body = JSON.stringify({

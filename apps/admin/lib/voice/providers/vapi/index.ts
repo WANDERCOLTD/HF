@@ -29,7 +29,9 @@ import type {
   NormalisedToolCall,
   NormalisedToolCallBatch,
   ProviderAssistantConfig,
+  ProviderConfigSchema,
   VoiceProvider,
+  VoiceProviderCapabilities,
 } from "../../types";
 import { verifyVapiRequest } from "./auth";
 
@@ -42,6 +44,7 @@ export class VapiProvider implements VoiceProvider {
   readonly slug = "vapi";
 
   private readonly webhookSecret: string | undefined;
+  private readonly _apiKey: string | undefined;
 
   /**
    * Construct from DB-stored credentials + config. The factory passes
@@ -61,6 +64,7 @@ export class VapiProvider implements VoiceProvider {
     _config: Record<string, unknown>,
   ) {
     const creds = credentials as VapiCredentials;
+    this._apiKey = creds.apiKey;
     if (creds.webhookSecret) {
       this.webhookSecret = creds.webhookSecret;
     } else if (process.env.VAPI_WEBHOOK_SECRET) {
@@ -117,6 +121,23 @@ export class VapiProvider implements VoiceProvider {
       };
     }
 
+    // Cost-safety knobs (PR voice-cost-knobs). Without these VAPI's
+    // defaults can run a call for up to 10 minutes of silence and never
+    // catch a voicemail loop. We inject the system-settings values so
+    // the runaway-call exposure stays bounded regardless of caller
+    // behaviour. See VoiceSystemSettings + admin panel.
+    const knobs = ctx.costSafetyKnobs;
+    if (knobs) {
+      assistant.silenceTimeoutSeconds = knobs.silenceTimeoutSeconds;
+      assistant.maxDurationSeconds = knobs.maxDurationSeconds;
+      if (knobs.voicemailDetectionEnabled) {
+        assistant.voicemailDetectionEnabled = true;
+      }
+      if (knobs.endCallPhrases && knobs.endCallPhrases.length > 0) {
+        assistant.endCallPhrases = knobs.endCallPhrases;
+      }
+    }
+
     return { assistant };
   }
 
@@ -146,6 +167,9 @@ export class VapiProvider implements VoiceProvider {
     }
 
     return {
+      // VAPI fires a single end-of-call event with everything attached
+      // (#1079). Pipeline trigger always fires for "full".
+      eventKind: "full",
       externalCallId,
       customerPhone,
       customerName,
@@ -160,7 +184,11 @@ export class VapiProvider implements VoiceProvider {
   }
 
   normaliseToolCallList(body: unknown): NormalisedToolCallBatch {
-    const empty: NormalisedToolCallBatch = { toolCalls: [], customerPhone: null };
+    const empty: NormalisedToolCallBatch = {
+      toolCalls: [],
+      customerPhone: null,
+      externalCallId: null,
+    };
     if (!body || typeof body !== "object") return empty;
     const root = body as Record<string, unknown>;
     const message = (root.message ?? root) as Record<string, unknown>;
@@ -173,6 +201,15 @@ export class VapiProvider implements VoiceProvider {
     const call = (message.call ?? root.call) as Record<string, unknown> | undefined;
     const customer = call?.customer as Record<string, unknown> | undefined;
     const customerPhone = (customer?.number as string | undefined) ?? null;
+    // #1092 — externalCallId threading for rail routing. The webhook
+    // route resolves this to a local Call.id via findFirst({externalId,
+    // source: slug}) so the SSE registry can answer "chat surface open?"
+    // for share_content / send_text / request_artifact dispatch.
+    const externalCallId =
+      (call?.id as string | undefined) ??
+      (call?.callId as string | undefined) ??
+      (call?.call_id as string | undefined) ??
+      null;
 
     const toolCalls: NormalisedToolCall[] = [];
     for (const raw of rawList) {
@@ -199,7 +236,7 @@ export class VapiProvider implements VoiceProvider {
       toolCalls.push({ toolCallId, funcName, args });
     }
 
-    return { toolCalls, customerPhone };
+    return { toolCalls, customerPhone, externalCallId };
   }
 
   parseKnowledgeBaseRequest(body: unknown): KnowledgeBaseRequest | null {
@@ -235,6 +272,136 @@ export class VapiProvider implements VoiceProvider {
 
   buildKnowledgeResponse(results: KnowledgeResult[]): unknown {
     return { results };
+  }
+
+  /**
+   * VAPI config schema (AnyVoice #1044). VAPI carries only two
+   * credentials and no provider-specific config today — keep the
+   * schema tight so the admin form stays focused. Operators changing
+   * the model / voice settings do that inside the VAPI dashboard,
+   * not here.
+   */
+  getConfigSchema(): ProviderConfigSchema {
+    return {
+      fields: [
+        {
+          key: "apiKey",
+          label: "VAPI Private API key",
+          type: "string",
+          help: "Server-side API key for outbound REST calls (cost-cap end-call, future provisioning). VAPI dashboard → API Keys → \"Private Key\". Leave blank if you don't need outbound features.",
+          sensitive: true,
+          required: false,
+        },
+        {
+          key: "publicKey",
+          label: "VAPI Public Key",
+          type: "string",
+          help: "Browser WebRTC SDK key (ships to the learner's browser; not a secret). VAPI dashboard → API Keys → \"Public Key\". Required for the [Call me] button to work.",
+          sensitive: false,
+          required: false,
+        },
+        {
+          key: "webhookSecret",
+          label: "Webhook secret (HMAC)",
+          type: "string",
+          help: "Shared secret used to verify inbound webhooks. Generate a random string (e.g. `openssl rand -hex 32`) and paste it into BOTH VAPI's Server URL Secret AND here. Leave blank for local-dev pass-through.",
+          sensitive: true,
+          required: false,
+        },
+        {
+          key: "phoneNumberId",
+          label: "VAPI phone number ID (for outbound dial)",
+          type: "string",
+          help: "Required ONLY for [Call me] PSTN outbound dial (browser [Talk Here] doesn't need it). VAPI dashboard → Phone Numbers → copy the ID of the number HF will dial FROM. Costs ~$2/mo + per-minute usage.",
+          sensitive: false,
+          required: false,
+        },
+      ],
+    };
+  }
+
+  /**
+   * VAPI capability declaration (AnyVoice #1044). Single end-of-call
+   * event, HTTP tools + knowledge callbacks, server-side end-call via
+   * `POST /call/{id}/end` (used by the cost-cap watcher in #1080).
+   */
+  getCapabilities(): VoiceProviderCapabilities {
+    return {
+      endOfCallEvents: "single",
+      hasKnowledgeCallback: true,
+      toolCallsOverWebSocket: false,
+      supportsRequestEndCall: true,
+    };
+  }
+
+  /**
+   * Extract running cost + duration from a VAPI `status-update` event
+   * (AnyVoice #1080 trickle). VAPI nests these under `message.cost`
+   * and `message.duration`. Returns null when the body isn't a
+   * status-update or carries no cost field.
+   */
+  normaliseStatusUpdate(body: unknown): {
+    externalCallId: string;
+    costSoFarUsd: number | null;
+    durationSecondsSoFar: number | null;
+  } | null {
+    if (!body || typeof body !== "object") return null;
+    const root = body as Record<string, unknown>;
+    const message = (root.message ?? root) as Record<string, unknown>;
+    const type = (message.type ?? root.type) as string | undefined;
+    if (type !== "status-update") return null;
+
+    const call = (message.call ?? root.call) as Record<string, unknown> | undefined;
+    const externalCallId =
+      (call?.id as string | undefined) ??
+      (call?.callId as string | undefined) ??
+      (call?.call_id as string | undefined);
+    if (!externalCallId) return null;
+
+    let costSoFarUsd: number | null = null;
+    if (typeof message.cost === "number" && Number.isFinite(message.cost)) {
+      costSoFarUsd = message.cost;
+    } else if (message.cost && typeof message.cost === "object") {
+      const cost = message.cost as Record<string, unknown>;
+      if (typeof cost.total === "number" && Number.isFinite(cost.total)) {
+        costSoFarUsd = cost.total;
+      }
+    }
+
+    const durationSecondsSoFar =
+      typeof message.duration === "number" && Number.isFinite(message.duration)
+        ? message.duration
+        : typeof message.durationSeconds === "number" && Number.isFinite(message.durationSeconds)
+          ? message.durationSeconds
+          : null;
+
+    return { externalCallId, costSoFarUsd, durationSecondsSoFar };
+  }
+
+  /**
+   * VAPI end-call API (AnyVoice #1080). Idempotent — VAPI returns 4xx
+   * for already-ended calls; we swallow non-2xx so the cost-cap watcher
+   * doesn't spam the error log on the inevitable race.
+   */
+  async requestEndCall(externalCallId: string): Promise<void> {
+    const apiKey = this._apiKey;
+    if (!apiKey) {
+      console.warn(
+        `[vapi] requestEndCall(${externalCallId}) skipped — no apiKey on VoiceProvider row`,
+      );
+      return;
+    }
+    try {
+      await fetch(`https://api.vapi.ai/call/${externalCallId}/end`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+    } catch (err) {
+      console.warn(
+        `[vapi] requestEndCall(${externalCallId}) failed:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   }
 }
 

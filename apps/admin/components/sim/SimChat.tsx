@@ -14,11 +14,15 @@ import { ContentPicker } from './ContentPicker';
 import { MediaLibraryPanel } from './MediaLibraryPanel';
 import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
+import { useProviderCall } from './useProviderCall';
+import { useOutboundDial } from './useOutboundDial';
+import { config } from '@/lib/config';
 import type { MediaInfo } from './MessageBubble';
 import { ChatSurveyInput } from './ChatSurveyInput';
 import { SimAdminPanel } from './SimAdminPanel';
 import { SimProgressPanel } from './SimProgressPanel';
 import { PostCallProgressCard } from './PostCallProgressCard';
+import { QualificationSessionSummary } from './qualification/QualificationContextStrip';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { useJourneyPosition } from '@/hooks/useJourneyPosition';
 import type { ChatItem, UseJourneyChatResult } from '@/hooks/useJourneyChat';
@@ -195,6 +199,75 @@ export function SimChat({
     sendVoiceMessage(transcript);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []));
+
+  // #1092 — local Whisper voice mode is feature-flagged off by default
+  // once provider voice ships. Tests set the flag true in setup.ts so
+  // the existing useVoiceMode coverage stays green.
+  const localSimVoiceModeEnabled = config.features.localSimVoiceMode;
+
+  // #1092 — provider-backed "Call me" mixed mode. Lazy-imports the
+  // VAPI Web SDK on first click; opens an SSE stream keyed on Call.id
+  // and pushes incoming events into the chat surface as messages.
+  const providerCall = useProviderCall({
+    callerId,
+    intent: 'chat',
+    onSseEvent: useCallback((event: import('@/lib/voice/sse-registry').VoiceCallSseEvent) => {
+      if (event.type === 'transcript-partial') {
+        const id = `voice-${event.timestampMs}-${event.role}`;
+        const isLearner = event.role === 'learner';
+        setMessages((prev) => {
+          // Coalesce: if the last message is the same role from a
+          // recent transcript-partial, append. Keeps the chat from
+          // exploding with one bubble per word.
+          const last = prev[prev.length - 1];
+          if (
+            last &&
+            last.id.startsWith('voice-') &&
+            ((isLearner && last.role === 'user') ||
+              (!isLearner && last.role === 'assistant'))
+          ) {
+            const updated = { ...last, content: `${last.content} ${event.text}`.trim() };
+            return [...prev.slice(0, -1), updated];
+          }
+          return [
+            ...prev,
+            {
+              id,
+              role: isLearner ? 'user' : 'assistant',
+              content: event.text,
+              timestamp: new Date(event.timestampMs),
+            },
+          ];
+        });
+      } else if (event.type === 'share-content') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `share-${event.timestampMs}`,
+            role: 'assistant',
+            content: event.caption ?? `[Shared media: ${event.mediaId}]`,
+            timestamp: new Date(event.timestampMs),
+          },
+        ]);
+      } else if (event.type === 'send-text') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `text-${event.timestampMs}`,
+            role: 'assistant',
+            content: event.message,
+            timestamp: new Date(event.timestampMs),
+          },
+        ]);
+      }
+    }, []),
+  });
+
+  // PSTN [Call me] hook — separate from the browser WebRTC [Talk Here]
+  // above. VAPI rings the learner's actual phone. Just-in-time phone
+  // capture handles the "no number on file" case.
+  const outboundDial = useOutboundDial({ callerId });
+  const [phoneDraft, setPhoneDraft] = useState('');
 
   // Abort in-flight stream on unmount (prevents orphaned fetches during key-based remount)
   useEffect(() => {
@@ -695,6 +768,39 @@ export function SimChat({
   const handleEndCall = useCallback(async () => {
     setIsEnding(true);
 
+    // Tear down any live voice channel BEFORE saving the transcript.
+    // WebRTC: providerCall.end() calls vapi.stop() so the mic/audio
+    // socket closes immediately. PSTN: reset local UI; the actual VAPI
+    // call ends via the user hanging up or hitting the max-duration cap.
+    const voiceWasActive =
+      providerCall.status === 'starting' ||
+      providerCall.status === 'connecting' ||
+      providerCall.status === 'active' ||
+      outboundDial.status === 'dialing' ||
+      outboundDial.status === 'ringing' ||
+      outboundDial.status === 'needs-phone' ||
+      outboundDial.status === 'saving-phone';
+    try {
+      if (
+        providerCall.status === 'starting' ||
+        providerCall.status === 'connecting' ||
+        providerCall.status === 'active'
+      ) {
+        await providerCall.end();
+      }
+      if (
+        outboundDial.status === 'dialing' ||
+        outboundDial.status === 'ringing' ||
+        outboundDial.status === 'needs-phone' ||
+        outboundDial.status === 'saving-phone'
+      ) {
+        outboundDial.reset();
+      }
+    } catch (voiceErr) {
+      console.warn('[sim] Voice teardown failed:', voiceErr);
+      // Non-fatal — continue with transcript save.
+    }
+
     try {
       // Build transcript from messages
       const transcript = messages
@@ -702,6 +808,14 @@ export function SimChat({
         .join('\n');
 
       if (!callId) {
+        if (voiceWasActive) {
+          // Voice-only bail-out: no chat callId was ever created (e.g.
+          // user hung up while still in lobby). Voice is already torn
+          // down — just close the sheet and reset cleanly.
+          setShowEndSheet(false);
+          setIsEnding(false);
+          return;
+        }
         console.error('[sim] No callId — call record was never created');
         showToast('Error: call was not created');
         setIsEnding(false);
@@ -802,7 +916,7 @@ export function SimChat({
       showToast('Failed to save call');
       setIsEnding(false);
     }
-  }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onCallStateChange, onBack, journey]);
+  }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onCallStateChange, onBack, journey, providerCall, outboundDial]);
 
   const isEmbedded = mode === 'embedded';
 
@@ -841,13 +955,32 @@ export function SimChat({
           setShowMediaLibrary(prev => !prev);
           setShowContentPicker(false);
         }}
-        onVoiceToggle={callPhase === 'active' ? voiceMode.toggle : undefined}
+        onVoiceToggle={
+          // #1092 — local Whisper mic icon is feature-flagged off by
+          // default; learners use [Call me] instead. Flag is true in
+          // tests/setup.ts so the existing useVoiceMode coverage stays
+          // green, and true in dev under LOCAL_SIM_VOICE_MODE=true.
+          localSimVoiceModeEnabled && callPhase === 'active'
+            ? voiceMode.toggle
+            : undefined
+        }
         onAvatarClick={() => router.push(`/x/callers/${callerId}`)}
         onTitleEdit={handleRenameFromSim}
         titleEditDisabled={callPhase === 'active'}
         mediaLibraryActive={showMediaLibrary}
-        voiceActive={voiceMode.state !== 'off'}
-        callActive={callPhase === 'active' && messages.length > 0}
+        voiceActive={localSimVoiceModeEnabled && voiceMode.state !== 'off'}
+        callActive={
+          // Chat-call active (had at least one message exchanged) OR a
+          // voice channel is anywhere between launching and ended. The
+          // operator must always have an out — without this, the [Talk
+          // Here] / [Call me] flows stranded users with no way to hang up.
+          (callPhase === 'active' && messages.length > 0) ||
+          providerCall.status === 'starting' ||
+          providerCall.status === 'connecting' ||
+          providerCall.status === 'active' ||
+          outboundDial.status === 'dialing' ||
+          outboundDial.status === 'ringing'
+        }
         avatarColor={hashColor(callerId)}
         onProgressPanel={() => {
           setShowProgressPanel(prev => !prev);
@@ -1031,15 +1164,143 @@ export function SimChat({
             }}>
               Start your practice session
             </p>
-            <button
-              className="wa-lobby-start-btn"
-              onClick={startNewCall}
-              aria-label="Start practice call"
-            >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-              </svg>
-            </button>
+            {/* Three-button lobby: [Chat] (text) · [Talk Here] (browser
+                WebRTC, no phone needed) · [Call me] (VAPI rings the
+                learner's actual phone). Provider name never appears in
+                learner UI; operator chip lives elsewhere. */}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center' }}>
+              <button
+                className="wa-lobby-start-btn"
+                onClick={startNewCall}
+                aria-label="Start chat session"
+                title="Chat"
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                </svg>
+              </button>
+              <button
+                className="wa-lobby-start-btn"
+                onClick={() => { void providerCall.start(); }}
+                disabled={providerCall.status === 'starting' || providerCall.status === 'connecting'}
+                aria-label="Talk here in your browser"
+                title="Talk Here (browser microphone)"
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                  {/* microphone */}
+                  <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V21h2v-3.07A7 7 0 0 0 19 11h-2z"/>
+                </svg>
+              </button>
+              <button
+                className="wa-lobby-start-btn"
+                onClick={() => { void outboundDial.start(); }}
+                disabled={
+                  outboundDial.status === 'loading-phone' ||
+                  outboundDial.status === 'saving-phone' ||
+                  outboundDial.status === 'dialing' ||
+                  outboundDial.status === 'ringing' ||
+                  outboundDial.status === 'needs-phone'
+                }
+                aria-label="Call my phone"
+                title="Call me (VAPI calls your phone)"
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                  {/* phone handset */}
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+              </button>
+            </div>
+            {/* Talk Here status (browser WebRTC) */}
+            {providerCall.status === 'starting' && (
+              <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                Setting up your voice session&hellip;
+              </p>
+            )}
+            {providerCall.status === 'connecting' && (
+              <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                Connecting&hellip; (you&apos;ll be asked for microphone access)
+              </p>
+            )}
+            {providerCall.status === 'active' && (
+              <button
+                onClick={() => { void providerCall.end(); }}
+                style={{ fontSize: 13, color: 'var(--status-error-text)', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                End voice session
+              </button>
+            )}
+            {providerCall.status === 'error' && providerCall.errorMessage && (
+              <p style={{ fontSize: 13, color: 'var(--status-error-text)', textAlign: 'center', margin: 0 }}>
+                {providerCall.errorMessage}
+              </p>
+            )}
+
+            {/* Call me status + phone-capture form (PSTN outbound) */}
+            {outboundDial.status === 'loading-phone' && (
+              <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                Checking your number&hellip;
+              </p>
+            )}
+            {outboundDial.status === 'needs-phone' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 280, margin: '0 auto' }}>
+                <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                  What&apos;s your phone number? We&apos;ll call you.
+                </p>
+                <input
+                  type="tel"
+                  className="hf-input"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+44 7700 900123"
+                  value={phoneDraft}
+                  onChange={(e) => setPhoneDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && phoneDraft.trim().length >= 7) {
+                      void outboundDial.savePhoneAndDial(phoneDraft.trim());
+                    }
+                  }}
+                  aria-label="Your phone number"
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  <button
+                    className="hf-btn hf-btn-primary"
+                    disabled={phoneDraft.trim().length < 7}
+                    onClick={() => { void outboundDial.savePhoneAndDial(phoneDraft.trim()); }}
+                  >
+                    Save &amp; call me
+                  </button>
+                  <button
+                    className="hf-btn hf-btn-secondary"
+                    onClick={() => { outboundDial.reset(); setPhoneDraft(''); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                  Include your country code (e.g. +44 for the UK).
+                </p>
+              </div>
+            )}
+            {outboundDial.status === 'saving-phone' && (
+              <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                Saving your number&hellip;
+              </p>
+            )}
+            {outboundDial.status === 'dialing' && (
+              <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                Calling {outboundDial.phoneMasked}&hellip;
+              </p>
+            )}
+            {outboundDial.status === 'ringing' && (
+              <p style={{ fontSize: 13, color: 'var(--status-success-text)', textAlign: 'center', margin: 0 }}>
+                Ringing {outboundDial.phoneMasked} — pick up your phone.
+              </p>
+            )}
+            {outboundDial.status === 'error' && outboundDial.errorMessage && (
+              <p style={{ fontSize: 13, color: 'var(--status-error-text)', textAlign: 'center', margin: 0 }}>
+                {outboundDial.errorMessage}
+              </p>
+            )}
           </div>
         )}
 
@@ -1144,6 +1405,16 @@ export function SimChat({
             </div>
           </div>
         )}
+
+        {/* #1098 Slice C — Qualification readiness recap after the call settles.
+            Slice D — moved ABOVE PostCallProgressCard per ux-reviewer #3: the
+            qualification summary directly answers "how did that session move the
+            needle on my certification?", which is the higher-signal item at the
+            attention peak post-call. The generic progress card sits below as
+            secondary context. Renders only when the learner's active Curriculum
+            has a qualificationAnchor; silent otherwise. Refetches inside so the
+            AGGREGATE rollup for the just-ended call is reflected. */}
+        {callPhase === 'ended' && <QualificationSessionSummary />}
 
         {/* Post-call learning progress card */}
         {callPhase === 'ended' && (

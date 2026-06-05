@@ -120,6 +120,28 @@ export const config = {
       const origins = process.env.CORS_ALLOWED_ORIGINS;
       return origins ? origins.split(",").map((o) => o.trim()).filter(Boolean) : [];
     },
+    /**
+     * Identity PIN settings (#1101 — first-call continuity attestation).
+     * All env-overridable so test environments can shorten TTLs.
+     */
+    identityPin: {
+      /** PIN TTL in hours (default 24) — after this, verify returns expired:true. */
+      get ttlHours(): number {
+        return optionalInt("IDENTITY_PIN_TTL_HOURS", 24);
+      },
+      /** Max wrong attempts in 24h before lockout (default 5). */
+      get maxAttempts(): number {
+        return optionalInt("IDENTITY_PIN_MAX_ATTEMPTS", 5);
+      },
+      /** Max resends in 24h, not counting the initial issuance (default 3). */
+      get maxResendsPer24h(): number {
+        return optionalInt("IDENTITY_PIN_MAX_RESENDS", 3);
+      },
+      /** Minimum seconds between resend requests (default 60). */
+      get resendCooldownSeconds(): number {
+        return optionalInt("IDENTITY_PIN_RESEND_COOLDOWN_SECONDS", 60);
+      },
+    },
   },
 
   // ---------------------------------------------------------------------------
@@ -231,6 +253,18 @@ export const config = {
      */
     get contentScopeSubjectFallbackEnabled(): boolean {
       return optionalBool("CONTENT_SCOPE_SUBJECT_FALLBACK_ENABLED", false);
+    },
+    /**
+     * Local Whisper STT + OpenAI TTS voice mode on SimChat (#1092). When
+     * true the existing mic-icon toggle stays visible and `useVoiceMode`
+     * remains functional — useful for offline dev / regression testing.
+     * When false (default once `[Call me]` ships) the mic icon is hidden
+     * from the SIM and learners use the provider-backed call button.
+     * Tests set this to true in tests/setup.ts so the existing useVoiceMode
+     * tests stay green.
+     */
+    get localSimVoiceMode(): boolean {
+      return optionalBool("LOCAL_SIM_VOICE_MODE", false);
     },
   },
 

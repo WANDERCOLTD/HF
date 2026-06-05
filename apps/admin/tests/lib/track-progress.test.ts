@@ -26,6 +26,10 @@ const mockPrisma = {
   callerAttribute: {
     upsert: vi.fn(),
     findMany: vi.fn(),
+    // #1081 Slice 1 — updateCurriculumProgress reads existing lo_mastery rows
+    // when a maxMasteryTier cap is in play. These tests don't set one, so the
+    // findUnique result is unused except to keep the mock surface complete.
+    findUnique: vi.fn().mockResolvedValue(null),
     deleteMany: vi.fn(),
   },
   curriculum: {
@@ -107,6 +111,7 @@ describe('track-progress.ts', () => {
     setupContractMocks();
     mockPrisma.callerAttribute.upsert.mockResolvedValue({});
     mockPrisma.callerAttribute.findMany.mockResolvedValue([]);
+    mockPrisma.callerAttribute.findUnique.mockResolvedValue(null);
     mockPrisma.callerAttribute.deleteMany.mockResolvedValue({ count: 0 });
     // #409: CallerModuleProgress dual-write reads curriculum by specSlug.
     // Return null so the dual-write branch is a no-op for these tests.
