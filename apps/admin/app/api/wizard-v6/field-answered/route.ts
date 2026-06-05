@@ -12,6 +12,26 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { recordFieldAnswered } from "@/lib/wizard-v6/record-field-answered";
 
+/**
+ * @api POST /api/wizard-v6/field-answered
+ * @visibility internal
+ * @scope wizard-v6:write
+ * @auth session
+ * @tags wizard-v6
+ * @description Record a FieldAnswered event + project the new snapshot
+ *   inside one PrismaEventStore.begin(...) transaction. The DB trigger
+ *   `playbook_v6_snapshot_guard` enforces the projector-only-write rule;
+ *   when it raises, this route surfaces `{ error, kind: "wizard-v6:write-rejected" }`
+ *   at HTTP 500. See #1078.
+ * @body sessionId string - WizardSession id
+ * @body fieldKey string - Spec field key (e.g. "title")
+ * @body fieldValue unknown - Captured value (JSON-serialisable)
+ * @response 200 { eventId, eventVersion, nextSnapshot, elapsedMs }
+ * @response 400 { error: string } - Bad request body
+ * @response 404 { error: "Session not found" }
+ * @response 409 { error: "Session is COMPLETED/ABANDONED, not ACTIVE" }
+ * @response 500 { error, kind: "wizard-v6:write-rejected" } - CHAIN violation
+ */
 export async function POST(request: Request) {
   const auth = await requireAuth("SUPERADMIN");
   if (isAuthError(auth)) return auth.error;

@@ -10,6 +10,21 @@ import { NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
+/**
+ * @api GET /api/wizard-v6/snapshot
+ * @visibility internal
+ * @scope wizard-v6:read
+ * @auth session
+ * @tags wizard-v6
+ * @description Read the materialised V6 snapshot from
+ *   `Playbook.config.__v6.answeredFields` for the given session. Returns
+ *   empty answeredFields object when no events have landed yet. See #1078.
+ * @query sessionId string - WizardSession id (required)
+ * @response 200 { sessionId, playbookId, specKey, specVersion, status, answeredFields, lastEventSequence }
+ * @response 400 { error: "sessionId required" }
+ * @response 404 { error: "Session not found" }
+ * @response 401 { error: "Unauthorized" }
+ */
 export async function GET(request: Request) {
   const auth = await requireAuth("SUPERADMIN");
   if (isAuthError(auth)) return auth.error;

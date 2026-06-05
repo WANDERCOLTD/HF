@@ -11,6 +11,23 @@ import { NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
+/**
+ * @api POST /api/wizard-v6/session
+ * @visibility internal
+ * @scope wizard-v6:write
+ * @auth session
+ * @tags wizard-v6
+ * @description Open a V6 wizard session for the given playbook + spec. Any
+ *   prior ACTIVE session for the same playbook is moved to ABANDONED so the
+ *   "at most one ACTIVE session per playbook" invariant holds at the
+ *   application layer. See #1078.
+ * @body playbookId string - Playbook to host the V6 snapshot
+ * @body specKey string - CrawcusSpec key (e.g. "CreateRecipe")
+ * @body specVersion number - CrawcusSpec version integer
+ * @response 200 { sessionId: string }
+ * @response 400 { error: string } - Bad request body
+ * @response 401 { error: "Unauthorized" }
+ */
 export async function POST(request: Request) {
   const auth = await requireAuth("SUPERADMIN");
   if (isAuthError(auth)) return auth.error;
