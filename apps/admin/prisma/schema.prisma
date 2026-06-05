@@ -1494,6 +1494,14 @@ model Call {
   /// promote it to a canonical column.
   voiceProviderRaw       Json?
 
+  // Per-call scratch state for Playbook.config.useFreshMastery — read-only after write.
+  // AGGREGATE writes; ADAPT/COMPOSE read. Shape: { [key: string]: number | string }
+  // where key is the same `lo_mastery:{moduleSlug}:{loRef}` form used in
+  // CallerAttribute.key. Routes mastery into per-call isolation so Exam
+  // Assessment scoring doesn't pollute the learner's long-term mastery state
+  // (#1081 Slice 1, AC11/AC12).
+  scratchMastery Json?
+
   @@index([source])
   @@index([externalId])
   @@index([callerId], map: "Call_userId_idx")
