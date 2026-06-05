@@ -69,6 +69,20 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash <<'
   git pull --rebase
   git stash pop 2>/dev/null || true
 
+  # Drift sentinel — warn (don't block) if working tree diverged from origin/main.
+  # If this fires repeatedly, run a full sweep: see playbook in MEMORY.md or
+  # ask Claude for a `git diff origin/main` summary on the VM. Set
+  # HF_VM_DRIFT_OK=1 to silence (e.g. when intentionally on a feature branch).
+  git fetch origin --quiet 2>/dev/null || true
+  if [ "${HF_VM_DRIFT_OK:-0}" != "1" ]; then
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$BRANCH" = "main" ] && ! git diff origin/main --quiet 2>/dev/null; then
+      DRIFT_COUNT=$(git diff --name-only origin/main 2>/dev/null | wc -l | tr -d ' ')
+      echo "⚠  VM drift: $DRIFT_COUNT tracked file(s) differ from origin/main on the VM."
+      echo "   git diff origin/main --stat to inspect; reset --hard if you want a clean slate."
+    fi
+  fi
+
   echo "==> Installing deps..."
   cd apps/admin && npm install --prefer-offline
 
