@@ -110,6 +110,7 @@ export default function JoinPage() {
           lastName,
           email,
           ...(searchParams.get("ageRange") ? { ageRange: searchParams.get("ageRange") } : {}),
+          ...(searchParams.get("phone")?.trim() ? { phone: searchParams.get("phone") } : {}),
           ...(searchParams.get("course") ? { playbookId: searchParams.get("course") } : {}),
           ...(searchParams.get("skipOnboarding") === "true" ? { skipOnboarding: true } : {}),
         }),

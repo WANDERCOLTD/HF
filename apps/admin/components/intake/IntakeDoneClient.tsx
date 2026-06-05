@@ -24,6 +24,7 @@ const VALUES_DISPLAY: ReadonlyArray<readonly [string, string]> = [
   ["firstName", "First name"],
   ["lastName", "Last name"],
   ["email", "Email"],
+  ["phone", "Phone"],
   ["displayName", "Display name"],
   ["timezone", "Timezone"],
   ["preferredContactMethod", "Preferred contact"],
@@ -127,6 +128,7 @@ function buildContinueUrl(token: string, values: Readonly<Record<string, unknown
   const lastName = values.lastName;
   const email = values.email;
   const ageRange = values.ageRange;
+  const phone = values.phone;
   if (typeof firstName === "string") params.set("firstName", firstName);
   if (typeof lastName === "string") params.set("lastName", lastName);
   if (typeof email === "string") params.set("email", email);
@@ -135,6 +137,13 @@ function buildContinueUrl(token: string, values: Readonly<Record<string, unknown
   // `ageBand.adultOnly()` at intake, so this should never be present
   // as that value, but the route handler defends against URL tampering.
   if (typeof ageRange === "string") params.set("ageRange", ageRange);
+  // phone — optional in the intake spec. When supplied, the join route
+  // normalises (strip spaces / dashes / parens) and writes Caller.phone,
+  // which unblocks Call Me sessions without the mid-call JIT capture
+  // and is a prerequisite for the SMS slice of #1101.
+  if (typeof phone === "string" && phone.trim().length > 0) {
+    params.set("phone", phone.trim());
+  }
   const qs = params.toString();
   return `/join/${encodeURIComponent(token)}${qs ? `?${qs}` : ""}`;
 }

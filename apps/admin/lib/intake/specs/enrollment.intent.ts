@@ -60,6 +60,13 @@ export const INTERNAL_FIELDS = [
 // validation happens server-side via deliverability check (deferred).
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// E.164-ish phone pattern — optional `+`, 7–15 digits. The join route
+// already strips spaces/dashes/parens via the same normalisation as
+// `/api/join/[token]:140-143`, so the pattern here is the post-strip
+// shape. Permissive on purpose; deliverability check is deferred to
+// the SMS provider when slice B of #1101 lands.
+const PHONE_PATTERN = /^\+?\d{7,15}$/;
+
 // ── Spec ───────────────────────────────────────────────────────────
 export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
   key: INTAKE_KEY,
@@ -88,6 +95,20 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
       .label({ en: "Email" })
       .askHint({ en: "What email should we use for this enrolment?" })
       .validates((v) => typeof v === "string" && EMAIL_PATTERN.test(v)),
+
+    // Optional but actively asked — phone enables Call Me sessions (PSTN
+    // outbound dial from the sim) without the mid-call JIT capture, and
+    // is a prerequisite for the SMS channel of #1101 (first-call PIN by
+    // SMS, currently stubbed). Skipping is fine — Call Me falls back to
+    // the JIT prompt and PIN still delivers by email.
+    phone: field
+      .string()
+      .optional()
+      .label({ en: "Phone number" })
+      .askHint({
+        en: "What's a good phone number for Call Me sessions? Optional — leave blank if you don't want SMS or phone calls.",
+      })
+      .validates((v) => typeof v !== "string" || PHONE_PATTERN.test(v.replace(/[\s\-()]/g, ""))),
 
     // ── Optional — one per distinct shape ─────────────────────────
     displayName: field
@@ -202,6 +223,19 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
         predicate: ({ value }) => {
           const e = value<string>("email");
           return e === undefined || EMAIL_PATTERN.test(e);
+        },
+      }),
+
+      // 4a. phone format invariant — when phone is supplied, it must
+      //     normalise to a 7–15-digit E.164-ish shape. Same audit chain
+      //     as email; absent phone is permitted (field is optional).
+      defineContract({
+        id: "enrollment.phone.format-valid",
+        description: { en: "Phone field, when supplied, must match basic E.164 pattern after stripping separators." },
+        predicate: ({ value }) => {
+          const p = value<string>("phone");
+          if (p === undefined || p === "") return true;
+          return PHONE_PATTERN.test(p.replace(/[\s\-()]/g, ""));
         },
       }),
 
