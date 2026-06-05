@@ -3323,6 +3323,94 @@ Returns the most recent COURSE_REFERENCE markdown document
 
 ---
 
+### `GET` /api/v1/identity/challenge-status
+
+Whether the learner has an outstanding first-call PIN challenge
+
+**Auth**: session (STUDENT+)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | query | string | No |  |
+
+**Response** `200`
+```json
+{ ok: true, needsPin: boolean, locked: boolean, recipient: string | null }
+```
+
+---
+
+### `POST` /api/v1/identity/resend-pin
+
+Re-issue a first-call PIN to the caller's on-file email. Caps
+
+**Auth**: session (STUDENT+)
+
+**Response** `200`
+```json
+{ ok: true } — fresh PIN sent
+```
+
+**Response** `200`
+```json
+{ ok: false, resendCapReached: true } — 3 resends already today
+```
+
+**Response** `200`
+```json
+{ ok: false, cooldownSecondsRemaining: number } — within 60s window
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveCaller: true } — caller has no email on file
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+---
+
+### `POST` /api/v1/identity/verify-pin
+
+Verify a learner's first-call PIN. STUDENT sessions are locked
+
+**Auth**: session (STUDENT+)
+
+**Response** `200`
+```json
+{ ok: true } — PIN correct, challenge marked verified
+```
+
+**Response** `200`
+```json
+{ ok: false, expired: true } — PIN matched but past TTL; does NOT count toward lockout
+```
+
+**Response** `200`
+```json
+{ ok: false, locked: true } — caller is in 24h lockout window
+```
+
+**Response** `200`
+```json
+{ ok: false, attemptsRemaining: number } — wrong PIN
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveChallenge: true } — no challenge to verify (request resend)
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+---
+
 ### `GET` /api/v1/join/[token]
 
 Verify a classroom/community join token. Returns group info if valid.

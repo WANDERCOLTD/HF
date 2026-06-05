@@ -9862,6 +9862,94 @@ Unlink a subject from this domain (deletes SubjectDomain join row)
 
 ---
 
+### `GET` /api/identity/challenge-status
+
+Whether the learner has an outstanding first-call PIN challenge
+
+**Auth**: session (STUDENT+)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | query | string | No |  |
+
+**Response** `200`
+```json
+{ ok: true, needsPin: boolean, locked: boolean, recipient: string | null }
+```
+
+---
+
+### `POST` /api/identity/resend-pin
+
+Re-issue a first-call PIN to the caller's on-file email. Caps
+
+**Auth**: session (STUDENT+)
+
+**Response** `200`
+```json
+{ ok: true } — fresh PIN sent
+```
+
+**Response** `200`
+```json
+{ ok: false, resendCapReached: true } — 3 resends already today
+```
+
+**Response** `200`
+```json
+{ ok: false, cooldownSecondsRemaining: number } — within 60s window
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveCaller: true } — caller has no email on file
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+---
+
+### `POST` /api/identity/verify-pin
+
+Verify a learner's first-call PIN. STUDENT sessions are locked
+
+**Auth**: session (STUDENT+)
+
+**Response** `200`
+```json
+{ ok: true } — PIN correct, challenge marked verified
+```
+
+**Response** `200`
+```json
+{ ok: false, expired: true } — PIN matched but past TTL; does NOT count toward lockout
+```
+
+**Response** `200`
+```json
+{ ok: false, locked: true } — caller is in 24h lockout window
+```
+
+**Response** `200`
+```json
+{ ok: false, attemptsRemaining: number } — wrong PIN
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveChallenge: true } — no challenge to verify (request resend)
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+---
+
 ### `GET` /api/institution/branding
 
 Get branding for the current user's institution.
@@ -13021,29 +13109,6 @@ Mark onboarding as complete for a caller.
 
 ---
 
-### `GET` /api/student/qualification-progress
-
-Returns the learner's progress against their active qualification —
-
-**Auth**: Session · **Scope**: `progress:read`
-
-**Response** `200`
-```json
-{ ok: true, qualification: Qualification | null, units: Unit[],
-```
-
-**Response** `401`
-```json
-{ ok: false, error: "Unauthorized" }
-```
-
-**Response** `404`
-```json
-{ ok: false, error: "no active enrollment" }
-```
-
----
-
 ### `GET` /api/student/survey-config
 
 **Auth**: STUDENT | OPERATOR+ (with callerId param)
@@ -15032,8 +15097,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 482 |
-| Files with annotations | 473 |
+| Route files found | 484 |
+| Files with annotations | 475 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 
