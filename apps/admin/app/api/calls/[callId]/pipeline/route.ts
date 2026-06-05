@@ -858,36 +858,59 @@ async function runBatchedCallerAnalysis(
 
   const measureParams = Array.from(paramMap.values());
 
-  // Check if LEARN-ASSESS-001 (or any spec with assessmentMode) is active.
-  // #164: LEARN-ASSESS runs unconditionally. Retrieval practice injects questions
-  // on every call (including teach-mode), and the learning-assessment path picks
-  // up answers from the transcript. The event-gate (skipMeasure) only blocks
-  // MEASURE parameter scoring, not curriculum mastery tracking.
+  // #164 + #1117 — LO scoring is universal by default, with an explicit-spec
+  // override path.
+  //
+  // Today, IELTS Playbooks carry a LEARN spec whose `config.assessmentMode ===
+  // "curriculum_mastery"` to opt into per-LO scoring. #1098's qualification
+  // dashboard exposed the gap: the CIO/CTO Standard Playbooks (and any future
+  // course not explicitly seeded with that spec config) silently produce zero
+  // `lo_mastery:*` rows because the gate never opens. The dashboard then sits
+  // at "Not yet assessed" forever even after real calls.
+  //
+  // The fix: always attempt to load `moduleContext`. If the caller's enrolment
+  // resolves to a Curriculum + Module with LOs, the downstream batched AI
+  // prompt automatically picks up the LO scoring instructions (the existing
+  // `if (moduleContext?.learningOutcomes?.length)` branch in
+  // `buildBatchedMeasurePrompt`) and emits `learning.outcomes`, which flows
+  // through `updateCurriculumProgress({ loMastery })` → `lo_mastery:*` writes.
+  // When no module resolves (content-only courses, personality-only enrolments,
+  // SIM testers without enrolment), `loadCurrentModuleContext` returns null
+  // and the existing non-LO path runs unchanged.
+  //
+  // The explicit `assessmentSpec` path is preserved as a (1) marker for IELTS
+  // back-compat logging and (2) `masteryThreshold` override hook.
   const assessmentSpec = learnSpecs.find(
     (s) => (s.config as SpecConfig)?.assessmentMode === "curriculum_mastery",
   );
   let moduleContext: Awaited<ReturnType<typeof loadCurrentModuleContext>> = null;
 
-  if (assessmentSpec) {
-    const assessConfig = assessmentSpec.config as Record<string, any>;
-    try {
-      moduleContext = await loadCurrentModuleContext(callerId, log, {
-        requestedModuleId: call.requestedModuleId ?? null,
-        callPlaybookId: call.playbookId ?? null,
-      });
-      if (moduleContext) {
-        // Use mastery threshold from spec config (overrides default)
+  try {
+    moduleContext = await loadCurrentModuleContext(callerId, log, {
+      requestedModuleId: call.requestedModuleId ?? null,
+      callPlaybookId: call.playbookId ?? null,
+    });
+    if (moduleContext) {
+      if (assessmentSpec) {
+        // Explicit-spec override: honour the spec's masteryThreshold.
+        const assessConfig = assessmentSpec.config as Record<string, any>;
         moduleContext.masteryThreshold = assessConfig.masteryThreshold ?? moduleContext.masteryThreshold;
-        log.info(`LEARN-ASSESS spec active (${assessmentSpec.slug}): module context loaded`, {
+      }
+      log.info(
+        assessmentSpec
+          ? `LEARN-ASSESS spec active (${assessmentSpec.slug}): module context loaded`
+          : `#1117 universal LO scoring: module context loaded by default`,
+        {
           specSlug: moduleContext.specSlug,
           moduleId: moduleContext.moduleId,
           loCount: moduleContext.learningOutcomes.length,
           threshold: moduleContext.masteryThreshold,
-        });
-      }
-    } catch (err: any) {
-      log.warn(`Failed to load module context (non-blocking): ${err.message}`);
+          mode: assessmentSpec ? "spec-driven" : "universal-default",
+        },
+      );
     }
+  } catch (err: any) {
+    log.warn(`Failed to load module context (non-blocking): ${err.message}`);
   }
 
   log.info(`Batched caller analysis`, {

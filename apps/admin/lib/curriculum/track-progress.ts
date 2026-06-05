@@ -230,7 +230,33 @@ export async function updateCurriculumProgress(
       const cap = updates.maxMasteryTierOverride
         ?? (updates.playbookId ? await getMaxMasteryTier(updates.playbookId) : null);
 
+      // #1117 — AI-to-DB ref whitelist guard. The universal LO scorer fires
+      // for every Curriculum-anchored course, not just IELTS. We need to
+      // reject AI-returned refs that don't exist in the resolved module's
+      // catalog (hallucinated structurally-valid refs). One Prisma query per
+      // call; LO sets are small (<20 typically). Skipped when curriculumId
+      // is absent — back-compat for legacy callers without scope context.
+      let allowedLoRefs: Set<string> | null = null;
+      if (updates.curriculumId) {
+        const catalogRows = await prisma.learningObjective.findMany({
+          where: {
+            module: {
+              curriculumId: updates.curriculumId,
+              slug: canonicalModuleId,
+            },
+          },
+          select: { ref: true },
+        });
+        allowedLoRefs = new Set(catalogRows.map((r) => r.ref));
+      }
+
       for (const [loRef, score] of Object.entries(updates.loMastery.outcomes)) {
+        if (allowedLoRefs && !allowedLoRefs.has(loRef)) {
+          console.warn(
+            `[track-progress] #1117 — refusing lo_mastery write: AI returned ref "${loRef}" not in catalog for module ${canonicalModuleId} (curriculum ${updates.curriculumId}). ${allowedLoRefs.size} valid refs known.`,
+          );
+          continue;
+        }
         const key = await buildStorageKey(specSlug, 'loMastery', canonicalModuleId, loRef);
 
         // AC11 — useFreshMastery routes per-LO mastery into Call.scratchMastery.
@@ -407,27 +433,49 @@ export type LoScoreState = { mastery: number; callCount: number };
 export type LoScoresMap = Record<string, LoScoreState>;
 
 /**
- * #403 AI-to-DB guard. The AI returns `learning.outcomes` keyed by strings it
- * chose; before those keys become DB state, validate them.
+ * #403 + #1117 AI-to-DB guard. The AI returns `learning.outcomes` keyed by
+ * strings it chose; before those keys become DB state, validate them.
  *
  * Rejects:
  * - Placeholder keys matching /^LO\d+$/ (e.g. "LO1", "LO2") — these are the
  *   exact failure mode the prompt fix targets; any leftover slip-through from
  *   the AI gets dropped here as a belt-and-braces guard.
+ * - **#1117:** when `allowedRefs` is supplied, keys NOT in that set are
+ *   rejected. The set is the resolved module's `LearningObjective.ref` catalog.
+ *   This catches structurally-valid-but-hallucinated refs (e.g. AI returns
+ *   `OUT-04-99` when only `OUT-04-01..07` exist) — which the universal LO
+ *   scorer now fires for every Curriculum-anchored course, not just IELTS.
  *
  * Returns the filtered map and the list of rejected keys for logging. Empty
  * filtered map means the caller should fall back to the Phase 0 cap path
  * rather than persist meaningless data.
+ *
+ * Pass `allowedRefs = undefined` to skip the catalog check (back-compat for
+ * callers that don't have catalog context at validation time).
  */
-export function validateLoScores(loScores: Record<string, number>): {
+export function validateLoScores(
+  loScores: Record<string, number>,
+  allowedRefs?: ReadonlySet<string> | readonly string[],
+): {
   filtered: Record<string, number>;
   rejected: string[];
 } {
   const filtered: Record<string, number> = {};
   const rejected: string[] = [];
   const PLACEHOLDER = /^LO\d+$/;
+  const refSet =
+    allowedRefs instanceof Set
+      ? allowedRefs
+      : allowedRefs != null
+        ? new Set(allowedRefs)
+        : null;
   for (const [key, value] of Object.entries(loScores)) {
     if (PLACEHOLDER.test(key)) {
+      rejected.push(key);
+      continue;
+    }
+    if (refSet && !refSet.has(key)) {
+      // #1117 — AI hallucinated a ref not in the module's catalog.
       rejected.push(key);
       continue;
     }
