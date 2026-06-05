@@ -308,6 +308,14 @@ export class VapiProvider implements VoiceProvider {
           sensitive: true,
           required: false,
         },
+        {
+          key: "phoneNumberId",
+          label: "VAPI phone number ID (for outbound dial)",
+          type: "string",
+          help: "Required ONLY for [Call me] PSTN outbound dial (browser [Talk Here] doesn't need it). VAPI dashboard → Phone Numbers → copy the ID of the number HF will dial FROM. Costs ~$2/mo + per-minute usage.",
+          sensitive: false,
+          required: false,
+        },
       ],
     };
   }

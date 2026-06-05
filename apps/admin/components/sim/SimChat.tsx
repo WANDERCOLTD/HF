@@ -15,6 +15,7 @@ import { MediaLibraryPanel } from './MediaLibraryPanel';
 import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
 import { useProviderCall } from './useProviderCall';
+import { useOutboundDial } from './useOutboundDial';
 import { config } from '@/lib/config';
 import type { MediaInfo } from './MessageBubble';
 import { ChatSurveyInput } from './ChatSurveyInput';
@@ -260,6 +261,12 @@ export function SimChat({
       }
     }, []),
   });
+
+  // PSTN [Call me] hook — separate from the browser WebRTC [Talk Here]
+  // above. VAPI rings the learner's actual phone. Just-in-time phone
+  // capture handles the "no number on file" case.
+  const outboundDial = useOutboundDial({ callerId });
+  const [phoneDraft, setPhoneDraft] = useState('');
 
   // Abort in-flight stream on unmount (prevents orphaned fetches during key-based remount)
   useEffect(() => {
@@ -1104,11 +1111,11 @@ export function SimChat({
             }}>
               Start your practice session
             </p>
-            {/* #1092 — two-button lobby: [Chat] (existing) + [Call me]
-                (provider WebRTC, mixed mode). The provider name never
-                appears in learner-facing UI strings; the chip below is
-                operator-only and hidden on STUDENT sessions. */}
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            {/* Three-button lobby: [Chat] (text) · [Talk Here] (browser
+                WebRTC, no phone needed) · [Call me] (VAPI rings the
+                learner's actual phone). Provider name never appears in
+                learner UI; operator chip lives elsewhere. */}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center' }}>
               <button
                 className="wa-lobby-start-btn"
                 onClick={startNewCall}
@@ -1123,18 +1130,37 @@ export function SimChat({
                 className="wa-lobby-start-btn"
                 onClick={() => { void providerCall.start(); }}
                 disabled={providerCall.status === 'starting' || providerCall.status === 'connecting'}
-                aria-label="Call me"
-                title="Call me"
+                aria-label="Talk here in your browser"
+                title="Talk Here (browser microphone)"
               >
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                  {/* microphone */}
+                  <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V21h2v-3.07A7 7 0 0 0 19 11h-2z"/>
+                </svg>
+              </button>
+              <button
+                className="wa-lobby-start-btn"
+                onClick={() => { void outboundDial.start(); }}
+                disabled={
+                  outboundDial.status === 'loading-phone' ||
+                  outboundDial.status === 'saving-phone' ||
+                  outboundDial.status === 'dialing' ||
+                  outboundDial.status === 'ringing' ||
+                  outboundDial.status === 'needs-phone'
+                }
+                aria-label="Call my phone"
+                title="Call me (VAPI calls your phone)"
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                  {/* phone handset */}
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
                 </svg>
               </button>
             </div>
-            {/* Provider call status — learner-friendly, no provider name */}
+            {/* Talk Here status (browser WebRTC) */}
             {providerCall.status === 'starting' && (
               <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
-                Setting up your call&hellip;
+                Setting up your voice session&hellip;
               </p>
             )}
             {providerCall.status === 'connecting' && (
@@ -1147,12 +1173,79 @@ export function SimChat({
                 onClick={() => { void providerCall.end(); }}
                 style={{ fontSize: 13, color: 'var(--status-error-text)', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                End call
+                End voice session
               </button>
             )}
             {providerCall.status === 'error' && providerCall.errorMessage && (
               <p style={{ fontSize: 13, color: 'var(--status-error-text)', textAlign: 'center', margin: 0 }}>
                 {providerCall.errorMessage}
+              </p>
+            )}
+
+            {/* Call me status + phone-capture form (PSTN outbound) */}
+            {outboundDial.status === 'loading-phone' && (
+              <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                Checking your number&hellip;
+              </p>
+            )}
+            {outboundDial.status === 'needs-phone' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 280, margin: '0 auto' }}>
+                <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                  What&apos;s your phone number? We&apos;ll call you.
+                </p>
+                <input
+                  type="tel"
+                  className="hf-input"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+44 7700 900123"
+                  value={phoneDraft}
+                  onChange={(e) => setPhoneDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && phoneDraft.trim().length >= 7) {
+                      void outboundDial.savePhoneAndDial(phoneDraft.trim());
+                    }
+                  }}
+                  aria-label="Your phone number"
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  <button
+                    className="hf-btn hf-btn-primary"
+                    disabled={phoneDraft.trim().length < 7}
+                    onClick={() => { void outboundDial.savePhoneAndDial(phoneDraft.trim()); }}
+                  >
+                    Save &amp; call me
+                  </button>
+                  <button
+                    className="hf-btn hf-btn-secondary"
+                    onClick={() => { outboundDial.reset(); setPhoneDraft(''); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                  Include your country code (e.g. +44 for the UK).
+                </p>
+              </div>
+            )}
+            {outboundDial.status === 'saving-phone' && (
+              <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                Saving your number&hellip;
+              </p>
+            )}
+            {outboundDial.status === 'dialing' && (
+              <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                Calling {outboundDial.phoneMasked}&hellip;
+              </p>
+            )}
+            {outboundDial.status === 'ringing' && (
+              <p style={{ fontSize: 13, color: 'var(--status-success-text)', textAlign: 'center', margin: 0 }}>
+                Ringing {outboundDial.phoneMasked} — pick up your phone.
+              </p>
+            )}
+            {outboundDial.status === 'error' && outboundDial.errorMessage && (
+              <p style={{ fontSize: 13, color: 'var(--status-error-text)', textAlign: 'center', margin: 0 }}>
+                {outboundDial.errorMessage}
               </p>
             )}
           </div>
