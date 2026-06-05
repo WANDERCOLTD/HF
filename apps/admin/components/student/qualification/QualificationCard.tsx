@@ -71,7 +71,11 @@ export function QualificationCard({
       />
 
       {!hideNextBestStep && nextBestStep && (
-        <NextBestStepCTA next={nextBestStep} onStartCall={onStartCall} />
+        <NextBestStepCTA
+          next={nextBestStep}
+          units={units}
+          onStartCall={onStartCall}
+        />
       )}
 
       {isColdStart && (
@@ -129,7 +133,7 @@ function QualificationHeader({
         )}
         <p className="hf-qualification-readiness">
           {isColdStart ? (
-            <span className="hf-qualification-readiness--cold">Not yet assessed</span>
+            <span className="hf-qualification-readiness--cold">Ready to start</span>
           ) : (
             <>
               <span className="hf-qualification-tier-pill">{tierLabel}</span>
@@ -157,22 +161,32 @@ function QualificationHeader({
 
 function NextBestStepCTA({
   next,
+  units,
   onStartCall,
 }: {
   next: NonNullable<QualificationProgressData["nextBestStep"]>;
+  units: readonly QualificationProgressUnit[];
   onStartCall?: (next: NonNullable<QualificationProgressData["nextBestStep"]>) => void;
 }): React.ReactElement {
   const href = `/x/sim?requestedModuleId=${encodeURIComponent(next.moduleSlug)}`;
+  // Resolve the unit's display name + the focus LO's plain-language name from
+  // the catalog so the CTA never surfaces a raw slug or ref to the learner.
+  const unit = units.find((u) => u.moduleSlug === next.moduleSlug) ?? null;
+  const unitDisplay = unit?.displayName ?? next.moduleSlug;
+  const focusLo = next.loRef
+    ? unit?.learningObjectives.find((lo) => lo.ref === next.loRef) ?? null
+    : null;
+  const focusLoDisplay = focusLo?.displayName ?? next.loRef;
   return (
     <div className="hf-qualification-cta" role="region" aria-label="Next best step">
       <div className="hf-qualification-cta-body">
         <p className="hf-qualification-cta-headline">
-          ▶ {next.courseType} on {next.moduleSlug}
+          ▶ {next.courseType} on {unitDisplay}
         </p>
         <p className="hf-qualification-cta-reason">{next.reason}</p>
-        {next.loRef && (
+        {focusLoDisplay && (
           <p className="hf-qualification-cta-focus">
-            Focus: <code>{next.loRef}</code>
+            Focus: <span className="hf-qualification-cta-focus-name">{focusLoDisplay}</span>
           </p>
         )}
       </div>
@@ -182,11 +196,11 @@ function NextBestStepCTA({
           className="hf-qualification-cta-button"
           onClick={() => onStartCall(next)}
         >
-          Start call →
+          Practise this unit →
         </button>
       ) : (
         <Link href={href} className="hf-qualification-cta-button">
-          Start call →
+          Practise this unit →
         </Link>
       )}
     </div>
