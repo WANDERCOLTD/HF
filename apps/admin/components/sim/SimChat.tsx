@@ -1354,16 +1354,20 @@ export function SimChat({
           </div>
         )}
 
+        {/* #1098 Slice C — Qualification readiness recap after the call settles.
+            Slice D — moved ABOVE PostCallProgressCard per ux-reviewer #3: the
+            qualification summary directly answers "how did that session move the
+            needle on my certification?", which is the higher-signal item at the
+            attention peak post-call. The generic progress card sits below as
+            secondary context. Renders only when the learner's active Curriculum
+            has a qualificationAnchor; silent otherwise. Refetches inside so the
+            AGGREGATE rollup for the just-ended call is reflected. */}
+        {callPhase === 'ended' && <QualificationSessionSummary />}
+
         {/* Post-call learning progress card */}
         {callPhase === 'ended' && (
           <PostCallProgressCard callerId={callerId} />
         )}
-
-        {/* #1098 Slice C — Qualification readiness recap after the call settles.
-            Renders only when the learner's active Curriculum has a qualificationAnchor;
-            silent otherwise. Refetches inside so the AGGREGATE rollup for the
-            just-ended call is reflected. */}
-        {callPhase === 'ended' && <QualificationSessionSummary />}
 
         {/* Post-call content — artifacts & actions from pipeline */}
         {(artifacts.length > 0 || actions.length > 0) && (

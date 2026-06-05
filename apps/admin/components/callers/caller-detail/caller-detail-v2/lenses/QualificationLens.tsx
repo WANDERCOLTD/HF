@@ -58,8 +58,13 @@ export function QualificationLens({ callerId }: Props): React.ReactElement {
 
   if (loading) {
     return (
-      <div className="hf-progress-v2-lens hf-progress-v2-lens--loading" role="status">
-        Loading qualification progress…
+      <div
+        className="hf-progress-v2-lens hf-progress-v2-lens--loading"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="hf-spinner" aria-hidden="true" />
+        <span>Loading qualification progress…</span>
       </div>
     );
   }

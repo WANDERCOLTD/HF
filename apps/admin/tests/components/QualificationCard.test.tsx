@@ -114,7 +114,9 @@ describe("QualificationCard — #1098 Slice B", () => {
       },
     });
     const { getByText } = render(<QualificationCard data={data} />);
-    expect(getByText("Not yet assessed")).toBeDefined();
+    // Slice D — softened from "Not yet assessed" to "Ready to start" in the
+    // header per ux-reviewer advisory B. Cold-start banner text unchanged.
+    expect(getByText("Ready to start")).toBeDefined();
     expect(getByText(/Take your first call/)).toBeDefined();
   });
 
@@ -130,10 +132,14 @@ describe("QualificationCard — #1098 Slice B", () => {
   });
 
   it("expands the weakest Unit by default + highlights weakest LO", () => {
-    const { container, getByText } = render(<QualificationCard data={makeFixture()} />);
-    // standard-unit-09 is weakest → its LO list rendered.
-    expect(getByText("Define enterprise model")).toBeDefined();
-    expect(getByText("Map business capabilities")).toBeDefined();
+    const { container } = render(<QualificationCard data={makeFixture()} />);
+    // standard-unit-09 is weakest → its LO list rendered. Scope to the LO
+    // list region because Slice D's CTA now also surfaces the LO display
+    // name "Map business capabilities" in the focus line.
+    const loList = container.querySelector(".hf-qualification-lo-list");
+    expect(loList).not.toBeNull();
+    expect(loList!.textContent).toContain("Define enterprise model");
+    expect(loList!.textContent).toContain("Map business capabilities");
     // Weakest LO row carries the weakest modifier class.
     const weakestRow = container.querySelector(".hf-qualification-lo-row--weakest");
     expect(weakestRow).not.toBeNull();
@@ -161,26 +167,34 @@ describe("QualificationCard — #1098 Slice B", () => {
     ]);
   });
 
-  it("renders Next Best Step CTA by default with reason + focus LO", () => {
-    const { getByText, getByRole, container } = render(
+  it("Slice D — CTA renders Unit DISPLAY NAME (not slug) + LO DISPLAY NAME (not ref)", () => {
+    // ux-reviewer #2: the CTA must never expose a raw slug or ref. The
+    // CTA pulls Unit + LO display names from the units catalog.
+    const { getByText, getByRole, container, queryByText } = render(
       <QualificationCard data={makeFixture()} />,
     );
-    expect(getByText(/Revision Aid on standard-unit-09/)).toBeDefined();
-    expect(getByText("weakest LO in your weakest Unit")).toBeDefined();
-    // OUT-09-02 also appears in the LO list (it's the weakest LO of the
-    // expanded unit) — scope to the CTA region.
+    // Unit display name: "Enterprise and Business Architecture", NOT "standard-unit-09"
+    expect(getByText(/Revision Aid on Enterprise and Business Architecture/)).toBeDefined();
+    // CTA region carries the LO display name ("Map business capabilities" from fixture).
     const ctaRegion = container.querySelector('[aria-label="Next best step"]');
     expect(ctaRegion).not.toBeNull();
-    expect(ctaRegion!.textContent).toContain("OUT-09-02");
-    const cta = getByRole("link", { name: /Start call/ });
+    expect(ctaRegion!.textContent).toContain("Map business capabilities");
+    // The raw slug must NOT appear in the CTA region.
+    expect(ctaRegion!.textContent).not.toContain("standard-unit-09");
+    // Reason still rendered.
+    expect(getByText("weakest LO in your weakest Unit")).toBeDefined();
+    // Slice D — CTA button copy changed from "Start call →" to "Practise this unit →".
+    const cta = getByRole("link", { name: /Practise this unit/ });
     expect(cta.getAttribute("href")).toContain("standard-unit-09");
+    // No raw ref text inside <code> any more.
+    expect(queryByText("OUT-09-02", { selector: "code" })).toBeNull();
   });
 
   it("hides Next Best Step CTA when hideNextBestStep is true (educator lens mode)", () => {
     const { queryByText } = render(
       <QualificationCard data={makeFixture()} hideNextBestStep />,
     );
-    expect(queryByText("Start call →")).toBeNull();
+    expect(queryByText("Practise this unit →")).toBeNull();
     expect(queryByText("weakest LO in your weakest Unit")).toBeNull();
   });
 
@@ -189,7 +203,7 @@ describe("QualificationCard — #1098 Slice B", () => {
     const { getByRole } = render(
       <QualificationCard data={makeFixture()} onStartCall={handler} />,
     );
-    fireEvent.click(getByRole("button", { name: /Start call/ }));
+    fireEvent.click(getByRole("button", { name: /Practise this unit/ }));
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith(makeFixture().nextBestStep);
   });
