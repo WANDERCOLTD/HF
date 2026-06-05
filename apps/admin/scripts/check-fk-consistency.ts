@@ -15,6 +15,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { findAnchorDivergence, type AnchorCurriculum } from "./check-anchor-divergence";
 
 interface CheckRow {
   id: string;
@@ -137,6 +138,58 @@ async function runChecks(): Promise<CheckResult[]> {
     description:
       "ContentAssertion.learningObjectiveId is non-null but the referenced LearningObjective no longer exists (soft-FK). `reconcile-lo-linkage.ts` should null these; #615 catches lag.",
     rows: danglingCAs.map((r) => ({ id: r.id, detail: { learningObjectiveId: r.learningObjectiveId } })),
+  });
+
+  // Query 6 — #1081 Slice 2B.3 — qualificationAnchor slug-set divergence.
+  // For every distinct non-null qualificationAnchor, all Curricula in the
+  // group must agree on their CurriculumModule.slug set + LearningObjective.ref
+  // set per module. Divergence indicates two Curricula are labelled as the
+  // same regulated qualification but teach materially different things — a
+  // data-integrity break the CI must catch before downstream rollups (Slice 3)
+  // can trust the anchor.
+  //
+  // Null-anchor Curricula are ignored — legacy data predating Slice 2B.1 and
+  // ad-hoc/internal Curricula carry no anchor and are not comparable.
+  const anchorCurricula: AnchorCurriculum[] = await prisma.curriculum.findMany({
+    where: { qualificationAnchor: { not: null } },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      qualificationAnchor: true,
+      createdAt: true,
+      modules: {
+        select: {
+          slug: true,
+          learningObjectives: { select: { ref: true } },
+        },
+      },
+    },
+  });
+  const divergences = findAnchorDivergence(anchorCurricula);
+  results.push({
+    name: "qualification-anchor-divergence",
+    description:
+      "Curricula sharing a non-null qualificationAnchor must agree on their CurriculumModule.slug set and LearningObjective.ref set per module. Divergence indicates two Curricula labelled as the same regulated qualification teach materially different things (#1081 Slice 2B.3).",
+    rows: divergences.map((d) => ({
+      id: d.otherCurriculumId,
+      detail: {
+        anchor: d.anchor,
+        canonicalCurriculum: { id: d.canonicalCurriculumId, slug: d.canonicalCurriculumSlug },
+        otherCurriculum: { id: d.otherCurriculumId, slug: d.otherCurriculumSlug },
+        kind: d.kind,
+        ...(d.kind === "modules"
+          ? {
+              modulesOnlyInCanonical: d.modulesOnlyInCanonical,
+              modulesOnlyInOther: d.modulesOnlyInOther,
+            }
+          : {
+              moduleSlug: d.moduleSlug,
+              loRefsOnlyInCanonical: d.loRefsOnlyInCanonical,
+              loRefsOnlyInOther: d.loRefsOnlyInOther,
+            }),
+      },
+    })),
   });
 
   return results;
