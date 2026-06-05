@@ -3128,6 +3128,39 @@ Compute uplift metrics for a learner — survey deltas, score trends, adaptation
 
 ---
 
+### `PATCH` /api/callers/[callerId]/phone
+
+Just-in-time phone capture for the [Call me] button.
+
+**Auth**: session ANY (STUDENT scoped to own caller via learner-scope) · **Scope**: `callers:update-phone`
+
+**Response** `200`
+```json
+{ ok: true, callerId, phone (normalised) }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: zod issues }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "Forbidden" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "Phone already in use" }
+```
+
+---
+
 ### `GET` /api/callers/[callerId]/voice-provider
 
 Returns the caller's voice-provider override (the raw
@@ -13109,6 +13142,29 @@ Mark onboarding as complete for a caller.
 
 ---
 
+### `GET` /api/student/qualification-progress
+
+Returns the learner's progress against their active qualification —
+
+**Auth**: Session · **Scope**: `progress:read`
+
+**Response** `200`
+```json
+{ ok: true, qualification: Qualification | null, units: Unit[],
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "no active enrollment" }
+```
+
+---
+
 ### `GET` /api/student/survey-config
 
 **Auth**: STUDENT | OPERATOR+ (with callerId param)
@@ -14812,6 +14868,49 @@ Server-Sent Events stream for a live provider call (#1092).
 
 ---
 
+### `POST` /api/voice/calls/outbound-dial
+
+PSTN outbound dial — VAPI rings `Caller.phone` and the
+
+**Auth**: session ANY (STUDENT scoped to own caller) · **Scope**: `voice:calls:outbound-dial`
+
+**Response** `200`
+```json
+{ ok: true, callId, vapiCallId, providerSlug, status }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: zod issues }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "Forbidden" } (STUDENT cross-caller)
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "Caller has no phone on file" }
+```
+
+**Response** `502`
+```json
+{ ok: false, error: "VAPI returned …" }
+```
+
+**Response** `503`
+```json
+{ ok: false, error: "Provider not configured for outbound dial" }
+```
+
+---
+
 ### `POST` /api/voice/calls/start
 
 Start a provider call (#1092). Resolves the active voice
@@ -15097,10 +15196,10 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 484 |
-| Files with annotations | 475 |
+| Route files found | 487 |
+| Files with annotations | 478 |
 | Files missing annotations | 9 |
-| Coverage | 98.1% |
+| Coverage | 98.2% |
 
 ### Files missing `@api` annotations
 

@@ -60,6 +60,36 @@ interface SystemSettings {
   endCallPhrases: string[];
 }
 
+/**
+ * Compute whether a config field currently has a saved value in the DB.
+ *
+ * Sensitive fields: the GET response masks credentials to `***` (set) or
+ * `[not set]` (unset) — we read that signal directly without ever
+ * touching the raw secret.
+ *
+ * Non-sensitive fields: the actual value is returned in `row.config`
+ * (preferred — that's where the save handler writes) or `row.credentials`
+ * (legacy fallback for older rows). Empty string / undefined = unset.
+ *
+ * Returned `label` is the suffix rendered next to the field label so the
+ * operator can see at a glance whether their last save persisted.
+ */
+function fieldPresence(
+  f: ConfigField,
+  row: VoiceProviderRow,
+): { set: boolean; label: string } {
+  if (f.sensitive) {
+    const v = (row.credentials as Record<string, unknown>)[f.key];
+    const isSet = v === "***" || (typeof v === "string" && v !== "" && v !== "[not set]");
+    return { set: isSet, label: isSet ? " (currently set)" : " (currently unset)" };
+  }
+  const v =
+    (row.config as Record<string, unknown>)[f.key] ??
+    (row.credentials as Record<string, unknown>)[f.key];
+  const isSet = v !== undefined && v !== null && v !== "" && v !== "[not set]";
+  return { set: isSet, label: isSet ? " (currently set)" : " (currently unset)" };
+}
+
 export default function VoiceProviderEditPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -73,6 +103,7 @@ export default function VoiceProviderEditPage() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
 
@@ -139,6 +170,7 @@ export default function VoiceProviderEditPage() {
     if (!row || !configSchema) return;
     setSaving(true);
     setErr(null);
+    setSaveMessage(null);
     try {
       const credentials: Record<string, unknown> = {
         ...row.credentials,
@@ -150,6 +182,8 @@ export default function VoiceProviderEditPage() {
           delete credentials[k];
         }
       }
+
+      const changedFields: string[] = [];
 
       for (const f of configSchema) {
         const raw = fieldValues[f.key];
@@ -173,8 +207,17 @@ export default function VoiceProviderEditPage() {
         }
         if (value === undefined) continue;
         if (f.sensitive) {
+          // Sensitive fields always count as a change when typed — the
+          // previous value is masked so we can't compare equality.
+          changedFields.push(f.label);
           credentials[f.key] = value;
         } else {
+          const currentValue =
+            (row.config as Record<string, unknown>)[f.key] ??
+            (row.credentials as Record<string, unknown>)[f.key];
+          if (currentValue !== value) {
+            changedFields.push(f.label);
+          }
           config[f.key] = value;
         }
       }
@@ -192,7 +235,15 @@ export default function VoiceProviderEditPage() {
       });
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-      router.push("/x/settings/voice-providers");
+
+      // Stay on the page and refresh so presence badges reflect the new
+      // saved state. Surface what changed so the operator can confirm.
+      await load();
+      if (changedFields.length === 0) {
+        setSaveMessage("Saved. No field values changed.");
+      } else {
+        setSaveMessage(`Saved. Updated: ${changedFields.join(", ")}.`);
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -259,6 +310,12 @@ export default function VoiceProviderEditPage() {
       {err && (
         <div className="hf-banner hf-banner-error" role="alert">
           {err}
+        </div>
+      )}
+
+      {saveMessage && !err && (
+        <div className="hf-banner hf-banner-success" role="status">
+          {saveMessage}
         </div>
       )}
 
@@ -531,10 +588,15 @@ export default function VoiceProviderEditPage() {
           <p className="hf-section-desc">
             Fields declared by the <code>{row.adapterKey}</code> adapter. Sensitive fields are masked — leave blank to keep the current value.
           </p>
-          {configSchema.map((f) => (
+          {configSchema.map((f) => {
+            const presence = fieldPresence(f, row);
+            return (
             <div key={f.key}>
               <label className="hf-label" htmlFor={`field-${f.key}`}>
                 {f.label} {f.required ? <span aria-hidden>*</span> : null}
+                <span className={presence.set ? "hf-presence-set" : "hf-presence-unset"}>
+                  {presence.label}
+                </span>
               </label>
               {f.type === "enum" ? (
                 <select
@@ -567,7 +629,13 @@ export default function VoiceProviderEditPage() {
                   className="hf-input"
                   type={f.sensitive ? "password" : f.type === "number" ? "number" : "text"}
                   autoComplete={f.sensitive ? "new-password" : undefined}
-                  placeholder={f.sensitive ? "leave blank to keep current" : ""}
+                  placeholder={
+                    f.sensitive
+                      ? presence.set
+                        ? "leave blank to keep current"
+                        : "type new value"
+                      : ""
+                  }
                   value={String(fieldValues[f.key] ?? "")}
                   onChange={(e) =>
                     setFieldValues({ ...fieldValues, [f.key]: e.target.value })
@@ -576,7 +644,8 @@ export default function VoiceProviderEditPage() {
               )}
               {f.help && <p className="hf-section-desc">{f.help}</p>}
             </div>
-          ))}
+            );
+          })}
         </section>
       ) : (
         <section className="hf-card">

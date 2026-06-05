@@ -124,6 +124,7 @@ export async function POST(request: Request) {
         adapterKey: true,
         enabled: true,
         credentials: true,
+        config: true,
       },
     });
     if (!providerRow || !providerRow.enabled) {
@@ -138,9 +139,17 @@ export async function POST(request: Request) {
     }
 
     const creds = (providerRow.credentials ?? {}) as Record<string, unknown>;
+    const conf = (providerRow.config ?? {}) as Record<string, unknown>;
     const apiKey = typeof creds.apiKey === "string" ? creds.apiKey : null;
+    // phoneNumberId is declared `sensitive: false` so the admin page writes
+    // it to `config`, not `credentials`. Read from config first, fall back
+    // to credentials for older rows.
     const phoneNumberId =
-      typeof creds.phoneNumberId === "string" ? creds.phoneNumberId : null;
+      typeof conf.phoneNumberId === "string"
+        ? conf.phoneNumberId
+        : typeof creds.phoneNumberId === "string"
+          ? creds.phoneNumberId
+          : null;
     if (!apiKey || !phoneNumberId) {
       endSpan({ errorMessage: "Provider missing apiKey or phoneNumberId" });
       return NextResponse.json(

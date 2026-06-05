@@ -138,6 +138,7 @@ export async function POST(request: Request) {
         adapterKey: true,
         enabled: true,
         credentials: true,
+        config: true,
       },
     });
     if (!providerRow || !providerRow.enabled) {
@@ -170,9 +171,18 @@ export async function POST(request: Request) {
     // Surface the provider's public key for the browser SDK. Marketing-
     // safe credentials only; HMAC secret + private api key stay in the
     // VoiceProvider row and are never sent to the client.
+    //
+    // publicKey is declared `sensitive: false` so the admin page writes it
+    // to `config`, not `credentials`. Read from config first, fall back to
+    // credentials for older rows.
     const creds = (providerRow.credentials ?? {}) as Record<string, unknown>;
+    const conf = (providerRow.config ?? {}) as Record<string, unknown>;
     const publicKey =
-      typeof creds.publicKey === "string" ? creds.publicKey : undefined;
+      typeof conf.publicKey === "string"
+        ? conf.publicKey
+        : typeof creds.publicKey === "string"
+          ? creds.publicKey
+          : undefined;
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     const sdk =
