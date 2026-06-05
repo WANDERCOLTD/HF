@@ -20,6 +20,7 @@ import {
   ClipboardCheck,
   CheckSquare,
   Compass,
+  Award,
 } from "lucide-react";
 import { trackTabLoad } from "@/lib/caller-insights/telemetry";
 import { useProgressV2View } from "./useProgressV2View";
@@ -53,6 +54,7 @@ const ICON_NODES: Record<string, React.ReactNode> = {
   ClipboardCheck: <ClipboardCheck size={14} />,
   CheckSquare: <CheckSquare size={14} />,
   Compass: <Compass size={14} />,
+  Award: <Award size={14} />,
 };
 
 export function ProgressV2Tab({
