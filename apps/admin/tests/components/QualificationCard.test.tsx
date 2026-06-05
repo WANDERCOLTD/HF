@@ -87,11 +87,14 @@ describe("QualificationCard — #1098 Slice B", () => {
   });
 
   it("renders header with qualification name, body + number, and tier pill", () => {
-    const { getByText } = render(<QualificationCard data={makeFixture()} />);
+    const { getByText, container } = render(<QualificationCard data={makeFixture()} />);
     expect(getByText("The CIO/CTO Standard")).toBeDefined();
     expect(getByText(/SIAS · 603\/0001\/0/)).toBeDefined();
-    expect(getByText("Practitioner")).toBeDefined();
     expect(getByText(/on 3 of 4 Learning Outcomes/)).toBeDefined();
+    // Tier pill is the styled badge inside the header — "Practitioner" appears
+    // elsewhere too (unit tiles, LO rows) so scope to the pill element.
+    const pill = container.querySelector(".hf-qualification-tier-pill");
+    expect(pill?.textContent).toBe("Practitioner");
   });
 
   it("shows cold-start message when qualification.tier is null", () => {
@@ -159,10 +162,16 @@ describe("QualificationCard — #1098 Slice B", () => {
   });
 
   it("renders Next Best Step CTA by default with reason + focus LO", () => {
-    const { getByText, getByRole } = render(<QualificationCard data={makeFixture()} />);
+    const { getByText, getByRole, container } = render(
+      <QualificationCard data={makeFixture()} />,
+    );
     expect(getByText(/Revision Aid on standard-unit-09/)).toBeDefined();
     expect(getByText("weakest LO in your weakest Unit")).toBeDefined();
-    expect(getByText("OUT-09-02")).toBeDefined();
+    // OUT-09-02 also appears in the LO list (it's the weakest LO of the
+    // expanded unit) — scope to the CTA region.
+    const ctaRegion = container.querySelector('[aria-label="Next best step"]');
+    expect(ctaRegion).not.toBeNull();
+    expect(ctaRegion!.textContent).toContain("OUT-09-02");
     const cta = getByRole("link", { name: /Start call/ });
     expect(cta.getAttribute("href")).toContain("standard-unit-09");
   });
