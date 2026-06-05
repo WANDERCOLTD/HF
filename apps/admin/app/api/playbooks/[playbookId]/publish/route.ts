@@ -168,6 +168,57 @@ export async function POST(
       }
     }
 
+    // 7. #1117 follow-up — LO ref robustness gate.
+    //
+    // When the Playbook is linked (via PlaybookCurriculum, #1034) to a
+    // Curriculum that has first-class LearningObjective rows, all refs must:
+    //   (a) NOT match the placeholder pattern /^LO\d+$/  — the AI ignores
+    //       these and `validateLoScores` rejects them at the write boundary,
+    //       so per-LO mastery would silently never land.
+    //   (b) be GLOBALLY unique across all modules in the Curriculum — the
+    //       readiness rollup dedupes by loRef across sibling Curricula, so
+    //       cross-module ref collisions silently merge unrelated LOs.
+    //
+    // Hard gate (error) — operator must rename refs to a module-scoped
+    // scheme like "{moduleSlug}-LO{N}" before the Playbook can publish.
+    {
+      const links = await prisma.playbookCurriculum.findMany({
+        where: { playbookId },
+        select: { curriculumId: true },
+      });
+      const curriculumIds = links.map((l) => l.curriculumId);
+      if (curriculumIds.length > 0) {
+        const los = await prisma.learningObjective.findMany({
+          where: { module: { curriculumId: { in: curriculumIds } } },
+          select: { ref: true },
+        });
+        const PLACEHOLDER = /^LO\d+$/;
+        const placeholderRefs: string[] = [];
+        const refCounts = new Map<string, number>();
+        for (const lo of los) {
+          if (PLACEHOLDER.test(lo.ref)) placeholderRefs.push(lo.ref);
+          refCounts.set(lo.ref, (refCounts.get(lo.ref) ?? 0) + 1);
+        }
+        if (placeholderRefs.length > 0) {
+          const sample = [...new Set(placeholderRefs)].slice(0, 5).join(", ");
+          errors.push({
+            error: `${placeholderRefs.length} learning objective ref(s) match the placeholder pattern /^LO\\d+$/ (e.g. ${sample}). These are silently rejected at the write boundary and per-LO mastery will never land. Rename to a module-scoped scheme such as "{moduleSlug}-LO{N}" before publishing. (#1117)`,
+            severity: "error",
+          });
+        }
+        const duplicateRefs = [...refCounts.entries()]
+          .filter(([, n]) => n > 1)
+          .map(([ref]) => ref);
+        if (duplicateRefs.length > 0) {
+          const sample = duplicateRefs.slice(0, 5).join(", ");
+          errors.push({
+            error: `${duplicateRefs.length} learning objective ref(s) are duplicated across modules in the linked Curriculum (e.g. ${sample}). The readiness rollup dedupes by ref so duplicates silently merge unrelated LOs. Rename to a module-scoped scheme such as "{moduleSlug}-LO{N}" before publishing. (#1117)`,
+            severity: "error",
+          });
+        }
+      }
+    }
+
     // Compute stats
     const specsByType = {
       MEASURE: 0,

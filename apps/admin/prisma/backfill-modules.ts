@@ -19,17 +19,36 @@ const prisma = new PrismaClient();
 // ---------------------------------------------------------------------------
 
 const LO_REF_PATTERN = /^(LO\d+|AC[\d.]+|R\d+-LO\d+(?:-AC[\d.]+)?)\s*[:\-–]\s*/i;
+// #1117 follow-up — rejects refs that match the placeholder pattern
+// `validateLoScores` will refuse at write time (LO followed by digits only).
+const PLACEHOLDER_REF = /^LO\d+$/;
 
-function parseLORef(text: string, index: number): { ref: string; description: string } {
+function parseLORef(
+  text: string,
+  index: number,
+  moduleSlug: string,
+): { ref: string; description: string } {
   const match = text.match(LO_REF_PATTERN);
   if (match) {
+    const extracted = match[1].toUpperCase();
+    // #1117 follow-up — when the source markdown used the placeholder pattern
+    // (e.g. "LO1: …"), prefix with the module slug so refs are
+    // globally unique within the Curriculum AND don't trip the placeholder
+    // guard at the write boundary. Example:
+    //   ("LO1: Plan capacity", index=0, moduleSlug="standard-unit-04")
+    //   →  ref="standard-unit-04-LO1"
+    const normalised = PLACEHOLDER_REF.test(extracted)
+      ? `${moduleSlug}-${extracted}`
+      : extracted;
     return {
-      ref: match[1].toUpperCase(),
+      ref: normalised,
       description: text.slice(match[0].length).trim() || text,
     };
   }
-  // No parseable ref — generate one
-  return { ref: `LO-${index + 1}`, description: text };
+  // No parseable ref — generate one. Module-scoped so backfills across
+  // multiple modules can't collide and the result doesn't match
+  // `validateLoScores`'s PLACEHOLDER guard.
+  return { ref: `${moduleSlug}-LO${index + 1}`, description: text };
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +96,7 @@ async function backfillFromCurricula(): Promise<{ modules: number; los: number }
       // Create LearningObjective records
       const los: string[] = mod.learningOutcomes || [];
       for (let i = 0; i < los.length; i++) {
-        const { ref, description } = parseLORef(los[i], i);
+        const { ref, description } = parseLORef(los[i], i, slug);
         try {
           await prisma.learningObjective.create({
             data: {
@@ -163,7 +182,7 @@ async function backfillFromSpecs(): Promise<{ modules: number; los: number }> {
 
       const los: string[] = mod.learningOutcomes || [];
       for (let j = 0; j < los.length; j++) {
-        const { ref, description } = parseLORef(los[j], j);
+        const { ref, description } = parseLORef(los[j], j, slug);
         try {
           await prisma.learningObjective.create({
             data: {
