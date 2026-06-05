@@ -22,6 +22,7 @@ import { ChatSurveyInput } from './ChatSurveyInput';
 import { SimAdminPanel } from './SimAdminPanel';
 import { SimProgressPanel } from './SimProgressPanel';
 import { PostCallProgressCard } from './PostCallProgressCard';
+import { QualificationSessionSummary } from './qualification/QualificationContextStrip';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { useJourneyPosition } from '@/hooks/useJourneyPosition';
 import type { ChatItem, UseJourneyChatResult } from '@/hooks/useJourneyChat';
@@ -1357,6 +1358,12 @@ export function SimChat({
         {callPhase === 'ended' && (
           <PostCallProgressCard callerId={callerId} />
         )}
+
+        {/* #1098 Slice C — Qualification readiness recap after the call settles.
+            Renders only when the learner's active Curriculum has a qualificationAnchor;
+            silent otherwise. Refetches inside so the AGGREGATE rollup for the
+            just-ended call is reflected. */}
+        {callPhase === 'ended' && <QualificationSessionSummary />}
 
         {/* Post-call content — artifacts & actions from pipeline */}
         {(artifacts.length > 0 || actions.length > 0) && (

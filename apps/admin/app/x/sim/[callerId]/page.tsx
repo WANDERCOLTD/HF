@@ -11,6 +11,7 @@ import { deriveParameterMap } from '@/lib/agent-tuner/derive';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
 import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from '@/components/sim/ModulePickerBanners';
 import { SimStateBreadcrumb } from '@/components/sim/SimStateBreadcrumb';
+import { QualificationContextStrip } from '@/components/sim/qualification/QualificationContextStrip';
 
 interface PastCall {
   transcript: string;
@@ -229,6 +230,9 @@ export default function SimConversationPage() {
         modules={authoredModules}
         onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
       />
+      {/* #1098 Slice C — Qualification context strip (renders only when the
+          learner's active Curriculum has a qualificationAnchor). */}
+      <QualificationContextStrip requestedModuleId={requestedModuleId ?? null} />
       {requestedModuleId ? (
         <ModulePickerSelectionBanner
           moduleId={requestedModuleId}
