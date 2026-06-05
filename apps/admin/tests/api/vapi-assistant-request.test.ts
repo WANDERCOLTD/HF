@@ -107,84 +107,11 @@ vi.mock("@/lib/enrollment/resolve-playbook", () => ({
   resolvePlaybookId: vi.fn().mockResolvedValue(null),
 }));
 
-// ── Mock vapi tools route (for VAPI_TOOL_DEFINITIONS & TOOL_SETTING_KEYS) ──
+// ── Mock vapi tools route ──
+// Post-#1043: TOOL_SETTING_KEYS and VAPI_TOOL_DEFINITIONS no longer
+// exist. The assistant-request route loads tools via
+// `loadToolDefinitions`, which the test mocks directly below.
 vi.mock("@/app/api/vapi/tools/route", () => ({
-  VAPI_TOOL_DEFINITIONS: [
-    {
-      type: "function",
-      function: {
-        name: "lookup_teaching_point",
-        description: "Look up teaching content",
-        parameters: { type: "object", properties: { topic: { type: "string" } }, required: ["topic"] },
-      },
-    },
-    {
-      type: "function",
-      function: {
-        name: "check_mastery",
-        description: "Check mastery",
-        parameters: { type: "object", properties: { topic: { type: "string" } }, required: ["topic"] },
-      },
-    },
-    {
-      type: "function",
-      function: {
-        name: "record_observation",
-        description: "Record observation",
-        parameters: { type: "object", properties: { note: { type: "string" } }, required: ["note"] },
-      },
-    },
-    {
-      type: "function",
-      function: {
-        name: "get_practice_question",
-        description: "Get practice question",
-        parameters: { type: "object", properties: { topic: { type: "string" } }, required: ["topic"] },
-      },
-    },
-    {
-      type: "function",
-      function: {
-        name: "get_next_module",
-        description: "Get next module",
-        parameters: { type: "object", properties: {} },
-      },
-    },
-    {
-      type: "function",
-      function: {
-        name: "log_activity_result",
-        description: "Log activity result",
-        parameters: { type: "object", properties: { result: { type: "string" } }, required: ["result"] },
-      },
-    },
-    {
-      type: "function",
-      function: {
-        name: "send_text_to_caller",
-        description: "Send text",
-        parameters: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
-      },
-    },
-    {
-      type: "function",
-      function: {
-        name: "request_artifact",
-        description: "Request artifact",
-        parameters: { type: "object", properties: { type: { type: "string" } }, required: ["type"] },
-      },
-    },
-  ],
-  TOOL_SETTING_KEYS: {
-    lookup_teaching_point: "toolLookupTeachingPoint",
-    check_mastery: "toolCheckMastery",
-    record_observation: "toolRecordObservation",
-    get_practice_question: "toolGetPracticeQuestion",
-    get_next_module: "toolGetNextModule",
-    log_activity_result: "toolLogActivityResult",
-    send_text_to_caller: "toolSendText",
-    request_artifact: "toolRequestArtifact",
-  },
   POST: vi.fn(),
 }));
 
@@ -198,14 +125,6 @@ const defaultSettings = {
   model: "gpt-4o",
   knowledgePlanEnabled: true,
   autoPipeline: true,
-  toolLookupTeachingPoint: true,
-  toolCheckMastery: true,
-  toolRecordObservation: true,
-  toolGetPracticeQuestion: true,
-  toolGetNextModule: true,
-  toolLogActivityResult: true,
-  toolSendText: true,
-  toolRequestArtifact: true,
   unknownCallerPrompt: "You are a helpful voice assistant.",
   noActivePromptFallback: "You are a helpful voice tutor.",
 };
@@ -293,23 +212,25 @@ describe("POST /api/vapi/assistant-request", () => {
     expect(json.assistant.knowledgePlan.provider).toBe("custom-knowledge-base");
   });
 
-  it("filters out disabled tools", async () => {
-    // AnyVoice #1019 — tool defs come from TOOLS-001 spec.
-    // Re-mock loadToolDefinitions for this test so it returns all 10
-    // tools; the route's per-tool enablement filter then drops the
-    // three flipped to false below.
+  it("filters out disabled tools (spec-level enabled flag, #1043)", async () => {
+    // AnyVoice #1043 — per-tool enablement lives on the TOOLS-001 spec
+    // entry's `enabled` field, applied by loadToolDefinitions BEFORE
+    // returning to the route. The route no longer filters. So this
+    // test mocks loadToolDefinitions to simulate the post-filter result.
     const { loadToolDefinitions } = await import("@/lib/voice/load-tool-definitions");
     const toolsSpec = await import("../../docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json");
-    (loadToolDefinitions as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      (toolsSpec as any).default.config.tools,
-    );
+    const filteredTools = ((toolsSpec as any).default.config.tools as Array<{
+      function: { name: string };
+    }>)
+      .filter((t) => !["lookup_teaching_point", "send_text_to_caller", "request_artifact"].includes(t.function.name))
+      .map((t) => {
+        // Strip the `enabled` field the loader strips before returning
+        const { enabled: _e, ...rest } = t as any;
+        return rest;
+      });
+    (loadToolDefinitions as ReturnType<typeof vi.fn>).mockResolvedValueOnce(filteredTools);
 
-    mockGetVoiceCallSettings.mockResolvedValue({
-      ...defaultSettings,
-      toolLookupTeachingPoint: false,
-      toolSendText: false,
-      toolRequestArtifact: false,
-    });
+    mockGetVoiceCallSettings.mockResolvedValue({ ...defaultSettings });
     mockCallerFindFirst.mockResolvedValue({ id: "c1", name: "Alice", phone: "+441234567890" });
     mockComposedPromptFindFirst.mockResolvedValue({
       id: "p1",

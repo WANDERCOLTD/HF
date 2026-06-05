@@ -24,6 +24,7 @@
     "tools": [
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "lookup_teaching_point",
           "description": "Look up specific teaching content or facts about a topic. Use when the caller asks about a specific concept, rule, threshold, or definition.",
@@ -45,6 +46,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "check_mastery",
           "description": "Check if the caller has mastered a specific module or concept. Use before deciding whether to teach new material or review.",
@@ -62,6 +64,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "record_observation",
           "description": "Record an important observation about the caller during the conversation. Use when the caller reveals something significant about their knowledge, preferences, or situation.",
@@ -88,6 +91,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "get_practice_question",
           "description": "Get a practice question or scenario for the current topic. Use when transitioning to practice or assessment.",
@@ -105,6 +109,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "get_next_module",
           "description": "Find out what the next module or topic is in the caller's curriculum. Use when the current topic is mastered and you need to move on.",
@@ -116,6 +121,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "log_activity_result",
           "description": "Log the result of an interactive activity (pop quiz, MCQ, scenario, teach-back, etc.). Call this after completing any structured activity to track the outcome.",
@@ -146,6 +152,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "send_text_to_caller",
           "description": "Send a text message (SMS) to the caller. Use for multiple-choice questions with complex options, reflection prompts, follow-up resources, or anything better read than heard.",
@@ -168,6 +175,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "request_artifact",
           "description": "Request that a study artifact be sent to the caller after the call. Use when you want to share a summary, formula, exercise, study note, or resource with the learner. The artifact will be delivered after the call ends.",
@@ -198,6 +206,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "share_content",
           "description": "Share a visual aid (image, diagram, PDF) with the caller. In text sim sessions, the content appears inline in the chat. In voice calls, the content is sent to the caller's phone via their preferred channel (WhatsApp, MMS, or SMS link). Use when discussing a figure, diagram, or document listed in your visual aids that the caller should see. Always describe the content verbally too.",
@@ -219,6 +228,7 @@
       },
       {
         "type": "function",
+        "enabled": true,
         "function": {
           "name": "lookup_vocabulary",
           "description": "Look up the definition of a word or term from the course materials. Use when the caller asks \"what does X mean?\", encounters an unfamiliar word, or when you want to introduce key vocabulary. Returns the contextual definition from the source text, not a generic dictionary definition.",

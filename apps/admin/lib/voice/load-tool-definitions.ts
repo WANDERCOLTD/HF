@@ -22,9 +22,15 @@ import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import type { ProviderToolDefinition } from "./types";
 
-/** Tool array shape stored in `AnalysisSpec.config.tools`. */
+/** Tool entry shape stored in `AnalysisSpec.config.tools`. The `enabled`
+ *  flag is the spec-level per-tool gate (#1043, supersedes
+ *  `TOOL_SETTING_KEYS` + per-tool VoiceCallSettings booleans). Missing
+ *  field defaults to `true` for back-compat with pre-#1043 seeds. */
+interface ToolEntry extends ProviderToolDefinition {
+  enabled?: boolean;
+}
 interface ToolsSpecConfig {
-  tools?: ProviderToolDefinition[];
+  tools?: ToolEntry[];
 }
 
 /**
@@ -59,7 +65,13 @@ export async function loadToolDefinitions(
       );
       return [];
     }
-    return tools;
+    // #1043: per-tool gate lives in the spec. `enabled !== false` is the
+    // active rule — missing field defaults to true so historical seeds
+    // continue to work without a re-seed. Strip the flag before returning
+    // so downstream code receives the canonical ProviderToolDefinition.
+    return tools
+      .filter((t) => t.enabled !== false)
+      .map(({ enabled: _enabled, ...rest }) => rest);
   } catch (err) {
     // Wrap DB errors in a warn instead of throwing — voice call must
     // continue even if the spec store is temporarily unreachable.

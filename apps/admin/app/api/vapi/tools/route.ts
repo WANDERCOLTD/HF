@@ -880,27 +880,8 @@ async function resolveCallerSourceIds(callerId: string | null): Promise<string[]
   return getTeachingSourceIdsForDomain(caller.domainId);
 }
 
-/**
- * Maps tool function name → VoiceCallSettings property key.
- * Used by assistant-request to filter tools based on settings.
- */
-export const TOOL_SETTING_KEYS: Record<string, keyof import("@/lib/system-settings").VoiceCallSettings> = {
-  lookup_teaching_point: "toolLookupTeachingPoint",
-  check_mastery: "toolCheckMastery",
-  record_observation: "toolRecordObservation",
-  get_practice_question: "toolGetPracticeQuestion",
-  get_next_module: "toolGetNextModule",
-  log_activity_result: "toolLogActivityResult",
-  send_text_to_caller: "toolSendText",
-  request_artifact: "toolRequestArtifact",
-  share_content: "toolShareContent",
-  lookup_vocabulary: "toolLookupVocabulary",
-};
-
 // VAPI_TOOL_DEFINITIONS constant removed in AnyVoice #1019 — tool
-// definitions moved to the TOOLS-001 AnalysisSpec. The
-// assistant-request route reads them via loadToolDefinitions() in
-// lib/voice/load-tool-definitions.ts; this file keeps the per-tool
-// handler implementations below and the TOOL_SETTING_KEYS settings
-// map above. The audit counter vapiToolDefinitionsConstantPresent
-// (#1016) now reads 0.
+// definitions moved to the TOOLS-001 AnalysisSpec. TOOL_SETTING_KEYS
+// removed in AnyVoice #1043 — per-tool enablement also moved to the
+// spec's `enabled` field, read by loadToolDefinitions().
+// The audit counter vapiToolDefinitionsConstantPresent (#1016) reads 0.
