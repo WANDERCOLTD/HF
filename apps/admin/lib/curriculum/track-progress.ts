@@ -236,6 +236,13 @@ export async function updateCurriculumProgress(
       // catalog (hallucinated structurally-valid refs). One Prisma query per
       // call; LO sets are small (<20 typically). Skipped when curriculumId
       // is absent — back-compat for legacy callers without scope context.
+      //
+      // Defensive: when the catalog query returns zero rows, treat the
+      // catalog as UNKNOWN and skip the check rather than rejecting every
+      // AI-returned ref. Zero rows can mean (a) LOs not yet imported for
+      // this module, (b) transient DB inconsistency, (c) tests that don't
+      // mock LearningObjective. False-positive rejections would silently
+      // break the existing IELTS path.
       let allowedLoRefs: Set<string> | null = null;
       if (updates.curriculumId) {
         const catalogRows = await prisma.learningObjective.findMany({
@@ -247,7 +254,13 @@ export async function updateCurriculumProgress(
           },
           select: { ref: true },
         });
-        allowedLoRefs = new Set(catalogRows.map((r) => r.ref));
+        if (catalogRows.length > 0) {
+          allowedLoRefs = new Set(catalogRows.map((r) => r.ref));
+        } else {
+          console.info(
+            `[track-progress] #1117 — LO catalog empty for module ${canonicalModuleId} in curriculum ${updates.curriculumId}; allowing all AI refs (no whitelist applied).`,
+          );
+        }
       }
 
       for (const [loRef, score] of Object.entries(updates.loMastery.outcomes)) {
