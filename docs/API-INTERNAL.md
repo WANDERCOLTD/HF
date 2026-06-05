@@ -48,7 +48,6 @@
   - [Curriculum](#curriculum)
   - [Dashboard](#dashboard)
   - [Data Dictionary](#data-dictionary)
-  - [Dev](#dev)
   - [Dev Tools](#dev-tools)
   - [Domains](#domains)
   - [Educator](#educator)
@@ -6261,27 +6260,6 @@ Find cross-references for template variables and key prefixes across the system.
 **Response** `500`
 ```json
 { ok: false, error: "Failed to fetch cross-references" }
-```
-
----
-
-## Dev
-
-### `POST` /api/wizard-lab
-
-Test endpoint for the wizard framework. Creates a task that
-
-**Auth**: ADMIN+ · **Scope**: `dev:wizard-lab`
-
-| Parameter | In | Type | Required | Description |
-|-----------|-----|------|----------|-------------|
-| name | body | string | No | Topic name from intent step |
-| emphasis | body | string | No | Teaching emphasis |
-| duration | body | string | No | Session duration |
-
-**Response** `200`
-```json
-{ ok: true, taskId: "..." }
 ```
 
 ---
@@ -14970,8 +14948,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 480 |
-| Files with annotations | 471 |
+| Route files found | 479 |
+| Files with annotations | 470 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 
