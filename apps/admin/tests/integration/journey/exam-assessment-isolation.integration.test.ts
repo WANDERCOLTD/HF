@@ -98,7 +98,6 @@ beforeAll(async () => {
     data: {
       name: `${PFX} caller`,
       domainId,
-      playbookId,
     },
     select: { id: true },
   });
