@@ -61,6 +61,13 @@ export const joinPostSchema = z.object({
   playbookId: z.string().uuid().optional(),
   /** Skip onboarding wizard + surveys — go straight to teaching */
   skipOnboarding: z.boolean().optional(),
+  /**
+   * Optional learner phone number captured during enrollment. Required
+   * by the PSTN dial-out "Call me" path (the AnyVoice [Call me] button
+   * uses VAPI to ring this number). Stored on `Caller.phone` in E.164.
+   * If absent the SimChat just-in-time prompt captures it at click-time.
+   */
+  phone: z.string().trim().min(7).max(20).optional(),
 });
 
 /** POST /api/auth/login (superadmin token auth) */

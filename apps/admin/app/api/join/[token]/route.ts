@@ -133,7 +133,13 @@ export async function POST(
   const body = await request.json();
   const v = validateBody(joinPostSchema, body);
   if (!v.ok) return v.error;
-  const { firstName, lastName, email, ageRange, playbookId, skipOnboarding } = v.data;
+  const { firstName, lastName, email, ageRange, playbookId, skipOnboarding, phone } = v.data;
+  // E.164-ish normalisation: strip spaces / dashes / parens. Full
+  // validation lives in the just-in-time capture modal; this keeps the
+  // existing-tests-still-green when learners never supply a number.
+  const normalizedPhone = phone
+    ? phone.replace(/[\s\-()]/g, "") || null
+    : null;
 
   // Defence-in-depth against URL tampering. The intake spec's
   // `ageBand.adultOnly()` invariant already rejects `under-18` before
@@ -245,6 +251,7 @@ export async function POST(
         domainId: cohort.domainId,
         cohortGroupId: cohort.id, // legacy FK
         externalId: `join-${existingUser.id}-${cohort.id}`,
+        ...(normalizedPhone ? { phone: normalizedPhone } : {}),
       },
     });
 
@@ -326,6 +333,7 @@ export async function POST(
         domainId: cohort.domainId,
         cohortGroupId: cohort.id, // legacy FK
         externalId: `join-${newUser.id}`,
+        ...(normalizedPhone ? { phone: normalizedPhone } : {}),
       },
     });
 
