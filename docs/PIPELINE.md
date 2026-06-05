@@ -151,6 +151,14 @@ resolveModuleByLogicalId(curriculumId, slug)` — the helper throws on
 empty curriculumId. ESLint rule `hf-curriculum/no-unscoped-slug-lookup`
 (error severity) blocks regressions.
 
+**#1081 Slice 2B — COMPOSE may resolve sibling Curricula by anchor (read-only).**
+When composition needs to consult a sibling Curriculum sharing the same
+`qualificationAnchor`, it goes through
+`lib/curriculum/find-sibling-curricula.ts::findCurriculumByAnchor(anchor, domainId)`.
+This is **read-only** — no new AGGREGATE writes in Slice 2B. Anchor-driven
+rollups (e.g. `unit_readiness:*`, `qualification_readiness:*` CallerAttribute
+writes) are deferred to Slice 3.
+
 Use this as the dependency map when adding a new write. If your new stage produces a row, the next stage that reads it must be downstream in `order`.
 
 ---

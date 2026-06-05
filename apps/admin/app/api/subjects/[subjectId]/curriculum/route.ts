@@ -4,6 +4,14 @@ import { Prisma } from "@prisma/client";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { startCurriculumGeneration } from "@/lib/jobs/curriculum-runner";
 import { syncModulesToDB } from "@/lib/curriculum/sync-modules";
+import {
+  deriveQualificationAnchor,
+  isAnchorSafe,
+} from "@/lib/curriculum/qualification-anchor";
+import {
+  findCurriculumByAnchor,
+  QualificationAnchorAmbiguity,
+} from "@/lib/curriculum/find-sibling-curricula";
 
 type Params = { params: Promise<{ subjectId: string }> };
 
@@ -215,34 +223,130 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
       }
 
-      const curriculum = await prisma.curriculum.upsert({
+      // #1081 Slice 2B.2 — anchor-aware sibling-link. Before minting a new
+      // Curriculum, see if this subject's qualification metadata derives to
+      // a known anchor that's already attached to a Curriculum in the same
+      // domain. If so, link the resolved Playbook to that shared Curriculum
+      // instead of forking a new one. The slug-keyed upsert below still
+      // wins when the same subject re-runs generation (slug == existing
+      // Curriculum's slug → update branch).
+      const derivedAnchor = deriveQualificationAnchor(
+        subject.qualificationBody,
+        subject.qualificationRef,
+      );
+
+      // Look up domainId via the resolved Playbook (we already have it).
+      // The check only fires when (a) a real anchor was derived, (b) it
+      // passes the safety guard, (c) we have a Playbook to link from, (d)
+      // the slug-keyed upsert isn't going to hit an existing row.
+      const existingBySlug = await prisma.curriculum.findUnique({
         where: { slug },
-        create: {
-          slug,
-          name: result.name,
-          description: result.description,
-          subjectId,
-          playbookId: resolvedPlaybookId,
-          primarySourceId,
-          trustLevel: subject.defaultTrustLevel,
-          qualificationBody: subject.qualificationBody,
-          qualificationNumber: subject.qualificationRef,
-          qualificationLevel: subject.qualificationLevel,
-          notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
-          coreArgument: Prisma.JsonNull,
-          deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
-          version: "1.0",
-        },
-        update: {
-          name: result.name,
-          description: result.description,
-          primarySourceId,
-          trustLevel: subject.defaultTrustLevel,
-          notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
-          deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
-          updatedAt: new Date(),
-        },
+        select: { id: true },
       });
+
+      let siblingLink: { curriculumId: string } | null = null;
+      if (!existingBySlug && derivedAnchor && isAnchorSafe(derivedAnchor) && resolvedPlaybookId) {
+        const pbDomain = await prisma.playbook.findUnique({
+          where: { id: resolvedPlaybookId },
+          select: { domainId: true },
+        });
+        if (pbDomain?.domainId) {
+          try {
+            const sibling = await findCurriculumByAnchor(
+              derivedAnchor,
+              pbDomain.domainId,
+            );
+            if (sibling) {
+              // Link the Playbook to the existing sibling Curriculum and
+              // return that as the resolved Curriculum.
+              await prisma.playbookCurriculum.upsert({
+                where: {
+                  playbookId_curriculumId: {
+                    playbookId: resolvedPlaybookId,
+                    curriculumId: sibling.id,
+                  },
+                },
+                create: {
+                  playbookId: resolvedPlaybookId,
+                  curriculumId: sibling.id,
+                  role: "linked",
+                },
+                update: {},
+              });
+              siblingLink = { curriculumId: sibling.id };
+              console.log(
+                `[subjects/:id/curriculum] Linked playbook ${resolvedPlaybookId} ` +
+                  `to sibling Curriculum ${sibling.id} via qualificationAnchor=` +
+                  `"${derivedAnchor}" — skipping fresh mint`,
+              );
+            }
+          } catch (err: unknown) {
+            if (err instanceof QualificationAnchorAmbiguity) {
+              return NextResponse.json(
+                { ok: false, error: err.message, code: "qualification_anchor_ambiguity" },
+                { status: 409 },
+              );
+            }
+            throw err;
+          }
+        }
+      } else if (derivedAnchor && !isAnchorSafe(derivedAnchor)) {
+        console.warn(
+          `[subjects/:id/curriculum] derived qualificationAnchor failed ` +
+            `safety check, treating as null for sibling lookup (still stamped ` +
+            `on Curriculum for labelling): "${derivedAnchor}"`,
+        );
+      }
+
+      const curriculum = siblingLink
+        ? await prisma.curriculum.findUniqueOrThrow({
+            where: { id: siblingLink.curriculumId },
+          })
+        : await prisma.curriculum.upsert({
+            where: { slug },
+            create: {
+              slug,
+              name: result.name,
+              description: result.description,
+              subjectId,
+              playbookId: resolvedPlaybookId,
+              primarySourceId,
+              trustLevel: subject.defaultTrustLevel,
+              qualificationBody: subject.qualificationBody,
+              qualificationNumber: subject.qualificationRef,
+              qualificationLevel: subject.qualificationLevel,
+              // #1081 Slice 2B.2 — stamp the derived anchor so subsequent
+              // siblings in the same domain find it. Null when no
+              // qualification metadata or anchor was unsafe.
+              qualificationAnchor: derivedAnchor && isAnchorSafe(derivedAnchor) ? derivedAnchor : null,
+              notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
+              coreArgument: Prisma.JsonNull,
+              deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
+              version: "1.0",
+            },
+            update: {
+              name: result.name,
+              description: result.description,
+              primarySourceId,
+              trustLevel: subject.defaultTrustLevel,
+              notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
+              deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
+              updatedAt: new Date(),
+            },
+          });
+
+      // If we linked to a sibling, also ensure the primary PlaybookCurriculum
+      // row exists with role=linked (no further DB writes for the shared
+      // Curriculum's contents — those belong to the primary owner).
+      if (siblingLink) {
+        return NextResponse.json({
+          ok: true,
+          mode: "save",
+          curriculum,
+          linkedToSibling: true,
+          qualificationAnchor: derivedAnchor,
+        });
+      }
 
       // Dual-write: sync modules to first-class DB models. Pass assertion
       // tags + index map so the tag write happens in the same transaction
