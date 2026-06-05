@@ -296,10 +296,14 @@ export async function POST(
 
     // Issue first-call PIN (#1101). Best-effort — SMTP failure won't roll
     // back the Caller; the learner can request a resend on the sim page.
+    // originUrl ensures the email's button URL matches the env the learner
+    // enrolled in (localhost vs Cloud Run dev vs prod) — hotfix for the
+    // localhost-enrolment → dev.humanfirstfoundation.com link mismatch.
     await issueFirstCallPin({
       callerId: newCaller.id,
       email: email.trim().toLowerCase(),
       firstName: firstName.trim(),
+      originUrl: request.nextUrl.origin,
     });
 
     const existingResponse = NextResponse.json({
@@ -388,10 +392,13 @@ export async function POST(
 
   // Issue first-call PIN (#1101). Outside the transaction by design — SMTP
   // failure must not roll back the user+caller create. TL review note.
+  // originUrl from the actual request so localhost enrollees get a localhost
+  // link, dev.humanfirstfoundation.com enrollees get a dev link, etc.
   await issueFirstCallPin({
     callerId: result.newCallerId,
     email: email.trim().toLowerCase(),
     firstName: firstName.trim(),
+    originUrl: request.nextUrl.origin,
   });
 
   const response = NextResponse.json({

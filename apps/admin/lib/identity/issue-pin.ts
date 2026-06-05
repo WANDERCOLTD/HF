@@ -8,6 +8,14 @@ interface IssuePinParams {
   email: string;
   firstName?: string;
   isResend?: boolean;
+  /**
+   * Base URL (scheme + host + port) the learner is currently on — the email's
+   * "Enter your code" button is built from this so the link lands on the same
+   * environment they enrolled in. Callers (the join route + resend route)
+   * derive this from `request.nextUrl.origin`. Falls back to
+   * `config.app.url` when not supplied (server-to-server callers).
+   */
+  originUrl?: string;
 }
 
 /**
@@ -25,6 +33,7 @@ export async function issueFirstCallPin({
   email,
   firstName,
   isResend = false,
+  originUrl,
 }: IssuePinParams): Promise<{ challengeId: string }> {
   const pin = generatePin();
   const pinHash = await hashPin(pin);
@@ -47,7 +56,12 @@ export async function issueFirstCallPin({
     select: { id: true },
   });
 
-  const callerSimUrl = `${config.app.url}/x/sim/${callerId}`;
+  // Use the request's origin when supplied so the email link lands on the
+  // same environment the learner enrolled in (localhost vs Cloud Run dev vs
+  // prod). #1101 hotfix: previously hardcoded to config.app.url which sent
+  // localhost enrollees to dev.humanfirstfoundation.com with no session.
+  const baseUrl = originUrl ?? config.app.url;
+  const callerSimUrl = `${baseUrl}/x/sim/${callerId}`;
 
   try {
     await sendIdentityPinEmail({
