@@ -141,6 +141,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       isActive,
       teachingProfile,
       teachingOverrides,
+      teachingDepth,
     } = body;
 
     // Validate teachingProfile if provided (null is valid — clears the profile)
@@ -163,6 +164,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (isActive !== undefined) data.isActive = isActive;
     if (teachingProfile !== undefined) data.teachingProfile = teachingProfile;
     if (teachingOverrides !== undefined) data.teachingOverrides = teachingOverrides;
+    if (teachingDepth !== undefined) data.teachingDepth = teachingDepth;
 
     const subject = await prisma.subject.update({
       where: { id: subjectId },
