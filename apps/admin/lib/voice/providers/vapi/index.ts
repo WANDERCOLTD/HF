@@ -29,7 +29,9 @@ import type {
   NormalisedToolCall,
   NormalisedToolCallBatch,
   ProviderAssistantConfig,
+  ProviderConfigSchema,
   VoiceProvider,
+  VoiceProviderCapabilities,
 } from "../../types";
 import { verifyVapiRequest } from "./auth";
 
@@ -42,6 +44,7 @@ export class VapiProvider implements VoiceProvider {
   readonly slug = "vapi";
 
   private readonly webhookSecret: string | undefined;
+  private readonly _apiKey: string | undefined;
 
   /**
    * Construct from DB-stored credentials + config. The factory passes
@@ -61,6 +64,7 @@ export class VapiProvider implements VoiceProvider {
     _config: Record<string, unknown>,
   ) {
     const creds = credentials as VapiCredentials;
+    this._apiKey = creds.apiKey;
     if (creds.webhookSecret) {
       this.webhookSecret = creds.webhookSecret;
     } else if (process.env.VAPI_WEBHOOK_SECRET) {
@@ -146,6 +150,9 @@ export class VapiProvider implements VoiceProvider {
     }
 
     return {
+      // VAPI fires a single end-of-call event with everything attached
+      // (#1079). Pipeline trigger always fires for "full".
+      eventKind: "full",
       externalCallId,
       customerPhone,
       customerName,
@@ -235,6 +242,120 @@ export class VapiProvider implements VoiceProvider {
 
   buildKnowledgeResponse(results: KnowledgeResult[]): unknown {
     return { results };
+  }
+
+  /**
+   * VAPI config schema (AnyVoice #1044). VAPI carries only two
+   * credentials and no provider-specific config today — keep the
+   * schema tight so the admin form stays focused. Operators changing
+   * the model / voice settings do that inside the VAPI dashboard,
+   * not here.
+   */
+  getConfigSchema(): ProviderConfigSchema {
+    return {
+      fields: [
+        {
+          key: "apiKey",
+          label: "VAPI API key",
+          type: "string",
+          help: "Server-side API key for outbound REST calls (assistant updates, end-call requests). Found in VAPI dashboard → API keys.",
+          sensitive: true,
+          required: false,
+        },
+        {
+          key: "webhookSecret",
+          label: "Webhook secret (HMAC)",
+          type: "string",
+          help: "Shared secret used to sign inbound webhooks. Set the same value in VAPI's server-url config. Leave blank for local-dev pass-through.",
+          sensitive: true,
+          required: false,
+        },
+      ],
+    };
+  }
+
+  /**
+   * VAPI capability declaration (AnyVoice #1044). Single end-of-call
+   * event, HTTP tools + knowledge callbacks, server-side end-call via
+   * `POST /call/{id}/end` (used by the cost-cap watcher in #1080).
+   */
+  getCapabilities(): VoiceProviderCapabilities {
+    return {
+      endOfCallEvents: "single",
+      hasKnowledgeCallback: true,
+      toolCallsOverWebSocket: false,
+      supportsRequestEndCall: true,
+    };
+  }
+
+  /**
+   * Extract running cost + duration from a VAPI `status-update` event
+   * (AnyVoice #1080 trickle). VAPI nests these under `message.cost`
+   * and `message.duration`. Returns null when the body isn't a
+   * status-update or carries no cost field.
+   */
+  normaliseStatusUpdate(body: unknown): {
+    externalCallId: string;
+    costSoFarUsd: number | null;
+    durationSecondsSoFar: number | null;
+  } | null {
+    if (!body || typeof body !== "object") return null;
+    const root = body as Record<string, unknown>;
+    const message = (root.message ?? root) as Record<string, unknown>;
+    const type = (message.type ?? root.type) as string | undefined;
+    if (type !== "status-update") return null;
+
+    const call = (message.call ?? root.call) as Record<string, unknown> | undefined;
+    const externalCallId =
+      (call?.id as string | undefined) ??
+      (call?.callId as string | undefined) ??
+      (call?.call_id as string | undefined);
+    if (!externalCallId) return null;
+
+    let costSoFarUsd: number | null = null;
+    if (typeof message.cost === "number" && Number.isFinite(message.cost)) {
+      costSoFarUsd = message.cost;
+    } else if (message.cost && typeof message.cost === "object") {
+      const cost = message.cost as Record<string, unknown>;
+      if (typeof cost.total === "number" && Number.isFinite(cost.total)) {
+        costSoFarUsd = cost.total;
+      }
+    }
+
+    const durationSecondsSoFar =
+      typeof message.duration === "number" && Number.isFinite(message.duration)
+        ? message.duration
+        : typeof message.durationSeconds === "number" && Number.isFinite(message.durationSeconds)
+          ? message.durationSeconds
+          : null;
+
+    return { externalCallId, costSoFarUsd, durationSecondsSoFar };
+  }
+
+  /**
+   * VAPI end-call API (AnyVoice #1080). Idempotent — VAPI returns 4xx
+   * for already-ended calls; we swallow non-2xx so the cost-cap watcher
+   * doesn't spam the error log on the inevitable race.
+   */
+  async requestEndCall(externalCallId: string): Promise<void> {
+    const apiKey = this._apiKey;
+    if (!apiKey) {
+      console.warn(
+        `[vapi] requestEndCall(${externalCallId}) skipped — no apiKey on VoiceProvider row`,
+      );
+      return;
+    }
+    try {
+      await fetch(`https://api.vapi.ai/call/${externalCallId}/end`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+    } catch (err) {
+      console.warn(
+        `[vapi] requestEndCall(${externalCallId}) failed:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   }
 }
 

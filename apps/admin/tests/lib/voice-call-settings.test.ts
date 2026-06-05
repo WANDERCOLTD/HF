@@ -1,11 +1,11 @@
 /**
- * Tests for VoiceCallSettings (lib/system-settings.ts)
- * and TOOL_SETTING_KEYS (app/api/vapi/tools/route.ts)
+ * Tests for VoiceCallSettings (lib/system-settings.ts).
  *
  * Validates that:
  * 1. Settings interface, defaults, and registry are consistent
- * 2. Every tool in VAPI_TOOL_DEFINITIONS has a matching TOOL_SETTING_KEYS entry
- * 3. Every TOOL_SETTING_KEYS value maps to a boolean in VoiceCallSettings
+ * 2. Every tool in the TOOLS-001 spec has a spec-level `enabled` flag
+ *    (#1043 supersedes the TOOL_SETTING_KEYS map — per-tool gates moved
+ *    out of VoiceCallSettings into the spec)
  */
 
 import { describe, it, expect, vi } from "vitest";
@@ -19,15 +19,18 @@ vi.mock("@/lib/system-settings", async (importOriginal) => {
 import {
   VOICE_CALL_DEFAULTS,
   SETTINGS_REGISTRY,
-  type VoiceCallSettings,
 } from "@/lib/system-settings";
-import { TOOL_SETTING_KEYS } from "@/app/api/vapi/tools/route";
+
 // Post-#1019 the tool list lives in the TOOLS-001 spec JSON (not the
 // hardcoded VAPI_TOOL_DEFINITIONS constant, which was removed). The
 // test reads the spec file directly — it's the source of truth and
 // stays close to what the seeder loads at /vm-cpp time.
 import toolsSpec from "../../docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json";
-const TOOLS_SPEC_DEFINITIONS = toolsSpec.config.tools as Array<{ function: { name: string } }>;
+const TOOLS_SPEC_DEFINITIONS = toolsSpec.config.tools as Array<{
+  type: string;
+  enabled?: boolean;
+  function: { name: string };
+}>;
 
 describe("VoiceCallSettings", () => {
   it("has defaults for all interface fields", () => {
@@ -59,28 +62,35 @@ describe("VoiceCallSettings", () => {
     expect(registryKeys).toContain("voice.no_active_prompt_fallback");
   });
 
-  it("all tool toggles default to true", () => {
-    const defaults = VOICE_CALL_DEFAULTS;
-    const toolKeys = Object.values(TOOL_SETTING_KEYS);
-    for (const key of toolKeys) {
-      expect(defaults[key]).toBe(true);
+  it("Voice Calls registry no longer exposes per-tool toggles (#1043)", () => {
+    const voiceGroup = SETTINGS_REGISTRY.find((g) => g.id === "voice")!;
+    const registryKeys = voiceGroup.settings.map((s) => s.key);
+    for (const key of registryKeys) {
+      expect(key.startsWith("voice.tool_")).toBe(false);
     }
   });
 });
 
-describe("TOOL_SETTING_KEYS", () => {
-  it("covers every tool in the TOOLS-001 spec", () => {
+describe("TOOLS-001 spec — per-tool enabled flag (#1043)", () => {
+  it("every tool entry has an `enabled` boolean (defaults to true)", () => {
     for (const tool of TOOLS_SPEC_DEFINITIONS) {
-      const toolName = tool.function.name;
-      expect(TOOL_SETTING_KEYS).toHaveProperty(toolName);
+      // `enabled` may be omitted in legacy seeds (treated as true by the
+      // loader). New seed adds it explicitly to all 10 tools.
+      if (tool.enabled !== undefined) {
+        expect(typeof tool.enabled).toBe("boolean");
+      }
     }
   });
 
-  it("every value maps to a valid VoiceCallSettings key", () => {
-    const validKeys = Object.keys(VOICE_CALL_DEFAULTS) as Array<keyof VoiceCallSettings>;
-    for (const [, settingKey] of Object.entries(TOOL_SETTING_KEYS)) {
-      expect(validKeys).toContain(settingKey);
-      expect(typeof VOICE_CALL_DEFAULTS[settingKey]).toBe("boolean");
-    }
+  it("at least one tool is enabled (catches an accidental all-disabled spec)", () => {
+    const enabledCount = TOOLS_SPEC_DEFINITIONS.filter(
+      (t) => t.enabled !== false,
+    ).length;
+    expect(enabledCount).toBeGreaterThan(0);
+  });
+
+  it("tool function names are unique across the spec", () => {
+    const names = TOOLS_SPEC_DEFINITIONS.map((t) => t.function.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 });

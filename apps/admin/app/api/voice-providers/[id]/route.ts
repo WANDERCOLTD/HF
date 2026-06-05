@@ -28,12 +28,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!row) {
     return NextResponse.json({ ok: false, error: "not found" }, { status: 404 });
   }
+
+  // AnyVoice #1044 — return the adapter's schema + capabilities alongside
+  // the row so the edit page can render a typed form without a second
+  // round-trip. Adapter is instantiated with empty creds + config purely
+  // to invoke its pure introspection methods; never used for transport.
+  const AdapterCtor = VOICE_ADAPTERS[row.adapterKey];
+  let configSchema = null;
+  let capabilities = null;
+  if (AdapterCtor) {
+    const probe = new AdapterCtor({}, {});
+    configSchema = probe.getConfigSchema();
+    capabilities = probe.getCapabilities();
+  }
+
   return NextResponse.json({
     ok: true,
     provider: {
       ...row,
       credentials: maskCredentials(row.credentials as Record<string, unknown>),
     },
+    configSchema,
+    capabilities,
   });
 }
 
@@ -96,6 +112,52 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const existing = await prisma.voiceProvider.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ ok: false, error: "not found" }, { status: 404 });
+  }
+
+  // AnyVoice #1044 — validate credentials + config against the adapter's
+  // declared schema before persisting. Required fields cannot be empty
+  // strings; enum fields must be in the allowed set; numbers must be
+  // finite. The adapter owns its schema; this loop is mechanical.
+  const adapterKey = data.adapterKey ?? existing.adapterKey;
+  const AdapterCtor = VOICE_ADAPTERS[adapterKey];
+  if (AdapterCtor) {
+    const probe = new AdapterCtor({}, {});
+    const schema = probe.getConfigSchema();
+    const merged: Record<string, unknown> = {
+      ...((existing.credentials ?? {}) as Record<string, unknown>),
+      ...((existing.config ?? {}) as Record<string, unknown>),
+      ...((data.credentials ?? {}) as Record<string, unknown>),
+      ...((data.config ?? {}) as Record<string, unknown>),
+    };
+    const fieldErrors: string[] = [];
+    for (const field of schema.fields) {
+      const v = merged[field.key];
+      if (field.required && (v === undefined || v === null || v === "")) {
+        fieldErrors.push(`${field.key} is required`);
+        continue;
+      }
+      if (v === undefined || v === null || v === "") continue;
+      if (field.type === "number" && typeof v !== "number") {
+        fieldErrors.push(`${field.key} must be a number`);
+      } else if (field.type === "boolean" && typeof v !== "boolean") {
+        fieldErrors.push(`${field.key} must be a boolean`);
+      } else if (
+        field.type === "enum" &&
+        (typeof v !== "string" || !field.enumValues?.includes(v))
+      ) {
+        fieldErrors.push(
+          `${field.key} must be one of: ${(field.enumValues ?? []).join(", ")}`,
+        );
+      } else if (field.type === "string" && typeof v !== "string") {
+        fieldErrors.push(`${field.key} must be a string`);
+      }
+    }
+    if (fieldErrors.length > 0) {
+      return NextResponse.json(
+        { ok: false, error: fieldErrors.join("; ") },
+        { status: 400 },
+      );
+    }
   }
 
   const updated = await prisma.$transaction(async (tx) => {

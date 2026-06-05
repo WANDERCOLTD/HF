@@ -81,7 +81,7 @@ export function resolveContentChannelFromSource(
 ): ContentChannel | null {
   if (!source) return null;
   const s = source.toLowerCase();
-  if (s === "vapi" || s === "voice" || s === "phone") return "voice";
+  if (s === "vapi" || s === "retell" || s === "voice" || s === "phone") return "voice";
   if (s === "sim" || s === "ai-simulation" || s === "playground-upload") return "web-chat";
   if (s === "whatsapp") return "whatsapp";
   if (s === "sms") return "sms";

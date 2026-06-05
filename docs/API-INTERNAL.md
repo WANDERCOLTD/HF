@@ -14358,7 +14358,7 @@ Returns the most recent 100 caller personality profiles with associated caller d
 
 ### `POST` /api/vapi/assistant-request
 
-VAPI calls this at call start to get a per-caller assistant
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:assistant`
 
@@ -14366,7 +14366,7 @@ VAPI calls this at call start to get a per-caller assistant
 
 ### `POST` /api/vapi/knowledge
 
-VAPI Custom Knowledge Base endpoint. Called every conversation turn.
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:knowledge`
 
@@ -14374,7 +14374,7 @@ VAPI Custom Knowledge Base endpoint. Called every conversation turn.
 
 ### `POST` /api/vapi/tools
 
-VAPI Custom Tools endpoint. Called when the voice AI decides
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:tools`
 
@@ -14382,7 +14382,7 @@ VAPI Custom Tools endpoint. Called when the voice AI decides
 
 ### `POST` /api/vapi/webhook
 
-Receives VAPI webhook events. Handles end-of-call-report to
+**Deprecated path — 307 redirect (AnyVoice #1079).**
 
 **Auth**: webhook-secret · **Scope**: `vapi:webhook`
 
@@ -14574,6 +14574,150 @@ Test the connection for a voice provider. Instantiates
 
 ---
 
+### `GET` /api/voice-system-settings
+
+Read cross-provider voice settings (cost cap, default
+
+**Auth**: session ADMIN · **Scope**: `voice-system-settings:read`
+
+**Response** `200`
+```json
+{ ok: true, settings: VoiceSystemSettings }
+```
+
+---
+
+### `PATCH` /api/voice-system-settings
+
+Update one or more cross-provider voice settings. Partial
+
+**Auth**: session ADMIN · **Scope**: `voice-system-settings:write`
+
+**Response** `200`
+```json
+{ ok: true, settings: VoiceSystemSettings }
+```
+
+---
+
+### `GET` /api/voice-tools
+
+List voice tools from the active TOOLS-001 spec. Each entry
+
+**Auth**: session ADMIN · **Scope**: `voice-tools:read`
+
+**Response** `200`
+```json
+{ ok: true, tools: Array<{ name, description, enabled }> }
+```
+
+---
+
+### `PATCH` /api/voice-tools
+
+Toggle a single tool's `enabled` flag inside the active
+
+**Auth**: session ADMIN · **Scope**: `voice-tools:write`
+
+**Response** `200`
+```json
+{ ok: true, tool: { name, enabled } }
+```
+
+---
+
+### `POST` /api/voice/[slug]/assistant-request
+
+Shared voice provider call-start endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:assistant`
+
+**Response** `200`
+```json
+(provider-shaped assistant config)
+```
+
+**Response** `400`
+```json
+{ error: "No customer phone number provided" }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+---
+
+### `POST` /api/voice/[slug]/knowledge
+
+Shared voice provider per-turn knowledge callback
+
+**Auth**: webhook-secret · **Scope**: `voice:knowledge`
+
+**Response** `200`
+```json
+(provider-shaped knowledge response)
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+**Response** `404`
+```json
+(no-knowledge-callback provider)
+```
+
+---
+
+### `POST` /api/voice/[slug]/tools
+
+Shared voice provider tool-call endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:tools`
+
+**Response** `200`
+```json
+{ results: [{ toolCallId, result }] }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+**Response** `404`
+```json
+(WS-tools provider)
+```
+
+---
+
+### `POST` /api/voice/[slug]/webhook
+
+Shared voice provider webhook endpoint (AnyVoice #1079).
+
+**Auth**: webhook-secret · **Scope**: `voice:webhook`
+
+**Response** `200`
+```json
+{ ok: true, callId, callerId? }
+```
+
+**Response** `400`
+```json
+{ error: "Invalid JSON body" }
+```
+
+**Response** `401`
+```json
+(HMAC failure)
+```
+
+---
+
 ### `GET` /api/voice/costs
 
 Returns voice-call cost rollups for a chosen scope. Reads
@@ -14593,6 +14737,47 @@ Returns voice-call cost rollups for a chosen scope. Reads
 **Response** `403`
 ```json
 { ok: false, error: "system scope requires ADMIN" }
+```
+
+---
+
+### `GET` /api/voice/health/[providerId]
+
+Health snapshot for a voice provider (AnyVoice #1080).
+
+**Auth**: session OPERATOR OR x-internal-secret · **Scope**: `voice:health:read`
+
+**Response** `200`
+```json
+{ ok: true, providerId, slug, since, stats }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" } (neither session nor secret)
+```
+
+**Response** `404`
+```json
+{ error: "Provider not found" }
+```
+
+---
+
+### `GET` /api/voice/telemetry/[providerId]
+
+Recent telemetry rows for a voice provider (AnyVoice
+
+**Auth**: session ADMIN · **Scope**: `voice:telemetry:read`
+
+**Response** `200`
+```json
+{ ok: true, providerId, events: [...] }
+```
+
+**Response** `404`
+```json
+{ error: "Provider not found" }
 ```
 
 ---
@@ -14785,8 +14970,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 472 |
-| Files with annotations | 463 |
+| Route files found | 480 |
+| Files with annotations | 471 |
 | Files missing annotations | 9 |
 | Coverage | 98.1% |
 

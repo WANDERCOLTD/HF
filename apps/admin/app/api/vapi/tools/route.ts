@@ -16,103 +16,19 @@ export const runtime = "nodejs";
  * @visibility public
  * @scope vapi:tools
  * @auth webhook-secret
- * @tags vapi, tools, calls
- * @description VAPI Custom Tools endpoint. Called when the voice AI decides
- *   to use a tool mid-conversation (e.g., lookup_teaching_point, check_mastery,
- *   record_observation, get_practice_question).
+ * @tags vapi, tools, calls, deprecated
+ * @description **Deprecated path — 307 redirect (AnyVoice #1079).**
+ *   The canonical route is `/api/voice/vapi/tools`. HMAC verification
+ *   runs exactly once on the canonical route. Update the VAPI dashboard
+ *   tool server URL to the new path; this shim stays live until that
+ *   cutover is confirmed in every environment.
  *
- *   Request format: { message: { type: "tool-calls", toolCallList: [...], call: {...} } }
- *   Response format: { results: [{ toolCallId, result }] }
- *
- *   Ref: https://docs.vapi.ai/tools/custom-tools
+ *   The individual `handle*` functions remain exported below — they are
+ *   the canonical implementations called by `lib/voice/tool-router.ts`.
  */
-export async function POST(request: NextRequest) {
-  try {
-    const rawBody = await request.text();
-    const provider = await getVoiceProvider("vapi");
-    const authError = provider.verifyInboundRequest(request, rawBody);
-    if (authError) return authError;
-
-    const body = JSON.parse(rawBody);
-    const { toolCalls, customerPhone } = provider.normaliseToolCallList(body);
-
-    // Resolve caller
-    let callerId: string | null = null;
-    if (customerPhone) {
-      const caller = await prisma.caller.findFirst({
-        where: { phone: customerPhone.replace(/\s+/g, "") },
-        select: { id: true },
-      });
-      callerId = caller?.id || null;
-    }
-
-    const results = [];
-
-    for (const toolCall of toolCalls) {
-      const { funcName, args: rawArgs, toolCallId } = toolCall;
-      // Cast args narrowly per handler — each handle* function declares its
-      // own argument shape. The adapter has already parsed JSON-string args
-      // into plain objects.
-      const args = rawArgs as any;
-
-      let result: any;
-
-      switch (funcName) {
-        case "lookup_teaching_point":
-          result = await handleLookupTeachingPoint(args, callerId);
-          break;
-
-        case "check_mastery":
-          result = await handleCheckMastery(args, callerId);
-          break;
-
-        case "record_observation":
-          result = await handleRecordObservation(args, callerId);
-          break;
-
-        case "get_practice_question":
-          result = await handleGetPracticeQuestion(args, callerId);
-          break;
-
-        case "get_next_module":
-          result = await handleGetNextModule(args, callerId);
-          break;
-
-        case "log_activity_result":
-          result = await handleLogActivityResult(args, callerId);
-          break;
-
-        case "send_text_to_caller":
-          result = await handleSendTextToCaller(args, callerId, customerPhone);
-          break;
-
-        case "request_artifact":
-          result = await handleRequestArtifact(args, callerId);
-          break;
-
-        case "share_content":
-          result = await handleShareContent(args, callerId, customerPhone);
-          break;
-
-        case "lookup_vocabulary":
-          result = await handleLookupVocabulary(args, callerId);
-          break;
-
-        default:
-          result = { error: `Unknown tool: ${funcName}` };
-      }
-
-      results.push({ toolCallId, result });
-    }
-
-    return NextResponse.json({ results });
-  } catch (error: any) {
-    console.error("[vapi/tools] Error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Tool execution failed" },
-      { status: 500 },
-    );
-  }
+export function POST(request: NextRequest): NextResponse {
+  const target = new URL("/api/voice/vapi/tools", request.url);
+  return NextResponse.redirect(target, 307);
 }
 
 /**
@@ -880,27 +796,8 @@ async function resolveCallerSourceIds(callerId: string | null): Promise<string[]
   return getTeachingSourceIdsForDomain(caller.domainId);
 }
 
-/**
- * Maps tool function name → VoiceCallSettings property key.
- * Used by assistant-request to filter tools based on settings.
- */
-export const TOOL_SETTING_KEYS: Record<string, keyof import("@/lib/system-settings").VoiceCallSettings> = {
-  lookup_teaching_point: "toolLookupTeachingPoint",
-  check_mastery: "toolCheckMastery",
-  record_observation: "toolRecordObservation",
-  get_practice_question: "toolGetPracticeQuestion",
-  get_next_module: "toolGetNextModule",
-  log_activity_result: "toolLogActivityResult",
-  send_text_to_caller: "toolSendText",
-  request_artifact: "toolRequestArtifact",
-  share_content: "toolShareContent",
-  lookup_vocabulary: "toolLookupVocabulary",
-};
-
 // VAPI_TOOL_DEFINITIONS constant removed in AnyVoice #1019 — tool
-// definitions moved to the TOOLS-001 AnalysisSpec. The
-// assistant-request route reads them via loadToolDefinitions() in
-// lib/voice/load-tool-definitions.ts; this file keeps the per-tool
-// handler implementations below and the TOOL_SETTING_KEYS settings
-// map above. The audit counter vapiToolDefinitionsConstantPresent
-// (#1016) now reads 0.
+// definitions moved to the TOOLS-001 AnalysisSpec. TOOL_SETTING_KEYS
+// removed in AnyVoice #1043 — per-tool enablement also moved to the
+// spec's `enabled` field, read by loadToolDefinitions().
+// The audit counter vapiToolDefinitionsConstantPresent (#1016) reads 0.
