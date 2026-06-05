@@ -286,17 +286,25 @@ export class VapiProvider implements VoiceProvider {
       fields: [
         {
           key: "apiKey",
-          label: "VAPI API key",
+          label: "VAPI Private API key",
           type: "string",
-          help: "Server-side API key for outbound REST calls (assistant updates, end-call requests). Found in VAPI dashboard → API keys.",
+          help: "Server-side API key for outbound REST calls (cost-cap end-call, future provisioning). VAPI dashboard → API Keys → \"Private Key\". Leave blank if you don't need outbound features.",
           sensitive: true,
+          required: false,
+        },
+        {
+          key: "publicKey",
+          label: "VAPI Public Key",
+          type: "string",
+          help: "Browser WebRTC SDK key (ships to the learner's browser; not a secret). VAPI dashboard → API Keys → \"Public Key\". Required for the [Call me] button to work.",
+          sensitive: false,
           required: false,
         },
         {
           key: "webhookSecret",
           label: "Webhook secret (HMAC)",
           type: "string",
-          help: "Shared secret used to sign inbound webhooks. Set the same value in VAPI's server-url config. Leave blank for local-dev pass-through.",
+          help: "Shared secret used to verify inbound webhooks. Generate a random string (e.g. `openssl rand -hex 32`) and paste it into BOTH VAPI's Server URL Secret AND here. Leave blank for local-dev pass-through.",
           sensitive: true,
           required: false,
         },
