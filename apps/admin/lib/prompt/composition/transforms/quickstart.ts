@@ -15,6 +15,12 @@ import { getAudienceOption } from "./audience";
 import { SURVEY_SCOPES, PRE_SURVEY_KEYS } from "@/lib/learner/survey-keys";
 import { config } from "@/lib/config";
 import { resolveSessionFlow } from "@/lib/session-flow/resolver";
+import {
+  classifyFirstPhaseIntent,
+  hasReturningUserPhrasing,
+  renderFirstCallOpening,
+  rewriteReturningUserPhrasing,
+} from "@/lib/prompt/composition/defaults/first-call-openings";
 
 /** Keys whose presence (scope PRE) signals the learner already submitted onboarding data */
 const PRE_LOADED_KEYS: readonly string[] = [
@@ -560,6 +566,47 @@ registerTransform("computeQuickStart", (
       // 1. Identity spec instruction (highest priority — persona spec)
       const identityOpening = (identitySpec?.config as SpecConfig)?.sessionStructure?.opening?.instruction;
       if (identityOpening) return injectSubject(identityOpening);
+
+      // 1b. #1195 — Phase-derived first-call opening. When isFirstCall and
+      // onboarding phases are configured at any layer of the cascade
+      // (playbook, domain, or INIT-001), synthesise the opening from
+      // phase 0's first goal classified by intent. This honours the
+      // educator's course-setup configuration without inventing facts.
+      //
+      // Walks the SAME cascade as `pedagogy.ts::computeSessionPedagogy`
+      // (and the resolver, when SESSION_FLOW_RESOLVER_ENABLED). Critical:
+      // pre-#1195 first_line did NOT read the phases at all — operators
+      // configured phases for SESSION FLOW but the literal opening was
+      // disconnected. Now they're wired.
+      if (isFirstCall) {
+        let phases: { phases?: Array<{ goals?: string[]; phase?: string }> } | undefined;
+        if (config.features.sessionFlowResolverEnabled) {
+          phases = resolveSessionFlow({
+            playbook,
+            domain: callerDomain,
+            onboardingSpec: loadedData.onboardingSpec,
+          }).onboarding;
+        } else {
+          // Mirror `pedagogy.ts:245-249` cascade exactly.
+          const playbookPhases = (pbConfig.onboardingFlowPhases as { phases?: Array<{ goals?: string[]; phase?: string }> } | undefined);
+          const domainPhases = (callerDomain?.onboardingFlowPhases as { phases?: Array<{ goals?: string[]; phase?: string }> } | undefined);
+          const initPhases = ((loadedData.onboardingSpec?.config as { firstCallFlow?: { phases?: Array<{ goals?: string[]; phase?: string }> } } | null | undefined)?.firstCallFlow);
+          phases = playbookPhases ?? domainPhases ?? initPhases ?? undefined;
+        }
+        const firstPhaseGoal = phases?.phases?.[0]?.goals?.[0];
+        if (firstPhaseGoal) {
+          const intent = classifyFirstPhaseIntent(firstPhaseGoal);
+          if (intent !== "unclassified") {
+            return renderFirstCallOpening({
+              intent,
+              callerName: caller?.name ?? null,
+              subjectRef,
+              moduleTitle: nextModule?.title ?? null,
+            });
+          }
+        }
+      }
+
       // 2. Course-scoped welcome (playbook.config) > Domain welcome (institution default).
       // When SESSION_FLOW_RESOLVER_ENABLED, delegate to resolveSessionFlow().
       // Both paths must produce byte-equal output (epic #221, story #217).
@@ -574,7 +621,28 @@ registerTransform("computeQuickStart", (
         } else {
           welcomeMsg = pbConfig.welcomeMessage ?? callerDomain?.onboardingWelcome ?? null;
         }
-        if (welcomeMsg) return injectSubject(welcomeMsg);
+        if (welcomeMsg) {
+          // #1195 — Returning-user phrasing guard. The CIO/CTO incident
+          // saw a brand-new caller hear "Welcome back. Let's revise what
+          // you've covered." because the educator's welcomeMessage assumed
+          // a returning user. Rewrite when narrow phrasing patterns match;
+          // log so educators can find and fix the source playbook config.
+          if (hasReturningUserPhrasing(welcomeMsg)) {
+            console.log(
+              "[first-line/rewrite] welcomeMessage rewritten — returning-user phrasing on first call",
+              {
+                playbookId: playbook?.id ?? null,
+                playbookName: playbook?.name ?? null,
+                original: welcomeMsg,
+              },
+            );
+            return rewriteReturningUserPhrasing({
+              callerName: caller?.name ?? null,
+              subjectRef,
+            });
+          }
+          return injectSubject(welcomeMsg);
+        }
       }
       // 3. Generic fallback
       if (isFirstCall) {
