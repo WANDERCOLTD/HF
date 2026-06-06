@@ -23,10 +23,8 @@
 import { useMemo } from "react";
 import {
   EditorShell,
-  type DeployActionResult,
-  type DeploySpecInput,
-  type SaveSpecInput,
-  type SaveSpecResult,
+  type SaveSpecCallback,
+  type DeploySpecCallback,
 } from "@tallyseal/admin-editor";
 import { parse } from "@tallyseal/spec-emitter";
 
@@ -36,8 +34,8 @@ interface EditorMountProps {
   readonly canEdit: boolean;
   readonly canDeploy: boolean;
   readonly currentRole: string | null;
-  readonly saveSpecAction: (input: SaveSpecInput) => Promise<SaveSpecResult>;
-  readonly deploySpecAction: (input: DeploySpecInput) => Promise<DeployActionResult>;
+  readonly saveSpecAction: SaveSpecCallback;
+  readonly deploySpecAction: DeploySpecCallback;
 }
 
 export function EditorMount({

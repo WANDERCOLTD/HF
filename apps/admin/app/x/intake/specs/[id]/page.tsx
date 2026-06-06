@@ -4,10 +4,8 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { loadRow, createSpecStoreAdapter } from "@/lib/intake/spec-store-adapter";
 import { updateDraft } from "@/lib/intake/spec-store";
 import type {
-  SaveSpecInput,
-  SaveSpecResult,
-  DeploySpecInput,
-  DeployActionResult,
+  SaveSpecCallback,
+  DeploySpecCallback,
 } from "@tallyseal/admin-editor";
 import { EditorMount } from "./editor-mount";
 import "./intake-spec-detail.css";
@@ -58,7 +56,7 @@ export default async function IntakeSpecDetailPage({
   // callback props. Each captures the spec id by closure.
   // ────────────────────────────────────────────────────────────────
 
-  async function saveSpecAction(input: SaveSpecInput): Promise<SaveSpecResult> {
+  const saveSpecAction: SaveSpecCallback = async (input) => {
     "use server";
     try {
       // Phase 2b persists source verbatim; the body JSON cache stays
@@ -76,11 +74,9 @@ export default async function IntakeSpecDetailPage({
         detail: err instanceof Error ? err.message : "Unknown save error",
       };
     }
-  }
+  };
 
-  async function deploySpecAction(
-    _input: DeploySpecInput,
-  ): Promise<DeployActionResult> {
+  const deploySpecAction: DeploySpecCallback = async (_input) => {
     "use server";
     try {
       const store = createSpecStoreAdapter();
@@ -101,7 +97,7 @@ export default async function IntakeSpecDetailPage({
         detail: err instanceof Error ? err.message : "Unknown deploy error",
       };
     }
-  }
+  };
 
   // ────────────────────────────────────────────────────────────────
   // Render
