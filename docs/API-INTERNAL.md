@@ -10183,6 +10183,29 @@ Extract metadata (name, logo, colors) from a website URL
 
 ---
 
+### `POST` /api/intake/v2/start
+
+V2 auth-first enrolment kickoff (#1141 Story 2). Takes a
+
+**Auth**: None
+
+**Response** `201`
+```json
+{ ok: true, callerId, channel: 'email', gatePath: '/intake/v2/<token>/<callerId>' }
+```
+
+**Response** `400`
+```json
+{ ok: false, error } — phone supplied, invalid email, expired token
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Invalid or expired classroom token" }
+```
+
+---
+
 ### `GET` /api/join/[token]
 
 Verify a classroom/community join token. Returns group info if valid.
@@ -15518,8 +15541,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 495 |
-| Files with annotations | 486 |
+| Route files found | 496 |
+| Files with annotations | 487 |
 | Files missing annotations | 9 |
 | Coverage | 98.2% |
 
