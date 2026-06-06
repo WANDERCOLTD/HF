@@ -564,6 +564,29 @@ export async function persistEndOfCall(
     // signal, regardless of sourceTag. Stamping endedAt here is also
     // what the downstream pipeline trigger condition checks.
     const isFirstEndOfCall = !existing.endedAt && eventKind !== "basic";
+
+    // #922 — callSequence stamping. Placeholders pre-created by /start
+    // or /outbound-dial don't compute callSequence (the create-path
+    // assignment further below never runs for them). Without this,
+    // every PSTN/WebRTC call finished with callSequence=null even
+    // after the pipeline ran — so /sim's "Call #N" header and the
+    // prompt composer's "this is call N" templating both ignored the
+    // sequence and fell back to a count() or "first session" path.
+    // Lookup is one indexed-orderBy query on (callerId, callSequence).
+    let nextSequence: number | undefined;
+    if (isFirstEndOfCall && existing.callerId) {
+      const lastCall = await prisma.call.findFirst({
+        where: {
+          callerId: existing.callerId,
+          callSequence: { not: null },
+          id: { not: existing.id },
+        },
+        orderBy: { callSequence: "desc" },
+        select: { callSequence: true },
+      });
+      nextSequence = (lastCall?.callSequence ?? 0) + 1;
+    }
+
     const updateData: Prisma.CallUpdateInput = {
       // Only overwrite transcript if the new event actually carried one
       ...(transcript ? { transcript } : {}),
@@ -574,6 +597,7 @@ export async function persistEndOfCall(
       ...((sourceTag === "fallback" || isFirstEndOfCall)
         ? { endedAt: new Date() }
         : {}),
+      ...(nextSequence != null ? { callSequence: nextSequence } : {}),
     };
     let updated;
     try {
@@ -959,6 +983,24 @@ export async function handleVoiceAssistantRequestPost(
       endCallPhrases: sys.endCallPhrases,
     };
 
+    // #1187 follow-up (#922) — pull webhookSecret here too so the inline
+    // assistant config returned by VAPI's assistant-request webhook
+    // carries `model.secret`. Without this VAPI omits the
+    // `x-vapi-secret` header on its custom-llm POSTs and the proxy
+    // rejects with 401, ending the call after the first line. Parallel
+    // path to `buildAssistantConfigForCaller` which already does this.
+    const customLlmProviderRow = await prisma.voiceProvider.findUnique({
+      where: { slug },
+      select: { credentials: true },
+    });
+    const customLlmProviderCreds =
+      (customLlmProviderRow?.credentials ?? {}) as Record<string, unknown>;
+    const customLlmSecret =
+      typeof customLlmProviderCreds.webhookSecret === "string" &&
+      customLlmProviderCreds.webhookSecret.length > 0
+        ? customLlmProviderCreds.webhookSecret
+        : undefined;
+
     const normalizedPhone = customerPhone.replace(/\s+/g, "");
     const caller = await prisma.caller.findFirst({
       where: { phone: normalizedPhone },
@@ -980,6 +1022,7 @@ export async function handleVoiceAssistantRequestPost(
           unknownCallerPrompt: vs.unknownCallerPrompt,
           noActivePromptFallback: vs.noActivePromptFallback,
           costSafetyKnobs,
+          customLlmSecret,
         }),
       );
     }
@@ -1025,6 +1068,7 @@ export async function handleVoiceAssistantRequestPost(
           unknownCallerPrompt: vs.unknownCallerPrompt,
           noActivePromptFallback: vs.noActivePromptFallback,
           costSafetyKnobs,
+          customLlmSecret,
         }),
       );
     }
@@ -1064,6 +1108,7 @@ export async function handleVoiceAssistantRequestPost(
         unknownCallerPrompt: vs.unknownCallerPrompt,
         noActivePromptFallback: vs.noActivePromptFallback,
         costSafetyKnobs,
+        customLlmSecret,
       }),
     );
     endSpan({
