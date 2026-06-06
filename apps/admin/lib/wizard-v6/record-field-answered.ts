@@ -162,7 +162,7 @@ export async function recordFieldAnswered(
     .digest("hex") as ContentHash;
 
   const event: Event = {
-    id: `evt-${randomUUID()}` as EventId,
+    id: randomUUID() as EventId,
     tenantId: tenant.id,
     intentId,
     kind: "FieldAnswered" as EventKind,
