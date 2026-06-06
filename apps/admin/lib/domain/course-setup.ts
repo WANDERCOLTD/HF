@@ -12,6 +12,7 @@ import { config } from "@/lib/config";
 import { logSystem } from "@/lib/logger";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { updateDomainConfig } from "@/lib/domain/update-domain-config";
+import { filterLearningOutcomes } from "@/lib/domain/validate-learning-outcome";
 import slugify from "slugify";
 import { scaffoldDomain } from "@/lib/domain/scaffold";
 import { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } from "@/lib/domain/quick-launch";
@@ -376,10 +377,24 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
         // Map learning outcomes → GoalTemplate entries so instantiatePlaybookGoals
         // creates real Goal rows on enrolment. Without this, enrolled learners have
         // no reward signal and the adapt loop runs dry.
+        //
+        // G10 / #1160 (audit 2026-06): validate each `learningOutcomes` entry
+        // against the tutor-briefing heuristic before it becomes a Goal row.
+        // Pre-G10, IELTS V1.0 accumulated 120 rows of tutor-instruction text
+        // ("Call 1 is a topic-led warm-up", "FC is the most visible criterion")
+        // because the wizard author dropped them into `learningOutcomes[]`. The
+        // validator rejects fragments that look like rules-of-engagement /
+        // rubric-references / tutor-actions and warn-logs each rejection so
+        // operators see exactly which entries were filtered out and why.
         let mergedGoals = (existingConfig.goals as Array<{ name?: string; [k: string]: any }> | undefined) || [];
         if (ctx.input.learningOutcomes?.length) {
+          const validated = filterLearningOutcomes(ctx.input.learningOutcomes, (entry, reason) => {
+            console.warn(
+              `[course-setup] G10 rejected learningOutcomes entry — looks like tutor briefing, not a learner outcome. reason="${reason}" entry=${JSON.stringify(entry.slice(0, 120))}`,
+            );
+          });
           const existingNames = new Set(mergedGoals.map((g) => g.name?.toLowerCase().trim()));
-          const newLOGoals = ctx.input.learningOutcomes
+          const newLOGoals = validated
             .filter((lo) => !existingNames.has(lo.toLowerCase().trim()))
             .map((lo) => ({
               type: "LEARN" as const,

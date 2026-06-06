@@ -212,6 +212,22 @@ Mixing tags is fine. `describe("buildLoMasteryMap (#928 scoping helper)", ...)` 
 | **Owner area** | Adaptive Loop / Compose Stage |
 | **Related** | `docs/CHAIN-CONTRACTS.md` Link 3 sub-contract I-C1 · audit G6 entry · `#1006` Maya hallucination root cause · `lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` (sibling resolver used by voice/calls/start) |
 
+### 008 — Learning-outcome validator (G10 — tutor-briefing rejection)
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/lib/validate-learning-outcome.test.ts` |
+| **Subject** | `apps/admin/lib/domain/validate-learning-outcome.ts` (validator + bulk filter) |
+| **Defends** | Goal-table semantics — `Goal.type=LEARN` rows MUST be learner-outcome statements, not tutor-instruction text. |
+| **Issue / origin** | [#1160](https://github.com/WANDERCOLTD/HF/issues/1160) — IELTS V1.0 accumulated 120 `manual_only` Goal rows where the wizard author dumped tutor-briefing directives ("Call 1 is a topic-led warm-up", "FC is the most visible criterion") into the `learningOutcomes[]` field. Pre-fix `trackGoalProgress` iterated 360 noise rows per pipeline run. |
+| **Failure mode it pins** | A future edit weakens the heuristic and lets tutor-briefing fragments through (re-pollutes the Goal table). Or false-positives on legitimate outcomes that reference call counts ("Complete 5 practice calls …"). |
+| **What it proves** | (1) All 6 known IELTS V1.0 tutor-briefing fixtures REJECT. (2) All 8 legitimate `lo_rollup` outcomes ACCEPT. (3) Empty/short entries reject. (4) Entries that reference call counts as a learner target pass. (5) `filterLearningOutcomes` calls `onReject` once per drop with reason. (6) Order of legitimate outcomes is preserved. |
+| **How to run** | `cd apps/admin && npx vitest run tests/lib/validate-learning-outcome.test.ts` |
+| **When to re-run** | Edits to `validate-learning-outcome.ts` OR to `lib/domain/course-setup.ts:380` (the `learningOutcomes[]` filter). |
+| **Status** | ✅ green (23/23, 2026-06-06) |
+| **Owner area** | Adaptive Loop / Goal Semantics |
+| **Related** | `lib/domain/course-setup.ts:382` (filter call-site) · `scripts/backfill-archive-tutor-briefing-goals.ts` (one-shot cleanup) · `docs/PIPELINE.md §7` (`extractGoals` + `trackGoalProgress` ADAPT sub-ops) · audit G10 entry |
+
 ---
 
 ## Live-DB Demos
