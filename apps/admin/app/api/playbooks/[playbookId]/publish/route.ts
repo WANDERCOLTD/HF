@@ -211,9 +211,17 @@ export async function POST(
           .map(([ref]) => ref);
         if (duplicateRefs.length > 0) {
           const sample = duplicateRefs.slice(0, 5).join(", ");
-          errors.push({
-            error: `${duplicateRefs.length} learning objective ref(s) are duplicated across modules in the linked Curriculum (e.g. ${sample}). The readiness rollup dedupes by ref so duplicates silently merge unrelated LOs. Rename to a module-scoped scheme such as "{moduleSlug}-LO{N}" before publishing. (#1117)`,
-            severity: "error",
+          // 2026-06-06 — downgraded to WARNING after the live audit found
+          // IELTS's intentional cross-module duplicates (the Mock module
+          // re-references OUT-01/03/06 from part1/part2/part3 by design,
+          // following the #494 CurriculumModule.coversModules pattern).
+          // Cross-module duplicates ARE a real risk on the readiness rollup
+          // (it dedupes by `loRef`, so unrelated LOs silently merge), but
+          // they're sometimes intentional. Surface to the operator without
+          // hard-blocking the publish.
+          warnings.push({
+            error: `${duplicateRefs.length} learning objective ref(s) are duplicated across modules in the linked Curriculum (e.g. ${sample}). The readiness rollup dedupes by ref, so duplicates silently merge unrelated LOs. This may be intentional (e.g. a Mock module covering Part 1/2/3 via CurriculumModule.coversModules). If unintentional, rename to a module-scoped scheme such as "{moduleSlug}-LO{N}". (#1117)`,
+            severity: "warning",
           });
         }
       }
