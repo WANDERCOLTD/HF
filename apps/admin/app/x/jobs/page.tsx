@@ -27,11 +27,6 @@ interface UserTask {
 // ── Job Type Labels ────────────────────────────────
 
 const JOB_TYPE_LABELS: Record<string, { label: string; icon: string; resumePath: string; isBackground?: boolean }> = {
-  quick_launch: {
-    label: "Community",
-    icon: "Users",
-    resumePath: "/x/quick-launch",
-  },
   create_spec: {
     label: "Create Spec",
     icon: "ClipboardList",

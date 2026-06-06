@@ -630,7 +630,7 @@ function EntitySection({
   const entityConfig = ENTITY_CONFIGS[entityKey];
   const Icon = ICON_MAP[entityConfig.icon];
   const title = plural(entityConfig.termKey);
-  const canCreate = isAdminRole(role);
+  const canCreate = isAdminRole(role) && entityConfig.createHref !== null;
 
   // Build href for each item
   const getItemHref = (item: EntityItem): string => {
@@ -655,7 +655,7 @@ function EntitySection({
         <span className="dash-entity-count">{count}</span>
         <div className="dash-entity-actions">
           {canCreate && (
-            <Link href={entityConfig.createHref} target="_blank" className="dash-entity-new-btn">
+            <Link href={entityConfig.createHref!} target="_blank" className="dash-entity-new-btn">
               <Plus size={12} />
               New
             </Link>
@@ -672,7 +672,7 @@ function EntitySection({
           <span className="dash-entity-empty-text">
             No {lowerPlural(entityConfig.termKey)} yet.{" "}
             {canCreate && (
-              <Link href={entityConfig.createHref} target="_blank" className="dash-entity-empty-link">
+              <Link href={entityConfig.createHref!} target="_blank" className="dash-entity-empty-link">
                 Create one →
               </Link>
             )}

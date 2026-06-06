@@ -516,9 +516,9 @@ export default function NewClassroomPage() {
                 No institutions available.{" "}
                 <span
                   className="cwiz-create-link"
-                  onClick={() => router.push("/x/quick-launch")}
+                  onClick={() => router.push("/x/institutions/new")}
                 >
-                  Create one with Community
+                  Create one
                 </span>
               </p>
             ) : (

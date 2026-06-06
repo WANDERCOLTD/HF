@@ -33,7 +33,6 @@ const PUBLIC_PAGES = new Set([
   // Account (accessible from user menu, not in sidebar)
   "/x/account",
   // Home section (no requiredRole)
-  "/x/quick-launch",
   "/x/demos",
   "/x/tickets",
   // Educator section (no requiredRole — scoped by educator-access)

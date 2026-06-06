@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolvePersonaKey } from "@/lib/domain/quick-launch";
+import { resolvePersonaKey } from "@/lib/domain/persona-loaders";
 
 describe("resolvePersonaKey", () => {
   it("maps V4 interaction patterns to INIT-001 persona keys", () => {

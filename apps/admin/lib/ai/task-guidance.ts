@@ -557,28 +557,6 @@ const TASK_STEP_MAPS: Record<string, Record<number, TaskStep>> = {
       estimated: "5 min",
     },
   },
-  quick_launch: {
-    1: {
-      title: "Form",
-      description: "Enter subject, style, goals, and upload course material",
-      estimated: "2 min",
-    },
-    2: {
-      title: "Analysis",
-      description: "AI is extracting content and generating your tutor identity",
-      estimated: "1-3 min",
-    },
-    3: {
-      title: "Review",
-      description: "Review and edit what AI created before finalizing",
-      estimated: "2 min",
-    },
-    4: {
-      title: "Create",
-      description: "Building your tutor domain, curriculum, and test caller",
-      estimated: "30 sec",
-    },
-  },
   extraction: {
     1: {
       title: "Extracting",

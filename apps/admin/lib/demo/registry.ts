@@ -12,7 +12,6 @@
 
 import type { DemoSpec } from "./types";
 import demoTutor001 from "./content/DEMO-TUTOR-001.demo.json";
-import demoQuick001 from "./content/DEMO-QUICK-001.demo.json";
 import demoCaller001 from "./content/DEMO-CALLER-001.demo.json";
 import demoContent001 from "./content/DEMO-CONTENT-001.demo.json";
 import demoSim001 from "./content/DEMO-SIM-001.demo.json";
@@ -25,7 +24,6 @@ import demoSpec001 from "./content/DEMO-SPEC-001.demo.json";
 
 const DEMO_REGISTRY: Record<string, DemoSpec> = {
   "DEMO-TUTOR-001": demoTutor001 as unknown as DemoSpec,
-  "DEMO-QUICK-001": demoQuick001 as unknown as DemoSpec,
   "DEMO-CALLER-001": demoCaller001 as unknown as DemoSpec,
   "DEMO-CONTENT-001": demoContent001 as unknown as DemoSpec,
   "DEMO-SIM-001": demoSim001 as unknown as DemoSpec,

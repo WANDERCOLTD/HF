@@ -291,7 +291,6 @@ export const TOUR_DEFINITIONS: TourDefinition[] = [
       },
     ],
     actions: [
-      { label: "Community", description: "Create a community now", icon: "Users", href: "/x/quick-launch" },
       { label: "Explore demos", description: "Try different scenarios", icon: "Presentation", href: "/x/demos" },
     ],
   },

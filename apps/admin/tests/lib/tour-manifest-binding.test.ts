@@ -4,7 +4,7 @@ import { resolveManifestItem, getAllManifestItemIds } from "@/lib/tours/manifest
 
 describe("tour-manifest binding", () => {
   // Items pending sidebar addition — skip until sidebar manifest is updated
-  const KNOWN_PENDING_ITEMS = new Set(["quick-launch", "demos"]);
+  const KNOWN_PENDING_ITEMS = new Set(["demos"]);
 
   it("every tour manifestItem resolves to a valid manifest entry", () => {
     const errors: string[] = [];

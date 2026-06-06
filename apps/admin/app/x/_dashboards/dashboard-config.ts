@@ -16,7 +16,7 @@ export interface EntityConfig {
   termKey: TermKey;          // terminology key for label
   icon: string;              // Lucide icon name from ICON_MAP
   href: string;              // "View all" link
-  createHref: string;        // "+ New" link
+  createHref: string | null; // "+ New" link, null when creation is disabled
   columns: EntityColumn[];   // What to show in each row
 }
 
@@ -79,7 +79,7 @@ export const ENTITY_CONFIGS: Record<EntityKey, EntityConfig> = {
     termKey: "cohort",
     icon: "Users",
     href: "/x/communities",
-    createHref: "/x/quick-launch",
+    createHref: null,
     columns: [
       { key: "callerCount", type: "count", termKey: "caller" },
       { key: "kind", type: "badge" },
@@ -240,7 +240,6 @@ export const TASK_LABELS: Record<string, string> = {
 
 export const RESUME_PATHS: Record<string, (ctx: Record<string, unknown>) => string> = {
   institution_setup: () => "/x/institutions/new",
-  quick_launch: () => "/x/quick-launch",
   content_wizard: () => "/x/content-sources",
   create_spec: () => "/x/specs",
   configure_caller: (ctx) => ctx.callerId ? `/x/callers/${ctx.callerId}` : "/x/callers",
@@ -274,14 +273,6 @@ export const WIZARD_ACTIONS = [
     icon: "Rocket",
     href: "/x/courses?action=setup",
     description: "Create a new course",
-    primary: false,
-  },
-  {
-    label: "Community",
-    termKey: "cohort" as TermKey,
-    icon: "Rocket",
-    href: "/x/quick-launch",
-    description: "Set up a new group",
     primary: false,
   },
   {

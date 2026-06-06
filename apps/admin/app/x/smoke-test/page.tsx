@@ -96,7 +96,6 @@ const SMOKE_CHECKLIST: CheckGroup[] = [
     id: "wizards",
     title: "Wizards & Setup Flows",
     items: [
-      { id: "wiz-quick", label: "Community loads", path: "/x/quick-launch", hint: "Phase machine starts" },
       { id: "wiz-demonstrate", label: "Demonstrate wizard loads", path: "/x/demonstrate", hint: "Steps render in order" },
       { id: "wiz-teach", label: "Teach wizard loads", path: "/x/teach", hint: "Steps render in order" },
     ],
