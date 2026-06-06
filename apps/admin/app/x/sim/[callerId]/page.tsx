@@ -33,6 +33,13 @@ export default function SimConversationPage() {
   const { data: session, status: sessionStatus } = useSession();
   const { isDesktop } = useResponsive();
   const isStudent = session?.user?.role === 'STUDENT';
+  // Admin "preview as learner" — `?as=learner` flips the PIN gate on for an
+  // OPERATOR+ session so the auth surface can be demo'd without signing out.
+  // Server-side scope (resolveCallerScopeForReading) still treats the request
+  // as OPERATOR+ (passes the supplied callerId through), so the challenge
+  // status / verify-pin endpoints answer for the requested caller.
+  const previewAsLearner = searchParams.get('as') === 'learner';
+  const gateAsStudent = isStudent || previewAsLearner;
   const sessionGoal = searchParams.get('goal') || undefined;
   const expectedDomainId = searchParams.get('domainId') || undefined;
   // #948 — `playbookId` may be missing from the URL when a learner lands
@@ -188,7 +195,7 @@ export default function SimConversationPage() {
   // verified, which masked auth middleware 307 redirects).
   useEffect(() => {
     if (sessionStatus === 'loading') return; // wait — don't pre-decide
-    if (!isStudent) {
+    if (!gateAsStudent) {
       setPinGateStatus('verified');
       return;
     }
@@ -227,7 +234,7 @@ export default function SimConversationPage() {
     return () => {
       cancelled = true;
     };
-  }, [callerId, isStudent, sessionStatus]);
+  }, [callerId, gateAsStudent, sessionStatus]);
 
   const handleStudentCallEnd = useCallback(() => {
     if (isStudent) {
