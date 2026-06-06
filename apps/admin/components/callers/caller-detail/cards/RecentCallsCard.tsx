@@ -1,5 +1,7 @@
 "use client";
 
+import { friendlyEndedReason } from "@/lib/voice/ended-reason-labels";
+
 import type { Call } from "../types";
 
 type RecentCallsCardProps = {
@@ -41,6 +43,15 @@ export function RecentCallsCard({ calls, onCallClick, onViewAll, sessionLabel = 
           // Simple sentiment from analysis flags
           const sentiment = call.hasScores ? "analyzed" : call.hasPrompt ? "prompted" : "pending";
 
+          // #1178 — surface VAPI endedReason for non-normal terminations.
+          // Only show when the row was actually closed AND the reason
+          // isn't a clean customer-ended-call (no noise on happy path).
+          const friendly = friendlyEndedReason(call.voiceEndedReason);
+          const isFailure =
+            call.voiceEndedReason != null &&
+            call.voiceEndedReason !== "customer-ended-call" &&
+            call.voiceEndedReason !== "assistant-ended-call";
+
           return (
             <button
               key={call.id}
@@ -58,6 +69,15 @@ export function RecentCallsCard({ calls, onCallClick, onViewAll, sessionLabel = 
                 {sentiment === "prompted" && "📋"}
                 {sentiment === "pending" && "○"}
               </span>
+              {isFailure && friendly ? (
+                <span
+                  className="hf-rc-failed-badge"
+                  title={friendly}
+                  aria-label={friendly}
+                >
+                  ⚠
+                </span>
+              ) : null}
               <span className="hf-rc-chevron">▶</span>
             </button>
           );

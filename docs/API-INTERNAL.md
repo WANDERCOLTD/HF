@@ -15266,6 +15266,24 @@ OpenAI-compatible chat-completions endpoint. VAPI's
 
 ---
 
+### `POST` /api/voice/poll-stale-calls
+
+Run one polling cycle to recover Call rows that VAPI
+
+**Auth**: session ADMIN OR x-internal-secret (dual path)
+
+**Response** `200`
+```json
+{ ok: true, summary: PollBatchResult }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" }
+```
+
+---
+
 ### `GET` /api/voice/telemetry/[providerId]
 
 Recent telemetry rows for a voice provider (AnyVoice
@@ -15574,8 +15592,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 497 |
-| Files with annotations | 488 |
+| Route files found | 498 |
+| Files with annotations | 489 |
 | Files missing annotations | 9 |
 | Coverage | 98.2% |
 

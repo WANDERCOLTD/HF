@@ -80,6 +80,13 @@ export type Call = {
   // Module context
   curriculumModuleId?: string | null;
   curriculumModule?: { slug: string; title: string } | null;
+  // #1178 — voice-call end-state surface. Webhook + poll fallback both
+  // populate these. UI maps `voiceEndedReason` to a friendly string and
+  // shows duration / cost where present.
+  endedAt?: string | null;
+  voiceEndedReason?: string | null;
+  voiceDurationSeconds?: number | null;
+  voiceCostUsd?: number | null;
 };
 
 export type CallerIdentity = {

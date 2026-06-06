@@ -605,3 +605,67 @@ curl -f "$APP_URL/api/system/readiness"
 | **Runner can't seed** | Production image is intentionally minimal. Use the `seed` Docker target or Cloud Run job |
 | **db push vs migrate** | Local dev uses `prisma db push`. Production uses `prisma migrate deploy` (or `db push` via Cloud Run job if migrations are out of sync) |
 | **Seed image needs tsconfig.json** | For `@/` path alias resolution in seed scripts |
+
+---
+
+## Voice Poll Cron (#1178)
+
+The voice end-of-call webhook is unreliable — VAPI can fail mid-call (`pipeline-error-openai-llm-failed`, infra blip) without emitting the normal `end-of-call-report`. HF runs a polling fallback that scans for stale `Call` rows (externalId set, endedAt null, >90s old), queries VAPI's `GET /call/{id}`, and merges the final state via the same `persistEndOfCall` helper the webhook uses.
+
+The poll job lives at `POST /api/voice/poll-stale-calls`. It accepts either an `ADMIN` session cookie (manual operator invocation) OR an `x-internal-secret` header matching `INTERNAL_API_SECRET` (Cloud Scheduler / cron).
+
+### Cloud Run (prod) — Cloud Scheduler setup
+
+Run once per environment:
+
+```bash
+ENV=dev  # or test, prod
+APP_URL="https://hf-admin-${ENV}-311250123759.europe-west2.run.app"
+INTERNAL_API_SECRET="$(gcloud secrets versions access latest --secret=hf-internal-api-secret-${ENV})"
+
+gcloud scheduler jobs create http "hf-${ENV}-voice-poll" \
+  --location=europe-west2 \
+  --schedule="* * * * *" \
+  --time-zone="UTC" \
+  --uri="${APP_URL}/api/voice/poll-stale-calls" \
+  --http-method=POST \
+  --headers="x-internal-secret=${INTERNAL_API_SECRET},Content-Type=application/json" \
+  --message-body='{}' \
+  --attempt-deadline=30s
+```
+
+Verify:
+
+```bash
+gcloud scheduler jobs run "hf-${ENV}-voice-poll" --location=europe-west2
+gcloud scheduler jobs describe "hf-${ENV}-voice-poll" --location=europe-west2
+```
+
+The scheduled job runs every minute; HF's poll itself is idempotent and race-safe (atomic update with `where: { id, endedAt: null }`) so over-running is harmless.
+
+### Sandbox VM — crontab alternative
+
+`hf-dev` has no Cloud Scheduler. Use the VM's crontab:
+
+```bash
+# SSH into VM, edit crontab
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap
+crontab -e
+
+# Add this line (every minute):
+* * * * * curl -sS -X POST http://localhost:3000/api/voice/poll-stale-calls \
+  -H "x-internal-secret: $(grep '^INTERNAL_API_SECRET=' /home/paul_thewanders_com/HF/apps/admin/.env | cut -d= -f2)" \
+  -H "Content-Type: application/json" -d '{}' >> /tmp/voice-poll.log 2>&1
+```
+
+### Manual invocation (operator debug)
+
+```bash
+# As ADMIN with session cookie
+curl -X POST "$APP_URL/api/voice/poll-stale-calls" \
+  -H "Content-Type: application/json" \
+  -b "authjs.session-token=..." \
+  -d '{"batchLimit": 10}'
+```
+
+Response is the batch summary: `{stale, attempted, recovered, racedAgainstWebhook, notFound, authFailed, upstreamErrors, abortedOn429, pollsCompleted, durationMs}`.
