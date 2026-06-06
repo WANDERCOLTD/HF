@@ -256,12 +256,17 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
   const subjectId = options?.subjectIds?.[0];
   if (subjectId) {
     try {
-      // #590: also match by playbookId so an authored Curriculum (which has
-      // playbookId but no subjectId) is reused instead of triggering a second
-      // create on the same playbook.
+      // #590 / #1177 Slice 6: also match by playbook (via canonical
+      // PlaybookCurriculum primary join) so an authored Curriculum is reused
+      // instead of triggering a second create on the same playbook.
       const existingCurr = await p.curriculum.findFirst({
         where: options?.playbookId
-          ? { OR: [{ subjectId }, { playbookId: options.playbookId }] }
+          ? {
+              OR: [
+                { subjectId },
+                { playbookLinks: { some: { playbookId: options.playbookId, role: "primary" } } },
+              ],
+            }
           : { subjectId },
         select: { id: true },
       });
@@ -303,11 +308,14 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
         }
       }
 
+      // #1177 Slice 6 — Curriculum.playbookId dropped. NOTE: this writer
+      // does NOT create a PlaybookCurriculum(primary) join — if this path
+      // is still in use, it produces an orphan. Audit before re-enabling
+      // for production curriculum-generation flows.
       const curriculumRecord = existingCurr ?? await p.curriculum.create({
         data: {
           slug: currSlug,
           subjectId,
-          playbookId: resolvedPlaybookId,
           name: curriculum.name || subjectName,
           description: curriculum.description || "",
           deliveryConfig: curriculum.deliveryConfig || {},

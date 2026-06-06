@@ -205,8 +205,9 @@ export async function main(prisma: PrismaClient): Promise<void> {
   // attribute per-part `CallScore` rows. Set it here as an idempotent
   // post-projection step, scoped to this seed's curriculum to avoid
   // touching any other playbook's `mock` slug (#407 slug-scope discipline).
+  // #1177 Slice 6 — canonical PlaybookCurriculum primary join.
   const ieltsCurriculum = await prisma.curriculum.findFirst({
-    where: { playbookId: playbook.id },
+    where: { playbookLinks: { some: { playbookId: playbook.id, role: "primary" } } },
     select: { id: true },
   });
   if (ieltsCurriculum) {

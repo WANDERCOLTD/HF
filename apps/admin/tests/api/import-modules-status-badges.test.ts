@@ -210,7 +210,7 @@ describe("GET /api/courses/[courseId]/import-modules — STUDENT progress enrich
     const progressArgs = mockPrisma.callerModuleProgress.findMany.mock.calls[0][0];
     expect(progressArgs.where).toMatchObject({
       callerId: "caller-1",
-      module: { curriculum: { playbookId: "playbook-1" } },
+      module: { curriculum: { playbookLinks: { some: { playbookId: "playbook-1", role: "primary" } } } },
     });
   });
 });
@@ -255,7 +255,7 @@ describe("GET /api/courses/[courseId]/import-modules — OPERATOR with callerId 
     const progressArgs = mockPrisma.callerModuleProgress.findMany.mock.calls[0][0];
     expect(progressArgs.where).toMatchObject({
       callerId: "target-caller",
-      module: { curriculum: { playbookId: "playbook-1" } },
+      module: { curriculum: { playbookLinks: { some: { playbookId: "playbook-1", role: "primary" } } } },
     });
   });
 });

@@ -44,12 +44,13 @@ export async function POST(
 
   // Pre-check: course needs at least one active CurriculumModule so the
   // sim doesn't land on a broken state. Mirrors the lesson-plan guard.
+  // #1177 Slice 6 — canonical PlaybookCurriculum primary join (variant-aware).
   const moduleCount = await prisma.curriculumModule.count({
     where: {
       isActive: true,
       curriculum: {
         OR: [
-          { playbookId: courseId },
+          { playbookLinks: { some: { playbookId: courseId, role: "primary" } } },
           { subject: { playbooks: { some: { playbookId: courseId } } } },
         ],
       },

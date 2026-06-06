@@ -81,19 +81,30 @@ async function getAssessmentConfig(): Promise<AssessmentConfig> {
 // ---------------------------------------------------------------------------
 
 async function getSourceIdsForCurriculum(curriculumId: string): Promise<string[]> {
+  // #1177 Slice 6 — primary playbookId via canonical PlaybookCurriculum join
+  // (Curriculum.playbookId column was dropped in #1038).
   const curriculum = await prisma.curriculum.findUnique({
     where: { id: curriculumId },
-    select: { primarySourceId: true, playbookId: true, subjectId: true },
+    select: {
+      primarySourceId: true,
+      subjectId: true,
+      playbookLinks: {
+        where: { role: "primary" },
+        take: 1,
+        select: { playbookId: true },
+      },
+    },
   });
   if (!curriculum) return [];
 
   // Direct FK is the fast path
   if (curriculum.primarySourceId) return [curriculum.primarySourceId];
 
-  // Tier 1: PlaybookSource via curriculum.playbookId
-  if (curriculum.playbookId) {
+  // Tier 1: PlaybookSource via primary join
+  const primaryPlaybookId = curriculum.playbookLinks[0]?.playbookId;
+  if (primaryPlaybookId) {
     const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
-    const ids = await getSourceIdsForPlaybook(curriculum.playbookId);
+    const ids = await getSourceIdsForPlaybook(primaryPlaybookId);
     if (ids.length > 0) return ids;
   }
 

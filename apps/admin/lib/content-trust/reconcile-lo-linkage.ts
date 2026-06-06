@@ -146,7 +146,6 @@ export async function reconcileAssertionLOs(
     select: {
       id: true,
       subjectId: true,
-      playbookId: true,
       modules: {
         where: { isActive: true },
         select: {

@@ -165,7 +165,12 @@ function buildMockPrisma() {
     playbook: {
       // #417 — applyProjection now reads `domainId` from the playbook to
       // scope the auto-generated MEASURE spec.
-      findUnique: vi.fn().mockResolvedValue({ config: {}, domainId: "dom-test" }),
+      // #1177 Slice 6 — ensureCurriculum now reads `subjects` for the
+      // anchor-aware sibling lookup (previously short-circuited by the
+      // deprecated Curriculum.playbookId fallback). Provide an empty
+      // subjects array so the anchor lookup falls through to mint-fresh,
+      // matching the prior test behaviour.
+      findUnique: vi.fn().mockResolvedValue({ config: {}, domainId: "dom-test", subjects: [] }),
       update: vi.fn().mockResolvedValue({}),
     },
     // #417 — upsertMeasureSpec needs these tables.
@@ -329,6 +334,8 @@ describe("applyProjection — orchestrator smoke", () => {
       },
       // #417 — upsertMeasureSpec needs domainId for the spec's `domain` field.
       domainId: "dom-test",
+      // #1177 Slice 6 — ensureCurriculum reads subjects for anchor lookup.
+      subjects: [],
     });
 
     const { applyProjection } = await import("../apply-projection");

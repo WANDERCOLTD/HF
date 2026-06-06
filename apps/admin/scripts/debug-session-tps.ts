@@ -16,9 +16,9 @@ async function main() {
   }
   console.log("Course:", pb.id, pb.name);
 
-  // Get its curriculum
+  // #1177 Slice 6 — canonical PlaybookCurriculum primary join.
   const cur = await prisma.curriculum.findFirst({
-    where: { playbookId: pb.id },
+    where: { playbookLinks: { some: { playbookId: pb.id, role: "primary" } } },
     select: { id: true, subjectId: true, deliveryConfig: true },
   });
   if (cur === null) {

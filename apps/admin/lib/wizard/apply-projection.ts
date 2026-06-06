@@ -234,31 +234,18 @@ async function ensureCurriculum(
   tx: Tx,
   playbookId: string,
 ): Promise<{ id: string; created: boolean }> {
-  // #1034 — Prefer PlaybookCurriculum (join). Variant Playbooks may already
-  // be linked to the parent's Curriculum via a `linked` row; in that case
-  // the wizard projection should target the SHARED Curriculum, not create
-  // a fork. Falls back to the deprecated Curriculum.playbookId column.
+  // #1034 / #1177 Slice 6 — canonical PlaybookCurriculum join only.
+  // Variant Playbooks may already be linked to the parent's Curriculum via
+  // a `linked` row; in that case the wizard projection should target the
+  // SHARED Curriculum, not create a fork. The deprecated
+  // Curriculum.playbookId fallback was removed in #1038 (backfill ensured
+  // 100% join-row coverage).
   const existingLink = await tx.playbookCurriculum.findFirst({
     where: { playbookId },
     orderBy: [{ role: "asc" }, { createdAt: "asc" }],
     select: { curriculumId: true },
   });
   if (existingLink) return { id: existingLink.curriculumId, created: false };
-
-  const existing = await tx.curriculum.findFirst({
-    where: { playbookId },
-    select: { id: true },
-  });
-  if (existing) {
-    // Heal: legacy Curriculum exists but no join row yet — backfill the
-    // join inside the same transaction so subsequent reads pick it up.
-    await tx.playbookCurriculum.upsert({
-      where: { playbookId_curriculumId: { playbookId, curriculumId: existing.id } },
-      create: { playbookId, curriculumId: existing.id, role: "primary" },
-      update: {},
-    });
-    return { id: existing.id, created: false };
-  }
 
   // #1081 Slice 2B.2 — anchor-aware sibling-link. Before minting a fresh
   // Curriculum, see if this Playbook's domain already hosts a Curriculum

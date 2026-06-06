@@ -37,9 +37,10 @@ export async function GET(
       return NextResponse.json({ ok: false, error: "Course not found" }, { status: 404 });
     }
 
-    // 2. Fetch curricula — prefer direct playbookId link, fallback to subject chain
+    // 2. Fetch curricula — canonical PlaybookCurriculum primary join,
+    // fallback to subject chain. #1177 Slice 6.
     let curricula = await prisma.curriculum.findMany({
-      where: { playbookId: courseId },
+      where: { playbookLinks: { some: { playbookId: courseId, role: "primary" } } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

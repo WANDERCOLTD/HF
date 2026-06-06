@@ -85,14 +85,17 @@ async function seedFixture(opts: {
     },
   });
 
-  // Curriculum + module + TPs (enough to compute progress)
+  // Curriculum + module + TPs (enough to compute progress).
+  // #1177 Slice 6 — Curriculum.playbookId dropped; add canonical join after.
   const curriculum = await prisma.curriculum.create({
     data: {
       slug: `${TAG}-cur-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: "Test curriculum",
-      playbookId: playbook.id,
       deliveryConfig: { sessionCount: 5 } as object,
     },
+  });
+  await prisma.playbookCurriculum.create({
+    data: { playbookId: playbook.id, curriculumId: curriculum.id, role: "primary" },
   });
 
   const totalModules = opts.totalModules ?? 1;
