@@ -47,6 +47,7 @@ const mockPrisma = {
   },
   caller: {
     findFirst: vi.fn(),
+    findUnique: vi.fn().mockResolvedValue(null),
     create: vi.fn(),
   },
   callerCohortMembership: {
