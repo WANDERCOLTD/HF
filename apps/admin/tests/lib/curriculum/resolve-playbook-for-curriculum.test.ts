@@ -37,30 +37,19 @@ describe("resolvePlaybookForCurriculum — #834 / #1034", () => {
       expect(mockPrisma.curriculum.findUnique).not.toHaveBeenCalled();
     });
 
-    it("falls back to deprecated Curriculum.playbookId column when no join rows", async () => {
-      mockPrisma.playbookCurriculum.findMany.mockResolvedValue([]);
-      mockPrisma.curriculum.findUnique.mockResolvedValue({ playbookId: "pb-legacy" });
-      await expect(
-        mod.resolvePlaybookIdForCurriculum("c1"),
-      ).resolves.toEqual(["pb-legacy"]);
-    });
+    // #1205 / batch 4 — the deprecated `Curriculum.playbookId` fallback was
+    // removed; backfill (20260606152557) ensures 100% join-row coverage.
+    // The "falls back to deprecated column" test was deleted with the code
+    // path. Single source of truth = the join.
 
-    it("returns empty array when no join row and no deprecated column value", async () => {
+    it("returns empty array when no join rows exist", async () => {
       mockPrisma.playbookCurriculum.findMany.mockResolvedValue([]);
-      mockPrisma.curriculum.findUnique.mockResolvedValue({ playbookId: null });
       await expect(mod.resolvePlaybookIdForCurriculum("c1")).resolves.toEqual([]);
-    });
-
-    it("returns empty array when curriculum not found", async () => {
-      mockPrisma.playbookCurriculum.findMany.mockResolvedValue([]);
-      mockPrisma.curriculum.findUnique.mockResolvedValue(null);
-      await expect(mod.resolvePlaybookIdForCurriculum("missing")).resolves.toEqual([]);
     });
 
     it("returns empty array on empty input without touching the DB", async () => {
       await expect(mod.resolvePlaybookIdForCurriculum("")).resolves.toEqual([]);
       expect(mockPrisma.playbookCurriculum.findMany).not.toHaveBeenCalled();
-      expect(mockPrisma.curriculum.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -76,13 +65,13 @@ describe("resolvePlaybookForCurriculum — #834 / #1034", () => {
       ).resolves.toEqual(["pb-primary", "pb-linked"]);
     });
 
-    it("falls through to the deprecated column when join is empty", async () => {
+    // #1205 / batch 4 — deprecated-column fallback removed (see comment above).
+    it("returns empty array when module's curriculum has no join rows", async () => {
       mockPrisma.curriculumModule.findUnique.mockResolvedValue({ curriculumId: "c-shared" });
       mockPrisma.playbookCurriculum.findMany.mockResolvedValue([]);
-      mockPrisma.curriculum.findUnique.mockResolvedValue({ playbookId: "pb-legacy" });
       await expect(
         mod.resolvePlaybookIdForCurriculumModule("m1"),
-      ).resolves.toEqual(["pb-legacy"]);
+      ).resolves.toEqual([]);
     });
 
     it("returns empty array when module not found", async () => {

@@ -33,8 +33,10 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * Returns every `Playbook.id` linked to this Curriculum via `PlaybookCurriculum`
- * (siblings sharing the Curriculum). Falls back to the deprecated
- * `Curriculum.playbookId` column if no join rows exist (transition safety).
+ * (siblings sharing the Curriculum). Single source of truth — the legacy
+ * `Curriculum.playbookId` fallback was removed in batch 4 (#1177 Slice 5)
+ * after the 20260606152557 backfill migration ensured every Curriculum has
+ * a canonical primary join row on hf-dev (FK probe: 0 orphans).
  *
  * Signature changed from `string | null` to `string[]` in #1034 so a
  * single Curriculum mutation can bump compose staleness on all siblings.
@@ -49,14 +51,7 @@ export async function resolvePlaybookIdForCurriculum(
     where: { curriculumId },
     select: { playbookId: true },
   });
-  if (joins.length > 0) return joins.map((j) => j.playbookId);
-
-  // Fallback: deprecated Curriculum.playbookId column. Dropped in #1038.
-  const row = await prisma.curriculum.findUnique({
-    where: { id: curriculumId },
-    select: { playbookId: true },
-  });
-  return row?.playbookId ? [row.playbookId] : [];
+  return joins.map((j) => j.playbookId);
 }
 
 /**
