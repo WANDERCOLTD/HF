@@ -18,6 +18,8 @@ jobs:
         working-directory: apps/admin
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # #944 guard needs base ref reachable
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,6 +30,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # #944 — block schema.prisma changes without a paired migration file.
+      # Prevents the #931 / #1210 / #915 class of incident where schema-only
+      # PRs land on main and every env that pulls starts 500ing with `P2022
+      # column does not exist`. Runs BEFORE lint/tsc so the operator sees
+      # the migration ask immediately, not buried under typecheck noise.
+      - name: Block schema changes without paired migration (#944)
+        working-directory: .
+        run: scripts/check-schema-has-migration.sh
 
       - name: Run ESLint
         run: npm run lint

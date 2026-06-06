@@ -26,6 +26,18 @@ And check for any pending migration files:
 ls -lt apps/admin/prisma/migrations/ | head -5
 ```
 
+### Step 1b — Paired-migration guard (#944)
+
+Before reviewing the schema diff in detail, run the structural guard:
+
+```bash
+cd /Users/paulwander/projects/HF && scripts/check-schema-has-migration.sh
+```
+
+If exit code is 1, the schema has substantive changes but no new `apps/admin/prisma/migrations/*/migration.sql` file is staged. Surface the script's output verbatim and instruct the operator to run `cd apps/admin && npx prisma migrate dev --name <descriptive_slug>` before proceeding. Do not continue with destructive-op review until this gate passes — there's no point reviewing a migration that doesn't exist as a file.
+
+Comment-only changes (JSDoc tweaks) pass this guard automatically.
+
 ## Step 2 — Check for destructive operations
 
 Scan the schema diff for each risk pattern:
