@@ -516,6 +516,8 @@ export async function persistEndOfCall(
   if (existing) {
     // Split-event merge: analysis arriving for an earlier basic write.
     // OR poll fallback: a stale row that never got its webhook.
+    // OR (#922) the first real end-of-call landing on a placeholder
+    //    pre-created by /api/voice/calls/start or /outbound-dial.
     //
     // For sourceTag="fallback" we use an atomic update with
     // `where: { id, endedAt: null }` so a webhook that lands during
@@ -525,12 +527,21 @@ export async function persistEndOfCall(
       sourceTag === "fallback"
         ? { id: existing.id, endedAt: null }
         : { id: existing.id };
+    // #922 — placeholder pre-creation means `existing.endedAt === null`
+    // is the canonical "this is the first real end-of-call merge"
+    // signal, regardless of sourceTag. Stamping endedAt here is also
+    // what the downstream pipeline trigger condition checks.
+    const isFirstEndOfCall = !existing.endedAt && eventKind !== "basic";
     const updateData: Prisma.CallUpdateInput = {
       // Only overwrite transcript if the new event actually carried one
       ...(transcript ? { transcript } : {}),
       ...persistableCapture,
-      // Poll path always stamps endedAt — the row is stale by definition.
-      ...(sourceTag === "fallback" ? { endedAt: new Date() } : {}),
+      // Poll path always stamps endedAt — the row is stale by
+      // definition. Webhook path also stamps it on the first real
+      // end-of-call merge so the row exits the "in-progress" state.
+      ...((sourceTag === "fallback" || isFirstEndOfCall)
+        ? { endedAt: new Date() }
+        : {}),
     };
     let updated;
     try {
@@ -557,14 +568,26 @@ export async function persistEndOfCall(
       throw err;
     }
 
-    // Pipeline trigger fires only on "full" or "analysis" — never on
-    // bare "basic" (the row is half-complete). For "full" we already
-    // ran this branch on first arrival; this branch is duplicate-call
-    // territory and we skip re-triggering. Poll fallback always
-    // qualifies (it's a full event by definition — VAPI's /call/{id}
-    // returns the merged final state).
+    // Pipeline trigger fires on:
+    //   1. "analysis" — split-event analysis arriving after a "basic"
+    //      first arrival (handled the create+autopipeline below).
+    //   2. Poll fallback — by definition the row never got its webhook,
+    //      so we owe it the pipeline run.
+    //   3. (#922) The FIRST end-of-call merge onto a placeholder Call
+    //      (created by /start or /outbound-dial). Pre-#922 this branch
+    //      assumed every "full" merge was a duplicate-fire on a row that
+    //      already triggered pipeline at its create path — but the
+    //      placeholder pre-creation flow means the placeholder NEVER
+    //      went through the create-and-autopipeline branch, so the
+    //      first real end-of-call merge is the only chance the pipeline
+    //      gets to run. Without this branch every PSTN/WebRTC call
+    //      finished with callSequence=null, transcript+cost recorded but
+    //      no scores/behaviour/adapt rows — which is why the AI greeted
+    //      every "subsequent" caller as a first-time learner.
     const shouldTriggerPipeline =
-      eventKind === "analysis" || sourceTag === "fallback";
+      eventKind === "analysis" ||
+      sourceTag === "fallback" ||
+      (eventKind === "full" && isFirstEndOfCall);
     if (shouldTriggerPipeline && updated.callerId) {
       triggerPipeline(updated.id, updated.callerId).catch((err) => {
         console.error(

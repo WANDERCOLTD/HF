@@ -192,6 +192,18 @@ export class VapiProvider implements VoiceProvider {
     const root = body as Record<string, unknown>;
     // VAPI nests under `message` for some events, root for others
     const message = (root.message ?? root) as Record<string, unknown>;
+
+    // #922 — Pre-fix this returned non-null for ANY message that had a
+    // call.id, which meant `conversation-update`, `speech-update`,
+    // `status-update`, and `assistant.started` (all of which include the
+    // call object) were misclassified as end-of-call events. That short-
+    // circuited the transcript-update branch in handleVoiceWebhookPost,
+    // so /sim's chat rail SSE never received broadcast events and the
+    // status-update trickle never ran. Discriminate by VAPI's
+    // `message.type`. Real end-of-call is `end-of-call-report`.
+    const messageType = (message.type ?? root.type) as string | undefined;
+    if (messageType !== "end-of-call-report") return null;
+
     const call = (message.call ?? message) as Record<string, unknown>;
 
     const externalCallId =
