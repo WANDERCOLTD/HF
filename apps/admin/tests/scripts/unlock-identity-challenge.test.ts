@@ -19,6 +19,25 @@ const mockPrisma = {
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
+/**
+ * Suppress the specific unhandled-rejection that the script's own
+ * main().catch() throws back into our exitSpy. The script's flow:
+ *   main() — calls process.exit(1) on bad argv → spy throws
+ *   main().catch(err) — calls console.error(err) + process.exit(1) → spy throws again
+ *   .finally(...) — runs $disconnect (mocked)
+ *   The final throw goes out as an unhandled rejection.
+ * Our test bodies have already asserted by then; we just need the
+ * runner not to flag it as an error. Scoped listener so we don't
+ * shadow real unhandled rejections from other tests.
+ */
+function suppressExitRejection(reason: unknown): void {
+  if (reason instanceof Error && reason.message.startsWith("process.exit(")) {
+    return;
+  }
+  // Non-matching rejection — rethrow so vitest still sees it.
+  throw reason;
+}
+
 describe("scripts/unlock-identity-challenge", () => {
   let originalArgv: string[];
   let exitSpy: ReturnType<typeof vi.spyOn>;
@@ -29,21 +48,20 @@ describe("scripts/unlock-identity-challenge", () => {
     vi.resetModules();
     vi.clearAllMocks();
     originalArgv = process.argv;
-    // No-op the exit so the script's main().catch() chain doesn't actually
-    // terminate the test process AND so the catch handler's process.exit(1)
-    // doesn't surface as an unhandled rejection after the test body has
-    // already asserted. Earlier this spy threw — that interrupted the catch
-    // chain and produced 2 unhandled rejections in the test runner's
-    // "Errors" pile. We assert call shape via exitSpy.toHaveBeenCalledWith
-    // instead, which doesn't depend on actually halting execution.
-    exitSpy = vi
-      .spyOn(process, "exit")
-      .mockImplementation(((_code?: number) => undefined) as never);
+    // exit MUST throw — otherwise the script's main() continues past the
+    // guard clauses and calls updateMany, breaking the "should not have
+    // updateMany'd" assertions below. The throw is the test's only way to
+    // interrupt the script's control flow without modifying the script.
+    exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`process.exit(${code})`);
+    }) as never);
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    process.on("unhandledRejection", suppressExitRejection);
   });
 
   afterEach(() => {
+    process.off("unhandledRejection", suppressExitRejection);
     process.argv = originalArgv;
     exitSpy.mockRestore();
     logSpy.mockRestore();
