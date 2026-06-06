@@ -69,22 +69,27 @@ describe("scripts/unlock-identity-challenge", () => {
 
   it("exits non-zero when no callerId is supplied", async () => {
     process.argv = ["node", "script"];
+    // The script's main() catches its own errors and calls process.exit(1).
+    // The catch chain swallows our exitSpy throw, so the import() resolves —
+    // we assert on the exit-spy call count, not on rejection.
+    await import("@/scripts/unlock-identity-challenge");
+    await new Promise((r) => setImmediate(r));
 
-    await expect(import("@/scripts/unlock-identity-challenge")).rejects.toThrow(
-      /process.exit\(1\)/,
-    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
     expect(errSpy).toHaveBeenCalledWith(
       expect.stringContaining("Usage:"),
     );
+    expect(mockPrisma.callerIdentityChallenge.updateMany).not.toHaveBeenCalled();
   });
 
   it("exits non-zero when caller does not exist", async () => {
     process.argv = ["node", "script", "missing"];
     mockPrisma.caller.findUnique.mockResolvedValue(null);
 
-    await expect(import("@/scripts/unlock-identity-challenge")).rejects.toThrow(
-      /process.exit\(1\)/,
-    );
+    await import("@/scripts/unlock-identity-challenge");
+    await new Promise((r) => setImmediate(r));
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
     expect(mockPrisma.callerIdentityChallenge.updateMany).not.toHaveBeenCalled();
   });
 });

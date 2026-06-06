@@ -78,12 +78,19 @@ describe("POST /api/identity/resend-pin", () => {
     const body = await res.json();
 
     expect(body).toEqual({ ok: true });
-    expect(mockIssueFirstCallPin).toHaveBeenCalledWith({
-      callerId: "caller-own",
-      email: "learner@example.com",
-      firstName: "Test",
-      isResend: true,
-    });
+    // #1120 added `originUrl` to issueFirstCallPin so resend-issued emails
+    // land on the same env the learner is on. Match by subset rather than
+    // by exact-equality so this assertion survives future param additions
+    // (e.g. when SMS rollout adds a channel hint).
+    expect(mockIssueFirstCallPin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        callerId: "caller-own",
+        email: "learner@example.com",
+        firstName: "Test",
+        isResend: true,
+        originUrl: expect.any(String),
+      }),
+    );
   });
 
   it("cap query filters resendCount > 0 (excludes initial issuance)", async () => {
