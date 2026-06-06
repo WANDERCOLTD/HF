@@ -108,10 +108,25 @@ async function main() {
       });
       if (existing) {
         if (existing.status === "PUBLISHED") {
-          // DB trigger refuses body/source mutation on PUBLISHED;
-          // application layer respects that here.
+          // #1140 Phase 2c — PUBLISHED-source backfill.
+          // The intake_spec_published_immutable_trigger blocks
+          // body/key/version/status mutations on PUBLISHED rows but
+          // intentionally NOT `source` (the column post-dated the
+          // trigger — see migration 20260606131540_1194_intake_spec_source).
+          // So an old PUBLISHED row with source = NULL is correctable
+          // by a source-only update. Body stays frozen.
+          if (existing.source === null) {
+            await prisma.intakeSpec.update({
+              where: { id: existing.id },
+              data: { source: seed.source },
+            });
+            console.log(
+              `[seed] ${seed.key}@${seed.version} — backfilled source on PUBLISHED row.`,
+            );
+            continue;
+          }
           console.log(
-            `[seed] ${seed.key}@${seed.version} — already PUBLISHED, skipping (immutable).`,
+            `[seed] ${seed.key}@${seed.version} — already PUBLISHED with source on record, skipping (immutable).`,
           );
           continue;
         }
