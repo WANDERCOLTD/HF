@@ -123,25 +123,60 @@ describe("POST /api/playbooks/:id/publish — #1117 LO ref guard", () => {
     expect(mockPrisma.playbook.update).not.toHaveBeenCalled();
   });
 
-  it("blocks publish with `error` severity when refs are duplicated across modules", async () => {
+  it("surfaces cross-module duplicate refs as a WARNING (publish still succeeds — covers IELTS Mock module pattern)", async () => {
+    // 2026-06-06 — downgraded from error after live audit found IELTS's
+    // intentional duplicates (Mock module re-references OUT-01/03/06 from
+    // part1/part2/part3 by design, per #494 coversModules). Warnings
+    // surface to the operator without hard-blocking publish.
     mockPrisma.playbook.findUnique.mockResolvedValue(makePlaybook());
     mockPrisma.playbookCurriculum.findMany.mockResolvedValue([{ curriculumId: "cur-1" }]);
     mockPrisma.learningObjective.findMany.mockResolvedValue([
-      { ref: "STD-04-A" },
-      { ref: "STD-04-B" },
-      { ref: "STD-04-A" }, // dup across module
-      { ref: "STD-09-X" },
+      // The IELTS shape: OUT-01 appears in BOTH part1 and mock.
+      { ref: "OUT-01" }, // part1
+      { ref: "OUT-02" }, // part1
+      { ref: "OUT-03" }, // part2
+      { ref: "OUT-04" }, // part2
+      { ref: "OUT-01" }, // mock — intentional cross-module ref
+      { ref: "OUT-03" }, // mock — intentional cross-module ref
+    ]);
+    mockPrisma.playbook.update.mockResolvedValue(makePublishedShape());
+
+    const res = await POST(buildReq(), buildParams());
+    const body = await res.json();
+
+    // Publish SUCCEEDS — no error severity entries.
+    expect(body.validationPassed).toBe(true);
+    const errors = body.validationErrors.filter((e: { severity: string }) => e.severity === "error");
+    expect(errors).toHaveLength(0);
+
+    // Warning IS surfaced with the duplicate refs named.
+    const warning = body.validationErrors.find(
+      (e: { severity: string; error: string }) =>
+        e.severity === "warning" && e.error.includes("duplicated across modules"),
+    );
+    expect(warning).toBeDefined();
+    expect(warning.error).toContain("OUT-01");
+    expect(warning.error).toContain("OUT-03");
+    expect(warning.error).toContain("coversModules"); // explains the intentional case
+  });
+
+  it("STILL blocks publish with `error` severity when refs match the placeholder pattern (the actual silent-failure case)", async () => {
+    // The placeholder check stays as a hard error — that's the case where
+    // per-LO mastery silently never lands. The duplicate downgrade does NOT
+    // affect this branch.
+    mockPrisma.playbook.findUnique.mockResolvedValue(makePlaybook());
+    mockPrisma.playbookCurriculum.findMany.mockResolvedValue([{ curriculumId: "cur-1" }]);
+    mockPrisma.learningObjective.findMany.mockResolvedValue([
+      { ref: "LO1" },
+      { ref: "LO2" },
     ]);
 
     const res = await POST(buildReq(), buildParams());
     const body = await res.json();
     expect(body.validationPassed).toBe(false);
     const errors = body.validationErrors.filter((e: { severity: string }) => e.severity === "error");
-    const duplicateErr = errors.find((e: { error: string }) =>
-      e.error.includes("duplicated across modules"),
-    );
-    expect(duplicateErr).toBeDefined();
-    expect(duplicateErr.error).toContain("STD-04-A");
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.find((e: { error: string }) => e.error.includes("placeholder pattern"))).toBeDefined();
   });
 
   it("does not run the LO guard when the Playbook has no PlaybookCurriculum link (content-only course)", async () => {
