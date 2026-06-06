@@ -28,6 +28,12 @@ function makeRequest(body: Record<string, unknown>): Request {
   Object.defineProperty(req, "cookies", {
     value: { get: () => undefined },
   });
+  // NextRequest.nextUrl.origin is read in app/api/join/[token]/route.ts
+  // when stamping the enrollment originUrl. A plain Request has no
+  // nextUrl, so the route NPEs without this stub.
+  Object.defineProperty(req, "nextUrl", {
+    value: { origin: "http://localhost" },
+  });
   return req;
 }
 
@@ -41,6 +47,7 @@ const mockPrisma = {
   },
   caller: {
     findFirst: vi.fn(),
+    findUnique: vi.fn().mockResolvedValue(null),
     create: vi.fn(),
   },
   callerCohortMembership: {
@@ -49,6 +56,19 @@ const mockPrisma = {
   },
   callerAttribute: {
     upsert: vi.fn(),
+  },
+  // POST /api/join/[token] calls issueFirstCallPin (#1101) which inserts
+  // a CallerIdentityChallenge row via prisma.callerIdentityChallenge.create.
+  // Returning a synthetic id is enough — the route reads `.id` to compose
+  // the email magic-link URL.
+  callerIdentityChallenge: {
+    create: vi.fn().mockResolvedValue({ id: "challenge-mock-id" }),
+  },
+  // Pin-email send goes through MessagingProvider.send (#1101). The provider
+  // resolution chain reads from messagingProvider.findFirst — empty result
+  // makes the route fall through to the no-op log path.
+  messagingProvider: {
+    findFirst: vi.fn().mockResolvedValue(null),
   },
   $transaction: vi.fn(),
 };

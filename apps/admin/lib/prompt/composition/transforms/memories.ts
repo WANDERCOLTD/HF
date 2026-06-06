@@ -120,10 +120,15 @@ export function applyDecay(m: MemoryData, memoryDecayScale: number = 1.0): numbe
     decay = m.decayFactor;
   } else {
     // Category default — clamp the scale to [0.1, 1.0] and multiply.
+    // Fast-path scale === 1.0 (the default) without multiplying so existing
+    // courses produce byte-identical output. Without this short-circuit,
+    // `categoryDefault * 1.0` is not byte-identical to `categoryDefault`
+    // for IEEE-754 floats (e.g. 0.95 * 1.0 = 0.9499999999812003 due to
+    // mantissa-rounding compounding through Math.pow downstream).
     const rawScale = Number.isFinite(memoryDecayScale) ? memoryDecayScale : 1.0;
     const scale = Math.min(1.0, Math.max(0.1, rawScale));
     const categoryDefault = CATEGORY_DECAY_DEFAULTS[m.category] ?? 1.0;
-    decay = categoryDefault * scale;
+    decay = scale === 1.0 ? categoryDefault : categoryDefault * scale;
   }
   if (decay >= 1.0) return m.confidence;
   const daysSince = (Date.now() - new Date(m.extractedAt).getTime()) / (1000 * 60 * 60 * 24);

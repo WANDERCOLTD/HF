@@ -8,14 +8,15 @@ import { describe, it, expect } from "vitest";
 import { EnrollmentIntake } from "@/lib/intake/specs/enrollment.intent";
 
 describe("EnrollmentIntake spec", () => {
-  it("declares the locked taxonomy of 9 user fields + Art 9 + classroom internals", () => {
+  it("declares the locked taxonomy of 10 user fields + Art 9 + classroom internals", () => {
     const keys = Object.keys(EnrollmentIntake.fields).sort();
     expect(keys).toEqual(
       [
-        // 9 user-facing
+        // 10 user-facing (phone added for Call Me / SMS PIN — #1101 trail)
         "firstName",
         "lastName",
         "email",
+        "phone",
         "displayName",
         "timezone",
         "preferredContactMethod",
@@ -54,9 +55,9 @@ describe("EnrollmentIntake spec", () => {
     expect(EnrollmentIntake.readiness(ctx)).toBe(false);
   });
 
-  it("declares 2 pre + 3 invariant + 2 post Contracts (adult-only moved to invariants via regulations-gdpr 0.3.x ageBand.adultOnly)", () => {
+  it("declares 2 pre + 4 invariant + 2 post Contracts (phone.format-valid added alongside email.format-valid)", () => {
     expect(EnrollmentIntake.contracts?.pre?.length).toBe(2);
-    expect(EnrollmentIntake.contracts?.invariants?.length).toBe(3);
+    expect(EnrollmentIntake.contracts?.invariants?.length).toBe(4);
     expect(EnrollmentIntake.contracts?.post?.length).toBe(2);
   });
 
