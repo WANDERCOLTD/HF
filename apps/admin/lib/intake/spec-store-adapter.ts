@@ -29,7 +29,7 @@
 // triggering Postgres P2002 on the (key, version) unique index.
 // The adapter catches P2002 and converts to ConflictError.
 
-import { Prisma, type IntakeSpec } from "@prisma/client";
+import type { IntakeSpec } from "@prisma/client";
 import type { CrawcusSpec } from "@tallyseal/crawcus-spec";
 import {
   createDraft,
@@ -77,10 +77,6 @@ export class ConflictError extends Error {
 // Adapter implementation.
 // ---------------------------------------------------------------------
 
-interface CrawcusSpecAuthoring extends CrawcusSpec {
-  readonly version: string | number; // body authoring uses string semver; runtime uses number
-}
-
 /**
  * Returns a SpecStore implementation backed by the IntakeSpec table.
  * Stateless — safe to call per-request from server components.
@@ -97,9 +93,11 @@ export function createSpecStoreAdapter(): SpecStore {
     },
 
     async saveDraft(spec) {
-      const authoring = spec as CrawcusSpecAuthoring;
-      const versionStr = String(authoring.version);
-      const keyStr = String(authoring.key);
+      // CrawcusSpec.version is typed as `number` (runtime semver-int);
+      // the IntakeSpec column is `String` (semver text, "1.0.0"). The
+      // serde stores whatever the editor produces — coerce defensively.
+      const versionStr = String(spec.version);
+      const keyStr = String(spec.key);
 
       const existing = await findByKeyVersion(keyStr, versionStr);
       if (existing !== null && existing.status === "PUBLISHED") {
@@ -116,19 +114,22 @@ export function createSpecStoreAdapter(): SpecStore {
       // to a single $transaction with serialisable isolation when
       // concurrent authoring becomes a real use case.
       try {
+        const body = serialiseSpec(spec);
         const row =
           existing !== null
-            ? await updateDraft({ id: existing.id, body: serialiseSpec(spec) })
-            : await createDraft({
-                key: keyStr,
-                version: versionStr,
-                body: serialiseSpec(spec),
-              });
+            ? await updateDraft({ id: existing.id, body })
+            : await createDraft({ key: keyStr, version: versionStr, body });
         return { id: row.id, version: row.version };
       } catch (err) {
+        // Duck-typed P2002 catch matches HF's canonical pattern
+        // (lib/chat/admin-tool-handlers.ts, lib/domain/quick-launch.ts).
+        // Avoids depending on the Prisma namespace, which the global
+        // vitest mock at tests/setup.ts strips.
         if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === "P2002"
+          typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          (err as { code: unknown }).code === "P2002"
         ) {
           throw new ConflictError(
             `Concurrent write detected on spec ${keyStr}@${versionStr}. Reload the editor and retry.`,

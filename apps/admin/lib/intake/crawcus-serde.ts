@@ -54,11 +54,15 @@ export function deserialiseBody(body: Prisma.JsonValue | null): CrawcusSpec | nu
  * JSON-serialisable interface per the @tallyseal/crawcus-spec types
  * (function fields like `readiness` would NOT serialise; this serde
  * assumes the caller passes a descriptor-shaped value).
+ *
+ * Returns Prisma.JsonValue (the IntakeSpec.body declared column type)
+ * to match the spec-store helpers' input shape; the cast to
+ * InputJsonValue happens inside spec-store at the prisma.* boundary.
  */
-export function serialiseSpec(spec: CrawcusSpec): Prisma.InputJsonValue {
+export function serialiseSpec(spec: CrawcusSpec): Prisma.JsonValue {
   // JSON-stringify-then-parse forces structural fidelity: any function
   // properties on `spec` (readiness, customReducer) drop out, leaving
   // only the JSON descriptors. This protects the DB from accidentally
   // attempting to persist a non-serialisable value.
-  return JSON.parse(JSON.stringify(spec)) as Prisma.InputJsonValue;
+  return JSON.parse(JSON.stringify(spec)) as Prisma.JsonValue;
 }

@@ -12,7 +12,19 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Prisma, type IntakeSpec } from "@prisma/client";
+import type { IntakeSpec } from "@prisma/client";
+
+// The global vi.mock("@prisma/client") at tests/setup.ts strips the
+// Prisma namespace, so we construct a duck-typed P2002 error here
+// matching what Prisma.PrismaClientKnownRequestError exposes. The
+// adapter catches via `err.code === "P2002"` (HF's canonical pattern
+// per lib/chat/admin-tool-handlers.ts), so the duck shape is enough.
+function makeP2002Error(message: string): Error & { code: string } {
+  return Object.assign(new Error(message), { code: "P2002" });
+}
+function makeOtherPrismaError(message: string): Error & { code: string } {
+  return Object.assign(new Error(message), { code: "P2010" });
+}
 
 // Mock the underlying spec-store helpers BEFORE importing the adapter.
 vi.mock("@/lib/intake/spec-store", () => ({
@@ -139,22 +151,16 @@ describe("createSpecStoreAdapter — saveDraft (upsert)", () => {
 
   it("converts Prisma P2002 (concurrent-tab race) into ConflictError", async () => {
     mocked.findByKeyVersion.mockResolvedValueOnce(null);
-    const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed on the fields: (`key`,`version`)",
-      { code: "P2002", clientVersion: "test" },
+    mocked.createDraft.mockRejectedValueOnce(
+      makeP2002Error("Unique constraint failed on the fields: (`key`,`version`)"),
     );
-    mocked.createDraft.mockRejectedValueOnce(p2002);
     const adapter = createSpecStoreAdapter();
     await expect(adapter.saveDraft(spec)).rejects.toBeInstanceOf(ConflictError);
   });
 
   it("does not catch non-P2002 Prisma errors", async () => {
     mocked.findByKeyVersion.mockResolvedValueOnce(null);
-    const other = new Prisma.PrismaClientKnownRequestError(
-      "Some other DB failure",
-      { code: "P2010", clientVersion: "test" },
-    );
-    mocked.createDraft.mockRejectedValueOnce(other);
+    mocked.createDraft.mockRejectedValueOnce(makeOtherPrismaError("Some other DB failure"));
     const adapter = createSpecStoreAdapter();
     await expect(adapter.saveDraft(spec)).rejects.not.toBeInstanceOf(ConflictError);
   });
