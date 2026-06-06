@@ -38,7 +38,19 @@ export interface OnboardingEditorProps {
   mode?: 'onboarding' | 'offboarding' | 'both';
 }
 
-type OnboardingSource = 'course' | 'domain' | 'none';
+/**
+ * Source attribution for the resolved onboarding flow (#1196):
+ *   - 'course': playbook authors its own override (`config.onboardingFlowPhases`
+ *               or the new-shape `config.sessionFlow.onboarding`)
+ *   - 'domain': institution-level fallback (`domain.onboardingFlowPhases`)
+ *   - 'system': INIT-001 spec / SystemSetting defaults — no course or domain
+ *               override exists. Pre-#1196 this was misleadingly remapped to
+ *               'domain' at this file's `fetchOnboarding`, making operators
+ *               believe their playbook had institution-inherited phases when
+ *               in fact only the system defaults were showing.
+ *   - 'none':   GET returned no resolvable source (kept for typing completeness).
+ */
+type OnboardingSource = 'course' | 'domain' | 'system' | 'none';
 type DomainMediaItem = { id: string; title: string | null; fileName: string; mimeType: string };
 type PhaseWithId = OnboardingPhase & { _id: string };
 
@@ -102,7 +114,13 @@ export function OnboardingEditor({
       const res = await fetch(`/api/courses/${courseId}/onboarding`);
       const data = await res.json();
       if (data.ok) {
-        setOnboardingSource(data.source === 'fallback' ? 'domain' : data.source);
+        // #1196 — direct assignment. Pre-#1196 the `'fallback'` source from
+        // the GET endpoint (meaning "INIT-001 / system defaults") was
+        // remapped to `'domain'` here, making the banner say "Inherited from
+        // Institution" even when NO institution config existed. The GET
+        // endpoint now returns `'system'` for that case; the UI surfaces a
+        // distinct banner explaining no override exists.
+        setOnboardingSource(data.source as OnboardingSource);
         setDomainWelcome(data.domainWelcome || null);
         setPersonaName(data.personaName || null);
         setDomainMedia(data.media || []);
@@ -494,6 +512,18 @@ export function OnboardingEditor({
       {onboardingSource === 'domain' && isDirty && (
         <div className="hf-banner hf-banner-warning hf-mb-sm">
           You are creating a custom onboarding flow for this course.
+        </div>
+      )}
+      {onboardingSource === 'system' && !isDirty && (
+        <div className="hf-banner hf-banner-info hf-mb-sm">
+          Using <strong>system defaults</strong> — neither this course nor{' '}
+          <strong>{domainName || 'the institution'}</strong> has configured onboarding phases.
+          Editing here creates a custom version for this course.
+        </div>
+      )}
+      {onboardingSource === 'system' && isDirty && (
+        <div className="hf-banner hf-banner-warning hf-mb-sm">
+          You are creating a custom onboarding flow for this course (overriding the system defaults).
         </div>
       )}
       {onboardingSource === 'course' && (
