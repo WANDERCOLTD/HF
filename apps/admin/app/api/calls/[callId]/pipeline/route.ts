@@ -3093,13 +3093,22 @@ async function updateTpMasteryAfterCall(
         select: { id: true, ref: true },
       });
       if (loRows.length > 0) {
+        // #1177 Slice 3 (partial — pipeline route hardcoded shape) — rekey to
+        // `playbook:{playbookId}:lo:{loRef}`. Variant Playbooks of the same
+        // Curriculum no longer collide on this key shape: each variant has
+        // its own playbookId, so per-LO assessment scores stay isolated.
+        // The 20260606152558 migration purges all legacy `curriculum:*:lo:*`
+        // rows in the same PR. (The lo_mastery:* contract-driven shape in
+        // track-progress.ts is its own rekey, deferred to a focused Slice 3
+        // ticket — see docs/CONTRACTS-PLAYBOOK-CURRICULUM.md §6.)
         for (const lo of loRows) {
           const score = learningAssessment.outcomes[lo.ref];
           if (score !== undefined) {
+            const key = `playbook:${enrolledPbForAssess}:lo:${lo.ref}`;
             await prisma.callerAttribute.upsert({
-              where: { callerId_key: { callerId, key: `curriculum:${pbCurr.slug}:lo:${lo.ref}` } },
+              where: { callerId_key: { callerId, key } },
               update: { value: String(score), updatedAt: new Date() },
-              create: { callerId, key: `curriculum:${pbCurr.slug}:lo:${lo.ref}`, value: String(score) },
+              create: { callerId, key, value: String(score) },
             });
           }
         }
