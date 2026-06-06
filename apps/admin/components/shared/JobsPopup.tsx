@@ -30,7 +30,6 @@ interface UserTask {
 }
 
 const JOB_TYPE_LABELS: Record<string, { label: string; resumePath: string; isBackground?: boolean }> = {
-  quick_launch: { label: 'Community', resumePath: '/x/quick-launch' },
   create_spec: { label: 'Create Spec', resumePath: '/x/specs' },
   configure_caller: { label: 'Configure Caller', resumePath: '/x/callers' },
   extraction: { label: 'Content Extraction', resumePath: '/x/content-sources', isBackground: true },

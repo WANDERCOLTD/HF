@@ -2450,7 +2450,6 @@ model Curriculum {
   // Curriculum.playbookId read on the hot Call path.
   playbookLinks PlaybookCurriculum[]
 
-  @@index([slug])
   @@index([sourceSpecId])
   @@index([trustLevel])
   @@index([validUntil])

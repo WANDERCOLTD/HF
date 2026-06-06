@@ -795,7 +795,7 @@ export async function executeWizardTool(
       try {
         const { prisma } = await import("@/lib/prisma");
         const { scaffoldDomain } = await import("@/lib/domain/scaffold");
-        const { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } = await import("@/lib/domain/quick-launch");
+        const { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } = await import("@/lib/domain/persona-loaders");
         const { applyBehaviorTargets, behaviorTargetsFromPresets } = await import("@/lib/domain/agent-tuning");
         const { enrollCaller } = await import("@/lib/enrollment");
         const { randomFakeName } = await import("@/lib/fake-names");
@@ -2131,7 +2131,7 @@ export async function executeWizardTool(
       try {
         const { prisma } = await import("@/lib/prisma");
         const { scaffoldDomain } = await import("@/lib/domain/scaffold");
-        const { loadPersonaFlowPhases, loadPersonaWelcomeTemplate } = await import("@/lib/domain/quick-launch");
+        const { loadPersonaFlowPhases, loadPersonaWelcomeTemplate } = await import("@/lib/domain/persona-loaders");
         const { config } = await import("@/lib/config");
         const crypto = await import("crypto");
 

@@ -49,13 +49,6 @@ test.describe('Cloud Smoke', () => {
     await expect(page).toHaveURL(/\/x\/specs/);
   });
 
-  test('should load Quick Launch page', async ({ page }) => {
-    await page.goto('/x/quick-launch');
-    await page.waitForLoadState('domcontentloaded');
-    await expect(page).toHaveURL(/\/x\/quick-launch/);
-    await expect(page.getByRole('heading', { name: 'Create Community' })).toBeVisible();
-  });
-
   test('should load Settings page', async ({ page }) => {
     await page.goto('/x/settings');
     await page.waitForLoadState('domcontentloaded');

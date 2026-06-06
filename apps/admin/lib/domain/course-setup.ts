@@ -15,7 +15,7 @@ import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import { filterLearningOutcomes } from "@/lib/domain/validate-learning-outcome";
 import slugify from "slugify";
 import { scaffoldDomain } from "@/lib/domain/scaffold";
-import { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } from "@/lib/domain/quick-launch";
+import { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } from "@/lib/domain/persona-loaders";
 import { applyBehaviorTargets } from "@/lib/domain/agent-tuning";
 import { enrollCaller, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
 import { instantiatePlaybookGoals } from "@/lib/enrollment/instantiate-goals";

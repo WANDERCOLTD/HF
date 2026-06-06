@@ -60,8 +60,10 @@ vi.mock("@/lib/content-trust/extract-curriculum", () => ({
   }),
 }));
 
-vi.mock("@/lib/domain/quick-launch", () => ({
+vi.mock("@/lib/domain/persona-loaders", () => ({
   loadPersonaFlowPhases: vi.fn().mockResolvedValue({ phases: [] }),
+  loadPersonaArchetype: vi.fn().mockResolvedValue(null),
+  loadPersonaWelcomeTemplate: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@/lib/ai/task-guidance", () => ({
