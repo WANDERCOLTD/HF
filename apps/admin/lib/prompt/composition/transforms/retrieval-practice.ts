@@ -20,6 +20,7 @@ import { buildLoMasteryMap } from "../lo-mastery-map";
 import type { AssembledContext, CompositionSectionDef } from "../types";
 import { computeInformationNeed, deriveQuestionCount } from "@/lib/assessment/information-need";
 import { selectRetrievalQuestions, type RetrievalQuestion } from "@/lib/assessment/retrieval-question-selector";
+import { seedFromStrings, shuffleOptions } from "@/lib/assessment/shuffle-options";
 import { prisma } from "@/lib/prisma";
 import { findCurriculumInfo } from "./modules";
 
@@ -157,7 +158,17 @@ registerTransform(
     }
 
     // ── Format prompt section ──
-    const formattedQuestions = questions.map((q, i) => formatQuestion(q, i + 1)).join("\n\n");
+    // #1067 — shuffle MCQ options at presentation time, deterministic per
+    // (callerId, questionId). The XAMS import convention places the correct
+    // answer at storage label A; without shuffle the AI tutor lists options
+    // in storage order and the student learns "A is always correct". Seed
+    // includes callerId so different learners get different shuffles
+    // (cohort-wide ~25/25/25/25 distribution) while same-learner retries
+    // reproduce the same labels for the same question.
+    const shuffleSeedCaller = loadedData.caller?.id ?? "";
+    const formattedQuestions = questions
+      .map((q, i) => formatQuestion(q, i + 1, shuffleSeedCaller))
+      .join("\n\n");
 
     console.log(
       `[retrieval-practice] ${mode} mode: injected ${questions.length} questions ` +
@@ -176,7 +187,11 @@ registerTransform(
   },
 );
 
-function formatQuestion(q: RetrievalQuestion, num: number): string {
+function formatQuestion(
+  q: RetrievalQuestion,
+  num: number,
+  callerSeed: string = "",
+): string {
   const parts = [`Q${num}: ${q.questionText}`];
 
   if (q.correctAnswer) {
@@ -190,7 +205,16 @@ function formatQuestion(q: RetrievalQuestion, num: number): string {
       const opts = Array.isArray(q.options)
         ? q.options
         : Object.values(q.options);
-      const optTexts = opts.map((o: any) => o.text ?? o.label ?? String(o));
+      // #1067 — deterministic shuffle per (callerId, questionId). callerSeed
+      // is "" for system calls without an enrolment; in that case shuffle
+      // still runs but is keyed only on questionId, which means each
+      // question still gets a stable permutation distinct from storage
+      // order. The AI tutor + voice reader pick this up via the printed
+      // text order; `correctAnswer` (stored as text) still resolves
+      // regardless of position.
+      const seed = seedFromStrings(callerSeed, q.id);
+      const shuffled = shuffleOptions(opts, seed);
+      const optTexts = shuffled.map((o: any) => o.text ?? o.label ?? String(o));
       parts.push(`    Options: ${optTexts.join(" | ")}`);
     } catch {
       // Options format unrecognised — skip

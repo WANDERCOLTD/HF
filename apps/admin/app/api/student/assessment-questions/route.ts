@@ -69,7 +69,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Post-test: comprehension → direct query; others → mirror pre-test
     if (isComprehension && enrollment?.playbookId) {
-      const result = await buildComprehensionPostTest(enrollment.playbookId);
+      // #1067 — pass callerId as the shuffle seed.
+      const result = await buildComprehensionPostTest(enrollment.playbookId, {
+        callerSeed: callerId,
+      });
       return NextResponse.json({ ok: true, ...result });
     }
 
@@ -105,9 +108,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     enrollment?.playbook?.config,
   );
 
-  // Try curriculum-scoped first, then fall back to playbook-wide search
+  // Try curriculum-scoped first, then fall back to playbook-wide search.
+  // #1067 — pass callerId as the shuffle seed so option order is
+  // deterministic per (caller, question).
   if (curriculumId) {
-    const result = await buildPreTest(curriculumId, { lockedOutcomeRefs });
+    const result = await buildPreTest(curriculumId, {
+      lockedOutcomeRefs,
+      callerSeed: callerId,
+    });
     if (!result.skipped) {
       return NextResponse.json({ ok: true, ...result });
     }
@@ -115,7 +123,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Playbook-wide fallback — searches all subjects' content sources
   if (enrollment?.playbookId) {
-    const result = await buildPreTestForPlaybook(enrollment.playbookId, { lockedOutcomeRefs });
+    const result = await buildPreTestForPlaybook(enrollment.playbookId, {
+      lockedOutcomeRefs,
+      callerSeed: callerId,
+    });
     return NextResponse.json({ ok: true, ...result });
   }
 

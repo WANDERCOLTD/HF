@@ -8,6 +8,11 @@ import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import type { SurveyStepConfig } from "@/lib/types/json-fields";
+import {
+  seedFromStrings,
+  shuffleOptions,
+  relabelByPosition,
+} from "@/lib/assessment/shuffle-options";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -315,27 +320,59 @@ async function fetchComprehensionQuestions(
 // Convert ContentQuestion → SurveyStepConfig
 // ---------------------------------------------------------------------------
 
-function toSurveyStep(q: ContentQuestionRow): SurveyStepConfig | null {
+function toSurveyStep(
+  q: ContentQuestionRow,
+  callerSeed: string = "",
+): SurveyStepConfig | null {
   const rawOptions = q.options as McqOption[] | null;
   if (!rawOptions || !Array.isArray(rawOptions) || rawOptions.length < 2) return null;
 
-  // Find the correct answer — either from the isCorrect flag or correctAnswer field
-  let correctValue: string | undefined;
-  const options = rawOptions.map((opt) => {
-    const value = opt.label; // "A", "B", "C", "D"
-    if (opt.isCorrect) correctValue = value;
-    return { value, label: `${opt.label}. ${opt.text}` };
-  });
-
-  // Fallback: match correctAnswer field against option labels
-  if (!correctValue && q.correctAnswer) {
+  // #1067 — locate the correct answer BEFORE shuffle. Either from the
+  // `isCorrect` flag (preferred — XAMS import) or from `correctAnswer`
+  // (legacy text match). We carry the "is the correct option" identity
+  // through the shuffle on each option's `isCorrect` flag and on
+  // `originalText`/`originalLabel` so we can recompute the new label
+  // post-shuffle.
+  let preCorrectLabel: string | undefined;
+  let preCorrectText: string | undefined;
+  for (const opt of rawOptions) {
+    if (opt.isCorrect) {
+      preCorrectLabel = opt.label;
+      preCorrectText = opt.text;
+      break;
+    }
+  }
+  if (!preCorrectLabel && q.correctAnswer) {
     const match = rawOptions.find(
       (opt) => opt.label === q.correctAnswer || opt.text === q.correctAnswer,
     );
-    if (match) correctValue = match.label;
+    if (match) {
+      preCorrectLabel = match.label;
+      preCorrectText = match.text;
+    }
   }
+  if (!preCorrectLabel || !preCorrectText) return null;
 
-  if (!correctValue) return null;
+  // #1067 — deterministic shuffle, then relabel by post-shuffle position so
+  // the renderer can present "A. … | B. … | C. …" with the correct answer
+  // landing in a different slot across learners.
+  const seed = seedFromStrings(callerSeed, q.id);
+  const shuffled = relabelByPosition(shuffleOptions(rawOptions, seed));
+
+  let correctValue: string | undefined;
+  const options = shuffled.map((opt) => {
+    // After relabel, opt.label is the NEW position label (A/B/C/D in
+    // shuffled order). `isCorrect` travels through, so the correct
+    // option's new label becomes correctValue.
+    if (opt.isCorrect) correctValue = opt.label;
+    return { value: opt.label, label: `${opt.label}. ${opt.text}` };
+  });
+
+  if (!correctValue) {
+    // Belt-and-braces fall-through: re-locate by text match after shuffle.
+    const match = shuffled.find((opt) => opt.text === preCorrectText);
+    correctValue = match?.label ?? preCorrectLabel;
+  }
 
   return {
     id: q.id,
@@ -369,6 +406,17 @@ export interface BuildPreTestOptions {
    * a server-side warning so the pre-test is never silently skipped.
    */
   lockedOutcomeRefs?: string[];
+  /**
+   * #1067 — seed for the deterministic per-question option shuffle. Typically
+   * the caller's `Caller.id`; combined with each question's id to produce a
+   * stable permutation per (caller, question). Different learners see
+   * different label positions for the same question → cohort-wide
+   * ~25/25/25/25 distribution across A/B/C/D. Same learner sees the same
+   * permutation on retry/refresh. Falls back to "" when missing, which
+   * still produces a stable per-question shuffle (all learners see the
+   * same one) — better than no shuffle, worse than per-learner.
+   */
+  callerSeed?: string;
 }
 
 /**
@@ -443,7 +491,12 @@ async function buildFromSourceIds(
     : fillUp(filledFromLocked, allQuestions, assessmentCfg.questionCount);
 
   // Convert to SurveyStepConfig
-  const steps = selected.map(toSurveyStep).filter((s): s is SurveyStepConfig => s !== null);
+  // #1067 — thread the caller seed through so the shuffle is stable per
+  // (caller, question) and the same learner sees the same labels on retry.
+  const callerSeed = opts?.callerSeed ?? "";
+  const steps = selected
+    .map((q) => toSurveyStep(q, callerSeed))
+    .filter((s): s is SurveyStepConfig => s !== null);
 
   if (steps.length === 0) {
     return { questions: [], questionIds: [], skipped: true, skipReason: "no_valid_mcq" };
@@ -496,7 +549,12 @@ export async function buildPostTest(callerId: string): Promise<PreTestResult> {
   const byId = new Map(questions.map((q) => [q.id, q]));
   const ordered = questionIds.map((id) => byId.get(id)).filter((q): q is ContentQuestionRow => !!q);
 
-  const steps = ordered.map(toSurveyStep).filter((s): s is SurveyStepConfig => s !== null);
+  // #1067 — post-test reuses pre-test question IDs; shuffle with the same
+  // (callerId, questionId) seed so the same learner sees the same option
+  // labels on the post-test as they did on the pre-test.
+  const steps = ordered
+    .map((q) => toSurveyStep(q, callerId))
+    .filter((s): s is SurveyStepConfig => s !== null);
 
   return {
     questions: steps,
@@ -511,7 +569,10 @@ export async function buildPostTest(callerId: string): Promise<PreTestResult> {
  * Does NOT depend on pre-test question IDs — comprehension courses skip pre-tests.
  * Selects questions spread across comprehension skillRefs (SKILL-01 through SKILL-06).
  */
-export async function buildComprehensionPostTest(playbookId: string): Promise<PreTestResult> {
+export async function buildComprehensionPostTest(
+  playbookId: string,
+  opts?: { callerSeed?: string },
+): Promise<PreTestResult> {
   const sourceIds = await getSourceIdsForPlaybook(playbookId);
   if (sourceIds.length === 0) {
     return { questions: [], questionIds: [], skipped: true, skipReason: "no_content_source" };
@@ -526,7 +587,11 @@ export async function buildComprehensionPostTest(playbookId: string): Promise<Pr
   const primary = selectBySkillSpread(allQuestions, assessmentCfg.questionCount);
   const selected = fillUp(primary, allQuestions, assessmentCfg.questionCount);
 
-  const steps = selected.map(toSurveyStep).filter((s): s is SurveyStepConfig => s !== null);
+  // #1067 — thread the caller seed for per-(caller, question) shuffle.
+  const callerSeed = opts?.callerSeed ?? "";
+  const steps = selected
+    .map((q) => toSurveyStep(q, callerSeed))
+    .filter((s): s is SurveyStepConfig => s !== null);
 
   if (steps.length === 0) {
     return { questions: [], questionIds: [], skipped: true, skipReason: "no_valid_mcq" };
