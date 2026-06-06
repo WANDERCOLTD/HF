@@ -76,9 +76,14 @@ export default async function IntakeSpecDetailPage({
     }
   };
 
-  const deploySpecAction: DeploySpecCallback = async (_input) => {
+  const deploySpecAction: DeploySpecCallback = async (input) => {
     "use server";
     try {
+      // input.humanDescription is captured for audit (would land in
+      // a SpecDeployRecord row in a Phase 2c follow-up). Phase 2b
+      // publishes by id only; the editor-side description goes
+      // through unused for now.
+      void input;
       const store = createSpecStoreAdapter();
       const { deployOutcome } = await store.publish(id);
       if (deployOutcome.kind === "ok") {

@@ -30,9 +30,11 @@
 // The adapter catches P2002 and converts to ConflictError.
 
 import type { IntakeSpec } from "@prisma/client";
-import type { CrawcusSpec } from "@tallyseal/crawcus-spec";
 // #1194 — SpecStore + SpecSummary now imported from the vendored
-// admin-editor package (was inline in Phase 2b-prep).
+// admin-editor package (was inline in Phase 2b-prep). CrawcusSpec
+// import dropped — adapter no longer references it directly;
+// SpecStore.load() returns CrawcusSpec via the interface, and the
+// underlying serde uses the broader Prisma.JsonValue surface.
 import type { SpecStore, SpecSummary } from "@tallyseal/admin-editor";
 import {
   createDraft,
