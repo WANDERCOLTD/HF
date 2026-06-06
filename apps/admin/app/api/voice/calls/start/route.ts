@@ -160,21 +160,33 @@ export async function POST(request: Request) {
     // couldn't pick the right specs and the #1006 / I-C1 module-lock
     // invariant silently short-circuited (audit observed 100% null
     // requestedModuleId on the voice path).
-    const activePlaybookId = await resolveActivePlaybookId(caller.id);
+    //
+    // Defensive: resolver / playbook-lookup failures must NOT crash
+    // call-start. Fall through to the pre-G6 unscoped placeholder
+    // behaviour — webhook patches playbookId when the provider sends
+    // its first event.
+    let activePlaybookId: string | null = null;
     let defaultModuleSlug: string | null = null;
     let defaultModuleCurriculumId: string | null = null;
-    if (activePlaybookId) {
-      const defaultModule = await resolveDefaultModuleForCaller(
-        caller.id,
-        activePlaybookId,
-      );
-      if (defaultModule) {
-        defaultModuleSlug = defaultModule.moduleSlug;
-        defaultModuleCurriculumId = defaultModule.curriculumModuleId;
-        console.log(
-          `[voice/calls/start] G6 auto-resolved module for caller=${caller.id.slice(0, 8)} playbook=${activePlaybookId.slice(0, 8)} → ${defaultModule.moduleSlug} (source: ${defaultModule.source})`,
+    try {
+      activePlaybookId = await resolveActivePlaybookId(caller.id);
+      if (activePlaybookId) {
+        const defaultModule = await resolveDefaultModuleForCaller(
+          caller.id,
+          activePlaybookId,
         );
+        if (defaultModule) {
+          defaultModuleSlug = defaultModule.moduleSlug;
+          defaultModuleCurriculumId = defaultModule.curriculumModuleId;
+          console.log(
+            `[voice/calls/start] G6 auto-resolved module for caller=${caller.id.slice(0, 8)} playbook=${activePlaybookId.slice(0, 8)} → ${defaultModule.moduleSlug} (source: ${defaultModule.source})`,
+          );
+        }
       }
+    } catch (err: any) {
+      console.warn(
+        `[voice/calls/start] G6 playbook/module resolver threw — placeholder Call created unscoped. caller=${caller.id.slice(0, 8)} error=${err?.message ?? "unknown"}`,
+      );
     }
 
     // Pre-create the Call row so the SSE channel has a stable id. The

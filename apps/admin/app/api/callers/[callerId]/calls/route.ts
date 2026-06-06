@@ -184,18 +184,29 @@ export async function POST(
     // the #1006 / I-C1 module-lock invariant has something to enforce. Pre-G6
     // 61% of IELTS V1.0 calls landed with null requestedModuleId, silently
     // skipping the invariant and re-exposing Maya-class hallucination risk.
+    //
+    // Defensive: a resolver failure (curriculum walk error, etc.) must NOT
+    // crash call-create. Fall through to the pre-G6 null behaviour and let
+    // the upstream invariant + scheduler handle the unscoped path. Resolver
+    // errors are logged but swallowed.
     let finalRequestedModuleId = requestedModuleId;
     let finalCurriculumModuleId = resolvedCurriculumModuleId;
     if (!finalRequestedModuleId && !finalCurriculumModuleId && resolvedPlaybookId) {
-      const defaultModule = await resolveDefaultModuleForCaller(
-        callerId,
-        resolvedPlaybookId,
-      );
-      if (defaultModule) {
-        finalRequestedModuleId = defaultModule.moduleSlug;
-        finalCurriculumModuleId = defaultModule.curriculumModuleId;
-        console.log(
-          `[calls/create] G6 auto-resolved module for caller=${callerId.slice(0, 8)} playbook=${resolvedPlaybookId.slice(0, 8)} → ${defaultModule.moduleSlug} (source: ${defaultModule.source})`,
+      try {
+        const defaultModule = await resolveDefaultModuleForCaller(
+          callerId,
+          resolvedPlaybookId,
+        );
+        if (defaultModule) {
+          finalRequestedModuleId = defaultModule.moduleSlug;
+          finalCurriculumModuleId = defaultModule.curriculumModuleId;
+          console.log(
+            `[calls/create] G6 auto-resolved module for caller=${callerId.slice(0, 8)} playbook=${resolvedPlaybookId.slice(0, 8)} → ${defaultModule.moduleSlug} (source: ${defaultModule.source})`,
+          );
+        }
+      } catch (err: any) {
+        console.warn(
+          `[calls/create] G6 resolver threw — falling through to legacy null behaviour. caller=${callerId.slice(0, 8)} playbook=${resolvedPlaybookId.slice(0, 8)} error=${err?.message ?? "unknown"}`,
         );
       }
     }

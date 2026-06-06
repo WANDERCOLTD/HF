@@ -119,14 +119,21 @@ describe("POST /api/callers/[callerId]/calls — module slug resolver (#491 Slic
     expect(mockPrisma.call.create).not.toHaveBeenCalled();
   });
 
-  it("call-create works when requestedModuleId is absent (legacy path)", async () => {
+  it("call-create works when requestedModuleId is absent — G6 auto-resolves default module from playbook", async () => {
+    // G6 / #1154 — legacy path no longer leaves the call unscoped. The
+    // resolveDefaultModuleForCaller helper consults the curriculum walk
+    // chain (CallerModuleProgress → playbook's first CurriculumModule).
+    // When the playbook has no curriculum at all, the resolver returns
+    // null and call.create still succeeds with no requestedModuleId.
+    mockPrisma.curriculum.findFirst.mockResolvedValue(null); // simulate "no curriculum on this playbook"
+
     const res = await POST(makeReq({}), { params });
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(mockPrisma.curriculum.findFirst).not.toHaveBeenCalled();
-    expect(mockPrisma.curriculumModule.findFirst).not.toHaveBeenCalled();
+    // G6: the resolver IS consulted (changed from pre-G6 invariant that
+    // asserted curriculum.findFirst was not called).
     expect(mockPrisma.call.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.not.objectContaining({
