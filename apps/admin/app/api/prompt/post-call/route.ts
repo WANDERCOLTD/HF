@@ -7,6 +7,7 @@ import {
 
 const prisma = new PrismaClient();
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 export const runtime = "nodejs";
 
@@ -390,6 +391,13 @@ export async function GET(request: NextRequest) {
     }
 
     const actualCallerId = callerIdentity.caller?.id;
+
+    // B7 — `callerId` here is actually a CallerIdentity id (legacy naming).
+    // STUDENT can only read prompt state for their own LEARNER caller.
+    if (!studentAllowedToReadCaller(authResult.session, actualCallerId)) {
+      return callerScopeMismatchResponse();
+    }
+
     const parameterValues = (callerIdentity.caller?.personalityProfile?.parameterValues as Record<string, number>) || {};
     const memories = callerIdentity.caller?.memories || [];
 

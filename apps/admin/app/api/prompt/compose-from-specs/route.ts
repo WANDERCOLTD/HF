@@ -7,6 +7,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 export const runtime = "nodejs";
 
@@ -180,6 +181,11 @@ export async function GET(request: NextRequest) {
       parameterValues: {},
     };
 
+    // B7 — direct callerId branch: STUDENT can only read their own.
+    if (callerId && !studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
+
     // Fetch parameter values
     if (callerId) {
       const callerProfile = await prisma.callerPersonalityProfile.findUnique({
@@ -199,6 +205,11 @@ export async function GET(request: NextRequest) {
           },
         },
       });
+      // B7 — indirect callerIdentityId branch: check the resolved Caller.id
+      // after the lookup. STUDENT supplying a foreign identity is rejected.
+      if (callerIdentity?.caller && !studentAllowedToReadCaller(authResult.session, callerIdentity.caller.id)) {
+        return callerScopeMismatchResponse();
+      }
       if (callerIdentity?.caller) {
         context.callerId = callerIdentity.caller.id;
         if (callerIdentity.caller.personalityProfile?.parameterValues) {

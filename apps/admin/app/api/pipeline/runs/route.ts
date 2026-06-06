@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCallerScopeForReading, isScopeError } from "@/lib/learner-scope";
 import { parsePagination } from "@/lib/api-utils";
 
 interface CompositionInputs {
@@ -48,7 +49,12 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
 
-  const callerId = searchParams.get("callerId");
+  const requestedCallerId = searchParams.get("callerId");
+  // B7 — STUDENT sessions are locked to their own LEARNER caller; OPERATOR+
+  // passes the requested id through (null = no filter, admin browsing).
+  const scope = await resolveCallerScopeForReading(authResult.session, requestedCallerId);
+  if (isScopeError(scope)) return scope.error;
+  const callerId = scope.scopedCallerId;
   const { limit, offset } = parsePagination(searchParams, { defaultLimit: 20 });
 
   try {

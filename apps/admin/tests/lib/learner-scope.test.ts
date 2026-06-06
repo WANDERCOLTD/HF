@@ -22,7 +22,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-function makeSession(role: string, userId = "user-1"): Session {
+function makeSession(role: string, userId = "user-1", learnerCallerId: string | null = null): Session {
   return {
     expires: new Date(Date.now() + 86400000).toISOString(),
     user: {
@@ -31,6 +31,7 @@ function makeSession(role: string, userId = "user-1"): Session {
       name: "U",
       image: null,
       role,
+      learnerCallerId,
     },
   } as unknown as Session;
 }
@@ -142,5 +143,72 @@ describe("lib/learner-scope", () => {
       );
       expect(result).toEqual({ scopedCallerId: "any" });
     });
+  });
+
+  describe("STUDENT JWT fast-path (A5)", () => {
+    it("uses learnerCallerId from the JWT claim without a DB hit", async () => {
+      const result = await resolveCallerScopeForReading(
+        makeSession("STUDENT", "user-1", "claim-caller"),
+        "foreign-caller",
+      );
+
+      expect(result).toEqual({ scopedCallerId: "claim-caller" });
+      expect(mockCallerFindFirst).not.toHaveBeenCalled();
+    });
+
+    it("falls back to DB for pre-A5 sessions (no claim)", async () => {
+      mockCallerFindFirst.mockResolvedValueOnce({ id: "db-caller" });
+
+      const result = await resolveCallerScopeForReading(
+        makeSession("STUDENT", "user-1", null),
+        "foreign-caller",
+      );
+
+      expect(result).toEqual({ scopedCallerId: "db-caller" });
+      expect(mockCallerFindFirst).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+describe("lib/learner-scope.studentAllowedToReadCaller", () => {
+  let studentAllowedToReadCaller: typeof import("@/lib/learner-scope").studentAllowedToReadCaller;
+
+  beforeEach(async () => {
+    const mod = await import("@/lib/learner-scope");
+    studentAllowedToReadCaller = mod.studentAllowedToReadCaller;
+  });
+
+  it("returns true when STUDENT owns the resource", () => {
+    expect(
+      studentAllowedToReadCaller(makeSession("STUDENT", "u", "own"), "own"),
+    ).toBe(true);
+  });
+
+  it("returns false when STUDENT requests a foreign resource", () => {
+    expect(
+      studentAllowedToReadCaller(makeSession("STUDENT", "u", "own"), "foreign"),
+    ).toBe(false);
+  });
+
+  it("returns false when STUDENT has no claim and would otherwise read anything", () => {
+    expect(
+      studentAllowedToReadCaller(makeSession("STUDENT", "u", null), "any"),
+    ).toBe(false);
+  });
+
+  it("returns false when STUDENT requests a resource with no callerId", () => {
+    expect(
+      studentAllowedToReadCaller(makeSession("STUDENT", "u", "own"), null),
+    ).toBe(false);
+  });
+
+  it("returns true for OPERATOR regardless of resource id", () => {
+    expect(
+      studentAllowedToReadCaller(makeSession("OPERATOR"), "any-foreign-id"),
+    ).toBe(true);
+  });
+
+  it("returns true for ADMIN reading a null-caller resource", () => {
+    expect(studentAllowedToReadCaller(makeSession("ADMIN"), null)).toBe(true);
   });
 });

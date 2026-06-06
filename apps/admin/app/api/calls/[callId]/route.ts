@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 export async function GET(
   request: NextRequest,
@@ -168,6 +169,13 @@ export async function GET(
         { ok: false, error: "Call not found" },
         { status: 404 }
       );
+    }
+
+    // B7 — STUDENT can only read their own caller's call. Edge middleware
+    // can't catch this (callId → callerId resolution needs a DB hit), so
+    // the check happens here against the JWT claim stamped in A5.
+    if (!studentAllowedToReadCaller(authResult.session, call.callerId)) {
+      return callerScopeMismatchResponse();
     }
 
     // Fetch effective behavior targets for this caller
@@ -461,6 +469,13 @@ export async function PATCH(
         { ok: false, error: "Call not found" },
         { status: 404 }
       );
+    }
+
+    // B7 — same scope check on the write path. STUDENT PATCHing a foreign
+    // call's transcript/summary would silently corrupt another learner's
+    // record without this.
+    if (!studentAllowedToReadCaller(authResult.session, call.callerId)) {
+      return callerScopeMismatchResponse();
     }
 
     const updateData: any = {};
