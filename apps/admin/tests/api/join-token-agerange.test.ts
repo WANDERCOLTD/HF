@@ -56,6 +56,19 @@ const mockPrisma = {
   callerAttribute: {
     upsert: vi.fn(),
   },
+  // POST /api/join/[token] calls issueFirstCallPin (#1101) which inserts
+  // a CallerIdentityChallenge row via prisma.callerIdentityChallenge.create.
+  // Returning a synthetic id is enough — the route reads `.id` to compose
+  // the email magic-link URL.
+  callerIdentityChallenge: {
+    create: vi.fn().mockResolvedValue({ id: "challenge-mock-id" }),
+  },
+  // Pin-email send goes through MessagingProvider.send (#1101). The provider
+  // resolution chain reads from messagingProvider.findFirst — empty result
+  // makes the route fall through to the no-op log path.
+  messagingProvider: {
+    findFirst: vi.fn().mockResolvedValue(null),
+  },
   $transaction: vi.fn(),
 };
 
