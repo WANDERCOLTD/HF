@@ -61,8 +61,12 @@ export async function GET(
   // Resolve teaching profile + playbook context: caller → enrollment →
   // playbook → subject. We pull the playbook id + name as well so the
   // module-mastery branch (below) can render the course name.
+  // #1167 — prefer primary (isDefault) then most recently enrolled when a
+  // learner has multiple ACTIVE enrollments. Without orderBy the trajectory
+  // would show data from a non-deterministic course.
   const enrollment = await prisma.callerPlaybook.findFirst({
     where: { callerId, status: "ACTIVE" },
+    orderBy: [{ isDefault: "desc" }, { enrolledAt: "desc" }],
     select: {
       playbookId: true,
       playbook: {

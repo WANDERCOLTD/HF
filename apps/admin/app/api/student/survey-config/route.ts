@@ -35,8 +35,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const auth = await requireStudentOrAdmin(request);
     if (isStudentAuthError(auth)) return auth.error;
 
+    // #1167 — prefer primary (isDefault) then most recently enrolled when a
+    // learner has multiple ACTIVE enrollments. Without orderBy, Prisma's
+    // findFirst returned a non-deterministic row.
     const enrollment = await prisma.callerPlaybook.findFirst({
       where: { callerId: auth.callerId, status: "ACTIVE" },
+      orderBy: [{ isDefault: "desc" }, { enrolledAt: "desc" }],
       select: {
         playbook: {
           select: {
