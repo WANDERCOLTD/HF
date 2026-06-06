@@ -100,13 +100,46 @@ export class VapiProvider implements VoiceProvider {
       server: { url: toolsServerUrl },
     }));
 
+    // #1176 — custom-llm branch routes every voice turn through HF's
+    // own /api/voice/llm-proxy endpoint so the LLM call flows through
+    // HF's metered AI wrapper (cost tracking, prompt caching, model
+    // swap via voice.model setting, audit trail). VAPI's role becomes
+    // STT → HF proxy → TTS — VAPI no longer needs its own Anthropic /
+    // OpenAI key.
+    //
+    // The shared secret is implicit: VAPI's custom-llm POSTs include an
+    // `x-vapi-secret` header that the proxy verifies via timingSafeEqual
+    // against VoiceProvider.credentials.webhookSecret. Same value used
+    // for webhook HMAC — one credential, two purposes.
+    //
+    // Other providers (openai, anthropic, google, etc.) keep working
+    // unchanged — VAPI's stack uses its own dashboard credentials.
+    const isCustomLlm = ctx.modelConfig.provider === "custom-llm";
+    // ctx.serverUrlBase is the per-provider prefix
+    // ("https://<host>/api/voice/<slug>"). The llm-proxy lives one
+    // level up at "https://<host>/api/voice/llm-proxy/chat/completions"
+    // — same host, different path. Strip the trailing provider segment
+    // and append the proxy path.
+    const customLlmProxyUrl = ctx.serverUrlBase
+      .replace(new RegExp(`/${this.slug}$`), "")
+      .concat("/llm-proxy/chat/completions");
+    const modelBlock: Record<string, unknown> = isCustomLlm
+      ? {
+          provider: "custom-llm",
+          url: customLlmProxyUrl,
+          model: ctx.modelConfig.model,
+          messages: [{ role: "system", content: ctx.voicePrompt }],
+          ...(tools.length > 0 ? { tools } : {}),
+        }
+      : {
+          provider: ctx.modelConfig.provider,
+          model: ctx.modelConfig.model,
+          messages: [{ role: "system", content: ctx.voicePrompt }],
+          ...(tools.length > 0 ? { tools } : {}),
+        };
+
     const assistant: Record<string, unknown> = {
-      model: {
-        provider: ctx.modelConfig.provider,
-        model: ctx.modelConfig.model,
-        messages: [{ role: "system", content: ctx.voicePrompt }],
-        ...(tools.length > 0 ? { tools } : {}),
-      },
+      model: modelBlock,
       serverUrl: webhookUrl,
     };
 

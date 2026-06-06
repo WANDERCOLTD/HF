@@ -15233,6 +15233,39 @@ Health snapshot for a voice provider (AnyVoice #1080).
 
 ---
 
+### `POST` /api/voice/llm-proxy/chat/completions
+
+OpenAI-compatible chat-completions endpoint. VAPI's
+
+**Auth**: x-vapi-secret header
+
+**Response** `200`
+```json
+(streamed) — OpenAI chat-completion SSE chunks
+```
+
+**Response** `200`
+```json
+(non-streamed) — `{ id, choices: [{message,finish_reason}], usage }`
+```
+
+**Response** `400`
+```json
+— un-parseable request body
+```
+
+**Response** `401`
+```json
+— bad / missing `x-vapi-secret`
+```
+
+**Response** `500`
+```json
+— Anthropic upstream error (OpenAI-format error body)
+```
+
+---
+
 ### `GET` /api/voice/telemetry/[providerId]
 
 Recent telemetry rows for a voice provider (AnyVoice
@@ -15541,8 +15574,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 496 |
-| Files with annotations | 487 |
+| Route files found | 497 |
+| Files with annotations | 488 |
 | Files missing annotations | 9 |
 | Coverage | 98.2% |
 
