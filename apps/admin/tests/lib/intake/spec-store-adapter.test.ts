@@ -62,6 +62,7 @@ function makeRow(overrides: Partial<IntakeSpec> = {}): IntakeSpec {
       contracts: { invariants: [] },
       readiness: { kind: "all-required" },
     } as object,
+    source: null, // #1194 — added in Phase 2b
     status: "DRAFT",
     parentKey: null,
     createdById: null,

@@ -6,8 +6,12 @@
 // fallback (see migration). Both layers must hold.
 //
 // Storage shape:
-//   - body: JSON, mirrors @tallyseal/crawcus-spec's CrawcusSpec
-//     { key, version, fields, contracts: { invariants }, readiness }
+//   - source: TS code authored via @tallyseal/admin-editor; canonical
+//     authoring form. Parsed by spec-emitter into EditableSpec at
+//     editor mount. Nullable for Phase 2a rows that pre-date #1194 —
+//     re-seed populates.
+//   - body: JSON cache projected from source (list page reads body
+//     without spec-emitter parse). Stays in sync via the adapter.
 //   - status: DRAFT (mutable) | PUBLISHED (immutable post-publish)
 //   - (key, version) is unique
 //
@@ -31,6 +35,7 @@ export interface CreateDraftInput {
   key: string;
   version: string;
   body: IntakeSpecBody;
+  source?: string | null;
   parentKey?: string | null;
   createdById?: string | null;
 }
@@ -41,6 +46,7 @@ export async function createDraft(input: CreateDraftInput): Promise<IntakeSpec> 
       key: input.key,
       version: input.version,
       body: input.body as Prisma.InputJsonValue,
+      source: input.source ?? null,
       status: "DRAFT",
       parentKey: input.parentKey ?? null,
       createdById: input.createdById ?? null,
@@ -51,6 +57,7 @@ export async function createDraft(input: CreateDraftInput): Promise<IntakeSpec> 
 export interface UpdateDraftInput {
   id: string;
   body: IntakeSpecBody;
+  source?: string | null;
 }
 
 export async function updateDraft(input: UpdateDraftInput): Promise<IntakeSpec> {
@@ -65,7 +72,10 @@ export async function updateDraft(input: UpdateDraftInput): Promise<IntakeSpec> 
   }
   return prisma.intakeSpec.update({
     where: { id: input.id },
-    data: { body: input.body as Prisma.InputJsonValue },
+    data: {
+      body: input.body as Prisma.InputJsonValue,
+      ...(input.source !== undefined ? { source: input.source } : {}),
+    },
   });
 }
 

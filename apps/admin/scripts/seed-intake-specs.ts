@@ -1,17 +1,18 @@
-// #1140 Phase 2a — idempotent seed for IntakeSpec table.
+// #1140 Phase 2a + #1194 Phase 2b — idempotent seed for IntakeSpec table.
 //
 // Seeds two demonstration specs so the /x/intake/specs list page has
-// content on first load post-migration:
+// content on first load post-migration, AND the editor at
+// /x/intake/specs/[id] has a canonical TS source to parse.
 //
-//   - CreateRecipe @ 1.0.0 (PUBLISHED) — mirrors the Phase 1 spike at
-//     lib/wizard-v6/specs/create-recipe.crawcus.ts. 4-field reference
-//     spec that proves the storage layer can hold a real CrawcusSpec.
-//   - CreateCourse @ 0.1.0 (DRAFT) — placeholder for the V5 → V6 port
-//     (Phase 3 work). Empty fields object; admin-editable once Phase 2b
-//     (editor surface) ships.
+// Each seed declares:
+//   - body: JSON cache projection of the spec (list page reads this without parse)
+//   - source: TS source matching @tallyseal/spec-emitter parse() documented shape
 //
-// Both writes are idempotent via findFirst-then-upsert keyed on
-// (key, version). Safe to re-run.
+// Both writes are idempotent via findByKeyVersion → upsert keyed on
+// (key, version). Safe to re-run. Re-running an existing seeded row
+// updates source + body in-place; PUBLISHED rows are left alone
+// (the DB trigger intake_spec_published_immutable_trigger refuses
+// mutation anyway).
 //
 // L0 MetaSpec.crawcus.ts is NOT seeded here — blocked on tallyseal
 // Ask 1 (field.json() with validator). See
@@ -19,17 +20,47 @@
 //
 // Usage on hf-dev VM:
 //   cd apps/admin && npx tsx scripts/seed-intake-specs.ts
-//
-// Hooked into db:seed via package.json scripts (Phase 2a follow-up
-// commit if needed).
 
 import { PrismaClient, type Prisma } from "@prisma/client";
+
+const CREATE_RECIPE_SOURCE = `import { defineCrawcusSpec, field } from '@tallyseal/core';
+
+export const CreateRecipe = defineCrawcusSpec({
+  key: "CreateRecipe",
+  projection: "Recipe",
+  version: 1,
+  fields: {
+    recipeName: field.string().required(),
+    servings: field.integer().required(),
+    cuisine: field.string().optional(),
+    difficulty: field.enum(["easy", "medium", "hard"]).required(),
+  },
+  readiness: ({ has }) => has("recipeName", "servings", "difficulty"),
+});
+`;
+
+const CREATE_COURSE_SOURCE = `import { defineCrawcusSpec, field } from '@tallyseal/core';
+
+export const CreateCourse = defineCrawcusSpec({
+  key: "CreateCourse",
+  projection: "Course",
+  version: 1,
+  fields: {
+    // Phase 2c will port all 27 V5 Build Course fields here via the
+    // admin-editor UI. Phase 2b ships the wire-up against an empty
+    // shell — the editor can add fields interactively from here.
+    placeholder: field.string().optional(),
+  },
+  readiness: ({ has }) => has("placeholder"),
+});
+`;
 
 const SEEDS: Array<{
   key: string;
   version: string;
   status: "DRAFT" | "PUBLISHED";
   body: Prisma.InputJsonValue;
+  source: string;
 }> = [
   {
     key: "CreateRecipe",
@@ -37,27 +68,18 @@ const SEEDS: Array<{
     status: "PUBLISHED",
     body: {
       key: "CreateRecipe",
-      version: "1.0.0",
-      // Mirrors lib/wizard-v6/specs/create-recipe.crawcus.ts shape.
-      // Hand-flattened to JSON so the storage layer can round-trip
-      // without needing the spec-emitter (tallyseal Sprint E #63).
+      version: 1,
+      projection: "Recipe",
       fields: {
         recipeName: { type: "string", required: true },
-        servings: { type: "integer", required: true, min: 1 },
+        servings: { type: "integer", required: true },
         cuisine: { type: "string", required: false },
-        difficulty: {
-          type: "enum",
-          required: true,
-          values: ["easy", "medium", "hard"],
-        },
+        difficulty: { type: "enum", required: true, values: ["easy", "medium", "hard"] },
       },
-      contracts: {
-        invariants: [],
-      },
-      readiness: {
-        kind: "all-required",
-      },
+      contracts: { invariants: [] },
+      readiness: { kind: "all-required" },
     },
+    source: CREATE_RECIPE_SOURCE,
   },
   {
     key: "CreateCourse",
@@ -65,18 +87,15 @@ const SEEDS: Array<{
     status: "DRAFT",
     body: {
       key: "CreateCourse",
-      version: "0.1.0",
-      // Empty placeholder. Phase 3 ports the 27-node V5 Build Course
-      // graph (graph-nodes.ts) into this spec via the editor surface
-      // (Phase 2b — blocked on tallyseal Ask 2).
-      fields: {},
-      contracts: {
-        invariants: [],
+      version: 1,
+      projection: "Course",
+      fields: {
+        placeholder: { type: "string", required: false },
       },
-      readiness: {
-        kind: "all-required",
-      },
+      contracts: { invariants: [] },
+      readiness: { kind: "all-required" },
     },
+    source: CREATE_COURSE_SOURCE,
   },
 ];
 
@@ -89,6 +108,8 @@ async function main() {
       });
       if (existing) {
         if (existing.status === "PUBLISHED") {
+          // DB trigger refuses body/source mutation on PUBLISHED;
+          // application layer respects that here.
           console.log(
             `[seed] ${seed.key}@${seed.version} — already PUBLISHED, skipping (immutable).`,
           );
@@ -96,9 +117,11 @@ async function main() {
         }
         await prisma.intakeSpec.update({
           where: { id: existing.id },
-          data: { body: seed.body, status: seed.status },
+          data: { body: seed.body, source: seed.source, status: seed.status },
         });
-        console.log(`[seed] ${seed.key}@${seed.version} — updated (${seed.status}).`);
+        console.log(
+          `[seed] ${seed.key}@${seed.version} — updated body + source (${seed.status}).`,
+        );
         continue;
       }
       const created = await prisma.intakeSpec.create({
@@ -106,6 +129,7 @@ async function main() {
           key: seed.key,
           version: seed.version,
           body: seed.body,
+          source: seed.source,
           status: seed.status,
           publishedAt: seed.status === "PUBLISHED" ? new Date() : null,
         },
