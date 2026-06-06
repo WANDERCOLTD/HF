@@ -512,7 +512,13 @@ export default function CallerDetailPage() {
 
   const filteredCalls = useMemo(() => {
     if (!data?.calls || !callMatchSet) return data?.calls || [];
-    return data.calls.filter((c) => c.playbookId && callMatchSet.has(c.playbookId));
+    // Null-playbookId calls predate the per-call stamping feature; show them
+    // under every filter (the alternative — hiding them — leaves callers like
+    // Levi Grant with a "10 calls" badge and zero rows). Matches the same
+    // tolerance the filteredPrompts memo below already applies.
+    return data.calls.filter(
+      (c) => !c.playbookId || callMatchSet.has(c.playbookId),
+    );
   }, [data?.calls, callMatchSet]);
 
   const filteredPrompts = useMemo(() => {
