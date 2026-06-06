@@ -2911,10 +2911,6 @@ model Playbook {
   // Direct content scoping — which content sources belong to this course
   playbookSources PlaybookSource[]
 
-  /// @deprecated #1034 — direct Curriculum.playbookId is the legacy
-  /// primary-owner pointer. Prefer reading via playbookCurricula. Dropped in #1038.
-  curricula Curriculum[] @relation("PlaybookCurricula")
-
   // #1034 — many-to-many link to Curricula. Variant Playbooks share a
   // Curriculum with their parent via a `linked` row; the parent owns a
   // `primary` row. Required for the variant Course product line.

@@ -655,7 +655,11 @@ export async function GET(
         const los = await prisma.learningObjective.findMany({
           where: {
             ref: { in: Array.from(refs) },
-            module: { curriculum: { playbookId: pbId } },
+            module: {
+              curriculum: {
+                playbookLinks: { some: { playbookId: pbId } },
+              },
+            },
           },
           select: { ref: true, description: true, moduleId: true },
         });

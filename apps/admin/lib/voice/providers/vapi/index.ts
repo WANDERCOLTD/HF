@@ -116,24 +116,30 @@ export class VapiProvider implements VoiceProvider {
     // unchanged — VAPI's stack uses its own dashboard credentials.
     const isCustomLlm = ctx.modelConfig.provider === "custom-llm";
     // ctx.serverUrlBase is the per-provider prefix
-    // ("https://<host>/api/voice/<slug>"). The llm-proxy lives one
-    // level up at "https://<host>/api/voice/llm-proxy/chat/completions"
-    // — same host, different path. Strip the trailing provider segment
-    // and append the proxy path.
+    // ("https://<host>/api/voice/<slug>"). The llm-proxy route lives at
+    // "<host>/api/voice/llm-proxy/chat/completions" — but VAPI's
+    // custom-llm client APPENDS "/chat/completions" to whatever url we
+    // send, so we hand it the BASE without that suffix and let VAPI
+    // tack it on. Same applies to query strings: VAPI's concat is naive
+    // and `?secret=abc123` becomes `?secret=abc123/chat/completions`
+    // when VAPI mangles the end. So no query auth either.
+    //
+    // #922 lessons:
+    //   1. `assistant.model.secret` — REJECTED by VAPI schema
+    //      ("property secret should not exist"). #1187's assumption
+    //      was wrong.
+    //   2. `?secret=...` query — VAPI naively concatenates
+    //      "/chat/completions" onto the END, mangling the value.
+    //   3. Pass-through auth (empty webhookSecret) — works in dev.
+    //      Prod will need a path-segment scheme.
     const customLlmProxyUrl = ctx.serverUrlBase
       .replace(new RegExp(`/${this.slug}$`), "")
-      .concat("/llm-proxy/chat/completions");
+      .concat("/llm-proxy");
+    void ctx.customLlmSecret; // intentionally unused — see comment above
     const modelBlock: Record<string, unknown> = isCustomLlm
       ? {
           provider: "custom-llm",
           url: customLlmProxyUrl,
-          // VAPI sends this value as `x-vapi-secret` on every chat-
-          // completions POST to the proxy. The proxy timing-safe-compares
-          // against the SAME VoiceProvider's credentials.webhookSecret.
-          // One credential, two purposes (webhook HMAC + custom-llm
-          // auth). Omit when undefined — proxy passes through in
-          // pass-through mode on local dev.
-          ...(ctx.customLlmSecret ? { secret: ctx.customLlmSecret } : {}),
           model: ctx.modelConfig.model,
           messages: [{ role: "system", content: ctx.voicePrompt }],
           ...(tools.length > 0 ? { tools } : {}),

@@ -83,7 +83,31 @@ export async function verifyVapiSecret(
     return { ok: true, providerSlug: providerRow.slug };
   }
 
-  const presented = request.headers.get(HEADER_NAME) ?? "";
+  // #922 — VAPI's inline custom-llm spec rejects `model.secret`, so the
+  // assistant config encodes the secret as `?secret=` on the URL instead.
+  // Accept from EITHER the header (long-term preferred) OR the query
+  // param (current VAPI-compatible path).
+  const headerVal = request.headers.get(HEADER_NAME) ?? "";
+  let queryVal = "";
+  let urlParseError: string | null = null;
+  try {
+    queryVal = new URL(request.url).searchParams.get("secret") ?? "";
+  } catch (e) {
+    urlParseError = e instanceof Error ? e.message : String(e);
+  }
+  const presented = headerVal || queryVal;
+  log("system", "voice.llm_proxy.secret.debug", {
+    level: "info",
+    slug,
+    requestUrl: request.url,
+    headerValLen: headerVal.length,
+    queryValLen: queryVal.length,
+    presentedLen: presented.length,
+    urlParseError,
+    expectedLen: expectedRaw.length,
+    expectedHead: expectedRaw.slice(0, 2),
+    queryValHead: queryVal.slice(0, 4),
+  });
   if (!presented) {
     log("system", "voice.llm_proxy.secret.missing_header", {
       level: "error",
@@ -93,51 +117,46 @@ export async function verifyVapiSecret(
     return {
       ok: false,
       response: NextResponse.json(
-        { error: { message: `Missing ${HEADER_NAME} header`, type: "auth_error" } },
+        { error: { message: `Missing secret (header ${HEADER_NAME} or ?secret query)`, type: "auth_error" } },
         { status: 401 },
       ),
     };
   }
 
+  // #922 — Accept if EITHER header OR query matches. VAPI may send its
+  // own `x-vapi-secret` value (call signature) at a different length, so
+  // we can't pick one source-of-truth. Validate both candidates with a
+  // timing-safe compare against the expected value.
   const expectedBuf = Buffer.from(expectedRaw);
-  const presentedBuf = Buffer.from(presented);
+  const candidates: Array<{ source: "header" | "query"; value: string }> = [];
+  if (headerVal) candidates.push({ source: "header", value: headerVal });
+  if (queryVal) candidates.push({ source: "query", value: queryVal });
 
-  if (expectedBuf.length !== presentedBuf.length) {
-    log("system", "voice.llm_proxy.secret.length_mismatch", {
-      level: "error",
-      slug,
-      expectedLen: expectedBuf.length,
-      presentedLen: presentedBuf.length,
-    });
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: { message: "Invalid secret", type: "auth_error" } },
-        { status: 401 },
-      ),
-    };
+  for (const { source, value } of candidates) {
+    const buf = Buffer.from(value);
+    if (buf.length === expectedBuf.length && crypto.timingSafeEqual(expectedBuf, buf)) {
+      log("system", "voice.llm_proxy.secret.ok", {
+        level: "info",
+        slug,
+        expectedLen: expectedBuf.length,
+        source,
+      });
+      return { ok: true, providerSlug: providerRow.slug };
+    }
   }
 
-  if (!crypto.timingSafeEqual(expectedBuf, presentedBuf)) {
-    log("system", "voice.llm_proxy.secret.value_mismatch", {
-      level: "error",
-      slug,
-      expectedLen: expectedBuf.length,
-      presentedLen: presentedBuf.length,
-    });
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: { message: "Invalid secret", type: "auth_error" } },
-        { status: 401 },
-      ),
-    };
-  }
-
-  log("system", "voice.llm_proxy.secret.ok", {
-    level: "info",
+  log("system", "voice.llm_proxy.secret.no_match", {
+    level: "error",
     slug,
     expectedLen: expectedBuf.length,
+    candidateSources: candidates.map((c) => c.source),
+    candidateLens: candidates.map((c) => c.value.length),
   });
-  return { ok: true, providerSlug: providerRow.slug };
+  return {
+    ok: false,
+    response: NextResponse.json(
+      { error: { message: "Invalid secret", type: "auth_error" } },
+      { status: 401 },
+    ),
+  };
 }
