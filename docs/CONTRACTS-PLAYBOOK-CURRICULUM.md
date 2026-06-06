@@ -82,9 +82,9 @@ Every Curriculum-writing route must write **all three** of:
 
 | Route / helper | Curriculum | Legacy FK | Primary join | Status | Notes |
 |---|---|---|---|---|---|
-| `POST /api/curricula` (`route.ts:105-113`) | ✓ | ✓ | ✗ | **ORPHAN-BUG — must fix before #1177 Slice 6** | Writes Curriculum + FK; no `PlaybookCurriculum.create`. Variants linked via join can't be discovered. |
-| `POST /api/courses/[courseId]/regenerate-curriculum` (`route.ts:137-147`) | ✓ | ✓ | ✗ | **ORPHAN-BUG — must fix** | Same shape. Regeneration mints a new Curriculum without join row. |
-| `POST /api/subjects/[subjectId]/curriculum` (`route.ts:262-336`) | ✓ (upsert) | ✓ | conditional | **PARTIAL — sibling-link path safe; fresh-mint path is orphan-bug** | When `siblingLink` resolves via anchor match → join row written at line 262-275. When fresh mint → upsert at line 305 writes Curriculum + FK, no join. |
+| `POST /api/curricula` (`route.ts`) | ✓ | ✓ | ✓ (`primary`) | **CLEAN — fixed #1202 (bb4a4b27)** | `$transaction` + `ensurePrimaryPlaybookLink` helper. |
+| `POST /api/courses/[courseId]/regenerate-curriculum` (`route.ts`) | ✓ | ✓ | ✓ (`primary`) | **CLEAN — fixed #1203 (bb4a4b27)** | Fresh-mint branch wraps Curriculum.create + helper in `$transaction`; existingCurr reuse path unchanged. |
+| `POST /api/subjects/[subjectId]/curriculum` (`route.ts`) | ✓ (upsert) | ✓ | ✓ (`primary`) | **CLEAN — fixed #1204 (bb4a4b27)** | Fresh-mint upsert now wraps in `$transaction` + helper; pre-existing sibling-link path preserved. |
 | `POST /api/playbooks/[id]/variant` → `lib/playbooks/create-variant.ts` (`:169-176`) | — | — | ✓ (`linked`) | **CLEAN — canonical CC-A pattern** | Join-only. Reuses parent's Curriculum. |
 | `lib/wizard/apply-projection.ts::ensureCurriculum` (`:352-374`) | ✓ | ✓ | ✓ (`primary`) | **CLEAN — canonical pattern** | All three writes inside one `prisma.$transaction`. The blessed example. |
 | `lib/wizard/sync-authored-modules-to-curriculum.ts` (`:95-108`) | ✓ (fallback) | ✓ | ✓ | **CLEAN** | Dual-write inside transaction; creates join row immediately after Curriculum row. |
@@ -115,9 +115,19 @@ await prisma.$transaction(async (tx) => {
 
 The transaction wrapper is non-negotiable. Writing `Curriculum` first and `PlaybookCurriculum` second outside a transaction is the exact failure mode of the #1184 bug — a partial write that survived the request leaves a permanent orphan.
 
+### Reusable helper (canonical wrapper)
+
+`lib/curriculum/ensure-primary-playbook-link.ts::ensurePrimaryPlaybookLink(tx, { playbookId, curriculumId })` encodes the canonical step (3) above.
+
+- **Idempotent**: existing row → leave it alone (a `linked` variant must NOT be silently promoted to `primary`).
+- **Throws** on empty `playbookId` or `curriculumId`.
+- **Must be called inside the same `$transaction` as the `Curriculum.create` / `upsert`.**
+
+Three routes adopted the helper in `bb4a4b27` (#1202/#1203/#1204). New write paths must use it; reviewers reject hand-rolled `playbookCurriculum.create` calls in create-routes.
+
 ### Action items (file per route)
 
-- File `curriculum-playbook-duality` issues for the three ORPHAN-BUG routes above, blocking Epic #1177 Slice 4.
+- ✅ #1202/#1203/#1204 — three ORPHAN-BUG routes fixed via shared helper (shipped `bb4a4b27`, 2026-06-06).
 - The `/api/lab/features/[id]/activate` path is lab-only and low blast — defer to a follow-up.
 
 ---
@@ -494,6 +504,7 @@ If you are adding new code that touches Curriculum, Playbook, PlaybookCurriculum
 - **Retro labels** (`curriculum-playbook-duality`):
   - #1184 — orphan-Curriculum bug class (closed by #1191 / #1198)
   - #1191 — quick-launch retire
+  - #1202 / #1203 / #1204 — orphan-Curriculum create-routes (closed by `bb4a4b27` via shared `ensurePrimaryPlaybookLink` helper)
   - #1167, #1145, #1154 — earlier duality-adjacent fixes
   - #611, #614 — slug-form / name-form lo_mastery key migration
 
