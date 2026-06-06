@@ -20,6 +20,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { seedFromSpecs, loadSpecFiles, setPrismaClient } from "./seed-from-specs";
 import { seedToleranceParameters } from "./seed-tolerance-parameters";
+import { seedCioCtoBehTargets } from "./seed-cio-cto-beh-targets";
 import { config } from "../lib/config";
 
 let prisma: PrismaClient;
@@ -464,6 +465,16 @@ export async function main(externalPrisma?: PrismaClient, opts?: { reset?: boole
   const toleranceResult = await seedToleranceParameters(prisma);
   console.log(
     `   ✓ Tolerance parameters: ${toleranceResult.created} created, ${toleranceResult.updated} updated`,
+  );
+
+  // 1c. Seed CIO/CTO variant-trio BEH-* BehaviorTarget overlays (G4 / #1145).
+  // Idempotent; runs after the Parameter rows exist (Step 1b) but before
+  // infrastructure (Step 2) so the CIO/CTO Playbooks pick them up on first
+  // pipeline call. Skips gracefully when the CIO/CTO Playbooks don't exist
+  // (fresh DB before the variant trio is created).
+  const cioCtoResult = await seedCioCtoBehTargets(prisma);
+  console.log(
+    `   ✓ CIO/CTO BEH-* targets: ${cioCtoResult.targetsWritten} written across ${cioCtoResult.playbooksProcessed} playbook(s) (${cioCtoResult.playbooksSkipped} skipped — playbook not present)`,
   );
 
   // 2. Create minimal infrastructure (domain, playbook)
