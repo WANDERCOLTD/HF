@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { list, type SpecSummary } from "@/lib/intake/spec-store";
 import "./intake-specs.css";
