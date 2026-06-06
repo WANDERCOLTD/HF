@@ -138,10 +138,17 @@ function parseTranscript(transcript: string): { role: "user" | "assistant"; cont
   const messages: { role: "user" | "assistant"; content: string }[] = [];
   const lines = transcript.split("\n");
   let current: { role: "user" | "assistant"; content: string } | null = null;
+  // VAPI emits "AI: …" / "User: …" prefixes. Some legacy/sim transcripts
+  // use "Assistant: …". Match all three — without "AI:" the AI turns get
+  // silently appended to the previous user turn, collapsing the whole
+  // transcript into a single Learner block (the bug screenshot).
   for (const line of lines) {
     if (line.startsWith("User: ")) {
       if (current) messages.push(current);
       current = { role: "user", content: line.slice(6) };
+    } else if (line.startsWith("AI: ")) {
+      if (current) messages.push(current);
+      current = { role: "assistant", content: line.slice(4) };
     } else if (line.startsWith("Assistant: ")) {
       if (current) messages.push(current);
       current = { role: "assistant", content: line.slice(11) };
