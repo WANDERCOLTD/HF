@@ -167,9 +167,10 @@ beforeEach(() => {
   mockIsAuthError.mockReturnValue(false);
   mockPrisma.contentQuestion.groupBy.mockResolvedValue([]);
   mockPrisma.learningObjective.findMany.mockResolvedValue([]);
+  // #1177 Slice 6 — resolveCurriculumIdForPlaybook reads canonical join.
   // Default curriculum resolution returns a real id so recommendNextModule
   // gets invoked. Individual cases override as needed.
-  mockPrisma.curriculum.findFirst.mockResolvedValue({ id: "curr-1" });
+  mockPrisma.playbookCurriculum.findFirst.mockResolvedValue({ curriculumId: "curr-1" });
   mockPrisma.curriculumModule.findMany.mockResolvedValue([]);
   mockPrisma.callerModuleProgress.findMany.mockResolvedValue([]);
 });

@@ -52,17 +52,12 @@ describe("resolveCurriculumIdForPlaybook — #1034", () => {
     });
   });
 
-  it("falls back to deprecated Curriculum.playbookId only when no join row exists", async () => {
-    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue(null);
-    mockPrisma.curriculum.findFirst.mockResolvedValue({ id: "c-legacy" });
-    await expect(
-      mod.resolveCurriculumIdForPlaybook("pb-legacy"),
-    ).resolves.toBe("c-legacy");
-  });
+  // #1177 Slice 6 — the deprecated-column fallback was removed with the
+  // Curriculum.playbookId column drop in #1038. Single-path resolution now.
+  // Backfill ensures every Curriculum has a join row.
 
-  it("returns null when neither join nor deprecated column matches", async () => {
+  it("returns null when no join row exists", async () => {
     mockPrisma.playbookCurriculum.findFirst.mockResolvedValue(null);
-    mockPrisma.curriculum.findFirst.mockResolvedValue(null);
     await expect(
       mod.resolveCurriculumIdForPlaybook("pb-orphan"),
     ).resolves.toBeNull();
@@ -73,6 +68,5 @@ describe("resolveCurriculumIdForPlaybook — #1034", () => {
     await expect(mod.resolveCurriculumIdForPlaybook(undefined)).resolves.toBeNull();
     await expect(mod.resolveCurriculumIdForPlaybook("")).resolves.toBeNull();
     expect(mockPrisma.playbookCurriculum.findFirst).not.toHaveBeenCalled();
-    expect(mockPrisma.curriculum.findFirst).not.toHaveBeenCalled();
   });
 });

@@ -118,23 +118,25 @@ describe("resolveModuleByLogicalId", () => {
 });
 
 describe("resolveCurriculumIdForPlaybook", () => {
+  const mockedPlaybookCurriculumFindFirst = prisma.playbookCurriculum.findFirst as ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
-    mockedCurriculumFindFirst.mockReset();
+    mockedPlaybookCurriculumFindFirst.mockReset().mockResolvedValue(null);
   });
 
-  it("returns the curriculum id when one is attached", async () => {
-    mockedCurriculumFindFirst.mockResolvedValue({ id: "curr-1" });
+  it("returns the curriculum id from the canonical PlaybookCurriculum join", async () => {
+    mockedPlaybookCurriculumFindFirst.mockResolvedValue({ curriculumId: "curr-1" });
     const result = await resolveCurriculumIdForPlaybook("pb-1");
     expect(result).toBe("curr-1");
-    expect(mockedCurriculumFindFirst).toHaveBeenCalledWith({
+    expect(mockedPlaybookCurriculumFindFirst).toHaveBeenCalledWith({
       where: { playbookId: "pb-1" },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+      select: { curriculumId: true },
     });
   });
 
   it("returns null when the playbook has no curriculum", async () => {
-    mockedCurriculumFindFirst.mockResolvedValue(null);
+    mockedPlaybookCurriculumFindFirst.mockResolvedValue(null);
     const result = await resolveCurriculumIdForPlaybook("pb-empty");
     expect(result).toBeNull();
   });
@@ -143,6 +145,6 @@ describe("resolveCurriculumIdForPlaybook", () => {
     expect(await resolveCurriculumIdForPlaybook(null)).toBeNull();
     expect(await resolveCurriculumIdForPlaybook(undefined)).toBeNull();
     expect(await resolveCurriculumIdForPlaybook("")).toBeNull();
-    expect(mockedCurriculumFindFirst).not.toHaveBeenCalled();
+    expect(mockedPlaybookCurriculumFindFirst).not.toHaveBeenCalled();
   });
 });

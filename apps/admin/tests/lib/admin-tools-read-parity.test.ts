@@ -184,7 +184,8 @@ describe("Cmd+K read-parity tools (#852 follow-up)", () => {
 
   describe("list_curriculum_modules", () => {
     it("resolves curriculum from playbook_id", async () => {
-      mockPrisma.curriculum.findFirst.mockResolvedValue({ id: "curr-1" });
+      // #1177 Slice 6 — canonical PlaybookCurriculum join (no deprecated FK).
+      mockPrisma.playbookCurriculum.findFirst.mockResolvedValueOnce({ curriculumId: "curr-1" });
       mockPrisma.curriculumModule.findMany.mockResolvedValue([
         {
           id: "m-1",
@@ -212,7 +213,7 @@ describe("Cmd+K read-parity tools (#852 follow-up)", () => {
     });
 
     it("returns note when playbook has no curriculum yet", async () => {
-      mockPrisma.curriculum.findFirst.mockResolvedValue(null);
+      mockPrisma.playbookCurriculum.findFirst.mockResolvedValueOnce(null);
       const raw = await executeAdminTool(
         "list_curriculum_modules",
         { playbook_id: "pb-1" },
