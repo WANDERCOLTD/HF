@@ -28,6 +28,12 @@ function makeRequest(body: Record<string, unknown>): Request {
   Object.defineProperty(req, "cookies", {
     value: { get: () => undefined },
   });
+  // NextRequest.nextUrl.origin is read in app/api/join/[token]/route.ts
+  // when stamping the enrollment originUrl. A plain Request has no
+  // nextUrl, so the route NPEs without this stub.
+  Object.defineProperty(req, "nextUrl", {
+    value: { origin: "http://localhost" },
+  });
   return req;
 }
 

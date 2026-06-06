@@ -187,10 +187,16 @@ function buildMockPrisma() {
     // #1034 — bump-curriculum-fanout helper + ensureCurriculum read
     // playbookCurriculum to detect shared-curriculum links. Empty findMany
     // keeps the fanout helper's `.length` access from NPE'ing.
+    //
+    // upsert: ensureCurriculum (apply-projection.ts:255) promotes an
+    // existing link's role via upsert when reusing a curriculum already
+    // attached. Missing this mock surfaces as "tx.playbookCurriculum.upsert
+    // is not a function".
     playbookCurriculum: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({}),
+      upsert: vi.fn().mockResolvedValue({}),
     },
     $transaction: vi.fn(),
   };
