@@ -104,19 +104,22 @@ export async function POST(req: NextRequest) {
     }
 
     const curriculum = await prisma.$transaction(async (tx) => {
+      // #1177 Slice 6 / #1038 — Curriculum.playbookId dropped. Ownership lives
+      // entirely in PlaybookCurriculum via the helper below.
       const created = await tx.curriculum.create({
         data: {
           slug,
           name: name.trim(),
           subjectId: subjectId || null,
-          playbookId,
         },
-        select: { id: true, slug: true, name: true, subjectId: true, playbookId: true },
+        select: { id: true, slug: true, name: true, subjectId: true },
       });
       if (playbookId) {
         await ensurePrimaryPlaybookLink(tx, playbookId, created.id);
       }
-      return created;
+      return playbookId
+        ? { ...created, playbookId }
+        : { ...created, playbookId: null };
     });
 
     return NextResponse.json({ ok: true, curriculum });

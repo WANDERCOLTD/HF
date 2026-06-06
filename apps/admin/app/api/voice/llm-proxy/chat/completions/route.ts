@@ -29,6 +29,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 import { config } from "@/lib/config";
+import { log } from "@/lib/logger";
 import { logAIUsage } from "@/lib/metering/usage-logger";
 import { logVoiceEvent, startVoiceSpan } from "@/lib/voice/telemetry";
 
@@ -88,8 +89,18 @@ export async function POST(request: Request) {
     operation: "voice_llm_proxy",
   });
 
+  const callIdHeader = request.headers.get("x-vapi-call-id") ?? null;
+  log("api", "voice.llm_proxy.arrive", {
+    level: "info",
+    callId: callIdHeader,
+    userAgent: request.headers.get("user-agent") ?? null,
+    hasSecretHeader: request.headers.get("x-vapi-secret") !== null,
+    message: "VAPI custom-llm POST landed",
+  });
+
   const auth = await verifyVapiSecret(request, VAPI_SLUG);
   if (!auth.ok) {
+    log("system", "voice.llm_proxy.auth_failed", { level: "error", callId: callIdHeader });
     endSpan({ errorMessage: "Auth failed" });
     return auth.response!;
   }
@@ -99,6 +110,11 @@ export async function POST(request: Request) {
     body = (await request.json()) as OpenAIChatCompletionRequest;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    log("system", "voice.llm_proxy.bad_json", {
+      level: "error",
+      callId: callIdHeader,
+      message: msg,
+    });
     endSpan({ errorMessage: `Invalid JSON body: ${msg}` });
     return NextResponse.json(
       { error: { message: `Invalid JSON: ${msg}`, type: "invalid_request_error" } },
@@ -106,11 +122,38 @@ export async function POST(request: Request) {
     );
   }
 
+  const systemCharCount = (() => {
+    const sys = (body as Record<string, unknown>).messages as
+      | Array<{ role?: string; content?: unknown }>
+      | undefined;
+    if (!Array.isArray(sys)) return 0;
+    const sysMsg = sys.find((m) => m?.role === "system");
+    return typeof sysMsg?.content === "string" ? sysMsg.content.length : 0;
+  })();
+  log("api", "voice.llm_proxy.body_parsed", {
+    level: "info",
+    callId: callIdHeader,
+    model: (body as Record<string, unknown>).model ?? null,
+    messageCount: Array.isArray((body as Record<string, unknown>).messages)
+      ? ((body as Record<string, unknown>).messages as unknown[]).length
+      : 0,
+    systemCharCount,
+    toolCount: Array.isArray((body as Record<string, unknown>).tools)
+      ? ((body as Record<string, unknown>).tools as unknown[]).length
+      : 0,
+    stream: Boolean((body as Record<string, unknown>).stream),
+  });
+
   let translated;
   try {
     translated = translateOpenAIRequestToAnthropic(body);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    log("system", "voice.llm_proxy.translate_failed", {
+      level: "error",
+      callId: callIdHeader,
+      message: msg,
+    });
     endSpan({ errorMessage: `Translation failed: ${msg}` });
     return NextResponse.json(
       { error: { message: msg, type: "invalid_request_error" } },
@@ -120,7 +163,16 @@ export async function POST(request: Request) {
 
   // Extract VAPI metadata when present — passed as a custom header per
   // VAPI's custom-llm contract. Used for telemetry tagging.
-  const callId = request.headers.get("x-vapi-call-id") ?? null;
+  const callId = callIdHeader;
+  log("api", "voice.llm_proxy.translated", {
+    level: "info",
+    callId,
+    anthropicModel: translated.model,
+    anthropicMessageCount: translated.messages.length,
+    hasSystem: translated.system !== undefined,
+    hasTools: Boolean(translated.tools?.length),
+    maxTokens: translated.max_tokens,
+  });
 
   // Build the Anthropic create params.
   const anthropicParams: Record<string, unknown> = {
@@ -144,11 +196,24 @@ export async function POST(request: Request) {
   if (translated.stream) {
     let stream;
     try {
+      log("api", "voice.llm_proxy.stream_open", {
+        level: "info",
+        callId,
+        completionId,
+        model: translated.model,
+      });
       stream = client.messages.stream(
         anthropicParams as unknown as Anthropic.MessageStreamParams,
       );
     } catch (err) {
-      return handleAnthropicError(err, completionId, translated.model, endSpan);
+      log("system", "voice.llm_proxy.stream_open_failed", {
+        level: "error",
+        callId,
+        completionId,
+        model: translated.model,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      return handleAnthropicError(err, completionId, translated.model, endSpan, callId);
     }
 
     const usage = emptyCapturedUsage();
@@ -196,6 +261,18 @@ export async function POST(request: Request) {
           cacheReadTokens: usage.cacheReadInputTokens,
           cacheCreationTokens: usage.cacheCreationInputTokens,
         },
+      });
+      log("api", "voice.llm_proxy.stream_done", {
+        level: "info",
+        callId,
+        completionId,
+        durationMs,
+        model: translated.model,
+        usageCaptured: usage.captured,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cacheReadTokens: usage.cacheReadInputTokens,
+        cacheCreationTokens: usage.cacheCreationInputTokens,
       });
       endSpan({});
     });
@@ -267,7 +344,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (err) {
-    return handleAnthropicError(err, completionId, translated.model, endSpan);
+    return handleAnthropicError(err, completionId, translated.model, endSpan, callId);
   }
 }
 
@@ -276,15 +353,27 @@ function handleAnthropicError(
   completionId: string,
   model: string,
   endSpan: (input: { errorMessage?: string }) => void,
+  callId: string | null,
 ): Response {
   const msg = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack ?? null : null;
+  const errStatus = (err as { status?: number })?.status ?? null;
   console.error("[voice/llm-proxy] Anthropic upstream error:", msg);
+  log("system", "voice.llm_proxy.anthropic_error", {
+    level: "error",
+    callId,
+    completionId,
+    model,
+    upstreamStatus: errStatus,
+    message: msg,
+    stack,
+  });
   endSpan({ errorMessage: msg });
   logVoiceEvent({
     slug: VAPI_SLUG,
     operation: "voice_llm_proxy",
     durationMs: 0,
-    metadata: { model, errorPath: "anthropic_upstream" },
+    metadata: { model, errorPath: "anthropic_upstream", upstreamStatus: errStatus },
     errorMessage: msg,
   });
   return NextResponse.json(

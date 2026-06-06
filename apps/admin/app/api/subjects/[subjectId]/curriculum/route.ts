@@ -311,7 +311,8 @@ export async function POST(req: NextRequest, { params }: Params) {
                 name: result.name,
                 description: result.description,
                 subjectId,
-                playbookId: resolvedPlaybookId,
+                // #1177 Slice 6 / #1038 — Curriculum.playbookId dropped;
+                // ownership lives in PlaybookCurriculum (primary join below).
                 primarySourceId,
                 trustLevel: subject.defaultTrustLevel,
                 qualificationBody: subject.qualificationBody,

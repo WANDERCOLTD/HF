@@ -91,9 +91,8 @@ export async function syncAuthoredModulesToCurriculum(
       data: {
         name: `${playbook.name} — Modules`,
         slug: `playbook-${playbookId.slice(0, 8)}-modules`,
-        // #1034 — Keep deprecated owner pointer in sync with PlaybookCurriculum
-        // for one release (dropped in #1038). Same-tx dual-write.
-        playbookId,
+        // #1177 Slice 6 / #1038 — Curriculum.playbookId column dropped;
+        // ownership lives in PlaybookCurriculum (primary join below).
       },
       select: { id: true },
     });

@@ -353,10 +353,6 @@ async function ensureCurriculum(
     data: {
       slug: `course-${playbookId.slice(0, 8)}-${Date.now()}`,
       name: "Authored modules",
-      // #1034 — Keep the deprecated owner pointer in sync with the join row
-      // for one release (dropped in #1038). Two-write divergence is a real
-      // bug class — both rows MUST land in this same transaction.
-      playbookId,
       // #1081 Slice 2B.2 — stamp the derived anchor on the new Curriculum
       // so subsequent siblings in the same domain find it. Null when no
       // qualification metadata is available.
@@ -364,7 +360,8 @@ async function ensureCurriculum(
     },
     select: { id: true },
   });
-  // #1034 — Write the primary PlaybookCurriculum row in the same transaction.
+  // #1177 Slice 6 / #1038 — Curriculum.playbookId column dropped. Ownership
+  // lives entirely in PlaybookCurriculum (primary join row written below).
   await tx.playbookCurriculum.create({
     data: {
       playbookId,
