@@ -9,19 +9,51 @@ import Link from "next/link";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "0.0.0";
 
+type SignInMode = "magic" | "password";
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Magic-link is the default best-practice flow for returning users
+  // (Slack / Notion / Vercel pattern). Password is the escape hatch for
+  // admins + the demo accounts. EmailProvider is already wired in
+  // lib/auth.ts line 115; this page just exposes it.
+  const [mode, setMode] = useState<SignInMode>("magic");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const callbackUrl = "/x";
   const { branding } = useBranding();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    try {
+      const result = await signIn("email", {
+        email,
+        callbackUrl,
+        redirect: false,
+      });
+      if (result?.error) {
+        setError(
+          "Couldn't send a sign-in link to that address. If you've never signed in here, ask your teacher for an invite.",
+        );
+      } else {
+        // Always redirect to /login/verify — NextAuth's email flow returns
+        // ok=true even when the address isn't registered (anti-enumeration).
+        window.location.href = "/login/verify";
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
     try {
       const result = await signIn("credentials", {
         email,
@@ -29,7 +61,6 @@ export default function LoginPage() {
         callbackUrl,
         redirect: false,
       });
-
       if (result?.error) {
         setError("Invalid email or password");
       } else if (result?.ok) {
@@ -82,9 +113,12 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Login Card */}
+      {/* Sign-in card — magic link primary, password fallback */}
       <div className="login-form-card">
-        <form onSubmit={handleLogin} className="space-y-5">
+        <form
+          onSubmit={mode === "magic" ? handleMagicLink : handlePasswordLogin}
+          className="space-y-5"
+        >
           <div>
             <label htmlFor="email" className="login-label">
               Email
@@ -101,35 +135,39 @@ export default function LoginPage() {
             />
           </div>
 
-          <div>
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="login-label">
-                Password
-              </label>
-              <Link
-                href="/forgot-password"
-                className="login-text-muted text-xs transition-colors hover:text-white"
-              >
-                Forgot password?
-              </Link>
+          {mode === "password" && (
+            <div>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="login-label">
+                  Password
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="login-text-muted text-xs transition-colors hover:text-white"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                required
+                autoComplete="current-password"
+                className="login-input"
+              />
             </div>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              required
-              autoComplete="current-password"
-              className="login-input"
-            />
-          </div>
+          )}
 
           {error && <div className="login-error">{error}</div>}
 
           <button
             type="submit"
-            disabled={isLoading || !email || !password}
+            disabled={
+              isLoading || !email || (mode === "password" && !password)
+            }
             className="login-btn"
             style={branding.primaryColor ? { background: branding.primaryColor } : undefined}
           >
@@ -139,16 +177,39 @@ export default function LoginPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Signing in...
+                {mode === "magic" ? "Sending link…" : "Signing in…"}
               </span>
+            ) : mode === "magic" ? (
+              "Send me a sign-in link"
             ) : (
               "Sign in"
             )}
           </button>
         </form>
 
+        {/* Mode toggle. Magic is the default best-practice flow for the
+            return-visit case (Slack / Notion / Vercel pattern). Password
+            is the escape hatch for admins + demo accounts in non-prod. */}
+        <div className="mt-5 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "magic" ? "password" : "magic");
+              setError(null);
+              setPassword("");
+            }}
+            className="login-text-muted text-xs underline-offset-2 transition-colors hover:text-white hover:underline"
+          >
+            {mode === "magic"
+              ? "Use a password instead"
+              : "Use a sign-in link instead"}
+          </button>
+        </div>
+
         <div className="login-footer">
-          Admin access only. Testers use their invite link.
+          {mode === "magic"
+            ? "We'll email you a one-tap sign-in link. No password to remember."
+            : "Password is for admins + demo accounts. Learners: switch to sign-in link above."}
         </div>
       </div>
 
