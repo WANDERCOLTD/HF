@@ -277,12 +277,6 @@ export const TOUR_DEFINITIONS: TourDefinition[] = [
         placement: "center",
       },
       {
-        id: "demo-ql",
-        title: "Community",
-        description: "Create a community and start conversations with an AI companion.",
-        manifestItem: "quick-launch",
-      },
-      {
         id: "demo-demos",
         title: "Demos",
         description: "Explore demo scenarios to see different conversation styles and teaching approaches.",
