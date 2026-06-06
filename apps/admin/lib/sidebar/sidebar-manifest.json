@@ -15,14 +15,8 @@
     "id": "admin-bottom",
     "requiredRole": "ADMIN",
     "items": [
-      { "id": "admin-settings", "href": "/x/settings", "label": "Settings", "icon": "Settings", "shortcutHint": "⌘," }
-    ]
-  },
-  {
-    "id": "superadmin-bottom",
-    "requiredRole": "SUPERADMIN",
-    "items": [
-      { "id": "superadmin-wizard-v6", "href": "/x/wizard-v6", "label": "V6 Wizard Playground", "icon": "Sparkles" }
+      { "id": "admin-settings", "href": "/x/settings", "label": "Settings", "icon": "Settings", "shortcutHint": "⌘," },
+      { "id": "admin-wizard-v6", "href": "/x/wizard-v6/playground", "label": "V6 Wizard", "icon": "Sparkles" }
     ]
   }
 ]
