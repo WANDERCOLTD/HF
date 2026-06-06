@@ -224,6 +224,57 @@ export async function POST(
     const returningCallerId = existingMembership?.callerId ?? existingCallerDirect?.id;
 
     if (returningCallerId) {
+      // V2 (auth-first) finish: if the existing Caller has a placeholder
+      // name (from /api/intake/v2/start) and the body supplies the real
+      // values from the chat-to-complete step, backfill them now. Only
+      // touch fields we can confidently set; do not OVERWRITE an existing
+      // non-placeholder name. (#1141 Story 2.)
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      const existingCaller = await prisma.caller.findUnique({
+        where: { id: returningCallerId },
+        select: { name: true, phone: true },
+      });
+      const looksPlaceholder =
+        !existingCaller?.name ||
+        existingCaller.name === existingUser.name ||
+        existingCaller.name === existingUser.email?.split("@")[0] ||
+        existingCaller.name.toLowerCase() === "learner";
+      const updates: Record<string, string> = {};
+      if (looksPlaceholder && firstName.trim() && lastName.trim()) {
+        updates.name = fullName;
+      }
+      if (!existingCaller?.phone && normalizedPhone) {
+        updates.phone = normalizedPhone;
+      }
+      if (Object.keys(updates).length > 0) {
+        await prisma.caller.update({
+          where: { id: returningCallerId },
+          data: updates,
+        });
+      }
+      // ageRange always upserts (idempotent) so an updated declaration
+      // overwrites the prior one — same as paths 2 + 3.
+      if (ageRange) {
+        await prisma.callerAttribute.upsert({
+          where: {
+            callerId_key_scope: {
+              callerId: returningCallerId,
+              key: "intake.ageRange",
+              scope: "GLOBAL",
+            },
+          },
+          create: {
+            callerId: returningCallerId,
+            key: "intake.ageRange",
+            scope: "GLOBAL",
+            valueType: "STRING",
+            stringValue: ageRange,
+            sourceSpecSlug: "EnrollmentIntake",
+          },
+          update: { stringValue: ageRange },
+        });
+      }
+
       // Returning learner — sign them in and redirect to their journey
       const returningResponse = NextResponse.json({
         ok: true,

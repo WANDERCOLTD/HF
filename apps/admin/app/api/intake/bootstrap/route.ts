@@ -35,6 +35,13 @@ const BodySchema = z.object({
   chatSessionId: z.string().min(1).max(120),
   specKey: z.literal("EnrollmentIntake"),
   classroomToken: z.string().min(1).max(120).optional(),
+  // V2 path support: when set, these field values are pre-populated on the
+  // intent at bootstrap time so the spec-driven chat (#1130) skips asking
+  // for them. Used by /intake/v2 where email is captured BEFORE the chat
+  // starts (auth-first flow). Only string-valued fields are accepted —
+  // sufficient for the current spec fields (firstName, lastName, email,
+  // ageRange, phone, etc.); booleans/numbers can be added later.
+  prefilledValues: z.record(z.string(), z.string()).optional(),
 });
 
 const INTAKE_KEY = "EnrollmentIntake" as IntentKey;
@@ -165,6 +172,17 @@ export async function POST(req: NextRequest) {
       dataSubjectIds: [subjectId],
     });
     welcomeMessage = `Welcome — you're enrolling in "${classroomName}". I'll need four things: your first name, last name, age range, and email. What's your first name?`;
+  }
+
+  // V2 path: pre-populate captured fields so the spec-driven chat skips
+  // them. The chat AI sees the snapshot at first turn and asks only for
+  // fields that are still missing per the spec's readiness gate.
+  if (body.prefilledValues) {
+    for (const [key, value] of Object.entries(body.prefilledValues)) {
+      if (typeof value === "string" && value.trim().length > 0) {
+        setValue(session, key, value);
+      }
+    }
   }
 
   appendMessage(session, "system", welcomeMessage);

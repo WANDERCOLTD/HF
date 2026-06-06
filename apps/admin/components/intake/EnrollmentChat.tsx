@@ -94,9 +94,21 @@ export interface EnrollmentChatProps {
    * platform-level demo with no classroom binding.
    */
   readonly classroomToken?: string;
+
+  /**
+   * V2 (auth-first) only: field values already captured BEFORE the chat
+   * started — typically `email` from /intake/v2/[token]. Passed through
+   * to /api/intake/bootstrap which writes them into the intent at start
+   * time. The spec-driven prompt (#1130) sees them as set and the AI
+   * skips asking. (#1141 Story 2.)
+   */
+  readonly prefilledValues?: Record<string, string>;
 }
 
-export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
+export function EnrollmentChat({
+  classroomToken,
+  prefilledValues,
+}: EnrollmentChatProps = {}) {
   const [boot, setBoot] = useState<BootstrapState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -127,6 +139,7 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
             chatSessionId,
             specKey: "EnrollmentIntake",
             classroomToken,
+            prefilledValues,
           }),
         });
         if (!res.ok) {
@@ -151,6 +164,10 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
     return () => {
       cancelled = true;
     };
+    // prefilledValues is intentionally NOT in deps — we don't want a
+    // re-bootstrap if the parent re-renders with the same data (would
+    // create a second intent). Mount-time-only is correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classroomToken]);
 
   useEffect(() => {

@@ -3411,6 +3411,29 @@ Verify a learner's first-call PIN. STUDENT sessions are locked
 
 ---
 
+### `POST` /api/v1/intake/v2/start
+
+V2 auth-first enrolment kickoff (#1141 Story 2). Takes a
+
+**Auth**: None
+
+**Response** `201`
+```json
+{ ok: true, callerId, channel: 'email', gatePath: '/intake/v2/<token>/<callerId>' }
+```
+
+**Response** `400`
+```json
+{ ok: false, error } — phone supplied, invalid email, expired token
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Invalid or expired classroom token" }
+```
+
+---
+
 ### `GET` /api/v1/join/[token]
 
 Verify a classroom/community join token. Returns group info if valid.
