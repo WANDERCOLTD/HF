@@ -8,6 +8,7 @@ import { applySkipOnboarding } from "@/lib/enrollment/skip-onboarding";
 import { mintAndSetSessionCookie } from "@/lib/auth-session-cookie";
 import { ROLE_LEVEL } from "@/lib/roles";
 import { issueFirstCallPin } from "@/lib/identity/issue-pin";
+import { toE164 } from "@/lib/voice/phone-format";
 import type { UserRole } from "@prisma/client";
 
 const SESSION_COOKIE_NAMES = [
@@ -135,12 +136,10 @@ export async function POST(
   const v = validateBody(joinPostSchema, body);
   if (!v.ok) return v.error;
   const { firstName, lastName, email, ageRange, playbookId, skipOnboarding, phone } = v.data;
-  // E.164-ish normalisation: strip spaces / dashes / parens. Full
-  // validation lives in the just-in-time capture modal; this keeps the
-  // existing-tests-still-green when learners never supply a number.
-  const normalizedPhone = phone
-    ? phone.replace(/[\s\-()]/g, "") || null
-    : null;
+  // E.164 normalisation via lib/voice/phone-format.ts — was a mechanical
+  // strip which let `07…` UK domestic format through unchanged. VAPI
+  // requires strict E.164 so the dialer was 502-ing on rural-UK numbers.
+  const normalizedPhone = phone ? toE164(phone) : null;
 
   // Defence-in-depth against URL tampering. The intake spec's
   // `ageBand.adultOnly()` invariant already rejects `under-18` before

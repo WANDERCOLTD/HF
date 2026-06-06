@@ -194,6 +194,22 @@ export async function POST(request: Request) {
     // `assistant`. We always send inline.
     let vapiCallId: string | null = null;
     try {
+      // Defence-in-depth E.164 — storage paths normalise (#1141 follow-up),
+      // but legacy rows pre-date that fix and may still hold `07…` UK
+      // domestic format. VAPI requires strict E.164 (400 otherwise).
+      const { toE164, isE164 } = await import("@/lib/voice/phone-format");
+      const e164 = toE164(caller.phone) ?? caller.phone;
+      if (!isE164(e164)) {
+        await prisma.call.delete({ where: { id: placeholderCall.id } });
+        endSpan({ errorMessage: `Caller phone not in E.164: ${caller.phone}` });
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Caller's phone number is not in a valid international format.",
+          },
+          { status: 400 },
+        );
+      }
       const vapiResp = await fetch("https://api.vapi.ai/call", {
         method: "POST",
         headers: {
@@ -202,7 +218,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           phoneNumberId,
-          customer: { number: caller.phone },
+          customer: { number: e164 },
           assistant: inlineAssistant,
         }),
       });

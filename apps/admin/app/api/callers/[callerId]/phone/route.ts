@@ -67,8 +67,13 @@ export async function PATCH(
     );
   }
 
-  const normalized = parsed.data.phone.replace(/[\s\-()]/g, "");
-  if (!/^\+?\d{7,15}$/.test(normalized)) {
+  // E.164-normalise so all downstream consumers (VAPI especially) get a
+  // valid phone. Was a mechanical strip — let `+44 (0) 7768…` through
+  // unchanged, which VAPI rejected with 400 wrapped as our 502. (#1141
+  // surfaced live with phone `07768485153`.)
+  const { toE164, isE164 } = await import("@/lib/voice/phone-format");
+  const normalized = toE164(parsed.data.phone);
+  if (!normalized || !isE164(normalized)) {
     return NextResponse.json(
       {
         ok: false,
