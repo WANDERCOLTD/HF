@@ -815,6 +815,18 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Required by NextAuth EmailProvider (magic link) AND by OAuth providers
+// that issue email verification. Adding this finally makes the magic-link
+// flow shipped in #1172 actually work end-to-end. identifier = email,
+// token = one-time bearer. Cleaned up by NextAuth after `expires`.
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
 // Invite system - control who can sign up
 model Invite {
   id        String    @id @default(uuid())

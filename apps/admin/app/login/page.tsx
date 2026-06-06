@@ -1,18 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useBranding } from "@/contexts/BrandingContext";
 import { showEnvBanner, envSidebarColor, envLabel, envTextColor, isNonProd } from "@/components/shared/EnvironmentBanner";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Link from "next/link";
 
+interface ProviderInfo {
+  id: string;
+  name: string;
+  type: string;
+}
+
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "0.0.0";
 
 type SignInMode = "magic" | "password";
 
+// OAuth provider IDs we know how to render with brand-specific UI.
+// Anything else (apple, github, etc.) falls through to a generic button.
+const OAUTH_BUTTONS: Record<string, { label: string; bg: string; fg: string }> = {
+  google: { label: "Continue with Google", bg: "#fff", fg: "#1f1f1f" },
+  "microsoft-entra-id": {
+    label: "Continue with Microsoft",
+    bg: "#2f2f2f",
+    fg: "#fff",
+  },
+};
+
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [contact, setContact] = useState("");
   const [password, setPassword] = useState("");
   // Magic-link is the default best-practice flow for returning users
   // (Slack / Notion / Vercel pattern). Password is the escape hatch for
@@ -21,16 +38,47 @@ export default function LoginPage() {
   const [mode, setMode] = useState<SignInMode>("magic");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Record<string, ProviderInfo>>({});
   const callbackUrl = "/x";
   const { branding } = useBranding();
 
+  // Iterate /api/auth/providers — OAuth providers are only listed if
+  // their env vars are present, so this also drives whether the OAuth
+  // buttons appear at all.
+  useEffect(() => {
+    fetch("/api/auth/providers")
+      .then((r) => r.json())
+      .then((data) => setProviders(data ?? {}))
+      .catch(() => setProviders({}));
+  }, []);
+
+  const oauthProviders = useMemo(
+    () =>
+      Object.values(providers).filter((p) => p.type === "oauth"),
+    [providers],
+  );
+
+  // Auto-detect — @ = email, else phone (digits / +). Same heuristic the
+  // V2 entry uses (#1150). Phone is rejected for now with a clean
+  // "coming soon" message; the route is in place for when SMS lands.
+  const detected = useMemo<"email" | "phone" | "unknown">(() => {
+    if (contact.trim().length === 0) return "unknown";
+    if (contact.includes("@")) return "email";
+    if (/^[+\d\s()-]+$/.test(contact)) return "phone";
+    return "unknown";
+  }, [contact]);
+
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (detected === "phone") {
+      setError("Phone sign-in is coming soon. Please use email for now.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
       const result = await signIn("email", {
-        email,
+        email: contact,
         callbackUrl,
         redirect: false,
       });
@@ -39,8 +87,6 @@ export default function LoginPage() {
           "Couldn't send a sign-in link to that address. If you've never signed in here, ask your teacher for an invite.",
         );
       } else {
-        // Always redirect to /login/verify — NextAuth's email flow returns
-        // ok=true even when the address isn't registered (anti-enumeration).
         window.location.href = "/login/verify";
       }
     } catch {
@@ -52,11 +98,15 @@ export default function LoginPage() {
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (detected === "phone") {
+      setError("Phone sign-in is coming soon. Please use email for now.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
       const result = await signIn("credentials", {
-        email,
+        email: contact,
         password,
         callbackUrl,
         redirect: false,
@@ -71,6 +121,17 @@ export default function LoginPage() {
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOauth = async (providerId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await signIn(providerId, { callbackUrl });
+    } catch {
+      setError("Couldn't reach the sign-in provider. Try again.");
       setIsLoading(false);
     }
   };
@@ -113,26 +174,77 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Sign-in card — magic link primary, password fallback */}
+      {/* Sign-in card — OAuth first, then contact + magic link, then password */}
       <div className="login-form-card">
+        {oauthProviders.length > 0 && (
+          <div className="space-y-3" style={{ marginBottom: 20 }}>
+            {oauthProviders.map((p) => {
+              const meta = OAUTH_BUTTONS[p.id] ?? {
+                label: `Continue with ${p.name}`,
+                bg: "#2f2f2f",
+                fg: "#fff",
+              };
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleOauth(p.id)}
+                  disabled={isLoading}
+                  className="login-btn"
+                  style={{
+                    background: meta.bg,
+                    color: meta.fg,
+                    border: "1px solid color-mix(in srgb, var(--login-blue) 12%, transparent)",
+                  }}
+                >
+                  {meta.label}
+                </button>
+              );
+            })}
+            <div
+              style={{
+                textAlign: "center",
+                margin: "12px 0 4px",
+                fontSize: 12,
+                color: "var(--login-text-muted)",
+              }}
+            >
+              — or —
+            </div>
+          </div>
+        )}
+
         <form
           onSubmit={mode === "magic" ? handleMagicLink : handlePasswordLogin}
           className="space-y-5"
         >
           <div>
-            <label htmlFor="email" className="login-label">
-              Email
+            <label htmlFor="contact" className="login-label">
+              Email or phone
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              id="contact"
+              type="text"
+              inputMode="email"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder="you@example.com  ·  +44 7700 900123"
               required
               autoComplete="email"
               className="login-input"
             />
+            {detected === "phone" && (
+              <p
+                className="login-text-muted"
+                style={{
+                  fontSize: 11,
+                  marginTop: 4,
+                  color: "color-mix(in srgb, var(--login-text-muted) 80%, transparent)",
+                }}
+              >
+                Phone sign-in is coming soon — please use email for now.
+              </p>
+            )}
           </div>
 
           {mode === "password" && (
@@ -166,7 +278,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={
-              isLoading || !email || (mode === "password" && !password)
+              isLoading || !contact || (mode === "password" && !password) || detected === "phone"
             }
             className="login-btn"
             style={branding.primaryColor ? { background: branding.primaryColor } : undefined}
@@ -217,7 +329,7 @@ export default function LoginPage() {
       {isNonProd && (
         <DemoAccountsPanel
           onLogin={(demoEmail, demoPassword) => {
-            setEmail(demoEmail);
+            setContact(demoEmail);
             setPassword(demoPassword);
           }}
         />

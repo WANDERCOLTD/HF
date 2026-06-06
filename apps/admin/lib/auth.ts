@@ -2,11 +2,73 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import EmailProvider from "next-auth/providers/email";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { sendMagicLinkEmail, EMAIL_FROM_DEFAULT } from "./email";
 import type { UserRole } from "@prisma/client";
 import type { Adapter } from "next-auth/adapters";
+import type { Provider } from "next-auth/providers";
+
+/**
+ * OAuth providers (#1141 follow-up). Each provider is registered ONLY
+ * when its env vars are present, so the code ships safely without the
+ * operator having created the OAuth apps yet — `/api/auth/providers`
+ * just won't list a provider whose credentials are missing. The /login
+ * UI iterates the response and renders a button per registered provider.
+ *
+ * To enable Google:
+ *   1. Create an OAuth 2.0 Client ID in Google Cloud Console
+ *      (https://console.cloud.google.com/apis/credentials)
+ *   2. Authorised redirect URIs:
+ *      - http://localhost:3000/api/auth/callback/google (local dev)
+ *      - https://dev.humanfirstfoundation.com/api/auth/callback/google
+ *      - https://staging.humanfirstfoundation.com/api/auth/callback/google
+ *      - https://app.humanfirstfoundation.com/api/auth/callback/google
+ *   3. Store creds in Secret Manager as GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET
+ *   4. Reference them in the Cloud Run service (see hf-admin-dev for
+ *      the RESEND_API_KEY pattern, set in this session)
+ *
+ * To enable Microsoft Entra (Azure AD):
+ *   1. Register an app at https://entra.microsoft.com
+ *   2. Add redirect URI matching the routes above (substituting `microsoft-entra-id`)
+ *   3. Add API permission Microsoft.Graph.User.Read (delegated)
+ *   4. Generate a client secret
+ *   5. Store as AZURE_AD_CLIENT_ID + AZURE_AD_CLIENT_SECRET + AZURE_AD_TENANT_ID
+ *      (tenant can be 'common' for multi-tenant)
+ */
+function oauthProviders(): Provider[] {
+  const list: Provider[] = [];
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    list.push(
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        // Force account selection on every sign-in attempt so users with
+        // multiple Google accounts always pick the right one.
+        authorization: { params: { prompt: "select_account" } },
+      }),
+    );
+  }
+  if (
+    process.env.AZURE_AD_CLIENT_ID &&
+    process.env.AZURE_AD_CLIENT_SECRET
+  ) {
+    list.push(
+      MicrosoftEntraIDProvider({
+        clientId: process.env.AZURE_AD_CLIENT_ID,
+        clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
+        // 'common' = multi-tenant (any Microsoft work or school account).
+        // Override with a specific tenant id if HF goes single-tenant.
+        issuer: `https://login.microsoftonline.com/${
+          process.env.AZURE_AD_TENANT_ID ?? "common"
+        }/v2.0`,
+      }),
+    );
+  }
+  return list;
+}
 
 declare module "next-auth" {
   interface Session {
@@ -126,6 +188,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         await sendMagicLinkEmail({ to: email, url });
       },
     }),
+    // OAuth providers — only registered when env vars are set, so the
+    // /api/auth/providers response (which the /login UI iterates) only
+    // shows providers that actually work. See oauthProviders() above for
+    // setup instructions.
+    ...oauthProviders(),
   ],
   callbacks: {
     async signIn({ user, account }) {
@@ -149,7 +216,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return existingUser.isActive;
       }
 
-      // New user - check for valid invite
+      // New user policy depends on the provider:
+      // - OAuth (google / microsoft-entra-id): allow auto-signup as
+      //   STUDENT for the market test phase. PrismaAdapter creates the
+      //   User row from the OAuth profile; the User.role default in the
+      //   schema is STUDENT. Tighten this later (require invite, restrict
+      //   to verified-domain emails, etc.) by flipping the env flag
+      //   AUTH_OAUTH_REQUIRE_INVITE=1.
+      // - Email (magic link) + everything else: require a valid Invite
+      //   row. Existing behaviour, unchanged.
+      const isOauth =
+        account?.provider === "google" ||
+        account?.provider === "microsoft-entra-id";
+      const oauthRequiresInvite =
+        process.env.AUTH_OAUTH_REQUIRE_INVITE === "1";
+
+      if (isOauth && !oauthRequiresInvite) {
+        console.log(
+          `[Auth signIn callback] OAuth ${account?.provider} new user — auto-signup as STUDENT`,
+        );
+        return true;
+      }
+
       const invite = await prisma.invite.findFirst({
         where: {
           email: user.email,
@@ -159,7 +247,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       });
 
       if (!invite) {
-        // No valid invite - deny signup
+        console.log(
+          `[Auth signIn callback] No valid invite for ${user.email} via ${account?.provider} — rejecting`,
+        );
         return false;
       }
 
