@@ -66,6 +66,8 @@ Key nuances captured below where they don't fit the table.
 
 **EXTRACT event-gate (Scheduler v1 Slice 1).** When the prior `SchedulerDecision.mode` isn't an assessment mode, caller-skill scoring is suppressed (`skipMeasure` on the batched analysis) — memory/LEARN extraction always runs. Prevents Boaz S1–S4 false positives. LLM JSON is repaired by `recoverBrokenJson()`; short transcripts cap confidence.
 
+**EXTRACT mock-engine carve-out (G9 / #1158).** When `engine === "mock"` in the request body (default for sim drivers that opt out of AI charges), the mock branch at `route.ts::runBatchedCallerAnalysis` generates random `CallScore` values and writes **no `CallerMemory` rows** — the mock has no LLM reasoning, so no memories can be extracted. A `log.warn` fires per call so the silent-zero-memory outcome is visible in logs. Real-engine calls (`engine: "claude" | "openai"`) write CallerMemory as documented in the table row.
+
 **SUPERVISE clamp.** Default `targetClamp.minValue=0.2`, `targetClamp.maxValue=0.8` from `DEFAULT_GUARDRAILS` in `lib/pipeline/guardrails.ts` — overridable via GUARD-001 parameters and audience-aware (clamp range varies by `Playbook.config.audience`). Teacher alerts do NOT live here (§8).
 
 **COMPOSE.** Direct function call — no HTTP self-call. Persisted via `persistComposedPrompt` with `triggerType: "pipeline"`. Failure handling is special — see §3.

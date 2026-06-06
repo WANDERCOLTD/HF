@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
+import { resolveDefaultModuleForCaller } from "@/lib/curriculum/resolve-default-module";
 import {
   resolveCurriculumIdForPlaybook,
   resolveModuleByLogicalId,
@@ -178,6 +179,27 @@ export async function POST(
       select: { id: true },
     });
 
+    // G6 / #1154 — when the caller didn't supply a module via the picker
+    // and we have a resolved playbook, auto-resolve the default module so
+    // the #1006 / I-C1 module-lock invariant has something to enforce. Pre-G6
+    // 61% of IELTS V1.0 calls landed with null requestedModuleId, silently
+    // skipping the invariant and re-exposing Maya-class hallucination risk.
+    let finalRequestedModuleId = requestedModuleId;
+    let finalCurriculumModuleId = resolvedCurriculumModuleId;
+    if (!finalRequestedModuleId && !finalCurriculumModuleId && resolvedPlaybookId) {
+      const defaultModule = await resolveDefaultModuleForCaller(
+        callerId,
+        resolvedPlaybookId,
+      );
+      if (defaultModule) {
+        finalRequestedModuleId = defaultModule.moduleSlug;
+        finalCurriculumModuleId = defaultModule.curriculumModuleId;
+        console.log(
+          `[calls/create] G6 auto-resolved module for caller=${callerId.slice(0, 8)} playbook=${resolvedPlaybookId.slice(0, 8)} → ${defaultModule.moduleSlug} (source: ${defaultModule.source})`,
+        );
+      }
+    }
+
     // Create the call
     const call = await prisma.call.create({
       data: {
@@ -194,8 +216,10 @@ export async function POST(
         // composer's scheduler workingSet picks it up. Both fields are stored
         // — `requestedModuleId` for picker reads, `curriculumModuleId` for
         // composer + pipeline consumption.
-        ...(requestedModuleId ? { requestedModuleId } : {}),
-        ...(resolvedCurriculumModuleId ? { curriculumModuleId: resolvedCurriculumModuleId } : {}),
+        // G6 / #1154: when neither was supplied, both come from the auto-
+        // resolve fallback above so I-C1 never short-circuits on null.
+        ...(finalRequestedModuleId ? { requestedModuleId: finalRequestedModuleId } : {}),
+        ...(finalCurriculumModuleId ? { curriculumModuleId: finalCurriculumModuleId } : {}),
       },
     });
 

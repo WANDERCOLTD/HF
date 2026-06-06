@@ -119,10 +119,20 @@ export async function accumulateSkillScores(
 
   // Pull every matching CallScore for this caller, oldest-first.
   // Each is an independent observation to fold into the EMA.
+  //
+  // G5 / #1155 — evidence-gated filter. Pre-G5 the AGGREGATE writer ignored
+  // `hasLearnerEvidence` entirely; rows that the upstream #611 universal
+  // zero-evidence gate dropped (he=false + eq=0) couldn't reach here, but
+  // every other row entered the EMA regardless of evidence quality —
+  // including rows the scorer flagged as evidence-absent on a non-zero-quality
+  // basis. The new filter drops explicitly-false rows only; null (legacy
+  // back-compat shape, claude_segment_v1, openai) and true both pass.
+  // See: docs/epic-100-chain-walk.md Link 4 — CALL → SCORE.
   const callScores = await prisma.callScore.findMany({
     where: {
       callerId,
       parameterId: paramFilter,
+      NOT: { hasLearnerEvidence: false },
     },
     select: {
       id: true,
@@ -132,6 +142,15 @@ export async function accumulateSkillScores(
     },
     orderBy: { createdAt: "asc" },
   });
+
+  // G2 / #1142 — entry log: confirm accumulateSkillScores fired AND how many
+  // source CallScore rows it found. caller=null-currentScore + scoresFound=0
+  // means the parameterPattern doesn't match; scoresFound>0 + watermark-skip
+  // means everything is older than lastScoredAt.
+  console.log(
+    `[skill-agg] accumulateSkillScores caller=${callerId} pattern=${pattern} scoresFound=${callScores.length}`,
+  );
+
   if (callScores.length === 0) return result;
 
   // Group by parameterId
@@ -226,6 +245,15 @@ export async function accumulateSkillScores(
   // Update the now-mutable now timestamp (used only to suppress unused-var warning).
   void now;
 
+  // G2 / #1142 — exit log: confirms write counts. If paramsProcessed > 0 but
+  // callerTargetsUpdated = 0, the watermark filter (lastScoredAt) excluded
+  // every fresh score for every param. If scoresApplied = 0, every CallScore
+  // was older than the existing watermark — re-running pipeline with
+  // force=true will not re-apply (per #405 idempotency).
+  console.log(
+    `[skill-agg] accumulateSkillScores EXIT caller=${callerId} paramsProcessed=${result.paramsProcessed} scoresApplied=${result.scoresApplied} callerTargetsUpdated=${result.callerTargetsUpdated}`,
+  );
+
   return result;
 }
 
@@ -313,6 +341,15 @@ export async function runAggregateSpecs(callerId: string): Promise<{
 
   console.log(`[aggregate-runner] Found ${aggregateSpecs.length} AGGREGATE specs`);
 
+  // G2 / #1142 — entry log: confirm AGGREGATE was invoked for this caller
+  // and how many specs the runner is about to evaluate. Audit found
+  // CallerTarget.skill_*.currentScore null on every caller despite
+  // SKILL-AGG-001 being correctly defined; this log line disambiguates
+  // "runner never invoked" from "runner invoked but spec config silent".
+  console.log(
+    `[aggregate-runner] runAggregateSpecs ENTER caller=${callerId} aggregateSpecCount=${aggregateSpecs.length}`,
+  );
+
   for (const spec of aggregateSpecs) {
     try {
       console.log(`[aggregate-runner] Running ${spec.slug}...`);
@@ -326,6 +363,10 @@ export async function runAggregateSpecs(callerId: string): Promise<{
       );
 
       if (!aggregateParam) {
+        // G2 / #1142 — this warn at config-shape miss already exists; left in
+        // place. If SKILL-AGG-001 hits this, Candidate B (config-shape) is
+        // the failure mode and the spec JSON needs a parameters[].config
+        // shape fix.
         console.warn(`[aggregate-runner] ${spec.slug} has no aggregationRules, skipping`);
         continue;
       }
@@ -343,6 +384,13 @@ export async function runAggregateSpecs(callerId: string): Promise<{
       results.errors.push(errorMsg);
     }
   }
+
+  // G2 / #1142 — exit log: confirm the runner completed and how many specs
+  // landed writes. specsRun = 0 means every spec hit the no-aggregationRules
+  // warn or threw; check upstream warns to disambiguate.
+  console.log(
+    `[aggregate-runner] runAggregateSpecs EXIT caller=${callerId} specsRun=${results.specsRun} errors=${results.errors.length}`,
+  );
 
   return results;
 }

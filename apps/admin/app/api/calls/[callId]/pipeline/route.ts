@@ -728,6 +728,11 @@ async function runPerSegmentScoring(
         // #566 Step 1 — evidence-aware fields. The IELTS per-segment prompt
         // does not yet ask for these; leave null until the prompt is updated.
         // Pattern matches the batched scorer for forward compatibility.
+        // TODO(#1155): update the IELTS per-segment prompt to request `he`/`eq`,
+        // then change the fallback below from `null` to `true` to match the
+        // claude_batched_v2 server-side fallback. Until prompt-update lands,
+        // claude_segment_v1 writes carry null evidence and are treated as
+        // "unknown — pass" by the AGGREGATE filter G5 introduces (`!== false`).
         const hasLearnerEvidence =
           typeof scoreData?.he === "boolean"
             ? scoreData.he
@@ -1007,10 +1012,19 @@ async function runBatchedCallerAnalysis(
   } | null = null;
 
   if (engine === "mock") {
-    // Mock: generate random scores and no memories.
+    // Mock: generate random scores and **no memories**.
     // #1008 (Finding F) — load GUARD-001 once so educators can override the
     // mock-confidence default via spec without touching code. Default value
     // unchanged (0.7) when no override exists.
+    //
+    // G9 / #1158 (audit 2026-06-06): warn-log so the silent zero-memory
+    // outcome is visible in logs. Mock engine has no LLM reasoning, so it
+    // cannot extract memories; this is by-design but was invisible to
+    // operators staring at a "0 CallerMemory rows" trace. See PIPELINE.md §2.
+    log.warn(
+      `[extract] engine=mock — CallerMemory writes suppressed (mock has no LLM reasoning)`,
+      { callId: call.id, measureParamCount: measureParams.length },
+    );
     const mockGuardrails = await loadGuardrails(log);
     const mockConfidence = mockGuardrails.confidenceBounds.defaultConfidence;
     for (const param of measureParams) {
@@ -1139,18 +1153,27 @@ async function runBatchedCallerAnalysis(
           const score = Math.max(0, Math.min(1, scoreData.score ?? scoreData.s ?? 0.5));
           const confidence = Math.max(0, Math.min(1, scoreData.confidence ?? scoreData.c ?? 0.7));
           const reasoning: string | undefined = scoreData.reasoning ?? scoreData.r ?? undefined;
+          // G5 / #1155 — server-side fallback when LLM omits `he`/`eq`. The
+          // batched scorer is supposed to return both fields per the prompt
+          // but omits them 35% of the time. Pre-fix the null fell through
+          // the #611 gate (gate only drops on explicit false+0), so the row
+          // was treated as "has evidence" by the gate while AGGREGATE saw
+          // null and made no semantic distinction either. Now: fallback to
+          // `true` on missing — conservative ("LLM didn't say, so assume
+          // present"); matches the gate's effective behaviour pre-fix while
+          // making the AGGREGATE filter G5 introduces meaningful.
           const hasLearnerEvidence =
             typeof scoreData.he === "boolean"
               ? scoreData.he
               : typeof scoreData.hasLearnerEvidence === "boolean"
                 ? scoreData.hasLearnerEvidence
-                : null;
+                : true; // G5 fallback (was: null)
           const evidenceQuality =
             typeof scoreData.eq === "number"
               ? Math.max(0, Math.min(1, scoreData.eq))
               : typeof scoreData.evidenceQuality === "number"
                 ? Math.max(0, Math.min(1, scoreData.evidenceQuality))
-                : null;
+                : null; // evidenceQuality kept null when LLM omits — semantics differ from he
           if (hasLearnerEvidence === true) shadowEvidencePresent++;
           else if (hasLearnerEvidence === false) shadowEvidenceAbsent++;
           else shadowEvidenceUnknown++;

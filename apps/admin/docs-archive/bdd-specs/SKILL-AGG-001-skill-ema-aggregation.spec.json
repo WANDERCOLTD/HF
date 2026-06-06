@@ -9,7 +9,7 @@
   "specType": "SYSTEM",
   "outputType": "AGGREGATE",
   "specRole": "SYNTHESISE",
-  "_PROD_REVERT_REQUIRED": "⚠️ TESTING-MODE VALUES — aggregationRules[0].emaHalfLifeDays and minCallsToFull are tuned for rapid-fire same-day testing. Rule-level values take precedence over the contract, so the matching tuning in SKILL_MEASURE_V1.contract.json alone is not enough — both files must be reverted. Prod values: emaHalfLifeDays=14, minCallsToFull=4.",
+  "_reverted_2026_06_06": "Prod values restored per audit G8 (#1151). For local rapid-fire testing, override per-playbook via Playbook.config.skillScoringEmaHalfLifeDays + Playbook.config.skillMinCallsToFull instead of mutating this spec.",
   "story": {
     "asA": "personalization system",
     "iWant": "to accumulate per-call `skill_*` CallScores into a stable running per-skill score on CallerTarget",
@@ -38,9 +38,8 @@
             "sourceParameterPattern": "skill_*",
             "targetProfileKey": "_caller_target_current_score",
             "method": "ema_to_caller_target",
-            "emaHalfLifeDays": 0.0035,
-            "minCallsToFull": 2,
-            "_prod_defaults": { "emaHalfLifeDays": 14, "minCallsToFull": 4 }
+            "emaHalfLifeDays": 14,
+            "minCallsToFull": 4
           }
         ]
       }
@@ -48,7 +47,7 @@
   ],
   "triggers": [],
   "notes": [
-    "TESTING MODE: emaHalfLifeDays=0.0035 (5 minutes) and minCallsToFull=2 — rapid-fire same-day calls produce visible per-call movement. PROD values are 14 and 4; see _prod_defaults inside the rule and _PROD_REVERT_REQUIRED at the top.",
+    "Active values: emaHalfLifeDays=14, minCallsToFull=4. Per-playbook overrides via Playbook.config.skillScoringEmaHalfLifeDays + Playbook.config.skillMinCallsToFull are the canonical mechanism for course-specific tuning (e.g. shorter half-life for rapid coaching domains, longer for assessment).",
     "This spec has no triggers — `ema_to_caller_target` is purely an aggregation rule. The aggregate-runner picks the spec up by `outputType=AGGREGATE, isActive=true` like any other AGGREGATE spec.",
     "Writes to CallerTarget rather than LearnerProfile / CallerAttribute because per-skill running scores are consumed by ACHIEVE goal progress (calculateSkillAchieveProgress), which expects a single `currentScore` per parameter.",
     "Idempotency: each CallerTarget tracks `lastScoredAt` as a high-water mark. Re-running the pipeline with force=true (per #405) does not double-apply scores.",

@@ -132,7 +132,7 @@ Memory: [feedback_concurrent_claude_processes.md](~/.claude/projects/-Users-paul
 
 Both configured in `.mcp.json` — auto-connect on project open.
 
-**qmd auto-sync (local only):** Git hooks keep qmd fresh — `pre-commit` updates before commit, `post-merge` after pull. Not needed on hf-dev VM.
+**qmd auto-sync (local only):** Git hooks keep qmd fresh — `pre-commit` updates before commit, `post-commit` + `post-merge` run `qmd embed` synchronously (~30s) after the ref lands. Not needed on hf-dev VM. **`gh pr merge --squash` bypasses `post-merge` entirely** — run `qmd embed` manually after large remote merges (or after any squash-merge that brings in new docs / specs).
 
 ---
 
