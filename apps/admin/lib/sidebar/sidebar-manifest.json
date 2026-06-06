@@ -12,6 +12,13 @@
     ]
   },
   {
+    "id": "operator-bottom",
+    "requiredRole": "OPERATOR",
+    "items": [
+      { "id": "operator-enrol-v1", "href": "/x/enrol-links", "label": "Enrol V1", "icon": "UserPlus" }
+    ]
+  },
+  {
     "id": "admin-bottom",
     "requiredRole": "ADMIN",
     "items": [
