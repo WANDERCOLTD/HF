@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
 import { resolveTenantCtx } from "@/lib/intake/hf-adapter/auth";
 import { loadDisclosureCopy } from "@/lib/intake/hf-adapter/disclosure-content";
 import {
@@ -135,29 +136,39 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Resolve classroomToken (Option B routing): call the existing
-  // /api/join/:token endpoint, write classroomToken + classroomName
-  // into session values, emit a ClassroomResolved custom event so the
+  // Resolve classroomToken (Option B routing): look up the cohort
+  // directly, write classroomToken + classroomName into session values,
+  // emit a ClassroomResolved custom event so the
   // enrollment.classroom-resolved post-Contract is satisfied.
+  //
+  // Was: HTTP-fetched /api/join/<token>. That route is rate-limited per
+  // client IP — a learner triple-tapping the page or a dev demo would
+  // 429 the bootstrap into a misleading "Invalid or expired classroom
+  // token" 404. Direct query has no rate limit and one less network hop.
   let welcomeMessage =
     "Welcome — I'll get you enrolled. I'll need four things: your first name, last name, age range, and email. What's your first name?";
   if (body.classroomToken) {
-    const origin = req.nextUrl.origin;
-    const joinRes = await fetch(`${origin}/api/join/${body.classroomToken}`, {
-      method: "GET",
-      cache: "no-store",
+    const cohort = await prisma.cohortGroup.findUnique({
+      where: { joinToken: body.classroomToken },
+      select: {
+        name: true,
+        isActive: true,
+        joinTokenExp: true,
+      },
     });
-    if (!joinRes.ok) {
+    if (!cohort || !cohort.isActive) {
       return NextResponse.json(
         { error: "Invalid or expired classroom token" },
         { status: 404 },
       );
     }
-    const joinData = (await joinRes.json()) as {
-      ok?: boolean;
-      classroom?: { name?: string; domain?: string };
-    };
-    const classroomName = joinData.classroom?.name ?? body.classroomToken;
+    if (cohort.joinTokenExp && cohort.joinTokenExp < new Date()) {
+      return NextResponse.json(
+        { error: "This classroom link has expired" },
+        { status: 410 },
+      );
+    }
+    const classroomName = cohort.name ?? body.classroomToken;
     setValue(session, "classroomToken", body.classroomToken);
     setValue(session, "classroomName", classroomName);
     appendEvent(session, {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { useBranding } from "@/contexts/BrandingContext";
 import { showEnvBanner, envSidebarColor, envLabel, envTextColor, isNonProd } from "@/components/shared/EnvironmentBanner";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -39,8 +40,18 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<Record<string, ProviderInfo>>({});
-  const callbackUrl = "/x";
+  // Honour the `?callbackUrl=` query param (the middleware sets it when
+  // bouncing an unauthenticated request) so post-login we land where the
+  // user was trying to go. Falls back to /x for the bare /login case.
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams?.get("callbackUrl") || "/x";
   const { branding } = useBranding();
+  // When a session still exists on /login (the user clicked sign-out in
+  // one tab but a sibling tab kept the cookie, or they signed in from
+  // another flow and navigated here by hand), don't silently show the
+  // sign-in form — that's how "I signed out but I'm still logged in"
+  // bugs happen. Surface the active identity with an explicit sign-out.
+  const { data: existingSession, status: sessionStatus } = useSession();
 
   // Iterate /api/auth/providers — OAuth providers are only listed if
   // their env vars are present, so this also drives whether the OAuth
@@ -173,6 +184,38 @@ export default function LoginPage() {
           {branding.welcomeMessage || "Sign in to continue"}
         </p>
       </div>
+
+      {/* Already signed in — surface explicit Sign Out before showing the
+          form so the user can never accidentally re-sign-in with a stale
+          session in another tab. Renders only when next-auth has resolved
+          (sessionStatus !== 'loading') AND a session is present. */}
+      {sessionStatus === "authenticated" && existingSession?.user ? (
+        <div className="login-form-card" style={{ marginBottom: 16 }}>
+          <p className="login-text" style={{ marginBottom: 12 }}>
+            You're already signed in as{" "}
+            <strong style={{ color: "var(--login-gold)" }}>
+              {existingSession.user.email ?? existingSession.user.name ?? "this account"}
+            </strong>
+            .
+          </p>
+          <button
+            type="button"
+            className="login-btn"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            disabled={isLoading}
+            style={{ marginBottom: 8 }}
+          >
+            Sign out
+          </button>
+          <button
+            type="button"
+            className="login-btn-secondary"
+            onClick={() => { window.location.href = callbackUrl; }}
+          >
+            Continue as this user
+          </button>
+        </div>
+      ) : null}
 
       {/* Sign-in card — OAuth first, then contact + magic link, then password */}
       <div className="login-form-card">
