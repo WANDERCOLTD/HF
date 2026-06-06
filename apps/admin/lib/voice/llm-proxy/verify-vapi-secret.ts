@@ -23,6 +23,7 @@ import * as crypto from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { log } from "@/lib/logger";
 
 const HEADER_NAME = "x-vapi-secret";
 
@@ -43,12 +44,21 @@ export async function verifyVapiSecret(
   request: Request,
   slug: string,
 ): Promise<SecretVerifyResult> {
+  const headerPresent = request.headers.get(HEADER_NAME) !== null;
+  const headerLen = (request.headers.get(HEADER_NAME) ?? "").length;
+
   const providerRow = await prisma.voiceProvider.findUnique({
     where: { slug },
     select: { slug: true, credentials: true },
   });
 
   if (!providerRow) {
+    log("system", "voice.llm_proxy.secret.unknown_slug", {
+      level: "error",
+      slug,
+      headerPresent,
+      headerLen,
+    });
     return {
       ok: false,
       response: NextResponse.json(
@@ -63,11 +73,23 @@ export async function verifyVapiSecret(
 
   // Pass-through when no secret is configured (local-dev convention).
   if (!expectedRaw) {
+    log("system", "voice.llm_proxy.secret.passthrough", {
+      level: "warn",
+      slug,
+      headerPresent,
+      headerLen,
+      message: "No webhookSecret configured for provider — auth passthrough (dev)",
+    });
     return { ok: true, providerSlug: providerRow.slug };
   }
 
   const presented = request.headers.get(HEADER_NAME) ?? "";
   if (!presented) {
+    log("system", "voice.llm_proxy.secret.missing_header", {
+      level: "error",
+      slug,
+      expectedLen: expectedRaw.length,
+    });
     return {
       ok: false,
       response: NextResponse.json(
@@ -81,6 +103,12 @@ export async function verifyVapiSecret(
   const presentedBuf = Buffer.from(presented);
 
   if (expectedBuf.length !== presentedBuf.length) {
+    log("system", "voice.llm_proxy.secret.length_mismatch", {
+      level: "error",
+      slug,
+      expectedLen: expectedBuf.length,
+      presentedLen: presentedBuf.length,
+    });
     return {
       ok: false,
       response: NextResponse.json(
@@ -91,6 +119,12 @@ export async function verifyVapiSecret(
   }
 
   if (!crypto.timingSafeEqual(expectedBuf, presentedBuf)) {
+    log("system", "voice.llm_proxy.secret.value_mismatch", {
+      level: "error",
+      slug,
+      expectedLen: expectedBuf.length,
+      presentedLen: presentedBuf.length,
+    });
     return {
       ok: false,
       response: NextResponse.json(
@@ -100,5 +134,10 @@ export async function verifyVapiSecret(
     };
   }
 
+  log("system", "voice.llm_proxy.secret.ok", {
+    level: "info",
+    slug,
+    expectedLen: expectedBuf.length,
+  });
   return { ok: true, providerSlug: providerRow.slug };
 }

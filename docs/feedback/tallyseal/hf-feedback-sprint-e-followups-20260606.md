@@ -274,3 +274,25 @@ No new tickets proposed by HF; each ask routes to an existing ticket's follow-on
 - **Sprint F naming.** This doc uses "Sprint F" loosely. If tallyseal is on a different sprint cadence or these asks belong on a follow-on to Sprint E rather than a new sprint, treat the framing as advisory.
 - **Version mismatch in HF.** `@tallyseal/prisma-adapter` is referenced as `@0.1.0` in HF's package.json but installs as `0.2.0`. HF will clean up separately; not a tallyseal action item.
 - **Ask 2 priority.** If tallyseal has to pick one of the three, **Ask 2 (library extraction) is the highest leverage.** HF can ship a near-dogfood Phase 2 without `field.json()` (workaround: string + post-parse, weaker but functional). HF cannot ship the editor UI without the components in a vendorable package short of accepting one of the three costly options above. The other two asks are weeks of additive value; the editor library is a hard blocker on the V6 admin authoring UI.
+
+---
+
+## Addendum 2026-06-06 EOD V6++ session — UX nit: editor surface could opt into the host design system
+
+**Trigger.** After PR #1217 (HF Phase 2c) shipped and we ran the first interactive smoke test on `dev.humanfirstfoundation.com/x/intake/specs/CreateCourse@0.1.0`, a fresh admin user added a `tester2` field, then went looking for Save. The primary Save / Deploy actions landed below the fold on a 1440×900 Safari viewport — discovery happened by scroll, not by sight. The flow eventually worked (we have DB evidence — body re-derived from `[placeholder]` to `[placeholder, tester2]`, deploy fired through the modal at `15:45:22.927Z`) but the affordance lagged the action.
+
+**Observation.** HF has a mature in-house design system at `apps/admin/styles/` — `hf-card`, `hf-btn-primary`, `hf-btn-secondary`, `hf-section-title`, `hf-banner`, `hf-badge`, `hf-page-shell`. The HF page wrapper at `app/x/intake/specs/[id]/page.tsx` already uses several (`hf-page-shell`, `hf-card`, `hf-page-title`, `hf-banner`). Inside `<EditorShell>`, however, the styling is admin-editor's own — buttons, banners, fields all carry admin-viewer's defaults. Two consequences:
+
+1. **Visual seam** — the editor frame looks markedly different from the rest of the admin shell that wraps it, so the editor reads as "a different app embedded in our app" rather than a first-class admin surface.
+2. **Action discoverability** — Save / Deploy positioning is admin-viewer's choice and isn't tunable from the host.
+
+**Two non-exclusive paths.**
+
+- **(a) Opt-in theme prop.** `<EditorShell theme={{ button: { primary: "hf-btn-primary", secondary: "hf-btn-secondary" }, card: "hf-card", banner: "hf-banner", section: "hf-section-title" }} />` lets each customer hand in their own class tokens. Cheap, additive, doesn't break existing consumers (default to admin-viewer's own classes when prop omitted). HF would adopt immediately.
+- **(b) Sticky action footer.** Independently of theming — fix Save / Deploy to the bottom of the editor frame so they're discoverable without scroll regardless of styling. Solves the affordance class even for customers who don't theme.
+
+**Priority.** UX nit, not a contract gap. Both fixes are additive and won't change any externally-observed behaviour beyond visual / affordance polish. Filing here so it's tracked next to the structural asks rather than lost in an issue tracker.
+
+**HF intent.** If tallyseal exposes (a), HF wires the token map in `editor-mount.tsx` (~10 LOC) and we close the visual seam. If only (b) lands, HF gets the discoverability fix for free.
+
+**Out of scope here.** Token semantics (would `hf-btn-primary` ever conflict with admin-editor's own primary-state styling? probably not, but worth a sanity pass). Dark mode parity. Locale-aware label wrapping.
