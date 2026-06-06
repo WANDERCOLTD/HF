@@ -645,7 +645,13 @@ The scheduled job runs every minute; HF's poll itself is idempotent and race-saf
 
 ### Sandbox VM — crontab alternative
 
-`hf-dev` has no Cloud Scheduler. Use the VM's crontab:
+`hf-dev` has no Cloud Scheduler. Use the VM's crontab.
+
+**Important env-file note:** the VM runs both `.env` AND `.env.local`,
+and per Next.js precedence **`.env.local` wins on conflicting keys**.
+`INTERNAL_API_SECRET` is set in BOTH files with DIFFERENT values — the
+runtime uses `.env.local`. Cron commands MUST grep `.env.local`, not
+`.env`, or the call returns 401 silently.
 
 ```bash
 # SSH into VM, edit crontab
@@ -654,8 +660,20 @@ crontab -e
 
 # Add this line (every minute):
 * * * * * curl -sS -X POST http://localhost:3000/api/voice/poll-stale-calls \
-  -H "x-internal-secret: $(grep '^INTERNAL_API_SECRET=' /home/paul_thewanders_com/HF/apps/admin/.env | cut -d= -f2)" \
+  -H "x-internal-secret: $(grep '^INTERNAL_API_SECRET=' /home/paul_thewanders_com/HF/apps/admin/.env.local | cut -d= -f2)" \
   -H "Content-Type: application/json" -d '{}' >> /tmp/voice-poll.log 2>&1
+```
+
+**Verifying the right secret:** if your manual smoke against the route
+returns `{"error":"Unauthorized"}`, double-check which file is being
+read. Both files have the key; only `.env.local` matches the runtime:
+
+```bash
+# Wrong (returns the unused .env value)
+grep '^INTERNAL_API_SECRET=' ~/HF/apps/admin/.env | cut -d= -f2
+
+# Right (returns the value Next.js actually loaded)
+grep '^INTERNAL_API_SECRET=' ~/HF/apps/admin/.env.local | cut -d= -f2
 ```
 
 ### Manual invocation (operator debug)
