@@ -113,8 +113,14 @@ registerTransform(
     }
 
     // ── Select questions ──
+    // #1167 — pass the active Playbook's id so the selector uses the modern
+    // PlaybookSource attachment chain (via getSourceIdsForPlaybook) instead
+    // of the broken `source: { curricula: { some: { id } } }` filter that
+    // only matched sources where Curriculum.primarySourceId = source.id.
+    const activePlaybookId = loadedData.playbooks?.[0]?.id ?? null;
     const questions = await selectRetrievalQuestions({
       curriculumId: curriculumInfo.id,
+      playbookId: activePlaybookId,
       outcomeRefs,
       count: questionCount,
       bloomFloor,
