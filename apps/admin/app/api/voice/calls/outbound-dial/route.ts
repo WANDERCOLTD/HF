@@ -11,6 +11,7 @@ import {
 } from "@/lib/voice/resolve-voice-provider";
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
+import { log } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -210,6 +211,21 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
+      // #922 — log the model block we're about to send so the next
+      // VAPI rejection is debuggable from /x/logs without a repro.
+      const modelBlock = (inlineAssistant as { model?: Record<string, unknown> })?.model ?? null;
+      log("api", "voice.outbound_dial.assistant", {
+        level: "info",
+        callId: placeholderCall.id,
+        callerIdShort: caller.id.slice(0, 8),
+        providerSlug: providerRow.slug,
+        modelProvider: modelBlock?.provider ?? null,
+        modelName: modelBlock?.model ?? null,
+        modelUrl: modelBlock?.url ?? null,
+        hasModelSecret: typeof modelBlock?.secret === "string" && (modelBlock.secret as string).length > 0,
+        firstLine: (inlineAssistant as { firstMessage?: string })?.firstMessage ?? null,
+        serverUrl: (inlineAssistant as { serverUrl?: string })?.serverUrl ?? null,
+      });
       const vapiResp = await fetch("https://api.vapi.ai/call", {
         method: "POST",
         headers: {
@@ -230,6 +246,19 @@ export async function POST(request: Request) {
           vapiBody?.error ||
           vapiBody?.message ||
           `VAPI HTTP ${vapiResp.status}`;
+        // #922 — log the full VAPI rejection BEFORE we delete the
+        // placeholder. The placeholder delete used to take the only
+        // forensic trail with it.
+        log("system", "voice.outbound_dial.vapi_rejected", {
+          level: "error",
+          callId: placeholderCall.id,
+          callerIdShort: caller.id.slice(0, 8),
+          providerSlug: providerRow.slug,
+          httpStatus: vapiResp.status,
+          vapiError: vapiBody?.error ?? null,
+          vapiMessage: vapiBody?.message ?? null,
+          vapiBody: vapiBody ? JSON.stringify(vapiBody).slice(0, 1500) : null,
+        });
         await prisma.call.delete({ where: { id: placeholderCall.id } });
         endSpan({ errorMessage: message });
         return NextResponse.json(

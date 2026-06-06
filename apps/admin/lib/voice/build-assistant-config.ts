@@ -199,6 +199,7 @@ export async function buildAssistantConfigForCaller(
     unknownCallerPrompt: vs.unknownCallerPrompt,
     noActivePromptFallback: vs.noActivePromptFallback,
     costSafetyKnobs,
+    customLlmSecret,
   });
 
   return {

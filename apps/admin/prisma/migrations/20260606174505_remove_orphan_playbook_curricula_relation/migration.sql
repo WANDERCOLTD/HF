@@ -1,0 +1,10 @@
+-- No-op: schema-only change.
+--
+-- #1226 dropped Curriculum.playbookId AND its inverse on Curriculum,
+-- but the Playbook side declaration
+--   curricula Curriculum[] @relation("PlaybookCurricula")
+-- was left behind. That orphan relation breaks `prisma generate`
+-- (P1012: missing opposite relation field). Removing it from the
+-- Prisma schema does NOT change the database — the column it referred
+-- to was already removed by #1226. This empty migration exists only
+-- to satisfy the #944 schema-change guard.
