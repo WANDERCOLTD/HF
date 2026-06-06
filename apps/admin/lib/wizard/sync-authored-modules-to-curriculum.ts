@@ -63,9 +63,15 @@ export async function syncAuthoredModulesToCurriculum(
   outcomes?: Record<string, string>,
 ): Promise<SyncResult> {
   // Pick or create the primary curriculum for this course.
-  // #1034 — Read PlaybookCurriculum first (variant Playbooks share the
-  // parent's Curriculum via a `linked` row). Falls back to the deprecated
-  // Curriculum.playbookId relation for transition safety.
+  // #1034 / #1205 — Read PlaybookCurriculum first (variant Playbooks share the
+  // parent's Curriculum via a `linked` row). Intentional fallback to the
+  // deprecated `curricula` direct relation for any pre-#1212 Curriculum row
+  // that doesn't yet have a PlaybookCurriculum(primary) join row (the
+  // historical-orphan backfill is the next piece of work). Remove this
+  // fallback (and the two eslint-disables) once the backfill SQL has run on
+  // prod and the FK probe shows zero orphans.
+  // See docs/CONTRACTS-PLAYBOOK-CURRICULUM.md §4 — "Dual-read tolerance".
+  /* eslint-disable hf-curriculum/no-deprecated-curricula-relation -- intentional dual-read during #1205/#1212 transition */
   const playbook = await tx.playbook.findUnique({
     where: { id: playbookId },
     select: {
@@ -91,6 +97,7 @@ export async function syncAuthoredModulesToCurriculum(
     playbook.playbookCurricula[0]?.curriculumId ??
     playbook.curricula[0]?.id ??
     null;
+  /* eslint-enable hf-curriculum/no-deprecated-curricula-relation */
   if (!curriculumId) {
     const created = await tx.curriculum.create({
       data: {

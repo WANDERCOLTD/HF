@@ -28,16 +28,16 @@ export async function GET(
 
     const { courseId } = await params;
 
-    // Load playbook with its curriculum (direct link)
+    // Load playbook with its curriculum (#1205 — via canonical PlaybookCurriculum join)
     const playbook = await prisma.playbook.findUnique({
       where: { id: courseId },
       select: {
         id: true,
         config: true,
-        curricula: {
-          select: { id: true, deliveryConfig: true },
-          orderBy: { updatedAt: "desc" },
+        playbookCurricula: {
+          where: { role: "primary" },
           take: 1,
+          select: { curriculum: { select: { id: true, deliveryConfig: true } } },
         },
       },
     });
@@ -49,8 +49,10 @@ export async function GET(
       );
     }
 
-    // Extract lesson plan entries from curriculum
-    const curriculum = playbook.curricula.find((c) => c.deliveryConfig);
+    // Extract lesson plan entries from the primary curriculum (variant-aware).
+    // Pre-#1205 this used `find(c => c.deliveryConfig)` against the deprecated
+    // direct relation; the primary join is the single source of truth.
+    const curriculum = playbook.playbookCurricula[0]?.curriculum;
 
     const deliveryConfig = curriculum?.deliveryConfig as Record<string, unknown> | null;
     const lessonPlanEntries = (deliveryConfig?.lessonPlan as Array<Record<string, unknown>>) || [];

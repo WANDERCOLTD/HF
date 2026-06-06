@@ -67,9 +67,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             select: {
               id: true,
               config: true,
-              curricula: {
-                where: { deliveryConfig: { not: Prisma.JsonNull } },
-                select: { id: true, slug: true, deliveryConfig: true },
+              // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
+              // Filter on the inner curriculum's deliveryConfig — if the primary
+              // curriculum has none, this enrollment can't have a journey position.
+              playbookCurricula: {
+                where: {
+                  role: "primary",
+                  curriculum: { deliveryConfig: { not: Prisma.JsonNull } },
+                },
+                select: { curriculum: { select: { id: true, slug: true, deliveryConfig: true } } },
                 take: 1,
               },
             },
@@ -90,7 +96,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    const curriculum = enrollment.playbook.curricula?.[0];
+    const curriculum = enrollment.playbook.playbookCurricula?.[0]?.curriculum;
     const pbConfig = (enrollment.playbook.config ?? {}) as PlaybookConfig;
     const onboardingComplete = onboardingSession?.isComplete || onboardingSession?.wasSkipped || false;
 

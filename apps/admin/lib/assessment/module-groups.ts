@@ -45,7 +45,12 @@ export async function resolveModuleGroupsForSource(
       playbook: {
         select: {
           config: true,
-          curricula: { select: { id: true }, orderBy: { createdAt: "asc" }, take: 1 },
+          // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
+          playbookCurricula: {
+            where: { role: "primary" },
+            select: { curriculum: { select: { id: true } } },
+            take: 1,
+          },
         },
       },
     },
@@ -63,7 +68,7 @@ export async function resolveModuleGroupsForSource(
   // teaches, not what the learner should answer questions about.
   // ITEM_GENERATOR_SPEC refs stay included — they're boundary specs the
   // question generator legitimately consumes.
-  const curriculumId = playbookSource.playbook.curricula[0]?.id ?? null;
+  const curriculumId = playbookSource.playbook.playbookCurricula[0]?.curriculum.id ?? null;
   const excludedRefs = new Set<string>();
   if (curriculumId) {
     const allRefs = modules.flatMap((m) => (Array.isArray(m?.outcomesPrimary) ? (m.outcomesPrimary as string[]) : []));

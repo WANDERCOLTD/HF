@@ -233,10 +233,11 @@ export async function main(prisma: PrismaClient): Promise<void> {
     where: { id: playbook.id },
     select: {
       config: true,
-      curricula: {
-        orderBy: { createdAt: "asc" },
+      // #1205 — canonical PlaybookCurriculum primary join.
+      playbookCurricula: {
+        where: { role: "primary" },
         take: 1,
-        select: { slug: true },
+        select: { curriculum: { select: { slug: true } } },
       },
     },
   });
@@ -245,7 +246,7 @@ export async function main(prisma: PrismaClient): Promise<void> {
   )
     ? ((playbookForModules!.config as Record<string, any>).modules as Array<{ id: string }>)
     : [];
-  const contentSpecSlug = playbookForModules?.curricula[0]?.slug;
+  const contentSpecSlug = playbookForModules?.playbookCurricula[0]?.curriculum.slug;
   if (authoredModules.length > 0 && contentSpecSlug) {
     const contentSpec = await prisma.analysisSpec.upsert({
       where: { slug: contentSpecSlug },

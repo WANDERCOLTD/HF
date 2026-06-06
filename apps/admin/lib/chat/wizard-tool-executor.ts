@@ -2525,10 +2525,15 @@ export async function executeWizardTool(
         select: {
           id: true,
           name: true,
-          curricula: {
-            select: { id: true, _count: { select: { modules: true } } },
-            orderBy: { createdAt: "asc" },
+          // #1205 — canonical PlaybookCurriculum primary join.
+          playbookCurricula: {
+            where: { role: "primary" },
             take: 1,
+            select: {
+              curriculum: {
+                select: { id: true, _count: { select: { modules: true } } },
+              },
+            },
           },
         },
       });
@@ -2543,7 +2548,7 @@ export async function executeWizardTool(
           is_error: true,
         };
       }
-      const cur = pb.curricula[0];
+      const cur = pb.playbookCurricula[0]?.curriculum;
       if (!cur || cur._count.modules === 0) {
         console.warn(`[wizard-tools] mark_complete BLOCKED — playbook ${draftPbId} has no curriculum modules`);
         return {

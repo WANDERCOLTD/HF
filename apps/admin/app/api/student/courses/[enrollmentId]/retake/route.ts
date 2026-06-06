@@ -45,10 +45,14 @@ export async function POST(
       playbook: {
         select: {
           id: true,
-          curricula: {
-            orderBy: { updatedAt: "desc" as const },
+          // #1205 — canonical PlaybookCurriculum join (variant-aware).
+          // Deprecated playbook.curricula direct relation removed; the primary
+          // join row is the single source of truth for "this playbook's
+          // curriculum body".
+          playbookCurricula: {
+            where: { role: "primary" },
             take: 1,
-            select: { slug: true },
+            select: { curriculum: { select: { slug: true } } },
           },
         },
       },
@@ -104,7 +108,7 @@ export async function POST(
   });
 
   // 3. Reset curriculum progress CallerAttributes for this playbook's spec slug
-  const specSlug = enrollment.playbook.curricula[0]?.slug;
+  const specSlug = enrollment.playbook.playbookCurricula[0]?.curriculum.slug;
   if (specSlug) {
     await prisma.callerAttribute.deleteMany({
       where: {

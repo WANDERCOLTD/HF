@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import noUnscopedSlugLookup from "./eslint-rules/no-unscoped-slug-lookup.mjs";
+import noDeprecatedCurriculaRelation from "./eslint-rules/no-deprecated-curricula-relation.mjs";
 import noDirectPlaybookConfigWrite from "./eslint-rules/no-direct-playbook-config-write.mjs";
 import noDirectDomainOnboardingWrite from "./eslint-rules/no-direct-domain-onboarding-write.mjs";
 import noDirectSpecConfigWrite from "./eslint-rules/no-direct-spec-config-write.mjs";
@@ -50,6 +51,11 @@ const eslintConfig = defineConfig([
       "hf-curriculum": {
         rules: {
           "no-unscoped-slug-lookup": noUnscopedSlugLookup,
+          // #1205 — block new reads of @deprecated Playbook.curricula direct
+          // relation. Use Playbook.playbookCurricula (canonical join) instead.
+          // Variants linked via the join table are silently missing from the
+          // deprecated `.curricula` array.
+          "no-deprecated-curricula-relation": noDeprecatedCurriculaRelation,
         },
       },
       // #826 — block direct writes to Playbook.config outside the
@@ -134,6 +140,7 @@ const eslintConfig = defineConfig([
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
+      "hf-curriculum/no-deprecated-curricula-relation": "error",
       "hf-playbook/no-direct-config-write": "error",
       "hf-domain/no-direct-onboarding-write": "error",
       "hf-spec/no-direct-config-write": "error",
