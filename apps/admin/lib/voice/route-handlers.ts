@@ -57,6 +57,7 @@ import type {
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
+import { log } from "@/lib/logger";
 
 // `getVoiceSystemSettings` is imported for the existing cost-cap
 // trickle below AND for the assistant-request handler's cost-safety
@@ -101,11 +102,26 @@ export async function handleVoiceWebhookPost(
     slug,
     operation: `voice:${slug}:webhook`,
   });
+  // #922 — every webhook arrival logs `voice.webhook.arrive` so the
+  // next "end-of-call never landed" report can be answered in one
+  // /x/logs query: did VAPI actually POST to us at all?
+  log("api", "voice.webhook.arrive", {
+    level: "info",
+    slug,
+    contentLength: request.headers.get("content-length") ?? null,
+    hasVapiSignature: request.headers.get("x-vapi-signature") !== null,
+    userAgent: request.headers.get("user-agent") ?? null,
+  });
   try {
     const rawBody = await request.text();
     const provider = await getVoiceProvider(slug);
     const authError = provider.verifyInboundRequest(request, rawBody);
     if (authError) {
+      log("system", "voice.webhook.auth_failed", {
+        level: "error",
+        slug,
+        bodyLen: rawBody.length,
+      });
       logVoiceEvent({
         slug,
         operation: `voice:${slug}:auth:invalid-signature`,
@@ -119,6 +135,12 @@ export async function handleVoiceWebhookPost(
     try {
       body = JSON.parse(rawBody);
     } catch {
+      log("system", "voice.webhook.bad_json", {
+        level: "error",
+        slug,
+        bodyLen: rawBody.length,
+        bodyHead: rawBody.slice(0, 200),
+      });
       endSpan({ errorMessage: "Invalid JSON body" });
       return NextResponse.json(
         { error: "Invalid JSON body" },
@@ -126,8 +148,30 @@ export async function handleVoiceWebhookPost(
       );
     }
 
+    // #922 — sniff event-shape hints from the body so the next "no
+    // end-of-call" report shows whether VAPI sent a message-shaped
+    // payload at all. VAPI nests under `message.type`.
+    const bodyObj = (body ?? {}) as Record<string, unknown>;
+    const msg = (bodyObj.message ?? null) as Record<string, unknown> | null;
+    const sniff = {
+      messageType: typeof msg?.type === "string" ? (msg.type as string) : null,
+      rootType: typeof bodyObj.type === "string" ? (bodyObj.type as string) : null,
+      hasCallId:
+        typeof (msg?.call as Record<string, unknown> | undefined)?.id === "string" ||
+        typeof bodyObj.callId === "string",
+    };
+
     const event = provider.normaliseEndOfCallEvent(body);
     if (event) {
+      log("api", "voice.webhook.end_of_call", {
+        level: "info",
+        slug,
+        eventKind: event.eventKind,
+        externalCallId: event.externalCallId,
+        endedReason: event.capture?.endedReason ?? null,
+        transcriptLen: event.transcript?.length ?? 0,
+        ...sniff,
+      });
       const resp = await handleEndOfCallEvent(event, slug);
       endSpan({
         metadata: { kind: "end-of-call", eventKind: event.eventKind },
@@ -141,6 +185,11 @@ export async function handleVoiceWebhookPost(
     // so we don't block VAPI's webhook timeout.
     const statusUpdate = provider.normaliseStatusUpdate?.(body);
     if (statusUpdate) {
+      log("api", "voice.webhook.status_update", {
+        level: "info",
+        slug,
+        ...sniff,
+      });
       setImmediate(() => {
         processStatusUpdate(statusUpdate, slug, provider).catch((err) => {
           console.error(
@@ -161,6 +210,12 @@ export async function handleVoiceWebhookPost(
     // ack budget.
     const transcriptUpdate = parseTranscriptUpdate(body, slug);
     if (transcriptUpdate) {
+      log("api", "voice.webhook.transcript_update", {
+        level: "info",
+        slug,
+        externalCallId: (transcriptUpdate as Record<string, unknown>).externalCallId ?? null,
+        ...sniff,
+      });
       setImmediate(() => {
         processTranscriptUpdate(transcriptUpdate, slug).catch((err) => {
           console.error(
@@ -174,9 +229,20 @@ export async function handleVoiceWebhookPost(
     }
 
     // Unhandled event types (ping, etc.) just ack.
+    log("api", "voice.webhook.ignored", {
+      level: "info",
+      slug,
+      ...sniff,
+    });
     endSpan({ metadata: { kind: "ignored" } });
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
+    log("system", "voice.webhook.error", {
+      level: "error",
+      slug,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack ?? null : null,
+    });
     console.error(`[voice/${slug}/webhook] Error:`, error);
     endSpan({ errorMessage: errorMessage(error) ?? "Webhook processing failed" });
     return NextResponse.json(
