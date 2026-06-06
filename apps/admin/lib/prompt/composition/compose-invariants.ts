@@ -86,19 +86,36 @@ export function checkComposeInvariants(
   // ---------------------------------------------------------------
   // I-C1 — Module-lock honoured.
   //
-  // When `Call.requestedModuleId` is set, the assembled prompt MUST
-  // narrate the locked module's name and MUST NOT name a different
-  // module as "Current" or as the spaced-retrieval target. The most
-  // robust runtime check is: when a lockedModuleName is present, it
-  // MUST appear in the prompt body.
+  // When the composer has resolved a `lockedModuleName` (whether from an
+  // explicit `Call.requestedModuleId` OR from the scheduler / default-
+  // module resolver), the assembled prompt MUST narrate that module's
+  // name and MUST NOT name a different module as "Current" or as the
+  // spaced-retrieval target.
+  //
+  // G6 / #1154 (audit 2026-06): pre-widening, the gate only fired when
+  // BOTH requestedModuleId AND lockedModuleName were truthy. That left
+  // 61% of IELTS V1.0 calls and 100% of voice-path calls (where
+  // requestedModuleId was always null at call-create) silently bypassing
+  // the invariant — the gap that allowed #1006 Maya-class hallucination
+  // to re-enter on courses without a learner-picker UI. With the
+  // G6 backfill at the call-create write sites (callers/calls/route.ts
+  // and voice/calls/start/route.ts), `requestedModuleId` is now non-null
+  // for any new call where a default module resolved. The gate is widened
+  // to fire on `lockedModuleName` alone so scheduler-set locks (no
+  // explicit picker click) are also enforced.
   // ---------------------------------------------------------------
-  if (ctx.requestedModuleId && ctx.lockedModuleName) {
+  if (ctx.lockedModuleName) {
     const promptHasLock = ctx.callerContextMarkdown.includes(ctx.lockedModuleName);
     if (!promptHasLock) {
       violations.push({
         id: "I-C1",
         severity: "error",
-        message: `Module-lock honoured: Call.requestedModuleId="${ctx.requestedModuleId}" resolved to locked module "${ctx.lockedModuleName}", but the assembled prompt does not name it. Pedagogy / quickstart / curriculum transforms produced an unrelated module reference (#1006 Maya class).`,
+        message:
+          `Module-lock honoured: composer resolved locked module "${ctx.lockedModuleName}"` +
+          (ctx.requestedModuleId
+            ? ` (Call.requestedModuleId="${ctx.requestedModuleId}")`
+            : ` (scheduler / default-module resolver; Call.requestedModuleId=null)`) +
+          `, but the assembled prompt does not name it. Pedagogy / quickstart / curriculum transforms produced an unrelated module reference (#1006 Maya class).`,
       });
     }
   }

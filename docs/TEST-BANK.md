@@ -164,6 +164,54 @@ Mixing tags is fine. `describe("buildLoMasteryMap (#928 scoping helper)", ...)` 
 | **Owner area** | Caller / Sim / Learner-Facing UX |
 | **Related** | Bank entry 003 (unit-level sibling) · `docs/CHAIN-CONTRACTS.md` Link L9 · `tests/integration/journey/fixtures.ts` (shared journey pattern) · `educator-journey.integration.test.ts:406` (FK landmine documented in the test file header) |
 
+### 005 — `accumulateSkillScores` evidence filter (G5)
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/lib/aggregate-evidence-filter.test.ts` |
+| **Subject** | `apps/admin/lib/pipeline/aggregate-runner.ts::accumulateSkillScores` |
+| **Defends** | CHAIN-CONTRACTS Link 4 (CALL → SCORE) — explicit-false-evidence rows must NOT feed the EMA. Audit G5 |
+| **Issue / origin** | [#1155](https://github.com/WANDERCOLTD/HF/issues/1155) — 43.8% of recent CallScore rows have null `hasLearnerEvidence`; #611 gate is ambiguous and AGGREGATE didn't gate at all. |
+| **Failure mode it pins** | A future refactor of the Prisma `where` clause silently drops the `NOT: { hasLearnerEvidence: false }` filter, re-admitting evidence-absent rows into the per-skill EMA. Audit-doc §6 G5 catches this exact regression class. |
+| **What it proves** | (1) The Prisma query carries `NOT: { hasLearnerEvidence: false }`. (2) null (legacy back-compat) rows pass. (3) true rows fold into EMA. (4) All-false universe → scoresApplied = 0. |
+| **How to run** | `cd apps/admin && npx vitest run tests/lib/aggregate-evidence-filter.test.ts` |
+| **When to re-run** | Any edit to `aggregate-runner.ts::accumulateSkillScores` or to `route.ts::stageExecutors.EXTRACT` evidence-flag fallback. |
+| **Status** | ✅ green (4/4, 2026-06-06) |
+| **Owner area** | Adaptive Loop / AGGREGATE stage |
+| **Related** | `docs/CHAIN-CONTRACTS.md` Link 4 · audit G5 entry · `lib/curriculum/evidence-gate.ts::shouldSkipForZeroEvidence` (companion EXTRACT-side gate) |
+
+### 006 — CIO/CTO BEH-* seed idempotency + FK pre-flight (G4)
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/lib/seed-cio-cto-beh-targets.test.ts` |
+| **Subject** | `apps/admin/prisma/seed-cio-cto-beh-targets.ts` |
+| **Defends** | CHAIN-CONTRACTS §3d CC-G (variant-funnel BEH-* persona targets) — the trio's `BEH-*` BehaviorTarget rows must seed atomically across all 3 siblings. |
+| **Issue / origin** | [#1145](https://github.com/WANDERCOLTD/HF/issues/1145) — CIO/CTO trio had zero BEH-* targets; SCORE_AGENT measured but REWARD couldn't compute. |
+| **Failure mode it pins** | A future seed edit (a) breaks idempotency (re-runs throw or double-write), (b) bypasses the FK pre-flight (Parameter row missing → cryptic FK error at insert time), (c) loses the funnel differentiation (flat targets across siblings collapses the variant pattern). |
+| **What it proves** | (1) 21 rows written across 3 playbooks on a clean DB (7 per sibling). (2) Re-running is a no-op. (3) Fresh DB without CIO/CTO playbooks skips gracefully with a clear log. (4) Missing Parameter row throws with the helpful error. (5) `source: "SEED"` is passed to `writeBehaviorTargets`. (6) `BEH-QUESTION-RATE` is deliberately absent (STATE param). |
+| **How to run** | `cd apps/admin && npx vitest run tests/lib/seed-cio-cto-beh-targets.test.ts` |
+| **When to re-run** | Any edit to the seed file or to `lib/agent-tuner/write-target.ts::writeBehaviorTargets`. |
+| **Status** | ✅ green (6/6, 2026-06-06) |
+| **Owner area** | Adaptive Loop / Seed-driven course authoring |
+| **Related** | `docs/CHAIN-CONTRACTS.md` §3d CC-A through CC-F · `lib/agent-tuner/write-target.ts` · `prisma/seed-tolerance-parameters.ts` (sister idempotent-seed pattern) |
+
+### 007 — `resolveDefaultModuleForCaller` + I-C1 widening (G6)
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/lib/resolve-default-module.test.ts` |
+| **Subject** | `apps/admin/lib/curriculum/resolve-default-module.ts` + `apps/admin/lib/prompt/composition/compose-invariants.ts::checkComposeInvariants` (I-C1) |
+| **Defends** | CHAIN-CONTRACTS Link 3 sub-contract I-C1 (Module-lock honoured) — the widened gate must fire whenever a `lockedModuleName` resolves, regardless of whether `requestedModuleId` was explicit-from-picker or auto-from-resolver. |
+| **Issue / origin** | [#1154](https://github.com/WANDERCOLTD/HF/issues/1154) — 61% of IELTS V1.0 calls and 100% of voice-path calls landed with null `requestedModuleId`, silently bypassing I-C1 and re-exposing Maya-class hallucination. |
+| **Failure mode it pins** | (a) Future edit re-narrows I-C1 to fire only on `requestedModuleId && lockedModuleName`, restoring the silent-skip class. (b) Resolver's step-1/step-2/null fall-through breaks (e.g. wrong sort field, missing curriculum guard). |
+| **What it proves** | Resolver: empty inputs → null; no curriculum → null; `CallerModuleProgress` wins step 1; `sortOrder: "asc"` is the step-2 ordering; no modules → null. I-C1: fires on `lockedModuleName` alone (G6 case); fires on both fields when set; does NOT fire when prompt names the lock. |
+| **How to run** | `cd apps/admin && npx vitest run tests/lib/resolve-default-module.test.ts` |
+| **When to re-run** | Edits to `resolve-default-module.ts`, `compose-invariants.ts`, OR either of the call-create write sites (`app/api/callers/[callerId]/calls/route.ts`, `app/api/voice/calls/start/route.ts`). |
+| **Status** | ✅ green (9/9, 2026-06-06) |
+| **Owner area** | Adaptive Loop / Compose Stage |
+| **Related** | `docs/CHAIN-CONTRACTS.md` Link 3 sub-contract I-C1 · audit G6 entry · `#1006` Maya hallucination root cause · `lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` (sibling resolver used by voice/calls/start) |
+
 ---
 
 ## Live-DB Demos
