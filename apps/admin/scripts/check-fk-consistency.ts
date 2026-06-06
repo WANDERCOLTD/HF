@@ -16,6 +16,13 @@
 
 import { prisma } from "@/lib/prisma";
 import { findAnchorDivergence, type AnchorCurriculum } from "./check-anchor-divergence";
+// #1225 Slice C — IntakeSpec body/source coherence check.
+// Imports deferred to runChecks() because @tallyseal/spec-emitter ships
+// only at runtime via the vendored tarball — declaring the import at the
+// top keeps tsc happy without ratchet impact when the vendor pkg is
+// missing (CI is the only environment that requires this check to pass).
+import { parse as parseSpecSource } from "@tallyseal/spec-emitter";
+import { projectBodyFromEditable } from "@/lib/intake/crawcus-serde";
 
 interface CheckRow {
   id: string;
@@ -169,6 +176,54 @@ async function runChecks(): Promise<CheckResult[]> {
       },
     },
   });
+  // #1225 Slice C — IntakeSpec body/source coherence.
+  // For every IntakeSpec row with a non-NULL source, the body JSON cache
+  // MUST equal projectBodyFromEditable(parse(source)). PR #1217 wired
+  // saveSpecAction to re-derive body on every save; this check catches
+  // any out-of-band write that bypasses the helper, or a parse-emit
+  // mismatch introduced by a future @tallyseal/spec-emitter update.
+  // Idempotent + read-only — same posture as the rest of this script.
+  const intakeSpecs = await prisma.intakeSpec.findMany({
+    where: { source: { not: null } },
+    select: { id: true, key: true, version: true, source: true, body: true },
+  });
+  const incoherentSpecs: CheckRow[] = [];
+  for (const spec of intakeSpecs) {
+    if (spec.source === null) continue;
+    let projected: unknown;
+    try {
+      const editable = parseSpecSource(spec.source);
+      projected = projectBodyFromEditable(editable);
+    } catch (err) {
+      incoherentSpecs.push({
+        id: spec.id,
+        detail: {
+          key: spec.key,
+          version: spec.version,
+          reason: "parse-failure",
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
+      continue;
+    }
+    if (JSON.stringify(projected) !== JSON.stringify(spec.body)) {
+      incoherentSpecs.push({
+        id: spec.id,
+        detail: {
+          key: spec.key,
+          version: spec.version,
+          reason: "body-source-divergence",
+        },
+      });
+    }
+  }
+  results.push({
+    name: "intake-spec-body-source-coherence",
+    description:
+      "Every IntakeSpec row with a non-NULL source must have body == projectBodyFromEditable(parse(source)) (#1225). Divergence indicates the body JSON cache drifted from the canonical TS source — either an out-of-band write that bypassed updateDraft + saveSpecAction's body re-derivation (#1217), or a parse-emit mismatch introduced by a @tallyseal/spec-emitter version bump.",
+    rows: incoherentSpecs,
+  });
+
   const divergences = findAnchorDivergence(anchorCurricula);
   results.push({
     name: "qualification-anchor-divergence",

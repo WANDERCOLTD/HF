@@ -21,6 +21,11 @@ import {
   resolvePlaybookIdForCurriculum,
   resolvePlaybookIdsForContentSource,
 } from "@/lib/curriculum/resolve-playbook-for-curriculum";
+import { ensurePrimaryPlaybookLink } from "@/lib/curriculum/ensure-primary-playbook-link";
+import { updateDraft, findById as findIntakeSpecById } from "@/lib/intake/spec-store";
+import { projectBodyFromEditable } from "@/lib/intake/crawcus-serde";
+import { parse as parseSpecSource, SpecParseError } from "@tallyseal/spec-emitter";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -84,6 +89,13 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   reset_caller: "OPERATOR",
   // System diagnostics
   system_ini_check: "SUPERADMIN",
+  // #1225 Slice B — last-7-days landings
+  swap_primary_curriculum: "OPERATOR",
+  attach_linked_curriculum: "OPERATOR",
+  detach_linked_curriculum: "OPERATOR",
+  update_intake_spec_draft: "OPERATOR",
+  get_voice_config: "OPERATOR",
+  update_voice_config: "OPERATOR",
 };
 
 /** Names of every roadmap-stub tool — kept centralised so the
@@ -236,6 +248,25 @@ export async function executeAdminTool(
       // System diagnostics
       case "system_ini_check":
         result = await runIniChecks();
+        break;
+      // #1225 Slice B — last-7-days landings
+      case "swap_primary_curriculum":
+        result = await handleSwapPrimaryCurriculum(input);
+        break;
+      case "attach_linked_curriculum":
+        result = await handleAttachLinkedCurriculum(input);
+        break;
+      case "detach_linked_curriculum":
+        result = await handleDetachLinkedCurriculum(input);
+        break;
+      case "update_intake_spec_draft":
+        result = await handleUpdateIntakeSpecDraft(input);
+        break;
+      case "get_voice_config":
+        result = await handleGetVoiceConfig(input);
+        break;
+      case "update_voice_config":
+        result = await handleUpdateVoiceConfig(input);
         break;
       default:
         if (NOT_YET_AVAILABLE_TOOLS.has(name)) {
@@ -2088,6 +2119,349 @@ function handleNotYetAvailable(toolName: string) {
       `The "${toolName}" tool is on the roadmap and is not yet implemented. ` +
       `Tell the user this in plain English and point them at the UI surface ` +
       `noted in the tool's description above.`,
+  };
+}
+
+// ── #1225 Slice B handlers ──────────────────────────────────────────────
+
+/**
+ * Promote a Curriculum to PRIMARY on a Playbook; demote the previous
+ * primary (if any) to 'linked' in the same transaction. Bumps
+ * Playbook.composeInputsUpdatedAt and emits a pendingChange so the
+ * existing admin-tools-pending-change.test.ts walking set will cover it.
+ */
+async function handleSwapPrimaryCurriculum(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  const curriculumId = typeof input.curriculum_id === "string" ? input.curriculum_id : "";
+  if (!playbookId || !curriculumId) {
+    return { error: "playbook_id and curriculum_id are required" };
+  }
+
+  const [playbook, curriculum] = await Promise.all([
+    prisma.playbook.findUnique({ where: { id: playbookId }, select: { id: true, name: true } }),
+    prisma.curriculum.findUnique({ where: { id: curriculumId }, select: { id: true, name: true } }),
+  ]);
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+  if (!curriculum) return { error: `Curriculum ${curriculumId} not found.` };
+
+  // Demote any current primary (other than the target), then upsert target → primary.
+  const previousPrimary = await prisma.playbookCurriculum.findFirst({
+    where: { playbookId, role: "primary" },
+    select: { curriculumId: true },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    if (previousPrimary && previousPrimary.curriculumId !== curriculumId) {
+      await tx.playbookCurriculum.update({
+        where: {
+          playbookId_curriculumId: { playbookId, curriculumId: previousPrimary.curriculumId },
+        },
+        data: { role: "linked" },
+      });
+    }
+    // Upsert target → primary. If a 'linked' join row exists, promote it.
+    await tx.playbookCurriculum.upsert({
+      where: { playbookId_curriculumId: { playbookId, curriculumId } },
+      create: { playbookId, curriculumId, role: "primary" },
+      update: { role: "primary" },
+    });
+  });
+
+  await bumpPlaybookComposeTimestamp(playbookId);
+
+  const pendingChange = buildPendingChangePayload({
+    scope: "playbook",
+    scopeId: playbookId,
+    scopeLabel: `Playbook ${playbook.name}`,
+    key: "primaryCurriculumId",
+    label: "Primary curriculum",
+    beforeValue: previousPrimary?.curriculumId,
+    afterValue: curriculumId,
+  });
+
+  console.log(
+    `[admin-tools] swap_primary_curriculum: playbook=${playbookId} new primary=${curriculumId} (was ${previousPrimary?.curriculumId ?? "none"}). Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    curriculum_id: curriculumId,
+    previous_primary_curriculum_id: previousPrimary?.curriculumId ?? null,
+    compose_inputs_bumped: true,
+    message: `Promoted "${curriculum.name}" to primary on "${playbook.name}". ${TRAY_PROPOSED_SUFFIX}`,
+    pendingChange,
+  };
+}
+
+async function handleAttachLinkedCurriculum(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  const curriculumId = typeof input.curriculum_id === "string" ? input.curriculum_id : "";
+  if (!playbookId || !curriculumId) {
+    return { error: "playbook_id and curriculum_id are required" };
+  }
+
+  const [playbook, curriculum] = await Promise.all([
+    prisma.playbook.findUnique({ where: { id: playbookId }, select: { id: true, name: true } }),
+    prisma.curriculum.findUnique({ where: { id: curriculumId }, select: { id: true, name: true } }),
+  ]);
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+  if (!curriculum) return { error: `Curriculum ${curriculumId} not found.` };
+
+  const existing = await prisma.playbookCurriculum.findUnique({
+    where: { playbookId_curriculumId: { playbookId, curriculumId } },
+  });
+  if (existing) {
+    return {
+      ok: true,
+      already_attached: true,
+      role: existing.role,
+      message: `"${curriculum.name}" is already attached to "${playbook.name}" (role=${existing.role}). No change.`,
+    };
+  }
+
+  await prisma.playbookCurriculum.create({
+    data: { playbookId, curriculumId, role: "linked" },
+  });
+  await bumpPlaybookComposeTimestamp(playbookId);
+
+  const pendingChange = buildPendingChangePayload({
+    scope: "playbook",
+    scopeId: playbookId,
+    scopeLabel: `Playbook ${playbook.name}`,
+    key: "linkedCurriculumAttached",
+    label: "Linked curriculum attached",
+    beforeValue: undefined,
+    afterValue: curriculumId,
+  });
+
+  console.log(
+    `[admin-tools] attach_linked_curriculum: playbook=${playbookId} linked=${curriculumId}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    curriculum_id: curriculumId,
+    role: "linked",
+    compose_inputs_bumped: true,
+    message: `Attached "${curriculum.name}" as a linked variant on "${playbook.name}". ${TRAY_PROPOSED_SUFFIX}`,
+    pendingChange,
+  };
+}
+
+async function handleDetachLinkedCurriculum(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  const curriculumId = typeof input.curriculum_id === "string" ? input.curriculum_id : "";
+  if (!playbookId || !curriculumId) {
+    return { error: "playbook_id and curriculum_id are required" };
+  }
+
+  const existing = await prisma.playbookCurriculum.findUnique({
+    where: { playbookId_curriculumId: { playbookId, curriculumId } },
+    include: { playbook: { select: { name: true } }, curriculum: { select: { name: true } } },
+  });
+  if (!existing) {
+    return { error: `No join row for playbook=${playbookId} + curriculum=${curriculumId}.` };
+  }
+  if (existing.role === "primary") {
+    return {
+      error:
+        `Refusing to detach the PRIMARY curriculum from "${existing.playbook.name}". ` +
+        `Use swap_primary_curriculum to promote a different Curriculum first; then detach the old one.`,
+    };
+  }
+
+  await prisma.playbookCurriculum.delete({
+    where: { playbookId_curriculumId: { playbookId, curriculumId } },
+  });
+  await bumpPlaybookComposeTimestamp(playbookId);
+
+  const pendingChange = buildPendingChangePayload({
+    scope: "playbook",
+    scopeId: playbookId,
+    scopeLabel: `Playbook ${existing.playbook.name}`,
+    key: "linkedCurriculumDetached",
+    label: "Linked curriculum detached",
+    beforeValue: curriculumId,
+    afterValue: undefined,
+  });
+
+  console.log(
+    `[admin-tools] detach_linked_curriculum: playbook=${playbookId} curriculum=${curriculumId}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    curriculum_id: curriculumId,
+    compose_inputs_bumped: true,
+    message: `Detached "${existing.curriculum.name}" (linked) from "${existing.playbook.name}". ${TRAY_PROPOSED_SUFFIX}`,
+    pendingChange,
+  };
+}
+
+/**
+ * Edit a DRAFT IntakeSpec's source. The body cache is re-derived from
+ * the new source via @tallyseal/spec-emitter parse +
+ * projectBodyFromEditable so list-page fieldCount stays in sync.
+ * PUBLISHED rows are refused at the helper layer (updateDraft throws)
+ * AND structurally by the intake_spec_published_immutable_trigger.
+ */
+async function handleUpdateIntakeSpecDraft(input: Record<string, any>) {
+  const specId = typeof input.spec_id === "string" ? input.spec_id : "";
+  const source = typeof input.source === "string" ? input.source : "";
+  if (!specId || !source) return { error: "spec_id and source are required" };
+
+  const existing = await findIntakeSpecById(specId);
+  if (!existing) return { error: `IntakeSpec ${specId} not found.` };
+  if (existing.status !== "DRAFT") {
+    return {
+      error:
+        `IntakeSpec ${existing.key}@${existing.version} is ${existing.status}. ` +
+        `Only DRAFT specs can be edited via chat. PUBLISH → DRAFT requires a new version via the editor.`,
+    };
+  }
+
+  let body;
+  try {
+    const editable = parseSpecSource(source);
+    body = projectBodyFromEditable(editable);
+  } catch (err) {
+    const detail =
+      err instanceof SpecParseError
+        ? `Spec source did not parse: ${err.message}`
+        : err instanceof Error
+          ? err.message
+          : "Unknown parse error";
+    return { error: detail };
+  }
+
+  const updated = await updateDraft({ id: specId, body, source });
+
+  const fieldCount =
+    body && typeof body === "object" && !Array.isArray(body) && "fields" in body && body.fields && typeof body.fields === "object"
+      ? Object.keys(body.fields as Record<string, unknown>).length
+      : 0;
+
+  console.log(
+    `[admin-tools] update_intake_spec_draft: ${existing.key}@${existing.version} (${specId}) — source ${source.length} chars, fieldCount=${fieldCount}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    spec_id: specId,
+    spec_key: existing.key,
+    spec_version: existing.version,
+    field_count: fieldCount,
+    updated_at: updated.updatedAt.toISOString(),
+    message: `Updated DRAFT source for ${existing.key}@${existing.version} — ${fieldCount} field${fieldCount === 1 ? "" : "s"} after re-derivation.`,
+  };
+}
+
+/**
+ * Read voice configuration from Playbook.config.voice. Structurally
+ * strips model.secret before returning so chat can never surface it.
+ */
+async function handleGetVoiceConfig(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) return { error: "playbook_id is required" };
+
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { id: true, name: true, config: true },
+  });
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+
+  const config = (playbook.config as PlaybookConfig | null) ?? {};
+  const voiceRaw = (config as Record<string, unknown>).voice;
+  const voice: Record<string, unknown> = {};
+  if (voiceRaw && typeof voiceRaw === "object" && !Array.isArray(voiceRaw)) {
+    for (const [k, v] of Object.entries(voiceRaw as Record<string, unknown>)) {
+      // Never expose secret material via chat. Note: ai-forbidden-fields
+      // adds config.voice.modelSecret in Slice C; this is the runtime
+      // belt for v1.
+      if (k === "modelSecret" || k === "secret" || k === "apiKey") continue;
+      voice[k] = v;
+    }
+  }
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    playbook_name: playbook.name,
+    voice,
+    has_secret: !!(voiceRaw && typeof voiceRaw === "object" && ("modelSecret" in voiceRaw || "secret" in voiceRaw || "apiKey" in voiceRaw)),
+  };
+}
+
+/**
+ * Update voice configuration in Playbook.config.voice via the existing
+ * updatePlaybookConfig helper. modelSecret/secret/apiKey are stripped
+ * before the merge so the AI can never write a secret. Bumps
+ * composeInputsUpdatedAt and emits pendingChange.
+ */
+async function handleUpdateVoiceConfig(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  const settings = input.settings as Record<string, unknown> | undefined;
+  if (!playbookId || !settings || typeof settings !== "object") {
+    return { error: "playbook_id and settings are required" };
+  }
+
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { id: true, name: true, config: true },
+  });
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+
+  // Whitelist allowed keys + strip any attempt at writing a secret.
+  const ALLOWED = new Set(["provider", "model", "endedReasonOverride", "pollIntervalMs", "maxCostPerCallUsd"]);
+  const sanitised: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(settings)) {
+    if (k === "modelSecret" || k === "secret" || k === "apiKey") continue;
+    if (ALLOWED.has(k)) sanitised[k] = v;
+  }
+  if (Object.keys(sanitised).length === 0) {
+    return {
+      error:
+        "No allowed voice settings provided. Allowed keys: provider, model, endedReasonOverride, pollIntervalMs, maxCostPerCallUsd. Note: modelSecret is operator-only and not chat-editable.",
+    };
+  }
+
+  const existingConfig = (playbook.config as PlaybookConfig | null) ?? {};
+  const existingVoice = (existingConfig as Record<string, unknown>).voice;
+  const mergedVoice = {
+    ...(existingVoice && typeof existingVoice === "object" && !Array.isArray(existingVoice) ? (existingVoice as Record<string, unknown>) : {}),
+    ...sanitised,
+  };
+
+  await updatePlaybookConfig(playbookId, { voice: mergedVoice } as Partial<PlaybookConfig>);
+
+  const changedKeys = Object.keys(sanitised);
+  const pendingChange = buildPendingChangePayload({
+    scope: "playbook",
+    scopeId: playbookId,
+    scopeLabel: `Playbook ${playbook.name}`,
+    key: `voice.${changedKeys[0]}`,
+    label: `voice.${changedKeys[0]}`,
+    beforeValue:
+      existingVoice && typeof existingVoice === "object" && !Array.isArray(existingVoice)
+        ? (existingVoice as Record<string, unknown>)[changedKeys[0]]
+        : undefined,
+    afterValue: sanitised[changedKeys[0]],
+  });
+
+  console.log(
+    `[admin-tools] update_voice_config: playbook=${playbookId} keys=${changedKeys.join(",")}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    updated_keys: changedKeys,
+    compose_inputs_bumped: true,
+    message: `Updated voice config (${changedKeys.join(", ")}) on "${playbook.name}". ${TRAY_PROPOSED_SUFFIX}`,
+    pendingChange,
   };
 }
 
