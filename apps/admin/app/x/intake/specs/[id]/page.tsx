@@ -1,32 +1,34 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { loadRow } from "@/lib/intake/spec-store-adapter";
+import { loadRow, createSpecStoreAdapter } from "@/lib/intake/spec-store-adapter";
+import { updateDraft } from "@/lib/intake/spec-store";
+import type {
+  SaveSpecCallback,
+  DeploySpecCallback,
+} from "@tallyseal/admin-editor";
+import { EditorMount } from "./editor-mount";
 import "./intake-spec-detail.css";
-
-// Phase 2b — uncomment when @tallyseal/admin-editor@0.1.0 is vendored
-// (tallyseal TKT-ADMIN-EDITOR-LIB-EXTRACT, ETA EOD Tue 2026-06-09):
-// import { EditorShell } from "@tallyseal/admin-editor";
-// import { createSpecStoreAdapter } from "@/lib/intake/spec-store-adapter";
 
 /**
  * @page /x/intake/specs/[id]
  *
- * #1182 Phase 2b-prep — IntakeSpec detail page stub.
+ * #1194 Phase 2b — IntakeSpec detail page with mounted admin-editor.
  *
- * Renders a placeholder card while the editor surface is blocked on
- * `@tallyseal/admin-editor@0.1.0` (tallyseal
- * TKT-ADMIN-EDITOR-LIB-EXTRACT, ETA EOD Tue 2026-06-09). Once the
- * tarball is vendored:
- *   1. uncomment the EditorShell import above
- *   2. replace this placeholder card with `<EditorShell store={...} />`
- *   3. smoke test per the tallyseal spec §7 "HF unblock" checklist
+ * Renders <EditorShell> from @tallyseal/admin-editor inside a client
+ * wrapper (editor-mount.tsx). Spec source is parsed by
+ * @tallyseal/spec-emitter on the client; server actions defined
+ * inline below call into the SpecStore adapter for saveDraft and
+ * publish.
  *
- * Phase 2b proper is a separate follow-up issue; this prep ensures the
- * route, ADMIN gate, RSC data fetch, and adapter wiring all hold.
+ * Source-column compatibility:
+ *   - Phase 2b+ rows always have `source` (seed populates; editor
+ *     saveDraft populates)
+ *   - Phase 2a rows (pre-#1194) may have `source = NULL` — page
+ *     renders a "re-seed needed" banner instead of mounting the
+ *     editor (clear UX, not a crash)
  *
- * ADMIN+ gate (matches the Phase 2a list page at
- * app/x/intake/specs/page.tsx).
+ * ADMIN+ gate.
  */
 export const dynamic = "force-dynamic";
 
@@ -44,14 +46,67 @@ export default async function IntakeSpecDetailPage({
   const row = await loadRow(id);
   if (row === null) notFound();
 
-  // Best-effort field count from the stored body (defensive in case the
-  // body shape drifts before the editor lands).
-  const fieldCount =
-    row.body && typeof row.body === "object" && !Array.isArray(row.body) &&
-    "fields" in row.body && typeof row.body.fields === "object" &&
-    row.body.fields !== null
-      ? Object.keys(row.body.fields).length
-      : 0;
+  const currentRole = auth.session.user.role ?? null;
+  const canEdit = row.status === "DRAFT";
+  const canDeploy = row.status === "DRAFT";
+  const rowBody = row.body;
+
+  // ────────────────────────────────────────────────────────────────
+  // Server actions — invoked by EditorShell via its save / deploy
+  // callback props. Each captures the spec id by closure.
+  // ────────────────────────────────────────────────────────────────
+
+  const saveSpecAction: SaveSpecCallback = async (input) => {
+    "use server";
+    try {
+      // Phase 2b persists source verbatim; the body JSON cache stays
+      // as last-seen (re-derivation lands Phase 2c via a parse+project
+      // pass server-side per save).
+      await updateDraft({
+        id,
+        body: rowBody,
+        source: input.source,
+      });
+      return { kind: "ok" };
+    } catch (err) {
+      return {
+        kind: "fail",
+        detail: err instanceof Error ? err.message : "Unknown save error",
+      };
+    }
+  };
+
+  const deploySpecAction: DeploySpecCallback = async (input) => {
+    "use server";
+    try {
+      // input.humanDescription is captured for audit (would land in
+      // a SpecDeployRecord row in a Phase 2c follow-up). Phase 2b
+      // publishes by id only; the editor-side description goes
+      // through unused for now.
+      void input;
+      const store = createSpecStoreAdapter();
+      const { deployOutcome } = await store.publish(id);
+      if (deployOutcome.kind === "ok") {
+        return {
+          kind: "ok",
+          prUrl: deployOutcome.prUrl,
+          prNumber: deployOutcome.prNumber,
+          commitSha: deployOutcome.commitSha,
+          bridgeAccessEventId: deployOutcome.bridgeAccessEventId,
+        };
+      }
+      return { kind: "fail", detail: deployOutcome.detail };
+    } catch (err) {
+      return {
+        kind: "fail",
+        detail: err instanceof Error ? err.message : "Unknown deploy error",
+      };
+    }
+  };
+
+  // ────────────────────────────────────────────────────────────────
+  // Render
+  // ────────────────────────────────────────────────────────────────
 
   return (
     <main className="hf-page-shell">
@@ -77,8 +132,6 @@ export default async function IntakeSpecDetailPage({
               {row.status}
             </span>
           </dd>
-          <dt>Field count</dt>
-          <dd>{fieldCount}</dd>
           <dt>Extends</dt>
           <dd>{row.parentKey ?? "—"}</dd>
           <dt>Updated</dt>
@@ -88,22 +141,30 @@ export default async function IntakeSpecDetailPage({
         </dl>
       </section>
 
-      <section className="hf-card">
-        <h2 className="hf-section-title">Editor</h2>
-        <div className="hf-banner hf-banner-info">
-          Editor surface is blocked on{" "}
-          <code>@tallyseal/admin-editor@0.1.0</code> (tallyseal{" "}
-          <a href="https://github.com/tallyseal/tallyseal/pull/74">
-            TKT-ADMIN-EDITOR-LIB-EXTRACT
-          </a>
-          , ETA EOD Tue 2026-06-09). The route, ADMIN gate, RSC data
-          fetch, and adapter wiring are all in place — Phase 2b
-          integration is npm install + uncomment + smoke test.
-        </div>
-        <pre className="intake-spec-detail-body">
-          {JSON.stringify(row.body, null, 2)}
-        </pre>
-      </section>
+      {row.source ? (
+        <section className="hf-card intake-spec-detail-editor">
+          <EditorMount
+            specName={row.key}
+            source={row.source}
+            canEdit={canEdit}
+            canDeploy={canDeploy}
+            currentRole={currentRole}
+            saveSpecAction={saveSpecAction}
+            deploySpecAction={deploySpecAction}
+          />
+        </section>
+      ) : (
+        <section className="hf-card">
+          <div className="hf-banner hf-banner-warning">
+            <strong>No source on record.</strong> This row pre-dates the{" "}
+            <code>source</code> column (#1194). Re-run{" "}
+            <code>scripts/seed-intake-specs.ts</code> on the VM to populate.
+          </div>
+          <pre className="intake-spec-detail-body">
+            {JSON.stringify(row.body, null, 2)}
+          </pre>
+        </section>
+      )}
     </main>
   );
 }

@@ -30,7 +30,12 @@
 // The adapter catches P2002 and converts to ConflictError.
 
 import type { IntakeSpec } from "@prisma/client";
-import type { CrawcusSpec } from "@tallyseal/crawcus-spec";
+// #1194 — SpecStore + SpecSummary now imported from the vendored
+// admin-editor package (was inline in Phase 2b-prep). CrawcusSpec
+// import dropped — adapter no longer references it directly;
+// SpecStore.load() returns CrawcusSpec via the interface, and the
+// underlying serde uses the broader Prisma.JsonValue surface.
+import type { SpecStore, SpecSummary } from "@tallyseal/admin-editor";
 import {
   createDraft,
   updateDraft,
@@ -43,23 +48,10 @@ import {
 import { deserialiseBody, serialiseSpec } from "./crawcus-serde";
 import type { SpecDeployOutcome } from "./spec-deploy-outcome";
 
-// ---------------------------------------------------------------------
-// SpecStore contract — inline until @tallyseal/admin-editor is vendored.
-// ---------------------------------------------------------------------
-
-export interface SpecSummary {
-  readonly key: string;
-  readonly version: string;
-  readonly status: "DRAFT" | "PUBLISHED";
-  readonly updatedAt: string; // ISO8601
-}
-
-export interface SpecStore {
-  load(key: string, version?: string): Promise<CrawcusSpec | null>;
-  saveDraft(spec: CrawcusSpec): Promise<{ id: string; version: string }>;
-  publish(specId: string): Promise<{ deployOutcome: SpecDeployOutcome }>;
-  list(filter?: { status?: "DRAFT" | "PUBLISHED" }): Promise<SpecSummary[]>;
-}
+// Re-export so call sites that imported these from the adapter in
+// Phase 2b-prep don't break. New code should import from
+// @tallyseal/admin-editor directly.
+export type { SpecStore, SpecSummary };
 
 // ---------------------------------------------------------------------
 // Errors.
