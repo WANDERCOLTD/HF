@@ -1,0 +1,40 @@
+/* #1140 Phase 2a — IntakeSpec list page styles.
+ *
+ * Page-scoped only. Reuses globals.css hf-* primitives for table,
+ * badge, button, banner, empty. Only the grid template (7 columns)
+ * and disabled-button visual state live here.
+ */
+
+.intake-specs-subtitle {
+  margin: 0 0 1.5rem;
+}
+
+.intake-specs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.intake-specs-row {
+  grid-template-columns:
+    minmax(180px, 1.5fr) /* key */
+    100px               /* version */
+    110px               /* status */
+    80px                /* fields */
+    minmax(120px, 1fr)  /* extends */
+    110px               /* updated */
+    100px;              /* actions */
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.intake-specs-table .hf-table-row {
+  cursor: default;
+}
+
+.intake-specs-btn-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: not-allowed;
+}
