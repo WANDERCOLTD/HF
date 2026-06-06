@@ -69,6 +69,14 @@ export interface AssistantRequestContext {
     voicemailDetectionEnabled: boolean;
     endCallPhrases: string[];
   };
+  /** #1185 follow-up — shared secret passed through to the `model.secret`
+   *  field on `custom-llm` inline configs. VAPI POSTs this value as
+   *  `x-vapi-secret` on every chat-completions request to HF's proxy,
+   *  which timing-safe-compares against the same VoiceProvider's
+   *  `credentials.webhookSecret`. When undefined, the custom-llm config
+   *  omits `model.secret` and VAPI sends no header — fine only when the
+   *  proxy is in pass-through mode (no secret configured on the provider). */
+  customLlmSecret?: string;
 }
 
 /** Provider tool shape — OpenAI function-call format (the lingua franca). */

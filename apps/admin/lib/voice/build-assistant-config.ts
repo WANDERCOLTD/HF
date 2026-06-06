@@ -73,6 +73,23 @@ export async function buildAssistantConfigForCaller(
   const serverUrlBase = `${config.app.url}/api/voice/${slug}`;
   const enabledTools = await loadToolDefinitions();
 
+  // #1185 follow-up — pull the webhookSecret out of the VoiceProvider
+  // credentials JSON so we can pass it to the custom-llm `model.secret`
+  // field. VAPI uses this exact value as `x-vapi-secret` on the chat-
+  // completions POST, and the proxy timing-safe-compares against the
+  // SAME row's webhookSecret. One credential, two purposes (webhook
+  // HMAC + custom-llm shared secret).
+  const providerRow = await prisma.voiceProvider.findUnique({
+    where: { slug },
+    select: { credentials: true },
+  });
+  const providerCreds = (providerRow?.credentials ?? {}) as Record<string, unknown>;
+  const customLlmSecret =
+    typeof providerCreds.webhookSecret === "string" &&
+    providerCreds.webhookSecret.length > 0
+      ? providerCreds.webhookSecret
+      : undefined;
+
   const costSafetyKnobs = {
     silenceTimeoutSeconds: sys.silenceTimeoutSeconds,
     maxDurationSeconds: sys.maxDurationSeconds,
@@ -101,6 +118,7 @@ export async function buildAssistantConfigForCaller(
       unknownCallerPrompt: vs.unknownCallerPrompt,
       noActivePromptFallback: vs.noActivePromptFallback,
       costSafetyKnobs,
+      customLlmSecret,
     });
     return {
       assistantConfig,
@@ -143,6 +161,7 @@ export async function buildAssistantConfigForCaller(
       unknownCallerPrompt: vs.unknownCallerPrompt,
       noActivePromptFallback: vs.noActivePromptFallback,
       costSafetyKnobs,
+      customLlmSecret,
     });
     return {
       assistantConfig,

@@ -127,6 +127,13 @@ export class VapiProvider implements VoiceProvider {
       ? {
           provider: "custom-llm",
           url: customLlmProxyUrl,
+          // VAPI sends this value as `x-vapi-secret` on every chat-
+          // completions POST to the proxy. The proxy timing-safe-compares
+          // against the SAME VoiceProvider's credentials.webhookSecret.
+          // One credential, two purposes (webhook HMAC + custom-llm
+          // auth). Omit when undefined — proxy passes through in
+          // pass-through mode on local dev.
+          ...(ctx.customLlmSecret ? { secret: ctx.customLlmSecret } : {}),
           model: ctx.modelConfig.model,
           messages: [{ role: "system", content: ctx.voicePrompt }],
           ...(tools.length > 0 ? { tools } : {}),
