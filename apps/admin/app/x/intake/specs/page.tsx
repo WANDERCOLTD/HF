@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { list, type SpecSummary } from "@/lib/intake/spec-store";
 import "./intake-specs.css";
@@ -115,13 +116,12 @@ function SpecRow({ row }: { row: SpecSummary }) {
       <span>{row.parentKey ?? "—"}</span>
       <span>{row.updatedAt.toISOString().slice(0, 10)}</span>
       <span>
-        <span
-          className="hf-btn hf-btn-secondary intake-specs-btn-disabled"
-          aria-disabled="true"
-          title="Editor surface blocked on tallyseal Ask 2"
+        <Link
+          href={`/x/intake/specs/${row.id}`}
+          className="hf-btn hf-btn-secondary"
         >
           Open
-        </span>
+        </Link>
       </span>
     </div>
   );

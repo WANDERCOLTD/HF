@@ -1,0 +1,43 @@
+/* #1182 Phase 2b-prep — IntakeSpec detail page styles. */
+
+.intake-spec-detail-breadcrumb {
+  margin: 0 0 1rem;
+}
+
+.intake-spec-detail-version {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 0.5rem;
+}
+
+.intake-spec-detail-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.intake-spec-detail-meta dt {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.intake-spec-detail-meta dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.intake-spec-detail-body {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  overflow-x: auto;
+  max-height: 480px;
+  overflow-y: auto;
+}
