@@ -25,7 +25,13 @@
 // Type source: @tallyseal/crawcus-spec@0.11.0 dist/index.d.ts:2012.
 
 import type { CrawcusSpec } from "@tallyseal/crawcus-spec";
+import type { EditableSpec } from "@tallyseal/spec-emitter";
 import type { Prisma } from "@prisma/client";
+
+// SpecLiteralValue is not exported from @tallyseal/spec-emitter; access
+// via indexed access on EditableSpec.key (which is typed as the same
+// discriminated union).
+type SpecLiteralValue = EditableSpec["key"];
 
 /**
  * Deserialise a stored IntakeSpec body into a CrawcusSpec for editor
@@ -65,4 +71,54 @@ export function serialiseSpec(spec: CrawcusSpec): Prisma.JsonValue {
   // only the JSON descriptors. This protects the DB from accidentally
   // attempting to persist a non-serialisable value.
   return JSON.parse(JSON.stringify(spec)) as Prisma.JsonValue;
+}
+
+/**
+ * #1140 Phase 2c — project an EditableSpec (parsed from source by
+ * @tallyseal/spec-emitter) to the IntakeSpec.body JSON cache shape.
+ *
+ * The body shape is the list-page read surface: `fieldCount` reads
+ * `Object.keys(body.fields).length` in spec-store.ts::toSummary.
+ * EditableSpec carries `fields: readonly EditableField[]` (array
+ * with `.name`); body carries `fields: Record<name, descriptor>`.
+ * This helper bridges the two so saveSpecAction can re-derive the
+ * cache on every save, keeping fieldCount + status / projection /
+ * key / version coherent with the saved source.
+ *
+ * Contract details the editor doesn't structurally model (opaque
+ * suffix, contracts, extraSpecProperties) are NOT projected into
+ * the cache — the body is a read-cache for surface metadata, not
+ * a hydrated runtime spec. The canonical source-of-truth remains
+ * the `source` column.
+ */
+export function projectBodyFromEditable(
+  spec: EditableSpec,
+): Prisma.JsonValue {
+  const fields: Record<string, Prisma.JsonValue> = {};
+  for (const f of spec.fields) {
+    const descriptor: Record<string, Prisma.JsonValue> = {
+      type: f.base,
+      required: f.required,
+    };
+    if (f.enumOptions !== undefined) {
+      descriptor.enumSource = f.enumOptions.source;
+    }
+    fields[f.name] = descriptor;
+  }
+  return {
+    key: literalToString(spec.key),
+    version: spec.version,
+    projection: literalToString(spec.projection),
+    fields,
+    contracts: { invariants: [] },
+    readiness: {
+      kind: spec.readiness.kind === "template" ? "all-required" : "opaque",
+    },
+  };
+}
+
+function literalToString(value: SpecLiteralValue): string {
+  if (value.kind === "string") return value.value;
+  if (value.kind === "identifier") return value.name;
+  return value.source;
 }

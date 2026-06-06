@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { loadRow, createSpecStoreAdapter } from "@/lib/intake/spec-store-adapter";
 import { updateDraft } from "@/lib/intake/spec-store";
+import { projectBodyFromEditable } from "@/lib/intake/crawcus-serde";
+import { parse, SpecParseError } from "@tallyseal/spec-emitter";
 import type {
   SaveSpecCallback,
   DeploySpecCallback,
@@ -49,7 +51,6 @@ export default async function IntakeSpecDetailPage({
   const currentRole = auth.session.user.role ?? null;
   const canEdit = row.status === "DRAFT";
   const canDeploy = row.status === "DRAFT";
-  const rowBody = row.body;
 
   // ────────────────────────────────────────────────────────────────
   // Server actions — invoked by EditorShell via its save / deploy
@@ -58,13 +59,27 @@ export default async function IntakeSpecDetailPage({
 
   const saveSpecAction: SaveSpecCallback = async (input) => {
     "use server";
+    // #1140 Phase 2c — re-derive the body JSON cache from the new
+    // source on every save so list-page fieldCount stays in sync.
+    // Parse failures surface as a SaveSpecResult.fail so the editor
+    // can show them inline rather than throwing past the boundary.
+    let body;
     try {
-      // Phase 2b persists source verbatim; the body JSON cache stays
-      // as last-seen (re-derivation lands Phase 2c via a parse+project
-      // pass server-side per save).
+      const editable = parse(input.source);
+      body = projectBodyFromEditable(editable);
+    } catch (err) {
+      const detail =
+        err instanceof SpecParseError
+          ? `Spec source did not parse: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : "Unknown parse error";
+      return { kind: "fail", detail };
+    }
+    try {
       await updateDraft({
         id,
-        body: rowBody,
+        body,
         source: input.source,
       });
       return { kind: "ok" };
