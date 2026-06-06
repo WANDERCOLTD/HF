@@ -17,7 +17,11 @@ export interface EntityBreadcrumb {
 
 interface PageContext {
   page: string;
-  params: Record<string, string>;
+  // #1225 — widened from Record<string, string> to allow structured
+  // payloads like courseSnapshot (Record<string, unknown>) when the
+  // operator is on /x/courses/[id]/chat. The server-side
+  // parsePageContext defensively shapes anything it sees.
+  params: Record<string, unknown>;
 }
 
 interface EntityContextState {
@@ -31,7 +35,7 @@ interface EntityContextActions {
   popEntity: () => void;
   clearToEntity: (entityId: string) => void;
   replaceEntity: (entity: EntityBreadcrumb) => void;
-  setPageContext: (page: string, params: Record<string, string>) => void;
+  setPageContext: (page: string, params: Record<string, unknown>) => void;
   reset: () => void;
 }
 
@@ -177,7 +181,7 @@ export function EntityProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setPageContext = useCallback((page: string, params: Record<string, string>) => {
+  const setPageContext = useCallback((page: string, params: Record<string, unknown>) => {
     setPageContextState({ page, params });
   }, []);
 

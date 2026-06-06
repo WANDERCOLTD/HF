@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { EntityBreadcrumb, useEntityContext } from "./EntityContext";
 
-export type ChatMode = "DATA" | "TUNING";
+export type ChatMode = "DATA" | "TUNING" | "COURSE_MANAGE";
 export type ChatLayout = "vertical" | "horizontal" | "popout";
 export type TuningScope = "LEARNER" | "PLAYBOOK";
 
@@ -112,6 +112,16 @@ export const MODE_CONFIG: Record<ChatMode, { label: string; icon: string; color:
     color: "var(--accent-primary)",
     description: "Tune behaviour parameters for one learner or the whole course",
   },
+  // #1225 — Course-management mode. Mounted by /x/courses/[id]/chat; the
+  // ChatPanel renders identically to DATA mode but the route.ts dispatcher
+  // narrows the tool surface to COURSE_MANAGE_TOOLS and the system prompt
+  // carries the active course's full editable snapshot.
+  COURSE_MANAGE: {
+    label: "Course",
+    icon: "◎",
+    color: "var(--accent-primary)",
+    description: "Chat-driven editor for the active course — talks to course-relevant tools only",
+  },
 };
 
 function generateId(): string {
@@ -122,6 +132,7 @@ function createEmptyMessages(): Record<ChatMode, ChatMessage[]> {
   return {
     DATA: [],
     TUNING: [],
+    COURSE_MANAGE: [],
   };
 }
 
@@ -453,8 +464,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               isCommand: true,
               ...((mode === "DATA" || mode === "TUNING") && tuningScope ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
-              ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
-              ...(mode === "DATA" && entityContext.pageContext?.page
+              ...(pathname && (mode === "DATA" || mode === "TUNING" || mode === "COURSE_MANAGE") ? { pageHint: { route: pathname } } : {}),
+              ...((mode === "DATA" || mode === "COURSE_MANAGE") && entityContext.pageContext?.page
                 ? { pageContext: entityContext.pageContext }
                 : {}),
             }),
@@ -516,8 +527,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               conversationHistory: history,
               ...((mode === "DATA" || mode === "TUNING") && tuningScope ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
-              ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
-              ...(mode === "DATA" && entityContext.pageContext?.page
+              ...(pathname && (mode === "DATA" || mode === "TUNING" || mode === "COURSE_MANAGE") ? { pageHint: { route: pathname } } : {}),
+              ...((mode === "DATA" || mode === "COURSE_MANAGE") && entityContext.pageContext?.page
                 ? { pageContext: entityContext.pageContext }
                 : {}),
               ...(trayReflections.length > 0 ? { trayReflections } : {}),

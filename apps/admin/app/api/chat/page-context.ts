@@ -4,13 +4,29 @@
  * Lives next to route.ts and system-prompts.ts because both consume it:
  * route.ts parses the request body into the typed shape, system-prompts.ts
  * renders it into a short prompt preamble.
+ *
+ * #1225 — extended to carry a course snapshot when page === "course" so
+ * COURSE_MANAGE-mode chats see the live editable surface of the active
+ * course in the system prompt, not just the breadcrumb. Forbidden top-level
+ * keys (per AI_FORBIDDEN_FIELDS.playbook) are stripped at parse time as
+ * defence-in-depth — the page builder is also expected to omit them.
  */
+
+import { AI_FORBIDDEN_FIELDS } from "@/lib/chat/ai-forbidden-fields";
 
 export interface PageContextHint {
   page: string;
   params: {
     activeTab?: string;
     visibleSections?: string[];
+    /**
+     * #1225 — when page === "course", a snapshot of the active course's
+     * editable surface (name, slug, description, config.*, behaviorTargets,
+     * primary/linked curricula refs). Built server-side in the page
+     * component; rendered into the system prompt by buildPageContextBlock.
+     * Keys in AI_FORBIDDEN_FIELDS.playbook are stripped by the parser.
+     */
+    courseSnapshot?: Record<string, unknown>;
   };
 }
 
@@ -26,6 +42,7 @@ export function parsePageContext(raw: unknown): PageContextHint | undefined {
   const rawParams = (obj.params && typeof obj.params === "object" ? obj.params : {}) as {
     activeTab?: unknown;
     visibleSections?: unknown;
+    courseSnapshot?: unknown;
   };
   const params: PageContextHint["params"] = {};
   if (typeof rawParams.activeTab === "string" && rawParams.activeTab.length > 0) {
@@ -36,6 +53,18 @@ export function parsePageContext(raw: unknown): PageContextHint | undefined {
       (s: unknown): s is string => typeof s === "string" && s.length > 0,
     );
     if (sections.length > 0) params.visibleSections = sections;
+  }
+  // #1225 — accept courseSnapshot when page === "course"; strip any
+  // top-level key listed in AI_FORBIDDEN_FIELDS.playbook so a malformed
+  // client payload cannot inject forbidden state into the system prompt
+  // (e.g. status, publishedAt, deletedAt, domainId).
+  if (obj.page === "course" && rawParams.courseSnapshot && typeof rawParams.courseSnapshot === "object" && !Array.isArray(rawParams.courseSnapshot)) {
+    const forbidden = new Set(AI_FORBIDDEN_FIELDS.playbook ?? []);
+    const snapshot: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rawParams.courseSnapshot as Record<string, unknown>)) {
+      if (!forbidden.has(key)) snapshot[key] = value;
+    }
+    if (Object.keys(snapshot).length > 0) params.courseSnapshot = snapshot;
   }
   return { page: obj.page, params };
 }
@@ -54,5 +83,19 @@ export function buildPageContextBlock(pageContext: PageContextHint | undefined):
     tabBits.push(`Active section: ${pageContext.params.visibleSections.join(", ")}`);
   }
   if (tabBits.length > 0) lines.push(tabBits.join(" | "));
-  return `\n\n## Page context (what the user is looking at)\n${lines.join("\n")}`;
+
+  // #1225 — when the operator is on a course page, append the course
+  // snapshot so the AI can propose informed deltas instead of asking
+  // "what is the current value?". Serialised as JSON inside a fenced
+  // block so the AI sees structure without parser ambiguity.
+  let snapshotBlock = "";
+  if (pageContext.page === "course" && pageContext.params.courseSnapshot) {
+    snapshotBlock =
+      "\n\n## Current course snapshot (live editable surface)\n" +
+      "```json\n" +
+      JSON.stringify(pageContext.params.courseSnapshot, null, 2) +
+      "\n```";
+  }
+
+  return `\n\n## Page context (what the user is looking at)\n${lines.join("\n")}${snapshotBlock}`;
 }
