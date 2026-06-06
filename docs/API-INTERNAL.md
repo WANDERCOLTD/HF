@@ -5643,7 +5643,7 @@ Invite learners to a course by email. Resolves the course's default
 
 ### `GET` /api/courses/:courseId/onboarding
 
-Get resolved onboarding flow for a course (course override > domain > system fallback). Returns phase source ("course" | "domain" | "fallback" | "none") and available domain media for the editor picker.
+Get resolved onboarding flow for a course. Cascade per #1196:
 
 **Auth**: Session
 

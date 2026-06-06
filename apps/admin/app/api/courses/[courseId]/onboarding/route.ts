@@ -2,15 +2,56 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
-import type { PlaybookConfig, OnboardingFlowPhases, OnboardingPhase } from "@/lib/types/json-fields";
+import type {
+  PlaybookConfig,
+  OnboardingFlowPhases,
+  OnboardingPhase,
+} from "@/lib/types/json-fields";
 import { getFlowPhasesFallback } from "@/lib/fallback-settings";
+import { resolveSessionFlow } from "@/lib/session-flow/resolver";
+import { config } from "@/lib/config";
+
+/** UI-facing source attribution (#1196). Pre-#1196 this route returned
+ *  `'fallback'` for INIT-001 defaults and the editor remapped it to
+ *  `'domain'` — making operators think their institution had configured
+ *  phases when in fact only the system defaults were showing. The new
+ *  `'system'` label surfaces the truth. */
+type ApiOnboardingSource = "course" | "domain" | "system" | "none";
+
+/**
+ * Map `resolveSessionFlow`'s internal source values → UI-facing source.
+ *
+ *   resolveSessionFlow returns │  UI source
+ *   ───────────────────────────┼─────────────
+ *   "new-shape"                │  'course'
+ *   "playbook-legacy"          │  'course'
+ *   "domain"                   │  'domain'
+ *   "init001"                  │  'system'   ← was incorrectly 'fallback' → remapped to 'domain'
+ */
+function mapResolverSource(
+  resolverSource: "new-shape" | "playbook-legacy" | "domain" | "init001",
+): Exclude<ApiOnboardingSource, "none"> {
+  switch (resolverSource) {
+    case "new-shape":
+    case "playbook-legacy":
+      return "course";
+    case "domain":
+      return "domain";
+    case "init001":
+      return "system";
+  }
+}
 
 /**
  * @api GET /api/courses/:courseId/onboarding
  * @visibility internal
  * @auth session
  * @tags courses, onboarding
- * @description Get resolved onboarding flow for a course (course override > domain > system fallback). Returns phase source ("course" | "domain" | "fallback" | "none") and available domain media for the editor picker.
+ * @description Get resolved onboarding flow for a course. Cascade per #1196:
+ *   `sessionFlow.onboarding` (new shape) → `config.onboardingFlowPhases`
+ *   (legacy) → `domain.onboardingFlowPhases` → INIT-001 spec → SystemSetting
+ *   defaults. Returns `source: "course" | "domain" | "system" | "none"` so
+ *   the editor can show an accurate banner.
  * @pathParam courseId string - The playbook ID (course)
  * @response 200 { ok: true, source, phases, domainName, domainId, domainWelcome, personaName, media }
  * @response 404 { ok: false, error: "Course not found" }
@@ -52,26 +93,53 @@ export async function GET(
       );
     }
 
-    const pbConfig = (playbook.config || {}) as PlaybookConfig;
-    const courseFlow = pbConfig.onboardingFlowPhases as OnboardingFlowPhases | undefined;
-    const domainFlow = playbook.domain?.onboardingFlowPhases as OnboardingFlowPhases | null;
+    // Fetch INIT-001 spec for the resolver's bottom cascade rung. WITHOUT
+    // this, `resolveSessionFlow` silently returns `{phases: [], source:
+    // "init001"}` even when domain phases exist — the resolver's logic is
+    // correct, but `firstCallFlow` lookup needs the spec. Mirrors the
+    // pattern at `SectionDataLoader.ts:1002-1023::onboardingSpec`.
+    const onboardingSlug = config.specs.onboarding;
+    const onboardingSpec = await prisma.analysisSpec.findFirst({
+      where: {
+        OR: [
+          { slug: { contains: onboardingSlug.toLowerCase(), mode: "insensitive" } },
+          { slug: { contains: "onboarding" } },
+          { domain: "onboarding" },
+        ],
+        isActive: true,
+      },
+      select: { config: true },
+    });
 
-    let source: "course" | "domain" | "fallback" | "none" = "none";
-    let resolvedPhases: OnboardingPhase[] = [];
+    const resolved = resolveSessionFlow({
+      playbook: { config: playbook.config as PlaybookConfig | null },
+      domain: playbook.domain ?? null,
+      onboardingSpec: onboardingSpec
+        ? {
+            config: onboardingSpec.config as {
+              firstCallFlow?: OnboardingFlowPhases;
+            } | null,
+          }
+        : null,
+    });
 
-    if (courseFlow?.phases?.length) {
-      source = "course";
-      resolvedPhases = courseFlow.phases;
-    } else if (domainFlow?.phases?.length) {
-      source = "domain";
-      resolvedPhases = domainFlow.phases;
-    } else {
-      // INIT-001 fallback — system default onboarding phases
+    let source: ApiOnboardingSource = mapResolverSource(resolved.source.onboarding);
+    let resolvedPhases: OnboardingPhase[] = resolved.onboarding.phases ?? [];
+
+    // SystemSetting bottom fallback: if the resolver returned init001 with
+    // an empty phase array (no INIT-001 spec in DB), fall back to the
+    // SystemSetting-backed defaults from `getFlowPhasesFallback`. Source
+    // stays `'system'` either way.
+    if (source === "system" && resolvedPhases.length === 0) {
       const fallback = await getFlowPhasesFallback();
       if (fallback?.phases?.length) {
-        source = "fallback";
         resolvedPhases = fallback.phases as OnboardingPhase[];
       }
+    }
+
+    // None: no phases AND no fallback content — keep the UI safe.
+    if (resolvedPhases.length === 0 && source === "system") {
+      source = "none";
     }
 
     // Load domain media for editor picker (SubjectDomain → Subject → SubjectMedia → MediaAsset)
