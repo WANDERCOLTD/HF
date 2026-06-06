@@ -363,16 +363,29 @@
   gap: 10px;
 }
 
+/* Chat-bubble layout — Learner right-aligned (accent), AI left-aligned
+   (neutral). Mirrors the SimChat WhatsApp pattern so the same transcript
+   reads the same way in every surface. */
 .cpt-msg {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-width: 78%;
+}
+.cpt-msg--user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.cpt-msg--assistant {
+  align-self: flex-start;
+  align-items: flex-start;
 }
 .cpt-msg-role {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  padding: 0 4px;
 }
 .cpt-msg-role--user {
   color: var(--accent-primary);
@@ -387,13 +400,15 @@
   white-space: pre-wrap;
   word-break: break-word;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 12px;
 }
 .cpt-msg--user .cpt-msg-content {
-  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  border-top-right-radius: 4px;
 }
 .cpt-msg--assistant .cpt-msg-content {
   background: var(--surface-secondary);
+  border-top-left-radius: 4px;
 }
 
 /* ── Extraction ──────────────────────────────────── */

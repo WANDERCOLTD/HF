@@ -97,10 +97,16 @@ function parseTranscript(transcript: string): { role: 'user' | 'assistant'; cont
   const messages: { role: 'user' | 'assistant'; content: string }[] = [];
   const lines = transcript.split('\n');
   let current: { role: 'user' | 'assistant'; content: string } | null = null;
+  // VAPI transcripts use "AI: ", sim transcripts use "Assistant: ". Both map
+  // to the assistant role. #1236 fix applied here too — without "AI: " VAPI
+  // transcripts collapse into a single learner block when viewed through Sim.
   for (const line of lines) {
     if (line.startsWith('User: ')) {
       if (current) messages.push(current);
       current = { role: 'user', content: line.slice(6) };
+    } else if (line.startsWith('AI: ')) {
+      if (current) messages.push(current);
+      current = { role: 'assistant', content: line.slice(4) };
     } else if (line.startsWith('Assistant: ')) {
       if (current) messages.push(current);
       current = { role: 'assistant', content: line.slice(11) };
