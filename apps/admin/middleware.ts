@@ -55,8 +55,10 @@ function getSessionCookie(request: NextRequest) {
   return null;
 }
 
-/** Decode JWT to extract role — fail-open on decode errors (fall through to auth()) */
-async function getRoleFromToken(tokenValue: string, cookieName: string): Promise<string | null> {
+export type TokenClaims = { role: string | null; learnerCallerId: string | null };
+
+/** Decode JWT to extract claims — fail-open on decode errors (fall through to auth()) */
+async function getClaimsFromToken(tokenValue: string, cookieName: string): Promise<TokenClaims | null> {
   if (!AUTH_SECRET) return null; // No secret configured — skip decode, let auth() handle it
   try {
     const token = await decode({
@@ -64,11 +66,34 @@ async function getRoleFromToken(tokenValue: string, cookieName: string): Promise
       secret: AUTH_SECRET,
       salt: cookieName,
     });
-    return (token?.role as string) ?? null;
+    if (!token) return null;
+    return {
+      role: (token.role as string) ?? null,
+      learnerCallerId: (token.learnerCallerId as string | null) ?? null,
+    };
   } catch {
     // Decode failed — let the request through, auth() will handle it
     return null;
   }
+}
+
+/** Path-segment routes where STUDENT sessions must match their own caller (A5). */
+const STUDENT_CALLER_SCOPE_PATTERN = /^\/api\/(?:callers|caller-graph)\/([^/]+)(?:\/|$)/;
+
+/**
+ * Pure decision function — exported for unit tests. Returns `blocked: true`
+ * iff the request path is a caller-scoped route AND the caller is a STUDENT
+ * whose claimed `learnerCallerId` does not match the path segment.
+ * Non-STUDENT roles and non-caller-scoped paths pass through.
+ */
+export function checkStudentCallerScope(
+  pathname: string,
+  claims: TokenClaims | null,
+): { blocked: boolean } {
+  const match = STUDENT_CALLER_SCOPE_PATTERN.exec(pathname);
+  if (!match) return { blocked: false };
+  if (claims?.role !== "STUDENT") return { blocked: false };
+  return { blocked: claims.learnerCallerId !== match[1] };
 }
 
 export async function middleware(request: NextRequest) {
@@ -115,17 +140,35 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // --- STUDENT caller-scope enforcement (A5) ---
+  // Closes the leak class fixed at lib/learner-scope.ts (#977) for path-segment
+  // routes by checking the JWT's `learnerCallerId` claim against the segment.
+  // STUDENTs (role level 1, admitted alongside VIEWER by requireAuth("VIEWER"))
+  // can only ever read their own LEARNER caller — supplying a foreign id in the
+  // path returns 403 before the handler runs. No DB hit at the edge.
+  // Query-param leaks (?callerId=) and callId→callerId routes need per-route
+  // helpers and are not handled here.
+  if (STUDENT_CALLER_SCOPE_PATTERN.test(pathname)) {
+    const claims = await getClaimsFromToken(sessionToken.value, sessionToken.name);
+    if (checkStudentCallerScope(pathname, claims).blocked) {
+      return new NextResponse(
+        JSON.stringify({ ok: false, error: "Forbidden — caller scope mismatch" }),
+        { status: 403, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
+      );
+    }
+  }
+
   // --- Page-level RBAC enforcement ---
   // Check if this /x/ page requires a minimum role (derived from sidebar manifest)
   if (pathname.startsWith("/x/")) {
     const requiredRole = getRequiredRole(pathname);
     if (requiredRole) {
-      const userRole = await getRoleFromToken(sessionToken.value, sessionToken.name);
-      if (userRole && !hasRequiredRole(userRole, requiredRole)) {
+      const claims = await getClaimsFromToken(sessionToken.value, sessionToken.name);
+      if (claims?.role && !hasRequiredRole(claims.role, requiredRole)) {
         // Insufficient role — redirect to dashboard
         return NextResponse.redirect(new URL("/x", request.nextUrl.origin));
       }
-      // If userRole is null (decode failed), fall through — auth() will catch it
+      // If role is null (decode failed), fall through — auth() will catch it
     }
   }
 

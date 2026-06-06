@@ -81,6 +81,11 @@ declare module "next-auth" {
       assignedDomainId: string | null;
       institutionId: string | null;
       avatarInitials: string | null;
+      // Owned LEARNER Caller.id for STUDENT sessions. null for non-STUDENT roles
+      // or transient null for STUDENTs with no LEARNER profile yet. Used by
+      // middleware.ts to enforce path-scope on /api/callers/[callerId]/** and
+      // /api/caller-graph/[callerId]/** without a DB hit at the edge.
+      learnerCallerId: string | null;
     };
   }
 
@@ -89,6 +94,12 @@ declare module "next-auth" {
     assignedDomainId?: string | null;
     institutionId?: string | null;
     avatarInitials?: string | null;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    learnerCallerId?: string | null;
   }
 }
 
@@ -264,6 +275,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.assignedDomainId = user.assignedDomainId ?? null;
         token.institutionId = user.institutionId ?? null;
         token.avatarInitials = user.avatarInitials ?? null;
+        // Stamp learnerCallerId on sign-in for STUDENTs so middleware
+        // can enforce caller-scope at the edge without a DB hit (A5).
+        if (user.role === "STUDENT") {
+          const owned = await prisma.caller.findFirst({
+            where: { userId: user.id, role: "LEARNER" },
+            select: { id: true },
+          });
+          token.learnerCallerId = owned?.id ?? null;
+        } else {
+          token.learnerCallerId = null;
+        }
       }
       // On session update (e.g. after profile save), refresh from DB
       if (trigger === "update" && token.id) {
@@ -277,6 +299,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.role = fresh.role;
           token.assignedDomainId = fresh.assignedDomainId ?? null;
           token.institutionId = fresh.institutionId ?? null;
+          if (fresh.role === "STUDENT") {
+            const owned = await prisma.caller.findFirst({
+              where: { userId: token.id as string, role: "LEARNER" },
+              select: { id: true },
+            });
+            token.learnerCallerId = owned?.id ?? null;
+          } else {
+            token.learnerCallerId = null;
+          }
         }
       }
       // Validate user still exists in DB (catches stale JWT after db:reset).
@@ -287,11 +318,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (now - lastCheck > 5 * 60 * 1000) {
           const exists = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { id: true },
+            select: { id: true, role: true },
           });
           if (!exists) {
             // User was deleted (e.g. db:reset) — clear token to force re-login
             return { ...token, id: null, role: null };
+          }
+          // Backfill learnerCallerId for sessions issued before A5 landed,
+          // or refresh if a STUDENT's LEARNER caller was rotated.
+          if (exists.role === "STUDENT" && token.learnerCallerId === undefined) {
+            const owned = await prisma.caller.findFirst({
+              where: { userId: token.id as string, role: "LEARNER" },
+              select: { id: true },
+            });
+            token.learnerCallerId = owned?.id ?? null;
+          } else if (exists.role !== "STUDENT" && token.learnerCallerId !== null) {
+            token.learnerCallerId = null;
           }
           token.userExistsCheckedAt = now;
         }
@@ -312,6 +354,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.assignedDomainId = (token.assignedDomainId as string) ?? null;
         session.user.institutionId = (token.institutionId as string) ?? null;
         session.user.avatarInitials = (token.avatarInitials as string) ?? null;
+        session.user.learnerCallerId = (token.learnerCallerId as string | null) ?? null;
       }
       return session;
     },
