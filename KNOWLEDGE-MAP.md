@@ -48,7 +48,7 @@ Plain reading: a student has a call, the call becomes a transcript, the transcri
 | When a human says... | They probably mean (HF concept) | Type |
 |---|---|---|
 | "the course," "the lesson," "the curriculum" | **Playbook** (a collection of Specs for a domain) and/or **Domain** (Tutor, Companion, Coach) | Runtime data |
-| "the teaching material," "the content" | **CONTENT** specs (e.g. `WNF-CONTENT-001`), Content Trust levels | Runtime data |
+| "the teaching material," "the content" | **CONTENT** specs (one per Curriculum body), Content Trust levels | Runtime data |
 | "how it measures the student," "the assessment" | **Parameters** (e.g. Big Five, VARK) measured by **EXTRACT** specs | Runtime data |
 | "how it decides what to say next," "the AI's reply" | **COMPOSE** stage + **SYNTHESISE** specs producing the Next Prompt | Engine + data |
 | "the rules," "the guardrails," "what it must not do" | **CONSTRAIN** specs (e.g. `GUARD-001`) | Runtime data |
@@ -83,7 +83,7 @@ Type key: *Runtime data* = edit in the database via UI/CLI to change a live envi
 | `SYNTHESISE` | Combine and transform data | `COMP-001`, `REW-001`, `ADAPT-*` |
 | `CONSTRAIN` | Bounds and guards | `GUARD-001` |
 | `IDENTITY` | Agent personas | `TUT-001`, `COACH-001` |
-| `CONTENT` | Curriculum material | `WNF-CONTENT-001` |
+| `CONTENT` | Curriculum material | one spec per Curriculum body, created at seed time |
 | `VOICE` | Voice guidance | `VOICE-001` |
 
 A useful note for teachers: in the UI, teachers never see Playbooks, Specs, or Roles directly. The UI is organised by educator intent, and the system auto-scaffolds the underlying specs. So the "course" a teacher edits in the UI maps down to Playbooks and specs underneath.
