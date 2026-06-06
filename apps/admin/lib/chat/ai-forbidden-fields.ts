@@ -40,10 +40,25 @@ export const AI_FORBIDDEN_FIELDS: Record<string, readonly string[]> = {
   caller: ["role", "domainId", "userId", "deletedAt"],
 
   // Playbook — institution boundary + publication gating.
-  // `update_playbook_meta` and `update_playbook_config` both write to
-  // Playbook rows; both must be blocked from these fields. Publish/unpublish
-  // is a human-only flow (status enum DRAFT ↔ PUBLISHED through the UI).
-  playbook: ["domainId", "status", "publishedAt", "deletedAt"],
+  // `update_playbook_meta`, `update_playbook_config`, and `update_voice_config`
+  // (via the voice_config → playbook collapse below) all write to Playbook
+  // rows; all must be blocked from these fields. Publish/unpublish is a
+  // human-only flow (status enum DRAFT ↔ PUBLISHED through the UI).
+  //
+  // #1225 — voice secret material (modelSecret / secret / apiKey) is
+  // explicitly forbidden at the schema layer so any future tool that
+  // tries to expose it top-level gets caught by the meta-test. The
+  // existing handler-level strip in update_voice_config is the runtime
+  // belt; this is the schema-level braces.
+  playbook: [
+    "domainId",
+    "status",
+    "publishedAt",
+    "deletedAt",
+    "modelSecret",
+    "secret",
+    "apiKey",
+  ],
 
   // Domain — tenant ownership, billing, and the user→domain admin link.
   // `update_domain` exists for cosmetic edits (name, description);
@@ -94,6 +109,10 @@ export function toolNameToEntityKey(toolName: string): string | null {
 
   // Collapse known multi-word tools to the table they write to.
   if (entity === "playbook_config" || entity === "playbook_meta") return "playbook";
+  // #1225 — voice config writes to Playbook.config.voice.*; collapse to
+  // playbook so the existing forbidden-fields apply, plus the new voice
+  // secret entries (modelSecret/secret/apiKey).
+  if (entity === "voice_config") return "playbook";
   if (entity === "analysis_spec" || entity === "spec_config") return "spec";
   if (entity === "curriculum_metadata") return "curriculum_module";
 

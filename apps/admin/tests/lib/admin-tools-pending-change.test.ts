@@ -23,8 +23,27 @@ const mockPrisma = {
   learningObjective: { findUnique: vi.fn(), update: vi.fn() },
   contentAssertion: { update: vi.fn() },
   goal: { findUnique: vi.fn(), update: vi.fn() },
+  // #1225 Slice B — swap/attach/detach curriculum tools
+  playbookCurriculum: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    upsert: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+  },
+  // Pass-through transaction so the swap handler's $transaction block
+  // exercises the same mock as the surrounding handler.
+  $transaction: vi.fn(async (cb: (tx: typeof mockPrisma) => unknown) => cb(mockPrisma)),
 };
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+
+// #1225 Slice B — update_voice_config calls updatePlaybookConfig. Mock the
+// helper so the test asserts the pendingChange emission contract without
+// needing to set up a real Playbook row.
+vi.mock("@/lib/playbook/update-playbook-config", () => ({
+  updatePlaybookConfig: vi.fn(async () => undefined),
+}));
 
 vi.mock("@/lib/compose/bump-timestamp", () => ({
   bumpPlaybookComposeTimestamp: vi.fn(),
@@ -279,6 +298,133 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
     const result = JSON.parse(raw);
     expect(result.compose_inputs_bumped).toBe(false);
     // pendingChange field should be absent (or undefined)
+    expect(result.pendingChange).toBeUndefined();
+  });
+
+  // ── #1225 Slice B — three new compose-affecting tools ────────────────
+
+  it("swap_primary_curriculum emits pendingChange with previous + new primary curriculum IDs", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue({ id: "pb-1", name: "Sales 101" });
+    mockPrisma.curriculum.findUnique.mockResolvedValue({ id: "cur-target", name: "New Primary" });
+    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue({
+      curriculumId: "cur-old",
+    });
+    mockPrisma.playbookCurriculum.update.mockResolvedValue({});
+    mockPrisma.playbookCurriculum.upsert.mockResolvedValue({});
+    const raw = await executeAdminTool(
+      "swap_primary_curriculum",
+      { playbook_id: "pb-1", curriculum_id: "cur-target", reason: "course refresh" },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.compose_inputs_bumped).toBe(true);
+    expect(result.pendingChange).toMatchObject({
+      key: "primaryCurriculumId",
+      scope: "playbook",
+      scopeId: "pb-1",
+      beforeValue: "cur-old",
+      afterValue: "cur-target",
+    });
+  });
+
+  it("attach_linked_curriculum emits pendingChange when a new join row is created", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue({ id: "pb-1", name: "Sales 101" });
+    mockPrisma.curriculum.findUnique.mockResolvedValue({ id: "cur-new", name: "Variant Curriculum" });
+    // No existing row → handler creates a new 'linked' join.
+    mockPrisma.playbookCurriculum.findUnique.mockResolvedValue(null);
+    mockPrisma.playbookCurriculum.create.mockResolvedValue({
+      playbookId: "pb-1",
+      curriculumId: "cur-new",
+      role: "linked",
+    });
+    const raw = await executeAdminTool(
+      "attach_linked_curriculum",
+      { playbook_id: "pb-1", curriculum_id: "cur-new", reason: "offer variant" },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.compose_inputs_bumped).toBe(true);
+    expect(result.pendingChange).toMatchObject({
+      key: "linkedCurriculumAttached",
+      scope: "playbook",
+      scopeId: "pb-1",
+      afterValue: "cur-new",
+    });
+  });
+
+  it("update_voice_config emits pendingChange against config.voice.* key", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue({
+      id: "pb-1",
+      name: "Sales 101",
+      config: { voice: { provider: "vapi", model: "claude-old" } },
+    });
+    const raw = await executeAdminTool(
+      "update_voice_config",
+      {
+        playbook_id: "pb-1",
+        settings: { model: "claude-opus-4-7" },
+        reason: "model bump",
+      },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.compose_inputs_bumped).toBe(true);
+    expect(result.pendingChange).toMatchObject({
+      key: "voice.model",
+      scope: "playbook",
+      scopeId: "pb-1",
+      beforeValue: "claude-old",
+      afterValue: "claude-opus-4-7",
+    });
+  });
+
+  // Note: update_intake_spec_draft does NOT bump Playbook compose stamp
+  // (IntakeSpec is a separate authoring artifact, not a compose input).
+  // It also does NOT emit pendingChange — there's no Playbook scope to
+  // attach to. Verifying that explicitly here so a future refactor that
+  // accidentally bumps the Playbook would be caught.
+  it("update_intake_spec_draft does NOT emit pendingChange (no Playbook scope)", async () => {
+    // We can't easily mock @tallyseal/spec-emitter, so this test asserts
+    // the contract by intercepting at the spec-store layer.
+    vi.doMock("@/lib/intake/spec-store", () => ({
+      findById: vi.fn(async () => ({
+        id: "spec-1",
+        key: "CreateCourse",
+        version: "0.1.0",
+        status: "DRAFT",
+        body: { fields: { placeholder: { type: "string", required: false } } },
+        source: "",
+      })),
+      updateDraft: vi.fn(async () => ({
+        id: "spec-1",
+        updatedAt: new Date("2026-06-06"),
+      })),
+    }));
+    vi.doMock("@/lib/intake/crawcus-serde", () => ({
+      projectBodyFromEditable: vi.fn(() => ({
+        fields: { placeholder: { type: "string", required: false } },
+      })),
+    }));
+    vi.doMock("@tallyseal/spec-emitter", () => ({
+      parse: vi.fn(() => ({})),
+      SpecParseError: class extends Error {},
+    }));
+    vi.resetModules();
+    const { executeAdminTool: freshExec } = await import("@/lib/chat/admin-tool-handlers");
+    const raw = await freshExec(
+      "update_intake_spec_draft",
+      {
+        spec_id: "spec-1",
+        source: "export const X = defineCrawcusSpec({ key: 'X', projection: 'X', version: 1, fields: {}, readiness: ({ has }) => has() });",
+        reason: "field tweak",
+      },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.ok).toBe(true);
     expect(result.pendingChange).toBeUndefined();
   });
 });
