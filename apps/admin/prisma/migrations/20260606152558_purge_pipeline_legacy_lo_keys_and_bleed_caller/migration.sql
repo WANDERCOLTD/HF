@@ -28,6 +28,18 @@
 DELETE FROM "CallerAttribute"
 WHERE key LIKE 'curriculum:%:lo:%';
 
--- (b) Purge the bleed-evidence caller (cascades to all child rows).
-DELETE FROM "Caller"
-WHERE id = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
+-- (b) Purge the bleed-evidence caller. The Caller model has 23 FK referrers;
+-- 11 cascade automatically, 5 SET NULL, but 7 are RESTRICT and would block
+-- the DELETE. Delete from each RESTRICT table first. All operations are
+-- idempotent against the absence of the target row.
+DELETE FROM "ComposedPrompt"          WHERE "callerId" = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
+DELETE FROM "PersonalityObservation"  WHERE "callerId" = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
+DELETE FROM "UserMemory"              WHERE "callerId" = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
+DELETE FROM "UserMemorySummary"       WHERE "callerId" = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
+DELETE FROM "UserPersonality"         WHERE "callerId" = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
+DELETE FROM "UserPersonalityProfile"  WHERE "callerId" = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
+-- CohortGroup references Caller via ownerId. If this caller owns cohorts,
+-- the cohort goes too (acceptable per the "callers are disposable" decision).
+DELETE FROM "CohortGroup"             WHERE "ownerId" = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
+
+DELETE FROM "Caller" WHERE id = '4413a1f8-c91f-4577-b801-1e7e7e98697a';
