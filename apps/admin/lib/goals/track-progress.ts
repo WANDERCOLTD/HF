@@ -274,10 +274,16 @@ export async function deriveLearnGoalProgressFromRef(
 } | null> {
   if (!goal.ref || !goal.playbookId) return null;
 
+  // #1205 — canonical playbookId scoping via PlaybookCurriculum primary join
+  // (variant-aware). Replaces direct curriculum.playbookId filter.
   const los = await prisma.learningObjective.findMany({
     where: {
       ref: goal.ref,
-      module: { curriculum: { playbookId: goal.playbookId } },
+      module: {
+        curriculum: {
+          playbookLinks: { some: { playbookId: goal.playbookId, role: "primary" } },
+        },
+      },
     },
     select: { moduleId: true },
   });

@@ -198,11 +198,15 @@ export async function reconcileAssertionLOs(
 
   if (loArray.length === 0) return empty;
 
-  // Resolve source IDs: prefer PlaybookSource (via curriculum.playbookId), fall back to SubjectSource
+  // Resolve source IDs: prefer PlaybookSource (via canonical PlaybookCurriculum
+  // primary join — variant-aware), fall back to SubjectSource. #1205 migration.
   let sourceIds: string[] = [];
-  if (curriculum.playbookId) {
+  const { resolvePlaybookIdForCurriculum } = await import("@/lib/curriculum/resolve-playbook-for-curriculum");
+  const playbookIds = await resolvePlaybookIdForCurriculum(curriculumId);
+  if (playbookIds.length > 0) {
     const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
-    sourceIds = await getSourceIdsForPlaybook(curriculum.playbookId);
+    // Primary playbook owns the canonical content scope; use the first.
+    sourceIds = await getSourceIdsForPlaybook(playbookIds[0]);
   }
   if (sourceIds.length === 0 && curriculum.subjectId) {
     const subjectSources = await prisma.subjectSource.findMany({

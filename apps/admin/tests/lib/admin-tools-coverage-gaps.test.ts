@@ -113,7 +113,8 @@ describe("Cmd+K coverage-gap fixes", () => {
         estimatedDurationMinutes: null,
         masteryThreshold: null,
       });
-      mockPrisma.curriculum.findUnique.mockResolvedValue({ playbookId: "pb-1" });
+      // #1205 batch 4 — bump-fanout via canonical join (no curriculum.playbookId).
+      mockPrisma.playbookCurriculum.findMany.mockResolvedValueOnce([{ playbookId: "pb-1" }]);
 
       const raw = await executeAdminTool(
         "update_curriculum_module",

@@ -289,7 +289,8 @@ describe("Cmd+K read-parity tools (#852 follow-up)", () => {
         learnerVisible: true,
         masteryThreshold: null,
       });
-      mockPrisma.curriculum.findUnique.mockResolvedValue({ playbookId: "pb-1" });
+      // #1205 batch 4 — bump-fanout via canonical join (no curriculum.playbookId).
+      mockPrisma.playbookCurriculum.findMany.mockResolvedValueOnce([{ playbookId: "pb-1" }]);
 
       const raw = await executeAdminTool(
         "update_learning_objective",
@@ -324,7 +325,6 @@ describe("Cmd+K read-parity tools (#852 follow-up)", () => {
       mockPrisma.curriculum.findUnique.mockResolvedValue({
         id: "curr-1",
         name: "Old",
-        playbookId: "pb-1",
       });
       mockPrisma.curriculum.update.mockResolvedValue({
         id: "curr-1",
@@ -334,6 +334,9 @@ describe("Cmd+K read-parity tools (#852 follow-up)", () => {
         sourceYear: null,
         authors: [],
       });
+      // #1205 batch 4 — bump-fanout resolves owning playbooks via the
+      // canonical PlaybookCurriculum join (no Curriculum.playbookId fallback).
+      mockPrisma.playbookCurriculum.findMany.mockResolvedValueOnce([{ playbookId: "pb-1" }]);
 
       const raw = await executeAdminTool(
         "update_curriculum_metadata",
