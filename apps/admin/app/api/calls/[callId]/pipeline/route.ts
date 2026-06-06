@@ -1007,10 +1007,19 @@ async function runBatchedCallerAnalysis(
   } | null = null;
 
   if (engine === "mock") {
-    // Mock: generate random scores and no memories.
+    // Mock: generate random scores and **no memories**.
     // #1008 (Finding F) — load GUARD-001 once so educators can override the
     // mock-confidence default via spec without touching code. Default value
     // unchanged (0.7) when no override exists.
+    //
+    // G9 / #1158 (audit 2026-06-06): warn-log so the silent zero-memory
+    // outcome is visible in logs. Mock engine has no LLM reasoning, so it
+    // cannot extract memories; this is by-design but was invisible to
+    // operators staring at a "0 CallerMemory rows" trace. See PIPELINE.md §2.
+    log.warn(
+      `[extract] engine=mock — CallerMemory writes suppressed (mock has no LLM reasoning)`,
+      { callId: call.id, measureParamCount: measureParams.length },
+    );
     const mockGuardrails = await loadGuardrails(log);
     const mockConfidence = mockGuardrails.confidenceBounds.defaultConfidence;
     for (const param of measureParams) {
