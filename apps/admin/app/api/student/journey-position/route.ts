@@ -58,6 +58,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const [enrollment, onboardingSession] = await Promise.all([
       prisma.callerPlaybook.findFirst({
         where: { callerId, status: "ACTIVE" },
+        // #1167 — prefer primary (isDefault) then most recently enrolled
+        // for learners with multiple ACTIVE enrollments. Without orderBy
+        // Prisma's findFirst was non-deterministic.
+        orderBy: [{ isDefault: "desc" }, { enrolledAt: "desc" }],
         include: {
           playbook: {
             select: {

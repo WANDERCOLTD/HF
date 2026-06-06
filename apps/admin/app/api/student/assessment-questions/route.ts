@@ -45,8 +45,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Resolve enrollment + teaching profile for post-test comprehension detection
   if (type === "post_test") {
+    // #1167 — pick the learner's PRIMARY enrollment when they have multiple
+    // ACTIVE Playbooks. Without orderBy, Prisma returns whichever row hits
+    // the natural index first — for Emma Richardson (enrolled in CIO/CTO
+    // Standard as default + Psychology as legacy), this was Psychology,
+    // routing the post-test through the wrong course's content.
     const enrollment = await prisma.callerPlaybook.findFirst({
       where: { callerId, status: "ACTIVE" },
+      orderBy: [{ isDefault: "desc" }, { enrolledAt: "desc" }],
       select: {
         playbookId: true,
         playbook: {
@@ -81,9 +87,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, ...result });
   }
 
-  // pre_test — resolve enrolled playbook and curriculum
+  // pre_test — resolve enrolled playbook and curriculum.
+  // #1167 — see the post_test comment above. Same isDefault / enrolledAt
+  // ordering must be applied here so the pre-test routes through the
+  // learner's primary enrollment when they have multiple active courses.
   const enrollment = await prisma.callerPlaybook.findFirst({
     where: { callerId, status: "ACTIVE" },
+    orderBy: [{ isDefault: "desc" }, { enrolledAt: "desc" }],
     include: {
       playbook: {
         select: {

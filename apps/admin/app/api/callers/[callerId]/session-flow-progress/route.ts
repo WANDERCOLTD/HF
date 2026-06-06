@@ -60,8 +60,12 @@ export async function GET(
   try {
     const { callerId } = await params;
 
+    // #1167 — prefer primary (isDefault) then most recently enrolled when a
+    // learner has multiple ACTIVE enrollments. Without orderBy the session-
+    // flow progress could show data from a non-deterministic course.
     const enrollment = await prisma.callerPlaybook.findFirst({
       where: { callerId, status: "ACTIVE" },
+      orderBy: [{ isDefault: "desc" }, { enrolledAt: "desc" }],
       select: {
         playbook: {
           select: {
