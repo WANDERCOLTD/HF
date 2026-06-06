@@ -15,7 +15,8 @@
     "id": "operator-bottom",
     "requiredRole": "OPERATOR",
     "items": [
-      { "id": "operator-enrol-v1", "href": "/x/enrol-links", "label": "Enrol V1", "icon": "UserPlus" }
+      { "id": "operator-enrol-v1", "href": "/x/enrol-links", "label": "Enrol V1", "icon": "UserPlus" },
+      { "id": "operator-enrol-v2", "href": "/x/enrol-links", "label": "Enrol V2", "icon": "KeyRound" }
     ]
   },
   {
