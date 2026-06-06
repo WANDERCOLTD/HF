@@ -119,10 +119,20 @@ export async function accumulateSkillScores(
 
   // Pull every matching CallScore for this caller, oldest-first.
   // Each is an independent observation to fold into the EMA.
+  //
+  // G5 / #1155 — evidence-gated filter. Pre-G5 the AGGREGATE writer ignored
+  // `hasLearnerEvidence` entirely; rows that the upstream #611 universal
+  // zero-evidence gate dropped (he=false + eq=0) couldn't reach here, but
+  // every other row entered the EMA regardless of evidence quality —
+  // including rows the scorer flagged as evidence-absent on a non-zero-quality
+  // basis. The new filter drops explicitly-false rows only; null (legacy
+  // back-compat shape, claude_segment_v1, openai) and true both pass.
+  // See: docs/epic-100-chain-walk.md Link 4 — CALL → SCORE.
   const callScores = await prisma.callScore.findMany({
     where: {
       callerId,
       parameterId: paramFilter,
+      NOT: { hasLearnerEvidence: false },
     },
     select: {
       id: true,
