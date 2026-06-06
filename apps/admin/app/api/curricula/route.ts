@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { ensurePrimaryPlaybookLink } from "@/lib/curriculum/ensure-primary-playbook-link";
 
 /**
  * @api GET /api/curricula
@@ -102,14 +103,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const curriculum = await prisma.curriculum.create({
-      data: {
-        slug,
-        name: name.trim(),
-        subjectId: subjectId || null,
-        playbookId,
-      },
-      select: { id: true, slug: true, name: true, subjectId: true, playbookId: true },
+    const curriculum = await prisma.$transaction(async (tx) => {
+      const created = await tx.curriculum.create({
+        data: {
+          slug,
+          name: name.trim(),
+          subjectId: subjectId || null,
+          playbookId,
+        },
+        select: { id: true, slug: true, name: true, subjectId: true, playbookId: true },
+      });
+      if (playbookId) {
+        await ensurePrimaryPlaybookLink(tx, playbookId, created.id);
+      }
+      return created;
     });
 
     return NextResponse.json({ ok: true, curriculum });
