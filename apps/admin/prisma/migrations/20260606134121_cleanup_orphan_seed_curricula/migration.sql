@@ -5,12 +5,12 @@
 -- docs-archive/bdd-specs/. The DB rows have:
 --   - 0 CurriculumModule children
 --   - 0 PlaybookCurriculum links
---   - 0 referencing Calls
+--   - 0 referencing Calls (Calls reference CurriculumModule via curriculumModuleId,
+--     not Curriculum directly — so the CurriculumModule guard below covers this case)
 --
 -- The NOT EXISTS guards make this idempotent and refuse to drop any curriculum
 -- that has been retroactively attached to content or a playbook.
 DELETE FROM "Curriculum"
 WHERE slug IN ('wnf-content-001', 'qm-content-001', 'curr-fs-l2-001')
   AND NOT EXISTS (SELECT 1 FROM "CurriculumModule" WHERE "curriculumId" = "Curriculum"."id")
-  AND NOT EXISTS (SELECT 1 FROM "PlaybookCurriculum" WHERE "curriculumId" = "Curriculum"."id")
-  AND NOT EXISTS (SELECT 1 FROM "Call" WHERE "curriculumId" = "Curriculum"."id");
+  AND NOT EXISTS (SELECT 1 FROM "PlaybookCurriculum" WHERE "curriculumId" = "Curriculum"."id");
