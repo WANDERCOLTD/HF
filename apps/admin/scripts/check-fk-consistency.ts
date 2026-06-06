@@ -34,21 +34,23 @@ async function runChecks(): Promise<CheckResult[]> {
   // Query 1 — cross-playbook CallerModuleProgress.
   // Detects a CallerModuleProgress row pointing at a module whose curriculum
   // belongs to a different playbook than the caller's active enrolment.
+  // #1177 Slice 6 — `cur."playbookId"` was dropped; the curriculum's owning
+  // playbook now lives on PlaybookCurriculum(role='primary').
   const cmpLeaks = await prisma.$queryRaw<
     Array<{ id: string; callerId: string; moduleId: string; cur_playbookId: string | null; cp_playbookId: string | null }>
   >`
     SELECT cmp."id", cmp."callerId", cmp."moduleId",
-           cur."playbookId" AS cur_playbookId, cp."playbookId" AS cp_playbookId
+           pbc."playbookId" AS cur_playbookId, cp."playbookId" AS cp_playbookId
     FROM "CallerModuleProgress" cmp
     JOIN "CurriculumModule" cm ON cm.id = cmp."moduleId"
-    JOIN "Curriculum" cur ON cur.id = cm."curriculumId"
+    LEFT JOIN "PlaybookCurriculum" pbc ON pbc."curriculumId" = cm."curriculumId" AND pbc.role = 'primary'
     LEFT JOIN "CallerPlaybook" cp ON cp."callerId" = cmp."callerId" AND cp.status = 'ACTIVE'
-    WHERE cur."playbookId" IS DISTINCT FROM cp."playbookId"
+    WHERE pbc."playbookId" IS DISTINCT FROM cp."playbookId"
   `;
   results.push({
     name: "cross-playbook-caller-module-progress",
     description:
-      "CallerModuleProgress.moduleId points at a CurriculumModule whose curriculum.playbookId differs from the caller's active CallerPlaybook.playbookId.",
+      "CallerModuleProgress.moduleId points at a CurriculumModule whose owning playbook (via PlaybookCurriculum primary) differs from the caller's active CallerPlaybook.playbookId.",
     rows: cmpLeaks.map((r) => ({
       id: r.id,
       detail: {
@@ -61,16 +63,17 @@ async function runChecks(): Promise<CheckResult[]> {
   });
 
   // Query 2 — cross-playbook Call.curriculumModuleId.
+  // Same rewrite as Query 1.
   const callLeaks = await prisma.$queryRaw<
     Array<{ id: string; callerId: string; curriculumModuleId: string; cur_playbookId: string; cp_playbookId: string }>
   >`
     SELECT c."id", c."callerId", c."curriculumModuleId",
-           cur."playbookId" AS cur_playbookId, cp."playbookId" AS cp_playbookId
+           pbc."playbookId" AS cur_playbookId, cp."playbookId" AS cp_playbookId
     FROM "Call" c
     JOIN "CurriculumModule" cm ON cm.id = c."curriculumModuleId"
-    JOIN "Curriculum" cur ON cur.id = cm."curriculumId"
+    LEFT JOIN "PlaybookCurriculum" pbc ON pbc."curriculumId" = cm."curriculumId" AND pbc.role = 'primary'
     JOIN "CallerPlaybook" cp ON cp."callerId" = c."callerId" AND cp.status = 'ACTIVE'
-    WHERE cur."playbookId" IS DISTINCT FROM cp."playbookId"
+    WHERE pbc."playbookId" IS DISTINCT FROM cp."playbookId"
   `;
   results.push({
     name: "cross-playbook-call-curriculum-module-id",
