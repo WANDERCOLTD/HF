@@ -23,6 +23,37 @@ import { extractPendingChangeFromToolResult, type PendingChangePayload } from "@
 // Playbook.config — no per-learner variant).
 const TUNING_TOOL_NAMES = new Set(["update_behavior_target", "update_playbook_config"]);
 const TUNING_TOOLS = ADMIN_TOOLS.filter((t) => TUNING_TOOL_NAMES.has(t.name));
+
+// #1225 — COURSE_MANAGE mode: operator is looking at a specific course (Playbook);
+// system prompt carries a full snapshot of that course's editable surface; the
+// AI sees only course-relevant tools (not domain, system, or cross-tenant ones).
+// Subset of ADMIN_TOOLS so the existing forbidden-fields + pending-change
+// meta-tests apply automatically — no parallel allowlist to maintain.
+// Tools added by #1225 Slice B (swap_primary_curriculum, attach_linked_curriculum,
+// detach_linked_curriculum, update_intake_spec_draft, get_voice_config,
+// update_voice_config) will be appended to this set when they ship.
+const COURSE_MANAGE_TOOL_NAMES = new Set([
+  // Writers — course config + curriculum + LO + lesson plan
+  "update_playbook_config",
+  "update_playbook_meta",
+  "update_behavior_target",
+  "update_curriculum_module",
+  "update_curriculum_metadata",
+  "update_learning_objective",
+  "update_assertion_lo_link",
+  "add_curriculum_module",
+  "replace_lesson_plan",
+  "recompose_caller_prompt",
+  // Readers — current course state + per-learner queries operators often run
+  // while looking at a course (e.g. "how is Brynn doing on module 3?")
+  "get_playbook_config",
+  "list_behavior_targets",
+  "list_curriculum_modules",
+  "get_caller_detail",
+  "list_goals_for_caller",
+  "list_caller_memories",
+]);
+const COURSE_MANAGE_TOOLS = ADMIN_TOOLS.filter((t) => COURSE_MANAGE_TOOL_NAMES.has(t.name));
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
 import { executeWizardTool } from "@/lib/chat/wizard-tool-executor";
 import { buildV5SystemPrompt } from "@/lib/chat/v5-system-prompt";
@@ -46,7 +77,7 @@ import {
 
 export const runtime = "nodejs";
 
-type ChatMode = "DATA" | "CALL" | "BUG" | "WIZARD" | "COURSE_REF" | "TUNING";
+type ChatMode = "DATA" | "CALL" | "BUG" | "WIZARD" | "COURSE_REF" | "TUNING" | "COURSE_MANAGE";
 
 interface EntityBreadcrumb {
   type: string;
@@ -306,6 +337,19 @@ export async function POST(request: NextRequest) {
       return await handleDataModeWithTools(messages, callPoint, engine, selectedEngine, mode, message, entityContext, conversationHistory, userRole, userId);
     }
 
+    // #1225 — COURSE_MANAGE mode: same tool loop as DATA, but the AI sees only
+    // course-relevant tools (COURSE_MANAGE_TOOLS) and the system prompt carries
+    // a full snapshot of the active course (via pageContext.params.courseSnapshot,
+    // injected by page-context.ts::buildPageContextBlock).
+    if (mode === "COURSE_MANAGE") {
+      const userId = authResult.session.user.id;
+      return await handleDataModeWithTools(
+        messages, callPoint, engine, selectedEngine, mode, message,
+        entityContext, conversationHistory, userRole, userId,
+        COURSE_MANAGE_TOOLS,
+      );
+    }
+
     // CALL mode: per-turn knowledge retrieval (matches what the voice provider does live)
     if (mode === "CALL") {
       const callerEntity = entityContext.find((e) => e.type === "caller");
@@ -409,6 +453,10 @@ async function handleDataModeWithTools(
   conversationHistory: { role: string; content: string }[],
   userRole: string,
   userId: string,
+  // #1225 — tool surface defaults to the full ADMIN_TOOLS for DATA mode;
+  // COURSE_MANAGE passes COURSE_MANAGE_TOOLS to narrow the AI's surface to
+  // course-relevant mutators only.
+  tools: typeof ADMIN_TOOLS = ADMIN_TOOLS,
 ): Promise<Response> {
   const loopMessages: AIMessage[] = [...messages];
   let toolCallCount = 0;
@@ -425,7 +473,7 @@ async function handleDataModeWithTools(
         callPoint,
         engineOverride: engine,
         messages: loopMessages,
-        tools: ADMIN_TOOLS,
+        tools,
       },
       { sourceOp: `${callPoint}.tools` }
     );

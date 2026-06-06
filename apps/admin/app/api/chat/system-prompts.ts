@@ -12,7 +12,7 @@ import { buildPageFeatureCatalogue } from "@/lib/chat/page-feature-catalogue";
 
 export type { PageContextHint };
 
-type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING";
+type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING" | "COURSE_MANAGE";
 
 interface EntityBreadcrumb {
   type: string;
@@ -126,6 +126,7 @@ export async function buildSystemPrompt(
   const runtimeBlock = buildRuntimeContextBlock(userRole, options?.pageHintRoute);
 
   switch (mode) {
+    case "COURSE_MANAGE":
     case "DATA": {
       // DATA mode shares the TUNING catalogue + truthfulness rules so the
       // model can call update_behavior_target from the Assistant tab — but
