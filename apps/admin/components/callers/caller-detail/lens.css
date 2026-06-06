@@ -523,6 +523,15 @@
   color: var(--text-muted);
 }
 
+/* #1178 — failure badge: visible-on-list signal that a VAPI call ended
+   abnormally (pipeline error, silence timeout, voicemail, poll failure).
+   `title` carries the friendly mapping for hover. */
+.hf-rc-failed-badge {
+  font-size: 12px;
+  color: var(--status-error-text);
+  cursor: help;
+}
+
 .hf-rc-view-all {
   border: none;
   background: transparent;

@@ -366,10 +366,48 @@ async function processTranscriptUpdate(
   });
 }
 
-async function handleEndOfCallEvent(
+/** Structured result of `persistEndOfCall` — wraps the older NextResponse
+ *  shape. Webhook caller re-wraps via `NextResponse.json(result)`; poll
+ *  caller (#1178) reads directly. */
+export interface PersistEndOfCallResult {
+  ok: true;
+  callId: string;
+  callerId?: string | null;
+  merged?: boolean;
+  /** Set to true when an atomic update with `where: { id, endedAt: null }`
+   *  matched zero rows — race lost to a faster writer (typically the
+   *  webhook landing during the poll cycle). Caller should treat this as
+   *  benign no-op success. */
+  skippedRace?: boolean;
+}
+
+export interface PersistEndOfCallOptions {
+  /** Where the event came from. "webhook" preserves the pre-#1178
+   *  behaviour (find-or-create, no atomic guard). "fallback" forces an
+   *  atomic update with `endedAt: null` guard AND tags
+   *  `voiceProviderRaw.pollSource = "fallback"` for forensic
+   *  distinguishability. */
+  sourceTag?: "webhook" | "fallback";
+}
+
+/**
+ * Persist a normalised end-of-call event to the `Call` row + downstream
+ * triggers (SSE broadcast, pipeline run, caller-by-phone create).
+ *
+ * Exported in #1178 — the poll fallback path needs to call this without
+ * an internal-fetch round-trip. The webhook handler (`handleVoiceWebhookPost`)
+ * still uses it via `handleEndOfCallEvent` which re-wraps the structured
+ * result as a NextResponse.
+ *
+ * Race safety (poll path only): `sourceTag: "fallback"` triggers an
+ * atomic update with `where: { id, endedAt: null }` so a webhook that
+ * lands during the poll cycle wins without producing double-writes.
+ */
+export async function persistEndOfCall(
   event: NormalisedEndOfCallEvent,
   slug: string,
-): Promise<NextResponse> {
+  options: PersistEndOfCallOptions = {},
+): Promise<PersistEndOfCallResult> {
   const {
     eventKind,
     externalCallId,
@@ -379,6 +417,7 @@ async function handleEndOfCallEvent(
     capture,
     providerRaw,
   } = event;
+  const sourceTag = options.sourceTag ?? "webhook";
 
   // Find existing Call row scoped by (externalId, source=slug). Two
   // providers could theoretically share an externalId — the source
@@ -399,33 +438,76 @@ async function handleEndOfCallEvent(
   if (capture.structuredData !== undefined) persistableCapture.voiceStructuredData = capture.structuredData as Prisma.InputJsonValue;
   if (capture.successEvaluation !== undefined) persistableCapture.voiceSuccessEvaluation = capture.successEvaluation;
   if (providerRaw !== undefined && providerRaw !== null) {
-    persistableCapture.voiceProviderRaw = providerRaw as Prisma.InputJsonValue;
+    // Annotate poll-sourced raws so forensic queries can distinguish
+    // them from webhook-sourced raws (#1178 TL required AC 6).
+    const annotated =
+      sourceTag === "fallback" && typeof providerRaw === "object" && providerRaw !== null
+        ? { ...(providerRaw as Record<string, unknown>), pollSource: "fallback" }
+        : providerRaw;
+    persistableCapture.voiceProviderRaw = annotated as Prisma.InputJsonValue;
   }
 
   if (existing) {
     // Split-event merge: analysis arriving for an earlier basic write.
-    const updated = await prisma.call.update({
-      where: { id: existing.id },
-      data: {
-        // Only overwrite transcript if the new event actually carried one
-        ...(transcript ? { transcript } : {}),
-        ...persistableCapture,
-      },
-    });
+    // OR poll fallback: a stale row that never got its webhook.
+    //
+    // For sourceTag="fallback" we use an atomic update with
+    // `where: { id, endedAt: null }` so a webhook that lands during
+    // the poll cycle wins (the poll's update becomes a no-op via
+    // P2025). For sourceTag="webhook" we keep the pre-#1178 behaviour.
+    const updateWhere =
+      sourceTag === "fallback"
+        ? { id: existing.id, endedAt: null }
+        : { id: existing.id };
+    const updateData: Prisma.CallUpdateInput = {
+      // Only overwrite transcript if the new event actually carried one
+      ...(transcript ? { transcript } : {}),
+      ...persistableCapture,
+      // Poll path always stamps endedAt — the row is stale by definition.
+      ...(sourceTag === "fallback" ? { endedAt: new Date() } : {}),
+    };
+    let updated;
+    try {
+      updated = await prisma.call.update({
+        where: updateWhere as Prisma.CallWhereUniqueInput,
+        data: updateData,
+      });
+    } catch (err) {
+      // Prisma P2025 — record not found by the where clause. This is the
+      // race-loss path for sourceTag="fallback": webhook landed between
+      // our findFirst and update. Treat as benign success.
+      if (
+        sourceTag === "fallback" &&
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2025"
+      ) {
+        return {
+          ok: true,
+          callId: existing.id,
+          merged: true,
+          skippedRace: true,
+        };
+      }
+      throw err;
+    }
 
     // Pipeline trigger fires only on "full" or "analysis" — never on
     // bare "basic" (the row is half-complete). For "full" we already
     // ran this branch on first arrival; this branch is duplicate-call
-    // territory and we skip re-triggering.
-    if (eventKind === "analysis" && updated.callerId) {
+    // territory and we skip re-triggering. Poll fallback always
+    // qualifies (it's a full event by definition — VAPI's /call/{id}
+    // returns the merged final state).
+    const shouldTriggerPipeline =
+      eventKind === "analysis" || sourceTag === "fallback";
+    if (shouldTriggerPipeline && updated.callerId) {
       triggerPipeline(updated.id, updated.callerId).catch((err) => {
         console.error(
-          `[voice/${slug}/webhook] Pipeline trigger failed for call ${updated.id}:`,
+          `[voice/${slug}/${sourceTag}] Pipeline trigger failed for call ${updated.id}:`,
           err,
         );
       });
     }
-    return NextResponse.json({ ok: true, callId: updated.id, merged: true });
+    return { ok: true, callId: updated.id, merged: true };
   }
 
   // First arrival: find or create caller by phone (basic + full both
@@ -517,14 +599,28 @@ async function handleEndOfCallEvent(
     if (vs.autoPipeline && callerId) {
       triggerPipeline(newCall.id, callerId).catch((err) => {
         console.error(
-          `[voice/${slug}/webhook] Pipeline trigger failed for call ${newCall.id}:`,
+          `[voice/${slug}/${sourceTag}] Pipeline trigger failed for call ${newCall.id}:`,
           err,
         );
       });
     }
   }
 
-  return NextResponse.json({ ok: true, callId: newCall.id, callerId });
+  return { ok: true, callId: newCall.id, callerId };
+}
+
+/**
+ * Thin wrapper that preserves the pre-#1178 NextResponse-returning shape
+ * for the webhook handler. The structured `persistEndOfCall` is the
+ * canonical entry point — this exists only so `handleVoiceWebhookPost`
+ * keeps its existing call shape.
+ */
+async function handleEndOfCallEvent(
+  event: NormalisedEndOfCallEvent,
+  slug: string,
+): Promise<NextResponse> {
+  const result = await persistEndOfCall(event, slug, { sourceTag: "webhook" });
+  return NextResponse.json(result);
 }
 
 async function triggerPipeline(callId: string, callerId: string): Promise<void> {

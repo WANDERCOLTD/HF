@@ -172,6 +172,10 @@ export async function GET(
           playbookId: true,
           curriculumModuleId: true,
           requestedModuleId: true,
+          // #1178 — surface voice end-state on the caller detail UI
+          voiceEndedReason: true,
+          voiceDurationSeconds: true,
+          voiceCostUsd: true,
           curriculumModule: {
             select: { id: true, slug: true, title: true, coversModules: true },
           },
