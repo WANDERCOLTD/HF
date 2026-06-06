@@ -63,6 +63,8 @@ import {
   ScrollText,
   GitCompareArrows,
   FileCode,
+  UserPlus,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -131,4 +133,6 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   ScrollText,
   GitCompareArrows,
   FileCode,
+  UserPlus,
+  KeyRound,
 };
