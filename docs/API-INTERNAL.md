@@ -7138,58 +7138,6 @@ Get teaching points (assertions) for a domain through the subject→source chain
 
 ---
 
-### `POST` /api/domains/quick-launch
-
-Runs the Quick Launch flow: upload content → create domain → scaffold tutor → ready.
-
-**Auth**: OPERATOR
-
-**Response** `200`
-```json
-text/event-stream — progress events then final result
-```
-
----
-
-### `POST` /api/domains/quick-launch/analyze
-
-Community Quick Launch setup.
-
-**Auth**: OPERATOR
-
-**Response** `202`
-```json
-{ ok, domainId, domainSlug, domainName, subjectId, identityConfig, taskId }
-```
-
----
-
-### `POST` /api/domains/quick-launch/commit
-
-Runs the commit phase of Quick Launch (Steps 5-7):
-
-**Auth**: OPERATOR
-
-**Response** `200`
-```json
-text/event-stream — progress events then final QuickLaunchResult
-```
-
----
-
-### `POST` /api/domains/suggest-name
-
-AI-generates field suggestions (name, persona, goals) from a free-text brief.
-
-**Auth**: OPERATOR
-
-**Response** `200`
-```json
-{ ok, name, slug, persona?, goals? }
-```
-
----
-
 ## Educator
 
 ### `POST` /api/calls/[callId]/interject
@@ -15592,8 +15540,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 498 |
-| Files with annotations | 489 |
+| Route files found | 494 |
+| Files with annotations | 485 |
 | Files missing annotations | 9 |
 | Coverage | 98.2% |
 

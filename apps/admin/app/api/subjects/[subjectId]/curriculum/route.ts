@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { startCurriculumGeneration } from "@/lib/jobs/curriculum-runner";
 import { syncModulesToDB } from "@/lib/curriculum/sync-modules";
+import { ensurePrimaryPlaybookLink } from "@/lib/curriculum/ensure-primary-playbook-link";
 import {
   deriveQualificationAnchor,
   isAnchorSafe,
@@ -302,37 +303,46 @@ export async function POST(req: NextRequest, { params }: Params) {
         ? await prisma.curriculum.findUniqueOrThrow({
             where: { id: siblingLink.curriculumId },
           })
-        : await prisma.curriculum.upsert({
-            where: { slug },
-            create: {
-              slug,
-              name: result.name,
-              description: result.description,
-              subjectId,
-              playbookId: resolvedPlaybookId,
-              primarySourceId,
-              trustLevel: subject.defaultTrustLevel,
-              qualificationBody: subject.qualificationBody,
-              qualificationNumber: subject.qualificationRef,
-              qualificationLevel: subject.qualificationLevel,
-              // #1081 Slice 2B.2 — stamp the derived anchor so subsequent
-              // siblings in the same domain find it. Null when no
-              // qualification metadata or anchor was unsafe.
-              qualificationAnchor: derivedAnchor && isAnchorSafe(derivedAnchor) ? derivedAnchor : null,
-              notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
-              coreArgument: Prisma.JsonNull,
-              deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
-              version: "1.0",
-            },
-            update: {
-              name: result.name,
-              description: result.description,
-              primarySourceId,
-              trustLevel: subject.defaultTrustLevel,
-              notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
-              deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
-              updatedAt: new Date(),
-            },
+        : await prisma.$transaction(async (tx) => {
+            const upserted = await tx.curriculum.upsert({
+              where: { slug },
+              create: {
+                slug,
+                name: result.name,
+                description: result.description,
+                subjectId,
+                playbookId: resolvedPlaybookId,
+                primarySourceId,
+                trustLevel: subject.defaultTrustLevel,
+                qualificationBody: subject.qualificationBody,
+                qualificationNumber: subject.qualificationRef,
+                qualificationLevel: subject.qualificationLevel,
+                // #1081 Slice 2B.2 — stamp the derived anchor so subsequent
+                // siblings in the same domain find it. Null when no
+                // qualification metadata or anchor was unsafe.
+                qualificationAnchor: derivedAnchor && isAnchorSafe(derivedAnchor) ? derivedAnchor : null,
+                notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
+                coreArgument: Prisma.JsonNull,
+                deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
+                version: "1.0",
+              },
+              update: {
+                name: result.name,
+                description: result.description,
+                primarySourceId,
+                trustLevel: subject.defaultTrustLevel,
+                notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
+                deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
+                updatedAt: new Date(),
+              },
+            });
+            // #1204 — fresh-mint AND update paths both ensure a primary join row
+            // exists. Idempotent: if the row already exists (with any role) it's
+            // left alone; if missing, created with role='primary'.
+            if (resolvedPlaybookId) {
+              await ensurePrimaryPlaybookLink(tx, resolvedPlaybookId, upserted.id);
+            }
+            return upserted;
           });
 
       // If we linked to a sibling, also ensure the primary PlaybookCurriculum

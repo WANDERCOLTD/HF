@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { extractCurriculumFromAssertions } from "@/lib/content-trust/extract-curriculum";
 import { syncModulesToDB } from "@/lib/curriculum/sync-modules";
+import { ensurePrimaryPlaybookLink } from "@/lib/curriculum/ensure-primary-playbook-link";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import type { LegacyCurriculumModuleJSON } from "@/lib/types/json-fields";
 
@@ -134,16 +135,20 @@ export async function POST(
       select: { id: true, deliveryConfig: true },
     });
 
-    const curriculumRecord = existingCurr ?? await prisma.curriculum.create({
-      data: {
-        slug: `${courseId}-content`,
-        subjectId: primarySubject.id,
-        playbookId: courseId,
-        name: disciplineName,
-        description: `Auto-generated curriculum for ${playbook.name}`,
-        deliveryConfig: {},
-      },
-      select: { id: true, deliveryConfig: true },
+    const curriculumRecord = existingCurr ?? await prisma.$transaction(async (tx) => {
+      const created = await tx.curriculum.create({
+        data: {
+          slug: `${courseId}-content`,
+          subjectId: primarySubject.id,
+          playbookId: courseId,
+          name: disciplineName,
+          description: `Auto-generated curriculum for ${playbook.name}`,
+          deliveryConfig: {},
+        },
+        select: { id: true, deliveryConfig: true },
+      });
+      await ensurePrimaryPlaybookLink(tx, courseId, created.id);
+      return created;
     });
 
     // 4. Snapshot module slugs before regen so we can detect orphan risk
