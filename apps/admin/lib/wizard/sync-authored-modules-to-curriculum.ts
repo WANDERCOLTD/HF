@@ -63,15 +63,11 @@ export async function syncAuthoredModulesToCurriculum(
   outcomes?: Record<string, string>,
 ): Promise<SyncResult> {
   // Pick or create the primary curriculum for this course.
-  // #1034 / #1205 — Read PlaybookCurriculum first (variant Playbooks share the
-  // parent's Curriculum via a `linked` row). Intentional fallback to the
-  // deprecated `curricula` direct relation for any pre-#1212 Curriculum row
-  // that doesn't yet have a PlaybookCurriculum(primary) join row (the
-  // historical-orphan backfill is the next piece of work). Remove this
-  // fallback (and the two eslint-disables) once the backfill SQL has run on
-  // prod and the FK probe shows zero orphans.
-  // See docs/CONTRACTS-PLAYBOOK-CURRICULUM.md §4 — "Dual-read tolerance".
-  /* eslint-disable hf-curriculum/no-deprecated-curricula-relation -- intentional dual-read during #1205/#1212 transition */
+  // #1034 / #1205 — Read PlaybookCurriculum (canonical join). Historical
+  // dual-read fallback to deprecated Curriculum.playbookId was removed in
+  // batch 3 after the 20260606152557 backfill migration closed the orphan
+  // gap on hf-dev (FK probe: 0 orphan curricula). New writers go through
+  // the canonical helper (lib/curriculum/ensure-primary-playbook-link.ts).
   const playbook = await tx.playbook.findUnique({
     where: { id: playbookId },
     select: {
@@ -82,11 +78,6 @@ export async function syncAuthoredModulesToCurriculum(
         take: 1,
         select: { curriculumId: true },
       },
-      curricula: {
-        orderBy: { createdAt: "asc" },
-        take: 1,
-        select: { id: true },
-      },
     },
   });
   if (!playbook) {
@@ -94,10 +85,7 @@ export async function syncAuthoredModulesToCurriculum(
   }
 
   let curriculumId: string | null =
-    playbook.playbookCurricula[0]?.curriculumId ??
-    playbook.curricula[0]?.id ??
-    null;
-  /* eslint-enable hf-curriculum/no-deprecated-curricula-relation */
+    playbook.playbookCurricula[0]?.curriculumId ?? null;
   if (!curriculumId) {
     const created = await tx.curriculum.create({
       data: {

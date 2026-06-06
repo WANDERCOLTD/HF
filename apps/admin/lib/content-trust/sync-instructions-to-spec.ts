@@ -1,11 +1,16 @@
 /**
  * Sync Instruction Assertions to Identity Spec
  *
- * After extraction, instruction-category assertions (teaching_rule,
- * session_flow, scaffolding_technique, etc.) are synced into the
- * per-course identity spec overlay. This makes them part of the
- * identity merge chain (course → domain → archetype) rather than
+ * @public — load-bearing helper, kept after the #1200 audit. Two
+ * production call sites in `lib/chat/wizard-tool-executor.ts`
+ * (the wizard `create_course` and re-attach flows) invoke it as
+ * fire-and-forget after content extraction so instruction-category
+ * assertions land in the course's identity spec overlay rather than
  * rendering as a standalone ## COURSE RULES section.
+ *
+ * Both callers wrap the call in `.catch()` — failures are non-fatal
+ * and the wizard continues. This is by design: instruction sync is
+ * an enhancement, not a blocker.
  *
  * Category → Config Key Mapping:
  *   communication_rule, scaffolding_technique, differentiation → styleGuidelines[]
@@ -13,6 +18,8 @@
  *   session_flow → parameters[].config.opening/main/closing
  *   skill_framework → parameters[].config.principles[]
  *   assessment_approach → parameters[].config.methods[]
+ *
+ * @see https://github.com/WANDERCOLTD/HF/issues/1200 — #1200 audit verdict
  */
 
 import { prisma } from "@/lib/prisma";

@@ -1,12 +1,17 @@
 /**
  * Primary-Subject resolver for a Playbook.
  *
- * When a Playbook has multiple linked Subjects via PlaybookSubject, downstream
- * consumers (lesson-plan generation, regenerate-curriculum, content readers)
- * need a deterministic way to pick the "real" Subject — the one whose
- * Curriculum has populated Modules — instead of an arbitrary first row.
+ * @public — load-bearing helper, kept after the #1200 audit. Single
+ * production caller: `app/api/courses/[courseId]/regenerate-curriculum/route.ts`
+ * uses it to pick the Subject whose Curriculum should be regenerated when
+ * a Playbook has multiple linked Subjects. Without this, regeneration would
+ * pick an arbitrary first row, often the empty/placeholder one.
  *
- * @see https://github.com/WANDERCOLTD/HF/issues/206
+ * Reads `Subject.curricula` (the canonical Subject→Curriculum relation,
+ * NOT the deprecated `Playbook.curricula` removed in #1205).
+ *
+ * @see https://github.com/WANDERCOLTD/HF/issues/206 — original bug
+ * @see https://github.com/WANDERCOLTD/HF/issues/1200 — #1200 audit verdict
  */
 
 import { prisma } from "@/lib/prisma";
