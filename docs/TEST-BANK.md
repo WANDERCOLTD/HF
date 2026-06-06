@@ -228,6 +228,22 @@ Mixing tags is fine. `describe("buildLoMasteryMap (#928 scoping helper)", ...)` 
 | **Owner area** | Adaptive Loop / Goal Semantics |
 | **Related** | `lib/domain/course-setup.ts:382` (filter call-site) · `scripts/backfill-archive-tutor-briefing-goals.ts` (one-shot cleanup) · `docs/PIPELINE.md §7` (`extractGoals` + `trackGoalProgress` ADAPT sub-ops) · audit G10 entry |
 
+### 009 — `runProsodyStage` mode detection + envelope contract (G3)
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/lib/pipeline/prosody-runner.test.ts` |
+| **Subject** | `apps/admin/lib/pipeline/prosody-runner.ts::runProsodyStage` |
+| **Defends** | CHAIN-CONTRACTS Link 3 sub-contract — VOICE_PROSODY_V1 envelope semantics. (a) `tierPresetId="ielts-speaking"` triggers IELTS mode. (b) `stereoRecordingUrl=null` short-circuits to `mode:"unavailable", errorReason:"no_recording"`. (c) Idempotency: existing envelope → vendor not called. (d) Failure-as-envelope: runner never throws. |
+| **Issue / origin** | [#1144](https://github.com/WANDERCOLTD/HF/issues/1144) — audit G3. PROSODY config gap (`tierPresetId` null on all 3 IELTS playbooks + no `SpeechAssessmentProvider.isDefault=true`) was fixed in DB on 2026-06-06; this regression test pins the resulting contract so the runner's mode-detection and never-throw behaviour can't silently regress. |
+| **Failure mode it pins** | (a) Future edit narrows IELTS-mode trigger (e.g. requires a different config key) and silently breaks the #1118 + #1119 epic. (b) Edit drops the no-recording short-circuit and lets the runner consult the vendor on a null URL — wastes the per-minute SpeechAce charge. (c) An exception escapes the runner and aborts the pipeline mid-flight (the documented PIPELINE.md §3 invariant — "Failures are NEVER thrown"). |
+| **What it proves** | 8 tests: IELTS mode triggers on tier preset; general mode on null/absent preset; no-recording produces unavailable + persists the forensic envelope; idempotent existing-envelope skip; force=true overrides; provider-resolution failure → `mode:"unavailable"` without throwing. |
+| **How to run** | `cd apps/admin && npx vitest run tests/lib/pipeline/prosody-runner.test.ts` |
+| **When to re-run** | Edits to `prosody-runner.ts`, `prosody-types.ts`, or any of the prosody-runner mocks (provider factory, system settings). |
+| **Status** | ✅ green (8/8, 2026-06-06) |
+| **Owner area** | Adaptive Loop / PROSODY stage |
+| **Related** | `docs/CHAIN-CONTRACTS.md` §4 VOICE_PROSODY_V1 row · audit G3 entry · `#1118` SpeechAce/SpeechSuper providers · `#1119` PROSODY stage spec |
+
 ---
 
 ## Live-DB Demos
