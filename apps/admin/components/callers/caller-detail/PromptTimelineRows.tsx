@@ -23,7 +23,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare, GitBranch, FileText, Phone, MonitorPlay, SlidersHorizontal, Sparkles, Clock, CheckCircle2, Eye, User, BarChart2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare, GitBranch, FileText, Phone, MonitorPlay, SlidersHorizontal, Sparkles, Clock, CheckCircle2, Eye, User, BarChart2, MessageSquare } from "lucide-react";
 import { computeDiff, compactDiffEntries } from "./PromptsSection";
 import type { Call, CallScore, ComposedPrompt } from "./types";
 
@@ -53,11 +53,14 @@ function triggerLabel(p: ComposedPrompt): string {
   return p.triggerType || "—";
 }
 
-/** #642 — triggerType → icon. Makes it obvious where a prompt came from at a glance. */
+/** #642 — triggerType → icon. Makes it obvious where a prompt came from at a glance.
+ *  Note: post_call / pipeline use MessageSquare (a "prompt" / message icon) — the
+ *  enclosing call-group header carries the Phone icon for the call itself, so
+ *  the prompt rows underneath shouldn't also show Phone. */
 function TriggerIcon({ p, size = 13 }: { p: ComposedPrompt; size?: number }) {
   const t = (p.triggerType || "").toLowerCase();
   const cls = "ptr-row-icon";
-  if (t === "post_call" || t === "pipeline") return <Phone size={size} className={cls} />;
+  if (t === "post_call" || t === "pipeline") return <MessageSquare size={size} className={cls} />;
   if (t === "sim") return <MonitorPlay size={size} className={cls} />;
   if (t === "tuner_fanout" || t === "tuner") return <SlidersHorizontal size={size} className={cls} />;
   if (t === "enrollment") return <Sparkles size={size} className={cls} />;
@@ -205,12 +208,90 @@ function computeCallDiff(
 // Reuses the same endpoint that CallsPromptsTab.loadCallDetails fires.
 interface CallDetail {
   ok: boolean;
-  call: { id: string; createdAt: string } | null;
+  call: { id: string; createdAt: string; transcript?: string | null } | null;
   scores: Array<{ parameterId: string; score: number; parameter: { name: string } }>;
   memories: Array<{ id: string; key: string; value?: string; category?: string; extractedAt?: string }>;
   measurements: Array<{ parameterId: string; actualValue: number; targetValue?: number; parameter?: { name: string } }>;
   rewardScore: { overallScore: number; parameterDiffs?: Array<{ parameterId: string; diff: number; name?: string }> } | null;
   effectiveTargets?: Array<{ parameterId: string; targetValue: number; parameter?: { name: string } }>;
+}
+
+/** Parse a VAPI / sim transcript ("AI: …" / "User: …" / "Assistant: …" prefixes)
+ *  into chronological role-tagged messages. Mirrors CallsPromptsTab.parseTranscript
+ *  (#1236 fix). Local copy to avoid a cross-file import. */
+function parseCallTranscript(
+  transcript: string,
+): { role: "user" | "assistant"; content: string }[] {
+  const messages: { role: "user" | "assistant"; content: string }[] = [];
+  const lines = transcript.split("\n");
+  let current: { role: "user" | "assistant"; content: string } | null = null;
+  for (const line of lines) {
+    if (line.startsWith("User: ")) {
+      if (current) messages.push(current);
+      current = { role: "user", content: line.slice(6) };
+    } else if (line.startsWith("AI: ")) {
+      if (current) messages.push(current);
+      current = { role: "assistant", content: line.slice(4) };
+    } else if (line.startsWith("Assistant: ")) {
+      if (current) messages.push(current);
+      current = { role: "assistant", content: line.slice(11) };
+    } else if (current) {
+      current.content += "\n" + line;
+    }
+  }
+  if (current) messages.push(current);
+  return messages;
+}
+
+/** Lazy-loads /api/calls/[id] to read the transcript on-demand and renders
+ *  it inline beneath the call-group header. Shows a loading shim while in
+ *  flight. */
+function CallTranscriptLazy({ callId }: { callId: string }) {
+  const detail = useLazyCallDetail(callId, true);
+  if (!detail) {
+    return (
+      <div className="ptr-transcript-loading hf-text-sm hf-text-muted">
+        Loading transcript…
+      </div>
+    );
+  }
+  return <CallTranscriptInline transcript={detail.call?.transcript ?? null} />;
+}
+
+/** Inline transcript display for the Tune-tab call-group header expander.
+ *  Plain Learner / AI rows, no header chrome. */
+function CallTranscriptInline({ transcript }: { transcript: string | null | undefined }) {
+  const messages = useMemo(
+    () => (transcript ? parseCallTranscript(transcript) : []),
+    [transcript],
+  );
+  if (!transcript) {
+    return (
+      <div className="ptr-transcript-empty hf-text-sm hf-text-muted">
+        No transcript captured for this call.
+      </div>
+    );
+  }
+  if (messages.length === 0) {
+    return (
+      <pre className="ptr-transcript-raw hf-text-sm">{transcript}</pre>
+    );
+  }
+  return (
+    <div className="ptr-transcript-inline">
+      {messages.map((m, i) => (
+        <div
+          key={i}
+          className={`ptr-transcript-msg ptr-transcript-msg--${m.role}`}
+        >
+          <span className="ptr-transcript-role hf-uppercase hf-micro-badge">
+            {m.role === "user" ? "Learner" : "AI"}
+          </span>
+          <span className="ptr-transcript-text">{m.content}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** Lazy-loads /api/calls/[callId] when needed. Caches per id for the
@@ -592,6 +673,10 @@ export function PromptTimelineRows({
     return latestActiveId ? new Set([latestActiveId]) : new Set();
   });
   const [expandedEval, setExpandedEval] = useState<Set<string>>(new Set());
+  // Per-call transcript expander on the group header (new — was prompt-only
+  // before). Lazy-loads the transcript through the same /api/calls/[id] hook
+  // used by CALL DIFF below.
+  const [expandedCallTranscript, setExpandedCallTranscript] = useState<Set<string>>(new Set());
   const [llmMode, setLlmMode] = useState<Map<string, "human" | "llm">>(new Map());
 
   // Compact diff toggle — global, localStorage-persisted (#642)
@@ -813,22 +898,44 @@ export function PromptTimelineRows({
               />
             )}
             {/* Strengthened group header — Phone for call groups, triggerType icon
-                for standalone, accent-primary border so it visually anchors the section */}
-            <header className={`ptr-group-header${call ? " ptr-group-header--call" : " ptr-group-header--standalone"}`}>
-              {call
-                ? <Phone size={13} className="ptr-group-header-icon" />
-                : group.prompts[0]
+                for standalone, accent-primary border so it visually anchors the section.
+                For call groups, the header is now a button that toggles an inline
+                transcript view (lazy-loads via /api/calls/[id]). */}
+            {call ? (
+              (() => {
+                const transcriptOpen = expandedCallTranscript.has(call.id);
+                return (
+                  <>
+                    <button
+                      type="button"
+                      className="ptr-group-header ptr-group-header--call ptr-group-header--button"
+                      onClick={() => toggle(expandedCallTranscript, setExpandedCallTranscript, call.id)}
+                      aria-expanded={transcriptOpen}
+                      title={transcriptOpen ? "Hide transcript" : "Show transcript"}
+                    >
+                      <Phone size={13} className="ptr-group-header-icon" />
+                      <span className="ptr-group-title">{header}</span>
+                      <span className="ptr-group-meta">
+                        {call.hasScores ? "scored · " : ""}
+                        {call.hasMemories ? "memories · " : ""}
+                        {call.hasRewardScore ? "rewarded" : ""}
+                      </span>
+                      {transcriptOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                    {transcriptOpen && (
+                      <CallTranscriptLazy callId={call.id} />
+                    )}
+                  </>
+                );
+              })()
+            ) : (
+              <header className="ptr-group-header ptr-group-header--standalone">
+                {group.prompts[0]
                   ? <TriggerIcon p={group.prompts[0]} size={13} />
                   : null}
-              <span className="ptr-group-title">{header}</span>
-              {call && (
-                <span className="ptr-group-meta">
-                  {call.hasScores ? "scored · " : ""}
-                  {call.hasMemories ? "memories · " : ""}
-                  {call.hasRewardScore ? "rewarded" : ""}
-                </span>
-              )}
-            </header>
+                <span className="ptr-group-title">{header}</span>
+              </header>
+            )}
             {/* Group effect summary — input → final active in this group.
                 Labelled "Call effect" for call groups, "Group effect" for
                 standalone (sim / TUNER_FANOUT / enrollment) groups. */}
