@@ -57,6 +57,7 @@ import type {
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
+import { log } from "@/lib/logger";
 
 // `getVoiceSystemSettings` is imported for the existing cost-cap
 // trickle below AND for the assistant-request handler's cost-safety
@@ -101,11 +102,26 @@ export async function handleVoiceWebhookPost(
     slug,
     operation: `voice:${slug}:webhook`,
   });
+  // #922 — every webhook arrival logs `voice.webhook.arrive` so the
+  // next "end-of-call never landed" report can be answered in one
+  // /x/logs query: did VAPI actually POST to us at all?
+  log("api", "voice.webhook.arrive", {
+    level: "info",
+    slug,
+    contentLength: request.headers.get("content-length") ?? null,
+    hasVapiSignature: request.headers.get("x-vapi-signature") !== null,
+    userAgent: request.headers.get("user-agent") ?? null,
+  });
   try {
     const rawBody = await request.text();
     const provider = await getVoiceProvider(slug);
     const authError = provider.verifyInboundRequest(request, rawBody);
     if (authError) {
+      log("system", "voice.webhook.auth_failed", {
+        level: "error",
+        slug,
+        bodyLen: rawBody.length,
+      });
       logVoiceEvent({
         slug,
         operation: `voice:${slug}:auth:invalid-signature`,
@@ -119,6 +135,12 @@ export async function handleVoiceWebhookPost(
     try {
       body = JSON.parse(rawBody);
     } catch {
+      log("system", "voice.webhook.bad_json", {
+        level: "error",
+        slug,
+        bodyLen: rawBody.length,
+        bodyHead: rawBody.slice(0, 200),
+      });
       endSpan({ errorMessage: "Invalid JSON body" });
       return NextResponse.json(
         { error: "Invalid JSON body" },
@@ -126,8 +148,30 @@ export async function handleVoiceWebhookPost(
       );
     }
 
+    // #922 — sniff event-shape hints from the body so the next "no
+    // end-of-call" report shows whether VAPI sent a message-shaped
+    // payload at all. VAPI nests under `message.type`.
+    const bodyObj = (body ?? {}) as Record<string, unknown>;
+    const msg = (bodyObj.message ?? null) as Record<string, unknown> | null;
+    const sniff = {
+      messageType: typeof msg?.type === "string" ? (msg.type as string) : null,
+      rootType: typeof bodyObj.type === "string" ? (bodyObj.type as string) : null,
+      hasCallId:
+        typeof (msg?.call as Record<string, unknown> | undefined)?.id === "string" ||
+        typeof bodyObj.callId === "string",
+    };
+
     const event = provider.normaliseEndOfCallEvent(body);
     if (event) {
+      log("api", "voice.webhook.end_of_call", {
+        level: "info",
+        slug,
+        eventKind: event.eventKind,
+        externalCallId: event.externalCallId,
+        endedReason: event.capture?.endedReason ?? null,
+        transcriptLen: event.transcript?.length ?? 0,
+        ...sniff,
+      });
       const resp = await handleEndOfCallEvent(event, slug);
       endSpan({
         metadata: { kind: "end-of-call", eventKind: event.eventKind },
@@ -141,6 +185,11 @@ export async function handleVoiceWebhookPost(
     // so we don't block VAPI's webhook timeout.
     const statusUpdate = provider.normaliseStatusUpdate?.(body);
     if (statusUpdate) {
+      log("api", "voice.webhook.status_update", {
+        level: "info",
+        slug,
+        ...sniff,
+      });
       setImmediate(() => {
         processStatusUpdate(statusUpdate, slug, provider).catch((err) => {
           console.error(
@@ -161,6 +210,12 @@ export async function handleVoiceWebhookPost(
     // ack budget.
     const transcriptUpdate = parseTranscriptUpdate(body, slug);
     if (transcriptUpdate) {
+      log("api", "voice.webhook.transcript_update", {
+        level: "info",
+        slug,
+        externalCallId: (transcriptUpdate as Record<string, unknown>).externalCallId ?? null,
+        ...sniff,
+      });
       setImmediate(() => {
         processTranscriptUpdate(transcriptUpdate, slug).catch((err) => {
           console.error(
@@ -174,9 +229,20 @@ export async function handleVoiceWebhookPost(
     }
 
     // Unhandled event types (ping, etc.) just ack.
+    log("api", "voice.webhook.ignored", {
+      level: "info",
+      slug,
+      ...sniff,
+    });
     endSpan({ metadata: { kind: "ignored" } });
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
+    log("system", "voice.webhook.error", {
+      level: "error",
+      slug,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack ?? null : null,
+    });
     console.error(`[voice/${slug}/webhook] Error:`, error);
     endSpan({ errorMessage: errorMessage(error) ?? "Webhook processing failed" });
     return NextResponse.json(
@@ -323,17 +389,49 @@ function parseTranscriptUpdate(
     (call?.call_id as string | undefined);
   if (!externalCallId) return null;
 
-  // VAPI's `transcript` event shape: { type: "transcript",
-  // transcript: "...", role: "user"|"assistant", transcriptType: ... }
-  const rawText =
+  // VAPI's `transcript` event has the chunk on the root:
+  //   { type: "transcript", transcript: "...", role: "user"|"assistant" }
+  // VAPI's `conversation-update` event carries the FULL conversation
+  // history in `messages` (or `messagesOpenAIFormatted`); the most
+  // recent non-system turn is the new chunk. Pre-#922 this path only
+  // read `message.transcript`, which is unset on `conversation-update`
+  // — so the chat-rail SSE never received broadcasts despite VAPI
+  // firing the events at ~1Hz.
+  let rawText =
     (message.transcript as string | undefined) ??
     (message.text as string | undefined) ??
     "";
+  let rawRole: string = (message.role as string | undefined) ?? "user";
+
+  if (!rawText && type === "conversation-update") {
+    const msgs = (message.messages ??
+      message.messagesOpenAIFormatted ??
+      message.conversation) as Array<Record<string, unknown>> | undefined;
+    if (Array.isArray(msgs)) {
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (!m || typeof m !== "object") continue;
+        const role = (m.role as string | undefined) ?? "";
+        if (role === "system" || role === "tool") continue;
+        const content =
+          (m.content as string | undefined) ??
+          (m.message as string | undefined) ??
+          "";
+        if (typeof content === "string" && content.length > 0) {
+          rawText = content;
+          rawRole = role || rawRole;
+          break;
+        }
+      }
+    }
+  }
+
   if (!rawText) return null;
 
-  const rawRole = (message.role as string | undefined) ?? "user";
   const role: "learner" | "assistant" =
-    rawRole === "assistant" ? "assistant" : "learner";
+    rawRole === "assistant" || rawRole === "bot"
+      ? "assistant"
+      : "learner";
 
   return { externalCallId, role, text: rawText };
 }
@@ -450,6 +548,8 @@ export async function persistEndOfCall(
   if (existing) {
     // Split-event merge: analysis arriving for an earlier basic write.
     // OR poll fallback: a stale row that never got its webhook.
+    // OR (#922) the first real end-of-call landing on a placeholder
+    //    pre-created by /api/voice/calls/start or /outbound-dial.
     //
     // For sourceTag="fallback" we use an atomic update with
     // `where: { id, endedAt: null }` so a webhook that lands during
@@ -459,12 +559,45 @@ export async function persistEndOfCall(
       sourceTag === "fallback"
         ? { id: existing.id, endedAt: null }
         : { id: existing.id };
+    // #922 — placeholder pre-creation means `existing.endedAt === null`
+    // is the canonical "this is the first real end-of-call merge"
+    // signal, regardless of sourceTag. Stamping endedAt here is also
+    // what the downstream pipeline trigger condition checks.
+    const isFirstEndOfCall = !existing.endedAt && eventKind !== "basic";
+
+    // #922 — callSequence stamping. Placeholders pre-created by /start
+    // or /outbound-dial don't compute callSequence (the create-path
+    // assignment further below never runs for them). Without this,
+    // every PSTN/WebRTC call finished with callSequence=null even
+    // after the pipeline ran — so /sim's "Call #N" header and the
+    // prompt composer's "this is call N" templating both ignored the
+    // sequence and fell back to a count() or "first session" path.
+    // Lookup is one indexed-orderBy query on (callerId, callSequence).
+    let nextSequence: number | undefined;
+    if (isFirstEndOfCall && existing.callerId) {
+      const lastCall = await prisma.call.findFirst({
+        where: {
+          callerId: existing.callerId,
+          callSequence: { not: null },
+          id: { not: existing.id },
+        },
+        orderBy: { callSequence: "desc" },
+        select: { callSequence: true },
+      });
+      nextSequence = (lastCall?.callSequence ?? 0) + 1;
+    }
+
     const updateData: Prisma.CallUpdateInput = {
       // Only overwrite transcript if the new event actually carried one
       ...(transcript ? { transcript } : {}),
       ...persistableCapture,
-      // Poll path always stamps endedAt — the row is stale by definition.
-      ...(sourceTag === "fallback" ? { endedAt: new Date() } : {}),
+      // Poll path always stamps endedAt — the row is stale by
+      // definition. Webhook path also stamps it on the first real
+      // end-of-call merge so the row exits the "in-progress" state.
+      ...((sourceTag === "fallback" || isFirstEndOfCall)
+        ? { endedAt: new Date() }
+        : {}),
+      ...(nextSequence != null ? { callSequence: nextSequence } : {}),
     };
     let updated;
     try {
@@ -491,14 +624,26 @@ export async function persistEndOfCall(
       throw err;
     }
 
-    // Pipeline trigger fires only on "full" or "analysis" — never on
-    // bare "basic" (the row is half-complete). For "full" we already
-    // ran this branch on first arrival; this branch is duplicate-call
-    // territory and we skip re-triggering. Poll fallback always
-    // qualifies (it's a full event by definition — VAPI's /call/{id}
-    // returns the merged final state).
+    // Pipeline trigger fires on:
+    //   1. "analysis" — split-event analysis arriving after a "basic"
+    //      first arrival (handled the create+autopipeline below).
+    //   2. Poll fallback — by definition the row never got its webhook,
+    //      so we owe it the pipeline run.
+    //   3. (#922) The FIRST end-of-call merge onto a placeholder Call
+    //      (created by /start or /outbound-dial). Pre-#922 this branch
+    //      assumed every "full" merge was a duplicate-fire on a row that
+    //      already triggered pipeline at its create path — but the
+    //      placeholder pre-creation flow means the placeholder NEVER
+    //      went through the create-and-autopipeline branch, so the
+    //      first real end-of-call merge is the only chance the pipeline
+    //      gets to run. Without this branch every PSTN/WebRTC call
+    //      finished with callSequence=null, transcript+cost recorded but
+    //      no scores/behaviour/adapt rows — which is why the AI greeted
+    //      every "subsequent" caller as a first-time learner.
     const shouldTriggerPipeline =
-      eventKind === "analysis" || sourceTag === "fallback";
+      eventKind === "analysis" ||
+      sourceTag === "fallback" ||
+      (eventKind === "full" && isFirstEndOfCall);
     if (shouldTriggerPipeline && updated.callerId) {
       triggerPipeline(updated.id, updated.callerId).catch((err) => {
         console.error(
@@ -838,6 +983,24 @@ export async function handleVoiceAssistantRequestPost(
       endCallPhrases: sys.endCallPhrases,
     };
 
+    // #1187 follow-up (#922) — pull webhookSecret here too so the inline
+    // assistant config returned by VAPI's assistant-request webhook
+    // carries `model.secret`. Without this VAPI omits the
+    // `x-vapi-secret` header on its custom-llm POSTs and the proxy
+    // rejects with 401, ending the call after the first line. Parallel
+    // path to `buildAssistantConfigForCaller` which already does this.
+    const customLlmProviderRow = await prisma.voiceProvider.findUnique({
+      where: { slug },
+      select: { credentials: true },
+    });
+    const customLlmProviderCreds =
+      (customLlmProviderRow?.credentials ?? {}) as Record<string, unknown>;
+    const customLlmSecret =
+      typeof customLlmProviderCreds.webhookSecret === "string" &&
+      customLlmProviderCreds.webhookSecret.length > 0
+        ? customLlmProviderCreds.webhookSecret
+        : undefined;
+
     const normalizedPhone = customerPhone.replace(/\s+/g, "");
     const caller = await prisma.caller.findFirst({
       where: { phone: normalizedPhone },
@@ -859,6 +1022,7 @@ export async function handleVoiceAssistantRequestPost(
           unknownCallerPrompt: vs.unknownCallerPrompt,
           noActivePromptFallback: vs.noActivePromptFallback,
           costSafetyKnobs,
+          customLlmSecret,
         }),
       );
     }
@@ -904,6 +1068,7 @@ export async function handleVoiceAssistantRequestPost(
           unknownCallerPrompt: vs.unknownCallerPrompt,
           noActivePromptFallback: vs.noActivePromptFallback,
           costSafetyKnobs,
+          customLlmSecret,
         }),
       );
     }
@@ -943,6 +1108,7 @@ export async function handleVoiceAssistantRequestPost(
         unknownCallerPrompt: vs.unknownCallerPrompt,
         noActivePromptFallback: vs.noActivePromptFallback,
         costSafetyKnobs,
+        customLlmSecret,
       }),
     );
     endSpan({

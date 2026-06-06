@@ -101,6 +101,17 @@ export function registerSubscriber(
     _subscribers.set(callId, set);
   }
   set.add(fn);
+  // #922 — diagnostic: surface subscriber attaches in /x/logs so the
+  // "chat rail didn't render" report can answer "did the browser even
+  // connect?" without sniffing the wire. Fire-and-forget — never await
+  // the logger from a connection-attach path.
+  void import("@/lib/logger").then(({ log }) => {
+    log("api", "voice.sse.subscriber_attach", {
+      level: "info",
+      callId,
+      subscriberCount: set!.size,
+    });
+  });
   return () => unregisterSubscriber(callId, fn);
 }
 
@@ -139,6 +150,18 @@ export function hasSubscriberForCall(callId: string): boolean {
  */
 export async function broadcastToCall(event: VoiceCallSseEvent): Promise<void> {
   const set = _subscribers.get(event.callId);
+  // #922 — every broadcast attempt logs whether subscribers existed.
+  // This answers "did the transcript event reach the browser?" from
+  // /x/logs alone.
+  void import("@/lib/logger").then(({ log }) => {
+    log("api", "voice.sse.broadcast", {
+      level: "info",
+      callId: event.callId,
+      eventType: event.type,
+      subscriberCount: set?.size ?? 0,
+      delivered: set && set.size > 0,
+    });
+  });
   if (!set || set.size === 0) return;
   const failed: VoiceCallSseSubscriber[] = [];
   await Promise.all(

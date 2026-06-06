@@ -192,6 +192,18 @@ export class VapiProvider implements VoiceProvider {
     const root = body as Record<string, unknown>;
     // VAPI nests under `message` for some events, root for others
     const message = (root.message ?? root) as Record<string, unknown>;
+
+    // #922 — Pre-fix this returned non-null for ANY message that had a
+    // call.id, which meant `conversation-update`, `speech-update`,
+    // `status-update`, and `assistant.started` (all of which include the
+    // call object) were misclassified as end-of-call events. That short-
+    // circuited the transcript-update branch in handleVoiceWebhookPost,
+    // so /sim's chat rail SSE never received broadcast events and the
+    // status-update trickle never ran. Discriminate by VAPI's
+    // `message.type`. Real end-of-call is `end-of-call-report`.
+    const messageType = (message.type ?? root.type) as string | undefined;
+    if (messageType !== "end-of-call-report") return null;
+
     const call = (message.call ?? message) as Record<string, unknown>;
 
     const externalCallId =
@@ -204,12 +216,30 @@ export class VapiProvider implements VoiceProvider {
     const customerPhone = (customer?.number as string | undefined) ?? null;
     const customerName = (customer?.name as string | undefined) ?? null;
 
-    let transcript = (call.transcript as string | undefined) ?? "";
-    if (!transcript && Array.isArray(call.messages)) {
-      transcript = (call.messages as Array<Record<string, unknown>>)
-        .filter((m) => m.role && m.content)
-        .map((m) => `${m.role}: ${m.content}`)
-        .join("\n");
+    // #922 — VAPI's end-of-call-report event puts the transcript at the
+    // ROOT of `message` (alongside the nested `call` object), not on
+    // `call.transcript`. Pre-fix this path read `call.transcript` only —
+    // which is empty/missing on a real end-of-call-report — so every
+    // outbound-dial finished with Call.transcript="" despite VAPI
+    // sending the full 2KB+ transcript. The "Run analysis pipeline"
+    // toggle on the End Call modal then ran the pipeline against an
+    // empty transcript and wrote zero scores / behaviours. Check
+    // `message.transcript` first; fall back to `call.transcript`;
+    // synthesise from `message.messages` last.
+    let transcript =
+      (message.transcript as string | undefined) ??
+      (call.transcript as string | undefined) ??
+      "";
+    if (!transcript) {
+      const msgs =
+        (message.messages as Array<Record<string, unknown>> | undefined) ??
+        (call.messages as Array<Record<string, unknown>> | undefined);
+      if (Array.isArray(msgs)) {
+        transcript = msgs
+          .filter((m) => m.role && m.role !== "system" && (m.content || m.message))
+          .map((m) => `${m.role}: ${(m.content ?? m.message) as string}`)
+          .join("\n");
+      }
     }
 
     return {
