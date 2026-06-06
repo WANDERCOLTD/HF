@@ -29,9 +29,16 @@ describe("scripts/unlock-identity-challenge", () => {
     vi.resetModules();
     vi.clearAllMocks();
     originalArgv = process.argv;
-    exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
-      throw new Error(`process.exit(${code})`);
-    }) as never);
+    // No-op the exit so the script's main().catch() chain doesn't actually
+    // terminate the test process AND so the catch handler's process.exit(1)
+    // doesn't surface as an unhandled rejection after the test body has
+    // already asserted. Earlier this spy threw — that interrupted the catch
+    // chain and produced 2 unhandled rejections in the test runner's
+    // "Errors" pile. We assert call shape via exitSpy.toHaveBeenCalledWith
+    // instead, which doesn't depend on actually halting execution.
+    exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation(((_code?: number) => undefined) as never);
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
