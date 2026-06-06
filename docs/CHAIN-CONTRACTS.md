@@ -8,6 +8,8 @@
 > - [`docs/ENTITIES.md`](./ENTITIES.md) — the model layer (who-owns-what, who-can-see-what).
 > - [`docs/CONTENT-PIPELINE.md`](./CONTENT-PIPELINE.md) — EXTRACT classification + audience filters.
 > - [`docs/epic-100-chain-walk.md`](./epic-100-chain-walk.md) — the 2026-05-22 source walk that catalogued these contracts (Epic [#600](https://github.com/WANDERCOLTD/HF/issues/600)).
+>
+> **⚠ Slug naming convention** — this doc references spec slugs in display case (`CURRICULUM_PROGRESS_V1`, `SKILL_MEASURE_V1`, `VOICE_PROSODY_V1` etc.) for `DataContract` slugs (which are kept exact in DB) and in display case for `AnalysisSpec` slugs (`PIPELINE-001`, `GUARD-001`, `MEM-001` etc.) which map to kebab-case (`spec-pipeline-001`, `spec-guard-001`, `spec-mem-001`) in the actual `AnalysisSpec.slug` column. The runtime lookup is case-insensitive substring match, so the display-case form in `config.specs.*` resolves correctly. **Direct exact-match queries (`where: { slug: 'PIPELINE-001' }`) return zero rows** — use `contains/insensitive` or the kebab form. See `docs/PIPELINE.md` slug-naming footnote for detail. Tracked as #1152 (full bulk rename across TS comments deferred to follow-up).
 
 ---
 

@@ -13,6 +13,16 @@
 > | Model | `docs/ENTITIES.md` *(in flight — see PR for `docs/entities-canonical-map`)* | hierarchy + content-boundary path |
 > | Composition | `docs/PROMPT-COMPOSITION.md` *(in flight — #327)* | loaders → transforms → assembly |
 > | **Adaptive loop** | **this doc** | **the 7-stage post-call pipeline** |
+>
+> **⚠ Slug naming — display vs DB form (audit 2026-06-06 / G11 / #1152).**
+>
+> This doc cites spec slugs in **display case** (`PIPELINE-001`, `GUARD-001`, `MEM-001`, `REW-001`, `COMP-001`, `SKILL-AGG-001`, etc.) because that's how they appear in code comments and architecture discussions. The actual `AnalysisSpec.slug` rows in the DB are **kebab-case** (`spec-pipeline-001`, `spec-guard-001`, `spec-mem-001`, `spec-rew-001`, `spec-comp-001`, `spec-skill-agg-001`). The runtime lookup via `lib/pipeline/config.ts::loadPipelineStages` uses case-insensitive `contains` substring match, so the display-case form in `config.specs.*` resolves correctly.
+>
+> If you copy a display-case slug from this doc directly into a `prisma.analysisSpec.findFirst({where:{slug:"PIPELINE-001"}})` exact-match query, **you will get zero rows.** Use one of:
+> - `where: { slug: { contains: 'pipeline-001', mode: 'insensitive' } }` (canonical), OR
+> - `where: { slug: 'spec-pipeline-001' }` (exact DB form)
+>
+> Same pattern applies in `docs/CHAIN-CONTRACTS.md`. Per the audit's TL review (#1152), a full bulk rename across 87 production TS comments + env-var coordination is M-effort and tracked as follow-up; this footnote is the S-effort unblock.
 
 ---
 
