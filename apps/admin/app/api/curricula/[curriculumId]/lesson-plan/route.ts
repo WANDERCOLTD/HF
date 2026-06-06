@@ -279,7 +279,8 @@ async function runBackgroundLessonPlanGeneration(
   includeAssessments: string,
 ) {
   try {
-    // Load curriculum with modules
+    // Load curriculum with modules + canonical primary playbookId (via join).
+    // #1205 — replaces direct curriculum.playbookId select (variant-aware).
     const curriculum = await prisma.curriculum.findUnique({
       where: { id: curriculumId },
       select: {
@@ -288,10 +289,15 @@ async function runBackgroundLessonPlanGeneration(
         description: true,
         notableInfo: true,
         subjectId: true,
-        playbookId: true,
         deliveryConfig: true,
+        playbookLinks: {
+          where: { role: "primary" },
+          take: 1,
+          select: { playbookId: true },
+        },
       },
     });
+    const primaryPlaybookId = curriculum?.playbookLinks[0]?.playbookId ?? null;
 
     if (!curriculum) {
       await updateTaskProgress(taskId, {
@@ -359,12 +365,12 @@ async function runBackgroundLessonPlanGeneration(
 
     // Count assertions per module topic
     const assertionCounts: Record<string, number> = {};
-    if (curriculum.playbookId || curriculum.subjectId) {
+    if (primaryPlaybookId || curriculum.subjectId) {
       // Resolve source IDs for assertion scoping
       let scopeSourceIds: string[] | undefined;
-      if (curriculum.playbookId) {
+      if (primaryPlaybookId) {
         const { getSourceIdsForPlaybook: getSrcIds } = await import("@/lib/knowledge/domain-sources");
-        scopeSourceIds = await getSrcIds(curriculum.playbookId);
+        scopeSourceIds = await getSrcIds(primaryPlaybookId);
       }
 
       const assertions = await prisma.contentAssertion.groupBy({
@@ -622,14 +628,13 @@ async function resolveSourceIdsForGeneration(
   curriculumId: string,
   subjectId: string | null,
 ): Promise<string[]> {
-  // Tier 1: Direct curriculum.playbookId → PlaybookSource
-  const curriculum = await prisma.curriculum.findUnique({
-    where: { id: curriculumId },
-    select: { playbookId: true },
-  });
-  if (curriculum?.playbookId) {
+  // Tier 1: canonical PlaybookCurriculum primary join → PlaybookSource.
+  // #1205 — replaces direct curriculum.playbookId read (variant-aware).
+  const { resolvePlaybookIdForCurriculum } = await import("@/lib/curriculum/resolve-playbook-for-curriculum");
+  const playbookIds = await resolvePlaybookIdForCurriculum(curriculumId);
+  if (playbookIds.length > 0) {
     const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
-    const ids = await getSourceIdsForPlaybook(curriculum.playbookId);
+    const ids = await getSourceIdsForPlaybook(playbookIds[0]);
     if (ids.length > 0) return ids;
   }
 
@@ -683,26 +688,37 @@ export async function POST(
     let emphasis: string = body.emphasis || "";
     let includeAssessments: string = body.includeAssessments || "";
 
-    // Verify curriculum exists
+    // Verify curriculum exists. #1205 — canonical primary playbookId via join.
     const curriculum = await prisma.curriculum.findUnique({
       where: { id: curriculumId },
-      select: { id: true, notableInfo: true, deliveryConfig: true, subjectId: true, playbookId: true },
+      select: {
+        id: true,
+        notableInfo: true,
+        deliveryConfig: true,
+        subjectId: true,
+        playbookLinks: {
+          where: { role: "primary" },
+          take: 1,
+          select: { playbookId: true },
+        },
+      },
     });
 
     if (!curriculum) {
       return NextResponse.json({ ok: false, error: "Curriculum not found" }, { status: 404 });
     }
+    const primaryPlaybookId = curriculum.playbookLinks[0]?.playbookId ?? null;
 
     // If no explicit params in body, fall back to playbook config
     // (the "Regenerate Plan" button may send {} — read saved educator preferences)
     let totalSessionTarget: number | null = body.totalSessionTarget || null;
     let durationMins: number | null = body.durationMins || null;
-    if ((!totalSessionTarget || !durationMins || !emphasis || !includeAssessments) && (curriculum.playbookId || curriculum.subjectId)) {
+    if ((!totalSessionTarget || !durationMins || !emphasis || !includeAssessments) && (primaryPlaybookId || curriculum.subjectId)) {
       // Prefer direct playbook lookup, fall back to subject chain
       let config: Record<string, any> = {};
-      if (curriculum.playbookId) {
+      if (primaryPlaybookId) {
         const pb = await prisma.playbook.findUnique({
-          where: { id: curriculum.playbookId },
+          where: { id: primaryPlaybookId },
           select: { config: true },
         });
         config = (pb?.config as Record<string, any>) || {};

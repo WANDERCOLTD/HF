@@ -41,20 +41,26 @@ export async function GET(
 
     const { curriculumId } = await params;
 
-    // Load curriculum + subject linkage
+    // Load curriculum + subject linkage. #1205 — primary playbookId via the
+    // canonical PlaybookCurriculum join (variant-aware).
     const curriculum = await prisma.curriculum.findUnique({
       where: { id: curriculumId },
       select: {
         id: true,
         deliveryConfig: true,
         subjectId: true,
-        playbookId: true,
+        playbookLinks: {
+          where: { role: "primary" },
+          take: 1,
+          select: { playbookId: true },
+        },
       },
     });
 
     if (!curriculum) {
       return NextResponse.json({ ok: false, error: "Curriculum not found" }, { status: 404 });
     }
+    const primaryPlaybookId = curriculum.playbookLinks[0]?.playbookId ?? null;
 
     const dc = (curriculum.deliveryConfig as Record<string, any>) || {};
     const lessonPlan = dc.lessonPlan;
@@ -133,7 +139,7 @@ export async function GET(
 
       // Priority 2: backfill via learningOutcomeRefs → assertions → AssertionMedia
       if (sessionImages.length === 0 && Array.isArray(entry.learningOutcomeRefs) && entry.learningOutcomeRefs.length > 0) {
-        const backfilled = await resolveMediaFromLORefs(entry.learningOutcomeRefs, curriculum.subjectId, curriculum.playbookId);
+        const backfilled = await resolveMediaFromLORefs(entry.learningOutcomeRefs, curriculum.subjectId, primaryPlaybookId);
         for (const ref of backfilled) {
           if (!assignedMediaIds.has(ref.mediaId)) {
             sessionImages.push(ref);
