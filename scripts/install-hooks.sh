@@ -7,14 +7,24 @@
 # Three hooks land in .git/hooks/:
 #   pre-commit   — blocks direct commits on main, regenerates API docs,
 #                  fast qmd index update. Slow qmd embed moved out (post-commit).
-#   post-commit  — backgrounds qmd embed so the commit isn't held open ~30s.
-#   post-merge   — refreshes qmd after pull, embed runs in background.
+#   post-commit  — runs qmd embed synchronously so the index is consistent
+#                  before the next command starts. ~30s blocking.
+#   post-merge   — refreshes qmd index + runs embed synchronously after pull.
+#                  ~30s blocking is the right trade-off vs silent search misses.
 #
 # Why the embed step is in post-commit, not pre-commit:
 #   Long-running pre-commit work (qmd embed ~30s) races with concurrent git
 #   operations from parallel terminals / scheduled tasks and has caused
 #   commits to land on the wrong branch or fail with HEAD-lock errors.
 #   Moving the embed AFTER the ref is written makes the race harmless.
+#
+# Why embed is now synchronous (G12, audit 2026-06-06):
+#   The previous `( ... ) &` background subshell was orphaned when the
+#   terminal closed before the ~30s embed completed, leaving vector
+#   embeddings stale despite the keyword index being fresh. Synchronous
+#   embed costs ~30s on `git pull` / `git commit` but guarantees the index
+#   is consistent. Note: `gh pr merge --squash` bypasses post-merge entirely
+#   — run `qmd embed` manually after large remote merges.
 
 set -e
 
@@ -87,12 +97,10 @@ cat > "$HOOK_DIR/post-commit" << 'HOOK'
 [ "$HOSTNAME" = "hf-dev" ] && exit 0
 command -v qmd &> /dev/null || exit 0
 
-echo "[post-commit] Embedding QMD documents in background..."
-(
-  qmd embed --quiet 2>/dev/null \
-    && echo "[post-commit] ✓ QMD embeddings updated" \
-    || echo "[post-commit] ⚠ QMD embed failed (non-blocking)"
-) &
+echo "[post-commit] Embedding QMD documents (synchronous, ~30s)..."
+qmd embed --quiet 2>/dev/null \
+  && echo "[post-commit] ✓ QMD embeddings updated" \
+  || echo "[post-commit] ⚠ QMD embed failed (non-blocking)"
 
 exit 0
 HOOK
@@ -109,12 +117,10 @@ command -v qmd &> /dev/null || exit 0
 echo "[post-merge] Updating QMD index..."
 qmd update --quiet 2>/dev/null || echo "[post-merge] ⚠ QMD update failed (non-blocking)"
 
-echo "[post-merge] Embedding QMD documents in background..."
-(
-  qmd embed --quiet 2>/dev/null \
-    && echo "[post-merge] ✓ QMD index refreshed" \
-    || echo "[post-merge] ⚠ QMD embed failed (non-blocking)"
-) &
+echo "[post-merge] Embedding QMD documents (synchronous, ~30s)..."
+qmd embed --quiet 2>/dev/null \
+  && echo "[post-merge] ✓ QMD index refreshed" \
+  || echo "[post-merge] ⚠ QMD embed failed (non-blocking)"
 
 exit 0
 HOOK
