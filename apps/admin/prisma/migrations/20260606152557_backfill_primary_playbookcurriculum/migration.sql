@@ -13,8 +13,9 @@
 --   - issues #1202/#1203/#1204 (orphan-create routes fixed)
 --   - docs/CONTRACTS-PLAYBOOK-CURRICULUM.md §3 (canonical pattern)
 --   - lib/curriculum/ensure-primary-playbook-link.ts (the helper)
-INSERT INTO "PlaybookCurriculum" (id, "playbookId", "curriculumId", role, "createdAt", "updatedAt")
-SELECT gen_random_uuid(), c."playbookId", c.id, 'primary'::"PlaybookCurriculumRole", NOW(), NOW()
+-- PlaybookCurriculum has no updatedAt column (only createdAt with @default(now())).
+INSERT INTO "PlaybookCurriculum" (id, "playbookId", "curriculumId", role, "createdAt")
+SELECT gen_random_uuid(), c."playbookId", c.id, 'primary'::"PlaybookCurriculumRole", NOW()
 FROM "Curriculum" c
 WHERE c."playbookId" IS NOT NULL
   AND EXISTS (SELECT 1 FROM "Playbook" p WHERE p.id = c."playbookId")
