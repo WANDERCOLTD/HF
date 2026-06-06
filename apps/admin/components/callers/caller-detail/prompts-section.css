@@ -797,6 +797,71 @@
   color: var(--surface-primary, #fff);
   flex-shrink: 0;
 }
+/* Call-group header rendered as a button (toggles inline transcript).
+   Stretch full width, reset native button styling, keep the section anchor
+   look intact. */
+.ptr-group-header--button {
+  width: 100%;
+  cursor: pointer;
+  border: none;
+  border-left: 4px solid color-mix(in srgb, var(--accent-primary) 70%, #000);
+  font-family: inherit;
+  text-align: left;
+}
+.ptr-group-header--button:hover {
+  background: color-mix(in srgb, var(--accent-primary) 90%, #000);
+}
+.ptr-group-header--button:focus-visible {
+  outline: 2px solid var(--surface-primary, #fff);
+  outline-offset: -3px;
+}
+
+/* Inline transcript inside the call-group section.
+   Lives directly under the header — no extra card chrome. */
+.ptr-transcript-loading,
+.ptr-transcript-empty {
+  padding: 10px 14px;
+}
+.ptr-transcript-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 14px 14px;
+  background: var(--surface-secondary);
+  border-radius: 0 0 6px 6px;
+  margin-top: -6px; /* tuck under the header */
+  border-left: 4px solid color-mix(in srgb, var(--accent-primary) 70%, #000);
+}
+.ptr-transcript-msg {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 8px;
+  align-items: start;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ptr-transcript-msg--assistant .ptr-transcript-text {
+  color: var(--text-primary);
+}
+.ptr-transcript-msg--user .ptr-transcript-text {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.ptr-transcript-role {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.ptr-transcript-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ptr-transcript-raw {
+  padding: 10px 14px;
+  background: var(--surface-secondary);
+  border-radius: 0 0 6px 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .ptr-group-meta {
   color: color-mix(in srgb, var(--surface-primary, #fff) 80%, transparent);
 }
