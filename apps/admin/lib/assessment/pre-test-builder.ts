@@ -130,8 +130,19 @@ async function fetchQuestions(
       sourceId: { in: sourceIds },
       // Filter to requested types, excluding TUTOR_QUESTION (never student-facing)
       questionType: { in: questionTypes.filter((t) => t !== "TUTOR_QUESTION") as any },
-      // Exclude POST_TEST-only and TUTOR_ONLY questions from student pre-tests
-      assessmentUse: { notIn: ["POST_TEST", "TUTOR_ONLY"] },
+      // #1167 — exclude POST_TEST-only and TUTOR_ONLY questions from student
+      // pre-tests AND keep NULL rows (legacy / not-yet-categorised imports).
+      // Prisma's `notIn` follows SQL three-valued logic, so NULL is filtered
+      // out — silently dropping every uncategorised question. The live
+      // CIO/CTO Standard incident: all 250 XAMS-imported MCQs had
+      // assessmentUse=NULL → pre-test returned `no_questions`. The OR shape
+      // here explicitly admits NULL ("we don't know which side this is for,
+      // so allow both") which is consistent with the import-time default
+      // (see lib/content-trust/save-questions.ts).
+      OR: [
+        { assessmentUse: null },
+        { assessmentUse: { notIn: ["POST_TEST", "TUTOR_ONLY"] } },
+      ],
     },
     select: {
       id: true,

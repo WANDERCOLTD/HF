@@ -18,6 +18,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getSourceIdsForPlaybook } from "@/lib/knowledge/domain-sources";
 
 /** Bloom levels in taxonomy order for >= comparison */
 const BLOOM_ORDER: string[] = [
@@ -48,8 +49,28 @@ export interface RetrievalQuestion {
 }
 
 export interface SelectRetrievalOpts {
-  /** Curriculum ID — filters to sources linked to this curriculum */
+  /**
+   * Curriculum ID — kept for back-compat / logging only. The actual source
+   * resolution now goes through `playbookId` via
+   * `getSourceIdsForPlaybook` to walk the modern PlaybookSource attachment
+   * chain. The legacy `source: { curricula: { some: { id } } }` filter only
+   * matched sources where `Curriculum.primarySourceId = ContentSource.id`
+   * (the `@relation("CurriculumPrimarySource")` back-relation), which silently
+   * returned zero questions for every course that attached its Question
+   * Banks via PlaybookSource — i.e. all of the CIO/CTO Standard variants
+   * + any other modern course. See #1167.
+   */
   curriculumId: string;
+  /**
+   * #1167 — Playbook ID for the canonical source resolution. When provided,
+   * sources are resolved via `getSourceIdsForPlaybook(playbookId)` which
+   * walks `PlaybookSource` first, then the legacy 4-hop
+   * `PlaybookSubject → Subject → SubjectSource` chain. When omitted (legacy
+   * callers), the function falls back to the broken curricula-relation
+   * filter so existing behaviour is preserved — but new callers should
+   * always pass `playbookId`.
+   */
+  playbookId?: string | null;
   /** LO refs from the current working set (e.g., ["LO1", "LO2"]) */
   outcomeRefs: string[];
   /** How many questions to select */
@@ -71,7 +92,7 @@ export interface SelectRetrievalOpts {
 export async function selectRetrievalQuestions(
   opts: SelectRetrievalOpts,
 ): Promise<RetrievalQuestion[]> {
-  const { curriculumId, outcomeRefs, count, bloomFloor, recentQuestionIds, channel } = opts;
+  const { curriculumId, playbookId, outcomeRefs, count, bloomFloor, recentQuestionIds, channel } = opts;
 
   if (count <= 0) return [];
 
@@ -80,9 +101,29 @@ export async function selectRetrievalQuestions(
     ? BLOOM_ORDER.slice(bloomFloorIdx)
     : BLOOM_ORDER; // Unknown floor → allow all
 
+  // #1167 — source filter resolution.
+  //
+  // PREFERRED (when `playbookId` is provided): resolve sources via
+  // `getSourceIdsForPlaybook(playbookId)`. That helper walks
+  // `PlaybookSource` first, then the legacy 4-hop fallback. Every modern
+  // course (CIO/CTO Standard variants, IELTS, Big Five, Psychology,
+  // Persuasion) attaches its Question Banks via PlaybookSource — the
+  // path the helper covers.
+  //
+  // FALLBACK (when `playbookId` is missing): keep the legacy
+  // `source: { curricula: { some: { id: curriculumId } } }` filter so
+  // existing call sites that haven't been updated yet don't regress to
+  // empty pools. The legacy filter only matches sources where
+  // `Curriculum.primarySourceId = ContentSource.id` — a small subset of
+  // courses in practice — but it's better than nothing for any caller
+  // that genuinely has no playbookId in scope.
+  const sourceFilter = playbookId
+    ? { sourceId: { in: await getSourceIdsForPlaybook(playbookId) } }
+    : { source: { curricula: { some: { id: curriculumId } } } };
+
   // Base filter: eligible assessment use + bloom floor + not recently used
   const baseWhere = {
-    source: { curricula: { some: { id: curriculumId } } },
+    ...sourceFilter,
     assessmentUse: { in: RETRIEVAL_ELIGIBLE_USES as any },
     bloomLevel: { in: eligibleBlooms as any },
     ...(recentQuestionIds.length > 0 ? { id: { notIn: recentQuestionIds } } : {}),

@@ -131,7 +131,17 @@ export async function saveQuestions(
   // gradable answer key; PRE_TEST / POST_TEST / BOTH / FORMATIVE all imply
   // a scored item. The only coherent values for TUTOR_QUESTION are null or
   // TUTOR_ONLY. Anything else is auto-corrected to TUTOR_ONLY and logged.
+  //
+  // #1167 — additionally default null assessmentUse to "BOTH" for ALL
+  // non-TUTOR question types. Live incident: XAMS XLSX import surfaced
+  // 250 CIO/CTO Standard MCQs with assessmentUse=NULL → silently
+  // dropped from every pre-test (`notIn` excludes NULL). The pre-test
+  // filter at lib/assessment/pre-test-builder.ts now explicitly admits
+  // NULL too (defence in depth), but the cleaner long-term state is
+  // for the import path to populate a sensible default. "BOTH" matches
+  // the IELTS V1.0 convention already in production.
   let assessmentUseCoerced = 0;
+  let assessmentUseDefaulted = 0;
   await prisma.contentQuestion.createMany({
     data: toCreate.map((q, i) => {
       const rawAssessmentUse = declaredAssessmentUse ?? q.assessmentUse ?? null;
@@ -143,6 +153,15 @@ export async function saveQuestions(
       ) {
         resolvedAssessmentUse = "TUTOR_ONLY";
         assessmentUseCoerced++;
+      }
+      // #1167 — final default. Skip for TUTOR_QUESTION (which legitimately
+      // wants null / TUTOR_ONLY semantics handled above).
+      if (
+        resolvedAssessmentUse === null &&
+        q.questionType !== "TUTOR_QUESTION"
+      ) {
+        resolvedAssessmentUse = "BOTH";
+        assessmentUseDefaulted++;
       }
       return {
         sourceId,
@@ -180,6 +199,11 @@ export async function saveQuestions(
   if (assessmentUseCoerced > 0) {
     console.warn(
       `[save-questions] source ${sourceId}: coerced ${assessmentUseCoerced} TUTOR_QUESTION row(s) from incompatible assessmentUse to TUTOR_ONLY (#385 Slice 3a guard)`,
+    );
+  }
+  if (assessmentUseDefaulted > 0) {
+    console.info(
+      `[save-questions] source ${sourceId}: defaulted ${assessmentUseDefaulted} row(s) with null assessmentUse to BOTH (#1167)`,
     );
   }
 
