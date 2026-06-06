@@ -29,9 +29,6 @@ const TUNING_TOOLS = ADMIN_TOOLS.filter((t) => TUNING_TOOL_NAMES.has(t.name));
 // AI sees only course-relevant tools (not domain, system, or cross-tenant ones).
 // Subset of ADMIN_TOOLS so the existing forbidden-fields + pending-change
 // meta-tests apply automatically — no parallel allowlist to maintain.
-// Tools added by #1225 Slice B (swap_primary_curriculum, attach_linked_curriculum,
-// detach_linked_curriculum, update_intake_spec_draft, get_voice_config,
-// update_voice_config) will be appended to this set when they ship.
 const COURSE_MANAGE_TOOL_NAMES = new Set([
   // Writers — course config + curriculum + LO + lesson plan
   "update_playbook_config",
@@ -52,6 +49,13 @@ const COURSE_MANAGE_TOOL_NAMES = new Set([
   "get_caller_detail",
   "list_goals_for_caller",
   "list_caller_memories",
+  // #1225 Slice B — last-7-days landings
+  "swap_primary_curriculum",
+  "attach_linked_curriculum",
+  "detach_linked_curriculum",
+  "update_intake_spec_draft",
+  "get_voice_config",
+  "update_voice_config",
 ]);
 const COURSE_MANAGE_TOOLS = ADMIN_TOOLS.filter((t) => COURSE_MANAGE_TOOL_NAMES.has(t.name));
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";

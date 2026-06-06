@@ -739,4 +739,114 @@ export const ADMIN_TOOLS: AITool[] = [
       required: ["caller_id", "reason"],
     },
   },
+
+  // ── #1225 Slice B — last-7-days landings ────────────────────────────
+
+  {
+    name: "swap_primary_curriculum",
+    description:
+      "Promote a Curriculum to be the PRIMARY for a Playbook (course). The current primary (if any) is demoted to 'linked' inside the same transaction. The target may already be 'linked' (variant promotion) or not yet attached (will be created with role='primary'). Bumps Playbook.composeInputsUpdatedAt so the next call recomposes the prompt. Use when the educator says \"make curriculum X the primary for course Y\".",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: {
+          type: "string",
+          description: "Playbook UUID from the active entity context.",
+        },
+        curriculum_id: {
+          type: "string",
+          description: "Target Curriculum UUID to promote to primary.",
+        },
+        reason: { type: "string", description: "Short justification (audit trail)." },
+      },
+      required: ["playbook_id", "curriculum_id", "reason"],
+    },
+  },
+
+  {
+    name: "attach_linked_curriculum",
+    description:
+      "Attach a Curriculum to a Playbook as a 'linked' (variant) reference. Does NOT affect the primary join row. Idempotent: if a join row already exists, returns ok without change. Use when offering the same curriculum under a variant playbook line. Bumps Playbook.composeInputsUpdatedAt only if a new row is created.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string" },
+        curriculum_id: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["playbook_id", "curriculum_id", "reason"],
+    },
+  },
+
+  {
+    name: "detach_linked_curriculum",
+    description:
+      "Remove a 'linked' Curriculum from a Playbook. REFUSED if the existing join row has role='primary' (use swap_primary_curriculum first to demote it). Bumps Playbook.composeInputsUpdatedAt.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string" },
+        curriculum_id: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["playbook_id", "curriculum_id", "reason"],
+    },
+  },
+
+  {
+    name: "update_intake_spec_draft",
+    description:
+      "Edit the TS source of a DRAFT IntakeSpec row (e.g. CreateCourse@0.1.0). The body JSON cache is automatically re-derived from the new source via @tallyseal/spec-emitter parse + projectBodyFromEditable so list-page fieldCount stays in sync. REFUSED on PUBLISHED rows (DRAFT → PUBLISHED is a human-only gate via the editor's deploy button). Alternative to opening /x/intake/specs/[id] in the browser.",
+    input_schema: {
+      type: "object",
+      properties: {
+        spec_id: { type: "string", description: "IntakeSpec UUID." },
+        source: {
+          type: "string",
+          description:
+            "New canonical TS source. Must parse via @tallyseal/spec-emitter or the tool refuses with a typed error.",
+        },
+        reason: { type: "string" },
+      },
+      required: ["spec_id", "source", "reason"],
+    },
+  },
+
+  {
+    name: "get_voice_config",
+    description:
+      "Read the voice configuration for a Playbook — provider, model, end-state behaviour, polling. Does NOT expose model.secret (operator-only material, surfaced via settings page only).",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string" },
+      },
+      required: ["playbook_id"],
+    },
+  },
+
+  {
+    name: "update_voice_config",
+    description:
+      "Adjust voice configuration for a Playbook by merging into Playbook.config.voice. Allowed keys: provider (string), model (string), endedReasonOverride (string|null), pollIntervalMs (integer), maxCostPerCallUsd (number). The model.secret field is DELIBERATELY not accepted — secret rotation is an operator-only flow. Bumps Playbook.composeInputsUpdatedAt.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string" },
+        settings: {
+          type: "object",
+          description: "Voice settings to merge into config.voice (allowed keys above).",
+          properties: {
+            provider: { type: "string" },
+            model: { type: "string" },
+            endedReasonOverride: { type: ["string", "null"] },
+            pollIntervalMs: { type: "integer" },
+            maxCostPerCallUsd: { type: "number" },
+          },
+        },
+        reason: { type: "string" },
+      },
+      required: ["playbook_id", "settings", "reason"],
+    },
+  },
 ];
