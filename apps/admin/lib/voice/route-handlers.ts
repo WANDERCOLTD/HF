@@ -389,17 +389,49 @@ function parseTranscriptUpdate(
     (call?.call_id as string | undefined);
   if (!externalCallId) return null;
 
-  // VAPI's `transcript` event shape: { type: "transcript",
-  // transcript: "...", role: "user"|"assistant", transcriptType: ... }
-  const rawText =
+  // VAPI's `transcript` event has the chunk on the root:
+  //   { type: "transcript", transcript: "...", role: "user"|"assistant" }
+  // VAPI's `conversation-update` event carries the FULL conversation
+  // history in `messages` (or `messagesOpenAIFormatted`); the most
+  // recent non-system turn is the new chunk. Pre-#922 this path only
+  // read `message.transcript`, which is unset on `conversation-update`
+  // — so the chat-rail SSE never received broadcasts despite VAPI
+  // firing the events at ~1Hz.
+  let rawText =
     (message.transcript as string | undefined) ??
     (message.text as string | undefined) ??
     "";
+  let rawRole: string = (message.role as string | undefined) ?? "user";
+
+  if (!rawText && type === "conversation-update") {
+    const msgs = (message.messages ??
+      message.messagesOpenAIFormatted ??
+      message.conversation) as Array<Record<string, unknown>> | undefined;
+    if (Array.isArray(msgs)) {
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (!m || typeof m !== "object") continue;
+        const role = (m.role as string | undefined) ?? "";
+        if (role === "system" || role === "tool") continue;
+        const content =
+          (m.content as string | undefined) ??
+          (m.message as string | undefined) ??
+          "";
+        if (typeof content === "string" && content.length > 0) {
+          rawText = content;
+          rawRole = role || rawRole;
+          break;
+        }
+      }
+    }
+  }
+
   if (!rawText) return null;
 
-  const rawRole = (message.role as string | undefined) ?? "user";
   const role: "learner" | "assistant" =
-    rawRole === "assistant" ? "assistant" : "learner";
+    rawRole === "assistant" || rawRole === "bot"
+      ? "assistant"
+      : "learner";
 
   return { externalCallId, role, text: rawText };
 }
