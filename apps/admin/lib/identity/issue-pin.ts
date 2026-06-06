@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { sendIdentityPinEmail } from "@/lib/email";
+import { resolveMessagingProvider } from "@/lib/messaging/resolve";
+import { getMessagingAdapter } from "@/lib/messaging/registry";
+import type { MessagingChannel } from "@/lib/messaging/types";
 import { generatePin, hashPin } from "./pin";
 
 interface IssuePinParams {
@@ -63,19 +66,59 @@ export async function issueFirstCallPin({
   const baseUrl = originUrl ?? config.app.url;
   const callerSimUrl = `${baseUrl}/x/sim/${callerId}`;
 
+  // #1141 — dispatch via the MessagingProvider resolver. Today the
+  // channel is always 'email' (SMS preference comes in a separate
+  // story when an SMS adapter ships). The resolver looks up the
+  // institution-scoped or SYSTEM-default row; we read its adapterKey
+  // and route accordingly.
+  //
+  // For the email path we still call `sendIdentityPinEmail` (which
+  // wraps the deployed-and-working nodemailer + Resend transport from
+  // #1101). The resolver's job today is to:
+  //   (a) audit which provider WOULD service this caller
+  //   (b) hold the seam open for SMS without touching email behaviour
+  // When SMS lands, the noop-sms adapter is swapped for a real one and
+  // issueFirstCallPin's dispatch becomes a single `adapter.send(...)`
+  // call. TL #1141 R4/R5 — minimal-risk path through the existing
+  // PIN-email plumbing.
+  const channel: MessagingChannel = "email";
+  const provider = await resolveMessagingProvider({ callerId, channel });
+
   try {
-    await sendIdentityPinEmail({
-      to: email,
-      firstName,
-      pin,
-      callerSimUrl,
-      isResend,
-    });
+    if (channel === "email") {
+      // Email path: keep #1101's transport intact. The provider lookup
+      // above is the audit hook; the actual send goes through
+      // sendIdentityPinEmail unchanged.
+      await sendIdentityPinEmail({
+        to: email,
+        firstName,
+        pin,
+        callerSimUrl,
+        isResend,
+      });
+    } else {
+      // SMS path: route through the adapter. With noop-sms registered
+      // this currently throws NotImplementedError, which is caught
+      // below — best-effort, never breaks enrolment.
+      if (!provider) {
+        throw new Error(`[identity-pin] no messaging provider for channel '${channel}'`);
+      }
+      const adapter = getMessagingAdapter(provider.adapterKey);
+      await adapter.send({
+        to: email,
+        channel,
+        secretRef: provider.secretRef,
+        fromAddress: provider.fromAddress,
+        subject: isResend ? `Your new sign-in code: ${pin}` : `Your sign-in code: ${pin}`,
+        body: `Your code is ${pin}. Expires in 24 hours.`,
+        plainTextBody: `Your code is ${pin}. Expires in 24 hours.`,
+      });
+    }
   } catch (err) {
-    // Best-effort: SMTP failure must not break enrolment. Log and move on;
-    // the learner can request a resend if they don't receive the email.
+    // Best-effort: messaging failure must not break enrolment. Log and move on;
+    // the learner can request a resend if they don't receive the message.
     console.error(
-      `[identity-pin] failed to send PIN email for caller ${callerId}`,
+      `[identity-pin] failed to send PIN via channel '${channel}' for caller ${callerId}`,
       err,
     );
   }

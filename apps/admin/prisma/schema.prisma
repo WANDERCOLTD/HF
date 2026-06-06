@@ -4682,6 +4682,47 @@ model VoiceProvider {
 }
 
 // =========================
+// MESSAGING PROVIDER (#1141 — auth-channel resolver)
+// =========================
+// Mirrors VoiceProvider for outbound messaging (email today; SMS later
+// when an adapter ships). Each row maps an `adapterKey` to a Secret
+// Manager secret name + a `fromAddress`. Resolver cascade (one hop):
+//   caller.domain.institution → institution-scoped row → SYSTEM-default
+// (institutionId IS NULL).
+//
+// Migration ships a single seed row: { adapterKey: "email-resend",
+// secretRef: "RESEND_API_KEY", isDefault: true, institutionId: null }
+// so the existing #1101 PIN-email path keeps working with zero config.
+model MessagingProvider {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  displayName   String
+  adapterKey    String
+  // Secret Manager secret NAME (e.g. "RESEND_API_KEY", "TWILIO_AUTH_TOKEN").
+  // The actual secret value is dereferenced at send-time via env or
+  // gcloud secrets — never persisted to the DB. Mirrors how Cloud Run
+  // sources RESEND_API_KEY post-#1132 follow-up.
+  secretRef     String
+  // Sender address rendered into the outbound message.
+  // Email: "HF Dev <noreply@thewanders.com>". SMS: "+44 7XXX..." or alpha-id.
+  fromAddress   String
+  // Tenant scope. NULL = SYSTEM default (one per adapterKey). Non-null =
+  // institution-specific override. Enforced by application-layer 409
+  // check at POST + a Postgres partial unique index on the NULL case
+  // (defends concurrent admin POSTs). See migration.sql.
+  institutionId String?
+  isDefault     Boolean  @default(false)
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([institutionId, adapterKey])
+  @@index([adapterKey, enabled])
+  @@index([institutionId])
+  @@index([isDefault])
+}
+
+// =========================
 // V6 WIZARD (Phase 1 spike — #1078)
 // =========================
 //
