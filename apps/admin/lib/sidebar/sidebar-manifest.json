@@ -24,7 +24,8 @@
     "requiredRole": "ADMIN",
     "items": [
       { "id": "admin-settings", "href": "/x/settings", "label": "Settings", "icon": "Settings", "shortcutHint": "⌘," },
-      { "id": "admin-wizard-v6", "href": "/x/wizard-v6/playground", "label": "V6 Wizard", "icon": "Sparkles" }
+      { "id": "admin-intake-specs", "href": "/x/intake/specs", "label": "Intake Specs", "icon": "FileCode" },
+      { "id": "admin-wizard-v6-playground", "href": "/x/wizard-v6/playground", "label": "V6 Playground", "icon": "Sparkles" }
     ]
   }
 ]

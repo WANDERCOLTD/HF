@@ -775,6 +775,10 @@ model User {
   reviewedQuestions  ContentQuestion[]   @relation("QuestionReviewer")
   reviewedVocabulary ContentVocabulary[] @relation("VocabularyReviewer")
 
+  // IntakeSpec authorship (#1140 Phase 2a)
+  authoredIntakeSpecs  IntakeSpec[] @relation("IntakeSpecCreatedBy")
+  publishedIntakeSpecs IntakeSpec[] @relation("IntakeSpecPublishedBy")
+
   @@index([email])
   @@index([role])
   @@index([assignedDomainId])
@@ -4838,4 +4842,52 @@ model VoiceSystemSettings {
 
   updatedAt              DateTime @updatedAt
   createdAt              DateTime @default(now())
+}
+
+// IntakeSpec — admin-authored CrawcusSpec entries (#1140 Phase 2a).
+//
+// Stores spec definitions as JSON `body`. Consumers (V6 wizard chat,
+// static forms, REST validators, CSV import) all read from this table
+// — the spec is data, not code. A spec is uniquely identified by
+// (key, version); DRAFT rows are mutable, PUBLISHED rows are immutable
+// (enforce in spec-store helpers — Prisma has no immutable-row
+// constraint at schema level).
+//
+// `body` JSON shape mirrors @tallyseal/crawcus-spec's CrawcusSpec:
+//   { key, version, fields: {...}, contracts: { invariants: [...] },
+//     readiness: {...} }
+// Round-trip via @tallyseal/spec-emitter once vendored (Sprint E ask).
+//
+// `parentKey` reserves the `extends` slot for Phase 4 spec inheritance
+// (CreateRecipe extending a generic CreateContent base, etc.). Null
+// for standalone specs.
+//
+// Audit FKs (`createdBy` / `publishedBy`) capture which User author
+// drafted / promoted; both nullable so seed-script / system writes
+// don't have to forge a User row. Per .claude/rules/ai-to-db-guard.md
+// the trust triangle's Author side is observable from these FKs.
+model IntakeSpec {
+  id          String           @id @default(cuid())
+  key         String           // e.g., "CreateCourse", "CreateRecipe"
+  version     String           // semver, e.g., "1.0.0"
+  body        Json             // CrawcusSpec-shaped definition
+  status      IntakeSpecStatus @default(DRAFT)
+  parentKey   String?          // for `extends` — Phase 4 reserve
+  createdById String?
+  publishedById String?
+  publishedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  createdBy   User?            @relation("IntakeSpecCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedBy User?            @relation("IntakeSpecPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+
+  @@unique([key, version])
+  @@index([key, status])
+  @@index([status, updatedAt])
+}
+
+enum IntakeSpecStatus {
+  DRAFT
+  PUBLISHED
 }
