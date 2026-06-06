@@ -133,9 +133,30 @@ export async function GET(
         })
       : [];
 
+    // #1177 — variant Playbook sibling fan-out. Returns every Playbook
+    // sharing a Curriculum with this one (parent + linked variants),
+    // including this one. Used by UI surfaces that need to scope
+    // per-caller history (Calls, ComposedPrompts, etc.) across the whole
+    // variant family — e.g. CallerDetailPage's call-filter dropdown.
+    const ownCurricula = await prisma.playbookCurriculum.findMany({
+      where: { playbookId },
+      select: { curriculumId: true },
+    });
+    const curriculumIds = ownCurricula.map((r) => r.curriculumId);
+    const siblingRows = curriculumIds.length > 0
+      ? await prisma.playbookCurriculum.findMany({
+          where: { curriculumId: { in: curriculumIds } },
+          select: { playbookId: true },
+        })
+      : [];
+    const siblingPlaybookIds = Array.from(
+      new Set([playbookId, ...siblingRows.map((r) => r.playbookId)]),
+    );
+
     return NextResponse.json({
       ok: true,
       playbook: withSystemSpecs(playbook, resolvedSystemSpecs),
+      siblingPlaybookIds,
     });
   } catch (error: any) {
     console.error("Error fetching playbook:", error);
