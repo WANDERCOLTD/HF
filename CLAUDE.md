@@ -62,7 +62,7 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 
 - [ ] All acceptance criteria checked off
 - [ ] `qa-engineer` agent run (vitest + promptfoo evals if applicable)
-- [ ] `guard-checker` agent run (all 14 guards)
+- [ ] `guard-checker` agent run (all 15 guards)
 - [ ] `standards-checker` agent run — READY TO MERGE verdict
 - [ ] `/check` passes (tsc + lint + tests)
 - [ ] Issue closed on GitHub
@@ -313,7 +313,7 @@ Run `plan-reviewer` agent before presenting a plan for approval. It checks phase
 
 Run `guard-checker` agent:
 - **Pre-plan:** guards 1-6, 10-11 (architectural — catch mistakes early)
-- **Post-plan / pre-commit:** all 14 guards
+- **Post-plan / pre-commit:** all 15 guards
 
 Guard definitions in `.claude/agents/guard-checker.md`. Always end a completed story with a guard report.
 
