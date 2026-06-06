@@ -179,6 +179,11 @@ export default function CallerDetailPage() {
   type Enrollment = { id: string; playbookId: string; status: string; isDefault: boolean; enrolledAt: string; playbook: { id: string; name: string; status: string } };
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState<string>("all");
+  // #1177 — variant fan-out: when a variant Playbook is selected, the call
+  // filter must match the variant's sibling family (parent + linked variants
+  // sharing the Curriculum), not the variant alone. Populated by the
+  // /api/playbooks/[id] fetch below.
+  const [variantSiblingIds, setVariantSiblingIds] = useState<string[]>([]);
   // #253-follow-up: surface "Pick module" header button when the active
   // playbook has authored modules. Mirrors /x/sim/[callerId] wiring.
   const [modulesAuthored, setModulesAuthored] = useState<boolean>(false);
@@ -495,15 +500,27 @@ export default function CallerDetailPage() {
     return opts;
   }, [enrollments]);
 
+  // #1177 — variant fan-out: include calls/prompts from sibling Playbooks
+  // sharing the same Curriculum. Falls back to exact-match when sibling
+  // metadata hasn't loaded yet (the /api/playbooks/[id] fetch is async).
+  const callMatchSet = useMemo(() => {
+    if (selectedPlaybookId === "all") return null;
+    return new Set(
+      variantSiblingIds.length > 0 ? variantSiblingIds : [selectedPlaybookId],
+    );
+  }, [selectedPlaybookId, variantSiblingIds]);
+
   const filteredCalls = useMemo(() => {
-    if (!data?.calls || selectedPlaybookId === "all") return data?.calls || [];
-    return data.calls.filter((c) => c.playbookId === selectedPlaybookId);
-  }, [data?.calls, selectedPlaybookId]);
+    if (!data?.calls || !callMatchSet) return data?.calls || [];
+    return data.calls.filter((c) => c.playbookId && callMatchSet.has(c.playbookId));
+  }, [data?.calls, callMatchSet]);
 
   const filteredPrompts = useMemo(() => {
-    if (selectedPlaybookId === "all") return composedPrompts;
-    return composedPrompts.filter((p) => p.playbookId === selectedPlaybookId || !p.playbookId);
-  }, [composedPrompts, selectedPlaybookId]);
+    if (!callMatchSet) return composedPrompts;
+    return composedPrompts.filter(
+      (p) => !p.playbookId || callMatchSet.has(p.playbookId),
+    );
+  }, [composedPrompts, callMatchSet]);
 
   // #253-follow-up: load `modulesAuthored` from the active playbook's config
   // so the SimChat header shows the "Pick module" button when authored
@@ -511,6 +528,7 @@ export default function CallerDetailPage() {
   useEffect(() => {
     if (!selectedPlaybookId || selectedPlaybookId === "all") {
       setModulesAuthored(false);
+      setVariantSiblingIds([]);
       return;
     }
     let cancelled = false;
@@ -526,11 +544,21 @@ export default function CallerDetailPage() {
         } else {
           setAuthoredModules([]);
         }
+        // #1177 — variant fan-out: sibling Playbook IDs (parent + linked
+        // variants sharing a Curriculum). Used to widen the Calls/Prompts
+        // filter so a learner's history isn't hidden when a variant is
+        // selected instead of the parent.
+        if (Array.isArray(pbData.siblingPlaybookIds)) {
+          setVariantSiblingIds(pbData.siblingPlaybookIds as string[]);
+        } else {
+          setVariantSiblingIds([selectedPlaybookId]);
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setModulesAuthored(false);
           setAuthoredModules([]);
+          setVariantSiblingIds([]);
         }
       });
     return () => {
