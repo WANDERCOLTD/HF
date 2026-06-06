@@ -171,6 +171,13 @@ These memory files are kept in sync with the codebase. Consult them first.
 | [memory/async-patterns.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/async-patterns.md) | useTaskPoll / useAsyncStep / WizardShell / spinner-vs-glow | New hook, polling pattern, wizard framework change |
 | [memory/extraction.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/extraction.md) | DocumentTypes, resolution chain, ContentAssertion shape, trust levels | New DocumentType, extraction category, new resolveExtractionConfig caller |
 
+### Hard-prereq contract docs (read before touching the surface)
+
+| Doc | Read before touching |
+|-----|----------------------|
+| [`docs/CHAIN-CONTRACTS.md`](./docs/CHAIN-CONTRACTS.md) | Any code crossing an adaptive-loop stage boundary (EXTRACT, AGGREGATE, REWARD, ADAPT, SUPERVISE, COMPOSE). |
+| [`docs/CONTRACTS-PLAYBOOK-CURRICULUM.md`](./docs/CONTRACTS-PLAYBOOK-CURRICULUM.md) | Any code that writes/reads `Curriculum`, `PlaybookCurriculum`, `CurriculumModule`, or any `CallerAttribute` keyed by `curriculum:` or `playbook:`. Active during Epic #1177 collapse. |
+
 ### Flow Maps (call chains — consult before tracing logic)
 
 | Doc | Contents | Update when |
