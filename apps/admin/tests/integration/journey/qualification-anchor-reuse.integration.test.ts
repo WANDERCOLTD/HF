@@ -71,12 +71,12 @@ beforeAll(async () => {
   });
   parentPlaybookId = parent.id;
 
+  // #1177 Slice 6 — Curriculum.playbookId dropped; ownership via PlaybookCurriculum below.
   const parentCurr = await prisma.curriculum.create({
     data: {
       slug: PARENT_CURR_SLUG,
       name: `${PFX} parent curriculum`,
       qualificationAnchor: TEST_ANCHOR,
-      playbookId: parentPlaybookId,
     },
     select: { id: true },
   });
@@ -164,12 +164,12 @@ describe("findCurriculumByAnchor — ambiguity (data-integrity guard)", () => {
       },
       select: { id: true },
     });
+    // #1177 Slice 6 — Curriculum.playbookId dropped; ownership via PlaybookCurriculum below.
     const dupeCurr = await prisma.curriculum.create({
       data: {
         slug: `${PFX}-dupe-curriculum`,
         name: `${PFX} dupe curriculum`,
         qualificationAnchor: TEST_ANCHOR,
-        playbookId: dupePb.id,
       },
       select: { id: true },
     });

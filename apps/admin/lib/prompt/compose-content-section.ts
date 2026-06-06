@@ -133,8 +133,13 @@ export async function composeContentSection(
   // real progress exists. Route through the subject path which reads the
   // relational rows directly.
   if (playbook?.id) {
+    // #1177 Slice 6 — canonical PlaybookCurriculum join (variant-aware).
     const hasRealModules = await prisma.curriculumModule.count({
-      where: { curriculum: { playbookId: playbook.id } },
+      where: {
+        curriculum: {
+          playbookLinks: { some: { playbookId: playbook.id, role: "primary" } },
+        },
+      },
     });
     if (hasRealModules > 0) {
       return composeContentFromSubject(callerId, domainId);
@@ -374,15 +379,13 @@ async function loadCallerProgress(
     // Playbooks share the parent's Curriculum), falls back to deprecated column.
     let curriculum: { id: string } | null = null;
     if (playbookId) {
+      // #1177 Slice 6 — canonical PlaybookCurriculum join only.
       const pbcLink = await prisma.playbookCurriculum.findFirst({
         where: { playbookId },
         orderBy: [{ role: "asc" }, { createdAt: "asc" }],
         select: { curriculum: { select: { id: true } } },
       });
-      curriculum = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
-        where: { playbookId },
-        select: { id: true },
-      });
+      curriculum = pbcLink?.curriculum ?? null;
     } else {
       curriculum = await prisma.curriculum.findFirst({
         where: { slug: specSlug },
@@ -587,16 +590,13 @@ async function composeContentFromSubject(
         },
       },
     };
+    // #1177 Slice 6 — canonical PlaybookCurriculum join only.
     const pbcLink = await prisma.playbookCurriculum.findFirst({
       where: { playbookId: enrolledPbId },
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
       select: { curriculum: { select: pbCurrSelect } },
     });
-    const pbCurr = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
-      where: { playbookId: enrolledPbId },
-      orderBy: { updatedAt: "desc" },
-      select: pbCurrSelect,
-    });
+    const pbCurr = pbcLink?.curriculum ?? null;
 
     if (pbCurr) {
       // #598 Slice 1 follow-up — single tolerance-cascade resolution covers

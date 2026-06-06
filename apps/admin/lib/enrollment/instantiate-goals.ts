@@ -66,11 +66,14 @@ type GoalConfigEntry = {
  * curriculum / no modules are linked.
  */
 async function deriveGoalsFromCurriculum(playbookId: string): Promise<GoalConfigEntry[]> {
-  // Prefer curriculum via direct playbookId link
+  // #1177 Slice 6 — canonical PlaybookCurriculum join (variant-aware).
+  // Curriculum.playbookId column was dropped in #1038.
   let modules = await prisma.curriculumModule.findMany({
     where: {
       isActive: true,
-      curriculum: { playbookId },
+      curriculum: {
+        playbookLinks: { some: { playbookId, role: "primary" } },
+      },
     },
     select: { id: true, slug: true, title: true, description: true, sortOrder: true },
     orderBy: [{ curriculumId: "asc" }, { sortOrder: "asc" }],

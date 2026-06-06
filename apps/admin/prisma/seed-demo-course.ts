@@ -531,6 +531,7 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
     console.log(`  Playbook: ${playbook.name} (${playbook.id})`);
 
     // ── 6. Create Curriculum + Modules + LOs ──
+    // #1177 Slice 6 — Curriculum.playbookId dropped; ownership in PlaybookCurriculum.
     const curriculum = await prisma.curriculum.upsert({
       where: { slug: CURRICULUM.slug },
       update: { name: CURRICULUM.name, description: CURRICULUM.description },
@@ -539,11 +540,15 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
         name: CURRICULUM.name,
         description: CURRICULUM.description,
         subjectId: subject.id,
-        playbookId: playbook.id,
         primarySourceId: source.id,
         trustLevel: "EXPERT_CURATED",
         deliveryConfig: {},
       },
+    });
+    await prisma.playbookCurriculum.upsert({
+      where: { playbookId_curriculumId: { playbookId: playbook.id, curriculumId: curriculum.id } },
+      create: { playbookId: playbook.id, curriculumId: curriculum.id, role: "primary" },
+      update: {},
     });
 
     const loRefToId = new Map<string, string>();

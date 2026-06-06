@@ -25,22 +25,37 @@ async function main() {
       where: { callerId: caller.id, status: "ACTIVE" },
       select: { playbookId: true, playbook: { select: { name: true } } },
     });
+    // #1177 Slice 6 — Curriculum.playbookId dropped; read owning playbook
+    // via canonical PlaybookCurriculum primary join.
     const corruptProgress = await prisma.callerModuleProgress.findFirst({
       where: { callerId: caller.id },
       select: {
         moduleId: true,
         module: {
-          select: { slug: true, curriculumId: true, curriculum: { select: { playbookId: true } } },
+          select: {
+            slug: true,
+            curriculumId: true,
+            curriculum: {
+              select: {
+                playbookLinks: {
+                  where: { role: "primary" },
+                  take: 1,
+                  select: { playbookId: true },
+                },
+              },
+            },
+          },
         },
       },
     });
+    const moduleOwnerPlaybook = corruptProgress?.module.curriculum.playbookLinks[0]?.playbookId ?? "<none>";
 
     console.log(`\n=== ${caller.name} (${caller.id}) ===`);
     console.log(
       `Enrolled playbook: ${enrollment?.playbookId ?? "<none>"} (${enrollment?.playbook?.name ?? ""})`,
     );
     console.log(
-      `EXISTING CallerModuleProgress: moduleId=${corruptProgress?.moduleId ?? "<none>"} slug=${corruptProgress?.module.slug ?? ""} module-owner-playbook=${corruptProgress?.module.curriculum.playbookId ?? "<none>"}`,
+      `EXISTING CallerModuleProgress: moduleId=${corruptProgress?.moduleId ?? "<none>"} slug=${corruptProgress?.module.slug ?? ""} module-owner-playbook=${moduleOwnerPlaybook}`,
     );
 
     if (!enrollment?.playbookId) {

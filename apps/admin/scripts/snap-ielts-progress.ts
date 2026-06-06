@@ -17,8 +17,9 @@ const IELTS_PLAYBOOK_ID = "e460cd6f-0d0c-4948-9d8e-1ce696d4dfd3";
 const p = new PrismaClient();
 
 async function main() {
+  // #1177 Slice 6 — canonical PlaybookCurriculum primary join.
   const curric = await p.curriculum.findFirst({
-    where: { playbookId: IELTS_PLAYBOOK_ID },
+    where: { playbookLinks: { some: { playbookId: IELTS_PLAYBOOK_ID, role: "primary" } } },
     select: { id: true },
   });
   const modules = curric

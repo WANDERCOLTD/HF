@@ -253,8 +253,9 @@ export async function GET(
     humanOverridden: boolean;
   }> = {};
   if (allOutcomeRefs.length > 0) {
+    // #1177 Slice 6 — canonical PlaybookCurriculum primary join (variant-aware).
     const curriculumRow = await prisma.curriculum.findFirst({
-      where: { playbookId: courseId },
+      where: { playbookLinks: { some: { playbookId: courseId, role: "primary" } } },
       orderBy: { createdAt: "asc" },
       select: { id: true },
     });
@@ -436,10 +437,15 @@ async function loadProgressForCaller(
 ): Promise<Record<string, PickerProgress>> {
   // Scope progress rows to this Playbook's curricula so the same slug
   // across two courses doesn't bleed in. Mirrors module-progress route.
+  // #1177 Slice 6 — canonical PlaybookCurriculum join (variant-aware).
   const rows = await prisma.callerModuleProgress.findMany({
     where: {
       callerId,
-      module: { curriculum: { playbookId: courseId } },
+      module: {
+        curriculum: {
+          playbookLinks: { some: { playbookId: courseId, role: "primary" } },
+        },
+      },
     },
     select: {
       status: true,

@@ -102,11 +102,11 @@ beforeAll(async () => {
   });
   parentPlaybookId = parent.id;
 
+  // #1177 Slice 6 — Curriculum.playbookId dropped; ownership via PlaybookCurriculum below.
   const curriculum = await prisma.curriculum.create({
     data: {
       slug: CURRICULUM_SLUG,
       name: `${PFX} curriculum`,
-      playbookId: parentPlaybookId, // deprecated column — kept for transition
     },
     select: { id: true },
   });

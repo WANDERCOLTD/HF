@@ -107,9 +107,10 @@ export async function GET(
       return NextResponse.json({ ok: false, error: "Course not found" }, { status: 404 });
     }
 
-    // 2. Find curriculum — prefer playbookId, fallback to subject chain
+    // 2. Find curriculum — canonical PlaybookCurriculum primary join,
+    // fallback to subject chain. #1177 Slice 6.
     let curriculum = await prisma.curriculum.findFirst({
-      where: { playbookId: courseId },
+      where: { playbookLinks: { some: { playbookId: courseId, role: "primary" } } },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,

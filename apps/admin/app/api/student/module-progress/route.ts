@@ -35,8 +35,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const { callerId } = auth;
   const courseId = request.nextUrl.searchParams.get("courseId");
 
+  // #1177 Slice 6 — canonical PlaybookCurriculum join (variant-aware).
   const where: Prisma.CallerModuleProgressWhereInput = courseId
-    ? { callerId, module: { curriculum: { playbookId: courseId } } }
+    ? {
+        callerId,
+        module: {
+          curriculum: {
+            playbookLinks: { some: { playbookId: courseId, role: "primary" } },
+          },
+        },
+      }
     : { callerId };
 
   const progress = await prisma.callerModuleProgress.findMany({

@@ -246,8 +246,9 @@ async function main(): Promise<void> {
     await tryDel("PlaybookSource", () => prisma.playbookSource.deleteMany({ where: { playbookId: { in: playbookIds } } }));
     await tryDel("CallerPlaybook (remaining)", () => prisma.callerPlaybook.deleteMany({ where: { playbookId: { in: playbookIds } } }));
     await tryDel("CohortPlaybook (remaining)", () => prisma.cohortPlaybook.deleteMany({ where: { playbookId: { in: playbookIds } } }));
-    // Unlink nullable FKs (may not exist on older schemas)
-    await tryUpdate("Curriculum.playbookId", () => prisma.curriculum.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } }));
+    // Unlink nullable FKs (may not exist on older schemas).
+    // #1177 Slice 6 / #1038 — Curriculum.playbookId column dropped; ownership
+    // lives in PlaybookCurriculum which cascades on Playbook deletion.
     await tryUpdate("Call.playbookId", () => prisma.call.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } }));
     await tryUpdate("Goal.playbookId", () => prisma.goal.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } }));
     // Delete playbooks

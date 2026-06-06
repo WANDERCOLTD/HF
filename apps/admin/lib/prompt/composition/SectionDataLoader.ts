@@ -1154,16 +1154,13 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
   };
   let playbookCurriculum = null as Prisma.CurriculumGetPayload<{ select: typeof curriculumSelect }> | null;
   if (scope.playbookId) {
+    // #1177 Slice 6 — canonical PlaybookCurriculum join only.
     const pbcLink = await prisma.playbookCurriculum.findFirst({
       where: { playbookId: scope.playbookId },
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
       select: { curriculum: { select: curriculumSelect } },
     });
-    playbookCurriculum = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
-      where: { playbookId: scope.playbookId },
-      orderBy: { updatedAt: "desc" },
-      select: curriculumSelect,
-    });
+    playbookCurriculum = pbcLink?.curriculum ?? null;
   }
 
   return {
@@ -1497,12 +1494,16 @@ registerLoader("courseInstructions", async (_callerId, loaderConfig) => {
   // section, and never reach the learner. Reuses category="teaching_rule"
   // so the existing render path handles them without changes.
   if (scope.playbookId) {
+    // #1177 Slice 6 — canonical PlaybookCurriculum join (variant-aware).
+    // Curriculum.playbookId column was dropped in #1038.
     const tiLOs = await prisma.learningObjective.findMany({
       where: {
         systemRole: "TEACHING_INSTRUCTION",
         module: {
           isActive: true,
-          curriculum: { playbookId: scope.playbookId },
+          curriculum: {
+            playbookLinks: { some: { playbookId: scope.playbookId, role: "primary" } },
+          },
         },
       },
       orderBy: [{ module: { sortOrder: "asc" } }, { sortOrder: "asc" }],
