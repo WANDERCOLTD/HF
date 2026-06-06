@@ -48,13 +48,13 @@ export function EnrolLinksClient() {
 
   const rows = useMemo(() => {
     const cohorts = data?.cohorts ?? [];
+    const base = origin || "";
     return cohorts
       .filter((c) => c.joinToken)
       .map((c) => ({
         ...c,
-        url: origin
-          ? `${origin}/intake/enrollment-crawcus/${c.joinToken}`
-          : `/intake/enrollment-crawcus/${c.joinToken}`,
+        v1Url: `${base}/intake/enrollment-crawcus/${c.joinToken}`,
+        v2Url: `${base}/intake/v2/${c.joinToken}`,
         expired:
           c.joinTokenExp !== null && new Date(c.joinTokenExp) < new Date(),
       }));
@@ -125,151 +125,173 @@ export function EnrolLinksClient() {
           style={{ display: "flex", flexDirection: "column", gap: 12 }}
           data-testid="enrol-links-list"
         >
-          {rows.map((row) => {
-            const isCopied = copiedKey === row.id;
-            return (
-              <div
-                key={row.id}
-                style={{
-                  border: "1px solid var(--border-default, #e4e4e7)",
-                  borderRadius: 8,
-                  padding: 16,
-                  background: "var(--bg-surface, #fff)",
-                  opacity: row.expired ? 0.55 : 1,
-                }}
-              >
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              style={{
+                border: "1px solid var(--border-default, #e4e4e7)",
+                borderRadius: 8,
+                padding: 16,
+                background: "var(--bg-surface, #fff)",
+                opacity: row.expired ? 0.55 : 1,
+              }}
+            >
+              <div style={{ marginBottom: 12 }}>
+                <h3
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    margin: "0 0 4px",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  {row.name}
+                </h3>
                 <div
                   style={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    gap: 16,
-                    marginBottom: 10,
+                    alignItems: "center",
+                    gap: 12,
+                    fontSize: 13,
+                    color: "var(--text-muted, #71717a)",
                   }}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 600,
-                        margin: "0 0 4px",
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      {row.name}
-                    </h3>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        fontSize: 13,
-                        color: "var(--text-muted, #71717a)",
-                      }}
-                    >
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <School size={13} />
-                        {row.domain.name}
-                      </span>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <Users size={13} />
-                        {row._count.members} learner
-                        {row._count.members === 1 ? "" : "s"}
-                      </span>
-                      {row.expired && (
-                        <span
-                          style={{
-                            color: "var(--text-danger, #b91c1c)",
-                            fontWeight: 500,
-                          }}
-                        >
-                          Token expired
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      type="button"
-                      onClick={() => copy(row.url, row.id)}
-                      disabled={row.expired}
-                      className="hf-btn hf-btn-secondary"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        fontSize: 13,
-                        minWidth: 84,
-                        justifyContent: "center",
-                      }}
-                      aria-label={`Copy enrolment link for ${row.name}`}
-                    >
-                      {isCopied ? (
-                        <>
-                          <Check size={14} /> Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={14} /> Copy
-                        </>
-                      )}
-                    </button>
-                    <a
-                      href={row.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hf-btn hf-btn-secondary"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        fontSize: 13,
-                        textDecoration: "none",
-                      }}
-                      aria-label={`Open enrolment link for ${row.name} in a new tab`}
-                      title="Opens in a regular new tab — drag to a Private Browsing window for a clean session"
-                    >
-                      <ExternalLink size={14} /> Open
-                    </a>
-                  </div>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <School size={13} />
+                    {row.domain.name}
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <Users size={13} />
+                    {row._count.members} learner
+                    {row._count.members === 1 ? "" : "s"}
+                  </span>
+                  {row.expired && (
+                    <span style={{ color: "var(--text-danger, #b91c1c)", fontWeight: 500 }}>
+                      Token expired
+                    </span>
+                  )}
                 </div>
-
-                <code
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontFamily:
-                      "ui-monospace, SFMono-Regular, Menlo, monospace",
-                    color: "var(--text-muted, #52525b)",
-                    background: "var(--bg-subtle, #f4f4f5)",
-                    padding: "6px 10px",
-                    borderRadius: 4,
-                    overflowX: "auto",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {row.url}
-                </code>
               </div>
-            );
-          })}
+
+              <LinkLine
+                label="V1 (chat-first)"
+                url={row.v1Url}
+                copyKey={`${row.id}-v1`}
+                copiedKey={copiedKey}
+                onCopy={copy}
+                disabled={row.expired}
+              />
+              <div style={{ height: 8 }} />
+              <LinkLine
+                label="V2 (auth-first)"
+                url={row.v2Url}
+                copyKey={`${row.id}-v2`}
+                copiedKey={copiedKey}
+                onCopy={copy}
+                disabled={row.expired}
+              />
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+interface LinkLineProps {
+  label: string;
+  url: string;
+  copyKey: string;
+  copiedKey: string | null;
+  onCopy: (text: string, key: string) => void;
+  disabled: boolean;
+}
+
+function LinkLine({ label, url, copyKey, copiedKey, onCopy, disabled }: LinkLineProps) {
+  const isCopied = copiedKey === copyKey;
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 4,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 12,
+            color: "var(--text-muted, #71717a)",
+            fontWeight: 600,
+            letterSpacing: 0.3,
+          }}
+        >
+          {label}
+        </span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => onCopy(url, copyKey)}
+            disabled={disabled}
+            className="hf-btn hf-btn-secondary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 10px",
+              fontSize: 12,
+              minWidth: 80,
+              justifyContent: "center",
+            }}
+            aria-label={`Copy ${label} link`}
+          >
+            {isCopied ? (
+              <>
+                <Check size={12} /> Copied
+              </>
+            ) : (
+              <>
+                <Copy size={12} /> Copy
+              </>
+            )}
+          </button>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hf-btn hf-btn-secondary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 10px",
+              fontSize: 12,
+              textDecoration: "none",
+            }}
+            aria-label={`Open ${label} link in a new tab`}
+            title="Opens in a regular new tab — drag to a Private Browsing window for a clean session"
+          >
+            <ExternalLink size={12} /> Open
+          </a>
+        </div>
+      </div>
+      <code
+        style={{
+          display: "block",
+          fontSize: 11,
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          color: "var(--text-muted, #52525b)",
+          background: "var(--bg-subtle, #f4f4f5)",
+          padding: "4px 8px",
+          borderRadius: 4,
+          overflowX: "auto",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {url}
+      </code>
     </div>
   );
 }
