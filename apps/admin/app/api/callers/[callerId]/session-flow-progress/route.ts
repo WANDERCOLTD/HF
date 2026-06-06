@@ -79,9 +79,13 @@ export async function GET(
                 onboardingFlowPhases: true,
               },
             },
-            curricula: {
-              where: { deliveryConfig: { not: undefined } },
-              select: { id: true, slug: true },
+            // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
+            playbookCurricula: {
+              where: {
+                role: "primary",
+                curriculum: { deliveryConfig: { not: undefined } },
+              },
+              select: { curriculum: { select: { id: true, slug: true } } },
               take: 1,
             },
           },
@@ -98,7 +102,7 @@ export async function GET(
 
     const playbook = enrollment.playbook;
     const pbConfig = (playbook.config ?? {}) as PlaybookConfig;
-    const curriculum = playbook.curricula?.[0];
+    const curriculum = playbook.playbookCurricula?.[0]?.curriculum;
 
     const onboardingSpec = await prisma.analysisSpec.findUnique({
       where: { slug: config.specs.onboarding },

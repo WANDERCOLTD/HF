@@ -100,8 +100,8 @@ describe("journey-position — #242 Slice 4 picker routing", () => {
           lessonPlanMode: "continuous",
           modulesAuthored: true,
         },
-        curricula: [
-          { id: "curr-1", slug: "ielts-v22", deliveryConfig: { mode: "continuous" } },
+        playbookCurricula: [
+          { curriculum: { id: "curr-1", slug: "ielts-v22", deliveryConfig: { mode: "continuous" } } },
         ],
       },
     });
@@ -127,8 +127,8 @@ describe("journey-position — #242 Slice 4 picker routing", () => {
       playbook: {
         id: PLAYBOOK_ID,
         config: { lessonPlanMode: "continuous" },
-        curricula: [
-          { id: "curr-1", slug: "legacy-v1", deliveryConfig: { mode: "continuous" } },
+        playbookCurricula: [
+          { curriculum: { id: "curr-1", slug: "legacy-v1", deliveryConfig: { mode: "continuous" } } },
         ],
       },
     });
@@ -145,8 +145,8 @@ describe("journey-position — #242 Slice 4 picker routing", () => {
       playbook: {
         id: PLAYBOOK_ID,
         config: { lessonPlanMode: "continuous", modulesAuthored: false },
-        curricula: [
-          { id: "curr-1", slug: "opted-out-v1", deliveryConfig: { mode: "continuous" } },
+        playbookCurricula: [
+          { curriculum: { id: "curr-1", slug: "opted-out-v1", deliveryConfig: { mode: "continuous" } } },
         ],
       },
     });
@@ -166,9 +166,7 @@ describe("journey-position — #242 Slice 4 picker routing", () => {
           // No lessonPlanMode → structured/default branch
           modulesAuthored: true,
         },
-        curricula: [
-          { id: "curr-1", slug: "structured-v1", deliveryConfig: null },
-        ],
+        playbookCurricula: [{ curriculum: { id: "curr-1", slug: "structured-v1", deliveryConfig: null } }],
       },
     });
 
@@ -193,9 +191,7 @@ describe("journey-position — #242 Slice 4 picker routing", () => {
       playbook: {
         id: PLAYBOOK_ID,
         config: { modulesAuthored: true },
-        curricula: [
-          { id: "curr-1", slug: "structured-v1", deliveryConfig: null },
-        ],
+        playbookCurricula: [{ curriculum: { id: "curr-1", slug: "structured-v1", deliveryConfig: null } }],
       },
     });
 
@@ -220,8 +216,8 @@ describe("journey-position — #242 Slice 4 picker routing", () => {
       playbook: {
         id: PLAYBOOK_ID,
         config: { lessonPlanMode: "continuous", modulesAuthored: true },
-        curricula: [
-          { id: "curr-1", slug: "ielts-v22", deliveryConfig: { mode: "continuous" } },
+        playbookCurricula: [
+          { curriculum: { id: "curr-1", slug: "ielts-v22", deliveryConfig: { mode: "continuous" } } },
         ],
       },
     });

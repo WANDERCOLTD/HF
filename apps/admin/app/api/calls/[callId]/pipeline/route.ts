@@ -120,10 +120,11 @@ async function loadCurrentModuleContext(
       select: {
         name: true,
         config: true,
-        curricula: {
-          orderBy: { createdAt: "asc" },
+        // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
+        playbookCurricula: {
+          where: { role: "primary" },
           take: 1,
-          select: { slug: true },
+          select: { curriculum: { select: { slug: true } } },
         },
       },
     });
@@ -132,7 +133,7 @@ async function loadCurrentModuleContext(
     const match = authored.find((m: any) => m?.id === opts.requestedModuleId);
     if (match) {
       const specSlug =
-        pb?.curricula[0]?.slug ??
+        pb?.playbookCurricula[0]?.curriculum.slug ??
         `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`;
 
       // #317 — drop system-only refs (ASSESSOR_RUBRIC / SCORE_EXPLAINER /
@@ -213,10 +214,11 @@ async function loadCurrentModuleContext(
       where: { id: resolvedPlaybookId },
       select: {
         config: true,
-        curricula: {
-          orderBy: { createdAt: "asc" },
+        // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
+        playbookCurricula: {
+          where: { role: "primary" },
           take: 1,
-          select: { id: true, slug: true },
+          select: { curriculum: { select: { id: true, slug: true } } },
         },
       },
     });
@@ -242,11 +244,11 @@ async function loadCurrentModuleContext(
         ? next.outcomesPrimary
         : [];
       let filteredRefs = allRefs;
-      if (allRefs.length > 0 && pb?.curricula[0]?.id) {
+      if (allRefs.length > 0 && pb?.playbookCurricula[0]?.curriculum.id) {
         try {
           const excluded = await prisma.learningObjective.findMany({
             where: {
-              module: { curriculumId: pb.curricula[0].id },
+              module: { curriculumId: pb.playbookCurricula[0].curriculum.id },
               ref: { in: allRefs },
               systemRole: { in: ["ASSESSOR_RUBRIC", "SCORE_EXPLAINER", "TEACHING_INSTRUCTION"] },
             },
@@ -269,7 +271,7 @@ async function loadCurrentModuleContext(
       });
       return {
         specSlug:
-          pb?.curricula[0]?.slug ??
+          pb?.playbookCurricula[0]?.curriculum.slug ??
           `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`,
         moduleId: next?.id,
         moduleName: next?.label || next?.id,

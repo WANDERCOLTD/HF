@@ -98,9 +98,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       playbook: {
         select: {
           config: true,
-          curricula: {
-            where: { deliveryConfig: { not: Prisma.JsonNull } },
-            select: { id: true },
+          // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
+          playbookCurricula: {
+            where: {
+              role: "primary",
+              curriculum: { deliveryConfig: { not: Prisma.JsonNull } },
+            },
+            select: { curriculum: { select: { id: true } } },
             take: 1,
           },
         },
@@ -108,7 +112,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     },
   });
 
-  const curriculumId = enrollment?.playbook?.curricula?.[0]?.id;
+  const curriculumId = enrollment?.playbook?.playbookCurricula?.[0]?.curriculum.id;
 
   // #302: When the learner picked a module via the picker, restrict the pre-test
   // pool to that module's outcomesPrimary. The picker writes requestedModuleId
