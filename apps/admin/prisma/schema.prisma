@@ -2429,15 +2429,9 @@ model Curriculum {
   validFrom                DateTime? // When this curriculum version becomes active
   validUntil               DateTime? // When this curriculum version expires
 
-  // Subject linkage (legacy — being replaced by playbookId)
+  // Subject linkage
   subjectId String?
   subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
-
-  /// @deprecated #1034 — kept as primary-owner pointer during PlaybookCurriculum
-  /// rollout. Readers MUST prefer PlaybookCurriculum (any role) and only fall
-  /// back to this column if the join table returns nothing. Dropped in #1038.
-  playbookId String?
-  playbook   Playbook? @relation("PlaybookCurricula", fields: [playbookId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2445,16 +2439,15 @@ model Curriculum {
   // First-class modules (replaces JSON notableInfo.modules)
   modules CurriculumModule[]
 
-  // #1034 — many-to-many link to Playbooks (primary owner + linked siblings).
-  // Source-of-truth for the variant Course product line. Replaces direct
-  // Curriculum.playbookId read on the hot Call path.
+  // #1034 / #1177 Slice 6 — canonical many-to-many link to Playbooks
+  // (primary owner + linked variant siblings). Single source of truth for
+  // Curriculum ownership after Curriculum.playbookId was dropped in #1038.
   playbookLinks PlaybookCurriculum[]
 
   @@index([sourceSpecId])
   @@index([trustLevel])
   @@index([validUntil])
   @@index([subjectId])
-  @@index([playbookId])
   @@index([qualificationAnchor])
 }
 

@@ -169,8 +169,10 @@ describe("GET /api/courses/[courseId]/import-modules — generated fallback (#49
       id: "playbook-1",
       config: { lessonPlanMode: "continuous" },
     });
-    // resolveCurriculumIdForPlaybook → curriculum.findFirst
-    mockPrisma.curriculum.findFirst.mockResolvedValue({ id: "curr-1" });
+    // #1177 Slice 6 — resolveCurriculumIdForPlaybook reads the canonical
+    // PlaybookCurriculum join (the deprecated Curriculum.playbookId fallback
+    // was removed with the column drop).
+    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue({ curriculumId: "curr-1" });
     // Two CurriculumModule rows scoped to the resolved curriculum.
     mockPrisma.curriculumModule.findMany.mockResolvedValue([
       {
@@ -228,8 +230,8 @@ describe("GET /api/courses/[courseId]/import-modules — generated fallback (#49
     expect(body.modulesAuthored).toBeNull();
     expect(body.moduleSource).toBeNull();
 
-    // Fallback path was actually used.
-    expect(mockPrisma.curriculum.findFirst).toHaveBeenCalledOnce();
+    // #1177 Slice 6 — fallback now reads canonical PlaybookCurriculum join.
+    expect(mockPrisma.playbookCurriculum.findFirst).toHaveBeenCalledOnce();
     expect(mockPrisma.curriculumModule.findMany).toHaveBeenCalledOnce();
     const findManyArgs = mockPrisma.curriculumModule.findMany.mock.calls[0][0];
     expect(findManyArgs.where).toMatchObject({
@@ -248,7 +250,7 @@ describe("GET /api/courses/[courseId]/import-modules — empty curriculum (#495 
       id: "playbook-1",
       config: {},
     });
-    mockPrisma.curriculum.findFirst.mockResolvedValue({ id: "curr-1" });
+    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue({ curriculumId: "curr-1" });
     mockPrisma.curriculumModule.findMany.mockResolvedValue([]);
 
     const res = await GET(makeGetReq(), { params });
@@ -267,7 +269,7 @@ describe("GET /api/courses/[courseId]/import-modules — empty curriculum (#495 
       config: {},
     });
     // No curriculum attached at all.
-    mockPrisma.curriculum.findFirst.mockResolvedValue(null);
+    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue(null);
 
     const res = await GET(makeGetReq(), { params });
     expect(res.status).toBe(200);

@@ -78,7 +78,9 @@ describe("POST /api/callers/[callerId]/calls — module slug resolver (#491 Slic
   });
 
   it("resolves a slug to CurriculumModule.id and writes both fields", async () => {
-    mockPrisma.curriculum.findFirst.mockResolvedValue({ id: CURRICULUM });
+    // #1177 Slice 6 — resolveCurriculumIdForPlaybook reads PlaybookCurriculum
+    // (canonical-only after the column drop).
+    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue({ curriculumId: CURRICULUM });
     mockPrisma.curriculumModule.findFirst.mockResolvedValue({ id: MOCK_MOD_ID });
 
     const res = await POST(makeReq({ requestedModuleId: "mock" }), { params });
@@ -97,7 +99,7 @@ describe("POST /api/callers/[callerId]/calls — module slug resolver (#491 Slic
   });
 
   it("returns 400 when curriculum doesn't exist for the playbook", async () => {
-    mockPrisma.curriculum.findFirst.mockResolvedValue(null);
+    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue(null);
 
     const res = await POST(makeReq({ requestedModuleId: "mock" }), { params });
     const body = await res.json();
@@ -108,7 +110,7 @@ describe("POST /api/callers/[callerId]/calls — module slug resolver (#491 Slic
   });
 
   it("returns 400 when the slug doesn't resolve to a module in this curriculum", async () => {
-    mockPrisma.curriculum.findFirst.mockResolvedValue({ id: CURRICULUM });
+    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue({ curriculumId: CURRICULUM });
     mockPrisma.curriculumModule.findFirst.mockResolvedValue(null);
 
     const res = await POST(makeReq({ requestedModuleId: "typo-slug" }), { params });
