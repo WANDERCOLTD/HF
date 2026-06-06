@@ -332,19 +332,15 @@ async function loadCurrentModuleContext(
 
   // Path 2: Playbook curriculum (direct link via playbookId)
   if (resolvedPlaybookId) {
-    // #1034 — PlaybookCurriculum-first read; falls back to deprecated
-    // Curriculum.playbookId column. Variant Playbooks share the parent's
-    // Curriculum via a `linked` row.
+    // #1034 / #1177 Slice 6 — canonical PlaybookCurriculum read. The legacy
+    // Curriculum.playbookId fallback was removed when the column was dropped
+    // in #1038; backfill ensures every Curriculum has a join row.
     const pbcLink = await prisma.playbookCurriculum.findFirst({
       where: { playbookId: resolvedPlaybookId },
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
       select: { curriculum: { select: { slug: true, notableInfo: true } } },
     });
-    const pbCurriculum = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
-      where: { playbookId: resolvedPlaybookId },
-      orderBy: { updatedAt: "desc" },
-      select: { slug: true, notableInfo: true },
-    });
+    const pbCurriculum = pbcLink?.curriculum;
     if (pbCurriculum?.notableInfo) {
       const rawModules = (pbCurriculum.notableInfo as Record<string, any>)?.modules;
       if (Array.isArray(rawModules) && rawModules.length > 0) {
@@ -2910,17 +2906,13 @@ async function trackCurriculumAfterCall(
     try {
       const enrolledPbId = await resolvePlaybookId(callerId);
       if (enrolledPbId) {
-        // #1034 — PlaybookCurriculum-first read with deprecated-column fallback.
+        // #1034 / #1177 Slice 6 — canonical PlaybookCurriculum read.
         const pbcLink = await prisma.playbookCurriculum.findFirst({
           where: { playbookId: enrolledPbId },
           orderBy: [{ role: "asc" }, { createdAt: "asc" }],
           select: { curriculum: { select: { slug: true, notableInfo: true } } },
         });
-        const pbCurr = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
-          where: { playbookId: enrolledPbId },
-          orderBy: { updatedAt: "desc" },
-          select: { slug: true, notableInfo: true },
-        });
+        const pbCurr = pbcLink?.curriculum;
         if (pbCurr?.notableInfo) {
           const rawMods = (pbCurr.notableInfo as Record<string, any>)?.modules;
           if (Array.isArray(rawMods) && rawMods.length > 0) {
@@ -3072,11 +3064,7 @@ async function updateTpMasteryAfterCall(
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
       select: { curriculum: { select: { slug: true } } },
     });
-    const pbCurr = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
-      where: { playbookId: enrolledPbForAssess },
-      orderBy: { updatedAt: "desc" },
-      select: { slug: true },
-    });
+    const pbCurr = pbcLink?.curriculum;
     if (pbCurr) {
       // #1008 (Finding C) — AI-returned masteryThreshold is authoritative when present;
       // fall back to CURRICULUM_PROGRESS_V1 contract, hard literal only if registry empty.

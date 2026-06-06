@@ -140,7 +140,8 @@ export async function POST(
         data: {
           slug: `${courseId}-content`,
           subjectId: primarySubject.id,
-          playbookId: courseId,
+          // #1177 Slice 6 / #1038 — Curriculum.playbookId dropped; ownership
+          // lives in PlaybookCurriculum via ensurePrimaryPlaybookLink below.
           name: disciplineName,
           description: `Auto-generated curriculum for ${playbook.name}`,
           deliveryConfig: {},
