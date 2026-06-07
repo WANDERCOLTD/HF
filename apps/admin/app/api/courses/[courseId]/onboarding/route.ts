@@ -212,14 +212,29 @@ export async function PUT(
     // #826 — central helper. `onboardingFlowPhases` is in
     // COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS, so a change bumps the
     // timestamp and downstream callers are marked stale.
+    //
+    // Dual-write: mirror to `sessionFlow.onboarding` so the resolver
+    // (SESSION_FLOW_RESOLVER_ENABLED=true path) sees the same value as
+    // the legacy pedagogy transform. Without this mirror, edits here
+    // drift the two shapes apart and `session-flow-drift.ts` blocks the
+    // flag flip — the inverse of the gap fixed in the session-flow PUT
+    // route. Removed in Phase 5 (#220) once legacy is dropped.
     try {
       await updatePlaybookConfig(
         courseId,
         (cfg) => {
           if (onboardingFlowPhases === null) {
             delete cfg.onboardingFlowPhases;
+            if (cfg.sessionFlow?.onboarding) {
+              const { onboarding: _drop, ...rest } = cfg.sessionFlow;
+              cfg.sessionFlow = rest;
+            }
           } else {
             cfg.onboardingFlowPhases = onboardingFlowPhases;
+            cfg.sessionFlow = {
+              ...(cfg.sessionFlow ?? {}),
+              onboarding: { phases: onboardingFlowPhases.phases ?? [] },
+            };
           }
           return cfg;
         },
