@@ -12,7 +12,7 @@ import {
 
 describe("getPresetForPlaybook + retrievalCadenceOverride", () => {
   it("absent override → preset cadence unchanged", () => {
-    const preset = getPresetForPlaybook({ config: { teachingMode: "syllabus" } });
+    const preset = getPresetForPlaybook({ config: { lessonPlanMode: "structured", teachingMode: "syllabus" } });
     expect(preset.retrievalCadence).toBe(EXAM_PREP.retrievalCadence);
     expect(preset.name).toBe(EXAM_PREP.name);
   });
@@ -20,6 +20,7 @@ describe("getPresetForPlaybook + retrievalCadenceOverride", () => {
   it("override applies as shallow merge — preset name stays the same", () => {
     const preset = getPresetForPlaybook({
       config: {
+        lessonPlanMode: "structured",
         teachingMode: "syllabus",
         tolerances: { retrievalCadenceOverride: 5 },
       },
@@ -32,21 +33,21 @@ describe("getPresetForPlaybook + retrievalCadenceOverride", () => {
 
   it("non-positive override is ignored", () => {
     const preset = getPresetForPlaybook({
-      config: { tolerances: { retrievalCadenceOverride: 0 } },
+      config: { lessonPlanMode: "structured", tolerances: { retrievalCadenceOverride: 0 } },
     });
     expect(preset.retrievalCadence).toBe(BALANCED.retrievalCadence);
   });
 
   it("non-numeric override is ignored", () => {
     const preset = getPresetForPlaybook({
-      config: { tolerances: { retrievalCadenceOverride: "fast" as unknown as number } },
+      config: { lessonPlanMode: "structured", tolerances: { retrievalCadenceOverride: "fast" as unknown as number } },
     });
     expect(preset.retrievalCadence).toBe(BALANCED.retrievalCadence);
   });
 
   it("override fractional value is floored to a positive integer", () => {
     const preset = getPresetForPlaybook({
-      config: { tolerances: { retrievalCadenceOverride: 3.7 } },
+      config: { lessonPlanMode: "structured", tolerances: { retrievalCadenceOverride: 3.7 } },
     });
     expect(preset.retrievalCadence).toBe(3);
   });
