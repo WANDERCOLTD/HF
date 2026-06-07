@@ -739,9 +739,27 @@ export async function persistEndOfCall(
 
   // Pipeline gating per #1079: skip on bare "basic" — analysis will
   // arrive later and fire the pipeline against the merged row.
+  //
+  // #1241 — Cascade: Playbook.config.voice.autoPipeline (per-Playbook
+  // override) → SystemSetting `voice.auto_pipeline` (instance default).
+  // Cmd+K writes the override via `update_voice_config`; the SystemSetting
+  // remains the global fallback (default true).
   if (eventKind !== "basic") {
     const vs = await getVoiceCallSettings();
-    if (vs.autoPipeline && callerId) {
+    let autoPipeline = vs.autoPipeline;
+    if (playbookId) {
+      const playbook = await prisma.playbook.findUnique({
+        where: { id: playbookId },
+        select: { config: true },
+      });
+      const voice = (playbook?.config as Record<string, unknown> | null)?.voice as
+        | Record<string, unknown>
+        | undefined;
+      if (voice && typeof voice.autoPipeline === "boolean") {
+        autoPipeline = voice.autoPipeline;
+      }
+    }
+    if (autoPipeline && callerId) {
       triggerPipeline(newCall.id, callerId).catch((err) => {
         console.error(
           `[voice/${slug}/${sourceTag}] Pipeline trigger failed for call ${newCall.id}:`,

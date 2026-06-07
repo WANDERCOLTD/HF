@@ -1009,6 +1009,28 @@ export function SimChat({
     }
   }, [callPhase]);
 
+  // #1241 Slice 4 — reset and start the next call. Shared by the in-card
+  // CTA on the composed session-complete card and the existing footer
+  // "Start New Call" button so they behave identically.
+  const handleStartNextCall = useCallback(() => {
+    setMessages([]);
+    setArtifacts([]);
+    setActions([]);
+    setNewPromptId(null);
+    setCallEndedAt(null);
+    setCallId(null);
+    callIdRef.current = null;
+    durationBudgetRef.current = null;
+    wrapUpSentRef.current = false;
+    setTimeChip(null);
+    if (onNewCall) {
+      onNewCall();
+    } else {
+      startNewCall();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onNewCall]);
+
   const isEmbedded = mode === 'embedded';
 
   // #618: inline rename from the SIM header. PATCHes the caller, updates
@@ -1548,6 +1570,43 @@ export function SimChat({
           </div>
         )}
 
+        {/* #1241 Slice 4 — Composed "Up next" card. Lands in the
+            transcript when the call ends, giving the learner one strong
+            forward-looking action. Pipeline runs in background; while
+            newPromptId is unresolved the CTA shows a glow with
+            "Preparing next session…" — never a stale prompt. */}
+        {callPhase === 'ended' && (
+          <div className="hf-card sim-up-next-card">
+            <div className="sim-up-next-eyebrow">Up next</div>
+            <div className="sim-up-next-headline">
+              {(() => {
+                const qs = quickStart as Record<string, unknown> | null;
+                const progress = qs?.curriculum_progress as string | undefined;
+                const session = qs?.this_session as string | undefined;
+                return progress || session || 'Ready when you are.';
+              })()}
+            </div>
+            {newPromptId ? (
+              <button
+                type="button"
+                className="hf-btn hf-btn-primary sim-up-next-cta"
+                onClick={handleStartNextCall}
+              >
+                Start next call
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="hf-btn hf-btn-secondary sim-up-next-cta hf-glow-active"
+                disabled
+                aria-live="polite"
+              >
+                Preparing next session…
+              </button>
+            )}
+          </div>
+        )}
+
         {/* #1098 Slice C — Qualification readiness recap after the call settles.
             Slice D — moved ABOVE PostCallProgressCard per ux-reviewer #3: the
             qualification summary directly answers "how did that session move the
@@ -1690,24 +1749,7 @@ export function SimChat({
           background: 'var(--surface-primary)',
         }}>
           <button
-            onClick={() => {
-              // Reset state for a fresh call
-              setMessages([]);
-              setArtifacts([]);
-              setActions([]);
-              setNewPromptId(null);
-              setCallEndedAt(null);
-              setCallId(null);
-              callIdRef.current = null;
-              durationBudgetRef.current = null;
-              wrapUpSentRef.current = false;
-              setTimeChip(null);
-              if (onNewCall) {
-                onNewCall(); // Embedded mode: parent handles remount
-              } else {
-                startNewCall(); // Standalone mode: start directly
-              }
-            }}
+            onClick={handleStartNextCall}
             style={{
               padding: '10px 24px',
               borderRadius: 8,

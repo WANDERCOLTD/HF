@@ -65,6 +65,39 @@
   color: var(--wa-text-secondary);
 }
 
+/* #1241 Slice 4 — Composed "Up next" card. Inline in the transcript at
+   end-of-call so the forward-looking action lives in the conversation,
+   not in a footer the learner has to find. */
+.sim-up-next-card {
+  align-self: center;
+  max-width: 360px;
+  width: calc(100% - 32px);
+  margin: 12px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sim-up-next-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sim-up-next-headline {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.sim-up-next-cta {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
 /* Post-call progress card — compact learning summary */
 .wa-progress-card {
   align-self: center;
