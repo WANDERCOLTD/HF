@@ -601,7 +601,8 @@ registerTransform("computeQuickStart", (
               intent,
               callerName: caller?.name ?? null,
               subjectRef,
-              moduleTitle: nextModule?.title ?? null,
+              moduleTitle:
+                lockedModule?.title ?? lockedModule?.name ?? nextModule?.title ?? null,
             });
           }
         }

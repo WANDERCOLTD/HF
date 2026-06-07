@@ -110,8 +110,21 @@ export async function POST(
       requestedModuleId,
     });
 
-    // Execute composition pipeline
-    const composition = await executeComposition(callerId, sections, fullSpecConfig, triggerType);
+    // Execute composition pipeline.
+    // Thread `requestedModuleId` through so the DB-id route in
+    // `computeSharedState` (#492 Slice 3.1) can lock the session to a
+    // specific `CurriculumModule.id` — without this the picker's choice
+    // only reaches the authored-id path via specConfig, and the AI's
+    // first-line opener can re-ask "which module?" when DB-id was the
+    // only signal carried.
+    const composition = await executeComposition(
+      callerId,
+      sections,
+      fullSpecConfig,
+      triggerType,
+      requestedModuleId ?? null,
+      triggerCallId ?? null,
+    );
     const { loadedData, resolvedSpecs, metadata } = composition;
 
     console.log(`[compose-prompt] Composition: ${metadata.sectionsActivated.length} activated, ${metadata.sectionsSkipped.length} skipped (load: ${metadata.loadTimeMs}ms, transform: ${metadata.transformTimeMs}ms)`);

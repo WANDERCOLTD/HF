@@ -362,12 +362,23 @@ export function EnrollmentChat({
       </section>
       <aside className="hf-flex hf-flex-col hf-gap-md">
         <ValuesPanel values={boot.values} />
-        <TallysealIntentForm
-          spec={learnerFacingSpec}
-          suggestions={[...boot.suggestions]}
-          values={boot.values}
-        />
-        <TallysealActivityTray events={[...boot.events]} limit={20} />
+        {/* TallysealIntentForm renders the raw spec schema (every field as
+            a row). Useful when authoring/auditing an intent, noise to a
+            learner who's already seeing the populated values in
+            ValuesPanel above. Gate on NEXT_PUBLIC_DEBUG_INTAKE so only
+            local debugging sessions see it. Same for ActivityTray — the
+            hash-chained audit trail is for support/compliance review,
+            not the learner's first moment with us. */}
+        {process.env.NEXT_PUBLIC_DEBUG_INTAKE === "true" && (
+          <>
+            <TallysealIntentForm
+              spec={learnerFacingSpec}
+              suggestions={[...boot.suggestions]}
+              values={boot.values}
+            />
+            <TallysealActivityTray events={[...boot.events]} limit={20} />
+          </>
+        )}
       </aside>
     </div>
   );
