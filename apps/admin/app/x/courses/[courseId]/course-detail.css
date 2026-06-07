@@ -1,24 +1,37 @@
 /* ── Course Detail Page ── cd-* prefix ── */
 
-/* ── Hero (#1266 cleanup) ──
-   3 stacked rows: title, pills, action toolbar. Title is h2 sized so the
-   long "X — Revision Aid" titles don't wrap to 3 lines and shift layout.
-   Pills wrap inside their own row. Action toolbar is right-aligned and
-   can wrap below 920px so the buttons keep their full padding instead of
-   compressing into icons. */
+/* ── Hero (#1266 cleanup, revised again for stable button position) ──
+   Title + action toolbar share a single top row so the buttons stay
+   pinned top-right regardless of pills count or lens content width.
+   Pills row sits below and wraps freely. Title shrinks with ellipsis
+   if the course name is very long; buttons never compress or jump. */
 .cd-hero {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.cd-hero-title-row {
+.cd-hero-top {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 0;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
 }
-.cd-hero-title-row > * {
+.cd-hero-title-wrap {
+  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
+}
+.cd-hero-title-wrap > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.cd-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .cd-hero-pills {
   display: flex;
@@ -26,13 +39,16 @@
   align-items: center;
   gap: 8px;
 }
-.cd-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
+
+/* Narrow viewports — actions drop below the title row, can wrap. */
+@media (max-width: 1100px) {
+  .cd-hero-top {
+    flex-wrap: wrap;
+  }
+  .cd-hero-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 }
 
 /* Fill bar (capacity indicator) */
