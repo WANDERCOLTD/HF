@@ -1621,25 +1621,52 @@ async function runBatchedAgentAnalysis(
 }
 
 /**
- * Compute reward score
+ * Compute reward score (#1256).
  *
- * When the caller has active assessment target goals, computes a goalProgressScore
- * (weighted average of goal progress * priority) and composites it with the behavior
- * score: overallScore = 0.8 * behaviorScore + 0.2 * goalProgressScore.
- * When no assessment targets exist, uses behavior score alone (backward compatible).
+ * STRUCTURED courses: weighted blend of behaviorScore (diff to SYSTEM
+ * targets) and goalProgressScore. The previous `targetValue ?? 0.5` and
+ * "no measurements → 0.5" silent fallbacks are now hard errors — every
+ * MEASURE-emitted parameter must have a real SYSTEM-scope BehaviorTarget
+ * at publish time (#1252 acceptance criteria).
+ *
+ * CONTINUOUS courses: no fixed module mastery, often no behavior targets
+ * configured. The function returns `{ overallScore: null }` and SKIPS the
+ * `RewardScore.upsert` entirely. Downstream readers (`compose-next-prompt`,
+ * `update-targets`) are already null-safe on the `Call.rewardScore`
+ * relation. ADAPT doesn't read REWARD output from ctx (verified — it
+ * reads CallerAttribute), so the missing row doesn't cascade.
  */
 async function computeReward(
   callId: string,
+  courseStyle: CourseStyle,
   log: PipelineLogger
-): Promise<{ overallScore: number }> {
+): Promise<{ overallScore: number | null }> {
   const call = await prisma.call.findUnique({
     where: { id: callId },
     include: { behaviorMeasurements: true },
   });
 
-  if (!call || call.behaviorMeasurements.length === 0) {
-    log.warn("No behavior measurements for reward");
-    return { overallScore: 0.5 };
+  if (!call) {
+    log.warn("computeReward: call not found");
+    return { overallScore: null };
+  }
+
+  // #1256 — CONTINUOUS branch: no targets to diff against, no module
+  // mastery to composite. Skip the write; return null.
+  if (courseStyle === "continuous") {
+    log.info("REWARD: CONTINUOUS course — skipping RewardScore.upsert (overallScore=null)");
+    return { overallScore: null };
+  }
+
+  // STRUCTURED branch from here down.
+  if (call.behaviorMeasurements.length === 0) {
+    // Hard error — STRUCTURED courses ran MEASURE without producing any
+    // BehaviorMeasurements. Silent 0.5 fallback was the bug class #1252
+    // is closing. Surface it and let the outer Promise.allSettled record
+    // the failure on the pipeline run rather than write a fake score.
+    throw new Error(
+      `REWARD: STRUCTURED call ${callId} has zero BehaviorMeasurements — refusing silent 0.5 fallback (#1256)`,
+    );
   }
 
   // Load system targets
@@ -1647,18 +1674,35 @@ async function computeReward(
     where: { scope: "SYSTEM" },
   });
 
-  const diffs: any[] = [];
+  const diffs: Array<{ parameterId: string; target: number; actual: number; diff: number }> = [];
+  const missingTargetParams: string[] = [];
   for (const measurement of call.behaviorMeasurements) {
     const target = targets.find((t) => t.parameterId === measurement.parameterId);
-    const targetValue = target?.targetValue ?? 0.5;
-    const diff = Math.abs(measurement.actualValue - targetValue);
-    diffs.push({ parameterId: measurement.parameterId, target: targetValue, actual: measurement.actualValue, diff });
+    if (!target) {
+      missingTargetParams.push(measurement.parameterId);
+      continue;
+    }
+    const diff = Math.abs(measurement.actualValue - target.targetValue);
+    diffs.push({
+      parameterId: measurement.parameterId,
+      target: target.targetValue,
+      actual: measurement.actualValue,
+      diff,
+    });
+  }
+
+  if (missingTargetParams.length > 0) {
+    // Hard error — every MEASURE-emitted parameter must have a SYSTEM
+    // BehaviorTarget. The 0.5 fallback would have silently scored these
+    // against a guessed midpoint.
+    throw new Error(
+      `REWARD: STRUCTURED call ${callId} produced measurements for parameters with no SYSTEM BehaviorTarget — refusing silent 0.5 fallback (#1256). Missing: ${missingTargetParams.join(", ")}`,
+    );
   }
 
   const avgDiff = diffs.length > 0 ? diffs.reduce((sum, d) => sum + d.diff, 0) / diffs.length : 0;
   const behaviorScore = Math.max(0, 1 - avgDiff);
 
-  // Compute goal progress reward for assessment targets
   let goalProgressScore: number | null = null;
   let overallScore = behaviorScore;
 
@@ -1672,18 +1716,14 @@ async function computeReward(
   });
 
   if (assessmentGoals.length > 0) {
-    // Weighted average of goal progress by priority
     const totalWeight = assessmentGoals.reduce((sum, g) => sum + (g.priority || 5), 0);
     goalProgressScore = assessmentGoals.reduce(
       (sum, g) => sum + g.progress * (g.priority || 5), 0
     ) / totalWeight;
-
-    // Composite: 80% behavior + 20% goal progress
     overallScore = 0.8 * behaviorScore + 0.2 * goalProgressScore;
     log.info(`Goal progress reward`, { goalProgressScore, assessmentGoals: assessmentGoals.length });
   }
 
-  // Store reward
   await prisma.rewardScore.upsert({
     where: { callId },
     create: { callId, overallScore, goalProgressScore, modelVersion: "batched_v1", parameterDiffs: diffs },
@@ -3641,7 +3681,7 @@ const stageExecutors: Record<string, StageExecutor> = {
   // REWARD stage: Compute reward scores
   REWARD: async (ctx, stage) => {
     ctx.log.info(`Stage ${stage.name}: ${stage.description}`);
-    const rewardResult = await computeReward(ctx.callId, ctx.log);
+    const rewardResult = await computeReward(ctx.callId, ctx.courseStyle, ctx.log);
     return {
       rewardScore: rewardResult.overallScore,
     };
