@@ -87,13 +87,55 @@ interface RowSpec {
 
 type DrawerKind = null | "mode" | "kc-delivery" | "nps" | "welcome-msg" | "onboarding-phases" | "offboarding-phases";
 
+/**
+ * Lens scoping (Slice 1 of #1263 / story #1266).
+ *
+ * When `activeSection` is set, SessionFlowEditor renders ONLY the rows
+ * that belong to the named journey lens — the BEFORE / DURING / AFTER
+ * section headers and the editor's own header are hidden because
+ * `<ConsoleShell>` already provides surrounding context. When undefined
+ * (legacy callers), the full BEFORE/DURING/AFTER timeline renders.
+ */
+export type SessionFlowLens =
+  | "intake"
+  | "onboarding"
+  | "stops"
+  | "offboarding"
+  | "welcome";
+
+const ROW_TO_LENS: Record<string, SessionFlowLens> = {
+  goals: "intake",
+  "about-you": "intake",
+  "knowledge-check": "intake",
+  "ai-intro-call": "intake",
+  onboarding: "onboarding",
+  sessions: "stops",
+  "pre-test": "stops",
+  "mid-test": "stops",
+  "post-test": "stops",
+  nps: "stops",
+  offboarding: "offboarding",
+  "welcome-message": "welcome",
+};
+
+function rowsForLens(rows: RowSpec[], lens: SessionFlowLens | undefined): RowSpec[] {
+  if (!lens) return rows;
+  return rows.filter((r) => ROW_TO_LENS[r.id] === lens);
+}
+
 export type SessionFlowEditorProps = {
   courseId: string;
+  /**
+   * When set, only render rows belonging to the named lens. Used by
+   * `<CourseDesignConsole>` to surface one journey stage per panel.
+   * When omitted, the full BEFORE/DURING/AFTER timeline renders.
+   */
+  activeSection?: SessionFlowLens;
 };
 
 // ── Component ──────────────────────────────────────────────
 
-export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
+export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditorProps) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -382,23 +424,57 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
 
   const toggleRow = (id: string) => setExpandedId(prev => (prev === id ? null : id));
 
+  const beforeRows = rowsForLens(before, activeSection);
+  const duringRows = rowsForLens(during, activeSection);
+  const afterRows = rowsForLens(after, activeSection);
+  const isLensMode = activeSection !== undefined;
+
   return (
     <>
       <div className="sft">
-        <header className="sft-header">
-          <div className="sft-header-title">
-            <Settings2 size={16} />
-            <span>Session Flow</span>
-          </div>
-          <div className="sft-header-meta">
-            <span className="sft-pill">Mode: {mode}</span>
-            {teachingMode && <span className="sft-pill">Type: {teachingMode}</span>}
-          </div>
-        </header>
+        {!isLensMode && (
+          <header className="sft-header">
+            <div className="sft-header-title">
+              <Settings2 size={16} />
+              <span>Session Flow</span>
+            </div>
+            <div className="sft-header-meta">
+              <span className="sft-pill">Mode: {mode}</span>
+              {teachingMode && <span className="sft-pill">Type: {teachingMode}</span>}
+            </div>
+          </header>
+        )}
 
-        <Section title="BEFORE" rows={before} expandedId={expandedId} onToggle={toggleRow} onEdit={handleEdit} savingToggle={savingToggle} />
-        <Section title="DURING" rows={during} expandedId={expandedId} onToggle={toggleRow} onEdit={handleEdit} savingToggle={savingToggle} />
-        <Section title="AFTER" rows={after} expandedId={expandedId} onToggle={toggleRow} onEdit={handleEdit} savingToggle={savingToggle} />
+        {beforeRows.length > 0 && (
+          <Section
+            title={isLensMode ? null : "BEFORE"}
+            rows={beforeRows}
+            expandedId={expandedId}
+            onToggle={toggleRow}
+            onEdit={handleEdit}
+            savingToggle={savingToggle}
+          />
+        )}
+        {duringRows.length > 0 && (
+          <Section
+            title={isLensMode ? null : "DURING"}
+            rows={duringRows}
+            expandedId={expandedId}
+            onToggle={toggleRow}
+            onEdit={handleEdit}
+            savingToggle={savingToggle}
+          />
+        )}
+        {afterRows.length > 0 && (
+          <Section
+            title={isLensMode ? null : "AFTER"}
+            rows={afterRows}
+            expandedId={expandedId}
+            onToggle={toggleRow}
+            onEdit={handleEdit}
+            savingToggle={savingToggle}
+          />
+        )}
       </div>
 
       {drawer === "mode" && (
@@ -500,7 +576,7 @@ function PhaseListDrawer({
 function Section({
   title, rows, expandedId, onToggle, onEdit, savingToggle,
 }: {
-  title: string;
+  title: string | null;
   rows: RowSpec[];
   expandedId: string | null;
   onToggle: (id: string) => void;
@@ -509,7 +585,7 @@ function Section({
 }) {
   return (
     <div className="sft-section">
-      <h3 className="sft-section-title">{title}</h3>
+      {title !== null && <h3 className="sft-section-title">{title}</h3>}
       <ul className="sft-rows">
         {rows.map(row => (
           <Row
