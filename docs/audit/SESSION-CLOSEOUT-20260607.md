@@ -37,6 +37,10 @@ B1 (caller-detail tab-loaded slices), B2 (paginate `/courses/[id]/learners`), B3
 ### Track C remainder (eval + capability)
 C1–C3 (`pipeline.measure` / `pipeline.score_agent` rubric evals + cross-model harness) are the critical gate for **C4 (Sonnet → Haiku demotion, ~$19k/yr saving at 1k calls/day)**. C5–C10 follow. No dependency between C1–C2 → can start immediately.
 
+## Market-test readiness
+
+Separate assessment in `docs/audit/MARKET-TEST-READINESS-20260607.md`. **Headline: not ready as-is.** Three operator-action items (A3, B3, A7 wiring) must land before opening to >20 concurrent users. After that, a 4-day engineering sprint on C5 / B11 / B6 / B4 clears the remaining audit-cited risks for market test. Code lands; gcloud + Scheduler do the rest.
+
 ## Recommended first move next session
 
 B5 + B8 shipped late in this session. The remaining quick wins from Track B:
