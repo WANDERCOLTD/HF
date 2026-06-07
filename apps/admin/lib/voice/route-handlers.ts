@@ -595,7 +595,13 @@ export async function persistEndOfCall(
       // definition. Webhook path also stamps it on the first real
       // end-of-call merge so the row exits the "in-progress" state.
       ...((sourceTag === "fallback" || isFirstEndOfCall)
-        ? { endedAt: new Date() }
+        ? {
+            endedAt: new Date(),
+            // #1241 — stamp endSource on the merge-to-ended transition
+            // so the row carries it through downstream readers. Mirror
+            // the create path's source-tag → endSource mapping.
+            endSource: sourceTag === "fallback" ? "poll" : "webhook",
+          }
         : {}),
       ...(nextSequence != null ? { callSequence: nextSequence } : {}),
     };
@@ -710,6 +716,11 @@ export async function persistEndOfCall(
       callerId,
       usedPromptId,
       endedAt,
+      // #1241 — server-side end-of-call writer. `sourceTag` already
+      // distinguishes the webhook path from the poll-fallback path, so
+      // mirror it: 'webhook' for normal end-of-call, 'poll' when the
+      // 90s stale-calls cron reconciled. See lib/voice/end-source.ts.
+      endSource: sourceTag === "fallback" ? "poll" : "webhook",
       ...(playbookId ? { playbookId } : {}),
       ...(nextSequence != null ? { callSequence: nextSequence } : {}),
       ...persistableCapture,
@@ -739,9 +750,27 @@ export async function persistEndOfCall(
 
   // Pipeline gating per #1079: skip on bare "basic" — analysis will
   // arrive later and fire the pipeline against the merged row.
+  //
+  // #1241 — Cascade: Playbook.config.voice.autoPipeline (per-Playbook
+  // override) → SystemSetting `voice.auto_pipeline` (instance default).
+  // Cmd+K writes the override via `update_voice_config`; the SystemSetting
+  // remains the global fallback (default true).
   if (eventKind !== "basic") {
     const vs = await getVoiceCallSettings();
-    if (vs.autoPipeline && callerId) {
+    let autoPipeline = vs.autoPipeline;
+    if (playbookId) {
+      const playbook = await prisma.playbook.findUnique({
+        where: { id: playbookId },
+        select: { config: true },
+      });
+      const voice = (playbook?.config as Record<string, unknown> | null)?.voice as
+        | Record<string, unknown>
+        | undefined;
+      if (voice && typeof voice.autoPipeline === "boolean") {
+        autoPipeline = voice.autoPipeline;
+      }
+    }
+    if (autoPipeline && callerId) {
       triggerPipeline(newCall.id, callerId).catch((err) => {
         console.error(
           `[voice/${slug}/${sourceTag}] Pipeline trigger failed for call ${newCall.id}:`,

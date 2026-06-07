@@ -3300,6 +3300,8 @@ Update call data (e.g., transcript or summary after AI simulation). Only provide
 | callId | path | string | Yes | The call ID to update |
 | transcript | body | string | No | Updated call transcript (optional) |
 | summary | body | string | No | Updated call summary (optional) |
+| endedAt | body | string | No | ISO timestamp the call ended (optional) |
+| endSource | body | string | No | How the call ended: sdk|sse|webhook|manual|drop|poll|discard (#1241, optional) |
 
 **Response** `200`
 ```json

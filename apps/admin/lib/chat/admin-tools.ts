@@ -828,7 +828,7 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "update_voice_config",
     description:
-      "Adjust voice configuration for a Playbook by merging into Playbook.config.voice. Allowed keys: provider (string), model (string), endedReasonOverride (string|null), pollIntervalMs (integer), maxCostPerCallUsd (number). The model.secret field is DELIBERATELY not accepted — secret rotation is an operator-only flow. Bumps Playbook.composeInputsUpdatedAt.",
+      "Adjust voice configuration for a Playbook by merging into Playbook.config.voice. Allowed keys: provider (string), model (string), endedReasonOverride (string|null), pollIntervalMs (integer), maxCostPerCallUsd (number), autoPipeline (boolean — when true the post-call analysis pipeline runs automatically when the call ends; default true via SystemSetting). The model.secret field is DELIBERATELY not accepted — secret rotation is an operator-only flow. Bumps Playbook.composeInputsUpdatedAt.",
     input_schema: {
       type: "object",
       properties: {
@@ -842,6 +842,7 @@ export const ADMIN_TOOLS: AITool[] = [
             endedReasonOverride: { type: ["string", "null"] },
             pollIntervalMs: { type: "integer" },
             maxCostPerCallUsd: { type: "number" },
+            autoPipeline: { type: "boolean" },
           },
         },
         reason: { type: "string" },

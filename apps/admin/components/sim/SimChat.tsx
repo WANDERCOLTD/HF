@@ -15,6 +15,7 @@ import { MediaLibraryPanel } from './MediaLibraryPanel';
 import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
 import { useProviderCall } from './useProviderCall';
+import { labelForEndSource } from '@/lib/voice/end-source';
 import { useOutboundDial } from './useOutboundDial';
 import { config } from '@/lib/config';
 import type { MediaInfo } from './MessageBubble';
@@ -177,8 +178,16 @@ export function SimChat({
   const [error, setError] = useState<string | null>(null);
   const [artifacts, setArtifacts] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
-  const [callPhase, setCallPhase] = useState<'loading' | 'lobby' | 'active' | 'ended'>('loading');
+  // `wrapping` covers the gap between phone-hangup detected (via the SDK
+  // `call-end` event or SSE `call-ended`) and the pipeline returning. Input
+  // is disabled and a glowing "Wrapping up…" marker renders inline. #1241.
+  const [callPhase, setCallPhase] = useState<'loading' | 'lobby' | 'active' | 'wrapping' | 'ended'>('loading');
   const [callEndedAt, setCallEndedAt] = useState<Date | null>(null);
+  // #1241 Slice 6 — tracks the local guess at how the call ended so the
+  // wrap-marker can label it ("Ended on phone" / "Connection lost" / etc.)
+  // without an extra round-trip. The DB stamp (also `endSource`) is the
+  // source of truth across surfaces — this is the live in-page mirror.
+  const [callEndSource, setCallEndSource] = useState<string | null>(null);
   const [newPromptId, setNewPromptId] = useState<string | null>(null);
   const [quickStart, setQuickStart] = useState<Record<string, unknown> | null>(null);
   const [showContentPicker, setShowContentPicker] = useState(false);
@@ -327,6 +336,35 @@ export function SimChat({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming, artifacts, actions, journey?.items, journey?.state, callPhase, timeChip, newPromptId]);
 
+  // #1241 Slice 5 — 30s silence watchdog. While a call is active and the
+  // provider has acknowledged it, expect at least one transcript-partial
+  // (or chat-side message) every 30s. Silence beyond that strongly
+  // suggests a dropped phone call or a stalled SSE stream. Surface a
+  // banner with a "Mark as ended" escape hatch so the learner doesn't
+  // sit staring at a frozen UI for the 90s server-poll backstop. The
+  // banner clears automatically once activity resumes.
+  const lastActivityRef = useRef<number>(Date.now());
+  const [silenceWarning, setSilenceWarning] = useState(false);
+  useEffect(() => {
+    lastActivityRef.current = Date.now();
+    setSilenceWarning(false);
+  }, [messages.length]);
+  useEffect(() => {
+    if (callPhase !== 'active') {
+      setSilenceWarning(false);
+      return;
+    }
+    const inLiveVoice =
+      providerCall.status === 'connecting' || providerCall.status === 'active';
+    if (!inLiveVoice) return;
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current > 30_000) {
+        setSilenceWarning(true);
+      }
+    }, 5_000);
+    return () => clearInterval(interval);
+  }, [callPhase, providerCall.status]);
+
   // Poll for server-side messages (teacher interjections only)
   // AI-shared media is now handled via the X-Shared-Media response header
   // and attached to the streaming message directly — no need to poll for it.
@@ -431,8 +469,38 @@ export function SimChat({
               } : null,
             }));
             setMessages(restored);
-            setCallPhase('active');
-            console.log(`[sim] Restored ${restored.length} messages from active call`);
+
+            // #1241 Slice 5 — drop recovery. If the last message is more
+            // than 5 minutes old the voice channel almost certainly died
+            // (dropped call, browser crash, tab close) — the DB row is
+            // still "non-ended" because nothing fired the end-of-call
+            // writer. Treat the call as ended so the wrap UI renders and
+            // the learner can start fresh. Operator confirmed dropped
+            // calls do NOT continue — no resume-mid-call complexity.
+            const lastTs = restored[restored.length - 1]?.timestamp;
+            const staleMs = lastTs ? Date.now() - lastTs.getTime() : 0;
+            if (staleMs > 5 * 60 * 1000) {
+              console.log(`[sim] Active call is stale (${Math.round(staleMs / 60000)}m since last message) — sealing as ended`);
+              setCallEndedAt(lastTs ?? new Date());
+              setCallEndSource('drop');
+              setCallPhase('ended');
+              // #1241 Slice 6 — also seal the DB row so the 90s server
+              // poll doesn't keep finding it. endSource='drop' so the
+              // wrap-marker labels it "Connection lost". Fire-and-forget
+              // — failure is non-fatal because the local UI already shows
+              // ended and the server poll is the safety net.
+              fetch(`/api/calls/${activeCall.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  endedAt: (lastTs ?? new Date()).toISOString(),
+                  endSource: 'drop',
+                }),
+              }).catch((err) => console.warn('[sim] stale-resume seal failed:', err));
+            } else {
+              setCallPhase('active');
+              console.log(`[sim] Restored ${restored.length} messages from active call`);
+            }
           } else if (!cancelled) {
             // Active call exists but has no messages — re-send greeting
             console.log('[sim] Active call has no messages, sending greeting');
@@ -771,7 +839,17 @@ export function SimChat({
   }
 
   // End call
-  const handleEndCall = useCallback(async () => {
+  // #1241 — `endSource` tags the row with which path closed it:
+  //   sdk     VAPI Web SDK call-end
+  //   sse     SSE call-ended (server-side end-of-call broadcast)
+  //   manual  Operator sheet "End Call" / STUDENT red-X auto-end
+  //   drop    30s silence watchdog / stale-resume reconciliation
+  //   poll    server-side stale-call reconciler (handled in its own writer)
+  // Default is "manual" because the sheet path is the historical caller;
+  // every other invocation site MUST pass an explicit value.
+  const handleEndCall = useCallback(async (opts?: { endSource?: 'sdk' | 'sse' | 'manual' | 'drop' }) => {
+    const endSource = opts?.endSource ?? 'manual';
+    setCallEndSource(endSource);
     setIsEnding(true);
 
     // Tear down any live voice channel BEFORE saving the transcript.
@@ -834,7 +912,7 @@ export function SimChat({
       const patchRes = await fetch(`/api/calls/${callId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, endedAt: new Date().toISOString() }),
+        body: JSON.stringify({ transcript, endedAt: new Date().toISOString(), endSource }),
       });
 
       if (!patchRes.ok) {
@@ -924,6 +1002,74 @@ export function SimChat({
     }
   }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onCallStateChange, onBack, journey, providerCall, outboundDial]);
 
+  // #1241 — Reactive auto-wrap on provider call-end.
+  //
+  // `useProviderCall` already flips `status` to 'ended' from two paths:
+  //   (a) the VAPI Web SDK `call-end` event (Talk-Here / WebRTC),
+  //   (b) the SSE `call-ended` event (server-side end-of-call writer).
+  //
+  // SimChat used to ignore that signal — the operator/learner had to tap
+  // the red X and confirm a sheet to advance the phase. This effect closes
+  // that gap: when the provider says ended, flip the phase straight into
+  // `wrapping` and let `handleEndCall` finish the save + pipeline run.
+  //
+  // Idempotency: guarded by `isEnding` (set inside `handleEndCall` on the
+  // first call) plus a phase check so this never re-fires once we leave
+  // the active phase.
+  const autoEndFiredRef = useRef(false);
+  useEffect(() => {
+    if (providerCall.status !== 'ended') return;
+    if (callPhase !== 'active') return;
+    // If the manual sheet path is already running (or any other
+    // handleEndCall invocation), don't double-fire when the SDK's
+    // call-end event flips status mid-save.
+    if (isEnding) return;
+    // No chat-side call record means there's nothing to save (e.g. user
+    // dialled Talk-Here from the lobby and hung up before sending any chat
+    // message). `handleEndCall` would early-return; keep the phase at
+    // 'active' so the lobby UI can recover via the existing reset paths.
+    if (!callId) return;
+    if (autoEndFiredRef.current) return;
+    autoEndFiredRef.current = true;
+    setCallPhase('wrapping');
+    // #1241 — `providerCall.endedBy` distinguishes the SDK call-end event
+    // from the SSE call-ended broadcast so analytics can tell browser
+    // hangups apart from PSTN/webhook closures. Falls back to 'sdk' if
+    // the source wasn't captured (shouldn't happen — defensive).
+    void handleEndCall({ endSource: providerCall.endedBy ?? 'sdk' });
+  }, [providerCall.status, providerCall.endedBy, callPhase, callId, isEnding, handleEndCall]);
+
+  // Reset the latch when a fresh call starts so a subsequent call can
+  // auto-wrap too.
+  useEffect(() => {
+    if (callPhase === 'lobby' || callPhase === 'loading') {
+      autoEndFiredRef.current = false;
+    }
+  }, [callPhase]);
+
+  // #1241 Slice 4 — reset and start the next call. Shared by the in-card
+  // CTA on the composed session-complete card and the existing footer
+  // "Start New Call" button so they behave identically.
+  const handleStartNextCall = useCallback(() => {
+    setMessages([]);
+    setArtifacts([]);
+    setActions([]);
+    setNewPromptId(null);
+    setCallEndedAt(null);
+    setCallEndSource(null);
+    setCallId(null);
+    callIdRef.current = null;
+    durationBudgetRef.current = null;
+    wrapUpSentRef.current = false;
+    setTimeChip(null);
+    if (onNewCall) {
+      onNewCall();
+    } else {
+      startNewCall();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onNewCall]);
+
   const isEmbedded = mode === 'embedded';
 
   // #618: inline rename from the SIM header. PATCHes the caller, updates
@@ -956,7 +1102,19 @@ export function SimChat({
           return playbookName || subjectDiscipline || domainName;
         })()}
         onBack={onBack}
-        onEndCall={() => setShowEndSheet(true)}
+        onEndCall={() => {
+          // #1241 Slice 2 — learners (STUDENT) skip the sheet entirely.
+          // The toggle ("Run analysis pipeline") is a system concept
+          // they can't reason about; pipeline runs by default for them.
+          // Operators keep the sheet for now — Slice 3 moves the toggle
+          // to Playbook config and Slice 4 collapses the wrap UI.
+          if (!isOperator) {
+            if (callPhase === 'active') setCallPhase('wrapping');
+            void handleEndCall();
+            return;
+          }
+          setShowEndSheet(true);
+        }}
         onMediaLibrary={() => {
           setShowMediaLibrary(prev => !prev);
           setShowContentPicker(false);
@@ -1317,8 +1475,8 @@ export function SimChat({
           </div>
         )}
 
-        {/* Active/ended: session separator + live messages */}
-        {(callPhase === 'active' || callPhase === 'ended') && (
+        {/* Active/wrapping/ended: session separator + live messages */}
+        {(callPhase === 'active' || callPhase === 'wrapping' || callPhase === 'ended') && (
           <>
             {/* Separator between history and live session */}
             {hasHistory && (
@@ -1388,6 +1546,45 @@ export function SimChat({
           </div>
         )}
 
+        {/* #1241 Slice 5 — 30s silence watchdog banner. Surfaces when no
+            transcript activity for >30s during a live call. Provides a
+            "Mark as ended" escape hatch so the learner isn't stuck if the
+            provider event never lands. Cleared on any new message. */}
+        {silenceWarning && callPhase === 'active' && (
+          <div
+            className="hf-banner hf-banner-warning"
+            role="status"
+            aria-live="polite"
+            style={{ margin: '8px auto', maxWidth: 380 }}
+          >
+            <span>Connection has been quiet for a while — call may have ended.</span>
+            <button
+              type="button"
+              className="hf-btn hf-btn-secondary"
+              onClick={() => {
+                setSilenceWarning(false);
+                if (callPhase === 'active') setCallPhase('wrapping');
+                void handleEndCall({ endSource: 'drop' });
+              }}
+            >
+              Mark as ended
+            </button>
+          </div>
+        )}
+
+        {/* #1241 — Wrapping-up marker. Renders while the pipeline runs
+            after a phone hangup. Non-blocking glow (hf-glow-active) — the
+            transcript stays scrollable, only the input is disabled. */}
+        {callPhase === 'wrapping' && (
+          <div className="wa-call-marker">
+            <div className="wa-call-marker-icon hf-glow-active" aria-hidden="true" />
+            <div>
+              <div className="sim-wrapping-title">Wrapping up…</div>
+              <div className="sim-wrapping-sub">Saving the call and analysing in the background.</div>
+            </div>
+          </div>
+        )}
+
         {/* Call ended marker — WhatsApp-style voice call card */}
         {callPhase === 'ended' && (
           <div className="wa-call-marker">
@@ -1397,7 +1594,7 @@ export function SimChat({
               </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 500, color: 'var(--wa-text-primary)' }}>Call ended</div>
+              <div style={{ fontWeight: 500, color: 'var(--wa-text-primary)' }}>{labelForEndSource(callEndSource)}</div>
               <div style={{ fontSize: 12 }}>
                 {(() => {
                   if (!callEndedAt || messages.length === 0) return '';
@@ -1409,6 +1606,43 @@ export function SimChat({
                 })()}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* #1241 Slice 4 — Composed "Up next" card. Lands in the
+            transcript when the call ends, giving the learner one strong
+            forward-looking action. Pipeline runs in background; while
+            newPromptId is unresolved the CTA shows a glow with
+            "Preparing next session…" — never a stale prompt. */}
+        {callPhase === 'ended' && (
+          <div className="hf-card sim-up-next-card">
+            <div className="sim-up-next-eyebrow">Up next</div>
+            <div className="sim-up-next-headline">
+              {(() => {
+                const qs = quickStart as Record<string, unknown> | null;
+                const progress = qs?.curriculum_progress as string | undefined;
+                const session = qs?.this_session as string | undefined;
+                return progress || session || 'Ready when you are.';
+              })()}
+            </div>
+            {newPromptId ? (
+              <button
+                type="button"
+                className="hf-btn hf-btn-primary sim-up-next-cta"
+                onClick={handleStartNextCall}
+              >
+                Start next call
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="hf-btn hf-btn-secondary sim-up-next-cta hf-glow-active"
+                disabled
+                aria-live="polite"
+              >
+                Preparing next session…
+              </button>
+            )}
           </div>
         )}
 
@@ -1554,24 +1788,7 @@ export function SimChat({
           background: 'var(--surface-primary)',
         }}>
           <button
-            onClick={() => {
-              // Reset state for a fresh call
-              setMessages([]);
-              setArtifacts([]);
-              setActions([]);
-              setNewPromptId(null);
-              setCallEndedAt(null);
-              setCallId(null);
-              callIdRef.current = null;
-              durationBudgetRef.current = null;
-              wrapUpSentRef.current = false;
-              setTimeChip(null);
-              if (onNewCall) {
-                onNewCall(); // Embedded mode: parent handles remount
-              } else {
-                startNewCall(); // Standalone mode: start directly
-              }
-            }}
+            onClick={handleStartNextCall}
             style={{
               padding: '10px 24px',
               borderRadius: 8,
