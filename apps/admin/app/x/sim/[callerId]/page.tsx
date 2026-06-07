@@ -153,9 +153,30 @@ export default function SimConversationPage() {
   useEffect(() => {
     let cancelled = false;
 
+    // #1247 — post-enrol /intake/done → /x/sim race. First fetch can
+    // surface "Caller not found" while the sidebar's separate fetch
+    // (which fires fractionally later) sees the newly-created caller.
+    // Hard refresh fixes it permanently. Defensive retry: on the first
+    // 403/404, wait 300ms and try once more with `cache: 'no-store'`.
+    // If the row really doesn't exist the second 404 surfaces the
+    // error as before; if it's the race, the second hit lands clean.
+    // Console breadcrumb so we can detect any recurring window in dev
+    // / staging logs.
+    async function fetchCallerOnce(noCache: boolean) {
+      return fetch(`/api/callers/${callerId}`, noCache ? { cache: 'no-store' } : undefined);
+    }
+
     async function fetchCaller() {
       try {
-        const res = await fetch(`/api/callers/${callerId}`);
+        let res = await fetchCallerOnce(false);
+        if ((res.status === 403 || res.status === 404) && !cancelled) {
+          console.warn(
+            `[sim/page] caller fetch returned ${res.status} on first try (callerId=${callerId}) — retrying after 300ms (#1247 defensive retry)`,
+          );
+          await new Promise((r) => setTimeout(r, 300));
+          if (cancelled) return;
+          res = await fetchCallerOnce(true);
+        }
         if (res.status === 401) {
           if (!cancelled) {
             router.push(`/login?callbackUrl=${encodeURIComponent(`/x/sim/${callerId}`)}`);
