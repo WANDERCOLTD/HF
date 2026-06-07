@@ -12,6 +12,7 @@ import noOrphanInstructionFallback from "./eslint-rules/no-orphan-instruction-fa
 import noVapiColumnRef from "./eslint-rules/hf-voice/no-vapi-column-ref.mjs";
 import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-definitions-const.mjs";
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
+import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -137,6 +138,22 @@ const eslintConfig = defineConfig([
           "no-undeclared-field-require": noUndeclaredFieldRequire,
         },
       },
+      // #1252 / #1259 — default-deny module reads. Any
+      // `prisma.callerModuleProgress.*` call outside an explicit
+      // `courseStyle === "structured"` guard is an error. CONTINUOUS
+      // courses have no module-progress semantic; reading anyway is
+      // the bug class this epic kills. Allowlisted call-sites:
+      //   - lib/enrollment/instantiate-module-progress.ts
+      //   - app/api/calls/[callId]/pipeline/route.ts
+      //   - lib/prompt/composition/transforms/modules.ts
+      //   - lib/curriculum/track-progress.ts
+      //   - scripts/**, tests/**, __tests__/**
+      "hf-pipeline": {
+        rules: {
+          "no-module-read-without-course-style-guard":
+            noModuleReadWithoutCourseStyleGuard,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -153,6 +170,11 @@ const eslintConfig = defineConfig([
       "hf-voice/no-vapi-column-ref": "error",
       "hf-voice/no-vapi-tool-definitions-const": "error",
       "hf-wizard-v6/no-undeclared-field-require": "error",
+      // #1252 / #1259 — lands as `warn` initially to avoid blocking
+      // pre-existing call-sites discovered during epic landing.
+      // Promoted to `error` once full sweep complete + audit counter
+      // reads 0 for ≥7 days.
+      "hf-pipeline/no-module-read-without-course-style-guard": "warn",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
