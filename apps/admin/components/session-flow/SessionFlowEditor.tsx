@@ -281,8 +281,19 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
     {
       id: "welcome-message",
       icon: <MessageSquare size={16} />,
-      label: "Welcome message",
-      summary: sessionFlow.welcomeMessage ? truncate(sessionFlow.welcomeMessage, 60) : "Generic fallback",
+      // #1316 — Renamed to "Course opening line" to disambiguate from
+      // the Domain-level Domain.onboardingWelcome (also surfaced as
+      // "Welcome message" on the Domain editor). Source badge is now
+      // inline in the summary so the operator sees at a glance whether
+      // the value comes from Course / Domain / generic without expanding
+      // the row details. Matches the onboarding row pattern at :276.
+      label: "Course opening line",
+      summary: (() => {
+        const text = sessionFlow.welcomeMessage
+          ? truncate(sessionFlow.welcomeMessage, 60)
+          : "Generic fallback";
+        return `${text} · source: ${sourceLabel(sessionFlow.source.welcomeMessage)}`;
+      })(),
       status: sessionFlow.welcomeMessage ? "enabled" : "default",
       details: welcomeMessageDetails(sessionFlow),
       editable: true,

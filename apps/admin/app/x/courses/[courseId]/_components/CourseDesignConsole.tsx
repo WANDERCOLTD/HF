@@ -146,39 +146,45 @@ const PreviewLensWrap: React.FC<LensProps> = ({ courseId }) => (
 PreviewLensWrap.displayName = "PreviewLensWrap";
 
 const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
+  // #1316 — Number the JOURNEY lenses ① ② ③ ④ ⑤ so the operator sees the
+  // learner-journey sequence at a glance from the LH-nav. Labels-only
+  // change; lens order in DESIGN_LENS_ORDER already encodes the sequence.
   intake: {
     id: "intake",
-    label: "Intake",
+    label: "① Intake",
     iconNode: <GraduationCap size={ICON_SIZE} />,
     blurb: "Goals question, About You, Knowledge Check, AI Intro Call — what Call 1 asks the learner.",
     Component: makeJourneyLens("intake"),
   },
   onboarding: {
     id: "onboarding",
-    label: "Onboarding",
+    label: "② Onboarding",
     iconNode: <Sparkles size={ICON_SIZE} />,
     blurb: "First-call structural template — phases, durations, goals.",
     Component: makeJourneyLens("onboarding"),
   },
   stops: {
     id: "stops",
-    label: "Session Stops",
+    label: "③ Session Stops",
     iconNode: <ClipboardCheck size={ICON_SIZE} />,
     blurb: "Pre-test / mid-test / post-test / NPS — the gated moments around teaching.",
     Component: makeJourneyLens("stops"),
   },
   offboarding: {
     id: "offboarding",
-    label: "Offboarding",
+    label: "④ Offboarding",
     iconNode: <ThumbsUp size={ICON_SIZE} />,
     blurb: "End-of-course wrap-up phases.",
     Component: makeJourneyLens("offboarding"),
   },
+  // #1316 — Renamed "Welcome message" → "Course opening line" to
+  // disambiguate from the Domain-level Domain.onboardingWelcome which
+  // operators were also seeing labelled as "Welcome message".
   welcome: {
     id: "welcome",
-    label: "Welcome message",
+    label: "⑤ Course opening line",
     iconNode: <MessageSquare size={ICON_SIZE} />,
-    blurb: "First-line greeting the learner hears on call 1.",
+    blurb: "First-line greeting the learner hears on call 1. Overrides the Domain greeting.",
     Component: makeJourneyLens("welcome"),
   },
   call1Mode: {
