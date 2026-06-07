@@ -84,9 +84,10 @@ describe("resolveMasteryThreshold cascade", () => {
   it("layer 4 — SchedulerPolicy.masteryThresholdOverride beats spec / contract", async () => {
     getThresholdsMock.mockResolvedValue({ masteryComplete: 0.66 });
     // `teachingMode: "syllabus"` selects EXAM_PREP whose masteryThresholdOverride = 0.6.
+    // #1257 — STRUCTURED required, else default-deny routes to FREE_FLOW (override null).
     const value = await resolveMasteryThreshold(
       {
-        playbookConfig: { teachingMode: "syllabus" },
+        playbookConfig: { lessonPlanMode: "structured", teachingMode: "syllabus" },
         specConfig: { metadata: { curriculum: { masteryThreshold: 0.55 } } },
       },
       { silent: true },
@@ -98,6 +99,7 @@ describe("resolveMasteryThreshold cascade", () => {
     const value = await resolveMasteryThreshold(
       {
         playbookConfig: {
+          lessonPlanMode: "structured",
           teachingMode: "syllabus", // EXAM_PREP preset (override 0.6)
           tolerances: { masteryThreshold: 0.88 },
         },

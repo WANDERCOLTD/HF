@@ -13,7 +13,7 @@ import {
   hasReturningUserPhrasing,
   renderFirstCallOpening,
   rewriteReturningUserPhrasing,
-  RETURNING_USER_HEURISTIC_PATTERNS,
+  RETURNING_USER_GUARD_PATTERNS,
 } from "@/lib/prompt/composition/defaults/first-call-openings";
 
 describe("classifyFirstPhaseIntent", () => {
@@ -142,8 +142,8 @@ describe("hasReturningUserPhrasing", () => {
   });
 
   it("exposes the pattern set for future audit", () => {
-    expect(RETURNING_USER_HEURISTIC_PATTERNS.length).toBe(5);
-    for (const rx of RETURNING_USER_HEURISTIC_PATTERNS) {
+    expect(RETURNING_USER_GUARD_PATTERNS.length).toBe(5);
+    for (const rx of RETURNING_USER_GUARD_PATTERNS) {
       expect(rx).toBeInstanceOf(RegExp);
     }
   });

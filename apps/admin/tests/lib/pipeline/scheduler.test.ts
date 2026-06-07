@@ -59,19 +59,23 @@ function makeState(overrides: Partial<SchedulerState> = {}): SchedulerState {
 }
 
 describe("scheduler-presets", () => {
-  it("exposes all six presets", () => {
+  it("exposes all seven presets (#1257 added FREE_FLOW)", () => {
     expect(Object.keys(ALL_PRESETS).sort()).toEqual([
       "BALANCED",
       "COMPREHENSION",
       "CONFIDENCE_BUILD",
       "EXAM_PREP",
+      "FREE_FLOW",
       "INTERLEAVED",
       "REVISION",
     ]);
   });
 
-  it("each preset declares all 7 factor weights + retrieval cadence", () => {
-    for (const preset of Object.values(ALL_PRESETS)) {
+  it("each STRUCTURED preset declares all 7 factor weights + retrieval cadence", () => {
+    // FREE_FLOW is intentionally all-zero — it's the CONTINUOUS preset
+    // and uniform-picks inside the topic pool. Excluded from this guard.
+    const structuredPresets = Object.values(ALL_PRESETS).filter((p) => p.name !== "FREE_FLOW");
+    for (const preset of structuredPresets) {
       expect(preset.masteryGap).toBeGreaterThan(0);
       expect(preset.spacedDue).toBeGreaterThan(0);
       expect(preset.interleave).toBeGreaterThanOrEqual(0);
@@ -83,9 +87,11 @@ describe("scheduler-presets", () => {
     }
   });
 
-  it("each preset declares retrieval practice defaults (#164)", () => {
+  it("each STRUCTURED preset declares retrieval practice defaults (#164)", () => {
     const validBloomFloors = ["REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE"];
-    for (const preset of Object.values(ALL_PRESETS)) {
+    // FREE_FLOW has retrievalQuestions all zero by design — excluded.
+    const structuredPresets = Object.values(ALL_PRESETS).filter((p) => p.name !== "FREE_FLOW");
+    for (const preset of structuredPresets) {
       // Every mode has at least 1 question (retrieval is never off)
       expect(preset.retrievalQuestions.teach).toBeGreaterThanOrEqual(1);
       expect(preset.retrievalQuestions.assess).toBeGreaterThanOrEqual(1);
@@ -109,18 +115,23 @@ describe("scheduler-presets", () => {
     }
   });
 
-  it("getPresetForPlaybook maps teachingMode to preset", () => {
-    expect(getPresetForPlaybook({ config: { teachingMode: "comprehension" } }).name).toBe("COMPREHENSION");
-    expect(getPresetForPlaybook({ config: { teachingMode: "practice" } }).name).toBe("INTERLEAVED");
-    expect(getPresetForPlaybook({ config: { teachingMode: "syllabus" } }).name).toBe("EXAM_PREP");
-    expect(getPresetForPlaybook({ config: { teachingMode: "recall" } }).name).toBe("BALANCED");
-    expect(getPresetForPlaybook({ config: {} }).name).toBe("BALANCED");
-    expect(getPresetForPlaybook(null).name).toBe("BALANCED");
+  it("getPresetForPlaybook maps teachingMode to preset (STRUCTURED courses only — #1257)", () => {
+    const s = (teachingMode: string) => ({ config: { lessonPlanMode: "structured", teachingMode } });
+    expect(getPresetForPlaybook(s("comprehension")).name).toBe("COMPREHENSION");
+    expect(getPresetForPlaybook(s("practice")).name).toBe("INTERLEAVED");
+    expect(getPresetForPlaybook(s("syllabus")).name).toBe("EXAM_PREP");
+    expect(getPresetForPlaybook(s("recall")).name).toBe("BALANCED");
+    expect(getPresetForPlaybook({ config: { lessonPlanMode: "structured" } }).name).toBe("BALANCED");
+    // Default-deny: no lessonPlanMode → CONTINUOUS → FREE_FLOW.
+    expect(getPresetForPlaybook({ config: {} }).name).toBe("FREE_FLOW");
+    expect(getPresetForPlaybook(null).name).toBe("FREE_FLOW");
   });
 
-  it("explicit schedulerPreset on playbook overrides teachingMode", () => {
+  it("explicit schedulerPreset on STRUCTURED playbook overrides teachingMode", () => {
     expect(
-      getPresetForPlaybook({ config: { teachingMode: "recall", schedulerPreset: "REVISION" } }).name,
+      getPresetForPlaybook({
+        config: { lessonPlanMode: "structured", teachingMode: "recall", schedulerPreset: "REVISION" },
+      }).name,
     ).toBe("REVISION");
   });
 

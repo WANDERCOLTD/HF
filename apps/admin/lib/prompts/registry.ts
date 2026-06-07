@@ -562,7 +562,7 @@ TEACHING_INSTRUCTION (learnerVisible=false) — content the tutor either KNOWS (
   (a) Tutor-strategic facts that change HOW the tutor teaches: where learners typically plateau, what diagnostic signals to watch for, which interventions raise a band, which patterns cap progression. The tutor consumes these as moves to make / things to notice.
   (b) Briefing facts the tutor delivers to the learner: test format, exam timing, what an examiner does, course structure, what to expect on test day, definitions of test parts. The tutor states these once and moves on — they are NOT skills to develop and a Socratic "guess how many parts the test has?" is the wrong move for this content. Joins the courseInstructions channel either way.
 
-DECISION HEURISTICS
+DECISION RULES
 
 If the LO names rubric criteria, band characteristics, or descriptors of HOW the assessor scores → ASSESSOR_RUBRIC.
   Examples: "Identify Band 5 pronunciation characteristics: ...", "Identify the four assessment criteria"

@@ -577,6 +577,20 @@ export function mergeConfig(
   // #UI-followup Gap 1 — write scoringMode through so event-gate can
   // auto-detect evidence-first playbooks.
   if (patch.scoringMode) (merged as Record<string, unknown>).scoringMode = patch.scoringMode;
+
+  // #1253 — persist detected lessonPlanMode so the runtime pipeline can
+  // resolve courseStyle without re-deriving from heuristics. NEVER overwrite
+  // an explicit operator setting — detect-pedagogy is advisory, not
+  // authoritative. The default-deny rule in `getCourseStyle` means a
+  // missing value resolves to "continuous", so we only write when the
+  // detector found something AND no value is currently set.
+  if (
+    projection.pedagogy?.lessonPlanMode &&
+    existing.lessonPlanMode === undefined
+  ) {
+    merged.lessonPlanMode = projection.pedagogy.lessonPlanMode;
+  }
+
   merged.goals = [...nonProjectedGoals, ...newGoals];
 
   return { merged, goalTemplatesWritten: newGoals.length };

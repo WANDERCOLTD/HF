@@ -26,6 +26,7 @@ import {
   resolveMasteryThreshold,
   MASTERY_THRESHOLD_FALLBACK,
 } from "@/lib/tolerance/resolve-tolerance";
+import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
 
 // =============================================================================
 // DB-FIRST MODULE LOADING (CurriculumModule model)
@@ -383,6 +384,17 @@ export async function computeSharedState(
     specConfig,
   });
 
+  // #1259 — Default-deny course-style gate. Absence of an explicit
+  // `lessonPlanMode === "structured"` resolves to CONTINUOUS, in which
+  // case the module-sequencing block (CallerModuleProgress reads,
+  // estimatedProgress heuristic, scheduler) is skipped. CONTINUOUS
+  // courses produce SharedComputedState with empty-safe defaults so
+  // downstream transforms (quickstart, pedagogy, retrieval-practice)
+  // don't crash on missing module data.
+  const courseStyle: CourseStyle = getCourseStyle(
+    (playbookForResolve?.config as any) ?? null,
+  );
+
   if (curriculumId) {
     const dbResult = await loadModulesFromDB(curriculumId, resolvedMasteryThreshold);
     if (dbResult && dbResult.modules.length > 0) {
@@ -458,8 +470,12 @@ export async function computeSharedState(
   // Primary path — read from CallerModuleProgress when we have a
   // curriculumId in scope. Keyed by slug to match the rest of the transform
   // (downstream `completedModules.has(m.slug || m.id)` lookups).
+  //
+  // #1259 — CONTINUOUS courses skip the read entirely. They have no
+  // module-mastery semantic (no fixed sequence) and the topic-pool
+  // composition emits no module section.
   let masteryFromDb = false;
-  if (curriculumId && data.caller?.id) {
+  if (courseStyle === "structured" && curriculumId && data.caller?.id) {
     try {
       const progressRows = await prisma.callerModuleProgress.findMany({
         where: {
@@ -528,7 +544,10 @@ export async function computeSharedState(
   // set, so the actual learner state was invisible to the composer. Now reads
   // whenever a curriculumId is in scope; the heuristic at line ~558 stays as
   // debug-only state.
-  if (curriculumId && data.caller?.id) {
+  //
+  // #1259 — CONTINUOUS courses skip this read; no per-module attempt tracking
+  // for topic-pool conversations.
+  if (courseStyle === "structured" && curriculumId && data.caller?.id) {
     try {
       const rows = await prisma.callerModuleProgress.findMany({
         where: {
@@ -565,9 +584,16 @@ export async function computeSharedState(
   // `lastCompletedIndex`. The Maya case (#1006) is exactly the failure:
   // 2 prior calls → estimatedProgress=1 → lastCompletedIndex=0 → modules[0]
   // = Part 1, even though her single CallerModuleProgress row is on Part 2.
-  const estimatedProgress = completedModules.size > 0
-    ? completedModules.size
-    : Math.min(Math.floor(data.recentCalls.length / 2), modules.length - 1);
+  //
+  // #1259 — CONTINUOUS courses force estimatedProgress=0. The call-count
+  // → module-index heuristic is meaningless without a fixed module
+  // sequence; allowing it to fire for CONTINUOUS courses was the bug
+  // class #1252 closes.
+  const estimatedProgress = courseStyle === "continuous"
+    ? 0
+    : (completedModules.size > 0
+        ? completedModules.size
+        : Math.min(Math.floor(data.recentCalls.length / 2), modules.length - 1));
 
   // #1008 — three-layer derivation, in priority order:
   //   1. If any module passed the mastery gate (`completedModules`), pick the
@@ -728,7 +754,15 @@ export async function computeSharedState(
   }
 
   // Run scheduler ONLY when no locked module is in effect.
-  if (modules.length > 0 && specSlug && curriculumId && !lockedModule) {
+  // #1259 — Scheduler is STRUCTURED-only. CONTINUOUS courses get FREE_FLOW
+  // at preset-resolution time (#1257); they don't run selectNextExchange.
+  if (
+    courseStyle === "structured" &&
+    modules.length > 0 &&
+    specSlug &&
+    curriculumId &&
+    !lockedModule
+  ) {
     try {
       const { getTpProgressBatch } = await import("@/lib/curriculum/track-progress");
       const { selectNextExchange } = await import("@/lib/pipeline/scheduler");

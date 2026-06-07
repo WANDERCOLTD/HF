@@ -17,6 +17,7 @@ import { randomFakeName } from "@/lib/fake-names";
 import { enrollCaller } from "@/lib/enrollment";
 import { instantiatePlaybookGoals } from "@/lib/enrollment/instantiate-goals";
 import { instantiatePlaybookTargets } from "@/lib/enrollment/instantiate-targets";
+import { instantiatePlaybookModuleProgress } from "@/lib/enrollment/instantiate-module-progress";
 
 export interface CreateTestLearnerResult {
   callerId: string;
@@ -83,6 +84,13 @@ export async function createTestLearnerForPlaybook(
   await instantiatePlaybookTargets(caller.id).catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`[create-test-learner] Target instantiation failed for ${caller.id}: ${message}`);
+  });
+
+  // #1254 — Pre-create CallerModuleProgress NOT_STARTED rows for STRUCTURED
+  // playbooks. CONTINUOUS is skipped.
+  await instantiatePlaybookModuleProgress(caller.id).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[create-test-learner] Module-progress instantiation failed for ${caller.id}: ${message}`);
   });
 
   return { callerId: caller.id, callerName };

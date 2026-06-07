@@ -28,7 +28,8 @@ export type SchedulerPresetName =
   | "COMPREHENSION"
   | "EXAM_PREP"
   | "REVISION"
-  | "CONFIDENCE_BUILD";
+  | "CONFIDENCE_BUILD"
+  | "FREE_FLOW";
 
 export interface SchedulerPolicy {
   name: SchedulerPresetName;
@@ -185,6 +186,37 @@ export const CONFIDENCE_BUILD: SchedulerPolicy = {
   retrievalBloomFloor: "REMEMBER",
 };
 
+/**
+ * FREE_FLOW — the preset CONTINUOUS courses get (#1257).
+ *
+ * CONTINUOUS courses have no fixed module sequence — there's no "frontier
+ * outcome", no spaced-due to fire, no skill to interleave to next. All
+ * factor weights are zero so `selectNextExchange` falls back to uniform
+ * selection inside the topic pool. Retrieval is effectively off
+ * (`retrievalCadence: 999` means "fire mode:assess every 999 calls" —
+ * we use a sentinel instead of `null` because the readers do
+ * `callCount % retrievalCadence` arithmetic).
+ *
+ * Retrieval questions all zero — CONTINUOUS courses don't run the MCQ
+ * injection pipeline. `retrievalBloomFloor` is set to "REMEMBER" (the
+ * most permissive) because the field is a non-null string union; the
+ * value is unread when `retrievalQuestions` are all zero.
+ */
+export const FREE_FLOW: SchedulerPolicy = {
+  name: "FREE_FLOW",
+  masteryGap: 0,
+  spacedDue: 0,
+  interleave: 0,
+  difficultyZpd: 0,
+  recentlyUsedPenalty: 0,
+  cognitiveLoadPenalty: 0,
+  retrievalOpportunity: 0,
+  retrievalCadence: 999,
+  masteryThresholdOverride: null,
+  retrievalQuestions: { teach: 0, assess: 0, review: 0 },
+  retrievalBloomFloor: "REMEMBER",
+};
+
 export const ALL_PRESETS: Record<SchedulerPresetName, SchedulerPolicy> = {
   BALANCED,
   INTERLEAVED,
@@ -192,15 +224,21 @@ export const ALL_PRESETS: Record<SchedulerPresetName, SchedulerPolicy> = {
   EXAM_PREP,
   REVISION,
   CONFIDENCE_BUILD,
+  FREE_FLOW,
 };
 
 /**
  * Map a playbook to a preset.
  *
- * Priority:
- *   1. Explicit `config.schedulerPreset` on Playbook (story #166 adds the picker).
- *   2. `teachingMode` heuristic — the temporary bridge until CourseArchetype ships.
- *   3. BALANCED fallback.
+ * Priority (post-#1257):
+ *   1. CONTINUOUS course → FREE_FLOW. Unconditional. CONTINUOUS courses
+ *      have no fixed module sequence, so prioritisation weights are
+ *      meaningless.
+ *   2. Explicit `config.schedulerPreset` on Playbook (story #166 adds the picker).
+ *   3. STRUCTURED course with no explicit preset → `teachingMode` bridge
+ *      (kept for back-compat — only fires on STRUCTURED playbooks that
+ *      pre-date the picker).
+ *   4. BALANCED fallback.
  *
  * Accepts a loose playbook shape so callers can pass `data.playbooks[0]` directly
  * without coupling this module to the Playbook Prisma type.
@@ -209,6 +247,14 @@ export function getPresetForPlaybook(
   playbook: { config?: unknown } | null | undefined,
 ): SchedulerPolicy {
   const cfg = (playbook?.config ?? {}) as Record<string, unknown>;
+
+  // #1257 — CONTINUOUS courses always get FREE_FLOW. Read lessonPlanMode
+  // directly here (no import of getCourseStyle to avoid the pipeline →
+  // scheduler cycle); the default-deny rule is the same shape: only
+  // explicit `lessonPlanMode === "structured"` opts out of FREE_FLOW.
+  if (cfg.lessonPlanMode !== "structured") {
+    return FREE_FLOW;
+  }
 
   let basePreset: SchedulerPolicy;
   const explicit = cfg.schedulerPreset;

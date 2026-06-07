@@ -17,7 +17,7 @@
  *   2. `renderFirstCallOpening` — emits a fixed template per intent,
  *      seeded with the caller name + subjectRef. ≤2 sentences, ≤140
  *      chars per template.
- *   3. `RETURNING_USER_HEURISTIC_PATTERNS` — regex set for the
+ *   3. `RETURNING_USER_GUARD_PATTERNS` — regex set for the
  *      `welcomeMessage` rewrite path (when no phases are configured
  *      but the educator-authored welcomeMessage assumes a returning
  *      user — the textual "Welcome back" trap from the live incident).
@@ -120,9 +120,18 @@ export function renderFirstCallOpening(input: FirstCallOpeningInput): string {
   }
 }
 
-/** Returning-user phrasing patterns. Narrow — must NOT fire on benign
- *  first-call welcomes like "Welcome! Glad you're here." */
-export const RETURNING_USER_HEURISTIC_PATTERNS: readonly RegExp[] = [
+/** Returning-user phrasing GUARD patterns (#1258).
+ *
+ *  This is a TEXT GUARD on educator-authored `welcomeMessage` strings —
+ *  NOT a "returning user detection" path. First-vs-returning is decided
+ *  by `data.recentCalls.length === 0` (already deterministic). These
+ *  patterns exist so an educator who wrote "Welcome back, let's revise..."
+ *  in a `welcomeMessage` field doesn't have that line spoken to a
+ *  brand-new caller.
+ *
+ *  Narrow — must NOT fire on benign first-call welcomes like
+ *  "Welcome! Glad you're here." */
+export const RETURNING_USER_GUARD_PATTERNS: readonly RegExp[] = [
   /welcome\s+back/i,
   /let'?s revise/i,
   /pick up where we left off/i,
@@ -133,7 +142,13 @@ export const RETURNING_USER_HEURISTIC_PATTERNS: readonly RegExp[] = [
 /** True when the message contains returning-user phrasing AND would
  *  confuse a brand-new caller. */
 export function hasReturningUserPhrasing(msg: string): boolean {
-  return RETURNING_USER_HEURISTIC_PATTERNS.some((rx) => rx.test(msg));
+  const matched = RETURNING_USER_GUARD_PATTERNS.some((rx) => rx.test(msg));
+  if (matched) {
+    console.warn(
+      `[first-call-openings] RETURNING_USER_GUARD_PATTERNS matched on welcomeMessage — rewriting to first-call-safe opening. msg="${msg.slice(0, 80)}..."`,
+    );
+  }
+  return matched;
 }
 
 /** Replace a returning-user-assumed welcomeMessage with a first-call-
