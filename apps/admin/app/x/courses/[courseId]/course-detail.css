@@ -1,5 +1,40 @@
 /* ── Course Detail Page ── cd-* prefix ── */
 
+/* ── Hero (#1266 cleanup) ──
+   3 stacked rows: title, pills, action toolbar. Title is h2 sized so the
+   long "X — Revision Aid" titles don't wrap to 3 lines and shift layout.
+   Pills wrap inside their own row. Action toolbar is right-aligned and
+   can wrap below 920px so the buttons keep their full padding instead of
+   compressing into icons. */
+.cd-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cd-hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.cd-hero-title-row > * {
+  min-width: 0;
+}
+.cd-hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cd-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 /* Fill bar (capacity indicator) */
 .cd-fill-bar {
   width: 60px;
