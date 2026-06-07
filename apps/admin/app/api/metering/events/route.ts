@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCallerScopeForReading, isScopeError } from "@/lib/learner-scope";
 import { UsageCategory, Prisma } from "@prisma/client";
 import { logUsageEvent } from "@/lib/metering/usage-logger";
 
@@ -41,10 +42,20 @@ export async function GET(request: NextRequest) {
     // Parse filters
     const category = searchParams.get("category") as UsageCategory | null;
     const operation = searchParams.get("operation");
-    const userId = searchParams.get("userId");
-    const callerId = searchParams.get("callerId");
+    const requestedUserId = searchParams.get("userId");
+    const requestedCallerId = searchParams.get("callerId");
     const limit = Math.min(parseInt(searchParams.get("limit") || "100", 10), 1000);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
+
+    // B7 — STUDENT-scope both filters. Caller-id flows through the standard
+    // helper. userId is force-narrowed to the session user (a STUDENT's
+    // metering visibility is limited to their own row regardless of query).
+    const scope = await resolveCallerScopeForReading(authResult.session, requestedCallerId);
+    if (isScopeError(scope)) return scope.error;
+    const callerId = scope.scopedCallerId;
+    const userId = authResult.session.user.role === "STUDENT"
+      ? authResult.session.user.id
+      : requestedUserId;
 
     // Date range
     const sinceParam = searchParams.get("since");
