@@ -187,15 +187,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Migration `20260213_expand_user_roles` references the `Domain` table
-      # which is never created in any migration (Domain was originally added
-      # via `prisma db push`). Until a backfill migration lands, integration
-      # tests can't initialise their DB on a fresh container. Surface the
-      # failures as warnings; they're tracked alongside the tsc cleanup.
+      # B0 part 1 — Domain backfill migration
+      # (20260212_backfill_create_domain) closes ONE of the historical
+      # gaps where Domain was only ever created via `prisma db push`.
+      # The next missing table the chain trips on is Invite (the data
+      # migration 20260213_migrate_user_roles_data UPDATEs it), so
+      # continue-on-error STAYS until the rest of the db-push'd tables
+      # (Invite, BddFeature, Institution, and more) get the same
+      # treatment. Tracked as B0-followup.
       - name: Run Prisma migrations
         run: npx prisma migrate deploy
         continue-on-error: true
 
+      # Seed depends on migrate. Keep continue-on-error until the rest
+      # of the B0-followup db-push'd table backfills land.
       - name: Seed specs (required for journey tests)
         run: npx tsx prisma/seed-from-specs.ts
         continue-on-error: true
