@@ -23,7 +23,7 @@ prompts:
 
       SCORE_EXPLAINER (learnerVisible=false) — meta-knowledge about how scores are calculated, averaged, weighted, or aggregated. Surfaces only as "How is this calculated?" disclosure on the score-reveal screen. Hidden from the curriculum page.
 
-      DECISION HEURISTICS
+      DECISION RULES
 
       If the LO names rubric criteria, band characteristics, or descriptors of HOW the assessor scores → ASSESSOR_RUBRIC.
 
