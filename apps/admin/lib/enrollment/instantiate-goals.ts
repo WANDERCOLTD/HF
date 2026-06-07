@@ -123,6 +123,38 @@ async function instantiateForPlaybook(
   const cfg = playbookConfig || {};
   let goalConfigs: GoalConfigEntry[] = (cfg.goals as GoalConfigEntry[] | undefined) || [];
 
+  // #1252 follow-up (Bug B / G10 defense-in-depth) — re-validate every goal
+  // entry against the tutor-briefing filter at instantiate time. The
+  // course-setup.ts ingest path already calls filterLearningOutcomes (#1160),
+  // but legacy Playbook.config.goals rows that pre-date that filter (or
+  // were added through a path that bypassed the validator) still land here
+  // as Goal rows. Re-running the filter at the create site catches them
+  // before they pollute the learner's Goal table.
+  //
+  // Proven on Thalia/IELTS V1.0 fresh enrolment: rows like "The four criteria
+  // below must NOT be named…" and "On Call 1 the tutor scores silently…"
+  // were created despite the validator existing — because they live in
+  // Playbook.config.goals from the original wizard run, not from a fresh
+  // course-setup ingest.
+  const { validateLearningOutcomeEntry } = await import("@/lib/domain/validate-learning-outcome");
+  const beforeCount = goalConfigs.length;
+  goalConfigs = goalConfigs.filter((g) => {
+    if (!g.name) return true; // unnamed goal — let downstream handle
+    const result = validateLearningOutcomeEntry(g.name);
+    if (!result.ok) {
+      console.warn(
+        `[instantiate-goals] Bug B / G10 filter rejected pre-existing Playbook.config goal — playbook=${playbookId} reason="${result.reason}" name="${g.name.slice(0, 80)}"`,
+      );
+      return false;
+    }
+    return true;
+  });
+  if (beforeCount !== goalConfigs.length) {
+    console.warn(
+      `[instantiate-goals] Bug B / G10 filter: dropped ${beforeCount - goalConfigs.length}/${beforeCount} polluted goal(s) from playbook ${playbookId}`,
+    );
+  }
+
   // Fallback: if no explicit goals were captured (wizard miss), derive from
   // curriculum modules so the caller gets some reward signal.
   if (goalConfigs.length === 0) {
