@@ -375,7 +375,9 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
       label: "Sessions",
       summary: mode === "continuous"
         ? "Scheduler-driven, no fixed count"
-        : `${sessionCount ?? "?"} session${sessionCount === 1 ? "" : "s"} (structured)`,
+        : sessionCount == null
+          ? "Structured · session count not set"
+          : `${sessionCount} session${sessionCount === 1 ? "" : "s"} (structured)`,
       status: "default",
       details: sessionsDetails(mode, teachingMode, sessionCount),
       editable: true,
@@ -453,6 +455,7 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
             onToggle={toggleRow}
             onEdit={handleEdit}
             savingToggle={savingToggle}
+            hideEdit={isLensMode}
           />
         )}
         {duringRows.length > 0 && (
@@ -463,6 +466,7 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
             onToggle={toggleRow}
             onEdit={handleEdit}
             savingToggle={savingToggle}
+            hideEdit={isLensMode}
           />
         )}
         {afterRows.length > 0 && (
@@ -473,6 +477,71 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
             onToggle={toggleRow}
             onEdit={handleEdit}
             savingToggle={savingToggle}
+            hideEdit={isLensMode}
+          />
+        )}
+
+        {/* ── Inline edit forms (lens mode) ──────────────────────────
+            Each Journey lens auto-renders the relevant form below the
+            rows. The legacy sidetray drawer pattern is suppressed in
+            lens mode — educators see + edit in one place. */}
+        {isLensMode && activeSection === "intake" && sessionFlow.intake.knowledgeCheck.enabled && (
+          <KcDeliveryDrawer
+            inline
+            courseId={courseId}
+            sessionFlow={sessionFlow}
+            onClose={() => {}}
+            onSaved={onUpdated}
+          />
+        )}
+        {isLensMode && activeSection === "onboarding" && data.domainId && (
+          <PhaseListDrawer
+            inline
+            title="Onboarding flow phases"
+            courseId={courseId}
+            domainId={data.domainId}
+            domainName={data.domainName}
+            mode="onboarding"
+            onClose={() => refetch()}
+          />
+        )}
+        {isLensMode && activeSection === "stops" && (
+          <>
+            <ModeDrawer
+              inline
+              courseId={courseId}
+              currentMode={mode}
+              sessionCount={sessionCount}
+              onClose={() => {}}
+              onSaved={onUpdated}
+            />
+            <NpsDrawer
+              inline
+              courseId={courseId}
+              sessionFlow={sessionFlow}
+              onClose={() => {}}
+              onSaved={onUpdated}
+            />
+          </>
+        )}
+        {isLensMode && activeSection === "offboarding" && data.domainId && (
+          <PhaseListDrawer
+            inline
+            title="Offboarding flow phases"
+            courseId={courseId}
+            domainId={data.domainId}
+            domainName={data.domainName}
+            mode="offboarding"
+            onClose={() => refetch()}
+          />
+        )}
+        {isLensMode && activeSection === "welcome" && (
+          <WelcomeMessageDrawer
+            inline
+            courseId={courseId}
+            current={sessionFlow.welcomeMessage ?? ""}
+            onClose={() => {}}
+            onSaved={onUpdated}
           />
         )}
       </div>
@@ -537,7 +606,7 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
 // ── Phase list drawer (#225 part 4) ──────────────────────────────────────────
 
 function PhaseListDrawer({
-  title, courseId, domainId, domainName, mode, onClose,
+  title, courseId, domainId, domainName, mode, onClose, inline,
 }: {
   title: string;
   courseId: string;
@@ -545,12 +614,13 @@ function PhaseListDrawer({
   domainName: string | null;
   mode: "onboarding" | "offboarding";
   onClose: () => void;
+  inline?: boolean;
 }) {
   return (
-    <Drawer title={title} onClose={onClose}>
+    <Drawer title={title} onClose={onClose} inline={inline}>
       <p className="sfe-drawer-desc">
         Drag phases to reorder. Click a phase to edit its goals, duration, content, and survey steps.
-        Changes save automatically — close when done.
+        Changes save automatically{inline ? "." : " — close when done."}
       </p>
       <div className="sfe-phase-host">
         <OnboardingEditor
@@ -562,11 +632,13 @@ function PhaseListDrawer({
           mode={mode}
         />
       </div>
-      <footer className="sfe-drawer-footer">
-        <button type="button" className="sfe-btn-primary" onClick={onClose}>
-          Done
-        </button>
-      </footer>
+      {!inline && (
+        <footer className="sfe-drawer-footer">
+          <button type="button" className="sfe-btn-primary" onClick={onClose}>
+            Done
+          </button>
+        </footer>
+      )}
     </Drawer>
   );
 }
@@ -574,7 +646,7 @@ function PhaseListDrawer({
 // ── Sub-components ──────────────────────────────────────────────
 
 function Section({
-  title, rows, expandedId, onToggle, onEdit, savingToggle,
+  title, rows, expandedId, onToggle, onEdit, savingToggle, hideEdit,
 }: {
   title: string | null;
   rows: RowSpec[];
@@ -582,6 +654,7 @@ function Section({
   onToggle: (id: string) => void;
   onEdit: (id: string) => void;
   savingToggle: string | null;
+  hideEdit?: boolean;
 }) {
   return (
     <div className="sft-section">
@@ -595,6 +668,7 @@ function Section({
             onToggle={() => onToggle(row.id)}
             onEdit={() => onEdit(row.id)}
             saving={savingToggle === row.id}
+            hideEdit={hideEdit}
           />
         ))}
       </ul>
@@ -603,13 +677,14 @@ function Section({
 }
 
 function Row({
-  row, expanded, onToggle, onEdit, saving,
+  row, expanded, onToggle, onEdit, saving, hideEdit,
 }: {
   row: RowSpec;
   expanded: boolean;
   onToggle: () => void;
   onEdit: () => void;
   saving: boolean;
+  hideEdit?: boolean;
 }) {
   const expandable = !!row.details && row.details.length > 0;
   const classes = [
@@ -626,7 +701,7 @@ function Row({
   ) : (
     <span className={`sft-row-badge sft-row-badge--${row.status}`}>{statusLabel(row.status)}</span>
   );
-  const actionControl = row.editable ? (
+  const actionControl = row.editable && !hideEdit ? (
     <button
       className="sfe-edit-btn"
       type="button"
@@ -709,13 +784,14 @@ function Toggle({
 // ── Mode picker drawer ──────────────────────────────────────────────
 
 function ModeDrawer({
-  courseId, currentMode, sessionCount, onClose, onSaved,
+  courseId, currentMode, sessionCount, onClose, onSaved, inline,
 }: {
   courseId: string;
   currentMode: "continuous" | "structured";
   sessionCount: number | null;
   onClose: () => void;
   onSaved: (next: ApiResponse) => void;
+  inline?: boolean;
 }) {
   const [picked, setPicked] = useState<"continuous" | "structured">(currentMode);
   const [saving, setSaving] = useState(false);
@@ -746,7 +822,7 @@ function ModeDrawer({
   };
 
   return (
-    <Drawer title="Course mode" onClose={onClose}>
+    <Drawer title="Course mode" onClose={onClose} inline={inline}>
       <p className="sfe-drawer-desc">
         Pick how this course paces sessions. Changing this on a live course
         affects how learners progress.
@@ -785,9 +861,11 @@ function ModeDrawer({
       {err && <div className="sfe-error">Save failed: {err}</div>}
 
       <footer className="sfe-drawer-footer">
-        <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>
-          Cancel
-        </button>
+        {!inline && (
+          <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+        )}
         <button
           type="button"
           className="sfe-btn-primary"
@@ -826,12 +904,13 @@ function ModeOption({
 // ── KC delivery mode drawer ──────────────────────────────────────────────
 
 function KcDeliveryDrawer({
-  courseId, sessionFlow, onClose, onSaved,
+  courseId, sessionFlow, onClose, onSaved, inline,
 }: {
   courseId: string;
   sessionFlow: SessionFlowResolved;
   onClose: () => void;
   onSaved: (next: ApiResponse) => void;
+  inline?: boolean;
 }) {
   const current = sessionFlow.intake.knowledgeCheck.deliveryMode ?? "mcq";
   const [picked, setPicked] = useState<"mcq" | "socratic">(current);
@@ -868,7 +947,7 @@ function KcDeliveryDrawer({
   };
 
   return (
-    <Drawer title="Knowledge Check delivery" onClose={onClose}>
+    <Drawer title="Knowledge Check delivery" onClose={onClose} inline={inline}>
       <p className="sfe-drawer-desc">
         Choose how the educator probes prior knowledge in the first call. One mode only — no double-quizzing.
       </p>
@@ -892,7 +971,7 @@ function KcDeliveryDrawer({
       </div>
       {err && <div className="sfe-error">Save failed: {err}</div>}
       <footer className="sfe-drawer-footer">
-        <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+        {!inline && <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>}
         <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
           {saving ? "Saving…" : "Save delivery mode"}
         </button>
@@ -904,12 +983,13 @@ function KcDeliveryDrawer({
 // ── NPS drawer ──────────────────────────────────────────────
 
 function NpsDrawer({
-  courseId, sessionFlow, onClose, onSaved,
+  courseId, sessionFlow, onClose, onSaved, inline,
 }: {
   courseId: string;
   sessionFlow: SessionFlowResolved;
   onClose: () => void;
   onSaved: (next: ApiResponse) => void;
+  inline?: boolean;
 }) {
   const stop = sessionFlow.stops.find(s => s.kind === "nps");
   const initialEnabled = !!stop;
@@ -953,7 +1033,7 @@ function NpsDrawer({
   };
 
   return (
-    <Drawer title="NPS satisfaction survey" onClose={onClose}>
+    <Drawer title="NPS satisfaction survey" onClose={onClose} inline={inline}>
       <p className="sfe-drawer-desc">
         Pick when the post-course NPS survey fires. Mastery triggers respect the learner&rsquo;s actual progress; session count triggers fire on a fixed call number.
       </p>
@@ -1001,7 +1081,7 @@ function NpsDrawer({
 
       {err && <div className="sfe-error">Save failed: {err}</div>}
       <footer className="sfe-drawer-footer">
-        <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+        {!inline && <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>}
         <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
           {saving ? "Saving…" : "Save NPS"}
         </button>
@@ -1013,12 +1093,13 @@ function NpsDrawer({
 // ── Welcome message drawer ──────────────────────────────────────────────
 
 function WelcomeMessageDrawer({
-  courseId, current, onClose, onSaved,
+  courseId, current, onClose, onSaved, inline,
 }: {
   courseId: string;
   current: string;
   onClose: () => void;
   onSaved: (next: ApiResponse) => void;
+  inline?: boolean;
 }) {
   const [text, setText] = useState(current);
   const [saving, setSaving] = useState(false);
@@ -1046,7 +1127,7 @@ function WelcomeMessageDrawer({
   };
 
   return (
-    <Drawer title="Welcome message" onClose={onClose}>
+    <Drawer title="Welcome message" onClose={onClose} inline={inline}>
       <p className="sfe-drawer-desc">
         First-line greeting the AI uses on the learner&rsquo;s first call. Leave blank to fall back to the domain default or a generic greeting.
       </p>
@@ -1064,7 +1145,7 @@ function WelcomeMessageDrawer({
       </label>
       {err && <div className="sfe-error">Save failed: {err}</div>}
       <footer className="sfe-drawer-footer">
-        <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+        {!inline && <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>}
         <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
           {saving ? "Saving…" : (trimmed.length === 0 && current.length > 0 ? "Clear message" : "Save message")}
         </button>
@@ -1074,12 +1155,29 @@ function WelcomeMessageDrawer({
 }
 
 function Drawer({
-  title, onClose, children,
+  title, onClose, children, inline,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /**
+   * When true, render as an inline card (no backdrop, no fixed positioning,
+   * no header close button) so the form lives directly inside a lens panel.
+   * The Course Design Console (#1266) uses this so educators see + edit in
+   * one place instead of opening a sidetray.
+   */
+  inline?: boolean;
 }) {
+  if (inline) {
+    return (
+      <section className="sfe-drawer sfe-drawer--inline" aria-label={title}>
+        <header className="sfe-drawer-header">
+          <h2 className="sfe-drawer-title">{title}</h2>
+        </header>
+        <div className="sfe-drawer-body">{children}</div>
+      </section>
+    );
+  }
   return (
     <>
       <div className="sfe-backdrop" onClick={onClose} />
