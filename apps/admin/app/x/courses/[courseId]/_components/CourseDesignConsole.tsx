@@ -58,6 +58,7 @@ import { PreviewLens } from "./PreviewLens";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 type DesignLensId =
+  | "preview"
   | "intake"
   | "onboarding"
   | "stops"
@@ -68,10 +69,13 @@ type DesignLensId =
   | "tolerances"
   | "skillBanding"
   | "progressSignals"
-  | "agentTunerNlp"
-  | "preview";
+  | "agentTunerNlp";
 
+/** Preview moved to the top of the nav (2026-06-07) — it's now the
+ *  canonical landing surface: educator sees the full call walkthrough,
+ *  clicks any bubble to edit in a sidetray. Default lens is `preview`. */
 const DESIGN_LENS_ORDER: DesignLensId[] = [
+  "preview",
   "intake",
   "onboarding",
   "stops",
@@ -83,7 +87,6 @@ const DESIGN_LENS_ORDER: DesignLensId[] = [
   "skillBanding",
   "progressSignals",
   "agentTunerNlp",
-  "preview",
 ];
 
 interface LensProps {
@@ -228,7 +231,7 @@ const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
   },
 };
 
-const DEFAULT_LENS: DesignLensId = "intake";
+const DEFAULT_LENS: DesignLensId = "preview";
 
 function isDesignLensId(value: string | null | undefined): value is DesignLensId {
   if (!value) return false;
