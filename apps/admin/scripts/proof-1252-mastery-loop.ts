@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Proof script for #1252 — adaptive learner loop end-to-end on a
  * STRUCTURED course.
