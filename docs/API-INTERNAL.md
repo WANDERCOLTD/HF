@@ -44,6 +44,7 @@
   - [Course](#course)
   - [Course Pack](#course-pack)
   - [Courses](#courses)
+  - [Cron](#cron)
   - [Curricula](#curricula)
   - [Curriculum](#curriculum)
   - [Dashboard](#dashboard)
@@ -5961,6 +5962,31 @@ AI-suggests the best TeachingMode for a given course name.
 **Response** `200`
 ```json
 { ok, mode, confidence }
+```
+
+---
+
+## Cron
+
+### `POST` /api/cron/cleanup-usage-events
+
+A7 / audit-fix Track A — nightly cleanup of stale UsageEvent
+
+**Auth**: session ADMIN OR x-internal-secret (dual path)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| eventRetentionDays | body | number | No | optional override for raw event TTL (default 30) |
+| hourlyRetentionDays | body | number | No | optional override for hourly rollup TTL (default 90) |
+
+**Response** `200`
+```json
+{ ok: true, summary: { eventsDeleted, hourlyRollupsDeleted } }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" }
 ```
 
 ---
@@ -15540,8 +15566,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 495 |
-| Files with annotations | 485 |
+| Route files found | 496 |
+| Files with annotations | 486 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 

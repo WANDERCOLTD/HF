@@ -5,7 +5,7 @@
  * Shared by both the compose-prompt API route and the pipeline COMPOSE stage.
  */
 
-import { db, type TxClient } from "@/lib/prisma";
+import { db, prisma, type TxClient } from "@/lib/prisma";
 import type { CompositionResult } from "./types";
 
 export interface PersistOptions {
@@ -68,8 +68,6 @@ export async function persistComposedPrompt(
     };
   }
 
-  const p = db(tx);
-
   // #599 Slice 1 — populate the recap cache column when the loader produced
   // a synthesized recap. The loader writes the AI call + audit row; persist
   // just stores the cached text alongside the new prompt row so subsequent
@@ -83,52 +81,66 @@ export async function persistComposedPrompt(
       }
     : undefined;
 
-  const composedPrompt = await p.composedPrompt.create({
-    data: {
-      callerId,
-      playbookId: playbookId || null,
-      prompt: promptSummary,
-      llmPrompt,
-      triggerType,
-      triggerCallId: triggerCallId || null,
-      model: "deterministic",
-      status: "active",
-      ...(recapSynthesisCache ? { recapSynthesisCache } : {}),
-      inputs: {
-        callerContext,
-        memoriesCount: loadedData.memories.length,
-        personalityAvailable: !!loadedData.personality,
-        recentCallsCount: loadedData.recentCalls.length,
-        behaviorTargetsCount: metadata.mergedTargetCount,
-        playbooksUsed: loadedData.playbooks.map((p: any) => p.name),
-        playbooksCount: loadedData.playbooks.length,
-        identitySpec: resolvedSpecs.identitySpec?.name || null,
-        contentSpec: null, // Removed in ADR-002
-        specUsed: composeSpecSlug || "(defaults)",
-        specConfig: specConfig || {},
-        composition: {
-          sectionsActivated: metadata.sectionsActivated,
-          sectionsSkipped: metadata.sectionsSkipped,
-          loadTimeMs: metadata.loadTimeMs,
-          transformTimeMs: metadata.transformTimeMs,
+  // A2 — the create-new-active + supersede-old-active pair MUST be atomic.
+  // Pre-fix, two concurrent recomposes could both finish their create()
+  // before either reached updateMany(), leaving two `status:"active"` rows
+  // for the same (callerId, playbookId). The downstream reader at
+  // /api/callers/[id]/active-playbook then picks one non-deterministically.
+  // When the caller already supplied a tx (rare: pipeline COMPOSE stage
+  // wraps a bigger commit), reuse it; otherwise open a fresh one.
+  const persist = async (client: TxClient): Promise<PersistedPrompt> => {
+    const composedPrompt = await client.composedPrompt.create({
+      data: {
+        callerId,
+        playbookId: playbookId || null,
+        prompt: promptSummary,
+        llmPrompt,
+        triggerType,
+        triggerCallId: triggerCallId || null,
+        model: "deterministic",
+        status: "active",
+        ...(recapSynthesisCache ? { recapSynthesisCache } : {}),
+        inputs: {
+          callerContext,
+          memoriesCount: loadedData.memories.length,
+          personalityAvailable: !!loadedData.personality,
+          recentCallsCount: loadedData.recentCalls.length,
+          behaviorTargetsCount: metadata.mergedTargetCount,
+          playbooksUsed: loadedData.playbooks.map((p: any) => p.name),
+          playbooksCount: loadedData.playbooks.length,
+          identitySpec: resolvedSpecs.identitySpec?.name || null,
+          contentSpec: null, // Removed in ADR-002
+          specUsed: composeSpecSlug || "(defaults)",
+          specConfig: specConfig || {},
+          composition: {
+            sectionsActivated: metadata.sectionsActivated,
+            sectionsSkipped: metadata.sectionsSkipped,
+            loadTimeMs: metadata.loadTimeMs,
+            transformTimeMs: metadata.transformTimeMs,
+          },
         },
       },
-    },
-  });
+    });
 
-  // Supersede previous active prompts for this caller, scoped to same playbook.
-  // A caller can have one active prompt per playbook (course) simultaneously.
-  await p.composedPrompt.updateMany({
-    where: {
-      callerId,
-      id: { not: composedPrompt.id },
-      status: "active",
-      ...(playbookId ? { playbookId } : { playbookId: null }),
-    },
-    data: {
-      status: "superseded",
-    },
-  });
+    // Supersede previous active prompts for this caller, scoped to same playbook.
+    // A caller can have one active prompt per playbook (course) simultaneously.
+    await client.composedPrompt.updateMany({
+      where: {
+        callerId,
+        id: { not: composedPrompt.id },
+        status: "active",
+        ...(playbookId ? { playbookId } : { playbookId: null }),
+      },
+      data: {
+        status: "superseded",
+      },
+    });
 
-  return composedPrompt as PersistedPrompt;
+    return composedPrompt as PersistedPrompt;
+  };
+
+  if (tx) {
+    return persist(db(tx));
+  }
+  return prisma.$transaction(async (innerTx) => persist(innerTx as TxClient));
 }
