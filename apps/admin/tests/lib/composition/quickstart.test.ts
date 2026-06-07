@@ -331,6 +331,46 @@ describe("computeQuickStart transform", () => {
     expect(result.first_line).not.toContain("reconnect"); // legacy fallback
   });
 
+  it("first_line locked-module wins over phase-derived opening when isFirstCall + phases configured", () => {
+    // Regression for the live CIO/CTO bug: rail showed "Module: standard-unit-04-…"
+    // but the AI's first message still asked "which Unit would you like to dive
+    // into today?". Root cause: the picker's choice didn't reach lockedModule
+    // (compose-prompt route fix), AND the phase-derived path at quickstart.ts:600
+    // only read nextModule. This test pins the line 541 gate's win-over against
+    // the phase-derived path on a brand-new caller with phases configured.
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{
+          id: "pb-1",
+          name: "CIO/CTO",
+          isActive: true,
+          isLatest: true,
+          config: {
+            onboardingFlowPhases: {
+              phases: [{ goals: ["Greet the caller warmly"], phase: "0" }],
+            },
+          },
+        } as any],
+      },
+      sharedState: {
+        ...makeContext().sharedState,
+        isFirstCall: true,
+        nextModule: { slug: "unit-09", name: "Unit 09 — Architecture" },
+        lockedModule: { id: "u4", slug: "unit-04", name: "Unit 04 — IT Operations" },
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toContain("Unit 04 — IT Operations");
+    // The phase-derived greet template (line 581+) would have said "Good to meet you"
+    // seeded with nextModule.name; lockedModule must win and that line never runs.
+    expect(result.first_line).not.toContain("Unit 09 — Architecture");
+    expect(result.first_line).not.toContain("Good to meet you");
+    // Locked-module instruction wraps the picked module name in quotes.
+    expect(result.first_line).toContain("picked");
+    expect(result.first_line).toContain("acknowledg");
+  });
+
   it("first_line locked-module wins over #266 narrative when both apply", () => {
     const ctx = makeContext({
       loadedData: {

@@ -2,9 +2,17 @@
 // lib/intake/copy/*.mdx, parses frontmatter, returns DisclosureContent
 // + contentHash bound to the body.
 //
-// Production safety belt: refuses to deliver DRAFT-status copy when
-// NODE_ENV === 'production'. Throws DraftCopyInProductionError so the
-// caller (DeliveryPort) sees an audit-defensible failure.
+// Production safety belt: refuses to deliver DRAFT-status copy in
+// real PROD. Throws DraftCopyInProductionError so the caller
+// (DeliveryPort) sees an audit-defensible failure.
+//
+// "Real PROD" = NEXT_PUBLIC_APP_ENV === "PROD". We deliberately do
+// NOT key off NODE_ENV: every Cloud Run env (DEV/STAGING/PILOT/PROD)
+// runs the Next.js production build with NODE_ENV=production, so a
+// NODE_ENV check would over-block staging + pilot from ever testing
+// the intake flow with the working DRAFT copy. NEXT_PUBLIC_APP_ENV
+// is the HF env-identity signal (see `#726` env rename); only the
+// real PROD value triggers the guard.
 //
 // Phase 1 storage: filesystem only. Phase 2+ may add a DB "active
 // version" pointer per ADR § "Copy + version storage management".
@@ -45,10 +53,17 @@ export class DraftCopyInProductionError extends Error {
       `Refusing to deliver DRAFT disclosure copy in production: ` +
         `${requirementId} v${version}. Counsel must sign off + the file ` +
         `must be re-versioned (remove -DRAFT, bump to -rc.N or release ` +
-        `version) before NODE_ENV=production may deliver it.`,
+        `version) before NEXT_PUBLIC_APP_ENV=PROD may deliver it.`,
     );
     this.name = "DraftCopyInProductionError";
   }
+}
+
+// Real-PROD check. STAGING / PILOT / DEV all run NODE_ENV=production
+// (Cloud Run runs the Next.js production build everywhere). Only the
+// explicit HF env identity blocks DRAFT delivery.
+function isRealProdEnv(): boolean {
+  return process.env.NEXT_PUBLIC_APP_ENV === "PROD";
 }
 
 // ── Public port ─────────────────────────────────────────────────────
@@ -105,7 +120,7 @@ export async function loadDisclosureCopyFile(
   const path = join(COPY_DIR, filename);
   const raw = await readFile(path, "utf8");
   const { meta, body } = parseFrontmatter(raw);
-  if (meta.status === "DRAFT" && process.env.NODE_ENV === "production") {
+  if (meta.status === "DRAFT" && isRealProdEnv()) {
     throw new DraftCopyInProductionError(meta.requirementId, meta.version);
   }
   if (meta.locale !== locale) {
