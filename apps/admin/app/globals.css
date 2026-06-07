@@ -6217,6 +6217,88 @@ html.light {
   }
 }
 
+/* #1248 — inline module switcher modal. Built on Radix Dialog
+   (reuses .hf-drawer-overlay + .hf-drawer-header + .hf-drawer-close
+   from the drawer surface) but laid out as a centred card rather than
+   a side panel — module picking is a quick decision, not a sustained
+   side-task. */
+.hf-module-switcher-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 51;
+  max-width: 480px;
+  width: calc(100% - 32px);
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px color-mix(in oklab, var(--text-primary) 18%, transparent);
+  animation: hf-drawer-fade-in 0.18s ease-out;
+}
+
+.hf-module-switcher-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hf-module-switcher-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.hf-module-switcher-row:hover,
+.hf-module-switcher-row:focus-visible {
+  background: var(--surface-secondary);
+  border-color: var(--border-default);
+  outline: none;
+}
+
+.hf-module-switcher-row-current {
+  border-color: var(--accent-primary);
+  background: color-mix(in oklab, var(--accent-primary) 8%, var(--surface-primary));
+}
+
+.hf-module-switcher-label {
+  flex: 1 1 auto;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.hf-module-switcher-chevron {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+
+.hf-module-switcher-escape {
+  display: block;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border-default);
+  font-size: 13px;
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.hf-module-switcher-escape:hover {
+  text-decoration: underline;
+}
+
 /* Column header (sticky top, used in 4-col grid) */
 .hf-col-header {
   margin-bottom: 16px;
