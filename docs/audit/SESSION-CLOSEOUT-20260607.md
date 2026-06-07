@@ -8,8 +8,9 @@
 | [#1242](https://github.com/WANDERCOLTD/HF/pull/1242) | `e19316e1` | CI infrastructure fix — added `npx prisma generate` step before tsc, locked ratchet at the post-fix baseline (205 / 0 / 4403 / 37). Unblocked every subsequent PR. |
 | [#1272](https://github.com/WANDERCOLTD/HF/pull/1272) | `abcc144a` | Unblocked 10 pre-existing unit test failures (`vapi-provider*`, `calls-create*`, `callers-calls-module-resolver*`) — fixture updates only, no prod change. Full unit suite went 5837/11/16 → 5848/0/16. Also bumped ratchet to 207/0/4405 absorbing drift from unrelated main merges. |
 | [#1277](https://github.com/WANDERCOLTD/HF/pull/1277) | `13157630` | Audit Track A — caller-detail payload caps (A1), ComposedPrompt create+supersede transaction (A2), `/api/cron/cleanup-usage-events` endpoint (A7), partial index on `CallerAttribute` live tip (A8), + operator handoff doc covering A3/A7, + B0 investigation findings. |
+| [#1281](https://github.com/WANDERCOLTD/HF/pull/1281) | `097b01cd` | **B0 part 1** — Domain backfill migration (`20260212_backfill_create_domain`) creates the missing CREATE TABLE for Domain so `20260213_expand_user_roles`'s FK works on fresh CI. Verified idempotent on hf_sandbox. The first CI run with `continue-on-error` removed revealed the cascade is wider — the next migration trips on `Invite` (also `db push`'d) and ~80 other tables share the same debt. `continue-on-error: true` reinstated on `Run Prisma migrations` and `Seed specs` pending a multi-day **B0-followup** epic. |
 
-Five merges in one session, all green CI at merge time, total impact on the audit-fix plan:
+Six merges in one session, all green CI at merge time, total impact on the audit-fix plan:
 
 - **All of Track A except A4 implemented** (A1, A2, A5, A7, A8 in code; A3 + A7-cron-wiring in operator handoff; A6 evolved into B0 investigation).
 - **B7 implemented** as part of #1240.
@@ -20,8 +21,8 @@ Five merges in one session, all green CI at merge time, total impact on the audi
 ### A4 — pipeline prompt caching (parked indefinitely)
 The audit projected 40–60% pipeline-burst cost savings, but the real fix requires restructuring every stage's prompt builder (~7 of them) so the shared transcript prefix sits at identical byte position in the system message with a `cache_control` marker. Multi-day refactor with measurable behavioural regression risk. Worth doing as a deliberate epic when AI spend justifies the cost; not a one-shot fix.
 
-### B0 — CI migrate `continue-on-error` removal (ready to implement)
-Findings in `docs/audit/b0-domain-migration-investigation.md`. Smallest possible: one new migration `20260212_backfill_create_domain` (idempotent `CREATE TABLE IF NOT EXISTS` + 5 indexes) positioned before the FK in `20260213_expand_user_roles`. Safe on existing envs (no-op via IF NOT EXISTS), unblocks fresh CI DB. ~2h with `prisma db pull` verification.
+### B0 part 1 — DONE in #1281. Wider B0-followup remains parked.
+The Domain migration (`20260212_backfill_create_domain`) shipped, but the first removed-continue-on-error CI run exposed the rest of the cascade: `Invite`, `BddFeature`, `Institution`, and ~80 more `db push`-only tables. To actually retire `continue-on-error: true` on the migrate + seed steps, all of those need either backfill migrations or some form of `prisma migrate resolve` baseline reset. Estimated ~4–6h, possibly more depending on schema-evolution interactions between the backfill and the subsequent ALTER migrations that aren't idempotent. Tracked as **B0-followup**.
 
 ### Operator follow-ups from #1277 (gcloud action, not in PR)
 1. **A3** — append `?connection_limit=5&pool_timeout=20` to `DATABASE_URL` for hf-admin-dev / hf-admin-test / hf-admin.
@@ -37,14 +38,15 @@ C1–C3 (`pipeline.measure` / `pipeline.score_agent` rubric evals + cross-model 
 
 ## Recommended first move next session
 
-**B0 implementation** is the highest-leverage 2h on the board:
-1. `prisma db pull` against hf_sandbox to reconcile the recommended Domain shape with what's actually in the table.
-2. Write `prisma/migrations/20260212_backfill_create_domain/migration.sql` per the investigation doc.
-3. Test on a fresh local Postgres: `prisma migrate deploy` from scratch → confirm exit 0 + schema matches `db pull` output.
-4. Test on a hf_sandbox clone: confirm idempotent (gains one `_prisma_migrations` row, no errors).
-5. Remove `continue-on-error: true` from `.github/workflows/test.yml` line 188 (the `Run Prisma migrations` step).
+B0 part 1 already shipped. The remaining quick wins from Track B don't depend on migrate being a real CI gate:
 
-After B0 lands, every CI run sees a real migrate result, the integration tests get a real schema, and the next 3 PRs in Track B (B5, B8, B9) can stack cleanly without inheriting the migrate-step warning that's been swallowed for ~weeks.
+- **B5** — `@@unique` on `Caller.phone` + dedupe migration (~1h). Kills the duplicate-learner-from-retried-webhook bug class. Self-contained.
+- **B8** — Add `fk-consistency` job to `test.yml` against the ephemeral Postgres after migrate+seed (~30m). The script (`scripts/check-fk-consistency.ts`) already exists and runs locally via `npm run ctl check`; CI just doesn't invoke it. Run-time minutes; high signal.
+- **B11** — Cron pruners for `AppLog` (90d), `CallMessage` (180d), `PipelineStep` (90d) using the `croner` library already in the deps (~1d). Mirrors the A7 pattern: HTTP endpoint + dual-auth + Cloud Scheduler job, three of them.
+
+Pick whichever fits the available block. **B5 + B8 together** is ~90 min and gets the next CI gate live; **B11** is a focused day's work and addresses ranks 1/3/5 from the data-explosion audit.
+
+The wider B0-followup is the largest remaining single piece of debt but it's a contained problem — no urgency unless the migrate-step warning catches a real regression (no incidents linked to it in the last 90 days per `git log --grep migrate`).
 
 ## Process notes from this session
 
