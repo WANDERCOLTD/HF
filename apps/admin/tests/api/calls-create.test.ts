@@ -14,6 +14,12 @@ const mockPrisma = {
   caller: { findUnique: vi.fn() },
   call: { findFirst: vi.fn(), create: vi.fn() },
   callerPlaybook: { findFirst: vi.fn(), findMany: vi.fn() },
+  // resolveDefaultModuleForCaller chain (#1154/G6) — null returns let the
+  // resolver short-circuit gracefully so playbookId resolution stays the
+  // unit under test.
+  playbookCurriculum: { findFirst: vi.fn().mockResolvedValue(null) },
+  callerModuleProgress: { findFirst: vi.fn().mockResolvedValue(null) },
+  curriculumModule: { findFirst: vi.fn().mockResolvedValue(null) },
 };
 
 vi.mock("@/lib/prisma", () => ({
