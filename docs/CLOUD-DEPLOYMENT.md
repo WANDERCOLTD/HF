@@ -353,7 +353,7 @@ All envs live in the same GCP project (`hf-admin-prod`, region `europe-west2`). 
 | **Cloud SQL** | `hf-db` — PostgreSQL 16, db-f1-micro, private IP only (172.23.0.3). Separate databases per env. **Automated daily backups enabled 2026-05-24** (14 retained, 7-day PITR, start time 02:00). |
 | **VPC Connector** | `hf-connector` — bridges Cloud Run → Cloud SQL |
 | **Artifact Registry** | `europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/` |
-| **Secrets Manager** | Currently: `DATABASE_URL_DEV` (will become `DATABASE_URL_STAGING` in Phase 4), `AUTH_SECRET`, `HF_SUPERADMIN_TOKEN`, `ANTHROPIC_API_KEY`, `INTERNAL_API_SECRET`, `OPENAI_API_KEY` |
+| **Secrets Manager** | `DATABASE_URL_SANDBOX` (VM dev), `DATABASE_URL_STAGING` (hf-admin-dev Cloud Run, has A3 pool params), `AUTH_SECRET`, `HF_SUPERADMIN_TOKEN`, `ANTHROPIC_API_KEY`, `INTERNAL_API_SECRET`, `OPENAI_API_KEY`. (`DATABASE_URL_DEV` was deleted 2026-06-07 — renamed to `_STAGING` per the Phase 4 cutover.) |
 | **Cloudflare Worker** | `still-cake-1d83` (canonical router) — see [CLOUDFLARE-WORKER-ROUTING.md](./CLOUDFLARE-WORKER-ROUTING.md) |
 | **Cloudflare Tunnel** | `00d2c2cc-...` on hf-dev VM — currently dead weight, may be decommissioned |
 

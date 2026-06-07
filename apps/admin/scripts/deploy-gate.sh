@@ -50,9 +50,12 @@ fi
 # Accept canonical (staging/pilot/prod) + legacy (dev/test) names during #726 transition.
 case "$ENV" in
   staging|dev)
-    # #726 transition: 'staging' is the canonical name; 'dev' still maps to same infra until Phase 4.
+    # #726 Phase 4 cutover (2026-06-07): canonical secret is DATABASE_URL_STAGING.
+    # 'dev' alias still maps here for legacy command lines, but the underlying
+    # secret is the renamed STAGING one. The old DATABASE_URL_DEV secret was
+    # deleted after the cutover (used to point at hf_dev, now killed).
     BASE_URL="https://dev.humanfirstfoundation.com"
-    DB_SECRET="DATABASE_URL_DEV"
+    DB_SECRET="DATABASE_URL_STAGING"
     ;;
   pilot|test)
     # #726 transition: 'pilot' is the canonical name; 'test' is legacy.

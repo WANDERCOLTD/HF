@@ -97,7 +97,7 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap --project=h
 REMOTE
 ```
 
-When switching BACK to sandbox: same script, but `DATABASE_URL` reverts to `DATABASE_URL_DEV` (the sandbox secret while Phase 4 is pending) and `NEXT_PUBLIC_DB_TARGET=sandbox` (or remove the line entirely).
+When switching BACK to sandbox: same script, but `DATABASE_URL` reverts to `DATABASE_URL_SANDBOX` (the canonical sandbox secret post-2026-06-07 cutover) and `NEXT_PUBLIC_DB_TARGET=sandbox` (or remove the line entirely).
 
 ### Step 5: Restart the dev server
 

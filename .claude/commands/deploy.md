@@ -25,7 +25,7 @@ Options:
 
 | Env (conceptual) | Domain | Service | Seed Job | Migrate Job | DB Secret | Seed Profile | `_APP_ENV` |
 |------------------|--------|---------|----------|-------------|-----------|--------------|------------|
-| STAGING | dev.humanfirstfoundation.com | `hf-admin-dev` *(renames to `hf-admin-staging` in Phase 4)* | `hf-seed-dev` | `hf-migrate-dev` | `DATABASE_URL_DEV` *(renames to `DATABASE_URL_STAGING` in Phase 4)* | `full` | `STAGING` (legacy `DEV` still works) |
+| STAGING | dev.humanfirstfoundation.com | `hf-admin-dev` | `hf-seed-dev` | `hf-migrate-dev` | `DATABASE_URL_STAGING` | `full` | `STAGING` (legacy `DEV` still works) |
 | PILOT | (provision in Phase 5) | `hf-admin-pilot` | `hf-seed-pilot` | `hf-migrate-pilot` | `DATABASE_URL_PILOT` | `blank-ielts` | `PILOT` |
 | PROD | (provision in Phase 6) | `hf-admin-prod` | `hf-seed-prod` | `hf-migrate-prod` | `DATABASE_URL_PROD` | `core` | `PROD` |
 
@@ -48,7 +48,7 @@ What the gate runs (in order, fail-fast):
 1. **`npx tsc --noEmit`** — catches TypeScript errors before Cloud Build wastes a round-trip
 2. **`npm run lint`** — catches style + unused-import errors
 3. **`npm run test`** — unit tests (vitest)
-4. **Migration diff against target Cloud SQL** — fetches the matching secret from Secret Manager (`DATABASE_URL_DEV` / `_TEST` / `""`) in a subshell, runs `prisma migrate status` against the real target DB. Never falls back to local `.env`. Parses output; pending migrations or drift → FAIL.
+4. **Migration diff against target Cloud SQL** — fetches the matching secret from Secret Manager (`DATABASE_URL_STAGING` / `_PILOT` / `_PROD`) in a subshell, runs `prisma migrate status` against the real target DB. Never falls back to local `.env`. Parses output; pending migrations or drift → FAIL.
 5. **Smoke-env against the current live URL** — hits `/api/health`, `/api/ready`, `/api/system/readiness`, `/api/system/ini`. Any non-2xx or schema-drift error → FAIL. This is the safety net that catches "column does not exist" errors from mismatched deploys.
 
 **If deploy-gate exits non-zero: STOP.** Print the gate output to the user and refuse to proceed. Do NOT offer Quick deploy, Full deploy, or any other option until the gates are green.
