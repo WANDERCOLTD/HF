@@ -996,7 +996,19 @@ export function SimChat({
           return playbookName || subjectDiscipline || domainName;
         })()}
         onBack={onBack}
-        onEndCall={() => setShowEndSheet(true)}
+        onEndCall={() => {
+          // #1241 Slice 2 — learners (STUDENT) skip the sheet entirely.
+          // The toggle ("Run analysis pipeline") is a system concept
+          // they can't reason about; pipeline runs by default for them.
+          // Operators keep the sheet for now — Slice 3 moves the toggle
+          // to Playbook config and Slice 4 collapses the wrap UI.
+          if (!isOperator) {
+            if (callPhase === 'active') setCallPhase('wrapping');
+            void handleEndCall();
+            return;
+          }
+          setShowEndSheet(true);
+        }}
         onMediaLibrary={() => {
           setShowMediaLibrary(prev => !prev);
           setShowContentPicker(false);
