@@ -16,6 +16,7 @@ const mockPrisma = {
   playbook: { findUnique: vi.fn() },
   domain: { findUnique: vi.fn(), update: vi.fn() },
   caller: { findFirst: vi.fn() },
+  callerPlaybook: { findFirst: vi.fn() },
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -93,7 +94,7 @@ describe("/api/playbooks/:playbookId/voice-config (#1271 Slice C)", () => {
         domainId: "dom-1",
         config: { voice: { autoPipeline: false } },
       });
-      mockPrisma.caller.findFirst.mockResolvedValue({ id: "c-1" });
+      mockPrisma.callerPlaybook.findFirst.mockResolvedValue({ callerId: "c-1" });
 
       const { GET } = await loadPlaybookRoute();
       const res = await GET(
@@ -129,7 +130,7 @@ describe("/api/playbooks/:playbookId/voice-config (#1271 Slice C)", () => {
         domainId: "dom-1",
         config: {},
       });
-      mockPrisma.caller.findFirst.mockResolvedValue(null);
+      mockPrisma.callerPlaybook.findFirst.mockResolvedValue(null);
 
       const { GET } = await loadPlaybookRoute();
       const res = await GET(
