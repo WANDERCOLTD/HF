@@ -402,12 +402,15 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
     const result = JSON.parse(raw);
     expect(result.ok).toBe(true);
     expect(result.updated_keys).toContain("autoPipeline");
+    // `buildPendingChangePayload.stringifyValue` coerces booleans + numbers
+    // to strings (tray UI renders one uniform diff). Caught by the
+    // auto-test on the VM after #1241 Slice 3 landed.
     expect(result.pendingChange).toMatchObject({
       key: "voice.autoPipeline",
       scope: "playbook",
       scopeId: "pb-2",
-      beforeValue: true,
-      afterValue: false,
+      beforeValue: "true",
+      afterValue: "false",
     });
   });
 
