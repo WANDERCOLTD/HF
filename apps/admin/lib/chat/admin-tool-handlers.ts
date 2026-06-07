@@ -26,6 +26,9 @@ import { updateDraft, findById as findIntakeSpecById } from "@/lib/intake/spec-s
 import { projectBodyFromEditable } from "@/lib/intake/crawcus-serde";
 import { parse as parseSpecSource, SpecParseError } from "@tallyseal/spec-emitter";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { cascadeableKeys, LOCKED_KEYS, SECRET_KEYS } from "@/lib/voice/config";
+import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
+import { getVoiceProvider } from "@/lib/voice/provider-factory";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -2414,20 +2417,27 @@ async function handleUpdateVoiceConfig(input: Record<string, any>) {
   });
   if (!playbook) return { error: `Playbook ${playbookId} not found.` };
 
-  // Whitelist allowed keys + strip any attempt at writing a secret.
-  // #1241 — `autoPipeline` controls whether the post-call analysis pipeline
-  // runs automatically when a call ends. Cascade: Playbook.config.voice
-  // overrides SystemSetting `voice.auto_pipeline` (default true).
-  const ALLOWED = new Set(["provider", "model", "endedReasonOverride", "pollIntervalMs", "maxCostPerCallUsd", "autoPipeline"]);
+  // #1270 supersedes #1241 — ALLOWED set is now driven by the resolver's
+  // `cascadeableKeys` against the system-enabled VoiceProvider's
+  // `getConfigSchema()`. New fields auto-allow when the adapter schema
+  // gains them (Slice B will add voiceId, transcriber, etc.). `provider`
+  // and `model` are LOCKED at system level per the spike — explicitly
+  // dropped here, mirroring the resolver contract. autoPipeline (added
+  // by #1241) survives as a cross-cutting field via the resolver.
+  const sys = await getVoiceSystemSettings();
+  const enabledSlug = sys.defaultProviderSlug || "vapi";
+  const adapter = await getVoiceProvider(enabledSlug);
+  const allowedKeys = new Set(cascadeableKeys(adapter.getConfigSchema()));
   const sanitised: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(settings)) {
-    if (k === "modelSecret" || k === "secret" || k === "apiKey") continue;
-    if (ALLOWED.has(k)) sanitised[k] = v;
+    if (SECRET_KEYS.includes(k)) continue;
+    if (LOCKED_KEYS.includes(k)) continue;
+    if (allowedKeys.has(k)) sanitised[k] = v;
   }
   if (Object.keys(sanitised).length === 0) {
     return {
       error:
-        "No allowed voice settings provided. Allowed keys: provider, model, endedReasonOverride, pollIntervalMs, maxCostPerCallUsd, autoPipeline. Note: modelSecret is operator-only and not chat-editable.",
+        `No allowed voice settings provided. Allowed keys (for ${enabledSlug}): ${Array.from(allowedKeys).join(", ")}. Note: provider/model are system-locked; modelSecret is operator-only.`,
     };
   }
 

@@ -58,6 +58,31 @@ vi.mock("@/lib/curriculum/resolve-playbook-for-curriculum", () => ({
   resolvePlaybookIdsForContentSource: vi.fn(async () => ["pb-1", "pb-2"]),
 }));
 
+// #1270 — `handleUpdateVoiceConfig` now reads the system-enabled VP and
+// its `getConfigSchema()` to drive the ALLOWED set. Stub both so the
+// happy path passes without needing a real VoiceProvider row + adapter.
+vi.mock("@/lib/voice/system-settings", () => ({
+  getVoiceSystemSettings: vi.fn(async () => ({
+    defaultProviderSlug: "vapi",
+    silenceTimeoutSeconds: 30,
+    maxDurationSeconds: 600,
+    voicemailDetectionEnabled: true,
+    endCallPhrases: ["goodbye"],
+    maxCostPerCallUsd: null,
+  })),
+}));
+vi.mock("@/lib/voice/provider-factory", () => ({
+  getVoiceProvider: vi.fn(async () => ({
+    slug: "vapi",
+    getConfigSchema: () => ({
+      fields: [
+        { key: "apiKey", label: "x", type: "string", sensitive: true },
+        { key: "voiceId", label: "Voice ID", type: "string", sensitive: false },
+      ],
+    }),
+  })),
+}));
+
 // BehaviorTarget writer (used by update_behavior_target handler)
 vi.mock("@/lib/agent-tuner/write-target", () => ({
   writeBehaviorTarget: vi.fn(async () => ({
@@ -354,46 +379,18 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
     });
   });
 
-  it("update_voice_config emits pendingChange against config.voice.* key", async () => {
+  it("update_voice_config emits pendingChange against config.voice.* key (#1270 cross-cutting key)", async () => {
+    // #1270 — `model` is now LOCKED at system level. Test uses
+    // `autoPipeline` (cross-cutting) which is always cascadeable.
     mockPrisma.playbook.findUnique.mockResolvedValue({
       id: "pb-1",
       name: "Sales 101",
-      config: { voice: { provider: "vapi", model: "claude-old" } },
-    });
-    const raw = await executeAdminTool(
-      "update_voice_config",
-      {
-        playbook_id: "pb-1",
-        settings: { model: "claude-opus-4-7" },
-        reason: "model bump",
-      },
-      "OPERATOR",
-    );
-    const result = JSON.parse(raw);
-    expect(result.ok).toBe(true);
-    expect(result.compose_inputs_bumped).toBe(true);
-    expect(result.pendingChange).toMatchObject({
-      key: "voice.model",
-      scope: "playbook",
-      scopeId: "pb-1",
-      beforeValue: "claude-old",
-      afterValue: "claude-opus-4-7",
-    });
-  });
-
-  // #1241 Slice 3 — autoPipeline must pass the ALLOWED whitelist and emit
-  // a pendingChange against `voice.autoPipeline`. Catches the regression
-  // where the key gets dropped from either the schema or the runtime set.
-  it("update_voice_config accepts autoPipeline (#1241)", async () => {
-    mockPrisma.playbook.findUnique.mockResolvedValue({
-      id: "pb-2",
-      name: "IELTS Speaking",
       config: { voice: { autoPipeline: true } },
     });
     const raw = await executeAdminTool(
       "update_voice_config",
       {
-        playbook_id: "pb-2",
+        playbook_id: "pb-1",
         settings: { autoPipeline: false },
         reason: "manual review for this play",
       },
@@ -401,17 +398,92 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
     );
     const result = JSON.parse(raw);
     expect(result.ok).toBe(true);
-    expect(result.updated_keys).toContain("autoPipeline");
-    // `buildPendingChangePayload.stringifyValue` coerces booleans + numbers
-    // to strings (tray UI renders one uniform diff). Caught by the
-    // auto-test on the VM after #1241 Slice 3 landed.
+    expect(result.compose_inputs_bumped).toBe(true);
     expect(result.pendingChange).toMatchObject({
       key: "voice.autoPipeline",
       scope: "playbook",
-      scopeId: "pb-2",
-      beforeValue: "true",
-      afterValue: "false",
+      scopeId: "pb-1",
+      beforeValue: true,
+      afterValue: false,
     });
+  });
+
+  it("update_voice_config REJECTS provider override (#1270 LOCKED_KEYS)", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue({
+      id: "pb-1",
+      name: "Sales 101",
+      config: {},
+    });
+    const raw = await executeAdminTool(
+      "update_voice_config",
+      {
+        playbook_id: "pb-1",
+        settings: { provider: "retell" },
+        reason: "switch provider per course",
+      },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    // No fields survived sanitisation → handler returns error.
+    expect(result.error).toMatch(/No allowed voice settings/);
+  });
+
+  it("update_voice_config REJECTS model override (#1270 LOCKED_KEYS)", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue({
+      id: "pb-1",
+      name: "Sales 101",
+      config: {},
+    });
+    const raw = await executeAdminTool(
+      "update_voice_config",
+      {
+        playbook_id: "pb-1",
+        settings: { model: "claude-opus-4-7" },
+        reason: "per-course model",
+      },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.error).toMatch(/No allowed voice settings/);
+  });
+
+  it("update_voice_config ACCEPTS per-VP schema field (voiceId on vapi)", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue({
+      id: "pb-1",
+      name: "Sales 101",
+      config: {},
+    });
+    const raw = await executeAdminTool(
+      "update_voice_config",
+      {
+        playbook_id: "pb-1",
+        settings: { voiceId: "elevenlabs-rachel" },
+        reason: "course-specific voice",
+      },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.updated_keys).toContain("voiceId");
+  });
+
+  it("update_voice_config REJECTS sensitive schema field (apiKey)", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue({
+      id: "pb-1",
+      name: "Sales 101",
+      config: {},
+    });
+    const raw = await executeAdminTool(
+      "update_voice_config",
+      {
+        playbook_id: "pb-1",
+        settings: { apiKey: "sk-leaked-via-chat" },
+        reason: "trying it",
+      },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.error).toMatch(/No allowed voice settings/);
   });
 
   // Note: update_intake_spec_draft does NOT bump Playbook compose stamp
