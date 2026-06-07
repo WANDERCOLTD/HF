@@ -15,6 +15,7 @@ import { MediaLibraryPanel } from './MediaLibraryPanel';
 import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
 import { useProviderCall } from './useProviderCall';
+import { labelForEndSource } from '@/lib/voice/end-source';
 import { useOutboundDial } from './useOutboundDial';
 import { config } from '@/lib/config';
 import type { MediaInfo } from './MessageBubble';
@@ -182,6 +183,11 @@ export function SimChat({
   // is disabled and a glowing "Wrapping up…" marker renders inline. #1241.
   const [callPhase, setCallPhase] = useState<'loading' | 'lobby' | 'active' | 'wrapping' | 'ended'>('loading');
   const [callEndedAt, setCallEndedAt] = useState<Date | null>(null);
+  // #1241 Slice 6 — tracks the local guess at how the call ended so the
+  // wrap-marker can label it ("Ended on phone" / "Connection lost" / etc.)
+  // without an extra round-trip. The DB stamp (also `endSource`) is the
+  // source of truth across surfaces — this is the live in-page mirror.
+  const [callEndSource, setCallEndSource] = useState<string | null>(null);
   const [newPromptId, setNewPromptId] = useState<string | null>(null);
   const [quickStart, setQuickStart] = useState<Record<string, unknown> | null>(null);
   const [showContentPicker, setShowContentPicker] = useState(false);
@@ -476,7 +482,21 @@ export function SimChat({
             if (staleMs > 5 * 60 * 1000) {
               console.log(`[sim] Active call is stale (${Math.round(staleMs / 60000)}m since last message) — sealing as ended`);
               setCallEndedAt(lastTs ?? new Date());
+              setCallEndSource('drop');
               setCallPhase('ended');
+              // #1241 Slice 6 — also seal the DB row so the 90s server
+              // poll doesn't keep finding it. endSource='drop' so the
+              // wrap-marker labels it "Connection lost". Fire-and-forget
+              // — failure is non-fatal because the local UI already shows
+              // ended and the server poll is the safety net.
+              fetch(`/api/calls/${activeCall.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  endedAt: (lastTs ?? new Date()).toISOString(),
+                  endSource: 'drop',
+                }),
+              }).catch((err) => console.warn('[sim] stale-resume seal failed:', err));
             } else {
               setCallPhase('active');
               console.log(`[sim] Restored ${restored.length} messages from active call`);
@@ -819,7 +839,17 @@ export function SimChat({
   }
 
   // End call
-  const handleEndCall = useCallback(async () => {
+  // #1241 — `endSource` tags the row with which path closed it:
+  //   sdk     VAPI Web SDK call-end
+  //   sse     SSE call-ended (server-side end-of-call broadcast)
+  //   manual  Operator sheet "End Call" / STUDENT red-X auto-end
+  //   drop    30s silence watchdog / stale-resume reconciliation
+  //   poll    server-side stale-call reconciler (handled in its own writer)
+  // Default is "manual" because the sheet path is the historical caller;
+  // every other invocation site MUST pass an explicit value.
+  const handleEndCall = useCallback(async (opts?: { endSource?: 'sdk' | 'sse' | 'manual' | 'drop' }) => {
+    const endSource = opts?.endSource ?? 'manual';
+    setCallEndSource(endSource);
     setIsEnding(true);
 
     // Tear down any live voice channel BEFORE saving the transcript.
@@ -882,7 +912,7 @@ export function SimChat({
       const patchRes = await fetch(`/api/calls/${callId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, endedAt: new Date().toISOString() }),
+        body: JSON.stringify({ transcript, endedAt: new Date().toISOString(), endSource }),
       });
 
       if (!patchRes.ok) {
@@ -990,6 +1020,10 @@ export function SimChat({
   useEffect(() => {
     if (providerCall.status !== 'ended') return;
     if (callPhase !== 'active') return;
+    // If the manual sheet path is already running (or any other
+    // handleEndCall invocation), don't double-fire when the SDK's
+    // call-end event flips status mid-save.
+    if (isEnding) return;
     // No chat-side call record means there's nothing to save (e.g. user
     // dialled Talk-Here from the lobby and hung up before sending any chat
     // message). `handleEndCall` would early-return; keep the phase at
@@ -998,8 +1032,12 @@ export function SimChat({
     if (autoEndFiredRef.current) return;
     autoEndFiredRef.current = true;
     setCallPhase('wrapping');
-    void handleEndCall();
-  }, [providerCall.status, callPhase, callId, handleEndCall]);
+    // #1241 — `providerCall.endedBy` distinguishes the SDK call-end event
+    // from the SSE call-ended broadcast so analytics can tell browser
+    // hangups apart from PSTN/webhook closures. Falls back to 'sdk' if
+    // the source wasn't captured (shouldn't happen — defensive).
+    void handleEndCall({ endSource: providerCall.endedBy ?? 'sdk' });
+  }, [providerCall.status, providerCall.endedBy, callPhase, callId, isEnding, handleEndCall]);
 
   // Reset the latch when a fresh call starts so a subsequent call can
   // auto-wrap too.
@@ -1018,6 +1056,7 @@ export function SimChat({
     setActions([]);
     setNewPromptId(null);
     setCallEndedAt(null);
+    setCallEndSource(null);
     setCallId(null);
     callIdRef.current = null;
     durationBudgetRef.current = null;
@@ -1525,7 +1564,7 @@ export function SimChat({
               onClick={() => {
                 setSilenceWarning(false);
                 if (callPhase === 'active') setCallPhase('wrapping');
-                void handleEndCall();
+                void handleEndCall({ endSource: 'drop' });
               }}
             >
               Mark as ended
@@ -1555,7 +1594,7 @@ export function SimChat({
               </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 500, color: 'var(--wa-text-primary)' }}>Call ended</div>
+              <div style={{ fontWeight: 500, color: 'var(--wa-text-primary)' }}>{labelForEndSource(callEndSource)}</div>
               <div style={{ fontSize: 12 }}>
                 {(() => {
                   if (!callEndedAt || messages.length === 0) return '';

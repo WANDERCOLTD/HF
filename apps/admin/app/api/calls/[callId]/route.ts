@@ -435,6 +435,8 @@ export async function GET(
  * @pathParam callId string - The call ID to update
  * @body transcript string - Updated call transcript (optional)
  * @body summary string - Updated call summary (optional)
+ * @body endedAt string - ISO timestamp the call ended (optional)
+ * @body endSource string - How the call ended: sdk|sse|webhook|manual|drop|poll|discard (#1241, optional)
  * @response 200 { ok: true, call: Call }
  * @response 404 { ok: false, error: "Call not found" }
  * @response 500 { ok: false, error: "Failed to update call" }
@@ -449,7 +451,7 @@ export async function PATCH(
 
     const { callId } = await params;
     const body = await request.json();
-    const { transcript, summary, endedAt } = body;
+    const { transcript, summary, endedAt, endSource } = body;
 
     const call = await prisma.call.findUnique({
       where: { id: callId },
@@ -467,6 +469,12 @@ export async function PATCH(
     if (transcript !== undefined) updateData.transcript = transcript;
     if (summary !== undefined) updateData.summary = summary;
     if (endedAt !== undefined) updateData.endedAt = new Date(endedAt);
+    // #1241 — accept endSource as a string; the TS taxonomy lives in
+    // lib/voice/end-source.ts. Stored as plain TEXT; readers tolerate
+    // unknown values via labelForEndSource's default branch.
+    if (endSource !== undefined && (typeof endSource === "string" || endSource === null)) {
+      updateData.endSource = endSource;
+    }
 
     const updated = await prisma.call.update({
       where: { id: callId },

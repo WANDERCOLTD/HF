@@ -65,6 +65,10 @@ interface ProviderCallApi {
   callId: string | null;
   providerSlug: string | null;
   errorMessage: string | null;
+  /** #1241 — which event flipped status to "ended". Lets SimChat tag
+   *  `Call.endSource` so analytics can break drops down by signal type.
+   *  Null until status === 'ended'. */
+  endedBy: "sdk" | "sse" | null;
   start: () => Promise<void>;
   end: () => Promise<void>;
 }
@@ -76,6 +80,7 @@ export function useProviderCall(
   const [callId, setCallId] = useState<string | null>(null);
   const [providerSlug, setProviderSlug] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [endedBy, setEndedBy] = useState<"sdk" | "sse" | null>(null);
 
   // Stash the SDK instance + SSE so we can tear them down without
   // races. `unknown` because the SDK is dynamically imported and we
@@ -131,6 +136,7 @@ export function useProviderCall(
           // The provider has signalled the call is done — flip status
           // and unwind. SDK stop runs in `end()` if the user clicks
           // first; if the server flipped first we still close here.
+          setEndedBy((prev) => prev ?? "sse");
           setStatus("ended");
           closeSse();
         }
@@ -220,6 +226,7 @@ export function useProviderCall(
         setStatus("active");
 
         vapi.on("call-end", () => {
+          setEndedBy((prev) => prev ?? "sdk");
           setStatus("ended");
           teardown();
         });
@@ -253,6 +260,7 @@ export function useProviderCall(
     callId,
     providerSlug,
     errorMessage,
+    endedBy,
     start,
     end,
   };

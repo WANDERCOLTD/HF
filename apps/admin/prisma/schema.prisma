@@ -1472,6 +1472,17 @@ model Call {
 
   // Live observation
   endedAt  DateTime? // null = call may still be active (or pre-feature calls)
+  // #1241 — how the call ended (analytics + UI labelling on the wrap card).
+  // Documented values (TS const in `lib/voice/end-source.ts`):
+  //   "sdk"     VAPI Web SDK call-end event (browser hangup)
+  //   "sse"     SSE call-ended from server (PSTN hangup, end-of-call webhook)
+  //   "manual"  User clicked the End Call sheet button
+  //   "drop"    30s silence watchdog or stale-resume on mount
+  //   "poll"    90s server-side poll-stale-calls reconciler
+  //   "discard" Future "discard without pipeline" path
+  // Nullable: pre-existing rows have null; current writers populate where
+  // known so future analytics can break it down.
+  endSource String?
   messages CallMessage[]
 
   // Voice provider slug that served this call. References VoiceProvider.slug

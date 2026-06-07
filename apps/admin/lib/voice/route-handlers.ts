@@ -595,7 +595,13 @@ export async function persistEndOfCall(
       // definition. Webhook path also stamps it on the first real
       // end-of-call merge so the row exits the "in-progress" state.
       ...((sourceTag === "fallback" || isFirstEndOfCall)
-        ? { endedAt: new Date() }
+        ? {
+            endedAt: new Date(),
+            // #1241 — stamp endSource on the merge-to-ended transition
+            // so the row carries it through downstream readers. Mirror
+            // the create path's source-tag → endSource mapping.
+            endSource: sourceTag === "fallback" ? "poll" : "webhook",
+          }
         : {}),
       ...(nextSequence != null ? { callSequence: nextSequence } : {}),
     };
@@ -710,6 +716,11 @@ export async function persistEndOfCall(
       callerId,
       usedPromptId,
       endedAt,
+      // #1241 — server-side end-of-call writer. `sourceTag` already
+      // distinguishes the webhook path from the poll-fallback path, so
+      // mirror it: 'webhook' for normal end-of-call, 'poll' when the
+      // 90s stale-calls cron reconciled. See lib/voice/end-source.ts.
+      endSource: sourceTag === "fallback" ? "poll" : "webhook",
       ...(playbookId ? { playbookId } : {}),
       ...(nextSequence != null ? { callSequence: nextSequence } : {}),
       ...persistableCapture,

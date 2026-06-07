@@ -346,6 +346,9 @@ async function markPollFailed(
       data: {
         voiceEndedReason: "vapi_poll_failed",
         endedAt: new Date(),
+        // #1241 — tag the row so analytics + UI labelling can tell
+        // "we found you stale on the cron" from "you hung up the phone".
+        endSource: "poll",
         voiceProviderRaw: { pollSource: "fallback", pollFailureReason: reason },
       },
     });
