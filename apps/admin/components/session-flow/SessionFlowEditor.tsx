@@ -31,8 +31,6 @@ import {
   ChevronRight,
   Target,
   HelpCircle,
-  Pencil,
-  X,
   AlertTriangle,
 } from "lucide-react";
 import type {
@@ -84,8 +82,6 @@ interface RowSpec {
     onChange: (next: boolean) => void;
   };
 }
-
-type DrawerKind = null | "mode" | "kc-delivery" | "nps" | "welcome-msg" | "onboarding-phases" | "offboarding-phases";
 
 /**
  * Lens scoping (Slice 1 of #1263 / story #1266).
@@ -140,7 +136,6 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [drawer, setDrawer] = useState<DrawerKind>(null);
   const [savingToggle, setSavingToggle] = useState<string | null>(null);
 
   const refetch = useCallback(() => {
@@ -165,7 +160,6 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
 
   const onUpdated = (next: ApiResponse) => {
     setData(next);
-    setDrawer(null);
   };
 
   /**
@@ -415,15 +409,6 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
     },
   ];
 
-  const handleEdit = (rowId: string) => {
-    if (rowId === "sessions") setDrawer("mode");
-    else if (rowId === "knowledge-check") setDrawer("kc-delivery");
-    else if (rowId === "nps") setDrawer("nps");
-    else if (rowId === "welcome-message") setDrawer("welcome-msg");
-    else if (rowId === "onboarding") setDrawer("onboarding-phases");
-    else if (rowId === "offboarding") setDrawer("offboarding-phases");
-  };
-
   const toggleRow = (id: string) => setExpandedId(prev => (prev === id ? null : id));
 
   const beforeRows = rowsForLens(before, activeSection);
@@ -453,9 +438,7 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
             rows={beforeRows}
             expandedId={expandedId}
             onToggle={toggleRow}
-            onEdit={handleEdit}
             savingToggle={savingToggle}
-            hideEdit={isLensMode}
           />
         )}
         {duringRows.length > 0 && (
@@ -464,9 +447,7 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
             rows={duringRows}
             expandedId={expandedId}
             onToggle={toggleRow}
-            onEdit={handleEdit}
             savingToggle={savingToggle}
-            hideEdit={isLensMode}
           />
         )}
         {afterRows.length > 0 && (
@@ -475,9 +456,7 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
             rows={afterRows}
             expandedId={expandedId}
             onToggle={toggleRow}
-            onEdit={handleEdit}
             savingToggle={savingToggle}
-            hideEdit={isLensMode}
           />
         )}
 
@@ -487,118 +466,52 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
             lens mode — educators see + edit in one place. */}
         {isLensMode && activeSection === "intake" && sessionFlow.intake.knowledgeCheck.enabled && (
           <KcDeliveryDrawer
-            inline
             courseId={courseId}
             sessionFlow={sessionFlow}
-            onClose={() => {}}
             onSaved={onUpdated}
           />
         )}
         {isLensMode && activeSection === "onboarding" && data.domainId && (
           <PhaseListDrawer
-            inline
             title="Onboarding flow phases"
             courseId={courseId}
             domainId={data.domainId}
             domainName={data.domainName}
             mode="onboarding"
-            onClose={() => refetch()}
           />
         )}
         {isLensMode && activeSection === "stops" && (
           <>
             <ModeDrawer
-              inline
               courseId={courseId}
               currentMode={mode}
               sessionCount={sessionCount}
-              onClose={() => {}}
               onSaved={onUpdated}
             />
             <NpsDrawer
-              inline
               courseId={courseId}
               sessionFlow={sessionFlow}
-              onClose={() => {}}
               onSaved={onUpdated}
             />
           </>
         )}
         {isLensMode && activeSection === "offboarding" && data.domainId && (
           <PhaseListDrawer
-            inline
             title="Offboarding flow phases"
             courseId={courseId}
             domainId={data.domainId}
             domainName={data.domainName}
             mode="offboarding"
-            onClose={() => refetch()}
           />
         )}
         {isLensMode && activeSection === "welcome" && (
           <WelcomeMessageDrawer
-            inline
             courseId={courseId}
             current={sessionFlow.welcomeMessage ?? ""}
-            onClose={() => {}}
             onSaved={onUpdated}
           />
         )}
       </div>
-
-      {drawer === "mode" && (
-        <ModeDrawer
-          courseId={courseId}
-          currentMode={mode}
-          sessionCount={sessionCount}
-          onClose={() => setDrawer(null)}
-          onSaved={onUpdated}
-        />
-      )}
-      {drawer === "kc-delivery" && (
-        <KcDeliveryDrawer
-          courseId={courseId}
-          sessionFlow={sessionFlow}
-          onClose={() => setDrawer(null)}
-          onSaved={onUpdated}
-        />
-      )}
-      {drawer === "nps" && (
-        <NpsDrawer
-          courseId={courseId}
-          sessionFlow={sessionFlow}
-          onClose={() => setDrawer(null)}
-          onSaved={onUpdated}
-        />
-      )}
-      {drawer === "welcome-msg" && (
-        <WelcomeMessageDrawer
-          courseId={courseId}
-          current={sessionFlow.welcomeMessage ?? ""}
-          onClose={() => setDrawer(null)}
-          onSaved={onUpdated}
-        />
-      )}
-      {drawer === "onboarding-phases" && data.domainId && (
-        <PhaseListDrawer
-          title="Onboarding flow phases"
-          courseId={courseId}
-          domainId={data.domainId}
-          domainName={data.domainName}
-          mode="onboarding"
-          onClose={() => { setDrawer(null); refetch(); }}
-        />
-      )}
-      {drawer === "offboarding-phases" && data.domainId && (
-        <PhaseListDrawer
-          title="Offboarding flow phases"
-          courseId={courseId}
-          domainId={data.domainId}
-          domainName={data.domainName}
-          mode="offboarding"
-          onClose={() => { setDrawer(null); refetch(); }}
-        />
-      )}
     </>
   );
 }
@@ -606,21 +519,19 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
 // ── Phase list drawer (#225 part 4) ──────────────────────────────────────────
 
 function PhaseListDrawer({
-  title, courseId, domainId, domainName, mode, onClose, inline,
+  title, courseId, domainId, domainName, mode,
 }: {
   title: string;
   courseId: string;
   domainId: string;
   domainName: string | null;
   mode: "onboarding" | "offboarding";
-  onClose: () => void;
-  inline?: boolean;
 }) {
   return (
-    <Drawer title={title} onClose={onClose} inline={inline}>
+    <Drawer title={title}>
       <p className="sfe-drawer-desc">
         Drag phases to reorder. Click a phase to edit its goals, duration, content, and survey steps.
-        Changes save automatically{inline ? "." : " — close when done."}
+        Changes save automatically.
       </p>
       <div className="sfe-phase-host">
         <OnboardingEditor
@@ -632,13 +543,6 @@ function PhaseListDrawer({
           mode={mode}
         />
       </div>
-      {!inline && (
-        <footer className="sfe-drawer-footer">
-          <button type="button" className="sfe-btn-primary" onClick={onClose}>
-            Done
-          </button>
-        </footer>
-      )}
     </Drawer>
   );
 }
@@ -646,15 +550,13 @@ function PhaseListDrawer({
 // ── Sub-components ──────────────────────────────────────────────
 
 function Section({
-  title, rows, expandedId, onToggle, onEdit, savingToggle, hideEdit,
+  title, rows, expandedId, onToggle, savingToggle,
 }: {
   title: string | null;
   rows: RowSpec[];
   expandedId: string | null;
   onToggle: (id: string) => void;
-  onEdit: (id: string) => void;
   savingToggle: string | null;
-  hideEdit?: boolean;
 }) {
   return (
     <div className="sft-section">
@@ -666,9 +568,7 @@ function Section({
             row={row}
             expanded={expandedId === row.id}
             onToggle={() => onToggle(row.id)}
-            onEdit={() => onEdit(row.id)}
             saving={savingToggle === row.id}
-            hideEdit={hideEdit}
           />
         ))}
       </ul>
@@ -677,14 +577,12 @@ function Section({
 }
 
 function Row({
-  row, expanded, onToggle, onEdit, saving, hideEdit,
+  row, expanded, onToggle, saving,
 }: {
   row: RowSpec;
   expanded: boolean;
   onToggle: () => void;
-  onEdit: () => void;
   saving: boolean;
-  hideEdit?: boolean;
 }) {
   const expandable = !!row.details && row.details.length > 0;
   const classes = [
@@ -695,22 +593,15 @@ function Row({
   ].filter(Boolean).join(" ");
 
   // The status column shows either the Apple toggle or the static badge.
-  // The action column shows the Edit button, an expand chevron, or empty.
+  // The action column shows an expand chevron when the row is expandable.
+  // The per-row [Edit ▸] button was retired with the sidetray (#1266) —
+  // every editable field lives in an inline form below the rows.
   const statusControl = row.toggle ? (
     <Toggle on={row.toggle.on} onChange={row.toggle.onChange} saving={saving} ariaLabel={row.label} />
   ) : (
     <span className={`sft-row-badge sft-row-badge--${row.status}`}>{statusLabel(row.status)}</span>
   );
-  const actionControl = row.editable && !hideEdit ? (
-    <button
-      className="sfe-edit-btn"
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onEdit(); }}
-      title="Edit"
-    >
-      <Pencil size={12} /> <span>Edit</span>
-    </button>
-  ) : (
+  const actionControl = (
     <span className="sft-row-chevron">
       {expandable ? <ChevronRight size={14} /> : <span style={{ width: 14, display: "inline-block" }} />}
     </span>
@@ -784,14 +675,12 @@ function Toggle({
 // ── Mode picker drawer ──────────────────────────────────────────────
 
 function ModeDrawer({
-  courseId, currentMode, sessionCount, onClose, onSaved, inline,
+  courseId, currentMode, sessionCount, onSaved,
 }: {
   courseId: string;
   currentMode: "continuous" | "structured";
   sessionCount: number | null;
-  onClose: () => void;
   onSaved: (next: ApiResponse) => void;
-  inline?: boolean;
 }) {
   const [picked, setPicked] = useState<"continuous" | "structured">(currentMode);
   const [saving, setSaving] = useState(false);
@@ -822,7 +711,7 @@ function ModeDrawer({
   };
 
   return (
-    <Drawer title="Course mode" onClose={onClose} inline={inline}>
+    <Drawer title="Course mode">
       <p className="sfe-drawer-desc">
         Pick how this course paces sessions. Changing this on a live course
         affects how learners progress.
@@ -861,11 +750,6 @@ function ModeDrawer({
       {err && <div className="sfe-error">Save failed: {err}</div>}
 
       <footer className="sfe-drawer-footer">
-        {!inline && (
-          <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>
-            Cancel
-          </button>
-        )}
         <button
           type="button"
           className="sfe-btn-primary"
@@ -904,13 +788,11 @@ function ModeOption({
 // ── KC delivery mode drawer ──────────────────────────────────────────────
 
 function KcDeliveryDrawer({
-  courseId, sessionFlow, onClose, onSaved, inline,
+  courseId, sessionFlow, onSaved,
 }: {
   courseId: string;
   sessionFlow: SessionFlowResolved;
-  onClose: () => void;
   onSaved: (next: ApiResponse) => void;
-  inline?: boolean;
 }) {
   const current = sessionFlow.intake.knowledgeCheck.deliveryMode ?? "mcq";
   const [picked, setPicked] = useState<"mcq" | "socratic">(current);
@@ -947,7 +829,7 @@ function KcDeliveryDrawer({
   };
 
   return (
-    <Drawer title="Knowledge Check delivery" onClose={onClose} inline={inline}>
+    <Drawer title="Knowledge Check delivery">
       <p className="sfe-drawer-desc">
         Choose how the educator probes prior knowledge in the first call. One mode only — no double-quizzing.
       </p>
@@ -971,7 +853,6 @@ function KcDeliveryDrawer({
       </div>
       {err && <div className="sfe-error">Save failed: {err}</div>}
       <footer className="sfe-drawer-footer">
-        {!inline && <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>}
         <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
           {saving ? "Saving…" : "Save delivery mode"}
         </button>
@@ -983,13 +864,11 @@ function KcDeliveryDrawer({
 // ── NPS drawer ──────────────────────────────────────────────
 
 function NpsDrawer({
-  courseId, sessionFlow, onClose, onSaved, inline,
+  courseId, sessionFlow, onSaved,
 }: {
   courseId: string;
   sessionFlow: SessionFlowResolved;
-  onClose: () => void;
   onSaved: (next: ApiResponse) => void;
-  inline?: boolean;
 }) {
   const stop = sessionFlow.stops.find(s => s.kind === "nps");
   const initialEnabled = !!stop;
@@ -1033,7 +912,7 @@ function NpsDrawer({
   };
 
   return (
-    <Drawer title="NPS satisfaction survey" onClose={onClose} inline={inline}>
+    <Drawer title="NPS satisfaction survey">
       <p className="sfe-drawer-desc">
         Pick when the post-course NPS survey fires. Mastery triggers respect the learner&rsquo;s actual progress; session count triggers fire on a fixed call number.
       </p>
@@ -1081,7 +960,6 @@ function NpsDrawer({
 
       {err && <div className="sfe-error">Save failed: {err}</div>}
       <footer className="sfe-drawer-footer">
-        {!inline && <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>}
         <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
           {saving ? "Saving…" : "Save NPS"}
         </button>
@@ -1093,13 +971,11 @@ function NpsDrawer({
 // ── Welcome message drawer ──────────────────────────────────────────────
 
 function WelcomeMessageDrawer({
-  courseId, current, onClose, onSaved, inline,
+  courseId, current, onSaved,
 }: {
   courseId: string;
   current: string;
-  onClose: () => void;
   onSaved: (next: ApiResponse) => void;
-  inline?: boolean;
 }) {
   const [text, setText] = useState(current);
   const [saving, setSaving] = useState(false);
@@ -1127,7 +1003,7 @@ function WelcomeMessageDrawer({
   };
 
   return (
-    <Drawer title="Welcome message" onClose={onClose} inline={inline}>
+    <Drawer title="Welcome message">
       <p className="sfe-drawer-desc">
         First-line greeting the AI uses on the learner&rsquo;s first call. Leave blank to fall back to the domain default or a generic greeting.
       </p>
@@ -1145,7 +1021,6 @@ function WelcomeMessageDrawer({
       </label>
       {err && <div className="sfe-error">Save failed: {err}</div>}
       <footer className="sfe-drawer-footer">
-        {!inline && <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>}
         <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
           {saving ? "Saving…" : (trimmed.length === 0 && current.length > 0 ? "Clear message" : "Save message")}
         </button>
@@ -1154,43 +1029,26 @@ function WelcomeMessageDrawer({
   );
 }
 
+/**
+ * Inline editor card. Was originally a fixed sidetray with backdrop and
+ * close X; the sidetray was retired (#1266 cleanup) in favour of always-
+ * inline forms inside `<CourseDesignConsole>` lens panels. The component
+ * is kept as a small composable wrapper so each XxxDrawer doesn't have
+ * to duplicate the header + body chrome.
+ */
 function Drawer({
-  title, onClose, children, inline,
+  title, children,
 }: {
   title: string;
-  onClose: () => void;
   children: React.ReactNode;
-  /**
-   * When true, render as an inline card (no backdrop, no fixed positioning,
-   * no header close button) so the form lives directly inside a lens panel.
-   * The Course Design Console (#1266) uses this so educators see + edit in
-   * one place instead of opening a sidetray.
-   */
-  inline?: boolean;
 }) {
-  if (inline) {
-    return (
-      <section className="sfe-drawer sfe-drawer--inline" aria-label={title}>
-        <header className="sfe-drawer-header">
-          <h2 className="sfe-drawer-title">{title}</h2>
-        </header>
-        <div className="sfe-drawer-body">{children}</div>
-      </section>
-    );
-  }
   return (
-    <>
-      <div className="sfe-backdrop" onClick={onClose} />
-      <aside className="sfe-drawer" role="dialog" aria-label={title}>
-        <header className="sfe-drawer-header">
-          <h2 className="sfe-drawer-title">{title}</h2>
-          <button type="button" className="sfe-icon-btn" onClick={onClose} title="Close">
-            <X size={16} />
-          </button>
-        </header>
-        <div className="sfe-drawer-body">{children}</div>
-      </aside>
-    </>
+    <section className="sfe-drawer sfe-drawer--inline" aria-label={title}>
+      <header className="sfe-drawer-header">
+        <h2 className="sfe-drawer-title">{title}</h2>
+      </header>
+      <div className="sfe-drawer-body">{children}</div>
+    </section>
   );
 }
 

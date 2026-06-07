@@ -7,11 +7,6 @@ import { CollapsibleCard } from '@/components/shared/CollapsibleCard';
 import { FeltProgressSettings } from '@/components/course-design/FeltProgressSettings';
 import { FirstSessionSettings } from '@/components/course-design/FirstSessionSettings';
 import { TolerancesSettings } from '@/components/course-design/TolerancesSettings';
-import { CourseSummaryCard } from './CourseSummaryCard';
-import { archetypeLabel } from '@/lib/course/group-specs';
-import { INTERACTION_PATTERN_LABELS, type InteractionPattern } from '@/lib/content-trust/resolve-config';
-import { getTeachingProfile } from '@/lib/content-trust/teaching-profiles';
-import { getAudienceOption } from '@/lib/prompt/composition/transforms/audience';
 import type { PlaybookConfig } from '@/lib/types/json-fields';
 import type { SetupStatusInput } from '@/hooks/useCourseSetupStatus';
 
@@ -70,58 +65,17 @@ export function CourseDesignTab({
   onSimCall, instructionTotal, categoryCounts, contentMethods, onNavigate,
   onReadinessChange,
 }: CourseDesignTabProps): React.ReactElement {
-  // Session-flow state (intake, NPS, welcome message, onboarding/offboarding
-  // phases, mode, etc.) is owned end-to-end by <SessionFlowEditor>, which
-  // fetches /api/courses/:id/session-flow on mount and persists via PUT.
-  // No mirroring here — one canonical surface.
-
-  // Overview-derived data (from absorbed CourseOverviewTab)
+  // Session-flow state is owned end-to-end by `<CourseDesignConsole>` →
+  // `<SessionFlowEditor>`, which fetches /api/courses/:id/session-flow on
+  // mount and persists via PUT. No mirroring here — one canonical surface.
   const pbConfig = (playbookConfig || {}) as PlaybookConfig;
-  const goals = pbConfig.goals || [];
-  const audienceId = pbConfig.audience || '';
-  const audienceOption = audienceId ? getAudienceOption(audienceId) : null;
-  const firstProfile = (subjects || []).find(s => s.teachingProfile)?.teachingProfile;
-  const profile = firstProfile ? getTeachingProfile(firstProfile) : null;
-  const patternLabel = profile
-    ? (INTERACTION_PATTERN_LABELS[profile.interactionPattern as InteractionPattern]?.label ?? profile.interactionPattern)
-    : null;
-  const totalTPs = (subjects || []).reduce((sum, s) => sum + s.assertionCount, 0);
-  const totalSources = (() => {
-    const seen = new Set<string>();
-    for (const s of (subjects || [])) for (const src of (s.sources ?? [])) seen.add(src.id);
-    return seen.size || (subjects || []).reduce((sum, s) => sum + s.sourceCount, 0);
-  })();
 
   return (
     <div className="hf-mt-lg">
-      {/* ── Summary (absorbed from Overview) ──
-          Collapsed by default — see CourseSummaryCard. `persistKey` lets each
-          course remember its own preference. */}
-      {detail && (
-        <>
-          <CourseSummaryCard
-            interactionPattern={patternLabel}
-            teachingMode={profile?.teachingMode ?? null}
-            audienceLabel={audienceOption?.label ?? null}
-            audienceAges={audienceOption?.ages ?? null}
-            subjectCount={(subjects || []).length}
-            totalTPs={totalTPs}
-            totalSources={totalSources}
-            instructionTotal={instructionTotal || 0}
-            categoryCounts={categoryCounts}
-            contentMethods={contentMethods}
-            goals={goals.map(g => ({ type: g.type, name: g.name }))}
-            personaName={persona?.name ?? null}
-            personaArchetype={persona?.extendsAgent ? archetypeLabel(persona.extendsAgent) : null}
-            sessionPlan={sessionPlan ?? null}
-            publishedAt={detail.publishedAt ?? null}
-            version={String(detail.version ?? '1')}
-            subjectNames={(subjects || []).map(s => s.name)}
-            onNavigate={onNavigate || (() => {})}
-            persistKey={courseId}
-          />
-        </>
-      )}
+      {/* COURSE AT A GLANCE was retired from the Design tab in #1266 cleanup.
+          The same widget now lives at the top of the Content tab
+          (`CourseIntelligenceTab.tsx`) where the data it summarises actually
+          comes from. The Design tab focuses on the journey lenses below. */}
 
       {/* ── Course Design Console (#1263 / Slice 1 #1266) ──
           Replaces the Session Flow CollapsibleCard with a lens-shell that

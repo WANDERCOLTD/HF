@@ -17,6 +17,10 @@ import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-
 import { CourseOverviewTab } from './CourseOverviewTab';
 import { OnboardingEditor } from '@/components/shared/OnboardingEditor';
 import { CourseIntelligenceTab } from './CourseIntelligenceTab';
+import { CourseSummaryCard } from './CourseSummaryCard';
+import { getTeachingProfile } from '@/lib/content-trust/teaching-profiles';
+import { getAudienceOption } from '@/lib/prompt/composition/transforms/audience';
+import type { InteractionPattern } from '@/lib/content-trust/resolve-config';
 import { CourseWhoTab } from './CourseWhoTab';
 import { CourseGoalsTab } from './CourseGoalsTab';
 import { CourseDesignTab } from './CourseDesignTab';
@@ -37,6 +41,7 @@ import { getPageHelp } from '@/lib/help/page-help';
 import { type TPItem, type SessionOption } from '@/components/shared/SessionTPList';
 import {
   groupSpecs,
+  archetypeLabel,
   type PlaybookItem,
   type SystemSpec,
   type SpecDetail,
@@ -1123,50 +1128,54 @@ export default function CourseDetailPage() {
   // ── Render ───────────────────────────────────────────
   return (
     <div className="hf-page-container hf-page-scroll hf-page-left">
-      {/* ── Hero (always visible above tabs) ───────────── */}
-      <div className="hf-flex hf-flex-between hf-items-start hf-mb-lg">
-        <div>
-          <div className="hf-flex hf-gap-md hf-items-center hf-mb-sm">
-            <EditableTitle
-              value={detail.name}
-              as="h1"
-              onSave={async (newName) => {
-                const res = await fetch(`/api/playbooks/${detail.id}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name: newName }),
-                });
-                const data = await res.json();
-                if (!data.ok) throw new Error(data.error);
-                setDetail((prev) => prev ? { ...prev, name: newName } : prev);
-              }}
-            />
-            <StatusBadge status={statusMap[detail.status.toLowerCase()] || 'draft'} />
-            {setupReadiness && (
-              <span className={`cd-readiness-pip ${setupReadiness.allComplete ? 'cd-readiness-pip--ready' : 'cd-readiness-pip--progress'}`}
-                title={setupReadiness.allComplete ? 'Ready to teach' : `Setup: ${setupReadiness.completedCount} of 6`}
-              >
-                {setupReadiness.allComplete ? 'Ready' : `${setupReadiness.completedCount}/6`}
-              </span>
-            )}
-            <ProgressionModePill
-              modulesAuthored={(detail.config as Record<string, unknown> | null | undefined)?.modulesAuthored as boolean | null | undefined}
-              onClickWhenUnset={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
-            />
-            <CurriculumSourcePill
-              mode={activeCurriculumMode}
-              onClick={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
-            />
-          </div>
-          <div className="hf-flex hf-gap-sm hf-items-center">
-            <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
-            {(detail as any).group && (
-              <span className="hf-pill hf-pill-neutral">{(detail as any).group.name}</span>
-            )}
-            <span className="hf-text-xs hf-text-placeholder">v{detail.version}</span>
-          </div>
+      {/* ── Hero (always visible above tabs) ─────────────
+          Restructured #1266 cleanup: title is h2 (was h1) so the long
+          "X — Revision Aid" style titles stop wrapping to 3 lines; badges
+          live on their own row directly under the title so the layout
+          stays stable regardless of title length; action toolbar sits on
+          its own bottom row, right-aligned, so it doesn't fight the
+          title for horizontal space. */}
+      <div className="hf-mb-lg cd-hero">
+        <div className="cd-hero-title-row">
+          <EditableTitle
+            value={detail.name}
+            as="h2"
+            onSave={async (newName) => {
+              const res = await fetch(`/api/playbooks/${detail.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName }),
+              });
+              const data = await res.json();
+              if (!data.ok) throw new Error(data.error);
+              setDetail((prev) => prev ? { ...prev, name: newName } : prev);
+            }}
+          />
         </div>
-        <div className="hf-flex hf-gap-sm">
+        <div className="cd-hero-pills">
+          <StatusBadge status={statusMap[detail.status.toLowerCase()] || 'draft'} />
+          {setupReadiness && (
+            <span className={`cd-readiness-pip ${setupReadiness.allComplete ? 'cd-readiness-pip--ready' : 'cd-readiness-pip--progress'}`}
+              title={setupReadiness.allComplete ? 'Ready to teach' : `Setup: ${setupReadiness.completedCount} of 6`}
+            >
+              {setupReadiness.allComplete ? 'Ready' : `${setupReadiness.completedCount}/6`}
+            </span>
+          )}
+          <ProgressionModePill
+            modulesAuthored={(detail.config as Record<string, unknown> | null | undefined)?.modulesAuthored as boolean | null | undefined}
+            onClickWhenUnset={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
+          />
+          <CurriculumSourcePill
+            mode={activeCurriculumMode}
+            onClick={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
+          />
+          <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
+          {(detail as any).group && (
+            <span className="hf-pill hf-pill-neutral">{(detail as any).group.name}</span>
+          )}
+          <span className="hf-text-xs hf-text-placeholder">v{detail.version}</span>
+        </div>
+        <div className="cd-hero-actions">
           {isOperator && (
             <button
               className="hf-btn hf-btn-destructive hf-nowrap"
@@ -1573,28 +1582,71 @@ export default function CourseDetailPage() {
       {/* ═══════════════════════════════════════════════ */}
       {/* CONTENT INTELLIGENCE TAB                       */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'intelligence' && (
-        <CourseIntelligenceTab
-          courseId={courseId!}
-          detail={detail}
-          subjects={subjects}
-          courseSources={courseSources}
-          courseTeachingProfile={courseTeachingProfile}
-          contentMethods={contentMethods}
-          contentTotal={contentTotal}
-          instructionCount={instructionTotal}
-          unassignedContentCount={unassignedContentCount}
-          categoryCounts={categoryCounts}
-          categoryItems={categoryItems}
-          isOperator={isOperator}
-          onContentRefresh={(methods, total, instrCount, unassignedContent) => {
-            setContentMethods(methods);
-            setContentTotal(total);
-            if (instrCount !== undefined) setInstructionTotal(instrCount);
-            if (unassignedContent !== undefined) setUnassignedContentCount(unassignedContent);
-          }}
-        />
-      )}
+      {activeTab === 'intelligence' && (() => {
+        // COURSE AT A GLANCE moved from the Design tab in #1266 cleanup.
+        // Derivation lives here (page.tsx) because page.tsx already has
+        // every input — no prop drilling into either CourseIntelligenceTab
+        // or the retired CourseDesignTab summary block.
+        const pbConfig = (detail?.config ?? {}) as PlaybookConfig;
+        const audienceId = (pbConfig.audience as string | undefined) || '';
+        const audienceOption = audienceId ? getAudienceOption(audienceId) : null;
+        const firstProfile = subjects.find(s => s.teachingProfile)?.teachingProfile;
+        const profile = firstProfile ? getTeachingProfile(firstProfile) : null;
+        const patternLabel = profile
+          ? (INTERACTION_PATTERN_LABELS[profile.interactionPattern as InteractionPattern]?.label ?? profile.interactionPattern)
+          : null;
+        const goalsList = (pbConfig.goals as Array<{ type: string; name: string }> | undefined) || [];
+        const sessionPlanForSummary = sessions?.plan
+          ? { estimatedSessions: sessions.plan.estimatedSessions, totalDurationMins: totalSessionDuration }
+          : null;
+        return (
+          <>
+            {detail && (
+              <CourseSummaryCard
+                interactionPattern={patternLabel}
+                teachingMode={profile?.teachingMode ?? null}
+                audienceLabel={audienceOption?.label ?? null}
+                audienceAges={audienceOption?.ages ?? null}
+                subjectCount={subjects.length}
+                totalTPs={totalTPs}
+                totalSources={totalSources}
+                instructionTotal={instructionTotal || 0}
+                categoryCounts={categoryCounts}
+                contentMethods={contentMethods.map(m => ({ teachMethod: m.teachMethod, count: m.count }))}
+                goals={goalsList.map(g => ({ type: g.type, name: g.name }))}
+                personaName={persona?.name ?? null}
+                personaArchetype={persona?.extendsAgent ? archetypeLabel(persona.extendsAgent) : null}
+                sessionPlan={sessionPlanForSummary}
+                publishedAt={detail.publishedAt ?? null}
+                version={String(detail.version ?? '1')}
+                subjectNames={subjects.map(s => s.name)}
+                onNavigate={handleTabChange}
+                persistKey={courseId!}
+              />
+            )}
+            <CourseIntelligenceTab
+              courseId={courseId!}
+              detail={detail}
+              subjects={subjects}
+              courseSources={courseSources}
+              courseTeachingProfile={courseTeachingProfile}
+              contentMethods={contentMethods}
+              contentTotal={contentTotal}
+              instructionCount={instructionTotal}
+              unassignedContentCount={unassignedContentCount}
+              categoryCounts={categoryCounts}
+              categoryItems={categoryItems}
+              isOperator={isOperator}
+              onContentRefresh={(methods, total, instrCount, unassignedContent) => {
+                setContentMethods(methods);
+                setContentTotal(total);
+                if (instrCount !== undefined) setInstructionTotal(instrCount);
+                if (unassignedContent !== undefined) setUnassignedContentCount(unassignedContent);
+              }}
+            />
+          </>
+        );
+      })()}
 
       {/* ═══════════════════════════════════════════════ */}
       {/* LEARNERS TAB                                   */}

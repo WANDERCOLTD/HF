@@ -80,61 +80,26 @@
   background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
 }
 
-/* Drawer */
-.sfe-backdrop {
-  position: fixed;
-  inset: 0;
-  background: color-mix(in srgb, #000 35%, transparent);
-  z-index: 100;
-}
-.sfe-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 480px;
-  max-width: 100vw;
-  background: var(--surface-primary);
-  border-left: 1px solid var(--border-default);
-  box-shadow: -4px 0 16px color-mix(in srgb, #000 8%, transparent);
-  z-index: 101;
+/* ── Inline editor card (#1266 — sidetray retired) ──
+   Was originally a fixed sidetray with backdrop. Every drawer now lives
+   inline inside a lens panel, so the modal-only styles (backdrop, fixed
+   positioning, sliding shadow) are gone. The remaining .sfe-drawer
+   styles are just card chrome — border, radius, header + body padding.
+   `.sfe-drawer--inline` is retained as a no-op alias for any consumer
+   that still passes the className. */
+.sfe-drawer,
+.sfe-drawer--inline {
   display: flex;
   flex-direction: column;
-}
-
-/* Phase-list drawer wraps the full OnboardingEditor — needs wider canvas. */
-.sfe-drawer:has(.sfe-phase-host) {
-  width: 720px;
+  width: 100%;
+  max-width: none;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  margin-top: 16px;
 }
 .sfe-phase-host {
   margin-bottom: 12px;
-}
-
-/* ── Inline drawer (lens mode, #1266) ──
-   Rendered directly inside a lens panel — no backdrop, no fixed
-   positioning, no close X. Sits as a bordered card below the rows
-   so educators see + edit in one place. Wider canvas for the phase
-   list still applies. */
-.sfe-drawer--inline {
-  position: static;
-  width: 100%;
-  max-width: none;
-  border: 1px solid var(--border-default);
-  border-left: 1px solid var(--border-default);
-  border-radius: 12px;
-  box-shadow: none;
-  margin-top: 16px;
-  z-index: auto;
-}
-.sfe-drawer--inline.sfe-drawer:has(.sfe-phase-host) {
-  width: 100%;
-}
-.sfe-drawer--inline .sfe-drawer-header {
-  padding: 12px 16px;
-}
-.sfe-drawer--inline .sfe-drawer-body {
-  padding: 16px;
-  overflow: visible;
 }
 
 .sfe-drawer-header {
