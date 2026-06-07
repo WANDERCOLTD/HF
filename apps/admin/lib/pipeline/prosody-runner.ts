@@ -204,10 +204,33 @@ async function detectProsodyMode(
     select: { config: true },
   });
   if (!pb?.config) return "general";
-  const cfg = pb.config as Record<string, unknown>;
-  if (cfg.tierPresetId === "ielts-speaking") {
-    return "ielts";
-  }
+  return resolveProsodyMode(pb.config as Record<string, unknown>);
+}
+
+/**
+ * Resolve prosody mode from a `Playbook.config` blob. Pure — exported for
+ * the course-detail UI pill and the Cmd+K snapshot builder so all readers
+ * use the same precedence (operator setting wins over tier-preset heuristic).
+ *
+ * Return type is narrower than `VoiceProsodyMode` — `"unavailable"` is a
+ * runtime envelope state from the prosody runner, never a config value.
+ *
+ * Precedence:
+ *   1. `config.voice.prosodyMode === "ielts" | "general"` — explicit
+ *      operator choice via Settings or Cmd+K's update_voice_config tool.
+ *      "auto" (or any other string) falls through to the heuristic.
+ *   2. `config.tierPresetId === "ielts-speaking"` — legacy auto-detect for
+ *      courses that pre-date the explicit field.
+ *   3. Default → "general".
+ */
+export function resolveProsodyMode(
+  config: Record<string, unknown> | null | undefined,
+): "ielts" | "general" {
+  if (!config) return "general";
+  const voiceCfg = config.voice as Record<string, unknown> | null | undefined;
+  const explicit = voiceCfg?.prosodyMode;
+  if (explicit === "ielts" || explicit === "general") return explicit;
+  if (config.tierPresetId === "ielts-speaking") return "ielts";
   return "general";
 }
 
