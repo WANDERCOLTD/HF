@@ -174,7 +174,7 @@ const eslintConfig = defineConfig([
       // pre-existing call-sites discovered during epic landing.
       // Promoted to `error` once full sweep complete + audit counter
       // reads 0 for ≥7 days.
-      "hf-pipeline/no-module-read-without-course-style-guard": "warn",
+      "hf-pipeline/no-module-read-without-course-style-guard": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
