@@ -534,6 +534,20 @@ function buildCallerContext(context: AssembledContext): string {
   if (caller?.email) parts.push(`- Email: ${caller.email}`);
   if (caller?.phone) parts.push(`- Phone: ${caller.phone}`);
 
+  // #1252 follow-up (Bug A) — Locked module name MUST appear in
+  // callerContext so the I-C1 invariant has a stable surface to scan.
+  // Without this, pedagogy / quickstart narrate the lock perfectly in
+  // llmPrompt but I-C1's `callerContext.includes(lockedModuleName)`
+  // check fires a vacuous violation — buildCallerContext never
+  // surfaced lockedModule before. Proven on Thalia/IELTS V1.0 sim.
+  if (sharedState.lockedModule?.name) {
+    parts.push(`\n## Current Focus`);
+    parts.push(`- Locked module: ${sharedState.lockedModule.name}`);
+    if (sharedState.lockedModule.description) {
+      parts.push(`- Description: ${sharedState.lockedModule.description}`);
+    }
+  }
+
   // Personality
   if (sections.personality) {
     parts.push("\n## Personality Profile");
