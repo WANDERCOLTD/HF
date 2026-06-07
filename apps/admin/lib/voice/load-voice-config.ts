@@ -39,14 +39,29 @@ function extractVoiceBlob(blob: unknown): Record<string, unknown> | null {
 export async function loadResolvedVoiceConfig(args: LoadArgs): Promise<ResolvedVoiceConfig> {
   const vs = await getVoiceCallSettings();
   const sys = await getVoiceSystemSettings();
-  const enabledSlug = sys.defaultProviderSlug || vs.provider || "vapi";
+  // #1271 — `vs.provider` is the LLM provider (openai / anthropic /
+  // custom-llm), NOT the voice provider slug. Falling back to it caused
+  // `getVoiceProvider("custom-llm")` 500s on any system where
+  // `VoiceSystemSettings.defaultProviderSlug` is blank but a VAPI row
+  // exists. Pick a real voice provider: explicit setting → vapi default.
+  const explicit = sys.defaultProviderSlug?.trim();
+  const enabledSlug = explicit && explicit.length > 0 ? explicit : "vapi";
 
   const [vpRow, adapter, domainConfig, courseConfig] = await Promise.all([
     prisma.voiceProvider.findUnique({
       where: { slug: enabledSlug },
       select: { slug: true, config: true },
     }),
-    getVoiceProvider(enabledSlug),
+    getVoiceProvider(enabledSlug).catch((err) => {
+      // If the configured slug doesn't resolve (operator setting drift)
+      // surface a synthetic empty-schema adapter so the resolver still
+      // returns a valid cascade — the caller will see system defaults.
+      console.warn(`[voice-config] adapter resolve failed for slug=${enabledSlug}:`, err instanceof Error ? err.message : String(err));
+      return {
+        slug: enabledSlug,
+        getConfigSchema: () => ({ fields: [] }),
+      } as Awaited<ReturnType<typeof getVoiceProvider>>;
+    }),
     args.callerId ? loadDomainVoice(args.callerId) : Promise.resolve(null),
     args.playbookId ? loadPlaybookVoice(args.playbookId) : Promise.resolve(null),
   ]);
