@@ -1,8 +1,8 @@
 # Continue Here — TAM & GTM Doc Set
 
-**Last touched:** 2026-06-04 by Paul + Claude
-**Branch:** `chore/tam-docs-d8-pagination`
-**Status:** D1 + D2 re-drafted to V0.2 (essay-style SCQA in D1, pagination, glossary). D8 shipped V0.1. D3 / D4 / D5 still paused.
+**Last touched:** 2026-06-07 by Paul + Claude
+**Branch:** `chore/tam-docs-d4-citations`
+**Status:** D1 + D2 at V0.2, D8 at V0.1, **D4 shipped V0.1** (CSV + MD + PDF, 72 rows). D3 / D5 still paused.
 
 ---
 
@@ -12,6 +12,7 @@
 |---|---|---|---|
 | D1 | Briefing Note (essay-style, paginated, glossary) | `D1-briefing-note.md` + `.pdf` | **V0.2** |
 | D2 | Priority TAM Overview (paginated, glossary) | `D2-priority-tam.md` + `.pdf` | **V0.2** |
+| D4 | Citation Sheet (72 rows: CSV + paginated MD + PDF) | `D4-citations.csv` + `.md` + `.pdf` | **V0.1** |
 | D8 | Sales GTM Plan, Phase-1 Slice (Sector B / NMC band-7 / IRA) | `D8-sales-gtm-phase1.md` + `.pdf` | **V0.1** |
 
 All three docs follow the locked spine: 5-level nomenclature (Sector → Wedge → Channel → Account → Cohort), 4-question priority frame, TAM = Sector / SAM = Channel / SOM = Account, V/E/T confidence flags, 7-sector portfolio (A–G), and the final-page glossary.
@@ -38,29 +39,7 @@ All three docs follow the locked spine: 5-level nomenclature (Sector → Wedge �
 
 ## What's paused (resume in this order)
 
-### Next: D4 — Citation Sheet (Google Sheet)
-
-**Why next:** D1 / D2 / D8 currently cite figures inline. Production-ready version needs every number to link back to a single citation sheet row.
-
-**V0 schema (build first):**
-
-| col | name | type | example |
-|---|---|---|---|
-| A | metric_id | text | `B.NMC.register_total` |
-| B | sector | text | `B` |
-| C | metric_name | text | NMC register total |
-| D | value_ww | text | `–` |
-| E | value_uk | text | 826 k |
-| F | unit | text | registrants |
-| G | source_name | text | NMC Annual Register Report |
-| H | source_url | url | https://www.nmc.org.uk/about-us/reports-and-accounts/registration-statistics/ |
-| I | as_of_date | date | 2025-03 |
-| J | confidence | enum | V / E / T |
-| K | notes | text | – |
-
-**Seed rows:** all rows from the "Top citations" table in D2 §11 + the verified-citation table from the chat history. ~60 rows.
-
-### Next-next: D5 — Entity Lists (Google Sheet, multi-tab)
+### Next: D5 — Entity Lists (Google Sheet, multi-tab)
 
 **Tabs:**
 
@@ -74,7 +53,7 @@ All three docs follow the locked spine: 5-level nomenclature (Sector → Wedge �
 
 Columns per row: name · type · website · primary_contact_role · linkedin · status (Pipeline / Active / Lapsed) · last_touch · owner
 
-### After D4 / D5: D3 — Full TAM & GTM Analysis (25–35 pp)
+### After D5: D3 — Full TAM & GTM Analysis (25–35 pp)
 
 Sections to write:
 
@@ -115,7 +94,7 @@ From the strategy directory:
 
 ```bash
 cd docs/strategy
-for f in D1-briefing-note D2-priority-tam D8-sales-gtm-phase1; do
+for f in D1-briefing-note D2-priority-tam D4-citations D8-sales-gtm-phase1; do
   pandoc $f.md -o $f.pdf --pdf-engine=weasyprint --standalone
 done
 ```
@@ -123,12 +102,12 @@ done
 ## How to resume
 
 ```
-git checkout chore/tam-docs-d8-pagination     # or merge to main first
+git checkout chore/tam-docs-d4-citations      # or merge to main first
 cat docs/strategy/CONTINUE-HERE.md
 ```
 
-Then prompt: *"Resume the TAM doc set. Start with D4 (citation sheet schema + populated rows from D2 / D8 citations)."*
+Then prompt: *"Resume the TAM doc set. Start with D5 (entity lists — IRAs tab populated from NHS Employers Code-of-Practice list)."*
 
 ## Branch hygiene
 
-This branch (`chore/tam-docs-d8-pagination`) is doc-only. No code, no schema, no Prisma, no API. Safe to merge to main once board-approved. After merge, open a new branch for D3 / D4 / D5 work to keep concerns separated.
+This branch (`chore/tam-docs-d4-citations`) is doc-only. No code, no schema, no Prisma, no API. Safe to merge to main once board-approved. After merge, open a new branch for D3 / D5 work to keep concerns separated.
