@@ -399,12 +399,14 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
     const result = JSON.parse(raw);
     expect(result.ok).toBe(true);
     expect(result.compose_inputs_bumped).toBe(true);
+    // `buildPendingChangePayload.stringifyValue` coerces primitives to
+    // strings (tray serialises everything as string for the diff UI).
     expect(result.pendingChange).toMatchObject({
       key: "voice.autoPipeline",
       scope: "playbook",
       scopeId: "pb-1",
-      beforeValue: true,
-      afterValue: false,
+      beforeValue: "true",
+      afterValue: "false",
     });
   });
 
