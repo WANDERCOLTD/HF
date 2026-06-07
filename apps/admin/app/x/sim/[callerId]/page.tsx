@@ -11,6 +11,7 @@ import { deriveParameterMap } from '@/lib/agent-tuner/derive';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
 import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from '@/components/sim/ModulePickerBanners';
 import { SimStateBreadcrumb } from '@/components/sim/SimStateBreadcrumb';
+import { ModuleQuickSwitcher } from '@/components/sim/ModuleQuickSwitcher';
 import { QualificationContextStrip } from '@/components/sim/qualification/QualificationContextStrip';
 import { FirstCallPinGate } from '@/components/identity/FirstCallPinGate';
 
@@ -245,18 +246,38 @@ export default function SimConversationPage() {
 
   // #242 Slice 2: must live ABOVE the early returns or React's hook order
   // changes between renders (Rules of Hooks violation).
+  // #1248 — module picker is now an inline modal on the sim page.
+  // Pre-fix, the rail's "Pick a module" button navigated to
+  // /x/student/[playbookId]/modules and back — heavy for a single
+  // decision ("pick Unit 04 vs Unit 09"). The dedicated picker page
+  // remains available as a deep link via the dialog's "See full
+  // picker →" escape (full prereqs, recommendation reasoning, etc.).
+  const [moduleSwitcherOpen, setModuleSwitcherOpen] = useState(false);
   const handlePickModule = useCallback(() => {
     if (!playbookId) return;
+    setModuleSwitcherOpen(true);
+  }, [playbookId]);
+
+  const handleModuleSwitcherPick = useCallback(
+    (moduleId: string) => {
+      // Replace `?requestedModuleId=` in the URL. The sim page already
+      // handles the param-driven recompose + #1245 persistence write.
+      const carryParams = new URLSearchParams(searchParams.toString());
+      carryParams.set('requestedModuleId', moduleId);
+      router.replace(`/x/sim/${callerId}?${carryParams.toString()}`);
+    },
+    [callerId, router, searchParams],
+  );
+
+  const fullPickerHref = useMemo(() => {
+    if (!playbookId) return undefined;
     const sp = new URLSearchParams();
-    // Strip requestedModuleId so the banner doesn't keep firing on re-pick.
     const carryParams = new URLSearchParams(searchParams.toString());
     carryParams.delete('requestedModuleId');
     sp.set('returnTo', `/x/sim/${callerId}${carryParams.toString() ? `?${carryParams.toString()}` : ''}`);
-    // #357: thread callerId so the picker page can use it instead of the
-    // (now-being-removed in #356) sessionStorage dropdown fallback.
     sp.set('callerId', callerId);
-    router.push(`/x/student/${playbookId}/modules?${sp.toString()}`);
-  }, [callerId, playbookId, router, searchParams]);
+    return `/x/student/${playbookId}/modules?${sp.toString()}`;
+  }, [callerId, playbookId, searchParams]);
 
   // #357 NOTE: an earlier slice auto-routed to the picker on first entry
   // when modulesAuthored=true. That created a trap — user couldn't get
@@ -311,6 +332,14 @@ export default function SimConversationPage() {
         requestedModuleId={requestedModuleId ?? null}
         modules={authoredModules}
         onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
+      />
+      <ModuleQuickSwitcher
+        open={moduleSwitcherOpen}
+        onClose={() => setModuleSwitcherOpen(false)}
+        modules={authoredModules}
+        currentModuleId={requestedModuleId ?? null}
+        onPick={handleModuleSwitcherPick}
+        fullPickerHref={fullPickerHref}
       />
       {/* #1098 Slice C — Qualification context strip (renders only when the
           learner's active Curriculum has a qualificationAnchor). */}
