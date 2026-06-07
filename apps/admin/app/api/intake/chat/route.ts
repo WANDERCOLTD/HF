@@ -147,8 +147,19 @@ export async function POST(req: NextRequest) {
   // captured. If we have no text but a required field is still
   // missing, ask for it deterministically. Idempotent — if the reply
   // already has content, this is a no-op.
+  //
+  // Final-turn closing (#1246). When all required fields are captured
+  // and the next event will be ProjectionCommit, `nextQuestionFor`
+  // returns ""; pre-fix that empty string was written into the
+  // assistant `CapturedTurn` payload — the audit bundle then carried a
+  // row with `content: ""` but real `tokensIn`/`tokensOut` provenance,
+  // creating a compliance gap (we could prove the AI turn happened but
+  // not what it said). Emit an explicit closing instead — both visible
+  // to the learner before the /intake/done handoff AND non-empty in
+  // the chain-of-custody log.
   if (!assistantReply || assistantReply.trim() === "") {
-    assistantReply = nextQuestionFor(session.values);
+    const fallback = nextQuestionFor(session.values);
+    assistantReply = fallback === "" ? closingMessageFor(session.values) : fallback;
   }
 
   appendEvent(session, {
@@ -228,7 +239,7 @@ function isReady(values: Record<string, unknown>): boolean {
  * (a common shape Claude produces after `update-setup` fires). Keeps
  * the chat visibly flowing instead of showing a blank assistant turn.
  */
-function nextQuestionFor(values: Record<string, unknown>): string {
+export function nextQuestionFor(values: Record<string, unknown>): string {
   const has = (k: string): boolean => {
     const v = values[k];
     return v !== undefined && v !== null && v !== "";
@@ -240,6 +251,24 @@ function nextQuestionFor(values: Record<string, unknown>): string {
     return "Last one — which age band fits? Options: 18-24, 25-34, 35-44, 45-54, 55-64, 65-plus, or prefer-not-to-say. (Under-18 enrolment isn't supported via this flow.)";
   }
   return "";
+}
+
+/**
+ * Closing message for the final assistant turn — emitted when every
+ * required field is captured and the next event will be
+ * ProjectionCommit. Deterministic so the audit bundle's final
+ * CapturedTurn payload is always non-empty (#1246). Personalised by
+ * firstName when available; falls through to a generic phrasing
+ * otherwise. Length capped under ~160 chars.
+ */
+export function closingMessageFor(values: Record<string, unknown>): string {
+  const firstName =
+    typeof values.firstName === "string" && values.firstName.trim().length > 0
+      ? values.firstName.trim()
+      : null;
+  return firstName
+    ? `Thanks, ${firstName} — you're all set. Taking you to your audit trail.`
+    : "Thanks — you're all set. Taking you to your audit trail.";
 }
 
 // ── AI call — passes the `update-setup` tool ───────────────────────
