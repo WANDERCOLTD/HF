@@ -1,0 +1,177 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * ConsoleShell — reusable LH-menu + RHS-panel layout for educator
+ * operating consoles. Two consoles share this shell today: Progress v2
+ * (caller surface) and Course Design Console (course surface, #1263).
+ *
+ * Lens-specific layout (Overview grid, Exam radar, etc.) belongs in the
+ * consumer console's own CSS file. This file is presentation-only —
+ * shell + nav + panel chrome only.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.hf-console-shell-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hf-console-shell-banner {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hf-console-shell-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  min-height: 360px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .hf-console-shell-grid {
+    grid-template-columns: 1fr;
+  }
+  .hf-console-shell-nav {
+    overflow-x: auto;
+  }
+  .hf-console-shell-nav ul {
+    flex-direction: row !important;
+    gap: 4px;
+  }
+  .hf-console-shell-nav-item-wrap {
+    flex-shrink: 0;
+  }
+  .hf-console-shell-nav-soon {
+    display: none;
+  }
+}
+
+.hf-console-shell-nav {
+  background: var(--surface-secondary);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.hf-console-shell-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hf-console-shell-nav-item-wrap {
+  display: block;
+}
+
+.hf-console-shell-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.hf-console-shell-nav-item:hover {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.hf-console-shell-nav-item--active {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.hf-console-shell-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.hf-console-shell-nav-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.hf-console-shell-nav-soon {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  color: var(--text-muted);
+}
+
+.hf-console-shell-panel {
+  background: var(--surface-secondary);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.hf-console-shell-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 24px 0;
+  color: var(--text-muted);
+}
+
+.hf-console-shell-coming-soon-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+
+.hf-console-shell-panel-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-console-shell-panel-blurb {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.hf-console-shell-panel-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hf-console-shell-panel-meta code {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-primary);
+}

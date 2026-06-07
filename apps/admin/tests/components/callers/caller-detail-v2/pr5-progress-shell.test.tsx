@@ -42,7 +42,7 @@ describe("Progress v2 lens registry", () => {
     for (const id of LENS_ORDER) {
       expect(LENSES[id]).toBeDefined();
       expect(LENSES[id].label.length).toBeGreaterThan(0);
-      expect(LENSES[id].iconKey.length).toBeGreaterThan(0);
+      expect(LENSES[id].iconNode).toBeTruthy();
     }
   });
 
@@ -59,24 +59,24 @@ describe("Progress v2 lens registry", () => {
 describe("ProgressV2Tab shell", () => {
   it("renders one nav item per lens; soon badge only on lenses without Component", () => {
     const { container } = render(<ProgressV2Tab callerId="c1" />);
-    const items = container.querySelectorAll(".hf-progress-v2-nav-item");
+    const items = container.querySelectorAll(".hf-console-shell-nav-item");
     expect(items.length).toBe(LENS_ORDER.length);
     const pendingCount = LENS_ORDER.filter((id) => !LENSES[id].Component).length;
-    expect(container.querySelectorAll(".hf-progress-v2-nav-soon").length).toBe(
+    expect(container.querySelectorAll(".hf-console-shell-nav-soon").length).toBe(
       pendingCount,
     );
   });
 
   it("defaults to overview when no ?view= present", () => {
     const { container } = render(<ProgressV2Tab callerId="c1" />);
-    const active = container.querySelector(".hf-progress-v2-nav-item--active");
+    const active = container.querySelector(".hf-console-shell-nav-item--active");
     expect(active?.textContent).toContain("Overview");
   });
 
   it("activates the lens pointed to by ?view=adaptation", () => {
     currentView = "adaptation";
     const { container } = render(<ProgressV2Tab callerId="c1" />);
-    const active = container.querySelector(".hf-progress-v2-nav-item--active");
+    const active = container.querySelector(".hf-console-shell-nav-item--active");
     expect(active?.textContent).toContain("Adaptation");
     // PR 6 mounts the real Adaptation lens (Component is defined); confirm
     // the lens panel mounted (loading state is fine — fetch isn't mocked).
@@ -87,7 +87,7 @@ describe("ProgressV2Tab shell", () => {
     currentView = "not-real";
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { container } = render(<ProgressV2Tab callerId="c1" />);
-    const active = container.querySelector(".hf-progress-v2-nav-item--active");
+    const active = container.querySelector(".hf-console-shell-nav-item--active");
     expect(active?.textContent).toContain("Overview");
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
