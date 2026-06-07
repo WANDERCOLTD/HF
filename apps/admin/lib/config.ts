@@ -705,6 +705,19 @@ export const config = {
      */
     get evidenceFirstPlaybooks(): string[] {
       if (_evidenceFirstPlaybookCache !== null) return _evidenceFirstPlaybookCache;
+      // Server-only: a recent client-side import path (typed-config
+      // cascade in #1285) pulls `lib/config.ts` into the browser
+      // bundle. Without this guard, Next.js's client bundler tries to
+      // resolve `fs` and throws "Module not found: Can't resolve 'fs'"
+      // at compile time, breaking HMR on every sim/intake page.
+      // The getter is only meaningfully consulted server-side
+      // (pipeline + compose); on the client we short-circuit to an
+      // empty list — matches the fall-through value already used when
+      // the JSON file is absent.
+      if (typeof window !== "undefined") {
+        _evidenceFirstPlaybookCache = [];
+        return _evidenceFirstPlaybookCache;
+      }
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const fs = require("fs") as typeof import("fs");
