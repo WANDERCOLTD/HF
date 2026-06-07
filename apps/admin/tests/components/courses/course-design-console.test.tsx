@@ -109,11 +109,11 @@ describe("CourseDesignConsole — nav", () => {
     expect(soon.length).toBe(1);
   });
 
-  it("defaults to Intake when ?design_view= is absent", () => {
+  it("defaults to Preview when ?design_view= is absent", () => {
     mockSessionFlowFetch(makeResolvedResponse());
     const { container } = render(<CourseDesignConsole courseId="course-1" />);
     const active = container.querySelector(".hf-console-shell-nav-item--active");
-    expect(active?.textContent).toContain("Intake");
+    expect(active?.textContent).toContain("Preview");
   });
 
   it("activates the lens pointed to by ?design_view=onboarding", () => {

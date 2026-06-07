@@ -1,15 +1,21 @@
 "use client";
 
 /**
- * Preview lens — Slice 3 of epic #1263 (chat-bubble revision).
+ * Preview lens — Slice 3 of epic #1263 (chat-bubble revision +
+ * sidetray edit, 2026-06-07).
  *
  * Renders an Educator view + Engineer view of what the learner will
- * experience on Call 1. The Educator view now uses WhatsApp-style chat
- * bubbles (matching the SimChat + ChatSurvey UI the learner actually
- * sees) — one transcript that walks pre-call survey questions first,
- * then a "Call 1 begins" divider, then the AI's opening + first
- * teaching turn. Each bubble is a clickable deep-link to the lens that
- * controls it.
+ * experience on Call 1. The Educator view uses WhatsApp-style chat
+ * bubbles that match SimChat + ChatSurvey UI. Clicking a bubble or
+ * section heading opens a slide-in sidetray with the matching lens
+ * editor — the educator can tweak goals/welcome/phases/NPS without
+ * losing the preview, and on close Preview re-fetches so the bubble
+ * reflects the new value immediately.
+ *
+ * (The sidetray pattern was previously retired from inside lenses
+ * (Slice 1 cleanup) — that decision stands for in-lens editing. The
+ * Preview-side sidetray is a different concern: it's overlay editing
+ * from a higher-level summary view, not from inside the editor.)
  *
  * Lazy compose — the `<ConsoleShell>` only mounts this component when
  * the Preview lens is active, so `useEffect` on mount fires the
@@ -21,7 +27,11 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Eye, RefreshCw, FileSearch, AlertCircle, Edit3 } from "lucide-react";
+import { Eye, RefreshCw, FileSearch, AlertCircle, Edit3, X } from "lucide-react";
+import {
+  SessionFlowEditor,
+  type SessionFlowLens,
+} from "@/components/session-flow/SessionFlowEditor";
 import "./preview-lens.css";
 
 interface PreviewLensProps {
@@ -65,6 +75,25 @@ interface DryRunResp {
 
 type ViewMode = "educator" | "engineer";
 
+/** Sidetray lens map — which SessionFlowEditor section to mount per
+ *  Preview lens id. Used both for direct lens ids and for bubble lens
+ *  hints (e.g. a Goals bubble points at the Intake lens). */
+const SIDETRAY_LENS_MAP: Record<string, SessionFlowLens> = {
+  intake: "intake",
+  onboarding: "onboarding",
+  stops: "stops",
+  offboarding: "offboarding",
+  welcome: "welcome",
+};
+
+const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
+  intake: "Intake — pre-call questions",
+  onboarding: "Onboarding — first-call phases",
+  stops: "Session Stops — pre/mid/post-test, NPS",
+  offboarding: "Offboarding — end-of-course phases",
+  welcome: "Welcome message",
+};
+
 export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement {
   const [mode, setMode] = useState<ViewMode>("educator");
   const [flow, setFlow] = useState<SessionFlowResp | null>(null);
@@ -72,6 +101,7 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastComposedAt, setLastComposedAt] = useState<number | null>(null);
+  const [sidetrayLens, setSidetrayLens] = useState<SessionFlowLens | null>(null);
   const composedOnceRef = useRef(false);
 
   const compose = useCallback(async () => {
@@ -103,6 +133,17 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
   useEffect(() => {
     if (composedOnceRef.current) return;
     composedOnceRef.current = true;
+    void compose();
+  }, [compose]);
+
+  const openSidetray = useCallback((lensId: string) => {
+    const mapped = SIDETRAY_LENS_MAP[lensId];
+    if (mapped) setSidetrayLens(mapped);
+  }, []);
+
+  const closeSidetray = useCallback(() => {
+    setSidetrayLens(null);
+    // Re-fetch so the bubbles reflect any save inside the sidetray.
     void compose();
   }, [compose]);
 
@@ -146,8 +187,8 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
       {lastComposedAt && (
         <p className="hf-preview-lens-meta">
           Last composed {new Date(lastComposedAt).toLocaleTimeString()}.
-          Click any bubble or section heading to jump to the lens that controls it.
-          After editing, hit <strong>Refresh preview</strong> to see the change reflected here.
+          Click any bubble or section heading to edit it in a side panel — the preview
+          re-fetches when you close.
         </p>
       )}
 
@@ -165,11 +206,19 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
       )}
 
       {!loading && flow && mode === "educator" && (
-        <EducatorView transcript={transcript} courseId={courseId} />
+        <EducatorView transcript={transcript} courseId={courseId} onOpenSidetray={openSidetray} />
       )}
 
       {!loading && dryRun && mode === "engineer" && (
         <EngineerView data={dryRun} />
+      )}
+
+      {sidetrayLens && (
+        <PreviewEditSidetray
+          courseId={courseId}
+          lens={sidetrayLens}
+          onClose={closeSidetray}
+        />
       )}
     </div>
   );
@@ -218,10 +267,6 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
   const sf = flow.sessionFlow;
   const items: PreviewItem[] = [];
 
-  // ── Pre-call survey (intake questions) ──
-  // If any intake toggle is on, those run BEFORE call 1 (or in the first
-  // discovery phase, depending on delivery). Render them as a survey-style
-  // pre-call chat.
   const anyIntake =
     sf.intake.goals.enabled
     || sf.intake.aboutYou.enabled
@@ -272,8 +317,8 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
     }
 
     if (sf.intake.knowledgeCheck.enabled) {
-      const mode = sf.intake.knowledgeCheck.deliveryMode || "mcq";
-      if (mode === "mcq") {
+      const m = sf.intake.knowledgeCheck.deliveryMode || "mcq";
+      if (m === "mcq") {
         items.push({
           kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit Knowledge Check",
           caption: "Knowledge Check — MCQ batch (5 questions)",
@@ -284,12 +329,9 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
           text: "(learner answers each MCQ)",
         });
       }
-      // Socratic mode delivers inside the call's discovery phase, so it shows
-      // in the call section below, not here.
     }
   }
 
-  // ── AI Intro Call (separate session before teaching) ──
   if (sf.intake.aiIntroCall.enabled) {
     items.push({
       kind: "divider",
@@ -311,7 +353,6 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
       text: "Great, thanks for chatting. Looking forward to our first lesson!",
     });
   } else {
-    // Show ghosted so educator can see it's an option
     items.push({
       kind: "divider",
       label: "AI Intro Call — OFF",
@@ -320,10 +361,8 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
     });
   }
 
-  // ── Call 1 begins ──
   items.push({ kind: "divider", label: "Call 1 begins" });
 
-  // Welcome / first-line greeting
   if (sf.welcomeMessage) {
     items.push({
       kind: "bubble", side: "bot", lens: "welcome", lensLabel: "Edit Welcome",
@@ -338,7 +377,6 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
     });
   }
 
-  // Onboarding phases / discovery
   if (sf.onboarding.phases.length > 0) {
     const firstPhase = sf.onboarding.phases[0];
     items.push({
@@ -361,7 +399,6 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
     });
   }
 
-  // Socratic knowledge check probe — fires during discovery if enabled
   if (sf.intake.knowledgeCheck.enabled && (sf.intake.knowledgeCheck.deliveryMode ?? "mcq") === "socratic") {
     items.push({
       kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit Knowledge Check",
@@ -374,14 +411,12 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
     });
   }
 
-  // First teaching turn — link to Preview's own Engineer view
   items.push({
     kind: "bubble", side: "bot", lens: "preview", lensLabel: "See full prompt (Engineer)",
     caption: "First teaching turn",
     text: "(the first module's opening — see the Engineer view for the composed prompt)",
   });
 
-  // ── Stops / NPS that fire downstream ──
   const npsStop = sf.stops.find(s => s.kind === "nps");
   if (npsStop?.trigger) {
     const t = npsStop.trigger;
@@ -401,7 +436,13 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
 
 // ── Views ──────────────────────────────────────────────────────
 
-function EducatorView({ transcript, courseId }: { transcript: PreviewItem[]; courseId: string }): React.ReactElement {
+function EducatorView({
+  transcript, courseId, onOpenSidetray,
+}: {
+  transcript: PreviewItem[];
+  courseId: string;
+  onOpenSidetray: (lensId: string) => void;
+}): React.ReactElement {
   if (transcript.length === 0) {
     return <p className="hf-text-muted">Nothing configured yet — see Engineer view for raw compose state.</p>;
   }
@@ -409,6 +450,25 @@ function EducatorView({ transcript, courseId }: { transcript: PreviewItem[]; cou
     <div className="hf-preview-chat">
       {transcript.map((item, i) => {
         if (item.kind === "divider") {
+          const inSidetray = item.lens && SIDETRAY_LENS_MAP[item.lens];
+          if (inSidetray) {
+            return (
+              <button
+                key={i}
+                type="button"
+                className="hf-preview-divider hf-preview-divider--link"
+                aria-label={item.lensLabel || item.label}
+                title={item.lensLabel || item.label}
+                onClick={() => item.lens && onOpenSidetray(item.lens)}
+              >
+                <span>{item.label}</span>
+                <span className="hf-preview-divider-edit">
+                  <Edit3 size={11} />
+                  <span>{item.lensLabel || "Edit"}</span>
+                </span>
+              </button>
+            );
+          }
           if (item.lens) {
             return (
               <Link
@@ -433,6 +493,21 @@ function EducatorView({ transcript, courseId }: { transcript: PreviewItem[]; cou
           );
         }
         if (item.kind === "stop-note") {
+          const inSidetray = SIDETRAY_LENS_MAP[item.lens];
+          if (inSidetray) {
+            return (
+              <button
+                key={i}
+                type="button"
+                className="hf-preview-stop-note"
+                onClick={() => onOpenSidetray(item.lens)}
+              >
+                <AlertCircle size={12} />
+                <span>{item.text}</span>
+                <span className="hf-preview-stop-note-edit">Edit Stops →</span>
+              </button>
+            );
+          }
           return (
             <Link
               key={i}
@@ -450,6 +525,7 @@ function EducatorView({ transcript, courseId }: { transcript: PreviewItem[]; cou
             key={i}
             bubble={item}
             courseId={courseId}
+            onOpenSidetray={onOpenSidetray}
           />
         );
       })}
@@ -458,12 +534,12 @@ function EducatorView({ transcript, courseId }: { transcript: PreviewItem[]; cou
 }
 
 function BubbleRow({
-  bubble, courseId,
+  bubble, courseId, onOpenSidetray,
 }: {
   bubble: { kind: "bubble" } & PreviewBubble;
   courseId: string;
+  onOpenSidetray: (lensId: string) => void;
 }): React.ReactElement {
-  const href = `/x/courses/${courseId}?tab=design&design_view=${bubble.lens}`;
   const wrapClasses = [
     "hf-preview-bubble-row",
     bubble.side === "user" ? "hf-preview-bubble-row--user" : "hf-preview-bubble-row--bot",
@@ -474,19 +550,93 @@ function BubbleRow({
     bubble.side === "user" ? "hf-preview-bubble--user" : "hf-preview-bubble--bot",
     bubble.ghost ? "hf-preview-bubble--ghost" : "",
   ].filter(Boolean).join(" ");
+
+  const inSidetray = SIDETRAY_LENS_MAP[bubble.lens];
+
+  const body = (
+    <>
+      <span className="hf-preview-bubble-text">{bubble.text}</span>
+      <span className="hf-preview-bubble-edit">
+        <Edit3 size={11} />
+        <span>{bubble.lensLabel}</span>
+      </span>
+    </>
+  );
+
   return (
     <div className={wrapClasses}>
       {bubble.caption && (
         <div className="hf-preview-bubble-caption">{bubble.caption}</div>
       )}
-      <Link href={href} className={bubbleClasses} title={bubble.lensLabel}>
-        <span className="hf-preview-bubble-text">{bubble.text}</span>
-        <span className="hf-preview-bubble-edit">
-          <Edit3 size={11} />
-          <span>{bubble.lensLabel}</span>
-        </span>
-      </Link>
+      {inSidetray ? (
+        <button
+          type="button"
+          className={bubbleClasses}
+          title={bubble.lensLabel}
+          onClick={() => onOpenSidetray(bubble.lens)}
+        >
+          {body}
+        </button>
+      ) : (
+        <Link
+          href={`/x/courses/${courseId}?tab=design&design_view=${bubble.lens}`}
+          className={bubbleClasses}
+          title={bubble.lensLabel}
+        >
+          {body}
+        </Link>
+      )}
     </div>
+  );
+}
+
+// ── Edit sidetray ──────────────────────────────────────────────
+
+function PreviewEditSidetray({
+  courseId, lens, onClose,
+}: {
+  courseId: string;
+  lens: SessionFlowLens;
+  onClose: () => void;
+}): React.ReactElement {
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="hf-preview-sidetray-backdrop" onClick={onClose} />
+      <aside className="hf-preview-sidetray" role="dialog" aria-label={SIDETRAY_TITLES[lens]}>
+        <header className="hf-preview-sidetray-header">
+          <h2>{SIDETRAY_TITLES[lens]}</h2>
+          <button
+            type="button"
+            className="hf-preview-sidetray-close"
+            onClick={onClose}
+            title="Close (Esc) — Preview will refresh"
+          >
+            <X size={16} />
+          </button>
+        </header>
+        <div className="hf-preview-sidetray-body">
+          <SessionFlowEditor courseId={courseId} activeSection={lens} />
+        </div>
+        <footer className="hf-preview-sidetray-footer">
+          <button
+            type="button"
+            className="hf-btn hf-btn-primary"
+            onClick={onClose}
+          >
+            Done — refresh preview
+          </button>
+        </footer>
+      </aside>
+    </>
   );
 }
 

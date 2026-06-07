@@ -1,8 +1,81 @@
-/* ── Preview lens (#1268, chat-bubble revision) ──
+/* ── Preview lens (#1268, chat-bubble revision + sidetray edit) ──
    The Educator view uses WhatsApp-theme tokens from wa-theme.css so the
    preview visually matches what the learner sees in SimChat + ChatSurvey.
    wa-theme.css is loaded by sim.css + chat-survey.css globally; we just
-   reference its CSS variables here. */
+   reference its CSS variables here.
+
+   Sidetray-edit is the click-to-edit surface for Preview only — the
+   in-lens forms still render inline (Slice 1 cleanup decision). The
+   sidetray classes below are namespaced `.hf-preview-sidetray*` so they
+   don't reactivate the retired `.sfe-drawer` modal styles. */
+
+/* ── Sidetray (slide-in editor opened from a Preview bubble) ── */
+.hf-preview-sidetray-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #000 35%, transparent);
+  z-index: 200;
+}
+.hf-preview-sidetray {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 560px;
+  max-width: 100vw;
+  background: var(--surface-primary);
+  border-left: 1px solid var(--border-default);
+  box-shadow: -8px 0 20px color-mix(in srgb, #000 12%, transparent);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  animation: hf-preview-sidetray-slide 0.18s ease-out;
+}
+@keyframes hf-preview-sidetray-slide {
+  from { transform: translateX(8%); opacity: 0; }
+  to   { transform: translateX(0);   opacity: 1; }
+}
+.hf-preview-sidetray-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default);
+}
+.hf-preview-sidetray-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.hf-preview-sidetray-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.hf-preview-sidetray-close:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+.hf-preview-sidetray-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+.hf-preview-sidetray-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-default);
+}
 
 .hf-preview-lens {
   display: flex;
