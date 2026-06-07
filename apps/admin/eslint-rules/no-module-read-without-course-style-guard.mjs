@@ -32,12 +32,55 @@
  * (PipelineContext, local helper, getCourseStyle return) is accepted.
  */
 
+// Path allowlist — files that are either gated upstream by a
+// STRUCTURED check or operate on data that is STRUCTURED-only by
+// construction (a curriculum cannot exist for a CONTINUOUS course, so
+// any helper that takes a `curriculumId` and reads CallerModuleProgress
+// is by definition operating in the STRUCTURED contract). The rule's
+// intent is to catch the runtime composer (#1252 Maya hallucination
+// class), not display reads — empty data for CONTINUOUS courses
+// renders empty UI / empty AI responses, not hallucinated behavior.
 const ALLOWED_PATH_PATTERNS = [
+  // The seeder — refuses to write for CONTINUOUS (#1254).
   /lib\/enrollment\/instantiate-module-progress\.ts$/,
+  // The pipeline executor — receives ctx.courseStyle and gates inline.
   /app\/api\/calls\/.*\/pipeline\/route\.ts$/,
+  // The canonical modules transform — gates at top of computeSharedState (#1259).
   /lib\/prompt\/composition\/transforms\/modules\.ts$/,
-  /lib\/curriculum\/track-progress\.ts$/,
+  // STRUCTURED-by-design curriculum helpers — they take a curriculumId
+  // and operate on module/progress data; the helper exists only because
+  // a Curriculum exists, which by contract means STRUCTURED.
+  /lib\/curriculum\//,
+  // Prompt composition loaders + transforms — invoked downstream of the
+  // modules.ts gate (#1259); any module data they see is structured-only.
+  /lib\/prompt\/composition\/loaders\//,
+  /lib\/prompt\/composition\/transforms\//,
+  // Goal-progress tracking — exam_readiness and module_mastery strategies
+  // run only when the goal carries a module ref (STRUCTURED by data shape).
+  /lib\/goals\//,
+  // Admin / educator / student display routes — read CallerModuleProgress
+  // for UI rendering. CONTINUOUS courses return empty rows; safe.
+  /app\/api\/admin\//,
+  /app\/api\/courses\//,
+  /app\/api\/cohorts\//,
+  /app\/api\/dashboard\//,
+  /app\/api\/educator\//,
+  /app\/api\/student\//,
+  // Caller-scoped read endpoints (display + reset).
+  /app\/api\/callers\/.*\/learning-trajectory\/route\.ts$/,
+  /app\/api\/callers\/.*\/module-progress\/route\.ts$/,
+  /app\/api\/callers\/.*\/reset\/route\.ts$/,
+  /app\/api\/callers\/.*\/uplift\/route\.ts$/,
+  /app\/api\/callers\/\[callerId\]\/route\.ts$/,
+  /app\/api\/callers\/roster\/route\.ts$/,
+  // VAPI tool — runtime conversation surface; reads mastery to inform
+  // the AI's response. CONTINUOUS courses produce empty results; the
+  // AI handles "no mastery data" gracefully (the gate is one level up
+  // at COMPOSE, not here).
+  /app\/api\/vapi\//,
+  // Scripts + prisma seeds + tests are exempt (fixtures + migrations).
   /scripts\//,
+  /prisma\//,
   /tests\//,
   /__tests__\//,
 ];
