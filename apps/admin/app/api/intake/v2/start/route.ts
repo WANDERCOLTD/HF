@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
 import { mintAndSetSessionCookie } from "@/lib/auth-session-cookie";
 import { issueFirstCallPin } from "@/lib/identity/issue-pin";
 import { enrollCallerInCohortPlaybooks } from "@/lib/enrollment";
+import { hasHigherRoleSession } from "@/lib/auth/has-higher-role-session";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,16 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function POST(request: Request) {
   const rl = checkRateLimit(getClientIP(request as never), "intake-v2-start");
   if (!rl.ok) return rl.error;
+
+  // If the request already carries an OPERATOR+ session cookie, the
+  // caller is an admin walking through the learner-creation flow (for
+  // testing or supporting a real learner). Mirror /api/join/[token]:
+  // create the User+Caller as usual, but preserve the admin's session
+  // cookie. Without this guard, an accidental "Send my code" click
+  // overwrites the admin session — landing them in STUDENT scope with
+  // no way back without a full sign-out + sign-in. See the 2026-06-07
+  // session for live evidence.
+  const skipCookie = await hasHigherRoleSession(request as NextRequest);
 
   let body: z.infer<typeof bodySchema>;
   try {
@@ -230,7 +241,7 @@ export async function POST(request: Request) {
   );
   try {
     if (userRow) {
-      await mintAndSetSessionCookie(response, userRow);
+      await mintAndSetSessionCookie(response, userRow, { skipCookie });
     }
   } catch {
     // Auth secret missing — non-fatal here, but the gate will likely

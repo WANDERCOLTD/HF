@@ -1,38 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { decode } from "next-auth/jwt";
 import { validateBody, joinPostSchema } from "@/lib/validation";
 import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
 import { enrollCaller, enrollCallerInCohortPlaybooks } from "@/lib/enrollment";
 import { applySkipOnboarding } from "@/lib/enrollment/skip-onboarding";
 import { mintAndSetSessionCookie } from "@/lib/auth-session-cookie";
-import { ROLE_LEVEL } from "@/lib/roles";
 import { issueFirstCallPin } from "@/lib/identity/issue-pin";
 import { toE164 } from "@/lib/voice/phone-format";
-import type { UserRole } from "@prisma/client";
-
-const SESSION_COOKIE_NAMES = [
-  "authjs.session-token",
-  "__Secure-authjs.session-token",
-  "next-auth.session-token",
-  "__Secure-next-auth.session-token",
-];
-
-/** Check if the request already has a session with role above STUDENT */
-async function hasHigherRoleSession(request: NextRequest): Promise<boolean> {
-  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-  if (!secret) return false;
-  for (const name of SESSION_COOKIE_NAMES) {
-    const cookie = request.cookies.get(name);
-    if (!cookie) continue;
-    try {
-      const token = await decode({ token: cookie.value, secret, salt: name });
-      const role = token?.role as UserRole | undefined;
-      if (role && ROLE_LEVEL[role] > ROLE_LEVEL.STUDENT) return true;
-    } catch { /* invalid token — continue */ }
-  }
-  return false;
-}
+import { hasHigherRoleSession } from "@/lib/auth/has-higher-role-session";
 
 function missingSecretResponse(): NextResponse {
   return NextResponse.json(
