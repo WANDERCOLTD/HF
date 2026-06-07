@@ -408,18 +408,21 @@ export function OnboardingTabContent({
                     <div className="ob-tab-layout">
                     <div className="ob-tab-edit-col">
                     <div className="hf-card hf-p-20" style={{ borderRadius: 8 }}>
-                      {/* Welcome Message */}
+                      {/* #1316 — Renamed "Welcome Message" → "Domain greeting"
+                          to disambiguate from the Course-level "Course opening
+                          line" (Playbook.welcomeMessage) which overrides this
+                          when set. */}
                       <div className="hf-mb-lg" style={{ marginBottom: 20 }}>
-                        <FieldHint label="Welcome Message" hint={WIZARD_HINTS["onboard.welcomeMessage"]} labelClass="hf-text-md hf-text-bold hf-mb-sm" />
+                        <FieldHint label="Domain greeting" hint={WIZARD_HINTS["onboard.welcomeMessage"]} labelClass="hf-text-md hf-text-bold hf-mb-sm" />
                         <textarea
                           className="hf-textarea"
                           value={onboardingForm.welcomeMessage}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, welcomeMessage: e.target.value })}
-                          placeholder="Enter the welcome message for first-time callers..."
+                          placeholder="Enter the greeting for first-time callers in this domain..."
                           style={{ minHeight: 120 }}
                         />
                         <div className="hf-hint">
-                          This message is shown to new callers on their first call
+                          Used as the first-call greeting for callers in this domain. Course-level &quot;Course opening line&quot; overrides this when set.
                         </div>
                       </div>
 
@@ -935,11 +938,11 @@ export function OnboardingTabContent({
                       </div>
                     </div>
 
-                    {/* Welcome Message */}
+                    {/* #1316 — "Welcome Message" → "Domain greeting" */}
                     <div className="hf-list-row" style={{ padding: "12px 16px" }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>{"\uD83D\uDCAC"}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="hf-text-sm hf-text-bold">Welcome Message</div>
+                        <div className="hf-text-sm hf-text-bold">Domain greeting</div>
                         {domain.onboardingWelcome ? (
                           <div className="hf-text-xs hf-text-muted" style={{
                             overflow: "hidden",
@@ -952,7 +955,7 @@ export function OnboardingTabContent({
                           <div className="hf-text-xs hf-text-muted">
                             Not configured &mdash;{" "}
                             <button className="hf-link-inline" onClick={() => setEditingOnboarding(true)}>
-                              add a welcome message
+                              add a domain greeting
                             </button>
                           </div>
                         )}
