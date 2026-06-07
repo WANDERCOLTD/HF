@@ -35,6 +35,7 @@ import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { EditableTitle } from '@/components/shared/EditableTitle';
 import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
+import { resolveProsodyMode } from '@/lib/pipeline/prosody-runner';
 import { DraggableTabs, type TabDefinition } from '@/components/shared/DraggableTabs';
 import { TabWithHelp } from '@/components/help/TabWithHelp';
 import { getPageHelp } from '@/lib/help/page-help';
@@ -1219,6 +1220,14 @@ export default function CourseDetailPage() {
             mode={activeCurriculumMode}
             onClick={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
           />
+          {/* #1252 follow-up — visible "Voice scoring" chip. Resolved from
+              the SAME precedence the runtime PROSODY stage uses, so what
+              you see here is what the next call will score against. */}
+          <ProsodyModePill
+            config={detail.config as Record<string, unknown> | null | undefined}
+            courseId={detail.id}
+            router={router}
+          />
           <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
           {(detail as any).group && (
             <span className="hf-pill hf-pill-neutral">{(detail as any).group.name}</span>
@@ -2019,6 +2028,51 @@ export default function CourseDetailPage() {
 // picker (true) or fall through to scheduler-led teaching (false). When
 // unset, renders a clickable warning pill that routes to the Curriculum tab
 // so the educator can resolve it via Re-import.
+/**
+ * Visible "Voice scoring" chip on the course header (#1252 follow-up).
+ *
+ * Shows the **resolved** prosody mode — what the PROSODY pipeline stage
+ * will actually do when this course's audio is scored. Same precedence
+ * the runtime uses: explicit `config.voice.prosodyMode` wins; otherwise
+ * the legacy `tierPresetId === "ielts-speaking"` heuristic; default
+ * "general". Click jumps to the Course Chat page where Cmd+K can flip
+ * it via `update_voice_config({ prosodyMode: "ielts" | "general" })`.
+ */
+function ProsodyModePill({
+  config,
+  courseId,
+  router,
+}: {
+  config: Record<string, unknown> | null | undefined;
+  courseId: string;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const resolved = resolveProsodyMode(config ?? null);
+  const isIelts = resolved === "ielts";
+  const voiceCfg = (config?.voice as Record<string, unknown> | null | undefined) ?? null;
+  const isExplicit =
+    voiceCfg?.prosodyMode === "ielts" || voiceCfg?.prosodyMode === "general";
+  const labelSuffix = isExplicit ? "" : " (auto)";
+  return (
+    <button
+      type="button"
+      className={
+        isIelts
+          ? "cd-progression-pill cd-progression-pill--learner"
+          : "cd-progression-pill cd-progression-pill--ai"
+      }
+      onClick={() => router.push(`/x/courses/${courseId}/chat`)}
+      title={
+        isIelts
+          ? `Voice scoring: IELTS rubric (FC, P, LR, GRA)${isExplicit ? "" : " — auto-detected from tier preset"}. Click to chat-edit via Cmd+K.`
+          : `Voice scoring: General conversational (CONV_PACE, pace_indicators)${isExplicit ? "" : " — default"}. Click to chat-edit via Cmd+K.`
+      }
+    >
+      Voice scoring: {isIelts ? "IELTS" : "General"}{labelSuffix}
+    </button>
+  );
+}
+
 function ProgressionModePill({
   modulesAuthored,
   onClickWhenUnset,

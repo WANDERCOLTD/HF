@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { AI_FORBIDDEN_FIELDS } from "@/lib/chat/ai-forbidden-fields";
+import { resolveProsodyMode } from "@/lib/pipeline/prosody-runner";
 import { ChatLauncher } from "./ChatLauncher";
 import { ValuesPanel } from "./ValuesPanel";
 import "./course-chat.css";
@@ -38,6 +39,19 @@ interface CourseSnapshot {
   name: string;
   description: string | null;
   config: Record<string, unknown>;
+  /**
+   * Resolved voice prosody scoring mode — top-level so the AI Assistant
+   * doesn't need to dig through `config.voice.prosodyMode` to answer
+   * "which scoring mode is this course using?".
+   *
+   *   "ielts"   — 4-band rubric (FC, P, LR, GRA) writes 4 CallScore rows
+   *   "general" — pace + filler writes CONV_PACE + pace_indicators
+   *
+   * Source: explicit `config.voice.prosodyMode` → legacy `tierPresetId
+   * === "ielts-speaking"` → default "general". See
+   * `lib/pipeline/prosody-runner.ts::resolveProsodyMode`.
+   */
+  voiceProsodyMode: "ielts" | "general";
   behaviorTargets: Array<{
     parameterId: string;
     scope: string;
@@ -107,6 +121,7 @@ export default async function CourseChatPage({
     name: playbook.name,
     description: playbook.description ?? null,
     config: safeConfig,
+    voiceProsodyMode: resolveProsodyMode(rawConfig),
     behaviorTargets: playbook.behaviorTargets.map((bt) => ({
       parameterId: bt.parameterId,
       scope: bt.scope,
