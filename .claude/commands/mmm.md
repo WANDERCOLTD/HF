@@ -92,6 +92,27 @@ git worktree list | grep -vE "agent-|\[main\]" | awk '{print $1, $3}' | while re
   fi
 done
 echo ""
+echo "==> Stale local branch refs (squash-merged → safe to delete):"
+# Iterate all local branches; delete those whose PR is merged AND that
+# aren't checked out anywhere (git branch -D refuses on a checked-out
+# branch, so this is always safe — no peer impact, local-only cleanup).
+# Skip protected names: main, master, HEAD, current branch.
+PROTECTED='^(main|master|HEAD)$'
+CURRENT=$(git rev-parse --abbrev-ref HEAD)
+for branch in $(git branch --format='%(refname:short)' | grep -vE "$PROTECTED"); do
+  [ "$branch" = "$CURRENT" ] && continue
+  # Skip if checked out in any worktree (git would refuse anyway, but
+  # avoid the noisy refusal in the log).
+  if git worktree list --porcelain | grep -q "^branch refs/heads/$branch$"; then
+    continue
+  fi
+  MERGED_PR=$(gh pr list --state merged --head "$branch" --json number --jq '.[0].number' 2>/dev/null)
+  if [ -n "$MERGED_PR" ]; then
+    echo "==> Deleting local branch (PR #$MERGED_PR merged): $branch"
+    git branch -D "$branch" 2>&1 | head -1
+  fi
+done
+echo ""
 echo "==> Remaining non-agent worktrees:"
 git worktree list | grep -v "agent-"
 SH
