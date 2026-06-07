@@ -64,8 +64,6 @@ The full set is D1 through D8; **five are written and live as PDFs (D1, D2, D4, 
 - **Phase 1 commitment:** Sector B / NMC speaking-band-7 wedge / IRA channel
 - **Confidence flags** on every number: [V] verified · [E] estimate · [T] TBD
 
-### The doc set
-
 | Code | Doc | Status | Why it exists |
 |------|-----|--------|---------------|
 | **D1** | Briefing Note — *Why HFF Needs a Professional TAM + GTM* | **V0.2 — done** | The short read for a partner who doesn't have time for the full deck. Lays out the gap (intuition-led targeting), why it matters now (100 testers + sales conversations imminent), and the shape of the answer (sector segmentation + defensible Phase-1 wedge). Essay-style SCQA, glossary on the last page. |
