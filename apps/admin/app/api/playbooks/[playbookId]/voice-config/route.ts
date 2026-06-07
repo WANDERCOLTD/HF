@@ -45,24 +45,17 @@ export async function GET(
   }
 
   // Find a caller in this playbook so we can pull the Domain layer
-  // through the existing loader. If none exists yet, resolve with
-  // caller null — Domain layer is then absent from the cascade.
-  //
-  // Caller has no direct `playbookId` column — the link is the
-  // `CallerPlaybook` join table (relation: Caller.enrollments). The
-  // earlier `prisma.caller.findFirst({ where: { playbookId } })`
-  // surfaced as a 500 with the Prisma fingerprint
-  // "voiceProvider?: StringNullableFilter | String | Null" (the
-  // autocomplete suggestion list for a non-existent field). Going
-  // through the join table fixes it.
+  // through the existing loader. Caller has no `playbookId` column —
+  // the link is the `CallerPlaybook` join. The earlier
+  // `prisma.caller.findFirst({where:{playbookId}})` surfaced as a 500
+  // with a PrismaClientValidationError. Going through the join fixes it.
   const enrollment = await prisma.callerPlaybook.findFirst({
     where: { playbookId },
     select: { callerId: true },
   });
-  const aCaller = enrollment ? { id: enrollment.callerId } : null;
 
   const resolved = await loadResolvedVoiceConfig({
-    callerId: aCaller?.id ?? null,
+    callerId: enrollment?.callerId ?? null,
     playbookId,
   });
 
