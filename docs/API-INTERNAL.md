@@ -9911,6 +9911,34 @@ Unlink a subject from this domain (deletes SubjectDomain join row)
 
 ---
 
+### `POST` /api/identity/challenge-skip
+
+Admin escape hatch: mark a caller's most-recent
+
+**Auth**: session (OPERATOR / ADMIN / SUPERADMIN)
+
+**Response** `200`
+```json
+{ ok: true, challengeId: string }
+```
+
+**Response** `200`
+```json
+{ ok: false, noActiveChallenge: true } — no unverified challenge to skip; admin should request a fresh resend first
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `401`
+```json
+— caller not authenticated or not OPERATOR+
+```
+
+---
+
 ### `GET` /api/identity/challenge-status
 
 Whether the learner has an outstanding first-call PIN challenge
@@ -15568,8 +15596,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 496 |
-| Files with annotations | 486 |
+| Route files found | 497 |
+| Files with annotations | 487 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 

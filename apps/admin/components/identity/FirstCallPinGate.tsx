@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 interface FirstCallPinGateProps {
   callerId: string;
@@ -8,6 +9,16 @@ interface FirstCallPinGateProps {
   callerFirstName?: string;
   onVerified: () => void;
 }
+
+// OPERATOR+ levels for the admin escape hatch. SUPER_TESTER and TESTER
+// stay below the cut so they still go through the real PIN flow when
+// testing the auth UX itself.
+const ADMIN_SKIP_ROLES = new Set([
+  'OPERATOR',
+  'EDUCATOR',
+  'ADMIN',
+  'SUPERADMIN',
+]);
 
 type VerifyStatus =
   | { kind: 'idle' }
@@ -44,8 +55,21 @@ export function FirstCallPinGate({
   const [resendStatus, setResendStatus] = useState<ResendStatus>({ kind: 'idle' });
   const [successCopyVisible, setSuccessCopyVisible] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [adminSkipPending, setAdminSkipPending] = useState(false);
+  const [adminSkipError, setAdminSkipError] = useState<string | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const successFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Admin escape hatch: OPERATOR+ session sees a secondary action that
+  // marks the challenge verified without entering a PIN. Same end state
+  // as a correct PIN (onVerified fires, parent transitions to next
+  // step). STUDENT sessions never see this affordance — `role` is null
+  // when the user isn't signed in (e.g. the genuine first-call flow on
+  // a brand-new caller), so the check is also a privacy gate.
+  const { data: session } = useSession();
+  const sessionRole = session?.user?.role ?? null;
+  const showAdminSkip =
+    typeof sessionRole === 'string' && ADMIN_SKIP_ROLES.has(sessionRole);
 
   useEffect(() => {
     return () => {
@@ -135,6 +159,41 @@ export function FirstCallPinGate({
         kind: 'error',
         message: 'Couldn’t reach the server. Try again in a moment.',
       });
+    }
+  }
+
+  async function handleAdminSkip() {
+    if (adminSkipPending) return;
+    setAdminSkipPending(true);
+    setAdminSkipError(null);
+    try {
+      const res = await fetch('/api/identity/challenge-skip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callerId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        onVerified();
+        return;
+      }
+      if (data?.noActiveChallenge) {
+        setAdminSkipError(
+          'No active challenge to skip — hit "Resend code" first, then try again.',
+        );
+        return;
+      }
+      if (res.status === 401) {
+        setAdminSkipError(
+          'Your session can\'t skip the PIN (OPERATOR+ only). Sign in as an admin first.',
+        );
+        return;
+      }
+      setAdminSkipError(`Couldn't skip (${res.status}). Try again.`);
+    } catch {
+      setAdminSkipError('Network error — try again.');
+    } finally {
+      setAdminSkipPending(false);
     }
   }
 
@@ -304,6 +363,43 @@ export function FirstCallPinGate({
             {resendLabel}
           </button>
         </div>
+
+        {showAdminSkip ? (
+          <div
+            style={{
+              marginTop: 16,
+              paddingTop: 12,
+              borderTop: '1px dashed var(--border-default, #e4e4e7)',
+            }}
+            data-testid="first-call-pin-gate-admin-skip-block"
+          >
+            <button
+              type="button"
+              onClick={handleAdminSkip}
+              disabled={adminSkipPending}
+              data-testid="first-call-pin-gate-admin-skip"
+              className="hf-btn hf-btn-secondary"
+              style={{ width: '100%', padding: '8px 12px', fontSize: 13 }}
+            >
+              {adminSkipPending
+                ? 'Skipping PIN…'
+                : `Admin: skip PIN (you're signed in as ${sessionRole})`}
+            </button>
+            {adminSkipError ? (
+              <p
+                style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  color: 'var(--text-danger, #b91c1c)',
+                  lineHeight: 1.4,
+                }}
+                role="alert"
+              >
+                {adminSkipError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
