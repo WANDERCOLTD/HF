@@ -4,9 +4,9 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-06-04T21:51:58.533Z
+> Last generated: 2026-06-07T09:41:48.182Z
 > Surfaces: 4
-> Total tools: 58 (52 live, 6 roadmap stubs)
+> Total tools: 64 (58 live, 6 roadmap stubs)
 
 ## Contract
 
@@ -22,21 +22,24 @@ Per `docs/CHAIN-CONTRACTS.md` §3 Link 3:
 
 Source: `apps/admin/lib/chat/admin-tools.ts`
 
-27 live, 6 stubs.
+33 live, 6 stubs.
 
 ### Live tools
 
 | Tool | Min role | Required | Optional | Summary |
 |------|----------|----------|----------|---------|
 | `add_content_assertions` | OPERATOR | `source_id`, `assertions` | — | Add teaching points (ContentAssertions) to a content source. |
+| `attach_linked_curriculum` | OPERATOR | `playbook_id`, `curriculum_id`, `reason` | — | Attach a Curriculum to a Playbook as a 'linked' (variant) reference. |
 | `confirm_goal` | OPERATOR | `goal_id`, `reason` | — | Mark a Goal as COMPLETED. |
 | `create_subject_with_source` | OPERATOR | `subject_slug`, `subject_name`, `source_slug`, `source_name` | `subject_description`, `source_description`, `tags` | Create a new Subject and its primary ContentSource in one step. |
+| `detach_linked_curriculum` | OPERATOR | `playbook_id`, `curriculum_id`, `reason` | — | Remove a 'linked' Curriculum from a Playbook. |
 | `dismiss_goal` | OPERATOR | `goal_id`, `reason` | — | Dismiss a pending completion signal on a Goal without marking the goal COMPLETED. |
 | `generate_curriculum` | OPERATOR | `subject_id` | — | Trigger async AI curriculum generation for a subject. |
 | `get_caller_detail` | OPERATOR | `caller_id` | — | Get the full caller profile — same data the caller detail page shows. |
 | `get_domain_info` | OPERATOR | — | `domain_id`, `domain_name` | Get detailed info about a domain: description, playbook, specs in the playbook, caller count, and identity/content spec configs. |
 | `get_playbook_config` | OPERATOR | `playbook_id` | — | Read the full Playbook (course) config + top-level metadata. |
 | `get_spec_config` | OPERATOR | `spec_id` | — | Get the full config JSON for a specific spec by ID. |
+| `get_voice_config` | OPERATOR | `playbook_id` | — | Read the voice configuration for a Playbook — provider, model, end-state behaviour, polling. |
 | `link_subject_to_domain` | OPERATOR | `subject_id`, `domain_id` | — | Link a subject to a domain so callers in that domain can access this curriculum. |
 | `list_behavior_targets` | OPERATOR | — | `playbook_id`, `caller_id` | List active BehaviorTargets. |
 | `list_curriculum_modules` | OPERATOR | — | `curriculum_id`, `playbook_id` | List CurriculumModule rows. |
@@ -44,6 +47,7 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 | `query_callers` | OPERATOR | — | `name`, `domain_id`, `domain_name`, `limit` | Search callers by name or domain. |
 | `query_specs` | OPERATOR | — | `name`, `spec_role`, `slug`, `is_active`, `limit` | Search and list analysis specs. |
 | `recompose_caller_prompt` | OPERATOR | `caller_id`, `reason` | — | Force a fresh compose of a caller's prompt RIGHT NOW (rather than waiting for their next call). |
+| `swap_primary_curriculum` | OPERATOR | `playbook_id`, `curriculum_id`, `reason` | — | Promote a Curriculum to be the PRIMARY for a Playbook (course). |
 | `system_ini_check` | SUPERADMIN | — | — | Run a full system initialization check. |
 | `update_assertion_lo_link` | OPERATOR | `assertion_id`, `reason` | `learning_objective_id` | Link (or clear) the LearningObjective FK on a ContentAssertion. |
 | `update_behavior_target` | OPERATOR | `scope`, `parameter_id`, `target_value`, `reason` | `playbook_id`, `caller_id` | Set a behaviour target at one of two scopes: LEARNER (only this caller) or PLAYBOOK (every learner on the course). |
@@ -51,10 +55,12 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 | `update_curriculum_metadata` | OPERATOR | `curriculum_id`, `reason` | `name`, `description`, `sourceTitle`, `sourceYear`, `authors` | Update Curriculum top-level metadata (NOT modules/LOs/assertions — use the dedicated tools for those, or lesson-plan editing via UI). |
 | `update_curriculum_module` | OPERATOR | `module_id`, `reason` | `title`, `description`, `sortOrder`, `estimatedDurationMinutes`, `masteryThreshold`, `prerequisites`, `keyTerms`, `assessmentCriteria`, `isActive` | Update an existing CurriculumModule's editable fields. |
 | `update_domain` | OPERATOR | `domain_id`, `reason` | `name`, `slug`, `description`, `isActive`, `config_updates`, `onboardingFlowPhases`, `onboardingDefaultTargets`, `onboardingWelcome`, `onboardingIdentitySpecId` | Update a domain's (institution's) fields. |
+| `update_intake_spec_draft` | OPERATOR | `spec_id`, `source`, `reason` | — | Edit the TS source of a DRAFT IntakeSpec row (e. |
 | `update_learning_objective` | OPERATOR | `learning_objective_id`, `reason` | `description`, `performanceStatement`, `learnerVisible`, `masteryThreshold` | Update a single LearningObjective without rewriting the whole module's LO list. |
 | `update_playbook_config` | OPERATOR | `playbook_id`, `config_updates`, `reason` | — | Update non-behaviour course settings on a playbook by merging values into Playbook. |
 | `update_playbook_meta` | OPERATOR | `playbook_id`, `reason` | `name`, `description`, `sortOrder` | Update playbook top-level metadata fields (name, description, sortOrder). |
 | `update_spec_config` | OPERATOR | `spec_id`, `config_updates`, `reason` | — | Update a spec's config JSON by merging new values. |
+| `update_voice_config` | OPERATOR | `playbook_id`, `settings`, `reason` | — | Adjust voice configuration for a Playbook by merging into Playbook. |
 
 ### Roadmap stubs (NOT YET AVAILABLE)
 
