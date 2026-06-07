@@ -5,6 +5,7 @@ import { requireEntityAccess, isEntityAuthError, buildScopeFilter } from "@/lib/
 import { enrollCaller, enrollCallerInCohortPlaybooks, resolveAndEnrollSingle } from "@/lib/enrollment";
 import { instantiatePlaybookGoals } from "@/lib/enrollment/instantiate-goals";
 import { instantiatePlaybookTargets } from "@/lib/enrollment/instantiate-targets";
+import { instantiatePlaybookModuleProgress } from "@/lib/enrollment/instantiate-module-progress";
 import { autoComposeForCaller } from "@/lib/enrollment/auto-compose";
 import { applySkipOnboarding } from "@/lib/enrollment/skip-onboarding";
 import { parsePagination } from "@/lib/api-utils";
@@ -290,6 +291,14 @@ export async function POST(req: Request) {
       await instantiatePlaybookTargets(caller.id).catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
         console.warn(`[callers] Target instantiation failed for ${caller.id}: ${message}`);
+      });
+      // #1254 — Pre-create CallerModuleProgress NOT_STARTED rows for STRUCTURED
+      // playbooks. CONTINUOUS playbooks are skipped (no module sequence).
+      // Non-fatal — module-progress rows are an evidence-tracking affordance
+      // that the pipeline can rebuild on first call.
+      await instantiatePlaybookModuleProgress(caller.id).catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`[callers] Module-progress instantiation failed for ${caller.id}: ${message}`);
       });
       // If compose was deferred (skipOnboarding), fire it now after onboarding is complete
       if (deferCompose) {
