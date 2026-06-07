@@ -132,13 +132,13 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
           </button>
           <button
             type="button"
-            className="hf-btn hf-btn-secondary hf-btn-sm"
+            className="hf-btn hf-btn-primary"
             onClick={compose}
             disabled={loading}
-            title="Recompose now"
+            title="Re-fetch session-flow + dry-run to see the latest config"
           >
-            <RefreshCw size={12} />
-            <span>{loading ? "Composing…" : "Regenerate"}</span>
+            <RefreshCw size={14} />
+            <span>{loading ? "Composing…" : "Refresh preview"}</span>
           </button>
         </div>
       </header>
@@ -146,7 +146,8 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
       {lastComposedAt && (
         <p className="hf-preview-lens-meta">
           Last composed {new Date(lastComposedAt).toLocaleTimeString()}.
-          Click any bubble to jump to the lens that controls it.
+          Click any bubble or section heading to jump to the lens that controls it.
+          After editing, hit <strong>Refresh preview</strong> to see the change reflected here.
         </p>
       )}
 
@@ -195,6 +196,10 @@ interface PreviewBubble {
 interface PreviewDivider {
   kind: "divider";
   label: string;
+  /** When set, the divider becomes a clickable deep-link to the lens
+   *  that controls the whole section (e.g. Pre-call survey → Intake). */
+  lens?: string;
+  lensLabel?: string;
 }
 
 interface PreviewStopNote {
@@ -223,7 +228,12 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
     || (sf.intake.knowledgeCheck.enabled && (sf.intake.knowledgeCheck.deliveryMode ?? "mcq") === "mcq");
 
   if (anyIntake) {
-    items.push({ kind: "divider", label: "Pre-call survey" });
+    items.push({
+      kind: "divider",
+      label: "Pre-call survey",
+      lens: "intake",
+      lensLabel: "Edit Intake (toggle questions on/off)",
+    });
 
     if (sf.intake.goals.enabled) {
       items.push({
@@ -277,6 +287,37 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
       // Socratic mode delivers inside the call's discovery phase, so it shows
       // in the call section below, not here.
     }
+  }
+
+  // ── AI Intro Call (separate session before teaching) ──
+  if (sf.intake.aiIntroCall.enabled) {
+    items.push({
+      kind: "divider",
+      label: "AI Intro Call (separate session)",
+      lens: "intake",
+      lensLabel: "Edit Intake (toggle AI Intro Call)",
+    });
+    items.push({
+      kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit AI Intro Call",
+      caption: "AI Intro Call — opening",
+      text: "Hey! I'm your AI tutor. Before we dive into the course, let's have a quick warm-up chat so we can get to know each other.",
+    });
+    items.push({
+      kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit AI Intro Call", ghost: true,
+      text: "(learner responds — warm-up rapport, no quizzing or teaching)",
+    });
+    items.push({
+      kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit AI Intro Call",
+      text: "Great, thanks for chatting. Looking forward to our first lesson!",
+    });
+  } else {
+    // Show ghosted so educator can see it's an option
+    items.push({
+      kind: "divider",
+      label: "AI Intro Call — OFF",
+      lens: "intake",
+      lensLabel: "Enable AI Intro Call",
+    });
   }
 
   // ── Call 1 begins ──
@@ -368,6 +409,23 @@ function EducatorView({ transcript, courseId }: { transcript: PreviewItem[]; cou
     <div className="hf-preview-chat">
       {transcript.map((item, i) => {
         if (item.kind === "divider") {
+          if (item.lens) {
+            return (
+              <Link
+                key={i}
+                href={`/x/courses/${courseId}?tab=design&design_view=${item.lens}`}
+                className="hf-preview-divider hf-preview-divider--link"
+                aria-label={item.lensLabel || item.label}
+                title={item.lensLabel || item.label}
+              >
+                <span>{item.label}</span>
+                <span className="hf-preview-divider-edit">
+                  <Edit3 size={11} />
+                  <span>{item.lensLabel || "Edit"}</span>
+                </span>
+              </Link>
+            );
+          }
           return (
             <div key={i} className="hf-preview-divider" aria-label={item.label}>
               <span>{item.label}</span>
