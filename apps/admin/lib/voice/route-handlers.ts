@@ -56,6 +56,7 @@ import type {
 } from "@/lib/voice/types";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
+import { loadResolvedVoiceConfig } from "@/lib/voice/load-voice-config";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
 import { log } from "@/lib/logger";
 
@@ -751,26 +752,16 @@ export async function persistEndOfCall(
   // Pipeline gating per #1079: skip on bare "basic" — analysis will
   // arrive later and fire the pipeline against the merged row.
   //
-  // #1241 — Cascade: Playbook.config.voice.autoPipeline (per-Playbook
-  // override) → SystemSetting `voice.auto_pipeline` (instance default).
-  // Cmd+K writes the override via `update_voice_config`; the SystemSetting
-  // remains the global fallback (default true).
-  if (eventKind !== "basic") {
-    const vs = await getVoiceCallSettings();
-    let autoPipeline = vs.autoPipeline;
-    if (playbookId) {
-      const playbook = await prisma.playbook.findUnique({
-        where: { id: playbookId },
-        select: { config: true },
-      });
-      const voice = (playbook?.config as Record<string, unknown> | null)?.voice as
-        | Record<string, unknown>
-        | undefined;
-      if (voice && typeof voice.autoPipeline === "boolean") {
-        autoPipeline = voice.autoPipeline;
-      }
-    }
-    if (autoPipeline && callerId) {
+  // #1270 supersedes #1241 — autoPipeline now resolves through the
+  // 4-layer cascade: System → enabled VoiceProvider → Domain → Course.
+  // Course-level override (Playbook.config.voice.autoPipeline) wins;
+  // falls through to domain / VP / system. See lib/voice/config.ts.
+  // Pre-#1270 the gate hand-rolled a 2-layer system+playbook check;
+  // resolveVoiceConfig generalises that without losing behaviour.
+  if (eventKind !== "basic" && callerId) {
+    const resolved = await loadResolvedVoiceConfig({ callerId, playbookId });
+    const autoPipeline = resolved.fields.autoPipeline?.value === true;
+    if (autoPipeline) {
       triggerPipeline(newCall.id, callerId).catch((err) => {
         console.error(
           `[voice/${slug}/${sourceTag}] Pipeline trigger failed for call ${newCall.id}:`,
