@@ -69,6 +69,12 @@ export interface AssistantRequestContext {
     voicemailDetectionEnabled: boolean;
     endCallPhrases: string[];
   };
+  /** #1271 — flat resolved voice config from the 4-layer cascade
+   *  (System → enabled VP → Domain → Course). Adapters read keys they
+   *  care about (e.g. `voiceId`, `transcriber`, `backgroundSound`) and
+   *  ignore the rest. Set by `buildAssistantConfigForCaller`; absent on
+   *  legacy code paths that haven't migrated to the resolver yet. */
+  voiceConfig?: Record<string, unknown>;
   /** #1185 follow-up — shared secret passed through to the `model.secret`
    *  field on `custom-llm` inline configs. VAPI POSTs this value as
    *  `x-vapi-secret` on every chat-completions request to HF's proxy,

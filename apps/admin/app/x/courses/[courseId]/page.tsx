@@ -9,7 +9,9 @@ import {
   Settings as SettingsIcon, Users2,
   Zap, Target, BarChart3,
   PlayCircle, Copy, Link2, GraduationCap, Wand2, FileSearch,
+  Mic,
 } from 'lucide-react';
+import { VoiceConfigSection } from '@/components/voice/VoiceConfigSection';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-trust/resolve-config';
 import { CourseOverviewTab } from './CourseOverviewTab';
@@ -1781,6 +1783,10 @@ export default function CourseDetailPage() {
                   </div>
                 </>
               )}
+
+              <SectionHeader title="Voice" icon={Mic} collapsible defaultCollapsed persistKey={`${courseId}.voice`}>
+                <VoiceConfigSection scope="course" scopeId={courseId} />
+              </SectionHeader>
 
               <SectionHeader title="Metadata" icon={FileText} collapsible defaultCollapsed persistKey={`${courseId}.metadata`}>
                 <div className="hf-card">
