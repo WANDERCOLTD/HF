@@ -161,6 +161,18 @@ export async function PUT(
             };
           }
 
+          // ── Mirror sessionFlow.onboarding → legacy `onboardingFlowPhases` ──
+          // The legacy pedagogy transform (SESSION_FLOW_RESOLVER_ENABLED=false)
+          // reads `playbook.config.onboardingFlowPhases` directly. Without this
+          // mirror, edits to `sessionFlow.onboarding.phases` here drift the two
+          // shapes apart and `session-flow-drift.ts` flags the playbook before
+          // a flag flip can ship. Persuasion Literacy hit this class.
+          // Removed in Phase 5 (#220) once legacy is dropped.
+          let mirroredOnboarding = existing.onboardingFlowPhases;
+          if (body.sessionFlow?.onboarding) {
+            mirroredOnboarding = { phases: body.sessionFlow.onboarding.phases ?? [] };
+          }
+
           // ── Mirror nps.enabled → surveys.post.enabled (existing wizard pattern) ──
           let mirroredSurveys = existing.surveys;
           if (body.nps !== undefined) {
@@ -181,6 +193,9 @@ export async function PUT(
               ? {
                   sessionFlow: { ...(existing.sessionFlow ?? {}), ...body.sessionFlow },
                   ...(mirroredWelcome !== existing.welcome ? { welcome: mirroredWelcome } : {}),
+                  ...(mirroredOnboarding !== existing.onboardingFlowPhases
+                    ? { onboardingFlowPhases: mirroredOnboarding }
+                    : {}),
                 }
               : {}),
           };
