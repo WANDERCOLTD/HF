@@ -53,6 +53,18 @@
   flex-shrink: 0;
 }
 
+/* #1241 — Wrapping-up inline marker (phase: 'wrapping'). Uses the same
+   wa-call-marker host; the icon disc swaps to the design-system glow. */
+.sim-wrapping-title {
+  font-weight: 500;
+  color: var(--wa-text-primary);
+}
+
+.sim-wrapping-sub {
+  font-size: 12px;
+  color: var(--wa-text-secondary);
+}
+
 /* Post-call progress card — compact learning summary */
 .wa-progress-card {
   align-self: center;

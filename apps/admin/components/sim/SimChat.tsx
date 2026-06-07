@@ -177,7 +177,10 @@ export function SimChat({
   const [error, setError] = useState<string | null>(null);
   const [artifacts, setArtifacts] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
-  const [callPhase, setCallPhase] = useState<'loading' | 'lobby' | 'active' | 'ended'>('loading');
+  // `wrapping` covers the gap between phone-hangup detected (via the SDK
+  // `call-end` event or SSE `call-ended`) and the pipeline returning. Input
+  // is disabled and a glowing "Wrapping up…" marker renders inline. #1241.
+  const [callPhase, setCallPhase] = useState<'loading' | 'lobby' | 'active' | 'wrapping' | 'ended'>('loading');
   const [callEndedAt, setCallEndedAt] = useState<Date | null>(null);
   const [newPromptId, setNewPromptId] = useState<string | null>(null);
   const [quickStart, setQuickStart] = useState<Record<string, unknown> | null>(null);
@@ -924,6 +927,43 @@ export function SimChat({
     }
   }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onCallStateChange, onBack, journey, providerCall, outboundDial]);
 
+  // #1241 — Reactive auto-wrap on provider call-end.
+  //
+  // `useProviderCall` already flips `status` to 'ended' from two paths:
+  //   (a) the VAPI Web SDK `call-end` event (Talk-Here / WebRTC),
+  //   (b) the SSE `call-ended` event (server-side end-of-call writer).
+  //
+  // SimChat used to ignore that signal — the operator/learner had to tap
+  // the red X and confirm a sheet to advance the phase. This effect closes
+  // that gap: when the provider says ended, flip the phase straight into
+  // `wrapping` and let `handleEndCall` finish the save + pipeline run.
+  //
+  // Idempotency: guarded by `isEnding` (set inside `handleEndCall` on the
+  // first call) plus a phase check so this never re-fires once we leave
+  // the active phase.
+  const autoEndFiredRef = useRef(false);
+  useEffect(() => {
+    if (providerCall.status !== 'ended') return;
+    if (callPhase !== 'active') return;
+    // No chat-side call record means there's nothing to save (e.g. user
+    // dialled Talk-Here from the lobby and hung up before sending any chat
+    // message). `handleEndCall` would early-return; keep the phase at
+    // 'active' so the lobby UI can recover via the existing reset paths.
+    if (!callId) return;
+    if (autoEndFiredRef.current) return;
+    autoEndFiredRef.current = true;
+    setCallPhase('wrapping');
+    void handleEndCall();
+  }, [providerCall.status, callPhase, callId, handleEndCall]);
+
+  // Reset the latch when a fresh call starts so a subsequent call can
+  // auto-wrap too.
+  useEffect(() => {
+    if (callPhase === 'lobby' || callPhase === 'loading') {
+      autoEndFiredRef.current = false;
+    }
+  }, [callPhase]);
+
   const isEmbedded = mode === 'embedded';
 
   // #618: inline rename from the SIM header. PATCHes the caller, updates
@@ -1317,8 +1357,8 @@ export function SimChat({
           </div>
         )}
 
-        {/* Active/ended: session separator + live messages */}
-        {(callPhase === 'active' || callPhase === 'ended') && (
+        {/* Active/wrapping/ended: session separator + live messages */}
+        {(callPhase === 'active' || callPhase === 'wrapping' || callPhase === 'ended') && (
           <>
             {/* Separator between history and live session */}
             {hasHistory && (
@@ -1385,6 +1425,19 @@ export function SimChat({
           >
             <span style={{ fontWeight: 700 }}>Prompt 1 generated</span>
             <span style={{ fontSize: 12, color: 'var(--status-success-text)' }}>View &rarr;</span>
+          </div>
+        )}
+
+        {/* #1241 — Wrapping-up marker. Renders while the pipeline runs
+            after a phone hangup. Non-blocking glow (hf-glow-active) — the
+            transcript stays scrollable, only the input is disabled. */}
+        {callPhase === 'wrapping' && (
+          <div className="wa-call-marker">
+            <div className="wa-call-marker-icon hf-glow-active" aria-hidden="true" />
+            <div>
+              <div className="sim-wrapping-title">Wrapping up…</div>
+              <div className="sim-wrapping-sub">Saving the call and analysing in the background.</div>
+            </div>
           </div>
         )}
 
