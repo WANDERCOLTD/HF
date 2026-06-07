@@ -5493,6 +5493,33 @@ Returns a flat list of content sources linked to this course via PlaybookSource.
 
 ---
 
+### `POST` /api/courses/:courseId/course-reference
+
+Upload a course-reference markdown document for a course. Creates
+
+**Auth**: OPERATOR · **Scope**: `courses:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook UUID |
+
+**Response** `200`
+```json
+{ ok, contentSourceId, name, isNew }
+```
+
+**Response** `400`
+```json
+{ ok: false, error, issues? }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
 ### `GET` /api/courses/:courseId/curriculum-scorecard
 
 Returns LO linkage health for a course — assertion coverage,

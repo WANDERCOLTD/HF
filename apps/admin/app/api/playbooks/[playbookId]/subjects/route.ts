@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 /**
  * @api GET /api/playbooks/:playbookId/subjects
@@ -143,6 +144,14 @@ export async function POST(
       } catch {
         // Subject may not exist — skip silently
       }
+    }
+
+    // #1268 staleness gap — Subject is the primary content authority for
+    // compose (read by SectionDataLoader as CONTENT AUTHORITY). Linking a
+    // new Subject drastically changes section content; bump the playbook's
+    // staleness signal so Preview flips. Best-effort.
+    if (linked > 0) {
+      await bumpPlaybookComposeTimestamp(playbookId);
     }
 
     return NextResponse.json({ ok: true, linked });
