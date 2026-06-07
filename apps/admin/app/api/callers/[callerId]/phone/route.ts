@@ -6,6 +6,7 @@ import {
   resolveCallerScopeForReading,
   isScopeError,
 } from "@/lib/learner-scope";
+import { ROLE_LEVEL } from "@/lib/roles";
 
 export const runtime = "nodejs";
 
@@ -108,17 +109,51 @@ export async function PATCH(
 
   const phoneTaken = await prisma.caller.findFirst({
     where: { phone: normalized, NOT: { id: callerId } },
-    select: { id: true },
+    select: { id: true, externalId: true },
   });
   if (phoneTaken) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Phone number already in use by another learner. Reach out to your operator if this is wrong.",
-      },
-      { status: 409 },
+    // Admin test-caller takeover: when an OPERATOR+ session is updating
+    // a phone number AND the existing holder is a synthetic admin-test
+    // Caller (externalId starts with `admin-test-` — written by
+    // `POST /api/intake/v2/admin-test-enrol`), clear the old holder's
+    // phone so the new test caller can re-use the number. Real learner
+    // conflicts still 409 unchanged. This unblocks the common admin
+    // test-loop ("re-enrol with the same phone twice in a row").
+    const sessionRoleLevel = ROLE_LEVEL[auth.session.user.role] ?? 0;
+    const adminTakeoverAllowed =
+      sessionRoleLevel >= ROLE_LEVEL.OPERATOR &&
+      typeof phoneTaken.externalId === "string" &&
+      phoneTaken.externalId.startsWith("admin-test-");
+    if (!adminTakeoverAllowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Phone number already in use by another learner. Reach out to your operator if this is wrong.",
+        },
+        { status: 409 },
+      );
+    }
+    console.warn(
+      `[phone/takeover] OPERATOR+ session reclaimed phone ${normalized} from admin-test caller ${phoneTaken.id} for new caller ${callerId} — admin=${auth.session.user.id} (${auth.session.user.role}) at ${new Date().toISOString()}`,
     );
+    await prisma.$transaction([
+      prisma.caller.update({
+        where: { id: phoneTaken.id },
+        data: { phone: null },
+      }),
+      prisma.caller.update({
+        where: { id: callerId },
+        data: { phone: normalized },
+      }),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      callerId,
+      phone: normalized,
+      changed: true,
+      takeoverFrom: phoneTaken.id,
+    });
   }
 
   await prisma.caller.update({
