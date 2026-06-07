@@ -1,28 +1,29 @@
 "use client";
 
 /**
- * Course Design Console — Slice 1 of epic #1263.
+ * Course Design Console — Slices 1+2+3 of epic #1263.
  *
- * Mounts the shared `<ConsoleShell>` (Slice 0) on the Course Design tab
- * with 12 lenses across three groups:
+ * Mounts the shared `<ConsoleShell>` (Slice 0) with 12 lenses across
+ * three groups:
  *
- *   JOURNEY     (5, live in this slice)
- *     intake, onboarding, stops, offboarding, welcome
- *   BEHAVIOUR   (6, soon — Slice 2 absorbs them)
- *     call1Mode, firstCallTargets, tolerances, skillBanding, progressSignals, agentTunerNlp
- *   PREVIEW     (1, soon — Slice 3)
- *     preview
+ *   JOURNEY     intake, onboarding, stops, offboarding, welcome
+ *   BEHAVIOUR   call1Mode, firstCallTargets, tolerances, skillBanding,
+ *               progressSignals, agentTunerNlp
+ *   PREVIEW     preview
  *
- * `soon` lenses surface in the nav so educators see the full surface from
- * day one; clicking shows the shared "Coming soon" body with the blurb.
+ * Journey lenses (Slice 1) — `<SessionFlowEditor activeSection="…">` scoped.
+ * Behaviour lenses (Slice 2) — wrap existing components that previously
+ *   lived as CollapsibleCards on the Design tab. Card duplication removed.
+ * Preview lens (Slice 3) — `<PreviewLens>` with lazy compose + Educator
+ *   + Engineer views.
  *
  * URL state uses `?design_view=<id>` (distinct from Progress v2's `?view=`).
  *
- * Reads/writes: each lens mounts `<SessionFlowEditor activeSection="…">`
- * which already routes through `resolveSessionFlow` (dual-read fallback)
- * and `PUT /api/courses/:id/session-flow`. No parallel paths.
+ * Reads/writes for Journey lenses route through GET/PUT
+ * `/api/courses/:id/session-flow`. Behaviour lenses keep their existing
+ * routes (no new write paths introduced by the absorption).
  *
- * Closes #1266.
+ * Closes #1267 + #1268. Refs epic #1263.
  */
 
 import React from "react";
@@ -49,22 +50,25 @@ import {
   SessionFlowEditor,
   type SessionFlowLens,
 } from "@/components/session-flow/SessionFlowEditor";
+import { FirstSessionSettings } from "@/components/course-design/FirstSessionSettings";
+import { FeltProgressSettings } from "@/components/course-design/FeltProgressSettings";
+import { TolerancesSettings } from "@/components/course-design/TolerancesSettings";
+import { BandingPicker } from "@/components/shared/BandingPicker";
+import { PreviewLens } from "./PreviewLens";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 type DesignLensId =
-  // Journey (live)
   | "intake"
   | "onboarding"
   | "stops"
   | "offboarding"
   | "welcome"
-  // Behaviour (soon — Slice 2)
   | "call1Mode"
   | "firstCallTargets"
   | "tolerances"
   | "skillBanding"
   | "progressSignals"
   | "agentTunerNlp"
-  // Preview (soon — Slice 3)
   | "preview";
 
 const DESIGN_LENS_ORDER: DesignLensId[] = [
@@ -84,6 +88,7 @@ const DESIGN_LENS_ORDER: DesignLensId[] = [
 
 interface LensProps {
   courseId: string;
+  playbookConfig?: PlaybookConfig | Record<string, unknown> | null;
 }
 
 const ICON_SIZE = 14;
@@ -97,8 +102,47 @@ function makeJourneyLens(section: SessionFlowLens): React.ComponentType<LensProp
   return Lens;
 }
 
+/* ── Behaviour lens wrappers (Slice 2) ─────────────────────
+   Each wrapper threads `courseId` + `playbookConfig` into the existing
+   component. The components themselves are unchanged — the lens is a
+   thin host. */
+
+const Call1ModeLens: React.FC<LensProps> = ({ courseId, playbookConfig }) => (
+  <FirstSessionSettings courseId={courseId} playbookConfig={playbookConfig} />
+);
+Call1ModeLens.displayName = "Call1ModeLens";
+
+const FirstCallTargetsLens: React.FC<LensProps> = ({ courseId, playbookConfig }) => (
+  <FirstSessionSettings courseId={courseId} playbookConfig={playbookConfig} />
+);
+FirstCallTargetsLens.displayName = "FirstCallTargetsLens";
+
+const TolerancesLens: React.FC<LensProps> = ({ courseId, playbookConfig }) => (
+  <TolerancesSettings
+    courseId={courseId}
+    playbookId={courseId}
+    playbookConfig={playbookConfig}
+  />
+);
+TolerancesLens.displayName = "TolerancesLens";
+
+const SkillBandingLens: React.FC<LensProps> = ({ courseId, playbookConfig }) => {
+  const skillTierMapping = (playbookConfig as PlaybookConfig | null | undefined)?.skillTierMapping;
+  return <BandingPicker courseId={courseId} current={skillTierMapping} />;
+};
+SkillBandingLens.displayName = "SkillBandingLens";
+
+const ProgressSignalsLens: React.FC<LensProps> = ({ courseId, playbookConfig }) => (
+  <FeltProgressSettings courseId={courseId} playbookConfig={playbookConfig} />
+);
+ProgressSignalsLens.displayName = "ProgressSignalsLens";
+
+const PreviewLensWrap: React.FC<LensProps> = ({ courseId }) => (
+  <PreviewLens courseId={courseId} />
+);
+PreviewLensWrap.displayName = "PreviewLensWrap";
+
 const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
-  // ── Journey ─────────────────────────────────────────────
   intake: {
     id: "intake",
     label: "Intake",
@@ -134,49 +178,53 @@ const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
     blurb: "First-line greeting the learner hears on call 1.",
     Component: makeJourneyLens("welcome"),
   },
-  // ── Behaviour (Slice 2 — soon) ──────────────────────────
   call1Mode: {
     id: "call1Mode",
     label: "Call 1 Mode",
     iconNode: <Settings2 size={ICON_SIZE} />,
-    blurb: "Onboarding / Teach Immediately / Baseline Assessment — what shape Call 1 takes.",
+    blurb: "Onboarding / Teach Immediately / Baseline Assessment — the overall shape of Call 1.",
+    Component: Call1ModeLens,
   },
   firstCallTargets: {
     id: "firstCallTargets",
     label: "First-call Targets",
     iconNode: <Target size={ICON_SIZE} />,
     blurb: "Per-course BEHAVIOR target overrides applied only to Call 1.",
+    Component: FirstCallTargetsLens,
   },
   tolerances: {
     id: "tolerances",
     label: "Tolerances",
     iconNode: <Gauge size={ICON_SIZE} />,
     blurb: "Course-default mastery threshold, retrieval cadence, memory decay.",
+    Component: TolerancesLens,
   },
   skillBanding: {
     id: "skillBanding",
     label: "Skill Banding",
     iconNode: <Award size={ICON_SIZE} />,
     blurb: "Per-course tier mapping override.",
+    Component: SkillBandingLens,
   },
   progressSignals: {
     id: "progressSignals",
     label: "Progress Signals",
     iconNode: <Sliders size={ICON_SIZE} />,
     blurb: "Mid-call acknowledgement + structured offboarding summary.",
+    Component: ProgressSignalsLens,
   },
   agentTunerNlp: {
     id: "agentTunerNlp",
     label: "Agent Tuner (NLP)",
     iconNode: <Compass size={ICON_SIZE} />,
-    blurb: "Natural-language tuning of agent identity. Follow-on after Slice 2 ships.",
+    blurb: "Natural-language tuning of agent identity. Follow-on story (#1276).",
   },
-  // ── Preview (Slice 3 — soon) ────────────────────────────
   preview: {
     id: "preview",
     label: "Preview",
     iconNode: <Eye size={ICON_SIZE} />,
-    blurb: "See the chat-bubble flow + composed prompt the learner would experience on Call 1, with deep-links to fix gaps.",
+    blurb: "Educator view + Engineer view of what Call 1 will look like.",
+    Component: PreviewLensWrap,
   },
 };
 
@@ -188,18 +236,17 @@ function isDesignLensId(value: string | null | undefined): value is DesignLensId
 }
 
 const COMING_SOON_HELP = (
-  <>
-    Use the cards below the console until this lens ships. Live progress on
-    epic <code>#1263</code>.
-  </>
+  <>Follow-on story: <code>#1276</code>.</>
 );
 
 export interface CourseDesignConsoleProps {
   courseId: string;
+  playbookConfig?: PlaybookConfig | Record<string, unknown> | null;
 }
 
 export function CourseDesignConsole({
   courseId,
+  playbookConfig,
 }: CourseDesignConsoleProps): React.ReactElement {
   const { view, setView } = useConsoleView<DesignLensId>({
     isValidId: isDesignLensId,
@@ -209,15 +256,17 @@ export function CourseDesignConsole({
   });
 
   return (
-    <ConsoleShell<DesignLensId, LensProps>
-      lensOrder={DESIGN_LENS_ORDER}
-      lenses={DESIGN_LENSES}
-      lensProps={{ courseId }}
-      activeLensId={view}
-      onLensChange={setView}
-      ariaNavLabel="Course design lenses"
-      idPrefix="hf-course-design"
-      comingSoonHelpText={COMING_SOON_HELP}
-    />
+    <>
+      <ConsoleShell<DesignLensId, LensProps>
+        lensOrder={DESIGN_LENS_ORDER}
+        lenses={DESIGN_LENSES}
+        lensProps={{ courseId, playbookConfig }}
+        activeLensId={view}
+        onLensChange={setView}
+        ariaNavLabel="Course design lenses"
+        idPrefix="hf-course-design"
+        comingSoonHelpText={COMING_SOON_HELP}
+      />
+    </>
   );
 }

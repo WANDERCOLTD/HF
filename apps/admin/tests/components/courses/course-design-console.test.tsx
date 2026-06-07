@@ -102,11 +102,11 @@ describe("CourseDesignConsole — nav", () => {
     expect(items.length).toBe(12);
   });
 
-  it("renders a 'soon' badge on every non-Journey lens (7 = 6 Behaviour + 1 Preview)", () => {
+  it("renders a 'soon' badge only on agentTunerNlp (1 — Slices 2+3 absorbed the rest)", () => {
     mockSessionFlowFetch(makeResolvedResponse());
     const { container } = render(<CourseDesignConsole courseId="course-1" />);
     const soon = container.querySelectorAll(".hf-console-shell-nav-soon");
-    expect(soon.length).toBe(7);
+    expect(soon.length).toBe(1);
   });
 
   it("defaults to Intake when ?design_view= is absent", () => {
@@ -195,21 +195,21 @@ describe("CourseDesignConsole — lens-scoped SessionFlowEditor", () => {
 });
 
 describe("CourseDesignConsole — soon lens behaviour", () => {
-  it("Behaviour lens shows the Coming soon body when clicked", async () => {
-    currentDesignView = "call1Mode";
+  it("agentTunerNlp lens still shows Coming soon (parked per #1276)", async () => {
+    currentDesignView = "agentTunerNlp";
     mockSessionFlowFetch(makeResolvedResponse());
     const { findByRole } = render(<CourseDesignConsole courseId="course-1" />);
     const panel = (await findByRole("tabpanel")) as HTMLElement;
     await within(panel).findByText("Coming soon");
-    await within(panel).findByRole("heading", { name: "Call 1 Mode" });
+    await within(panel).findByRole("heading", { name: "Agent Tuner (NLP)" });
   });
 
-  it("Preview lens shows the Coming soon body when clicked", async () => {
+  it("Preview lens mounts and shows its header on activation (lazy compose)", async () => {
     currentDesignView = "preview";
     mockSessionFlowFetch(makeResolvedResponse());
     const { findByRole } = render(<CourseDesignConsole courseId="course-1" />);
     const panel = (await findByRole("tabpanel")) as HTMLElement;
-    await within(panel).findByText("Coming soon");
-    await within(panel).findByRole("heading", { name: "Preview" });
+    // Header text appears even before compose finishes
+    await within(panel).findByText(/Preview — Call 1/);
   });
 });

@@ -1136,46 +1136,24 @@ export default function CourseDetailPage() {
           its own bottom row, right-aligned, so it doesn't fight the
           title for horizontal space. */}
       <div className="hf-mb-lg cd-hero">
-        <div className="cd-hero-title-row">
-          <EditableTitle
-            value={detail.name}
-            as="h2"
-            onSave={async (newName) => {
-              const res = await fetch(`/api/playbooks/${detail.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName }),
-              });
-              const data = await res.json();
-              if (!data.ok) throw new Error(data.error);
-              setDetail((prev) => prev ? { ...prev, name: newName } : prev);
-            }}
-          />
-        </div>
-        <div className="cd-hero-pills">
-          <StatusBadge status={statusMap[detail.status.toLowerCase()] || 'draft'} />
-          {setupReadiness && (
-            <span className={`cd-readiness-pip ${setupReadiness.allComplete ? 'cd-readiness-pip--ready' : 'cd-readiness-pip--progress'}`}
-              title={setupReadiness.allComplete ? 'Ready to teach' : `Setup: ${setupReadiness.completedCount} of 6`}
-            >
-              {setupReadiness.allComplete ? 'Ready' : `${setupReadiness.completedCount}/6`}
-            </span>
-          )}
-          <ProgressionModePill
-            modulesAuthored={(detail.config as Record<string, unknown> | null | undefined)?.modulesAuthored as boolean | null | undefined}
-            onClickWhenUnset={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
-          />
-          <CurriculumSourcePill
-            mode={activeCurriculumMode}
-            onClick={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
-          />
-          <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
-          {(detail as any).group && (
-            <span className="hf-pill hf-pill-neutral">{(detail as any).group.name}</span>
-          )}
-          <span className="hf-text-xs hf-text-placeholder">v{detail.version}</span>
-        </div>
-        <div className="cd-hero-actions">
+        <div className="cd-hero-top">
+          <div className="cd-hero-title-wrap">
+            <EditableTitle
+              value={detail.name}
+              as="h2"
+              onSave={async (newName) => {
+                const res = await fetch(`/api/playbooks/${detail.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: newName }),
+                });
+                const data = await res.json();
+                if (!data.ok) throw new Error(data.error);
+                setDetail((prev) => prev ? { ...prev, name: newName } : prev);
+              }}
+            />
+          </div>
+          <div className="cd-hero-actions">
           {isOperator && (
             <button
               className="hf-btn hf-btn-destructive hf-nowrap"
@@ -1222,6 +1200,30 @@ export default function CourseDetailPage() {
             <ExternalLink size={14} />
             Open Editor
           </Link>
+          </div>
+        </div>
+        <div className="cd-hero-pills">
+          <StatusBadge status={statusMap[detail.status.toLowerCase()] || 'draft'} />
+          {setupReadiness && (
+            <span className={`cd-readiness-pip ${setupReadiness.allComplete ? 'cd-readiness-pip--ready' : 'cd-readiness-pip--progress'}`}
+              title={setupReadiness.allComplete ? 'Ready to teach' : `Setup: ${setupReadiness.completedCount} of 6`}
+            >
+              {setupReadiness.allComplete ? 'Ready' : `${setupReadiness.completedCount}/6`}
+            </span>
+          )}
+          <ProgressionModePill
+            modulesAuthored={(detail.config as Record<string, unknown> | null | undefined)?.modulesAuthored as boolean | null | undefined}
+            onClickWhenUnset={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
+          />
+          <CurriculumSourcePill
+            mode={activeCurriculumMode}
+            onClick={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
+          />
+          <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
+          {(detail as any).group && (
+            <span className="hf-pill hf-pill-neutral">{(detail as any).group.name}</span>
+          )}
+          <span className="hf-text-xs hf-text-placeholder">v{detail.version}</span>
         </div>
       </div>
 
