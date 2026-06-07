@@ -91,6 +91,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // #1260 / #1261 — mock-mode heuristics (compute-reward.ts::estimateOutcomeSignals
+    // keyword regex + sentiment word count, personality-analyze.ts mock keyword
+    // scoring with Math.random() jitter, mock behavior measurement) write to
+    // RewardScore / CallerPersonality / BehaviorMeasurement. ADAPT reads these
+    // tables as if they were real. The live pipeline has its own non-mock
+    // implementations of REWARD / EXTRACT — the ops endpoint is a separate
+    // legacy CLI surface, not the runtime pipeline.
+    //
+    // Gate: any opid whose handler defaults `mock: true` (or where settings.mock
+    // is explicitly true) is blocked unless HF_ALLOW_MOCK_OPS=1. Production
+    // never has this env set; dev/CI/test fixtures opt in explicitly.
+    const MOCK_DEFAULTING_OPIDS = new Set([
+      "pipeline:run",
+      "personality:analyze",
+      "memory:extract",
+      "behavior:measure",
+    ]);
+    const isMockHeuristicCall =
+      MOCK_DEFAULTING_OPIDS.has(opid) && settings.mock !== false;
+    if (isMockHeuristicCall && process.env.HF_ALLOW_MOCK_OPS !== "1") {
+      return NextResponse.json(
+        {
+          error:
+            `Operation '${opid}' would invoke mock-mode keyword heuristics (writes to RewardScore / CallerPersonality / BehaviorMeasurement that ADAPT reads as real). ` +
+            `Set HF_ALLOW_MOCK_OPS=1 in env to opt in (dev/CI only), or pass settings.mock=false to use the real LLM-backed path.`,
+        },
+        { status: 403 }
+      );
+    }
+
     // Route to appropriate operation handler
     switch (opid) {
       // ========================================
