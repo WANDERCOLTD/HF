@@ -205,6 +205,17 @@ jobs:
         run: npx tsx prisma/seed-from-specs.ts
         continue-on-error: true
 
+      # B8 — FK consistency check. Catches the cross-playbook FK-leak
+      # class (#407 / #415), Anchor divergence, and IntakeSpec body/source
+      # coherence drift before they reach dev. The script already runs
+      # locally via `npm run ctl check`; this wires it into CI on the
+      # ephemeral Postgres. Continue-on-error because the seed step above
+      # can leave a partial schema until B0-followup lands; tighten this
+      # to a real gate once seed is reliable.
+      - name: FK consistency check (#415)
+        run: npm run check:fk
+        continue-on-error: true
+
       - name: Run integration tests
         run: npm run test:integration
         continue-on-error: true

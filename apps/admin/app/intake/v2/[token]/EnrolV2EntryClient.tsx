@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Mail, Phone, AlertCircle, Loader2 } from "lucide-react";
 
 interface Props {
@@ -11,6 +12,15 @@ interface Props {
   institutionName: string | null;
 }
 
+// OPERATOR+ levels for the admin escape hatch. Mirror of the set in
+// FirstCallPinGate so the two surfaces gate identically.
+const ADMIN_SKIP_ROLES = new Set([
+  "OPERATOR",
+  "EDUCATOR",
+  "ADMIN",
+  "SUPERADMIN",
+]);
+
 export function EnrolV2EntryClient({
   token,
   cohortName,
@@ -18,9 +28,21 @@ export function EnrolV2EntryClient({
   institutionName,
 }: Props) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const sessionRole = session?.user?.role ?? null;
+  // OPERATOR+ session sees an "Admin: continue as test caller" button
+  // that skips email + PIN entry entirely. Creates a synthetic test
+  // User+Caller server-side, keeps the admin's session cookie
+  // (does NOT mint a new one), navigates to /x/sim/<callerId>.
+  // STUDENT/VIEWER sessions never render the affordance.
+  const showAdminSkip =
+    typeof sessionRole === "string" && ADMIN_SKIP_ROLES.has(sessionRole);
+
   const [contact, setContact] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [adminSkipPending, setAdminSkipPending] = useState(false);
+  const [adminSkipError, setAdminSkipError] = useState<string | null>(null);
 
   // Auto-detection — presence of '@' wins. Below the input we surface
   // a one-line hint so the learner knows what we'll do with their input.
@@ -30,6 +52,35 @@ export function EnrolV2EntryClient({
     if (/^[+\d\s()-]+$/.test(contact)) return "phone";
     return "unknown";
   }, [contact]);
+
+  async function handleAdminSkip() {
+    if (adminSkipPending) return;
+    setAdminSkipPending(true);
+    setAdminSkipError(null);
+    try {
+      const res = await fetch("/api/intake/v2/admin-test-enrol", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ classroomToken: token }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok && data?.redirect) {
+        router.push(data.redirect);
+        return;
+      }
+      if (res.status === 401) {
+        setAdminSkipError(
+          "Your session can't create a test caller (OPERATOR+ only). Sign in as admin first.",
+        );
+        return;
+      }
+      setAdminSkipError(data?.error ?? `Couldn't create test caller (${res.status}).`);
+    } catch {
+      setAdminSkipError("Network error — try again.");
+    } finally {
+      setAdminSkipPending(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -227,6 +278,55 @@ export function EnrolV2EntryClient({
             to the privacy notice you'll see on the next screen.
           </p>
         </form>
+
+        {showAdminSkip ? (
+          <div
+            style={{
+              marginTop: 20,
+              paddingTop: 16,
+              borderTop: "1px dashed var(--border-default, #e4e4e7)",
+            }}
+            data-testid="enrol-v2-admin-skip-block"
+          >
+            <button
+              type="button"
+              onClick={handleAdminSkip}
+              disabled={adminSkipPending}
+              data-testid="enrol-v2-admin-skip"
+              className="hf-btn hf-btn-secondary"
+              style={{ width: "100%", padding: "10px 14px", fontSize: 13 }}
+            >
+              {adminSkipPending
+                ? "Creating test caller…"
+                : `Admin: continue as test caller (you're signed in as ${sessionRole})`}
+            </button>
+            {adminSkipError ? (
+              <p
+                style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  color: "var(--text-danger, #b91c1c)",
+                  lineHeight: 1.4,
+                }}
+                role="alert"
+              >
+                {adminSkipError}
+              </p>
+            ) : null}
+            <p
+              style={{
+                marginTop: 8,
+                fontSize: 11,
+                color: "var(--text-muted)",
+                lineHeight: 1.4,
+              }}
+            >
+              Skips email + PIN. Creates a synthetic Test/Admin caller in this
+              classroom, keeps your admin session, drops you on
+              /x/sim/&lt;callerId&gt; for browsing as yourself.
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   );

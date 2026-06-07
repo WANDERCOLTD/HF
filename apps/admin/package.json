@@ -54,6 +54,7 @@
     "test:all": "npm run test && npm run test:integration && npm run test:e2e",
     "check:uplift": "tsx scripts/check-uplift-visual.ts",
     "check:uplift:update": "tsx scripts/check-uplift-visual.ts --update",
+    "check:fk": "tsx scripts/check-fk-consistency.ts",
     "playwright:install": "playwright install --with-deps",
     "db:reset": "tsx prisma/reset.ts",
     "db:seed": "tsx prisma/seed-clean.ts",
