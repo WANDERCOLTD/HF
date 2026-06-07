@@ -59,6 +59,7 @@ import { createLogger, type PipelineLogger } from "@/lib/pipeline/logger";
 import { mapToMemoryCategory } from "@/lib/pipeline/memory";
 import { loadGuardrails, type GuardrailsConfig } from "@/lib/pipeline/guardrails";
 import { shouldRunCallerAnalysis } from "@/lib/pipeline/event-gate";
+import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
 import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile } from "@/lib/pipeline/specs-loader";
 import type { SpecConfig } from "@/lib/types/json-fields";
 
@@ -3193,6 +3194,13 @@ interface PipelineContext {
   log: PipelineLogger;
   request: NextRequest;
   userName?: string;
+  /**
+   * #1253 — pre-resolved course shape for this call. Drives every stage that
+   * branches on STRUCTURED vs CONTINUOUS (modules transform, REWARD,
+   * scheduler). Default-deny: anything not explicitly `lessonPlanMode ===
+   * "structured"` resolves to `"continuous"`. See `lib/pipeline/course-style.ts`.
+   */
+  courseStyle: CourseStyle;
   // Accumulated results from previous stages
   results: Record<string, any>;
 }
@@ -4029,6 +4037,22 @@ export async function POST(
     const guardrails = await loadGuardrails(log);
     const pipelineStages = await loadPipelineStages(log);
 
+    // #1253 — resolve course shape ONCE at pipeline entry. Every downstream
+    // stage reads `ctx.courseStyle` and never re-derives. Default-deny:
+    // anything not explicitly `lessonPlanMode === "structured"` is treated
+    // as CONTINUOUS. See `lib/pipeline/course-style.ts`.
+    let courseStyle: CourseStyle = "continuous";
+    if (call.playbookId) {
+      const pb = await prisma.playbook.findUnique({
+        where: { id: call.playbookId },
+        select: { config: true },
+      });
+      courseStyle = getCourseStyle((pb?.config ?? null) as any);
+    }
+    log.info(`[course-style] resolved: ${courseStyle}`, {
+      playbookId: call.playbookId,
+    });
+
     // =====================================================
     // SPEC-DRIVEN PIPELINE EXECUTION
     // Stages are loaded from PIPELINE-001 spec (or GUARD-001 fallback)
@@ -4046,6 +4070,7 @@ export async function POST(
       log,
       request,
       userName: pipelineUserName,
+      courseStyle,
       results: {},
     };
 
