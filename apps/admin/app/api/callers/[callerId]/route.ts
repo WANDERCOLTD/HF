@@ -159,11 +159,13 @@ export async function GET(
         },
       }),
 
-      // Calls with analysis status
+      // Calls with analysis status. A1 — cap reduced 50 → 25; the audit
+      // measured ~250KB of transcripts on detail-page load for active
+      // learners and the UI's Recent Calls card only renders ~10 anyway.
       prisma.call.findMany({
         where: { callerId: callerId },
         orderBy: { createdAt: "desc" },
-        take: 50,
+        take: 25,
         select: {
           id: true,
           source: true,
@@ -265,9 +267,13 @@ export async function GET(
       // Includes currentScore (skill EMA — #417) + Parameter.config so the
       // caller-detail UI can render BandChip + band-descriptor drawers
       // without extra queries (#564 / #575).
+      // A1 — was uncapped; cap to the 200 most recently updated targets so a
+      // long-running learner doesn't drag the detail page proportional to
+      // their lifetime parameter count.
       prisma.callerTarget.findMany({
         where: { callerId: callerId },
         orderBy: { updatedAt: "desc" },
+        take: 200,
         select: {
           id: true,
           parameterId: true,
@@ -473,16 +479,20 @@ export async function GET(
       memoryCountsByCall.map((m) => [m.callId, m._count.id])
     );
 
-    // Get prompt status per call (which calls triggered a prompt)
-    const promptsByCall = await prisma.composedPrompt.findMany({
-      where: {
-        callerId: callerId,
-        triggerCallId: { not: null },
-      },
-      select: {
-        triggerCallId: true,
-      },
-    });
+    // Get prompt status per call (which calls triggered a prompt). A1 —
+    // was uncapped over the caller's lifetime; restrict to the calls we're
+    // actually returning so the work is bounded by `take` on the calls query
+    // above. Eliminates a tail-call scan on long-running learners.
+    const promptsByCall = calls.length > 0
+      ? await prisma.composedPrompt.findMany({
+          where: {
+            triggerCallId: { in: calls.map((c) => c.id) },
+          },
+          select: {
+            triggerCallId: true,
+          },
+        })
+      : [];
     const promptedCallIds = new Set(promptsByCall.map((p) => p.triggerCallId));
 
     // Transform calls to include analysis status
