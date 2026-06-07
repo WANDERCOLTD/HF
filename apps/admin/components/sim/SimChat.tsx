@@ -330,6 +330,35 @@ export function SimChat({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming, artifacts, actions, journey?.items, journey?.state, callPhase, timeChip, newPromptId]);
 
+  // #1241 Slice 5 — 30s silence watchdog. While a call is active and the
+  // provider has acknowledged it, expect at least one transcript-partial
+  // (or chat-side message) every 30s. Silence beyond that strongly
+  // suggests a dropped phone call or a stalled SSE stream. Surface a
+  // banner with a "Mark as ended" escape hatch so the learner doesn't
+  // sit staring at a frozen UI for the 90s server-poll backstop. The
+  // banner clears automatically once activity resumes.
+  const lastActivityRef = useRef<number>(Date.now());
+  const [silenceWarning, setSilenceWarning] = useState(false);
+  useEffect(() => {
+    lastActivityRef.current = Date.now();
+    setSilenceWarning(false);
+  }, [messages.length]);
+  useEffect(() => {
+    if (callPhase !== 'active') {
+      setSilenceWarning(false);
+      return;
+    }
+    const inLiveVoice =
+      providerCall.status === 'connecting' || providerCall.status === 'active';
+    if (!inLiveVoice) return;
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current > 30_000) {
+        setSilenceWarning(true);
+      }
+    }, 5_000);
+    return () => clearInterval(interval);
+  }, [callPhase, providerCall.status]);
+
   // Poll for server-side messages (teacher interjections only)
   // AI-shared media is now handled via the X-Shared-Media response header
   // and attached to the streaming message directly — no need to poll for it.
@@ -434,8 +463,24 @@ export function SimChat({
               } : null,
             }));
             setMessages(restored);
-            setCallPhase('active');
-            console.log(`[sim] Restored ${restored.length} messages from active call`);
+
+            // #1241 Slice 5 — drop recovery. If the last message is more
+            // than 5 minutes old the voice channel almost certainly died
+            // (dropped call, browser crash, tab close) — the DB row is
+            // still "non-ended" because nothing fired the end-of-call
+            // writer. Treat the call as ended so the wrap UI renders and
+            // the learner can start fresh. Operator confirmed dropped
+            // calls do NOT continue — no resume-mid-call complexity.
+            const lastTs = restored[restored.length - 1]?.timestamp;
+            const staleMs = lastTs ? Date.now() - lastTs.getTime() : 0;
+            if (staleMs > 5 * 60 * 1000) {
+              console.log(`[sim] Active call is stale (${Math.round(staleMs / 60000)}m since last message) — sealing as ended`);
+              setCallEndedAt(lastTs ?? new Date());
+              setCallPhase('ended');
+            } else {
+              setCallPhase('active');
+              console.log(`[sim] Restored ${restored.length} messages from active call`);
+            }
           } else if (!cancelled) {
             // Active call exists but has no messages — re-send greeting
             console.log('[sim] Active call has no messages, sending greeting');
@@ -1437,6 +1482,32 @@ export function SimChat({
           >
             <span style={{ fontWeight: 700 }}>Prompt 1 generated</span>
             <span style={{ fontSize: 12, color: 'var(--status-success-text)' }}>View &rarr;</span>
+          </div>
+        )}
+
+        {/* #1241 Slice 5 — 30s silence watchdog banner. Surfaces when no
+            transcript activity for >30s during a live call. Provides a
+            "Mark as ended" escape hatch so the learner isn't stuck if the
+            provider event never lands. Cleared on any new message. */}
+        {silenceWarning && callPhase === 'active' && (
+          <div
+            className="hf-banner hf-banner-warning"
+            role="status"
+            aria-live="polite"
+            style={{ margin: '8px auto', maxWidth: 380 }}
+          >
+            <span>Connection has been quiet for a while — call may have ended.</span>
+            <button
+              type="button"
+              className="hf-btn hf-btn-secondary"
+              onClick={() => {
+                setSilenceWarning(false);
+                if (callPhase === 'active') setCallPhase('wrapping');
+                void handleEndCall();
+              }}
+            >
+              Mark as ended
+            </button>
           </div>
         )}
 
