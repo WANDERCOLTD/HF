@@ -7166,6 +7166,12 @@ Get teaching points (assertions) for a domain through the subject→source chain
 
 ---
 
+### `GET` /api/domains/:domainId/voice-config
+
+**Auth**: Session · **Scope**: `domains:write`
+
+---
+
 ## Educator
 
 ### `POST` /api/calls/[callId]/interject
@@ -10187,6 +10193,34 @@ Extract metadata (name, logo, colors) from a website URL
 
 ---
 
+### `POST` /api/intake/v2/admin-test-enrol
+
+Admin escape hatch on the V2 intake entry screen
+
+**Auth**: session (OPERATOR / EDUCATOR / ADMIN / SUPERADMIN)
+
+**Response** `200`
+```json
+{ ok: true, callerId, redirect: "/x/sim/<callerId>" }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string } — invalid body
+```
+
+**Response** `401`
+```json
+— caller not authenticated or not OPERATOR+
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Invalid or expired classroom token" }
+```
+
+---
+
 ### `POST` /api/intake/v2/start
 
 V2 auth-first enrolment kickoff (#1141 Story 2). Takes a
@@ -11755,6 +11789,12 @@ Create a sibling Variant Playbook against the parent's
 ```json
 { ok: false, error: string }
 ```
+
+---
+
+### `GET` /api/playbooks/:playbookId/voice-config
+
+**Auth**: Session · **Scope**: `playbooks:write`
 
 ---
 
@@ -15596,8 +15636,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 497 |
-| Files with annotations | 487 |
+| Route files found | 500 |
+| Files with annotations | 490 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 
