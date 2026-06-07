@@ -15,7 +15,8 @@ import { BulkDeleteModal } from "@/components/shared/BulkDeleteModal";
 import { useBackgroundTaskQueue } from "@/components/shared/ContentJobQueue";
 import type { BulkDeletePreview, BulkDeleteResult } from "@/lib/admin/bulk-delete";
 import { EditableTitle } from "@/components/shared/EditableTitle";
-import { BookOpen, Users, FileText, Rocket, Pencil, Sliders } from "lucide-react";
+import { BookOpen, Users, FileText, Rocket, Pencil, Sliders, Mic } from "lucide-react";
+import { VoiceConfigSection } from "@/components/voice/VoiceConfigSection";
 import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
 import { SortableList } from "@/components/shared/SortableList";
 import type { DomainListItem, DomainDetail } from "./components/types";
@@ -60,7 +61,7 @@ export default function DomainsPage() {
   const [domain, setDomain] = useState<DomainDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"callers" | "playbooks" | "content" | "onboarding" | "defaults">("playbooks");
+  const [activeTab, setActiveTab] = useState<"callers" | "playbooks" | "content" | "onboarding" | "defaults" | "voice">("playbooks");
   const [showPlaybookModal, setShowPlaybookModal] = useState(false);
   const [editingType, setEditingType] = useState(false);
   const [savingType, setSavingType] = useState(false);
@@ -909,9 +910,10 @@ export default function DomainsPage() {
                   { id: "content", label: "Content", icon: <FileText size={14} />, count: domain._count.subjects ?? 0 },
                   { id: "onboarding", label: "Onboarding", icon: <Rocket size={14} /> },
                   { id: "defaults", label: "Defaults", icon: <Sliders size={14} /> },
+                  { id: "voice", label: "Voice", icon: <Mic size={14} /> },
                 ]}
                 activeTab={activeTab}
-                onTabChange={(id) => setActiveTab(id as "callers" | "playbooks" | "content" | "onboarding" | "defaults")}
+                onTabChange={(id) => setActiveTab(id as "callers" | "playbooks" | "content" | "onboarding" | "defaults" | "voice")}
                 containerStyle={{ marginBottom: 24 }}
               />
 
@@ -1203,6 +1205,18 @@ export default function DomainsPage() {
                       .then((data) => { if (data.ok) setDomain(data.domain); });
                   }}
                 />
+              )}
+
+              {activeTab === "voice" && (
+                <div>
+                  <div className="hf-mb-md">
+                    <h3 className="hf-section-title">Voice configuration</h3>
+                    <p className="hf-section-desc">
+                      Domain-scoped voice overrides. Apply to every course in this domain unless a course overrides individually.
+                    </p>
+                  </div>
+                  <VoiceConfigSection scope="domain" scopeId={domain.id} />
+                </div>
               )}
             </>
           )}
