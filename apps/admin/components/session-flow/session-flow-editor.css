@@ -110,6 +110,33 @@
   margin-bottom: 12px;
 }
 
+/* ── Inline drawer (lens mode, #1266) ──
+   Rendered directly inside a lens panel — no backdrop, no fixed
+   positioning, no close X. Sits as a bordered card below the rows
+   so educators see + edit in one place. Wider canvas for the phase
+   list still applies. */
+.sfe-drawer--inline {
+  position: static;
+  width: 100%;
+  max-width: none;
+  border: 1px solid var(--border-default);
+  border-left: 1px solid var(--border-default);
+  border-radius: 12px;
+  box-shadow: none;
+  margin-top: 16px;
+  z-index: auto;
+}
+.sfe-drawer--inline.sfe-drawer:has(.sfe-phase-host) {
+  width: 100%;
+}
+.sfe-drawer--inline .sfe-drawer-header {
+  padding: 12px 16px;
+}
+.sfe-drawer--inline .sfe-drawer-body {
+  padding: 16px;
+  overflow: visible;
+}
+
 .sfe-drawer-header {
   display: flex;
   align-items: center;
