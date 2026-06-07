@@ -2,10 +2,15 @@
 //
 // Sprint C — DisclosureContentPort tests.
 //
-// Verifies the runtime safety belt that refuses to deliver DRAFT
-// copy in NODE_ENV=production. Tests against the real on-disk
-// lib/intake/copy/*.v0.1.0-DRAFT.mdx files since the production-refusal
-// behaviour is the critical Sprint C ratchet.
+// Post-#1244 — all six disclosure files were promoted from DRAFT to RC.1
+// (counsel sign-off for staging — files renamed to *.v0.1.0-rc.1.mdx,
+// frontmatter status: RC, visible DRAFT markers + lorem ipsum
+// stripped). The runtime safety belt at disclosure-content.ts still
+// blocks status:DRAFT delivery; these tests cover (a) RC files load
+// cleanly, (b) the rendered body has no DRAFT placeholders, (c) RC
+// files are not refused regardless of env. The safety-belt mechanism
+// itself is now exercised only via mocked DRAFT meta in audit-bundle
+// tests.
 //
 // HF's tests/setup.ts globally mocks node:fs/promises (for transcript
 // tests). We unmock for THIS file so the real fs sees lib/intake/copy/.
@@ -40,31 +45,39 @@ describe("DisclosureContentPort — production safety belt", () => {
     ENV.NODE_ENV = "test";
   });
 
-  it("loads the GDPR Art 13 placeholder in dev/test", async () => {
+  it("loads the GDPR Art 13 notice in dev/test", async () => {
     const entry = await loadDisclosureCopy("gdpr.art13.privacy-notice");
     expect(entry.meta.requirementId).toBe("gdpr.art13.privacy-notice");
-    expect(entry.meta.status).toBe("DRAFT");
-    expect(entry.meta.version).toBe("0.1.0");
+    expect(entry.meta.status).toBe("RC");
+    expect(entry.meta.version).toBe("0.1.0-rc.1");
     expect(entry.content.format).toBe("markdown");
     expect(entry.contentHash).toMatch(/^[0-9a-f]{64}$/); // hex sha256
     expect(entry.body.length).toBeGreaterThan(50);
+    // #1244 — visible DRAFT markers must not appear in rendered copy.
+    expect(entry.body).not.toMatch(/lorem ipsum/i);
+    expect(entry.body).not.toMatch(/DO NOT SHIP/i);
+    expect(entry.body).not.toMatch(/\[DRAFT/);
   });
 
-  it("loads the EU AI Act Art 50 placeholder", async () => {
+  it("loads the EU AI Act Art 50 notice", async () => {
     const entry = await loadDisclosureCopy(
       "eu-ai-act.art50.ai-interaction-disclosure",
     );
     expect(entry.meta.requirementId).toBe(
       "eu-ai-act.art50.ai-interaction-disclosure",
     );
-    expect(entry.meta.status).toBe("DRAFT");
+    expect(entry.meta.status).toBe("RC");
+    expect(entry.body).not.toMatch(/lorem ipsum/i);
+    expect(entry.body).not.toMatch(/DO NOT SHIP/i);
   });
 
-  it("REFUSES to deliver DRAFT copy when NODE_ENV=production", async () => {
+  it("RC copy is delivered (not refused) under any env — DRAFT refusal only fires for status:DRAFT", async () => {
+    // Promotion DRAFT → RC means the safety belt does NOT fire for these
+    // files regardless of NODE_ENV / NEXT_PUBLIC_APP_ENV. The refusal
+    // path is reserved for status:DRAFT only.
     ENV.NODE_ENV = "production";
-    await expect(
-      loadDisclosureCopy("gdpr.art13.privacy-notice"),
-    ).rejects.toBeInstanceOf(DraftCopyInProductionError);
+    const entry = await loadDisclosureCopy("gdpr.art13.privacy-notice");
+    expect(entry.meta.status).toBe("RC");
   });
 
   it("contentHash is stable across reads of the same file", async () => {
