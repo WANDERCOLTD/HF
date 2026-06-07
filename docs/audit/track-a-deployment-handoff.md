@@ -22,11 +22,11 @@ The audit's concurrency stress test predicted the Cloud SQL pool dies at ~30 con
 
 ```bash
 # DEV — hf-admin-dev → hf_sandbox
-gcloud secrets versions access latest --secret=DATABASE_URL_DEV   # read current
+gcloud secrets versions access latest --secret=DATABASE_URL_STAGING   # read current
 # Then create a new version with the params appended:
 # postgresql://<user>:<pw>@<host>:5432/hf_sandbox?schema=public&connection_limit=5&pool_timeout=20
 echo -n 'postgresql://<paste-current>?schema=public&connection_limit=5&pool_timeout=20' \
-  | gcloud secrets versions add DATABASE_URL_DEV --data-file=-
+  | gcloud secrets versions add DATABASE_URL_STAGING --data-file=-
 
 # Repeat for hf-admin-test (hf_staging) and hf-admin (hf_prod):
 #   gcloud secrets versions add DATABASE_URL_TEST --data-file=- < ...
@@ -78,7 +78,7 @@ The endpoint returns `{ ok: true, summary: { eventsDeleted, hourlyRollupsDeleted
 
 | Action | Rollback |
 |---|---|
-| A3 | Revert `DATABASE_URL` to its previous version: `gcloud secrets versions disable <new-version> --secret=DATABASE_URL_DEV` |
+| A3 | Revert `DATABASE_URL` to its previous version: `gcloud secrets versions disable <new-version> --secret=DATABASE_URL_STAGING` |
 | A7 | `gcloud scheduler jobs delete hf-cleanup-usage-events-dev --location=europe-west2`. The endpoint code stays — no schema or behaviour change to undo. |
 
 ## Owner / paging

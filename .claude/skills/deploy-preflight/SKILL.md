@@ -41,7 +41,7 @@ cd apps/admin && npm run test 2>&1 | tail -20
 
 **⚠️ Running `npx prisma migrate status` with the local `DATABASE_URL` is a known trap.** Local `.env` points at the VM dev DB (or nothing) and returns false PASS while Cloud SQL is behind. Incident: 2026-04-15 — `ContentSource.extractorVersion does not exist` on dev because guard checked wrong DB.
 
-Ask the user which env they're preflighting (DEV / TEST / PROD) and pick the matching secret: `DATABASE_URL_DEV`, `DATABASE_URL_TEST`, or `DATABASE_URL`. Then:
+Ask the user which env they're preflighting (STAGING / PILOT / PROD — legacy names DEV / TEST also accepted) and pick the matching secret: `DATABASE_URL_STAGING`, `DATABASE_URL_PILOT`, or `DATABASE_URL_PROD`. The old `DATABASE_URL_DEV` secret was renamed to `_STAGING` in the 2026-06-07 cutover. Then:
 
 ```bash
 (
