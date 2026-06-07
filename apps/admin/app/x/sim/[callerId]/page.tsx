@@ -59,7 +59,13 @@ export default function SimConversationPage() {
   const forceFirstCall = searchParams.get('forceFirstCall') === 'true';
   // #242 Slice 2 placeholder: surface the moduleId chosen in the picker.
   // No real voice dial wiring yet — the banner just confirms the round-trip.
-  const requestedModuleId = searchParams.get('requestedModuleId') || undefined;
+  const urlRequestedModuleId = searchParams.get('requestedModuleId') || undefined;
+  // #1245 — per-Caller "last picked module" persistence. Populated from
+  // GET /api/callers/[callerId]; used to back-fill the picker state when
+  // the learner returns to /x/sim without a URL param so they don't
+  // have to re-pick every visit.
+  const [lastSelectedModuleId, setLastSelectedModuleId] = useState<string | undefined>(undefined);
+  const requestedModuleId = urlRequestedModuleId ?? lastSelectedModuleId;
 
   const targetOverrides = useMemo(() => {
     const raw = searchParams.get('tunerPills');
@@ -117,6 +123,33 @@ export default function SimConversationPage() {
     return () => { cancelled = true; };
   }, [callerId, urlPlaybookId]);
 
+  // #1245 — persist the picker round-trip. When the URL carries a
+  // `?requestedModuleId=` the learner just picked (or re-picked via
+  // "Switch module"), write it to `Caller.lastSelectedModuleId` so the
+  // next visit (no URL param) restores the choice. Fire-and-forget —
+  // a persistence failure must not break the sim. Skipped when the URL
+  // value matches what's already persisted (avoids the no-op POST on
+  // every render after the page hydrates).
+  useEffect(() => {
+    if (!urlRequestedModuleId) return;
+    if (urlRequestedModuleId === lastSelectedModuleId) return;
+    let cancelled = false;
+    fetch(`/api/callers/${callerId}/last-selected-module`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ moduleId: urlRequestedModuleId }),
+    })
+      .then((r) => r.json())
+      .then((result) => {
+        if (cancelled) return;
+        if (result?.ok) {
+          setLastSelectedModuleId(urlRequestedModuleId);
+        }
+      })
+      .catch(() => { /* non-fatal — sim still works from URL param */ });
+    return () => { cancelled = true; };
+  }, [callerId, urlRequestedModuleId, lastSelectedModuleId]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -155,6 +188,13 @@ export default function SimConversationPage() {
             domain: data.caller.domain,
             pastCalls: calls,
           });
+          // #1245 — restore the picker state from the persisted pick.
+          // No URL param? Use Caller.lastSelectedModuleId (set on the
+          // previous picker round-trip via POST below). When both are
+          // present the URL param wins (acts as an explicit override).
+          if (typeof data.caller.lastSelectedModuleId === 'string') {
+            setLastSelectedModuleId(data.caller.lastSelectedModuleId);
+          }
 
           if (playbookId) {
             fetch(`/api/playbooks/${playbookId}`)

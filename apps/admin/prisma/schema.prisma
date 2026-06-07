@@ -963,6 +963,16 @@ model Caller {
   // (never-stale). Read by lib/compose/staleness.ts::isPromptStale.
   composeInputsUpdatedAt DateTime?
 
+  // #1245 — Per-Caller "last module picked" memory for the sim page.
+  // Pre-fix, the picker wrote the choice to `Call.curriculumModuleId`
+  // only at call-create from a URL param; when the learner came back
+  // to /x/sim without the param the rail re-rendered "Pick a module".
+  // This field outlives a single Call so the sim landing can pre-fill
+  // the URL param + rail with the last pick. SetNull on module delete
+  // — a deleted module shouldn't keep an orphan reference here.
+  lastSelectedModuleId String?
+  lastSelectedModule   CurriculumModule? @relation("CallerLastSelectedModule", fields: [lastSelectedModuleId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([externalId])
   @@index([domainId])
@@ -974,6 +984,9 @@ model Caller {
   // #974 — operator dashboards filter callers by (domain, role) — composite
   // avoids merge join between the two single-column scans.
   @@index([domainId, role])
+  // #1245 — sim landing reads by lastSelectedModuleId when restoring a
+  // returning learner's picker state; light index for the FK lookup.
+  @@index([lastSelectedModuleId])
 }
 
 // ExcludedCaller - Phone numbers/IDs to skip during transcript import
@@ -2491,6 +2504,10 @@ model CurriculumModule {
   callerProgress     CallerModuleProgress[]
   calls              Call[]
   callScores         CallScore[] // #491 Slice 1.2 — multi-attribute scoring
+  // #1245 — Callers whose last picked module is this one. SetNull on
+  // delete means the Caller row keeps a null FK rather than being
+  // cascade-deleted along with the module.
+  lastSelectedByCallers Caller[] @relation("CallerLastSelectedModule")
 
   // Projection provenance (#338, NEW courses since 2026-05-12). When this
   // module row was written by applyProjection() from a COURSE_REFERENCE doc's

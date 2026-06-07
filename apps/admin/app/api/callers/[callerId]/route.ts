@@ -48,6 +48,9 @@ export async function GET(
           domainId: true,
           cohortGroupId: true,
           archivedAt: true,
+          // #1245 — sim landing restores the picker state from this
+          // field when no `?requestedModuleId=` URL param is present.
+          lastSelectedModuleId: true,
           domain: {
             select: {
               id: true,
