@@ -31,6 +31,7 @@ import { reclassifyLearningObjectives } from "@/lib/curriculum/reclassify-los";
 import { resolveCurriculumIdForPlaybook } from "@/lib/curriculum/resolve-module";
 import { recommendNextModule } from "@/lib/curriculum/recommend-next-module";
 import { readCourseFlags } from "@/lib/curriculum/course-completion";
+import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 // #495 Slice 4.2 — picker status badge. Per-module progress is returned to
 // the learner picker so each tile/rail card can render Mastered / In progress
@@ -592,6 +593,17 @@ export async function POST(
     } catch (err: any) {
       console.error(`[import-modules] reclassifyLearningObjectives failed for ${syncResult.curriculumId}:`, err?.message);
     }
+  }
+
+  // #1268 staleness gap — import-modules writes Playbook.config.modules
+  // (not in COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS so updatePlaybookConfig
+  // is bypassed) AND upserts CurriculumModule rows (which DO feed compose
+  // via SectionDataLoader.curriculumAssertions). The Story 8 (#834) plan
+  // explicitly anticipated this site — bump the playbook's staleness so
+  // Preview's signal flips for this course. Best-effort; runs only when
+  // something actually changed.
+  if (changed) {
+    await bumpPlaybookComposeTimestamp(courseId);
   }
 
   return NextResponse.json({

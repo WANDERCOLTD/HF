@@ -4,6 +4,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { extractCurriculumFromAssertions } from "@/lib/content-trust/extract-curriculum";
 import { syncModulesToDB } from "@/lib/curriculum/sync-modules";
 import { ensurePrimaryPlaybookLink } from "@/lib/curriculum/ensure-primary-playbook-link";
+import { bumpCurriculumComposeFanout } from "@/lib/compose/bump-curriculum-fanout";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import type { LegacyCurriculumModuleJSON } from "@/lib/types/json-fields";
 
@@ -242,6 +243,14 @@ export async function POST(
     } catch (err: any) {
       console.warn(`[regenerate-curriculum] MCQ reconcile failed (non-fatal): ${err.message}`);
     }
+
+    // 10. #1268 staleness gap — regenerate-curriculum rewrites modules + LOs,
+    // which feed prompt composition via SectionDataLoader.curriculumAssertions /
+    // modules. Fan out to every sibling Playbook sharing this Curriculum so
+    // Preview's staleness signal flips for all variants. Best-effort: the
+    // bump helper swallows missing-row errors so a late fanout doesn't fail
+    // the request.
+    await bumpCurriculumComposeFanout(curriculumRecord.id);
 
     return NextResponse.json({
       ok: true,
