@@ -1,30 +1,27 @@
 "use client";
 
 /**
- * Preview lens — Slice 3 of epic #1263.
+ * Preview lens — Slice 3 of epic #1263 (chat-bubble revision).
  *
- * Lazy-mounted via `<ConsoleShell>` — the dry-run compose only fires
- * when an educator selects the Preview lens, not on Design-tab open.
+ * Renders an Educator view + Engineer view of what the learner will
+ * experience on Call 1. The Educator view now uses WhatsApp-style chat
+ * bubbles (matching the SimChat + ChatSurvey UI the learner actually
+ * sees) — one transcript that walks pre-call survey questions first,
+ * then a "Call 1 begins" divider, then the AI's opening + first
+ * teaching turn. Each bubble is a clickable deep-link to the lens that
+ * controls it.
  *
- * Two view modes:
- *   - Educator (default): config-driven summary of what the learner will
- *     experience on call 1. Reads `sessionFlow.*` directly, renders one
- *     line per active stage + ghosted lines for stages that won't fire.
- *     Each ghost has a deep-link to the lens that would enable it.
- *   - Engineer: section-by-section from POST /dry-run-prompt — uses
- *     `metadata.sectionsActivated` + `sectionsSkipped` + `activationReasons`.
+ * Lazy compose — the `<ConsoleShell>` only mounts this component when
+ * the Preview lens is active, so `useEffect` on mount fires the
+ * dry-run-prompt POST exactly once on first visit. StrictMode guard
+ * via `useRef` prevents double-fire.
  *
- * Staleness — leans on `Playbook.composeInputsUpdatedAt` (#878). A "stale"
- * badge appears when the compose-affecting timestamp on the resolved
- * playbook is newer than the timestamp captured at the last compose.
- * `[Regenerate]` re-fetches and re-anchors.
- *
- * Closes #1268 (Slice 3). Refs epic #1263.
+ * Closes #1268. Refs epic #1263.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Eye, RefreshCw, FileSearch, AlertCircle } from "lucide-react";
+import { Eye, RefreshCw, FileSearch, AlertCircle, Edit3 } from "lucide-react";
 import "./preview-lens.css";
 
 interface PreviewLensProps {
@@ -43,8 +40,9 @@ interface SessionFlowResp {
     onboarding: { phases: Array<{ phase: string; duration?: string; goals?: string[] }> };
     welcomeMessage: string | null;
     offboarding: { phases: Array<{ phase: string }>; triggerAfterCalls?: number };
-    stops: Array<{ id: string; kind: string }>;
+    stops: Array<{ id: string; kind: string; trigger?: { type: string; threshold?: number; count?: number } }>;
   };
+  courseName?: string;
   error?: string;
 }
 
@@ -102,17 +100,13 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
     }
   }, [courseId]);
 
-  // Lazy compose: this component is only mounted when the lens is active
-  // (`<ConsoleShell>` renders `def.Component` only for the active lens), so
-  // a single useEffect on mount achieves the "don't fire until viewed"
-  // contract. Guard against double-fire from StrictMode.
   useEffect(() => {
     if (composedOnceRef.current) return;
     composedOnceRef.current = true;
     void compose();
   }, [compose]);
 
-  const educatorRows = useMemo(() => buildEducatorRows(flow, courseId), [flow, courseId]);
+  const transcript = useMemo(() => buildTranscript(flow), [flow]);
 
   return (
     <div className="hf-preview-lens">
@@ -152,7 +146,7 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
       {lastComposedAt && (
         <p className="hf-preview-lens-meta">
           Last composed {new Date(lastComposedAt).toLocaleTimeString()}.
-          Re-run after any setup change to see the latest.
+          Click any bubble to jump to the lens that controls it.
         </p>
       )}
 
@@ -170,7 +164,7 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
       )}
 
       {!loading && flow && mode === "educator" && (
-        <EducatorView rows={educatorRows} courseId={courseId} />
+        <EducatorView transcript={transcript} courseId={courseId} />
       )}
 
       {!loading && dryRun && mode === "engineer" && (
@@ -180,117 +174,260 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
   );
 }
 
-interface EducatorRow {
-  kind: "active" | "ghost";
-  icon: "👋" | "❓" | "💡" | "🎯" | "📝" | "🎓" | "🏁";
-  title: string;
-  detail: string;
-  fixLens?: string;
-  fixLabel?: string;
+// ── Transcript model ───────────────────────────────────────────
+
+type Side = "bot" | "user";
+
+interface PreviewBubble {
+  side: Side;
+  /** True when this bubble represents config that's missing/disabled — rendered ghosted. */
+  ghost?: boolean;
+  /** Visible bubble copy. */
+  text: string;
+  /** Optional caption above bubble (e.g., "Goals question"). */
+  caption?: string;
+  /** Lens id to deep-link to when the bubble is clicked. */
+  lens: string;
+  /** Educator-facing label for the deep-link affordance. */
+  lensLabel: string;
 }
 
-function buildEducatorRows(flow: SessionFlowResp | null, _courseId: string): EducatorRow[] {
+interface PreviewDivider {
+  kind: "divider";
+  label: string;
+}
+
+interface PreviewStopNote {
+  kind: "stop-note";
+  text: string;
+  lens: string;
+}
+
+type PreviewItem =
+  | ({ kind: "bubble" } & PreviewBubble)
+  | PreviewDivider
+  | PreviewStopNote;
+
+function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
   if (!flow?.sessionFlow) return [];
   const sf = flow.sessionFlow;
-  const rows: EducatorRow[] = [];
+  const items: PreviewItem[] = [];
 
-  // Welcome opener
+  // ── Pre-call survey (intake questions) ──
+  // If any intake toggle is on, those run BEFORE call 1 (or in the first
+  // discovery phase, depending on delivery). Render them as a survey-style
+  // pre-call chat.
+  const anyIntake =
+    sf.intake.goals.enabled
+    || sf.intake.aboutYou.enabled
+    || (sf.intake.knowledgeCheck.enabled && (sf.intake.knowledgeCheck.deliveryMode ?? "mcq") === "mcq");
+
+  if (anyIntake) {
+    items.push({ kind: "divider", label: "Pre-call survey" });
+
+    if (sf.intake.goals.enabled) {
+      items.push({
+        kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit Goals",
+        caption: "Goals question",
+        text: "What would you most like to get out of this course?",
+      });
+      items.push({
+        kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit Goals", ghost: true,
+        text: "(learner's response will go here)",
+      });
+    } else {
+      items.push({
+        kind: "bubble", side: "bot", lens: "intake", lensLabel: "Enable Goals", ghost: true,
+        caption: "Goals question — OFF",
+        text: "(no goals question — learner will not be asked about course goals)",
+      });
+    }
+
+    if (sf.intake.aboutYou.enabled) {
+      items.push({
+        kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit About You",
+        caption: "About You",
+        text: "On a scale of 1–5, how confident do you feel about this topic?",
+      });
+      items.push({
+        kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit About You", ghost: true,
+        text: "(confidence rating + optional motivation text)",
+      });
+    } else {
+      items.push({
+        kind: "bubble", side: "bot", lens: "intake", lensLabel: "Enable About You", ghost: true,
+        caption: "About You — OFF",
+        text: "(no confidence + motivation prompt)",
+      });
+    }
+
+    if (sf.intake.knowledgeCheck.enabled) {
+      const mode = sf.intake.knowledgeCheck.deliveryMode || "mcq";
+      if (mode === "mcq") {
+        items.push({
+          kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit Knowledge Check",
+          caption: "Knowledge Check — MCQ batch (5 questions)",
+          text: "Question 1 of 5: …",
+        });
+        items.push({
+          kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit Knowledge Check", ghost: true,
+          text: "(learner answers each MCQ)",
+        });
+      }
+      // Socratic mode delivers inside the call's discovery phase, so it shows
+      // in the call section below, not here.
+    }
+  }
+
+  // ── Call 1 begins ──
+  items.push({ kind: "divider", label: "Call 1 begins" });
+
+  // Welcome / first-line greeting
   if (sf.welcomeMessage) {
-    rows.push({
-      kind: "active",
-      icon: "👋",
-      title: "Welcome",
-      detail: sf.welcomeMessage,
+    items.push({
+      kind: "bubble", side: "bot", lens: "welcome", lensLabel: "Edit Welcome",
+      caption: "Welcome message",
+      text: sf.welcomeMessage,
     });
   } else {
-    rows.push({
-      kind: "ghost",
-      icon: "👋",
-      title: "Welcome",
-      detail: "Falls back to a generic greeting. Add a course-specific welcome to set the tone.",
-      fixLens: "welcome",
-      fixLabel: "Edit Welcome",
+    items.push({
+      kind: "bubble", side: "bot", lens: "welcome", lensLabel: "Edit Welcome", ghost: true,
+      caption: "Welcome message — using generic fallback",
+      text: "(domain-level or generic greeting — set a course-specific welcome to personalise the opener)",
     });
   }
 
-  // Intake — discovery questions
-  if (sf.intake.goals.enabled) {
-    rows.push({ kind: "active", icon: "🎯", title: "Goals question", detail: "Asks what the learner wants to get out of the course." });
-  } else {
-    rows.push({ kind: "ghost", icon: "🎯", title: "Goals question", detail: "Disabled. Toggle ON to capture the learner's goals.", fixLens: "intake", fixLabel: "Edit Intake" });
-  }
-
-  if (sf.intake.aboutYou.enabled) {
-    rows.push({ kind: "active", icon: "❓", title: "About You", detail: "Confidence + motivation prompts." });
-  } else {
-    rows.push({ kind: "ghost", icon: "❓", title: "About You", detail: "Disabled.", fixLens: "intake", fixLabel: "Edit Intake" });
-  }
-
-  if (sf.intake.knowledgeCheck.enabled) {
-    const mode = sf.intake.knowledgeCheck.deliveryMode || "mcq";
-    rows.push({
-      kind: "active",
-      icon: "💡",
-      title: "Knowledge Check",
-      detail: mode === "socratic" ? "Socratic probe during the discovery phase." : "5-question MCQ batch after call 1.",
-    });
-  } else {
-    rows.push({ kind: "ghost", icon: "💡", title: "Knowledge Check", detail: "Disabled.", fixLens: "intake", fixLabel: "Edit Intake" });
-  }
-
-  // Onboarding phases
+  // Onboarding phases / discovery
   if (sf.onboarding.phases.length > 0) {
-    rows.push({
-      kind: "active",
-      icon: "📝",
-      title: "Onboarding phases",
-      detail: `${sf.onboarding.phases.length} phase${sf.onboarding.phases.length === 1 ? "" : "s"} — ${sf.onboarding.phases.map(p => p.phase).join(" → ")}`,
+    const firstPhase = sf.onboarding.phases[0];
+    items.push({
+      kind: "bubble", side: "bot", lens: "onboarding", lensLabel: "Edit Onboarding",
+      caption: `Phase 1 of ${sf.onboarding.phases.length} — ${firstPhase.phase}`,
+      text: firstPhase.goals?.[0] || `(first onboarding phase: ${firstPhase.phase})`,
     });
+    if (sf.onboarding.phases.length > 1) {
+      items.push({
+        kind: "bubble", side: "bot", lens: "onboarding", lensLabel: "Edit Onboarding",
+        caption: `Then phases: ${sf.onboarding.phases.slice(1).map(p => p.phase).join(" → ")}`,
+        text: "(walks through the remaining phases before the first teaching segment)",
+      });
+    }
   } else {
-    rows.push({
-      kind: "ghost",
-      icon: "📝",
-      title: "Onboarding phases",
-      detail: "No phases configured — first-call flow falls back to INIT-001.",
-      fixLens: "onboarding",
-      fixLabel: "Edit Onboarding",
+    items.push({
+      kind: "bubble", side: "bot", lens: "onboarding", lensLabel: "Add Onboarding phases", ghost: true,
+      caption: "No onboarding phases configured",
+      text: "(falls back to INIT-001 default phases)",
     });
   }
 
-  // First teaching content (synthetic — composition would resolve)
-  rows.push({
-    kind: "active",
-    icon: "🎓",
-    title: "First module",
-    detail: "Loads from the Curriculum's first module. See the Engineer view for the composed prompt.",
+  // Socratic knowledge check probe — fires during discovery if enabled
+  if (sf.intake.knowledgeCheck.enabled && (sf.intake.knowledgeCheck.deliveryMode ?? "mcq") === "socratic") {
+    items.push({
+      kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit Knowledge Check",
+      caption: "Knowledge Check — Socratic probe (in-call)",
+      text: "What do you already know about this topic?",
+    });
+    items.push({
+      kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit Knowledge Check", ghost: true,
+      text: "(open answer — AI probes deeper)",
+    });
+  }
+
+  // First teaching turn — link to Preview's own Engineer view
+  items.push({
+    kind: "bubble", side: "bot", lens: "preview", lensLabel: "See full prompt (Engineer)",
+    caption: "First teaching turn",
+    text: "(the first module's opening — see the Engineer view for the composed prompt)",
   });
 
-  return rows;
+  // ── Stops / NPS that fire downstream ──
+  const npsStop = sf.stops.find(s => s.kind === "nps");
+  if (npsStop?.trigger) {
+    const t = npsStop.trigger;
+    let trigger = "";
+    if (t.type === "mastery_reached" && t.threshold) {
+      trigger = `mastery ≥ ${Math.round(t.threshold * 100)}%`;
+    } else if (t.type === "session_count" && t.count) {
+      trigger = `after ${t.count} sessions`;
+    } else {
+      trigger = t.type;
+    }
+    items.push({ kind: "stop-note", text: `NPS survey fires when ${trigger}.`, lens: "stops" });
+  }
+
+  return items;
 }
 
-function EducatorView({ rows, courseId }: { rows: EducatorRow[]; courseId: string }): React.ReactElement {
+// ── Views ──────────────────────────────────────────────────────
+
+function EducatorView({ transcript, courseId }: { transcript: PreviewItem[]; courseId: string }): React.ReactElement {
+  if (transcript.length === 0) {
+    return <p className="hf-text-muted">Nothing configured yet — see Engineer view for raw compose state.</p>;
+  }
   return (
-    <div className="hf-preview-lens-educator">
-      {rows.map((r, i) => (
-        <div
-          key={i}
-          className={`hf-preview-lens-row ${r.kind === "ghost" ? "hf-preview-lens-row--ghost" : ""}`}
-        >
-          <span className="hf-preview-lens-row-icon">{r.icon}</span>
-          <div className="hf-preview-lens-row-body">
-            <div className="hf-preview-lens-row-title">{r.title}</div>
-            <div className="hf-preview-lens-row-detail">{r.detail}</div>
-          </div>
-          {r.fixLens && (
+    <div className="hf-preview-chat">
+      {transcript.map((item, i) => {
+        if (item.kind === "divider") {
+          return (
+            <div key={i} className="hf-preview-divider" aria-label={item.label}>
+              <span>{item.label}</span>
+            </div>
+          );
+        }
+        if (item.kind === "stop-note") {
+          return (
             <Link
-              href={`/x/courses/${courseId}?tab=design&design_view=${r.fixLens}`}
-              className="hf-preview-lens-row-fix"
+              key={i}
+              href={`/x/courses/${courseId}?tab=design&design_view=${item.lens}`}
+              className="hf-preview-stop-note"
             >
-              {r.fixLabel || "Fix"} →
+              <AlertCircle size={12} />
+              <span>{item.text}</span>
+              <span className="hf-preview-stop-note-edit">Edit Stops →</span>
             </Link>
-          )}
-        </div>
-      ))}
+          );
+        }
+        return (
+          <BubbleRow
+            key={i}
+            bubble={item}
+            courseId={courseId}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function BubbleRow({
+  bubble, courseId,
+}: {
+  bubble: { kind: "bubble" } & PreviewBubble;
+  courseId: string;
+}): React.ReactElement {
+  const href = `/x/courses/${courseId}?tab=design&design_view=${bubble.lens}`;
+  const wrapClasses = [
+    "hf-preview-bubble-row",
+    bubble.side === "user" ? "hf-preview-bubble-row--user" : "hf-preview-bubble-row--bot",
+    bubble.ghost ? "hf-preview-bubble-row--ghost" : "",
+  ].filter(Boolean).join(" ");
+  const bubbleClasses = [
+    "hf-preview-bubble",
+    bubble.side === "user" ? "hf-preview-bubble--user" : "hf-preview-bubble--bot",
+    bubble.ghost ? "hf-preview-bubble--ghost" : "",
+  ].filter(Boolean).join(" ");
+  return (
+    <div className={wrapClasses}>
+      {bubble.caption && (
+        <div className="hf-preview-bubble-caption">{bubble.caption}</div>
+      )}
+      <Link href={href} className={bubbleClasses} title={bubble.lensLabel}>
+        <span className="hf-preview-bubble-text">{bubble.text}</span>
+        <span className="hf-preview-bubble-edit">
+          <Edit3 size={11} />
+          <span>{bubble.lensLabel}</span>
+        </span>
+      </Link>
     </div>
   );
 }

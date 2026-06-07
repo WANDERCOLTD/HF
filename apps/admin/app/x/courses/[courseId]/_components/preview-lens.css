@@ -1,4 +1,8 @@
-/* ── Preview lens (#1268) ── */
+/* ── Preview lens (#1268, chat-bubble revision) ──
+   The Educator view uses WhatsApp-theme tokens from wa-theme.css so the
+   preview visually matches what the learner sees in SimChat + ChatSurvey.
+   wa-theme.css is loaded by sim.css + chat-survey.css globally; we just
+   reference its CSS variables here. */
 
 .hf-preview-lens {
   display: flex;
@@ -44,67 +48,148 @@
   padding: 12px 0;
 }
 
-/* Educator view */
-.hf-preview-lens-educator {
+/* ── Chat transcript (Educator view) ── */
+.hf-preview-chat {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--wa-bg, #ECE5DD);
+  min-height: 320px;
 }
 
-.hf-preview-lens-row {
+.hf-preview-divider {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-default);
-  border-radius: 10px;
-  background: var(--surface-primary);
+  align-items: center;
+  justify-content: center;
+  margin: 8px 0;
+  gap: 8px;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--wa-text-muted, #8696A0);
 }
 
-.hf-preview-lens-row--ghost {
-  opacity: 0.6;
-  background: var(--surface-secondary);
-  border-style: dashed;
-}
-
-.hf-preview-lens-row-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.hf-preview-lens-row-body {
+.hf-preview-divider::before,
+.hf-preview-divider::after {
+  content: "";
   flex: 1;
-  min-width: 0;
+  height: 1px;
+  background: var(--wa-divider, #E9EDEF);
 }
 
-.hf-preview-lens-row-title {
+.hf-preview-divider span {
+  background: color-mix(in srgb, var(--wa-surface-secondary, #F0F2F5) 90%, transparent);
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.hf-preview-bubble-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 75%;
+}
+
+.hf-preview-bubble-row--user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.hf-preview-bubble-row--bot {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.hf-preview-bubble-caption {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--wa-text-muted, #8696A0);
+  padding: 0 4px;
+}
+
+.hf-preview-bubble {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
+  line-height: 1.4;
+  color: var(--wa-text-primary, #111B21);
+  text-decoration: none;
+  transition: filter 0.12s ease, transform 0.12s ease;
+  box-shadow: 0 1px 1px var(--wa-shadow, rgba(0, 0, 0, 0.1));
+  cursor: pointer;
 }
 
-.hf-preview-lens-row-detail {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 2px;
+.hf-preview-bubble--bot {
+  background: var(--wa-bubble-in, #FFFFFF);
+  border-bottom-left-radius: 4px;
 }
 
-.hf-preview-lens-row-fix {
+.hf-preview-bubble--user {
+  background: var(--wa-bubble-out, #DCF8C6);
+  border-bottom-right-radius: 4px;
+}
+
+.hf-preview-bubble--ghost {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+.hf-preview-bubble:hover {
+  filter: brightness(0.97);
+  transform: translateY(-1px);
+}
+
+.hf-preview-bubble-text {
+  display: block;
+}
+
+.hf-preview-bubble-edit {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
-  color: var(--accent-primary);
-  text-decoration: none;
+  font-size: 10px;
   font-weight: 600;
-  white-space: nowrap;
+  color: var(--accent-primary);
+  opacity: 0;
+  transition: opacity 0.12s ease;
 }
 
-.hf-preview-lens-row-fix:hover {
-  text-decoration: underline;
+.hf-preview-bubble:hover .hf-preview-bubble-edit,
+.hf-preview-bubble:focus-visible .hf-preview-bubble-edit {
+  opacity: 1;
 }
 
-/* Engineer view */
+.hf-preview-stop-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+  align-self: center;
+}
+
+.hf-preview-stop-note-edit {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--accent-primary);
+}
+
+/* ── Engineer view ── */
 .hf-preview-lens-engineer {
   display: flex;
   flex-direction: column;
