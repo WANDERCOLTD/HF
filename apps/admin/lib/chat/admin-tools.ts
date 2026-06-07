@@ -828,22 +828,25 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "update_voice_config",
     description:
-      "Adjust voice configuration for a Playbook by merging into Playbook.config.voice. Allowed keys: provider (string), model (string), endedReasonOverride (string|null), pollIntervalMs (integer), maxCostPerCallUsd (number), autoPipeline (boolean — when true the post-call analysis pipeline runs automatically when the call ends; default true via SystemSetting). The model.secret field is DELIBERATELY not accepted — secret rotation is an operator-only flow. Bumps Playbook.composeInputsUpdatedAt.",
+      "Adjust voice configuration for a Playbook by merging into Playbook.config.voice. The ALLOWED key set is driven by the system-enabled VoiceProvider's getConfigSchema() PLUS cross-cutting HF keys (autoPipeline, silenceTimeoutSeconds, maxDurationSeconds, voicemailDetectionEnabled, endCallPhrases, maxCostPerCallUsd, pollIntervalMs, endedReasonOverride). #1270 — `provider` and `model` are LOCKED at system level and are NOT accepted (system picks the enabled VP; model is pinned per VP); `modelSecret` / `secret` / `apiKey` are DELIBERATELY not accepted — secret rotation is an operator-only flow. Bumps Playbook.composeInputsUpdatedAt.",
     input_schema: {
       type: "object",
       properties: {
         playbook_id: { type: "string" },
         settings: {
           type: "object",
-          description: "Voice settings to merge into config.voice (allowed keys above).",
+          description: "Voice settings to merge into config.voice. Validated against the resolver's cascadeable key set at handler time.",
           properties: {
-            provider: { type: "string" },
-            model: { type: "string" },
+            autoPipeline: { type: "boolean" },
             endedReasonOverride: { type: ["string", "null"] },
             pollIntervalMs: { type: "integer" },
             maxCostPerCallUsd: { type: "number" },
-            autoPipeline: { type: "boolean" },
+            silenceTimeoutSeconds: { type: "integer" },
+            maxDurationSeconds: { type: "integer" },
+            voicemailDetectionEnabled: { type: "boolean" },
+            endCallPhrases: { type: "array", items: { type: "string" } },
           },
+          additionalProperties: true,
         },
         reason: { type: "string" },
       },
