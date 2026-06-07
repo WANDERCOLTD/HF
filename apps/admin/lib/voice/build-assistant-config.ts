@@ -30,6 +30,8 @@ import { renderProviderPrompt } from "@/lib/prompt/composition/renderPromptSumma
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { getVoiceCallSettings } from "@/lib/system-settings";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
+import { loadResolvedVoiceConfig } from "@/lib/voice/load-voice-config";
+import { flatten as flattenVoice } from "@/lib/voice/config";
 import type { ProviderAssistantConfig } from "@/lib/voice/types";
 
 export interface BuildAssistantOptions {
@@ -105,6 +107,12 @@ export async function buildAssistantConfigForCaller(
     // Unknown caller — return the same fallback shape the webhook uses
     // for callers VAPI dialed but we haven't seen. Cost-safety knobs
     // still applied so a wandering caller can't burn minutes.
+    // #1271 — also pull system+VP-default voice config so the unknown
+    // caller gets the correct voiceId / transcriber / etc. (no Domain or
+    // Course layer available without a caller).
+    const unknownVoiceConfig = flattenVoice(
+      await loadResolvedVoiceConfig({ callerId: null, playbookId: null }),
+    );
     const assistantConfig = inbound.buildAssistantConfig({
       callerId: null,
       callerName: null,
@@ -119,6 +127,7 @@ export async function buildAssistantConfigForCaller(
       noActivePromptFallback: vs.noActivePromptFallback,
       costSafetyKnobs,
       customLlmSecret,
+      voiceConfig: unknownVoiceConfig,
     });
     return {
       assistantConfig,
@@ -135,6 +144,18 @@ export async function buildAssistantConfigForCaller(
     resolved.slug === slug ? await getVoiceProvider(resolved.slug) : inbound;
 
   const defaultPlaybookId = await resolvePlaybookId(caller.id);
+
+  // #1271 — Pull the resolved voice config (System → enabled VP → Domain
+  // → Course) so the adapter can apply per-course voiceId, transcriber,
+  // backgroundSound, recordingEnabled overrides. Cross-cutting knobs
+  // (silenceTimeoutSeconds etc.) ALSO flow through here so a course-level
+  // override actually reaches VAPI's inline assistant config — previously
+  // costSafetyKnobs were pinned to system level only.
+  const voiceResolved = await loadResolvedVoiceConfig({
+    callerId: caller.id,
+    playbookId: defaultPlaybookId,
+  });
+  const flatVoiceConfig = flattenVoice(voiceResolved);
   const composedPrompt = await prisma.composedPrompt.findFirst({
     where: {
       callerId: caller.id,
@@ -162,6 +183,7 @@ export async function buildAssistantConfigForCaller(
       noActivePromptFallback: vs.noActivePromptFallback,
       costSafetyKnobs,
       customLlmSecret,
+      voiceConfig: flatVoiceConfig,
     });
     return {
       assistantConfig,
@@ -200,6 +222,7 @@ export async function buildAssistantConfigForCaller(
     noActivePromptFallback: vs.noActivePromptFallback,
     costSafetyKnobs,
     customLlmSecret,
+    voiceConfig: flatVoiceConfig,
   });
 
   return {

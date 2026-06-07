@@ -184,6 +184,30 @@ export class VapiProvider implements VoiceProvider {
       }
     }
 
+    // #1271 — Per-VP voice knobs from the resolver cascade. Fields are
+    // declared in getConfigSchema() and cascade via `resolveVoiceConfig`
+    // (System → enabled VP → Domain → Course). Domain or Course can
+    // override per-cohort. Adapter consumes raw resolved values here.
+    const vc = ctx.voiceConfig;
+    if (vc) {
+      const voiceId = vc.voiceId;
+      const voiceProvider = (vc.voiceProvider as string | undefined) ?? "11labs";
+      if (typeof voiceId === "string" && voiceId.length > 0) {
+        assistant.voice = { provider: voiceProvider, voiceId };
+      }
+      const transcriber = vc.transcriber;
+      if (typeof transcriber === "string" && transcriber.length > 0) {
+        assistant.transcriber = { provider: transcriber };
+      }
+      const backgroundSound = vc.backgroundSound;
+      if (typeof backgroundSound === "string" && backgroundSound !== "off") {
+        assistant.backgroundSound = backgroundSound;
+      }
+      if (vc.recordingEnabled === false) {
+        assistant.recordingEnabled = false;
+      }
+    }
+
     return { assistant };
   }
 
@@ -389,6 +413,57 @@ export class VapiProvider implements VoiceProvider {
           label: "VAPI phone number ID (for outbound dial)",
           type: "string",
           help: "Required ONLY for [Call me] PSTN outbound dial (browser [Talk Here] doesn't need it). VAPI dashboard → Phone Numbers → copy the ID of the number HF will dial FROM. Costs ~$2/mo + per-minute usage.",
+          sensitive: false,
+          required: false,
+        },
+        // #1271 — Per-VP voice knobs. Non-sensitive → land in VoiceProvider.config.
+        // Reads cascade through `resolveVoiceConfig`: Domain or Course can
+        // override these per-course. Adapter weaves them into the inline
+        // assistant config in `buildAssistantConfig`.
+        {
+          key: "voiceId",
+          label: "Voice ID",
+          type: "string",
+          help: "ElevenLabs voice ID (e.g. \"21m00Tcm4TlvDq8ikWAM\" for Rachel). Find IDs in VAPI dashboard → Voices. Leave blank to use VAPI's default voice. Overridable per-course in Voice settings.",
+          sensitive: false,
+          required: false,
+        },
+        {
+          key: "voiceProvider",
+          label: "Voice provider (TTS engine)",
+          type: "enum",
+          enumValues: ["11labs", "openai", "azure", "playht", "deepgram"],
+          default: "11labs",
+          help: "Which TTS engine the voice ID belongs to. Default \"11labs\" (ElevenLabs). Most operators stay on 11labs.",
+          sensitive: false,
+          required: false,
+        },
+        {
+          key: "transcriber",
+          label: "Transcriber (STT engine)",
+          type: "enum",
+          enumValues: ["deepgram", "talkscriber", "gladia", "assembly-ai"],
+          default: "deepgram",
+          help: "Speech-to-text engine VAPI uses to transcribe the learner. Deepgram default. Switch only if you observe transcription errors that persist after adjusting the prompt.",
+          sensitive: false,
+          required: false,
+        },
+        {
+          key: "backgroundSound",
+          label: "Background sound",
+          type: "enum",
+          enumValues: ["off", "office", "phone-line"],
+          default: "off",
+          help: "Optional ambient sound played behind the AI's voice. \"office\" / \"phone-line\" can mask silence but cost extra audio bandwidth.",
+          sensitive: false,
+          required: false,
+        },
+        {
+          key: "recordingEnabled",
+          label: "Record calls",
+          type: "boolean",
+          default: true,
+          help: "When true, VAPI records the call audio and posts a URL on end-of-call. Stored on Call.recordingUrl. Disable for privacy-strict cohorts.",
           sensitive: false,
           required: false,
         },
