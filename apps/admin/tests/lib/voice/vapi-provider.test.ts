@@ -146,6 +146,7 @@ describe("VapiProvider", () => {
     it("builds transcript from messages array when transcript field is empty", () => {
       const result = provider.normaliseEndOfCallEvent({
         message: {
+          type: "end-of-call-report",
           call: {
             id: "vapi-call-2",
             messages: [
@@ -160,7 +161,7 @@ describe("VapiProvider", () => {
 
     it("handles minimal payload (id only)", () => {
       const result = provider.normaliseEndOfCallEvent({
-        message: { call: { id: "vapi-call-3" } },
+        message: { type: "end-of-call-report", call: { id: "vapi-call-3" } },
       });
       expect(result).not.toBeNull();
       expect(result!.externalCallId).toBe("vapi-call-3");

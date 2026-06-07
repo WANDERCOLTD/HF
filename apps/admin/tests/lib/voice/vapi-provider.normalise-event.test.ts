@@ -65,6 +65,7 @@ describe("VapiProvider.normaliseEndOfCallEvent (#1021)", () => {
   it("populates providerRaw with the verbatim inbound message body (#1021)", () => {
     const body = {
       message: {
+        type: "end-of-call-report",
         call: { id: "vapi-call-raw" },
         nonCanonicalVapiOnlyField: { rubric: "x", weights: [1, 2, 3] },
       },
@@ -82,7 +83,7 @@ describe("VapiProvider.normaliseEndOfCallEvent (#1021)", () => {
 
   it("handles a minimal payload (no analysis, no artifact) — nullable fields are absent", () => {
     const ev = provider.normaliseEndOfCallEvent({
-      message: { call: { id: "vapi-call-minimal" } },
+      message: { type: "end-of-call-report", call: { id: "vapi-call-minimal" } },
     });
     expect(ev).not.toBeNull();
     expect(ev!.externalCallId).toBe("vapi-call-minimal");
@@ -96,6 +97,7 @@ describe("VapiProvider.normaliseEndOfCallEvent (#1021)", () => {
   it("handles cost as an object with .total (VAPI sometimes nests)", () => {
     const ev = provider.normaliseEndOfCallEvent({
       message: {
+        type: "end-of-call-report",
         call: { id: "vapi-call-cost-obj" },
         cost: { total: 0.12, llm: 0.08, transport: 0.04 },
       },
@@ -126,6 +128,7 @@ describe("VapiProvider.normaliseEndOfCallEvent (#1021)", () => {
   it("coerces successEvaluation: number → string (rubric variants)", () => {
     const ev = provider.normaliseEndOfCallEvent({
       message: {
+        type: "end-of-call-report",
         call: { id: "vapi-call-eval-num" },
         analysis: { successEvaluation: 0.75 },
       },

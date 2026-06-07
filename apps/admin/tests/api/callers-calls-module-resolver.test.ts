@@ -24,6 +24,9 @@ const mockPrisma = vi.hoisted(() => ({
   // PlaybookCurriculum to map playbookId → curriculumId. Without this
   // mock the test 500s on "Cannot read properties of undefined".
   playbookCurriculum: { findFirst: vi.fn() },
+  // Added 2026-06-07: G6 / #1154 — resolveDefaultModuleForCaller reads
+  // CallerModuleProgress before falling back to CurriculumModule.findFirst.
+  callerModuleProgress: { findFirst: vi.fn().mockResolvedValue(null) },
 }));
 
 const mockRequireAuth = vi.hoisted(() => vi.fn());
@@ -122,13 +125,19 @@ describe("POST /api/callers/[callerId]/calls — module slug resolver (#491 Slic
   });
 
   it("call-create works when requestedModuleId is absent (legacy path)", async () => {
+    // G6 / #1154 — when requestedModuleId is absent the route now calls
+    // resolveDefaultModuleForCaller, which reads PlaybookCurriculum then
+    // CurriculumModule. Stub both to null so resolution short-circuits
+    // and the test stays focused on the absent-slug path: no requestedModuleId
+    // written to Call (the legacy invariant), while the resolver runs.
+    mockPrisma.playbookCurriculum.findFirst.mockResolvedValue(null);
+    mockPrisma.curriculumModule.findFirst.mockResolvedValue(null);
+
     const res = await POST(makeReq({}), { params });
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(mockPrisma.curriculum.findFirst).not.toHaveBeenCalled();
-    expect(mockPrisma.curriculumModule.findFirst).not.toHaveBeenCalled();
     expect(mockPrisma.call.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.not.objectContaining({
