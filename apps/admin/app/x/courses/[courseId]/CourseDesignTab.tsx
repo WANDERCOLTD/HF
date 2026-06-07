@@ -1,6 +1,6 @@
 'use client';
 
-import { SessionFlowEditor } from '@/components/session-flow/SessionFlowEditor';
+import { CourseDesignConsole } from './_components/CourseDesignConsole';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 import { BandingPicker } from '@/components/shared/BandingPicker';
 import { CollapsibleCard } from '@/components/shared/CollapsibleCard';
@@ -123,19 +123,15 @@ export function CourseDesignTab({
         </>
       )}
 
-      {/* ── Session Flow (canonical editor — absorbed from retired tab) ──
-          The Session Flow tab was retired in favour of one canonical editor
-          on the Design tab. SessionFlowEditor owns its own data fetching
-          (GET /api/courses/:id/session-flow) and persistence, so we mount it
-          directly — no prop plumbing, no duplicate state. */}
-      <CollapsibleCard
-        title="Session Flow"
-        hint="Before / during / after phases, intake, NPS, welcome"
-        defaultOpen
-        className="hf-mb-lg"
-      >
-        <SessionFlowEditor courseId={courseId} />
-      </CollapsibleCard>
+      {/* ── Course Design Console (#1263 / Slice 1 #1266) ──
+          Replaces the Session Flow CollapsibleCard with a lens-shell that
+          surfaces Intake / Onboarding / Stops / Offboarding / Welcome
+          journey lenses, plus 6 Behaviour lenses (Slice 2 — soon) and a
+          Preview lens (Slice 3 — soon). Reads + writes still go through
+          SessionFlowEditor → GET/PUT /api/courses/:id/session-flow. */}
+      <div className="hf-mb-lg">
+        <CourseDesignConsole courseId={courseId} />
+      </div>
 
       {/* ── Progress Signals controls (#784 S6 Section 1 — #779 + #780 namespaces;
           internally still the "Felt Progress" epic) ── */}
