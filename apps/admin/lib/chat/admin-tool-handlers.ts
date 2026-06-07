@@ -2415,7 +2415,10 @@ async function handleUpdateVoiceConfig(input: Record<string, any>) {
   if (!playbook) return { error: `Playbook ${playbookId} not found.` };
 
   // Whitelist allowed keys + strip any attempt at writing a secret.
-  const ALLOWED = new Set(["provider", "model", "endedReasonOverride", "pollIntervalMs", "maxCostPerCallUsd"]);
+  // #1241 — `autoPipeline` controls whether the post-call analysis pipeline
+  // runs automatically when a call ends. Cascade: Playbook.config.voice
+  // overrides SystemSetting `voice.auto_pipeline` (default true).
+  const ALLOWED = new Set(["provider", "model", "endedReasonOverride", "pollIntervalMs", "maxCostPerCallUsd", "autoPipeline"]);
   const sanitised: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(settings)) {
     if (k === "modelSecret" || k === "secret" || k === "apiKey") continue;
@@ -2424,7 +2427,7 @@ async function handleUpdateVoiceConfig(input: Record<string, any>) {
   if (Object.keys(sanitised).length === 0) {
     return {
       error:
-        "No allowed voice settings provided. Allowed keys: provider, model, endedReasonOverride, pollIntervalMs, maxCostPerCallUsd. Note: modelSecret is operator-only and not chat-editable.",
+        "No allowed voice settings provided. Allowed keys: provider, model, endedReasonOverride, pollIntervalMs, maxCostPerCallUsd, autoPipeline. Note: modelSecret is operator-only and not chat-editable.",
     };
   }
 

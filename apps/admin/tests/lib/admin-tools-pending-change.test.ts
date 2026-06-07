@@ -381,6 +381,36 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
     });
   });
 
+  // #1241 Slice 3 — autoPipeline must pass the ALLOWED whitelist and emit
+  // a pendingChange against `voice.autoPipeline`. Catches the regression
+  // where the key gets dropped from either the schema or the runtime set.
+  it("update_voice_config accepts autoPipeline (#1241)", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue({
+      id: "pb-2",
+      name: "IELTS Speaking",
+      config: { voice: { autoPipeline: true } },
+    });
+    const raw = await executeAdminTool(
+      "update_voice_config",
+      {
+        playbook_id: "pb-2",
+        settings: { autoPipeline: false },
+        reason: "manual review for this play",
+      },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.updated_keys).toContain("autoPipeline");
+    expect(result.pendingChange).toMatchObject({
+      key: "voice.autoPipeline",
+      scope: "playbook",
+      scopeId: "pb-2",
+      beforeValue: true,
+      afterValue: false,
+    });
+  });
+
   // Note: update_intake_spec_draft does NOT bump Playbook compose stamp
   // (IntakeSpec is a separate authoring artifact, not a compose input).
   // It also does NOT emit pendingChange — there's no Playbook scope to
