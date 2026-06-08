@@ -506,7 +506,15 @@ export class VapiProvider implements VoiceProvider {
     const root = body as Record<string, unknown>;
     const message = (root.message ?? root) as Record<string, unknown>;
     const type = (message.type ?? root.type) as string | undefined;
-    if (type !== "transcript" && type !== "conversation-update") return null;
+    // #1364 — parse `transcript` events only. VAPI fires both `transcript`
+    // (per-chunk Deepgram interim_results) AND `conversation-update`
+    // (full-history snapshot ~1Hz). Pre-#1364 we parsed both, broadcasting
+    // the latest message twice — once as a transcript chunk, once via the
+    // conversation-update history-walk — and SimChat showed duplicate
+    // bubbles. transcript chunks are sufficient for incremental streaming;
+    // conversation-update is a catch-up snapshot that the chat surface
+    // doesn't need when it's been subscribed from call start.
+    if (type !== "transcript") return null;
 
     const call = (message.call ?? root.call) as
       | Record<string, unknown>
