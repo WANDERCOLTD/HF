@@ -10,6 +10,7 @@ import {
   resolveVoiceProviderForCaller,
 } from "@/lib/voice/resolve-voice-provider";
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
+import { createCallEnteringPipeline } from "@/lib/voice/create-call-entering-pipeline";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { log } from "@/lib/logger";
 
@@ -165,15 +166,21 @@ export async function POST(request: Request) {
 
     // Pre-create the Call row so we have a stable id even before VAPI
     // sends its first webhook. Mirrors the WebRTC call-start flow.
-    const placeholderCall = await prisma.call.create({
-      data: {
-        callerId: caller.id,
-        source: providerSlug,
-        voiceProvider: providerSlug,
-        transcript: "",
-      },
-      select: { id: true },
+    //
+    // #1333 — was hand-rolling `prisma.call.create` with just
+    // `{ callerId, source, voiceProvider, transcript }` and silently
+    // dropping playbookId / requestedModuleId / curriculumModuleId. Live
+    // evidence: Bertie Tallstaff Calls 2 + 3 on hf_sandbox 2026-06-08 had
+    // playbookId = NULL because of this drift; downstream COMPOSE wrote
+    // orphan ComposedPrompts and the sim UI couldn't find the next prompt.
+    // The builder is the chokepoint that fixes the chain-contract
+    // pre-condition (see docs/CHAIN-CONTRACTS.md §3 Link 3).
+    const entry = await createCallEnteringPipeline({
+      callerId: caller.id,
+      source: providerSlug,
+      voiceProvider: providerSlug,
     });
+    const placeholderCall = entry.call;
 
     // Build the inline assistant config so VAPI's PSTN call uses the
     // same per-caller prompt + tools + knowledge + cost-safety knobs

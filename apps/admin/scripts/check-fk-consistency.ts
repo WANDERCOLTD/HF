@@ -228,6 +228,46 @@ async function runChecks(): Promise<CheckResult[]> {
     rows: incoherentSpecs,
   });
 
+  // Query 7 — #1333 — voice Call rows with null playbookId (WARN-only).
+  // Detects ended voice Calls (voiceProvider non-null AND endedAt non-null)
+  // that entered the pipeline without a playbookId attribution. The pre-#1333
+  // `outbound-dial` route silently dropped `playbookId` on placeholder-create,
+  // producing orphan Calls (live evidence: Bertie Tallstaff
+  // `ae3362f0-3e66-4e49-96f1-d83e10bce321` Calls 2 + 3 on hf_sandbox
+  // 2026-06-08). Reports the count for ops awareness — does NOT fail CI.
+  //
+  // DO NOT BACKFILL these rows. They pre-date the builder and we'd risk
+  // setting the wrong playbookId for callers who changed enrollment between
+  // calls. The detector keeps them visible so the trend after rollout is
+  // observable: count should plateau (pre-fix population stays) and never
+  // grow (builder closes the leak). #1333 acceptance criteria explicitly
+  // require this as forensic evidence.
+  const voiceCallNullPlaybook = await prisma.$queryRaw<
+    Array<{ id: string; callerId: string | null; voiceProvider: string | null; createdAt: Date }>
+  >`
+    SELECT "id", "callerId", "voiceProvider", "createdAt"
+    FROM "Call"
+    WHERE "voiceProvider" IS NOT NULL
+      AND "playbookId" IS NULL
+      AND "endedAt" IS NOT NULL
+    ORDER BY "createdAt" DESC
+    LIMIT 200
+  `;
+  results.push({
+    name: "voice-call-null-playbook-attribution",
+    description:
+      "#1333 — voice Calls (voiceProvider non-null, endedAt non-null) created without playbookId attribution. Pre-#1333 forensic evidence (e.g., Bertie Tallstaff Calls 2 + 3 on hf_sandbox 2026-06-08). WARN-only — do NOT backfill; do NOT fail CI. Trend should plateau after the createCallEnteringPipeline builder is adopted.",
+    rows: voiceCallNullPlaybook.map((r) => ({
+      id: r.id,
+      detail: {
+        callerId: r.callerId,
+        voiceProvider: r.voiceProvider,
+        createdAt: r.createdAt.toISOString(),
+      },
+    })),
+    warnOnly: true,
+  });
+
   // Query 8 — #1345 — long-lived ghost Call rows (WARN-only).
   // A Call row with endedAt IS NULL and createdAt > 5 minutes old is a
   // ghost — the outbound-dial placeholder lost its externalId stamp, OR
@@ -307,12 +347,20 @@ function printReport(results: CheckResult[]): boolean {
       continue;
     }
     if (r.warnOnly) {
-      // WARN-only — surface but do not flip anyLeaks. CI still passes.
+      // WARN-only detectors report a count but do not flip `anyLeaks`. CI
+      // continues to pass; the row is forensic evidence (e.g., #1333).
       console.log(`  ⚠ ${r.name} — ${r.rows.length} row(s) (WARN-only)`);
-    } else {
-      anyLeaks = true;
-      console.log(`  ✗ ${r.name} — ${r.rows.length} row(s) leak`);
+      console.log(`    ${r.description}`);
+      for (const row of r.rows.slice(0, 10)) {
+        console.log(`      • id=${row.id}${row.detail ? ` ${JSON.stringify(row.detail)}` : ""}`);
+      }
+      if (r.rows.length > 10) {
+        console.log(`      … (+${r.rows.length - 10} more)`);
+      }
+      continue;
     }
+    anyLeaks = true;
+    console.log(`  ✗ ${r.name} — ${r.rows.length} row(s) leak`);
     console.log(`    ${r.description}`);
     for (const row of r.rows.slice(0, 10)) {
       console.log(`      • id=${row.id}${row.detail ? ` ${JSON.stringify(row.detail)}` : ""}`);

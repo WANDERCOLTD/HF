@@ -44,6 +44,12 @@ beforeAll(async () => {
     console.log("✓ DB-only test — skipping server health check");
     return;
   }
+  if (testPath.includes("/sessions/")) {
+    console.log(
+      "✓ Sessions test — self-skips on unreachable server; setup health check bypassed",
+    );
+    return;
+  }
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/health`);
