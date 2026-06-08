@@ -48,13 +48,18 @@ async function main() {
     );
   }
 
+  // #1334 — bootstrap with Deepgram Aura Asteria as the default TTS.
+  // Rationale + alternatives in docs/decisions/2026-06-08-pilot-cheaper-tts.md.
+  // ~12× cheaper than ElevenLabs default at equivalent conversational quality;
+  // co-located with the default Deepgram STT for lowest round-trip latency.
+  // Operator can flip at /x/settings/voice-providers/<id>.
   const row = await prisma.voiceProvider.create({
     data: {
       slug: "vapi",
       displayName: "VAPI Voice AI",
       adapterKey: "vapi",
       credentials: { apiKey, webhookSecret },
-      config: {},
+      config: { voiceProvider: "deepgram", voiceId: "aura-asteria-en" },
       isDefault: true,
       enabled: true,
     },
