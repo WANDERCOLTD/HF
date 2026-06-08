@@ -1447,12 +1447,23 @@ export function SimChat({
               </p>
             )}
             {providerCall.status === 'active' && (
-              <button
-                onClick={() => { void providerCall.end(); }}
-                style={{ fontSize: 13, color: 'var(--status-error-text)', background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                End voice session
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                {/* #1371 — Fat red phone-down to end the live WebRTC
+                    session. Replaces a small text link operators
+                    couldn't find quickly. */}
+                <button
+                  className="wa-lobby-end-btn"
+                  onClick={() => { void providerCall.end(); }}
+                  aria-label="End voice session"
+                  title="End voice session"
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                    {/* phone handset rotated 135° = "hang up" */}
+                    <path transform="rotate(135 12 12)" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--wa-text-secondary)' }}>End voice session</span>
+              </div>
             )}
             {providerCall.status === 'error' && providerCall.errorMessage && (
               <p style={{ fontSize: 13, color: 'var(--status-error-text)', textAlign: 'center', margin: 0 }}>
@@ -1520,6 +1531,25 @@ export function SimChat({
               <p style={{ fontSize: 13, color: 'var(--status-success-text)', textAlign: 'center', margin: 0 }}>
                 Ringing {outboundDial.phoneMasked} — pick up your phone.
               </p>
+            )}
+            {/* #1371 — Fat red end-call for PSTN. Shown whenever the
+                dial is live (dialing OR ringing OR active on the phone).
+                Same affordance as the WebRTC end button — operators
+                shouldn't hunt for a hang-up. */}
+            {(outboundDial.status === 'dialing' || outboundDial.status === 'ringing') && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                <button
+                  className="wa-lobby-end-btn"
+                  onClick={() => { outboundDial.reset(); }}
+                  aria-label="End phone call"
+                  title="End phone call"
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                    <path transform="rotate(135 12 12)" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--wa-text-secondary)' }}>End phone call</span>
+              </div>
             )}
             {outboundDial.status === 'error' && outboundDial.errorMessage && (
               <p style={{ fontSize: 13, color: 'var(--status-error-text)', textAlign: 'center', margin: 0 }}>
