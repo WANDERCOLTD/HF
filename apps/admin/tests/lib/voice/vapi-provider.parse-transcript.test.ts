@@ -40,6 +40,7 @@ describe("VapiProvider.parseTranscriptUpdate — `transcript` event (chunk)", ()
       externalCallId: "vapi_call_abc",
       role: "learner",
       text: "hello can you hear me",
+      hfCallId: null,
     });
   });
 
@@ -111,6 +112,7 @@ describe("VapiProvider.parseTranscriptUpdate — `conversation-update` event (#9
       externalCallId: "vapi_call_history",
       role: "assistant",
       text: "past tense describes actions that have already happened",
+      hfCallId: null,
     });
   });
 
@@ -168,6 +170,76 @@ describe("VapiProvider.getCapabilities — orchestrationMode (#1337)", () => {
     expect(caps.hasKnowledgeCallback).toBe(true);
     expect(caps.toolCallsOverWebSocket).toBe(false);
     expect(caps.supportsRequestEndCall).toBe(true);
+  });
+});
+
+describe("VapiProvider.parseTranscriptUpdate — hfCallId extraction (#1361)", () => {
+  const p = new VapiProvider({}, {});
+
+  it("extracts hfCallId from assistant.metadata (canonical WebRTC path)", () => {
+    const body = {
+      message: {
+        type: "transcript",
+        transcript: "hi",
+        role: "user",
+        call: { id: "vapi_call_xyz" },
+        assistant: { metadata: { hfCallId: "hf_placeholder_123" } },
+      },
+    };
+    const out = p.parseTranscriptUpdate(body);
+    expect(out?.hfCallId).toBe("hf_placeholder_123");
+  });
+
+  it("extracts hfCallId from call.metadata (alternate VAPI nest)", () => {
+    const body = {
+      message: {
+        type: "transcript",
+        transcript: "hi",
+        role: "user",
+        call: { id: "vapi_call_xyz", metadata: { hfCallId: "hf_alt_456" } },
+      },
+    };
+    expect(p.parseTranscriptUpdate(body)?.hfCallId).toBe("hf_alt_456");
+  });
+
+  it("extracts hfCallId from call.assistantOverrides.metadata (override nest)", () => {
+    const body = {
+      message: {
+        type: "transcript",
+        transcript: "hi",
+        role: "user",
+        call: {
+          id: "vapi_call_xyz",
+          assistantOverrides: { metadata: { hfCallId: "hf_override_789" } },
+        },
+      },
+    };
+    expect(p.parseTranscriptUpdate(body)?.hfCallId).toBe("hf_override_789");
+  });
+
+  it("returns hfCallId: null when no metadata anywhere (PSTN / legacy)", () => {
+    const body = {
+      message: {
+        type: "transcript",
+        transcript: "hi",
+        role: "user",
+        call: { id: "vapi_call_xyz" },
+      },
+    };
+    expect(p.parseTranscriptUpdate(body)?.hfCallId).toBeNull();
+  });
+
+  it("ignores empty-string hfCallId (treated as missing)", () => {
+    const body = {
+      message: {
+        type: "transcript",
+        transcript: "hi",
+        role: "user",
+        call: { id: "vapi_call_xyz" },
+        assistant: { metadata: { hfCallId: "" } },
+      },
+    };
+    expect(p.parseTranscriptUpdate(body)?.hfCallId).toBeNull();
   });
 });
 

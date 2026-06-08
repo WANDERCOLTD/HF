@@ -368,11 +368,41 @@ async function processTranscriptUpdate(
   parsed: ParsedTranscriptUpdate,
   slug: string,
 ): Promise<void> {
-  const callRow = await prisma.call.findFirst({
-    where: { externalId: parsed.externalCallId, source: slug },
-    select: { id: true, callerId: true },
-  });
+  // #1361 — Prefer hfCallId lookup (WebRTC path round-trips our placeholder
+  // id via assistant.metadata.hfCallId). Fall back to externalId for PSTN
+  // and any legacy rows. Same single indexed findFirst — no perf cost.
+  let callRow: { id: string; callerId: string | null; externalId: string | null } | null = null;
+  if (parsed.hfCallId) {
+    callRow = await prisma.call.findFirst({
+      where: { id: parsed.hfCallId, source: slug },
+      select: { id: true, callerId: true, externalId: true },
+    });
+  }
+  if (!callRow) {
+    callRow = await prisma.call.findFirst({
+      where: { externalId: parsed.externalCallId, source: slug },
+      select: { id: true, callerId: true, externalId: true },
+    });
+  }
   if (!callRow) return;
+
+  // Self-heal: when matched via hfCallId AND the externalId is empty
+  // (WebRTC placeholder pre-first-webhook), stamp VAPI's externalId
+  // onto the row so subsequent code paths (cost-cap trickle, end-of-call
+  // merge, /x/logs lookups) can still use externalId as before.
+  if (!callRow.externalId && parsed.externalCallId) {
+    prisma.call
+      .update({
+        where: { id: callRow.id },
+        data: { externalId: parsed.externalCallId },
+      })
+      .catch((err) => {
+        console.warn(
+          `[voice/transcript-update] externalId backfill failed for callId=${callRow!.id}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      });
+  }
 
   await broadcastToCall({
     type: "transcript-partial",
@@ -388,7 +418,11 @@ async function processTranscriptUpdate(
     durationMs: 0,
     callId: callRow.id,
     callerId: callRow.callerId,
-    metadata: { role: parsed.role, chars: parsed.text.length },
+    metadata: {
+      role: parsed.role,
+      chars: parsed.text.length,
+      matchedBy: parsed.hfCallId && callRow.id === parsed.hfCallId ? "hfCallId" : "externalId",
+    },
   });
 }
 

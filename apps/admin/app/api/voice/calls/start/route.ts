@@ -238,6 +238,19 @@ export async function POST(request: Request) {
       callIdForRuntime: placeholderCall.id,
     });
 
+    // #1361 — Inject HF placeholder id into assistant.metadata so the
+    // provider echoes it on every webhook (transcript_update, status,
+    // end-of-call). Without this, the WebRTC path has no way for the
+    // webhook handler to map provider call-id → our placeholder Call row,
+    // and the SimChat SSE subscription receives no transcript-partial
+    // events. PSTN doesn't need this — outbound-dial captures the VAPI
+    // call.id synchronously from the POST /call response — but passing
+    // metadata on both paths is harmless and uniform.
+    const assistantConfigWithMeta = injectAssistantMetadata(
+      built.assistantConfig,
+      { hfCallId: placeholderCall.id },
+    );
+
     const response = NextResponse.json({
       ok: true,
       callId: placeholderCall.id,
@@ -251,7 +264,7 @@ export async function POST(request: Request) {
         // Inline assistant config — Web SDK consumes this directly.
         // PSTN dial-in uses the assistant-request webhook instead;
         // both paths share the same builder so behaviour is identical.
-        assistantConfig: built.assistantConfig,
+        assistantConfig: assistantConfigWithMeta,
       },
       expiresAt,
     });
@@ -269,4 +282,35 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+/**
+ * Inject `metadata` onto the assistant object inside a provider-shaped
+ * assistant config (#1361). Adapters return `{ assistant: {...} }` (VAPI
+ * shape) — write the metadata on the inner object so VAPI echoes it back
+ * on every webhook (transcript / status-update / end-of-call). When the
+ * adapter doesn't wrap (`{...}` directly), merge at the root. Pure;
+ * doesn't mutate the input.
+ */
+function injectAssistantMetadata(
+  assistantConfig: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+): Record<string, unknown> {
+  const inner = (assistantConfig as { assistant?: Record<string, unknown> })
+    .assistant;
+  if (inner && typeof inner === "object") {
+    const existing = (inner.metadata as Record<string, unknown> | undefined) ?? {};
+    return {
+      ...assistantConfig,
+      assistant: {
+        ...inner,
+        metadata: { ...existing, ...metadata },
+      },
+    };
+  }
+  const existing = (assistantConfig.metadata as Record<string, unknown> | undefined) ?? {};
+  return {
+    ...assistantConfig,
+    metadata: { ...existing, ...metadata },
+  };
 }
