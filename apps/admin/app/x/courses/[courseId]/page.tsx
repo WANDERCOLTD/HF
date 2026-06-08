@@ -149,7 +149,7 @@ type SessionTabData = {
 
 import { SectionHeader } from './SectionHeader';
 
-const VALID_TABS = ['intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'settings',
+const VALID_TABS = ['intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'voice', 'settings',
   // Legacy tab IDs — redirected in handleTabChange
   'overview', 'journey', 'genome', 'audience', 'session-flow',
 ];
@@ -406,6 +406,10 @@ export default function CourseDetailPage() {
     { id: 'learners', label: <TabWithHelp tabId="learners">Learners</TabWithHelp>, icon: <Users2 size={14} /> },
     { id: 'proof', label: <TabWithHelp tabId="proof">Proof Points</TabWithHelp>, icon: <BarChart3 size={14} /> },
     { id: 'goals', label: <TabWithHelp tabId="goals">Goals</TabWithHelp>, icon: <Target size={14} /> },
+    // #1273 — Voice extracted from Settings tab to a first-class tab.
+    // OPERATOR-only (matches the in-Settings location's gate). Sits before
+    // Settings to keep the tuning surfaces (Goals + Voice) adjacent.
+    ...(isOperator ? [{ id: 'voice', label: <TabWithHelp tabId="voice">Voice</TabWithHelp>, icon: <Mic size={14} /> }] : []),
     ...(isOperator ? [{ id: 'settings', label: <TabWithHelp tabId="settings">Settings</TabWithHelp>, icon: <SettingsIcon size={14} /> }] : []),
   ], [totalSources, isOperator]);
 
@@ -1712,6 +1716,18 @@ export default function CourseDetailPage() {
       {/* ═══════════════════════════════════════════════ */}
       {/* SETTINGS TAB                                   */}
       {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'voice' && (
+        <div className="hf-mt-lg">
+          {isOperator ? (
+            <VoiceConfigSection scope="course" scopeId={courseId} />
+          ) : (
+            <div className="hf-banner hf-banner-info">
+              You do not have permission to manage course voice settings.
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'settings' && (
         <div className="hf-mt-lg">
           {isOperator ? (
@@ -1847,9 +1863,8 @@ export default function CourseDetailPage() {
                 </>
               )}
 
-              <SectionHeader title="Voice" icon={Mic} collapsible defaultCollapsed persistKey={`${courseId}.voice`}>
-                <VoiceConfigSection scope="course" scopeId={courseId} />
-              </SectionHeader>
+              {/* #1273 — Voice extracted to its own tab. Find it at
+                  /x/courses/<id>?tab=voice. */}
 
               <SectionHeader title="Metadata" icon={FileText} collapsible defaultCollapsed persistKey={`${courseId}.metadata`}>
                 <div className="hf-card">
