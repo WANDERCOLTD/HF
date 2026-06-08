@@ -89,68 +89,36 @@ describe("VapiProvider.parseTranscriptUpdate — `transcript` event (chunk)", ()
   });
 });
 
-describe("VapiProvider.parseTranscriptUpdate — `conversation-update` event (#922 fix)", () => {
+describe("VapiProvider.parseTranscriptUpdate — `conversation-update` event (#1364 skip)", () => {
+  // #1364 — Parser intentionally returns null for conversation-update.
+  // VAPI fires both `transcript` (per-chunk Deepgram interim_results)
+  // AND `conversation-update` (full-history snapshot ~1Hz). Parsing
+  // both produced duplicate bubbles in SimChat (each turn broadcast
+  // twice — once as a chunk, once via the history-walk). Transcript
+  // chunks are sufficient for incremental streaming; the history
+  // snapshot is a catch-up channel the chat surface doesn't need.
   const p = new VapiProvider({}, {});
 
-  it("extracts the most recent non-system turn from `messages` array", () => {
-    // Pre-#922: route handler read `message.transcript` only and so
-    // dropped every conversation-update event silently. The fix walks
-    // the messages array bottom-up to find the latest non-system/
-    // non-tool turn.
+  it("returns null for conversation-update with messages array (was the #922 history-walk path)", () => {
     const body = {
       message: {
         type: "conversation-update",
         call: { id: "vapi_call_history" },
         messages: [
-          { role: "system", content: "You are a tutor." },
           { role: "user", content: "what is past tense?" },
           { role: "assistant", content: "past tense describes actions that have already happened" },
         ],
       },
     };
-    expect(p.parseTranscriptUpdate(body)).toEqual({
-      externalCallId: "vapi_call_history",
-      role: "assistant",
-      text: "past tense describes actions that have already happened",
-      hfCallId: null,
-    });
+    expect(p.parseTranscriptUpdate(body)).toBeNull();
   });
 
-  it("skips `system` and `tool` roles when walking the history", () => {
-    const body = {
-      message: {
-        type: "conversation-update",
-        call: { id: "vapi_call_skip" },
-        messages: [
-          { role: "user", content: "what time is it" },
-          { role: "tool", content: '{"time":"15:42"}' },
-          { role: "system", content: "(internal)" },
-        ],
-      },
-    };
-    // After filtering system + tool, the most-recent non-skipped is `user`.
-    expect(p.parseTranscriptUpdate(body)?.role).toBe("learner");
-  });
-
-  it("accepts the alternate `messagesOpenAIFormatted` key VAPI sometimes uses", () => {
+  it("returns null for conversation-update with messagesOpenAIFormatted", () => {
     const body = {
       message: {
         type: "conversation-update",
         call: { id: "vapi_call_alt" },
-        messagesOpenAIFormatted: [
-          { role: "user", content: "hi" },
-        ],
-      },
-    };
-    expect(p.parseTranscriptUpdate(body)?.text).toBe("hi");
-  });
-
-  it("returns null when no non-system content found", () => {
-    const body = {
-      message: {
-        type: "conversation-update",
-        call: { id: "vapi_call_only_system" },
-        messages: [{ role: "system", content: "..." }],
+        messagesOpenAIFormatted: [{ role: "user", content: "hi" }],
       },
     };
     expect(p.parseTranscriptUpdate(body)).toBeNull();
