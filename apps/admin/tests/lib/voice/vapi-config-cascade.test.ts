@@ -49,11 +49,14 @@ describe("VapiProvider.getConfigSchema — per-VP knobs (#1271 Slice B)", () => 
     expect(byKey.voiceId.type).toBe("string");
   });
 
-  it("declares voiceProvider (TTS engine) as enum with 11labs default", () => {
+  it("declares voiceProvider (TTS engine) as enum with deepgram default (#1334)", () => {
     expect(byKey.voiceProvider).toBeDefined();
     expect(byKey.voiceProvider.type).toBe("enum");
-    expect(byKey.voiceProvider.default).toBe("11labs");
+    expect(byKey.voiceProvider.default).toBe("deepgram");
+    // ElevenLabs stays in the enum — it's still a valid premium choice,
+    // just no longer the default per #1334 cost decision.
     expect(byKey.voiceProvider.enumValues).toContain("11labs");
+    expect(byKey.voiceProvider.enumValues).toContain("deepgram");
   });
 
   it("declares transcriber (STT engine) as enum with deepgram default", () => {
@@ -168,5 +171,41 @@ describe("VapiProvider.buildAssistantConfig — voiceConfig wire-up (#1271 Slice
         baseCtx({ voiceConfig: { someFutureKey: 123 } as Record<string, unknown> }),
       ),
     ).not.toThrow();
+  });
+});
+
+describe("VapiProvider — Deepgram Aura Asteria default (#1334)", () => {
+  it("seeded default config produces the Deepgram voice block", () => {
+    // Locks the contract between `prisma/seed-voice-providers.ts` and the
+    // adapter wire-up: the seed bootstraps a row with
+    // `config: { voiceProvider: "deepgram", voiceId: "aura-asteria-en" }`.
+    // When that config flows through the cascade and arrives as
+    // `ctx.voiceConfig`, the adapter must produce the matching voice block.
+    // If either side drifts (seed change without test, schema change without
+    // seed) this test catches it before deploy.
+    const p = new VapiProvider({}, {});
+    const config = p.buildAssistantConfig(
+      baseCtx({
+        voiceConfig: { voiceProvider: "deepgram", voiceId: "aura-asteria-en" },
+      }),
+    ) as { assistant: Record<string, unknown> };
+    expect(config.assistant.voice).toEqual({
+      provider: "deepgram",
+      voiceId: "aura-asteria-en",
+    });
+  });
+
+  it("schema default is `deepgram` so an empty config blob still picks Deepgram via cascade fallback", () => {
+    // `resolveVoiceConfig` uses `schemaField.default` as the last-resort
+    // fallback for cascadeable fields. Asserting the schema default here
+    // means: an environment whose VoiceProvider row pre-dates the seed
+    // update + migration script (config blob empty) still ends up on
+    // Deepgram at runtime, without operator action. Defence-in-depth on
+    // top of the seed + migrate script.
+    const p = new VapiProvider({}, {});
+    const voiceProviderField = p
+      .getConfigSchema()
+      .fields.find((f) => f.key === "voiceProvider");
+    expect(voiceProviderField?.default).toBe("deepgram");
   });
 });
