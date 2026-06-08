@@ -561,7 +561,30 @@ export class VapiProvider implements VoiceProvider {
         ? "assistant"
         : "learner";
 
-    return { externalCallId, role, text: rawText };
+    // #1361 — Pull HF placeholder id out of `assistant.metadata.hfCallId`
+    // (set at WebRTC call-start). VAPI echoes assistant metadata in webhook
+    // payloads under a few different nest paths depending on event type;
+    // try the most common ones in order, fall back to null.
+    const assistant = (message.assistant ?? root.assistant) as
+      | Record<string, unknown>
+      | undefined;
+    const assistantOverrides = (call?.assistantOverrides ??
+      message.assistantOverrides) as Record<string, unknown> | undefined;
+    const callMeta = call?.metadata as Record<string, unknown> | undefined;
+    const messageMeta = message.metadata as Record<string, unknown> | undefined;
+
+    const hfCallIdCandidate =
+      (assistant?.metadata as Record<string, unknown> | undefined)?.hfCallId ??
+      (assistantOverrides?.metadata as Record<string, unknown> | undefined)?.hfCallId ??
+      callMeta?.hfCallId ??
+      messageMeta?.hfCallId ??
+      null;
+    const hfCallId =
+      typeof hfCallIdCandidate === "string" && hfCallIdCandidate.length > 0
+        ? hfCallIdCandidate
+        : null;
+
+    return { externalCallId, role, text: rawText, hfCallId };
   }
 
   /**

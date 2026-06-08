@@ -193,6 +193,19 @@ export interface ParsedTranscriptUpdate {
   externalCallId: string;
   role: "learner" | "assistant";
   text: string;
+  /** Optional HF placeholder Call id, surfaced via `assistant.metadata.hfCallId`
+   *  in the inline assistant config (#1361). The WebRTC [Talk Here] path
+   *  creates a placeholder Call row BEFORE the provider assigns its own id,
+   *  so the synchronous "capture VAPI id from POST /call response" trick the
+   *  PSTN path uses is unavailable. Instead we round-trip our placeholder id
+   *  through the provider's metadata field; the webhook then resolves to the
+   *  correct row by this id (preferred) or by `externalCallId` (legacy /
+   *  PSTN fallback).
+   *
+   *  Absent when (a) the adapter doesn't echo metadata, (b) the inline
+   *  config didn't include it, or (c) the inbound payload is a PSTN call
+   *  where the placeholder was created with externalId already populated. */
+  hfCallId?: string | null;
 }
 
 /** Single tool call normalised from a provider's batched callback. */
