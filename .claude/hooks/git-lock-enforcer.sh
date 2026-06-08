@@ -42,6 +42,21 @@ else
   CMD=$(printf '%s' "$PAYLOAD" | sed -n 's/.*"command":[[:space:]]*"\([^"]*\)".*/\1/p')
 fi
 
+# Remote-exec wrappers — the git op inside the payload runs on a
+# DIFFERENT machine. This working tree's lock is irrelevant. Skip
+# before the *git* substring matcher fires.
+#
+# Match by the first ~3 tokens so we don't accidentally whitelist
+# inline-quoted strings like `echo "I ran ssh"`. Each entry MUST be
+# followed by a space to lock the alternative at a word boundary.
+case "$CMD" in
+  gcloud\ compute\ ssh\ *) exit 0 ;;
+  gcloud\ compute\ scp\ *) exit 0 ;;
+  ssh\ *) exit 0 ;;
+  scp\ *) exit 0 ;;
+  rsync\ *) exit 0 ;;
+esac
+
 # Only inspect git commands. Anything non-git → allow.
 case "$CMD" in
   *git*) ;;

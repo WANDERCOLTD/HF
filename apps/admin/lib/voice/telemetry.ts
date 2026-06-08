@@ -73,8 +73,17 @@ export function logVoiceEvent(input: VoiceEventInput): void {
     quantity: 1,
     unitType: "count",
     engine: input.slug,
+    // Voice operations don't have a rate-table entry (the operation
+    // namespace `voice:*` isn't in DEFAULT_COST_RATES), so without this
+    // override the row lands with costCents = 0. Trickle events from VAPI
+    // status-updates supply the real delta — propagate it to the column.
+    // Backed by usage-logger.ts's `input.costCents` override (added 2026-06-08).
+    ...(input.costCents !== undefined ? { costCents: input.costCents } : {}),
     metadata: {
       durationMs: input.durationMs,
+      // Keep `explicitCostCents` in metadata too for backward compat with
+      // any existing dashboards that scan metadata; the canonical source
+      // is now the top-level `costCents` column.
       ...(input.costCents !== undefined ? { explicitCostCents: input.costCents } : {}),
       ...(input.errorMessage
         ? { error: input.errorMessage, success: false }

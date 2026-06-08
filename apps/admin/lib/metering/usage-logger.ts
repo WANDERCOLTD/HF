@@ -28,6 +28,18 @@ export interface UsageEventInput {
   model?: string;
   sourceOp?: string;
   metadata?: Record<string, unknown>;
+
+  /** Explicit cost override in cents. When provided, takes precedence
+   *  over the rate-table calculation in `calculateCost`.
+   *
+   *  Used by VOICE telemetry: voice providers (VAPI) deliver per-call
+   *  cost via status-update webhooks rather than via a per-token rate
+   *  table — there's no meaningful unit cost to multiply by quantity.
+   *  Pre-fix, voice events landed in the table with `costCents = 0`
+   *  because the `VOICE:*` operation key isn't in DEFAULT_COST_RATES,
+   *  so `calculateCost(1, 0, "count") = 0`. Surfaced 2026-06-08 during
+   *  the #1334 cost-baseline pull: 1,334 VOICE rows, $0 total. */
+  costCents?: number;
 }
 
 export interface UsageEventResult {
@@ -58,8 +70,11 @@ export async function logUsageEvent(
     const unitType = input.unitType || rateUnitType || "count";
     const quantity = input.quantity ?? 1;
 
-    // Calculate cost
-    const costCents = calculateCost(quantity, costPerUnit, unitType);
+    // Cost — explicit override (voice trickle) wins, else rate-table calc.
+    const costCents =
+      input.costCents !== undefined
+        ? input.costCents
+        : calculateCost(quantity, costPerUnit, unitType);
 
     // Create the event
     const event = await prisma.usageEvent.create({
@@ -106,7 +121,10 @@ export async function logUsageEventsBatch(
       const { costPerUnit, unitType: rateUnitType } = rates[i];
       const unitType = input.unitType || rateUnitType || "count";
       const quantity = input.quantity ?? 1;
-      const costCents = calculateCost(quantity, costPerUnit, unitType);
+      const costCents =
+        input.costCents !== undefined
+          ? input.costCents
+          : calculateCost(quantity, costPerUnit, unitType);
 
       return {
         category: input.category,
