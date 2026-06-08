@@ -100,7 +100,7 @@ function isCallCreate(callee) {
   return true;
 }
 
-export default {
+const noBareCallCreateRule = {
   meta: {
     type: "problem",
     docs: {
@@ -124,3 +124,5 @@ export default {
     };
   },
 };
+
+export default noBareCallCreateRule;
