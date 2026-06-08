@@ -329,11 +329,12 @@ async function main() {
   let results: CheckResult[];
   try {
     results = await runChecks();
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Database unreachable (no DATABASE_URL, network blocked, etc). Don't
     // fail unrelated CI steps; emit a warning and exit 0.
+    const message = err instanceof Error ? err.message : String(err);
     console.warn(
-      `[check-fk-consistency] WARNING: database unreachable (${err?.message ?? String(err)}). Skipping checks.`,
+      `[check-fk-consistency] WARNING: database unreachable (${message}). Skipping checks.`,
     );
     await prisma.$disconnect().catch(() => undefined);
     process.exit(0);
