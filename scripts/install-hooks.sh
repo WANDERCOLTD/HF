@@ -7,8 +7,10 @@
 # Four hooks land in .git/hooks/:
 #   pre-commit   — blocks direct commits on main, regenerates API docs,
 #                  fast qmd index update. Slow qmd embed moved out (post-commit).
-#   pre-push     — runs tsc --noEmit + eslint on apps/admin before push.
-#                  Catches type/lint errors locally instead of in CI (5-10 min loop).
+#   pre-push     — runs tsc + eslint, FILTERED to only the .ts/.tsx files
+#                  in the commits being pushed (vs upstream). Catches errors
+#                  YOU introduced without fighting the codebase's 200+
+#                  pre-existing tsc errors or mac/linux platform drift.
 #                  Escape hatch: HF_SKIP_PREPUSH=1 git push ...
 #   post-commit  — runs qmd embed synchronously so the index is consistent
 #                  before the next command starts. ~30s blocking.
@@ -31,7 +33,10 @@
 
 set -e
 
-HOOK_DIR="$(git rev-parse --show-toplevel)/.git/hooks"
+# --git-common-dir returns the canonical .git directory (the main repo's
+# .git/), so the installer works from any worktree. show-toplevel + /.git
+# breaks inside a worktree because .git there is a file pointer, not a dir.
+HOOK_DIR="$(git rev-parse --git-common-dir)/hooks"
 
 # ── pre-commit ──────────────────────────────────────────────────────────────
 cat > "$HOOK_DIR/pre-commit" << 'HOOK'
@@ -97,8 +102,12 @@ cat > "$HOOK_DIR/pre-push" << 'HOOK'
 #!/bin/bash
 # HF pre-push hook (installed by scripts/install-hooks.sh)
 #
-# Why: CI catches tsc/lint errors but at a 5–10 min round-trip. Running them
-# locally before push catches the same errors in ~60s and keeps the loop tight.
+# Why: catch tsc + lint errors YOU introduced before they hit the 5-10 min
+# CI loop. We filter to only `.ts`/`.tsx` files touched in the commits being
+# pushed — so the hook doesn't fight the codebase's 200+ pre-existing
+# tsc errors (schema-rot, see test.yml comments), and doesn't suffer the
+# mac vs linux platform drift that breaks raw `npm run ratchet:check`.
+#
 # Pre-push (not pre-commit) so small commits stay fast.
 #
 # Escape hatch: HF_SKIP_PREPUSH=1 git push ...   (emergencies only)
@@ -106,37 +115,69 @@ cat > "$HOOK_DIR/pre-push" << 'HOOK'
 # Drain stdin so git doesn't SIGPIPE us — we don't inspect the ref list.
 cat >/dev/null
 
-# Skip on hf-dev VM (resource-constrained; tsc on the box is too slow).
+# Skip on hf-dev VM (resource-constrained).
 [ "$HOSTNAME" = "hf-dev" ] && exit 0
 
 # Escape hatch.
 if [ "${HF_SKIP_PREPUSH:-0}" = "1" ]; then
-  echo "[pre-push] ⚠ HF_SKIP_PREPUSH=1 — skipping tsc + lint. Don't make this a habit."
+  echo "[pre-push] ⚠ HF_SKIP_PREPUSH=1 — skipping checks. Don't make this a habit."
   exit 0
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT/apps/admin" || exit 0
+cd "$REPO_ROOT" || exit 0
 
-echo "[pre-push] Running tsc --noEmit (1/2)..."
-if ! npx tsc --noEmit; then
+# Resolve upstream — `git rev-parse @{u}` fails before the first push, fall
+# back to origin/main.
+UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "origin/main")
+git fetch origin main --quiet 2>/dev/null || true
+
+# .ts/.tsx files modified in the commits about to be pushed.
+CHANGED=$(git diff --name-only --diff-filter=ACMR "$UPSTREAM"...HEAD -- 'apps/admin/**/*.ts' 'apps/admin/**/*.tsx' 2>/dev/null)
+
+if [ -z "$CHANGED" ]; then
+  echo "[pre-push] No .ts/.tsx changes in apps/admin — skipping checks."
+  exit 0
+fi
+
+cd apps/admin || exit 0
+REL=$(echo "$CHANGED" | sed 's|^apps/admin/||')
+
+# 1) tsc — whole project (type errors cascade), then filter output to your files.
+echo "[pre-push] Running tsc (filtered to $(echo "$REL" | wc -l | tr -d ' ') changed file(s))..."
+TSC_OUT=$(mktemp)
+trap 'rm -f "$TSC_OUT"' EXIT
+npx tsc --noEmit >"$TSC_OUT" 2>&1 || true
+
+# Build a regex of changed file paths; anchor to start of line and require
+# the opening `(` that tsc puts before line:col.
+PATTERN=$(echo "$REL" | sed 's|\.|\\.|g' | paste -sd'|' -)
+NEW_TSC=$(grep -E "^($PATTERN)\(" "$TSC_OUT" || true)
+
+if [ -n "$NEW_TSC" ]; then
   echo ""
-  echo "  [pre-push] ✗ tsc failed — fix type errors before pushing."
+  echo "  [pre-push] ✗ tsc errors in files you're pushing:"
+  echo ""
+  echo "$NEW_TSC" | head -30 | sed 's/^/    /'
+  echo ""
+  echo "  Fix these before pushing. (Pre-existing errors in unchanged files are not shown.)"
   echo "  Override (emergencies only): HF_SKIP_PREPUSH=1 git push ..."
   echo ""
   exit 1
 fi
 
-echo "[pre-push] Running eslint (2/2)..."
-if ! npm run lint --silent; then
+# 2) lint on changed files only.
+echo "[pre-push] Running eslint on changed files..."
+# shellcheck disable=SC2086
+if ! npx eslint $REL; then
   echo ""
-  echo "  [pre-push] ✗ lint failed — fix lint errors before pushing."
+  echo "  [pre-push] ✗ lint errors in files you're pushing."
   echo "  Override (emergencies only): HF_SKIP_PREPUSH=1 git push ..."
   echo ""
   exit 1
 fi
 
-echo "[pre-push] ✓ tsc + lint passed."
+echo "[pre-push] ✓ Your changed files pass tsc + lint."
 exit 0
 HOOK
 chmod +x "$HOOK_DIR/pre-push"
@@ -180,6 +221,6 @@ chmod +x "$HOOK_DIR/post-merge"
 
 echo "✓ Git hooks installed in $HOOK_DIR"
 echo "  - pre-commit  (blocks main, regenerates API docs, fast qmd update)"
-echo "  - pre-push    (tsc --noEmit + eslint on apps/admin; skip on hf-dev)"
+echo "  - pre-push    (tsc + eslint, filtered to changed files; skip on hf-dev)"
 echo "  - post-commit (qmd embed in background)"
 echo "  - post-merge  (qmd refresh after pull)"
