@@ -2,7 +2,9 @@
 # Stop hook — remind about deploy command after code changes
 # Receives JSON on stdin with session context
 
-cd /Users/paulwander/projects/HF || exit 0
+# Portable repo root: $CLAUDE_PROJECT_DIR resolves on any machine.
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+cd "$REPO_ROOT" || exit 0
 
 # Check if there are uncommitted changes (code was written)
 DIRTY=$(git status --porcelain 2>/dev/null | grep -c '^ M\|^??\|^A ')

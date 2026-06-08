@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/paulwander/projects/HF/.claude/hooks/session-start.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
           }
         ]
       }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/paulwander/projects/HF/.claude/hooks/sprint-context.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/sprint-context.sh"
           }
         ]
       }
@@ -41,12 +41,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/paulwander/projects/HF/.claude/hooks/branch-drift-detector.sh",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/branch-drift-detector.sh",
             "timeout": 3
           },
           {
             "type": "command",
-            "command": "/Users/paulwander/projects/HF/.claude/hooks/git-lock-enforcer.sh",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/git-lock-enforcer.sh",
             "timeout": 3
           }
         ]
@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/paulwander/projects/HF/.claude/hooks/flow-map-reminder.sh",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/flow-map-reminder.sh",
             "timeout": 5
           }
         ]
@@ -69,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/paulwander/projects/HF/.claude/hooks/stop-reminder.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh"
           }
         ]
       }
