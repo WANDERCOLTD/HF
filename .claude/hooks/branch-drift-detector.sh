@@ -11,7 +11,10 @@
 # Exit 0 always — do not block tool execution. Over-blocking is worse than
 # letting through a false positive.
 
-cd /Users/paulwander/projects/HF 2>/dev/null || exit 0
+# Portable repo root + per-machine Claude memory key.
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+PROJ_DASH=$(printf '%s' "$REPO_ROOT" | sed 's#/#-#g')
+cd "$REPO_ROOT" 2>/dev/null || exit 0
 
 SNAPSHOT="/tmp/claude-head-snapshot-HF"
 
@@ -50,7 +53,7 @@ echo "   If the LAST tool call you ran in THIS session was an intentional"
 echo "   git checkout / reset / pull --rebase / stash pop / branch -f, this"
 echo "   warning is a false positive — ignore."
 echo ""
-echo "   Recovery playbook: ~/.claude/projects/-Users-paulwander-projects-HF"
+echo "   Recovery playbook: ~/.claude/projects/$PROJ_DASH"
 echo "   /memory/feedback_concurrent_claude_processes.md"
 
 exit 0

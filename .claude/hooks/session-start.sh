@@ -114,10 +114,17 @@ else
   fi
 fi
 
-cd /Users/paulwander/projects/HF || exit 0
+# Portable repo root: Claude Code sets $CLAUDE_PROJECT_DIR to the project
+# root on any machine; fall back to the git toplevel for manual runs.
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+cd "$REPO_ROOT" || exit 0
+
+# Per-machine Claude memory dir: derive the dashed project key from the
+# repo root (e.g. /Users/x/HF -> -Users-x-HF) so this resolves on any host.
+PROJ_DASH=$(printf '%s' "$REPO_ROOT" | sed 's#/#-#g')
 
 # Check memory-sync staleness
-MEMORY_SYNC_LOG="$HOME/.claude/projects/-Users-paulwander-projects-HF/memory/MEMORY.md"
+MEMORY_SYNC_LOG="$HOME/.claude/projects/$PROJ_DASH/memory/MEMORY.md"
 LAST_SYNC=$(git log -1 --format="%ar" -- "$MEMORY_SYNC_LOG" 2>/dev/null || echo "unknown")
 
 # Check for uncommitted changes

@@ -3,9 +3,12 @@
 # Runs before Claude responds to each message
 # Output is injected as a system reminder visible to Claude
 
-REPO_ROOT="/Users/paulwander/projects/HF"
+# Portable repo root + per-machine Claude memory key ($CLAUDE_PROJECT_DIR
+# resolves on any host; dashed key derived from it for the memory dir).
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 REPO="paw2paw/HF"
-AGENT_STATE="$HOME/.claude/projects/-Users-paulwander-projects-HF/memory/agent-state.json"
+PROJ_DASH=$(printf '%s' "$REPO_ROOT" | sed 's#/#-#g')
+AGENT_STATE="$HOME/.claude/projects/$PROJ_DASH/memory/agent-state.json"
 
 # Get current sprint issues (top 3 open)
 SPRINT_ISSUES=$(gh issue list \
@@ -91,7 +94,7 @@ except:
 fi
 
 # Get latest fix chain warning from retro (if any)
-RETRO_WARNING=$(cat "$HOME/.claude/projects/-Users-paulwander-projects-HF/memory/retro-latest.md" 2>/dev/null | \
+RETRO_WARNING=$(cat "$HOME/.claude/projects/$PROJ_DASH/memory/retro-latest.md" 2>/dev/null | \
   grep "REPEAT\|Fix chain" | head -3 | sed 's/^/  /')
 
 # Only output if we have something useful
