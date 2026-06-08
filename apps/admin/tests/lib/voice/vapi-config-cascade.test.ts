@@ -178,7 +178,7 @@ describe("VapiProvider — Deepgram Aura Asteria default (#1334)", () => {
   it("seeded default config produces the Deepgram voice block", () => {
     // Locks the contract between `prisma/seed-voice-providers.ts` and the
     // adapter wire-up: the seed bootstraps a row with
-    // `config: { voiceProvider: "deepgram", voiceId: "aura-asteria-en" }`.
+    // `config: { voiceProvider: "deepgram", voiceId: "asteria" }`.
     // When that config flows through the cascade and arrives as
     // `ctx.voiceConfig`, the adapter must produce the matching voice block.
     // If either side drifts (seed change without test, schema change without
@@ -186,12 +186,12 @@ describe("VapiProvider — Deepgram Aura Asteria default (#1334)", () => {
     const p = new VapiProvider({}, {});
     const config = p.buildAssistantConfig(
       baseCtx({
-        voiceConfig: { voiceProvider: "deepgram", voiceId: "aura-asteria-en" },
+        voiceConfig: { voiceProvider: "deepgram", voiceId: "asteria" },
       }),
     ) as { assistant: Record<string, unknown> };
     expect(config.assistant.voice).toEqual({
       provider: "deepgram",
-      voiceId: "aura-asteria-en",
+      voiceId: "asteria",
     });
   });
 

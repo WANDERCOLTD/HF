@@ -425,7 +425,7 @@ export class VapiProvider implements VoiceProvider {
           key: "voiceId",
           label: "Voice ID",
           type: "string",
-          help: "Voice ID for the selected `voiceProvider` engine. Default \"aura-asteria-en\" (Deepgram). For ElevenLabs use \"21m00Tcm4TlvDq8ikWAM\" (Rachel) etc. Find IDs in VAPI dashboard → Voices. Voice ID MUST match the engine selected in `voiceProvider` — a mismatch makes calls connect with no audio.",
+          help: "Voice ID for the selected `voiceProvider` engine. Default \"asteria\" (Deepgram Aura). For ElevenLabs use \"21m00Tcm4TlvDq8ikWAM\" (Rachel) etc. Find IDs in VAPI dashboard → Voices. Voice ID MUST match the engine selected in `voiceProvider` — a mismatch makes calls connect with no audio.",
           sensitive: false,
           required: false,
         },

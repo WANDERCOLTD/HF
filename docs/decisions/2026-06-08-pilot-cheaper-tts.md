@@ -17,7 +17,7 @@ Today the VAPI row has `config: {}` (per `prisma/seed-voice-providers.ts`) — m
 | Engine | Voice ID | Voice profile | List price (per VAPI dashboard) |
 |---|---|---|---|
 | **ElevenLabs Multilingual v2** (baseline) | `21m00Tcm4TlvDq8ikWAM` (Rachel) | Female, warm, US English | ~$0.18/min |
-| **Deepgram Aura** | `aura-asteria-en` | Female, conversational, US English | ~$0.015/min |
+| **Deepgram Aura** | `asteria` | Female, conversational, US English | ~$0.015/min |
 | **OpenAI TTS-1** | `nova` | Female, warm, US English | ~$0.015–0.018/min |
 
 Voice IDs picked for gender + warmth parity so subjective judgement isn't confounded by voice persona. If the winner happens to be Deepgram, the secondary "which Aura voice" round (Asteria / Luna / Stella / Athena / Hera) is a follow-on, not part of this pilot.
@@ -109,15 +109,15 @@ Document the values here in the `## Decision` section below; remove the `PILOT I
 
 ## Decision
 
-**Default voice swapped to `voiceProvider: "deepgram"` + `voiceId: "aura-asteria-en"`** at three levels of defence:
+**Default voice swapped to `voiceProvider: "deepgram"` + `voiceId: "asteria"`** at three levels of defence:
 
 1. **Schema default** at `lib/voice/providers/vapi/index.ts:436` — `voiceProvider.default = "deepgram"`. The cascade resolver's last-resort fallback (`resolveVoiceConfig` → `schemaField.default`) returns Deepgram for any environment whose VoiceProvider row pre-dates this work with an empty config blob.
-2. **Seed bootstrap** at `prisma/seed-voice-providers.ts` — new environments (TEST, PROD when provisioned) get an explicit `config: { voiceProvider: "deepgram", voiceId: "aura-asteria-en" }` from day one. Idempotent — never overwrites an existing row.
+2. **Seed bootstrap** at `prisma/seed-voice-providers.ts` — new environments (TEST, PROD when provisioned) get an explicit `config: { voiceProvider: "deepgram", voiceId: "asteria" }` from day one. Idempotent — never overwrites an existing row.
 3. **One-off migration script** at `scripts/migrate-vapi-tts-default.ts` — for existing envs (`hf_sandbox`, `hf_staging`) where the row was seeded pre-#1334 with `config: {}`. Idempotent; respects operator-set values. Run via `npx tsx apps/admin/scripts/migrate-vapi-tts-default.ts` on each env after deploy.
 
 **Lock tests** at `tests/lib/voice/vapi-config-cascade.test.ts`:
 - Schema default is `"deepgram"`.
-- When the seed-bootstrapped config flows through, the adapter writes `voice: { provider: "deepgram", voiceId: "aura-asteria-en" }` to VAPI.
+- When the seed-bootstrapped config flows through, the adapter writes `voice: { provider: "deepgram", voiceId: "asteria" }` to VAPI.
 
 ### Why Deepgram Aura Asteria, picked without live A/B
 
@@ -173,6 +173,23 @@ Last 30 days, 21 calls with cost data, 8 of those ≥ 30 seconds:
 - New projected total: **~$0.058/min** vs **$0.093/min** baseline = **~37% reduction**, not 90%.
 
 Real saving will be in the next 5–10 post-migration calls. Re-run `/tmp/vm-cost-baseline.sh` then to confirm.
+
+### Amendment 2026-06-08 (same day) — voice-ID format bug
+
+First-pass shipped `voiceId: "aura-asteria-en"` (full Deepgram model identifier). VAPI rejected this on the first real outbound dial:
+
+```
+assistant.voice.voiceId must be one of the following values:
+asteria, luna, stella, athena, hera, orion, arcas, perseus, …
+```
+
+VAPI's Deepgram TTS adapter expects the **bare voice name** (`asteria`), not the Deepgram-direct API's full identifier. Fixed in PR #1359:
+
+- `prisma/seed-voice-providers.ts` — bootstraps with `voiceId: "asteria"`
+- `scripts/migrate-vapi-tts-default.ts` — detects `voiceId: "aura-asteria-en"` (the first-pass bug) AND treats it as needing migration (alongside the original "implicit-ElevenLabs" detection). Now safe to re-run on every env that already ran the first version.
+- Schema help text, ADR, lock test all reference `asteria`.
+
+This corrects a 30-minute window where new outbound dials returned 502 from `/api/voice/calls/outbound-dial` wrapping VAPI's 400. No live learner traffic affected (dev env only).
 
 ### Open follow-on: UsageEvent.costCents not populated for VOICE
 

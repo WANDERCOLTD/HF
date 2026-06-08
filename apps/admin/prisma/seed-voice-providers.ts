@@ -59,7 +59,7 @@ async function main() {
       displayName: "VAPI Voice AI",
       adapterKey: "vapi",
       credentials: { apiKey, webhookSecret },
-      config: { voiceProvider: "deepgram", voiceId: "aura-asteria-en" },
+      config: { voiceProvider: "deepgram", voiceId: "asteria" },
       isDefault: true,
       enabled: true,
     },

@@ -32,7 +32,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const TARGET_VOICE_PROVIDER = "deepgram";
-const TARGET_VOICE_ID = "aura-asteria-en";
+const TARGET_VOICE_ID = "asteria";
 
 interface VapiVoiceConfigFragment {
   voiceProvider?: unknown;
@@ -62,7 +62,14 @@ async function main(): Promise<void> {
     currentProvider === undefined ||
     (currentProvider === "11labs" && (!currentVoiceId || currentVoiceId.length === 0));
 
-  if (!providerIsImplicitDefault) {
+  // First-pass bug: prior runs wrote `voiceId: "aura-asteria-en"` thinking
+  // VAPI accepted the full Deepgram model identifier. VAPI rejects this
+  // (400: must be one of asteria, luna, …). Detect the prior bad value
+  // and treat it as needing migration even though it looks operator-set.
+  const isFirstPassBadValue =
+    currentProvider === "deepgram" && currentVoiceId === "aura-asteria-en";
+
+  if (!providerIsImplicitDefault && !isFirstPassBadValue) {
     console.log(
       `[migrate:vapi-tts-default] Row id=${row.id} has operator-set values (voiceProvider=${currentProvider ?? "<unset>"}, voiceId=${currentVoiceId ?? "<unset>"}). Leaving unchanged.`,
     );
