@@ -29,6 +29,7 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { cascadeableKeys, LOCKED_KEYS, SECRET_KEYS } from "@/lib/voice/config";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { getVoiceProvider } from "@/lib/voice/provider-factory";
+import { explainVoiceCascade } from "@/lib/cascade/voice-explain";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -99,6 +100,8 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   update_intake_spec_draft: "OPERATOR",
   get_voice_config: "OPERATOR",
   update_voice_config: "OPERATOR",
+  // #1348 Cascade Lens v1 — read-only voice provenance explainer
+  explain_voice_cascade: "OPERATOR",
 };
 
 /** Names of every roadmap-stub tool — kept centralised so the
@@ -270,6 +273,10 @@ export async function executeAdminTool(
         break;
       case "update_voice_config":
         result = await handleUpdateVoiceConfig(input);
+        break;
+      // #1348 Cascade Lens v1 — read-only
+      case "explain_voice_cascade":
+        result = await handleExplainVoiceCascade(input);
         break;
       default:
         if (NOT_YET_AVAILABLE_TOOLS.has(name)) {
@@ -2475,6 +2482,25 @@ async function handleUpdateVoiceConfig(input: Record<string, any>) {
     compose_inputs_bumped: true,
     message: `Updated voice config (${changedKeys.join(", ")}) on "${playbook.name}". ${TRAY_PROPOSED_SUFFIX}`,
     pendingChange,
+  };
+}
+
+/**
+ * #1348 Cascade Lens v1 — read-only voice cascade explainer for Cmd+K.
+ *
+ * Returns the full VoiceCascadeExplanation shape (callerId, playbookId,
+ * courseId, providerId, resolvedAt, fields[]) so the AI can narrate which
+ * layer (system / provider / domain / course) won for every cascadeable
+ * field. No DB writes; no pendingChange.
+ */
+async function handleExplainVoiceCascade(input: Record<string, any>) {
+  const callerId = typeof input.callerId === "string" ? input.callerId : "";
+  if (!callerId) return { error: "callerId is required" };
+
+  const explanation = await explainVoiceCascade(callerId);
+  return {
+    ok: true,
+    explanation,
   };
 }
 

@@ -1,0 +1,141 @@
+/**
+ * Cascade Lens panel — voice provenance card (#1348).
+ *
+ * Namespace: .hf-cascade-* (kept distinct from .hf-preview-sidetray* and
+ * the existing .hf-card primitives so future cascades — extraction-explain,
+ * module-selection-explain — share this base without colliding).
+ *
+ * Tokens only. No hex literals; use color-mix() for alpha.
+ */
+
+.hf-cascade-lens {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-cascade-lens-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.hf-cascade-lens-toggle:hover {
+  color: var(--accent-primary);
+}
+
+.hf-cascade-lens-caret {
+  color: var(--text-muted);
+  font-size: 10px;
+  width: 10px;
+  display: inline-block;
+}
+
+.hf-cascade-lens-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.hf-cascade-lens-body {
+  border-top: 1px solid var(--border-default);
+  padding-top: 12px;
+}
+
+.hf-cascade-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-cascade-row {
+  display: grid;
+  grid-template-columns: 18px minmax(140px, 1fr) minmax(120px, 2fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-secondary) 60%, transparent);
+}
+
+.hf-cascade-row[data-locked] {
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-secondary));
+}
+
+.hf-cascade-lock {
+  font-size: 12px;
+  text-align: center;
+}
+
+.hf-cascade-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hf-cascade-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hf-cascade-pills {
+  display: inline-flex;
+  gap: 4px;
+  justify-self: end;
+}
+
+.hf-cascade-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.hf-cascade-pill--active {
+  background: var(--accent-primary);
+  color: var(--accent-primary-text);
+  border-color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+a.hf-cascade-pill--active:hover {
+  background: var(--accent-primary-hover);
+  border-color: var(--accent-primary-hover);
+}
+
+.hf-cascade-pill--dim {
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--border-default) 80%, transparent);
+}
+
+.hf-cascade-pill--empty {
+  background: transparent;
+  color: color-mix(in srgb, var(--text-muted) 50%, transparent);
+  border-color: color-mix(in srgb, var(--border-default) 50%, transparent);
+}
