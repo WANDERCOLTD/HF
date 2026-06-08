@@ -230,6 +230,36 @@
   background: var(--wa-green-darker);
 }
 
+/* #1371 — Fat red phone-down circle for ending a live voice call.
+   Same 72×72 footprint as the green start button so the lobby/active
+   transition swaps in place. Used for BOTH WebRTC [Talk Here] and
+   PSTN [Call me] live states — replaces the prior text-link "End
+   voice session" which operators reported as too small to find. */
+.wa-lobby-end-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--status-error-text, #ef4444);
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--status-error-text, #ef4444) 45%, transparent);
+  transition: background 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wa-lobby-end-btn:hover {
+  background: color-mix(in srgb, var(--status-error-text, #ef4444) 88%, black);
+}
+
+.wa-lobby-end-btn:active {
+  transform: scale(0.93);
+  background: color-mix(in srgb, var(--status-error-text, #ef4444) 75%, black);
+}
+
 /* Chat background with subtle pattern */
 .wa-chat-bg {
   background-color: var(--wa-bg);

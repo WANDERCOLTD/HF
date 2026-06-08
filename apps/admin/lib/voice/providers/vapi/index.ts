@@ -545,6 +545,15 @@ export class VapiProvider implements VoiceProvider {
         message.messagesOpenAIFormatted ??
         message.conversation) as Array<Record<string, unknown>> | undefined;
       if (Array.isArray(msgs)) {
+        // #1371 — VAPI emits multi-message assistant turns (one message
+        // per sentence / TTS chunk). Pre-#1371 we picked ONLY the last
+        // message — REPLACE coalesce then showed only the last phrase
+        // live, while the full text only appeared post-call from
+        // Call.transcript. Fix: walk backwards from the tail, collect
+        // ALL consecutive same-role messages, join with spaces. Stops
+        // on the first role change (= previous speaker's turn).
+        const collected: string[] = [];
+        let pickedRole: string | null = null;
         for (let i = msgs.length - 1; i >= 0; i--) {
           const m = msgs[i];
           if (!m || typeof m !== "object") continue;
@@ -554,11 +563,19 @@ export class VapiProvider implements VoiceProvider {
             (m.content as string | undefined) ??
             (m.message as string | undefined) ??
             "";
-          if (typeof content === "string" && content.length > 0) {
-            rawText = content;
-            rawRole = role || rawRole;
+          if (typeof content !== "string" || content.length === 0) continue;
+          if (pickedRole === null) {
+            pickedRole = role;
+            collected.unshift(content);
+          } else if (role === pickedRole) {
+            collected.unshift(content);
+          } else {
             break;
           }
+        }
+        if (collected.length > 0 && pickedRole) {
+          rawText = collected.join(" ");
+          rawRole = pickedRole || rawRole;
         }
       }
     }
