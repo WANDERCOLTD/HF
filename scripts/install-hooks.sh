@@ -4,9 +4,12 @@
 # Run this once after cloning, or any time the hook bodies change here:
 #   ./scripts/install-hooks.sh
 #
-# Three hooks land in .git/hooks/:
+# Four hooks land in .git/hooks/:
 #   pre-commit   — blocks direct commits on main, regenerates API docs,
 #                  fast qmd index update. Slow qmd embed moved out (post-commit).
+#   pre-push     — runs tsc --noEmit + eslint on apps/admin before push.
+#                  Catches type/lint errors locally instead of in CI (5-10 min loop).
+#                  Escape hatch: HF_SKIP_PREPUSH=1 git push ...
 #   post-commit  — runs qmd embed synchronously so the index is consistent
 #                  before the next command starts. ~30s blocking.
 #   post-merge   — refreshes qmd index + runs embed synchronously after pull.
@@ -89,6 +92,55 @@ exit 0
 HOOK
 chmod +x "$HOOK_DIR/pre-commit"
 
+# ── pre-push ────────────────────────────────────────────────────────────────
+cat > "$HOOK_DIR/pre-push" << 'HOOK'
+#!/bin/bash
+# HF pre-push hook (installed by scripts/install-hooks.sh)
+#
+# Why: CI catches tsc/lint errors but at a 5–10 min round-trip. Running them
+# locally before push catches the same errors in ~60s and keeps the loop tight.
+# Pre-push (not pre-commit) so small commits stay fast.
+#
+# Escape hatch: HF_SKIP_PREPUSH=1 git push ...   (emergencies only)
+#
+# Drain stdin so git doesn't SIGPIPE us — we don't inspect the ref list.
+cat >/dev/null
+
+# Skip on hf-dev VM (resource-constrained; tsc on the box is too slow).
+[ "$HOSTNAME" = "hf-dev" ] && exit 0
+
+# Escape hatch.
+if [ "${HF_SKIP_PREPUSH:-0}" = "1" ]; then
+  echo "[pre-push] ⚠ HF_SKIP_PREPUSH=1 — skipping tsc + lint. Don't make this a habit."
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT/apps/admin" || exit 0
+
+echo "[pre-push] Running tsc --noEmit (1/2)..."
+if ! npx tsc --noEmit; then
+  echo ""
+  echo "  [pre-push] ✗ tsc failed — fix type errors before pushing."
+  echo "  Override (emergencies only): HF_SKIP_PREPUSH=1 git push ..."
+  echo ""
+  exit 1
+fi
+
+echo "[pre-push] Running eslint (2/2)..."
+if ! npm run lint --silent; then
+  echo ""
+  echo "  [pre-push] ✗ lint failed — fix lint errors before pushing."
+  echo "  Override (emergencies only): HF_SKIP_PREPUSH=1 git push ..."
+  echo ""
+  exit 1
+fi
+
+echo "[pre-push] ✓ tsc + lint passed."
+exit 0
+HOOK
+chmod +x "$HOOK_DIR/pre-push"
+
 # ── post-commit ─────────────────────────────────────────────────────────────
 cat > "$HOOK_DIR/post-commit" << 'HOOK'
 #!/bin/bash
@@ -128,5 +180,6 @@ chmod +x "$HOOK_DIR/post-merge"
 
 echo "✓ Git hooks installed in $HOOK_DIR"
 echo "  - pre-commit  (blocks main, regenerates API docs, fast qmd update)"
+echo "  - pre-push    (tsc --noEmit + eslint on apps/admin; skip on hf-dev)"
 echo "  - post-commit (qmd embed in background)"
 echo "  - post-merge  (qmd refresh after pull)"
