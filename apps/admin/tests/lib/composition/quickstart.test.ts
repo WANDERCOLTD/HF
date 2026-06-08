@@ -316,7 +316,12 @@ describe("computeQuickStart transform", () => {
     expect(result.this_session).not.toContain("Introduce Advanced");
   });
 
-  it("first_line emits locked-module instruction when lockedModule is set (highest priority)", () => {
+  it("first_line emits a literal greeting naming the locked module (highest priority, #1367)", () => {
+    // Post-#1367: first_line is the literal text VAPI speaks aloud as
+    // assistant.firstMessage — must be a greeting, NOT an AI directive
+    // ("the learner has picked... do NOT ask..."). The instruction
+    // semantics still live in the system-prompt body via the
+    // lockedModule + Module-progress sections.
     const ctx = makeContext({
       sharedState: {
         ...makeContext().sharedState,
@@ -326,8 +331,8 @@ describe("computeQuickStart transform", () => {
     });
     const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
     expect(result.first_line).toContain("Part 1: Familiar Topics");
-    expect(result.first_line).toContain("picked");
-    expect(result.first_line).toContain("acknowledg"); // "acknowledging"
+    expect(result.first_line).not.toMatch(/the learner has picked/i);
+    expect(result.first_line).not.toMatch(/do NOT ask/i);
     expect(result.first_line).not.toContain("reconnect"); // legacy fallback
   });
 
@@ -366,9 +371,9 @@ describe("computeQuickStart transform", () => {
     // seeded with nextModule.name; lockedModule must win and that line never runs.
     expect(result.first_line).not.toContain("Unit 09 — Architecture");
     expect(result.first_line).not.toContain("Good to meet you");
-    // Locked-module instruction wraps the picked module name in quotes.
-    expect(result.first_line).toContain("picked");
-    expect(result.first_line).toContain("acknowledg");
+    // Post-#1367: literal greeting, not a directive.
+    expect(result.first_line).not.toMatch(/the learner has picked/i);
+    expect(result.first_line).not.toMatch(/do NOT ask/i);
   });
 
   it("first_line locked-module wins over #266 narrative when both apply", () => {
