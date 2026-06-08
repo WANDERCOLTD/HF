@@ -874,7 +874,9 @@ async function cleanupExistingData() {
     await prisma.account.deleteMany({
       where: { userId: { in: teacherUsers.map((u) => u.id) } },
     });
-    await prisma.session.deleteMany({
+    // #1341 — `Session` was renamed to `AuthSession`; this is NextAuth's
+    // session table (now dormant under JWT strategy).
+    await prisma.authSession.deleteMany({
       where: { userId: { in: teacherUsers.map((u) => u.id) } },
     });
   }

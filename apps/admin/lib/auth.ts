@@ -7,6 +7,7 @@ import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { sendMagicLinkEmail, EMAIL_FROM_DEFAULT } from "./email";
+import { withRenamedSessionModel } from "./auth/with-renamed-session-model";
 import type { UserRole } from "@prisma/client";
 import type { Adapter } from "next-auth/adapters";
 import type { Provider } from "next-auth/providers";
@@ -109,7 +110,12 @@ if (!process.env.SMTP_PASSWORD && !process.env.RESEND_API_KEY) {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma) as Adapter,
+  // #1341 — NextAuth's `model Session` was renamed to `AuthSession` so
+  // the canonical learner-Session parent can take the simple name.
+  // The wrapper redirects the adapter's four session methods at
+  // `prisma.authSession.*`. JWT strategy makes these dormant for
+  // credentials sign-in, but the wrapper keeps them functional.
+  adapter: withRenamedSessionModel(PrismaAdapter(prisma), prisma) as Adapter,
   session: {
     strategy: "jwt", // JWT for credentials support
   },

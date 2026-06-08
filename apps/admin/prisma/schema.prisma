@@ -735,8 +735,8 @@ model User {
   updatedAt      DateTime  @updatedAt
 
   // NextAuth relations
-  accounts Account[]
-  sessions Session[]
+  accounts     Account[]
+  authSessions AuthSession[]
 
   // Messaging relations
   sentMessages     Message[] @relation("SentMessages")
@@ -807,12 +807,156 @@ model Account {
   @@unique([provider, providerAccountId])
 }
 
-model Session {
+// NextAuth's session table. Renamed from `Session` → `AuthSession` in
+// #1341 (Slice 0 of epic #1338) so the new learner-facing `model Session`
+// (parent of Call / sim / text-chat / enrollment) can land without a
+// schema-level naming collision. JWT strategy is active (lib/auth.ts
+// `strategy: "jwt"`), so this table is effectively dormant — the
+// PrismaAdapter still requires the four `getSessionAndUser` /
+// `createSession` / `updateSession` / `deleteSession` methods to
+// resolve at type-time, which our wrapper in `lib/auth.ts` redirects
+// onto `prisma.authSession.*` (lib/auth/with-renamed-session-model.ts).
+model AuthSession {
   id           String   @id @default(uuid())
   sessionToken String   @unique
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// =============================================================
+// LEARNER SESSION (epic #1338 Slice 0 — story #1341)
+// =============================================================
+// `Session` is the canonical parent of every learner interaction:
+// voice call, sim run, text chat, enrolment intake, assessment.
+// Each (callerId, kind, sequenceNumber) is unique; the live sequencer
+// is `CallerSequenceCounter` (atomic `UPDATE ... RETURNING` in Slice 3).
+//
+// Slice 0 is SCHEMA ONLY. No application code reads or writes `Session`
+// yet — the builders + reconciler ship in Slices 3 + 5. The migration
+// backfills one Session per existing Call row so downstream slices land
+// on a populated table.
+//
+// Two FK transitions ride alongside this slice:
+//   1. `Call.sessionId` (nullable, @unique) — backfilled by the same
+//      migration; Slice 4 enforces NOT NULL after a verification window.
+//   2. `ComposedPrompt.triggerSessionId` (nullable) — dual-FK with
+//      `triggerCallId`; Slice 4 drops the legacy `triggerCallId` once
+//      the transition completes.
+//
+// Mirror of the `Curriculum.playbookId` dual-FK pattern documented in
+// docs/CONTRACTS-PLAYBOOK-CURRICULUM.md §3.
+enum SessionKind {
+  ENROLLMENT // intake-chat that produced the Caller row
+  ASSESSMENT // pre-test / personality / KC-probe
+  VOICE_CALL // outbound VAPI / future voice provider call
+  SIM_CALL // browser sim-driver run
+  TEXT_CHAT // operator Cmd+K / debug chat — narrative-irrelevant
+}
+
+enum SessionStatus {
+  STARTED // row exists, startedAt set, not yet active
+  ACTIVE // call/sim/chat is live
+  COMPLETED // ended cleanly with transcript
+  FAILED // ended without usable output (FailureLog children in Slice 1)
+  GHOST // never connected; reconciler closes these in Slice 5
+}
+
+model Session {
+  id String @id @default(uuid())
+
+  // Owner (always required — every learner interaction belongs to a Caller)
+  callerId String
+  caller   Caller @relation(fields: [callerId], references: [id], onDelete: Restrict)
+
+  // Course scoping — nullable because ENROLLMENT sessions may precede
+  // Playbook assignment.
+  playbookId String?
+  playbook   Playbook? @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+
+  kind SessionKind
+
+  // Per-(callerId, kind) sequence. Atomic counter in `CallerSequenceCounter`.
+  sequenceNumber Int
+
+  // Per-callerId learner-facing call counter — only set when
+  // `countsTowardLearnerNumber = true`. Read by COMPOSE header "(call #N)"
+  // (Slice 4).
+  learnerFacingNumber Int?
+
+  // Learner's pre-call module pick from the picker / URL param.
+  requestedModuleId String?
+
+  // Module this session was about. Resolved from `requestedModuleId` at
+  // session-start (Slice 3) and overwritten by the pipeline post-session
+  // to record what actually got taught.
+  curriculumModuleId String?
+  curriculumModule   CurriculumModule? @relation(fields: [curriculumModuleId], references: [id], onDelete: SetNull)
+
+  // Voice provider slug at session-start. References `VoiceProvider.slug`
+  // at app level (no FK constraint — provider config can churn). NULL for
+  // SIM_CALL / TEXT_CHAT / ENROLLMENT / ASSESSMENT.
+  voiceProvider String?
+
+  // Snapshot from `resolveVoiceConfig()` at session-start (Slice 3).
+  // Shape: `VoiceConfig` from lib/voice/types.ts (#1269 / #1270).
+  voiceConfigSnapshot Json?
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  status SessionStatus @default(STARTED)
+
+  // Two-counter system (epic #1338 §"Two counters"). Set at create-time
+  // and never mutated.
+  //   countsTowardLearnerNumber — true for VOICE_CALL / SIM_CALL; false for
+  //     TEXT_CHAT / ENROLLMENT / ASSESSMENT (until rules say otherwise).
+  //   countsTowardPipelineNumber — true for everything that runs the
+  //     adaptive loop; false for narrative-only chats.
+  countsTowardLearnerNumber  Boolean @default(true)
+  countsTowardPipelineNumber Boolean @default(true)
+
+  // Pipeline stages to skip — derived at `createSession` time, read by
+  // the router in Slice 3.
+  skipStages String[]
+
+  // The prompt this Session ran with (I-CT2 cascade in Slice 3).
+  usedPromptId String?
+  usedPrompt   ComposedPrompt? @relation("SessionUsedPrompt", fields: [usedPromptId], references: [id], onDelete: SetNull)
+
+  // The n+1 prompt produced by this Session's pipeline run. Supports the
+  // Tune tab "Next: Call N" card.
+  producedComposedPromptId String?
+  producedComposedPrompt   ComposedPrompt? @relation("SessionProducedPrompt", fields: [producedComposedPromptId], references: [id], onDelete: SetNull)
+
+  // 1:1 join from the legacy Call row. Slice 0 backfills this; Slice 3
+  // wires the live `createSession` path.
+  call Call?
+
+  // ComposedPrompts whose `triggerSessionId` points back at this Session
+  // (Slice 3 writes; Slice 5 reconciler scans for I-CT1 orphans). Mirror
+  // of the legacy `triggerCallId` → `triggeredPrompts` relation on Call.
+  triggeredComposedPrompts ComposedPrompt[] @relation("SessionTriggeredPrompts")
+
+  @@unique([callerId, kind, sequenceNumber])
+  @@index([callerId, startedAt])
+  @@index([playbookId])
+  @@index([kind])
+  @@index([status])
+}
+
+// Atomic counter for `Session.sequenceNumber`. Replaces the current
+// `MAX(callSequence) + 1` read-modify-write in
+// `lib/voice/route-handlers.ts:577-589`, which two concurrent VAPI
+// deliveries within ms could race past. Slice 3 will land the
+// `UPDATE ... RETURNING nextSeq - 1` pattern against this row.
+model CallerSequenceCounter {
+  callerId  String
+  kind      String // SessionKind discriminator (string for forward-compat)
+  nextSeq   Int      @default(1)
+  updatedAt DateTime @updatedAt
+
+  @@id([callerId, kind])
 }
 
 // Required by NextAuth EmailProvider (magic link) AND by OAuth providers
@@ -972,6 +1116,11 @@ model Caller {
   // — a deleted module shouldn't keep an orphan reference here.
   lastSelectedModuleId String?
   lastSelectedModule   CurriculumModule? @relation("CallerLastSelectedModule", fields: [lastSelectedModuleId], references: [id], onDelete: SetNull)
+
+  // #1341 (epic #1338 Slice 0) — Learner-Session parent rows. One per
+  // voice call / sim run / text chat / enrolment / assessment. Read by
+  // the Tune tab "Calls timeline" and the Slice 3 builders.
+  sessions Session[]
 
   @@index([userId])
   @@index([externalId])
@@ -1428,6 +1577,15 @@ model Call {
   callerId String?
 
   caller Caller? @relation(fields: [callerId], references: [id])
+
+  // #1341 (epic #1338 Slice 0) — 1:1 link to the canonical learner
+  // Session parent. Nullable during the transition window: the Slice 0
+  // migration backfills one Session per existing Call row; Slice 4
+  // enforces NOT NULL after dev/test/prod verification. SetNull on
+  // delete keeps the legacy Call row alive if the parent Session is
+  // ever pruned (it won't be in normal flow; safety net).
+  sessionId String?  @unique
+  session   Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   // Course scoping — which playbook (course) this call belongs to
   playbookId String?
@@ -2520,6 +2678,9 @@ model CurriculumModule {
   // cascade-deleted along with the module.
   lastSelectedByCallers Caller[] @relation("CallerLastSelectedModule")
 
+  // #1341 (epic #1338 Slice 0) — Learner Sessions scoped to this module.
+  sessions Session[]
+
   // Projection provenance (#338, NEW courses since 2026-05-12). When this
   // module row was written by applyProjection() from a COURSE_REFERENCE doc's
   // Modules table, points to the source. NULL for legacy modules and for
@@ -2955,6 +3116,10 @@ model Playbook {
   // application-layer (see WizardSessionStatus).
   wizardSessions WizardSession[]
 
+  // #1341 (epic #1338 Slice 0) — Learner-Session back-relation. Set when
+  // a Session has been scoped to this playbook at create-time.
+  sessions Session[]
+
   @@index([domainId])
   @@index([domainId, sortOrder])
   @@index([status])
@@ -3342,8 +3507,20 @@ model ComposedPrompt {
   triggerCallId String?
   triggerCall   Call?   @relation("TriggeredPrompts", fields: [triggerCallId], references: [id])
 
+  // #1341 (epic #1338 Slice 0) — dual-FK with `triggerCallId` during the
+  // transition window. Slice 3 wires the live writer; Slice 4 drops
+  // `triggerCallId` once every reader is cut over.
+  triggerSessionId String?
+  triggerSession   Session? @relation("SessionTriggeredPrompts", fields: [triggerSessionId], references: [id], onDelete: SetNull)
+
   // Calls that used this prompt (reverse of Call.usedPromptId)
   usedForCalls Call[] @relation("UsedPrompt")
+
+  // #1341 (epic #1338 Slice 0) — back-relations for the Session FKs.
+  // - `sessionsUsedBy`     ← Session.usedPromptId
+  // - `sessionsProducedBy` ← Session.producedComposedPromptId
+  sessionsUsedBy     Session[] @relation("SessionUsedPrompt")
+  sessionsProducedBy Session[] @relation("SessionProducedPrompt")
 
   // Inputs used for composition (for audit/debugging)
   inputs Json? // { memories, personality, behaviorTargets, recentCalls, etc. }
@@ -3377,6 +3554,8 @@ model ComposedPrompt {
   @@index([playbookId])
   @@index([composedAt])
   @@index([triggerCallId])
+  // #1341 — index for Slice 3 reconciler scans of orphan COMPOSE rows.
+  @@index([triggerSessionId])
   @@index([status])
 }
 
