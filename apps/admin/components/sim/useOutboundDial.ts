@@ -32,6 +32,12 @@ interface DialApi {
   /** Last 4 of the phone number on file, masked. Empty when missing. */
   phoneMasked: string;
   errorMessage: string | null;
+  /** HF placeholder Call.id once the dial fires (#1368). Consumers use
+   *  this as the SSE subscription key — `/api/voice/calls/<id>/stream`
+   *  delivers transcript-partial events so SimChat can show live
+   *  bubbles during a PSTN call, mirroring the WebRTC path. Null
+   *  before dial fires; set in dialing/ringing state; cleared on reset. */
+  callId: string | null;
   /** Trigger from the [Call me] button. */
   start: () => Promise<void>;
   /** Submit the just-in-time phone form. */
@@ -48,6 +54,7 @@ export function useOutboundDial(options: UseOutboundDialOptions): DialApi {
   const [status, setStatus] = useState<DialStatus>("idle");
   const [phoneMasked, setPhoneMasked] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [callId, setCallId] = useState<string | null>(null);
 
   // Cache the resolved phone so we don't re-fetch on every click.
   const resolvedPhoneRef = useRef<string | null | "unknown">("unknown");
@@ -55,6 +62,7 @@ export function useOutboundDial(options: UseOutboundDialOptions): DialApi {
   const reset = useCallback(() => {
     setStatus("idle");
     setErrorMessage(null);
+    setCallId(null);
   }, []);
 
   const maskPhone = (p: string): string => {
@@ -86,7 +94,7 @@ export function useOutboundDial(options: UseOutboundDialOptions): DialApi {
         body: JSON.stringify({ callerId: options.callerId }),
       });
       const body = (await res.json()) as
-        | { ok?: boolean; error?: string; vapiCallId?: string }
+        | { ok?: boolean; error?: string; callId?: string; vapiCallId?: string }
         | null;
       if (!res.ok || !body?.ok) {
         throw new Error(
@@ -94,6 +102,9 @@ export function useOutboundDial(options: UseOutboundDialOptions): DialApi {
             `Dial failed (HTTP ${res.status}). Try again or check provider settings.`,
         );
       }
+      // #1368 — expose HF placeholder Call.id so SimChat can open SSE
+      // on /api/voice/calls/<id>/stream for live transcript bubbles.
+      if (body.callId) setCallId(body.callId);
       setStatus("ringing");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -163,12 +174,14 @@ export function useOutboundDial(options: UseOutboundDialOptions): DialApi {
     setStatus("idle");
     setPhoneMasked("");
     setErrorMessage(null);
+    setCallId(null);
   }, [options.callerId]);
 
   return {
     status,
     phoneMasked,
     errorMessage,
+    callId,
     start,
     savePhoneAndDial,
     reset,
