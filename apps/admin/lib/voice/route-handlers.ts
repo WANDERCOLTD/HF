@@ -53,6 +53,7 @@ import type {
   EndOfCallEventKind,
   NormalisedEndOfCallCapture,
   NormalisedEndOfCallEvent,
+  ParsedTranscriptUpdate,
 } from "@/lib/voice/types";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
@@ -203,18 +204,19 @@ export async function handleVoiceWebhookPost(
       return NextResponse.json({ ok: true });
     }
 
-    // #1092 — incremental transcript broadcast. VAPI fires both
-    // `conversation-update` (full transcript so far) and
-    // `transcript` (partial chunks). Either shape carries enough
-    // for the chat surface to show the running conversation. Broadcast
-    // via setImmediate so the webhook response stays inside VAPI's
+    // #1092 / #1337 — incremental transcript broadcast. Adapter parses the
+    // provider-specific shape into a canonical `ParsedTranscriptUpdate`;
+    // pre-#1337 this was a `slug === "vapi"` branch in this file, which
+    // silently dropped any provider's transcripts that weren't VAPI.
+    // Now: any adapter implementing `parseTranscriptUpdate` participates.
+    // setImmediate keeps the webhook response inside the provider's
     // ack budget.
-    const transcriptUpdate = parseTranscriptUpdate(body, slug);
+    const transcriptUpdate = provider.parseTranscriptUpdate?.(body) ?? null;
     if (transcriptUpdate) {
       log("api", "voice.webhook.transcript_update", {
         level: "info",
         slug,
-        externalCallId: (transcriptUpdate as Record<string, unknown>).externalCallId ?? null,
+        externalCallId: transcriptUpdate.externalCallId,
         ...sniff,
       });
       setImmediate(() => {
@@ -355,87 +357,12 @@ export function _resetTrickleState(): void {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Transcript broadcast (#1092)
+// Transcript broadcast (#1092 / #1337)
 // ═══════════════════════════════════════════════════════════════════
-
-interface ParsedTranscriptUpdate {
-  externalCallId: string;
-  role: "learner" | "assistant";
-  text: string;
-}
-
-/**
- * Parse VAPI's `conversation-update` / `transcript` event into a
- * normalised shape. Returns null when the event isn't a transcript or
- * carries no incremental text. Retell support arrives with the WSS
- * route in a follow-up story; for now this is VAPI-shaped.
- */
-function parseTranscriptUpdate(
-  body: unknown,
-  slug: string,
-): ParsedTranscriptUpdate | null {
-  if (slug !== "vapi") return null;
-  if (!body || typeof body !== "object") return null;
-  const root = body as Record<string, unknown>;
-  const message = (root.message ?? root) as Record<string, unknown>;
-  const type = (message.type ?? root.type) as string | undefined;
-  if (type !== "transcript" && type !== "conversation-update") return null;
-
-  const call = (message.call ?? root.call) as
-    | Record<string, unknown>
-    | undefined;
-  const externalCallId =
-    (call?.id as string | undefined) ??
-    (call?.callId as string | undefined) ??
-    (call?.call_id as string | undefined);
-  if (!externalCallId) return null;
-
-  // VAPI's `transcript` event has the chunk on the root:
-  //   { type: "transcript", transcript: "...", role: "user"|"assistant" }
-  // VAPI's `conversation-update` event carries the FULL conversation
-  // history in `messages` (or `messagesOpenAIFormatted`); the most
-  // recent non-system turn is the new chunk. Pre-#922 this path only
-  // read `message.transcript`, which is unset on `conversation-update`
-  // — so the chat-rail SSE never received broadcasts despite VAPI
-  // firing the events at ~1Hz.
-  let rawText =
-    (message.transcript as string | undefined) ??
-    (message.text as string | undefined) ??
-    "";
-  let rawRole: string = (message.role as string | undefined) ?? "user";
-
-  if (!rawText && type === "conversation-update") {
-    const msgs = (message.messages ??
-      message.messagesOpenAIFormatted ??
-      message.conversation) as Array<Record<string, unknown>> | undefined;
-    if (Array.isArray(msgs)) {
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        const m = msgs[i];
-        if (!m || typeof m !== "object") continue;
-        const role = (m.role as string | undefined) ?? "";
-        if (role === "system" || role === "tool") continue;
-        const content =
-          (m.content as string | undefined) ??
-          (m.message as string | undefined) ??
-          "";
-        if (typeof content === "string" && content.length > 0) {
-          rawText = content;
-          rawRole = role || rawRole;
-          break;
-        }
-      }
-    }
-  }
-
-  if (!rawText) return null;
-
-  const role: "learner" | "assistant" =
-    rawRole === "assistant" || rawRole === "bot"
-      ? "assistant"
-      : "learner";
-
-  return { externalCallId, role, text: rawText };
-}
+//
+// Per-provider parsing lives on the adapter — `provider.parseTranscriptUpdate(body)`.
+// This file owns dispatch (in handleVoiceWebhookPost above) and post-parse
+// fan-out to the SSE registry below.
 
 async function processTranscriptUpdate(
   parsed: ParsedTranscriptUpdate,
@@ -822,8 +749,10 @@ export type { EndOfCallEventKind, NormalisedEndOfCallCapture };
 
 /**
  * Tool-call route. Returns 404 when the provider declares
- * `toolCallsOverWebSocket: true` — tools for that provider arrive on
- * the WSS handler, not this HTTP path.
+ * `toolCallsOverWebSocket: true` (Retell — tools arrive on WSS) OR
+ * `orchestrationMode: "self-hosted-agent"` (LiveKit/Pipecat — the agent
+ * loop runs inside HF's process, so there's no remote orchestrator to
+ * call this endpoint at all). #1337.
  */
 export async function handleVoiceToolsPost(
   request: NextRequest,
@@ -831,8 +760,18 @@ export async function handleVoiceToolsPost(
 ): Promise<NextResponse> {
   try {
     const provider = await getVoiceProvider(slug);
+    const caps = provider.getCapabilities();
 
-    if (provider.getCapabilities().toolCallsOverWebSocket) {
+    if (caps.orchestrationMode === "self-hosted-agent") {
+      return NextResponse.json(
+        {
+          error: `Provider "${slug}" uses self-hosted-agent orchestration — tools are direct in-process calls, not remote callbacks.`,
+        },
+        { status: 404 },
+      );
+    }
+
+    if (caps.toolCallsOverWebSocket) {
       return NextResponse.json(
         {
           error: `Provider "${slug}" delivers tool calls over WebSocket, not HTTP. Use the WSS handler.`,
@@ -943,6 +882,20 @@ export async function handleVoiceAssistantRequestPost(
   try {
     const rawBody = await request.text();
     const inbound = await getVoiceProvider(slug);
+
+    // #1337 — self-hosted-agent providers (LiveKit/Pipecat) build the
+    // assistant inline in HF's process; they never POST an
+    // assistant-request to this route. Fail loud with 404 instead of
+    // silently running the prompt-composition pipeline for a payload
+    // that can't have legitimate origin.
+    if (inbound.getCapabilities().orchestrationMode === "self-hosted-agent") {
+      endSpan({ metadata: { selfHostedAgent: true } });
+      return NextResponse.json(
+        { error: `Provider "${slug}" uses self-hosted-agent orchestration — assistant configs are built in-process, not via this callback.` },
+        { status: 404 },
+      );
+    }
+
     const authError = inbound.verifyInboundRequest(request, rawBody);
     if (authError) {
       logVoiceEvent({
@@ -1155,9 +1108,11 @@ export async function handleVoiceAssistantRequestPost(
 
 /**
  * Per-turn knowledge callback. Returns 404 when the provider declares
- * `hasKnowledgeCallback: false` — that provider uses pre-uploaded IDs
- * and never POSTs here (Retell). Without this guard the route would
- * crash on `buildKnowledgeResponse` (which Retell throws on by design).
+ * `hasKnowledgeCallback: false` (Retell — pre-uploaded knowledge IDs) OR
+ * `orchestrationMode: "self-hosted-agent"` (LiveKit/Pipecat — KB lookups
+ * happen inline in HF's process, never as a remote callback). #1337.
+ * Without these guards the route would crash on `buildKnowledgeResponse`
+ * (which Retell throws on by design).
  */
 export async function handleVoiceKnowledgePost(
   request: NextRequest,
@@ -1169,8 +1124,17 @@ export async function handleVoiceKnowledgePost(
   });
   try {
     const provider = await getVoiceProvider(slug);
+    const caps = provider.getCapabilities();
 
-    if (!provider.getCapabilities().hasKnowledgeCallback) {
+    if (caps.orchestrationMode === "self-hosted-agent") {
+      endSpan({ metadata: { selfHostedAgent: true } });
+      return NextResponse.json(
+        { error: `Provider "${slug}" uses self-hosted-agent orchestration — knowledge lookups are in-process, not remote callbacks.` },
+        { status: 404 },
+      );
+    }
+
+    if (!caps.hasKnowledgeCallback) {
       endSpan({ metadata: { noKnowledgeCallback: true } });
       return NextResponse.json(
         {

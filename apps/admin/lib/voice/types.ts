@@ -9,10 +9,8 @@
  * to the active adapter. The pipeline, composition, and prompt layers
  * never know which provider is on the wire.
  *
- * Today's only implementation is `VapiProvider` (`lib/voice/providers/vapi`).
- * Adding a second provider = one new file under `lib/voice/providers/<slug>/`
- * + one new enum value on `VoiceProviderSlug` (#1025) + one new
- * `getVoiceProvider` case.
+ * Implementations live under `lib/voice/providers/<slug>/`. Adding a new
+ * provider = one new file + one new entry in `lib/voice/adapter-registry.ts`.
  *
  * Invariants (see CHAIN-CONTRACTS.md I-VP1..I-VP5):
  *   I-VP1 — Composed prompt is provider-agnostic.
@@ -24,6 +22,21 @@
  *   I-VP5 — Tool-call callback adapter normalises payloads to a canonical
  *           ToolExecutionContext (this file's normaliseToolCallList +
  *           buildOutboundReachInPayload seams).
+ *
+ * Canonical voice cascade keys (#1334 / #1337):
+ *   New adapters MUST declare the following keys in `getConfigSchema()` so
+ *   the cascade (`lib/voice/config.ts::resolveVoiceConfig`) flows through
+ *   to them uniformly without per-adapter special casing:
+ *     - `voiceId`          — string, voice ID within the chosen TTS engine
+ *     - `voiceProvider`    — enum, TTS engine slug ("11labs" / "deepgram" / "openai" / …)
+ *     - `transcriber`      — enum, STT engine slug
+ *     - `backgroundSound`  — enum / off, ambient sound during TTS
+ *     - `recordingEnabled` — boolean, whether to capture call audio
+ *   Cross-cutting safety keys (silenceTimeoutSeconds / maxDurationSeconds /
+ *   maxCostPerCallUsd / voicemailDetectionEnabled / endCallPhrases /
+ *   autoPipeline / pollIntervalMs) cascade from VoiceSystemSettings regardless
+ *   of adapter — adapters don't need to redeclare them. See `CROSS_CUTTING_KEYS`
+ *   in `lib/voice/config.ts`.
  */
 
 import type { NextRequest, NextResponse } from "next/server";
@@ -164,6 +177,24 @@ export interface NormalisedEndOfCallCapture {
   successEvaluation?: string;
 }
 
+/**
+ * Mid-call transcript update normalised across providers (#1337 / #1092).
+ *
+ * Adapters that emit incremental transcripts (VAPI's `transcript` +
+ * `conversation-update`, Retell's `transcript_updated`, LiveKit's own
+ * STT callback) parse provider-specific bodies into this shape. The SSE
+ * registry then broadcasts `transcript-partial` events to chat surfaces.
+ *
+ * Returning null means "this body isn't a transcript event for this
+ * provider" — used by `parseTranscriptUpdate` on the adapter to filter
+ * out non-transcript webhook payloads.
+ */
+export interface ParsedTranscriptUpdate {
+  externalCallId: string;
+  role: "learner" | "assistant";
+  text: string;
+}
+
 /** Single tool call normalised from a provider's batched callback. */
 export interface NormalisedToolCall {
   /** Provider's tool-call id to echo back in the response. */
@@ -265,6 +296,18 @@ export interface VoiceProviderCapabilities {
    *  prevention). When false, the cost-cap watcher in #1080 logs but
    *  cannot terminate the call. */
   supportsRequestEndCall: boolean;
+  /** Orchestration shape (#1337). "vendor-cloud" = provider runs the
+   *  agent loop in their own cloud and calls back over HTTP/WSS (VAPI,
+   *  Retell). "self-hosted-agent" = the agent loop runs INSIDE HF's
+   *  process (LiveKit Agents, Pipecat) — no per-turn webhooks; tools
+   *  are direct function calls; KB lookups happen inline. The
+   *  `/api/voice/[slug]/{tools,knowledge,assistant-request}` routes
+   *  return 404 for `self-hosted-agent` providers (those callbacks
+   *  have no remote sender). Existing `endOfCallEvents`,
+   *  `hasKnowledgeCallback`, and `toolCallsOverWebSocket` flags retain
+   *  their fine-grained meaning for vendor-cloud providers; they're
+   *  ignored on the self-hosted path. */
+  orchestrationMode: "vendor-cloud" | "self-hosted-agent";
 }
 
 /**
@@ -378,4 +421,26 @@ export interface VoiceProvider {
    * dispatch in #1079 + #1080. Pure function — must not hit DB.
    */
   getCapabilities(): VoiceProviderCapabilities;
+
+  /**
+   * Parse a mid-call transcript-update webhook into the canonical shape (#1337).
+   *
+   * Pre-#1337 this lived as a switch on `slug` inside
+   * `lib/voice/route-handlers.ts` — only the VAPI branch was wired and
+   * every other provider's transcripts silently dropped. Dispatching
+   * through the adapter removes that hole and lets any adapter that
+   * emits transcript webhooks (Retell `transcript_updated`, future
+   * LiveKit/Pipecat) implement this method.
+   *
+   * Returns null when the body isn't a transcript event for this
+   * provider (e.g. a status-update reaches the same webhook), or when
+   * the event carries no incremental text. Optional — providers that
+   * never emit transcript events (or whose transcripts arrive over a
+   * different channel like WSS) can omit this method.
+   *
+   * Used by `processTranscriptUpdate` → `broadcastToCall` to feed the
+   * `transcript-partial` SSE channel that `components/sim/SimChat.tsx`
+   * subscribes to.
+   */
+  parseTranscriptUpdate?(body: unknown): ParsedTranscriptUpdate | null;
 }

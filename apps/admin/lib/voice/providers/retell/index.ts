@@ -31,6 +31,7 @@ import type {
   NormalisedEndOfCallEvent,
   NormalisedToolCall,
   NormalisedToolCallBatch,
+  ParsedTranscriptUpdate,
   ProviderAssistantConfig,
   ProviderConfigSchema,
   VoiceProvider,
@@ -251,6 +252,27 @@ export class RetellProvider implements VoiceProvider {
       hasKnowledgeCallback: false,
       toolCallsOverWebSocket: true,
       supportsRequestEndCall: true,
+      // #1337 — Retell runs its agent loop in their cloud (custom-LLM
+      // mode still delegates to a Retell-managed orchestrator via WSS),
+      // so it's "vendor-cloud" — same dispatch class as VAPI.
+      orchestrationMode: "vendor-cloud",
     };
+  }
+
+  /**
+   * Stub: Retell emits `transcript_updated` events (#1337). Real parser
+   * lands with the rest of the Retell transport story. Until then,
+   * returning null preserves the pre-#1337 behaviour — the route layer
+   * used to early-exit on `slug !== "vapi"`, dropping the same data on
+   * the floor. Filing this stub means future-Retell-work is one method
+   * implementation away, not a `route-handlers.ts` edit.
+   *
+   * TODO(retell-transport-followup): parse `event === "transcript_updated"`
+   * messages from the Retell webhook payload — see
+   * https://docs.retellai.com/features/webhook for the wire format.
+   */
+  parseTranscriptUpdate(_body: unknown): ParsedTranscriptUpdate | null {
+    void _body;
+    return null;
   }
 }
