@@ -1,0 +1,32 @@
+# Cloud Build config for the runner (production server) image.
+# Uses Kaniko layer caching — code-only changes skip npm ci.
+#
+# Usage:
+#   cd apps/foh
+#   gcloud builds submit --config cloudbuild-runner.yaml \
+#     --project hf-admin-prod --region europe-west2 \
+#     --substitutions=_TAG=latest,_APP_ENV=DEV .
+
+substitutions:
+  _TAG: latest
+  _APP_ENV: LIVE
+
+steps:
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - '--dockerfile=Dockerfile'
+      - '--context=.'
+      - '--target=runner'
+      - '--destination=europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/hf-foh:${_TAG}'
+      - '--cache=true'
+      - '--cache-repo=europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/hf-foh/cache'
+      - '--cache-ttl=720h'
+      - '--snapshotMode=redo'
+      - '--compressed-caching=false'
+      - '--build-arg=NEXT_PUBLIC_APP_ENV=${_APP_ENV}'
+      - '--build-arg=NODE_OPTIONS=--max-old-space-size=4096'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_32
+  diskSizeGb: 200
