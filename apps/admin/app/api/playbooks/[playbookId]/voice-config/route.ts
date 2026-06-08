@@ -136,7 +136,10 @@ export async function PATCH(
   } else {
     nextVoice[key] = value;
   }
-  await updatePlaybookConfig(playbookId, { voice: nextVoice } as Partial<PlaybookConfig>);
+  await updatePlaybookConfig(playbookId, (current) => ({
+    ...current,
+    voice: nextVoice,
+  }));
 
   return NextResponse.json({ ok: true, key, applied: value === null ? "cleared" : "set" });
 }
