@@ -33,6 +33,10 @@ interface CheckResult {
   name: string;
   description: string;
   rows: CheckRow[];
+  /** WARN-only checks emit a warning line but do NOT cause the script
+   *  to exit non-zero. Use this for invariants that surface data drift
+   *  worth investigating but aren't structural FK leaks. */
+  warnOnly?: boolean;
 }
 
 async function runChecks(): Promise<CheckResult[]> {
@@ -224,6 +228,47 @@ async function runChecks(): Promise<CheckResult[]> {
     rows: incoherentSpecs,
   });
 
+  // Query 8 — #1345 — long-lived ghost Call rows (WARN-only).
+  // A Call row with endedAt IS NULL and createdAt > 5 minutes old is a
+  // ghost — the outbound-dial placeholder lost its externalId stamp, OR
+  // the inbound webhook arrived and was orphaned by a placeholder race,
+  // OR poll-stale-calls failed for >5 cycles. WARN-only because Bertie's
+  // bug class is structural-prevention (Part A dedup + Part B try/catch
+  // in #1345) — this check is a forensic alarm that the fix isn't
+  // holding, not a hard failure that should block CI.
+  const ghostRows = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      callerId: string | null;
+      voiceProvider: string;
+      createdAt: Date;
+      externalId: string | null;
+    }>
+  >`
+    SELECT c."id", c."callerId", c."voiceProvider", c."createdAt", c."externalId"
+    FROM "Call" c
+    WHERE c."endedAt" IS NULL
+      AND c."createdAt" < NOW() - INTERVAL '5 minutes'
+  `;
+  results.push({
+    name: "long-lived-ghost-rows",
+    description:
+      "Call rows with endedAt IS NULL older than 5 minutes — should never exist post-#1345 (dedup + externalId-stamp safety). Surfaces #1345 regression: orphaned outbound-dial placeholder OR inbound webhook that lost the dedup race.",
+    rows: ghostRows.map((r) => ({
+      id: r.id,
+      detail: {
+        callerId: r.callerId,
+        voiceProvider: r.voiceProvider,
+        externalId: r.externalId,
+        createdAt: r.createdAt.toISOString(),
+        ageMinutes: Math.round(
+          (Date.now() - r.createdAt.getTime()) / 60_000,
+        ),
+      },
+    })),
+    warnOnly: true,
+  });
+
   const divergences = findAnchorDivergence(anchorCurricula);
   results.push({
     name: "qualification-anchor-divergence",
@@ -261,8 +306,13 @@ function printReport(results: CheckResult[]): boolean {
       console.log(`  ✓ ${r.name} — 0 rows`);
       continue;
     }
-    anyLeaks = true;
-    console.log(`  ✗ ${r.name} — ${r.rows.length} row(s) leak`);
+    if (r.warnOnly) {
+      // WARN-only — surface but do not flip anyLeaks. CI still passes.
+      console.log(`  ⚠ ${r.name} — ${r.rows.length} row(s) (WARN-only)`);
+    } else {
+      anyLeaks = true;
+      console.log(`  ✗ ${r.name} — ${r.rows.length} row(s) leak`);
+    }
     console.log(`    ${r.description}`);
     for (const row of r.rows.slice(0, 10)) {
       console.log(`      • id=${row.id}${row.detail ? ` ${JSON.stringify(row.detail)}` : ""}`);
