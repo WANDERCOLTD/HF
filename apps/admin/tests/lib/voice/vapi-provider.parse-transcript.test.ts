@@ -89,36 +89,66 @@ describe("VapiProvider.parseTranscriptUpdate — `transcript` event (chunk)", ()
   });
 });
 
-describe("VapiProvider.parseTranscriptUpdate — `conversation-update` event (#1364 skip)", () => {
-  // #1364 — Parser intentionally returns null for conversation-update.
-  // VAPI fires both `transcript` (per-chunk Deepgram interim_results)
-  // AND `conversation-update` (full-history snapshot ~1Hz). Parsing
-  // both produced duplicate bubbles in SimChat (each turn broadcast
-  // twice — once as a chunk, once via the history-walk). Transcript
-  // chunks are sufficient for incremental streaming; the history
-  // snapshot is a catch-up channel the chat surface doesn't need.
+describe("VapiProvider.parseTranscriptUpdate — `conversation-update` event (#922 + #1366 restore)", () => {
+  // #1366 — Re-enabled after live data showed VAPI's custom-llm setup
+  // fires conversation-update ONLY (no `transcript` events). The
+  // history-walk path picks the latest non-system turn. Dedup against
+  // transcript events lives client-side via REPLACE-not-APPEND coalesce
+  // (#1365) — REPLACE handles same-text repeats from either source.
   const p = new VapiProvider({}, {});
 
-  it("returns null for conversation-update with messages array (was the #922 history-walk path)", () => {
+  it("extracts the most recent non-system turn from `messages` array (#922)", () => {
     const body = {
       message: {
         type: "conversation-update",
         call: { id: "vapi_call_history" },
         messages: [
+          { role: "system", content: "You are a tutor." },
           { role: "user", content: "what is past tense?" },
           { role: "assistant", content: "past tense describes actions that have already happened" },
         ],
       },
     };
-    expect(p.parseTranscriptUpdate(body)).toBeNull();
+    expect(p.parseTranscriptUpdate(body)).toEqual({
+      externalCallId: "vapi_call_history",
+      role: "assistant",
+      text: "past tense describes actions that have already happened",
+      hfCallId: null,
+    });
   });
 
-  it("returns null for conversation-update with messagesOpenAIFormatted", () => {
+  it("skips `system` and `tool` roles when walking the history", () => {
+    const body = {
+      message: {
+        type: "conversation-update",
+        call: { id: "vapi_call_skip" },
+        messages: [
+          { role: "user", content: "what time is it" },
+          { role: "tool", content: '{"time":"15:42"}' },
+          { role: "system", content: "(internal)" },
+        ],
+      },
+    };
+    expect(p.parseTranscriptUpdate(body)?.role).toBe("learner");
+  });
+
+  it("accepts the alternate `messagesOpenAIFormatted` key VAPI sometimes uses", () => {
     const body = {
       message: {
         type: "conversation-update",
         call: { id: "vapi_call_alt" },
         messagesOpenAIFormatted: [{ role: "user", content: "hi" }],
+      },
+    };
+    expect(p.parseTranscriptUpdate(body)?.text).toBe("hi");
+  });
+
+  it("returns null when no non-system content found", () => {
+    const body = {
+      message: {
+        type: "conversation-update",
+        call: { id: "vapi_call_only_system" },
+        messages: [{ role: "system", content: "..." }],
       },
     };
     expect(p.parseTranscriptUpdate(body)).toBeNull();
