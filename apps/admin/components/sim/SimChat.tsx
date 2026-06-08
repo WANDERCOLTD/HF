@@ -231,9 +231,13 @@ export function SimChat({
         const id = `voice-${event.timestampMs}-${event.role}`;
         const isLearner = event.role === 'learner';
         setMessages((prev) => {
-          // Coalesce: if the last message is the same role from a
-          // recent transcript-partial, append. Keeps the chat from
-          // exploding with one bubble per word.
+          // #1364 — Coalesce same-role chunks by REPLACE, not APPEND.
+          // VAPI's `transcript` events carry the latest Deepgram interim
+          // result for the current speaker turn — each chunk is the FULL
+          // transcript-so-far, not a delta to concatenate. APPEND
+          // produced duplication like "hello hello there hello there how
+          // are you". REPLACE shows a single growing bubble per turn.
+          // Pre-existing bug, masked until #1361 made the bubbles appear.
           const last = prev[prev.length - 1];
           if (
             last &&
@@ -241,7 +245,11 @@ export function SimChat({
             ((isLearner && last.role === 'user') ||
               (!isLearner && last.role === 'assistant'))
           ) {
-            const updated = { ...last, content: `${last.content} ${event.text}`.trim() };
+            // Drop no-op events (same text as the bubble already shows).
+            if (last.content === event.text) {
+              return prev;
+            }
+            const updated = { ...last, content: event.text };
             return [...prev.slice(0, -1), updated];
           }
           return [
