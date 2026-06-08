@@ -700,6 +700,9 @@ export function SimChat({
     setMessages(prev => [...prev, assistantMsg]);
 
     let fullContent = '';
+    // Declared outside the try block so the catch block can reference it
+    // when relaying a partial response to the server on AbortError.
+    let sharedMediaInfo: MediaInfo | null = null;
 
     try {
       abortRef.current = new AbortController();
@@ -726,7 +729,6 @@ export function SimChat({
       }
 
       // Read shared media from tool calls (e.g. share_content) before streaming
-      let sharedMediaInfo: MediaInfo | null = null;
       const sharedMediaHeader = res.headers.get('X-Shared-Media');
       if (sharedMediaHeader) {
         try {
@@ -1992,7 +1994,7 @@ export function SimChat({
                 Cancel
               </button>
               <button
-                onClick={handleEndCall}
+                onClick={() => void handleEndCall()}
                 disabled={isEnding}
                 style={{
                   flex: 1,

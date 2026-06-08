@@ -738,7 +738,7 @@ export default function CallerDetailPage() {
       { id: "overview-v2", label: <TabWithHelp tabId="overview-v2">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
       { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
       { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
-      { id: "progress-v2", label: <TabWithHelp tabId="progress-v2">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
+      { id: "progress-v2", label: <TabWithHelp tabId="progress-v2">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.targets || 0) + (data.counts.measurements || 0), group: "shared" },
       { id: "uplift-v2", label: <TabWithHelp tabId="uplift-v2">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
       { id: "session-flow", label: <TabWithHelp tabId="session-flow">Session Flow</TabWithHelp>, icon: <SlidersHorizontal size={13} />, group: "shared" },
       { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
@@ -1454,7 +1454,7 @@ export default function CallerDetailPage() {
             storageKey="caller-progress"
             sections={[
               { id: "scores", label: "Scores", icon: <BarChart3 size={13} />, count: new Set(data.scores?.map((s: any) => s.parameterId)).size || 0 },
-              { id: "behaviour", label: "Behaviour", icon: <Brain size={13} />, count: (data.counts.callerTargets || 0) + (data.counts.measurements || 0) },
+              { id: "behaviour", label: "Behaviour", icon: <Brain size={13} />, count: (data.counts.targets || 0) + (data.counts.measurements || 0) },
               { id: "goals", label: "Goals", icon: <Target size={13} />, count: data.counts.activeGoals || 0 },
               { id: "topics", label: "Topics", icon: <BookOpen size={13} />, count: (data.memorySummary?.topicCount || 0) + (data.memorySummary?.factCount || 0) },
               ...(hasExamData ? [{ id: "exam" as const, label: "Exam", icon: <ClipboardCheck size={13} /> }] : []),
