@@ -5,7 +5,7 @@
  * No mocking - tests real behavior.
  */
 
-import { beforeAll, afterAll, expect } from 'vitest';
+import { beforeAll, expect } from 'vitest';
 
 // Base URL for API tests
 export const API_BASE_URL = process.env.TEST_API_URL || 'http://localhost:3000';
