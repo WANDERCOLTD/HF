@@ -320,6 +320,29 @@ export function SimChat({
       es.close();
     };
   }, [outboundDial.callId, handleVoiceSseEvent]);
+
+  // #1369 — Flip callPhase to 'active' when ANY voice path starts.
+  // Pre-#1369 only the text-chat `startNewCall` set callPhase; [Talk Here]
+  // and [Call me] buttons called providerCall.start() / outboundDial.start()
+  // directly without transitioning the phase. The messages render block at
+  // ~line 1517 is gated on `callPhase === 'active' | 'wrapping' | 'ended'`
+  // so the transcript-partial bubbles landed in state but were never
+  // rendered. Server-side SSE was firing correctly — symptom was "no live
+  // bubbles" for both voice surfaces. This effect closes that gap from any
+  // source: WebRTC SDK transitions through starting → connecting → active;
+  // PSTN dial transitions through dialing → ringing. Either triggers the
+  // phase flip the same way startNewCall does for text chat.
+  useEffect(() => {
+    const webrtcLive =
+      providerCall.status === 'starting' ||
+      providerCall.status === 'connecting' ||
+      providerCall.status === 'active';
+    const pstnLive =
+      outboundDial.status === 'dialing' || outboundDial.status === 'ringing';
+    if ((webrtcLive || pstnLive) && callPhase === 'lobby') {
+      setCallPhase('active');
+    }
+  }, [providerCall.status, outboundDial.status, callPhase]);
   const [phoneDraft, setPhoneDraft] = useState('');
 
   // Abort in-flight stream on unmount (prevents orphaned fetches during key-based remount)
