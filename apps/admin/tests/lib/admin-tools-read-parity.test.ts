@@ -371,4 +371,59 @@ describe("Cmd+K read-parity tools (#852 follow-up)", () => {
       }
     });
   });
+
+  // #1348 — Cascade Lens v1: read-only voice explainer tool.
+  describe("explain_voice_cascade", () => {
+    it("OPERATOR with valid callerId returns the VoiceCascadeExplanation", async () => {
+      vi.doMock("@/lib/cascade/voice-explain", () => ({
+        explainVoiceCascade: vi.fn(async (callerId: string) => ({
+          cascade: "voice",
+          callerId,
+          playbookId: "pb-1",
+          courseId: "pb-1",
+          providerId: "vp-1",
+          resolvedAt: new Date("2026-06-08").toISOString(),
+          fields: [
+            {
+              key: "voiceId",
+              resolvedValue: "asteria",
+              winningSource: "provider",
+              locked: false,
+              chain: [
+                { layer: "system", value: null, present: false },
+                { layer: "provider", value: "asteria", present: true },
+                { layer: "domain", value: null, present: false },
+                { layer: "course", value: null, present: false },
+              ],
+            },
+          ],
+        })),
+      }));
+      vi.resetModules();
+      const { executeAdminTool: fresh } = await import(
+        "@/lib/chat/admin-tool-handlers"
+      );
+
+      const raw = await fresh(
+        "explain_voice_cascade",
+        { callerId: "c-1" },
+        "OPERATOR",
+      );
+      const result = JSON.parse(raw);
+      expect(result.ok).toBe(true);
+      expect(result.explanation.cascade).toBe("voice");
+      expect(result.explanation.callerId).toBe("c-1");
+      expect(result.explanation.fields[0].key).toBe("voiceId");
+    });
+
+    it("STUDENT is refused with Insufficient permissions", async () => {
+      const raw = await executeAdminTool(
+        "explain_voice_cascade",
+        { callerId: "c-1" },
+        "STUDENT",
+      );
+      const result = JSON.parse(raw);
+      expect(result.error).toMatch(/Insufficient permissions/);
+    });
+  });
 });

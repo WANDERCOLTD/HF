@@ -56,6 +56,8 @@ const COURSE_MANAGE_TOOL_NAMES = new Set([
   "update_intake_spec_draft",
   "get_voice_config",
   "update_voice_config",
+  // #1348 Cascade Lens v1 — read-only voice provenance explainer
+  "explain_voice_cascade",
 ]);
 const COURSE_MANAGE_TOOLS = ADMIN_TOOLS.filter((t) => COURSE_MANAGE_TOOL_NAMES.has(t.name));
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";

@@ -826,6 +826,19 @@ export const ADMIN_TOOLS: AITool[] = [
   },
 
   {
+    name: "explain_voice_cascade",
+    description:
+      "Read-only. Returns the full voice cascade explanation for a caller — which layer won for every field (system / provider / domain / course). Takes `{ callerId: string }`. Does NOT mutate any config.",
+    input_schema: {
+      type: "object",
+      properties: {
+        callerId: { type: "string" },
+      },
+      required: ["callerId"],
+    },
+  },
+
+  {
     name: "update_voice_config",
     description:
       "Adjust voice configuration for a Playbook by merging into Playbook.config.voice. The ALLOWED key set is driven by the system-enabled VoiceProvider's getConfigSchema() PLUS cross-cutting HF keys (autoPipeline, silenceTimeoutSeconds, maxDurationSeconds, voicemailDetectionEnabled, endCallPhrases, maxCostPerCallUsd, pollIntervalMs, endedReasonOverride) AND `prosodyMode` (`\"ielts\" | \"general\" | \"auto\"`) which controls how the voice provider scores the call audio — IELTS mode writes the 4-band CallScores (Fluency & Coherence, Pronunciation, Lexical Resource, Grammatical Range & Accuracy); General mode writes CONV_PACE and pace_indicators only; `auto` falls back to the legacy tierPresetId heuristic. #1270 — `provider` and `model` are LOCKED at system level and are NOT accepted (system picks the enabled VP; model is pinned per VP); `modelSecret` / `secret` / `apiKey` are DELIBERATELY not accepted — secret rotation is an operator-only flow. Bumps Playbook.composeInputsUpdatedAt.",

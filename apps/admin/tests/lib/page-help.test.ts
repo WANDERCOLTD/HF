@@ -22,11 +22,11 @@ describe("page-help registry", () => {
       expect(entry?.title).toBe("Courses");
     });
 
-    it("returns the Course detail entry for parameterised pathname with 7 tabs", () => {
+    it("returns the Course detail entry for parameterised pathname with 8 tabs", () => {
       const entry = getPageHelp("/x/courses/abc-123");
       expect(entry).toBeDefined();
       expect(entry?.title).toBe("Course detail");
-      expect(entry?.tabs).toHaveLength(7);
+      expect(entry?.tabs).toHaveLength(8);
       const labels = entry?.tabs?.map((t) => t.label);
       expect(labels).toEqual([
         "Content",
@@ -35,6 +35,7 @@ describe("page-help registry", () => {
         "Learners",
         "Proof Points",
         "Goals",
+        "Voice",
         "Settings",
       ]);
     });

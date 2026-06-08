@@ -12,6 +12,7 @@ import { SectionSelector, useSectionVisibility } from "@/components/shared/Secti
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
 import { VoiceProviderOverride } from "@/components/callers/VoiceProviderOverride";
 import { VoiceCostPanel } from "@/components/callers/VoiceCostPanel";
+import { CascadeLensPanel } from "@/components/callers/CascadeLensPanel";
 import { SimChat } from "@/components/sim/SimChat";
 import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from "@/components/sim/ModulePickerBanners";
 import { SimStateBreadcrumb } from "@/components/sim/SimStateBreadcrumb";
@@ -1193,6 +1194,13 @@ export default function CallerDetailPage() {
           {/* Per-caller voice provider override (AnyVoice #1027). */}
           {showDomainSection && data.caller.id ? (
             <VoiceProviderOverride callerId={data.caller.id} />
+          ) : null}
+
+          {/* Voice-cascade lens — provenance card for every cascadeable
+              voice field (#1348). OPERATOR+ render guard inside the
+              component; STUDENT/VIEWER sessions render nothing. */}
+          {showDomainSection && data.caller.id ? (
+            <CascadeLensPanel callerId={data.caller.id} />
           ) : null}
 
           {/* Per-caller voice spend summary (AnyVoice #1028). */}
