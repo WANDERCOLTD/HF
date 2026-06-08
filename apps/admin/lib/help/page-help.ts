@@ -185,6 +185,13 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
         whenToUse: "When you want to retune what the AI is trying to achieve with each caller.",
       },
       {
+        id: "voice",
+        label: "Voice",
+        about: "TTS engine, voice ID, transcriber, silence timeout, max duration, and other per-course voice overrides. Cascades from System → Provider → Domain → Course.",
+        whenToUse: "When you want a different voice for this course, or you need to tighten cost caps, silence timeouts, or recording behaviour for a specific cohort.",
+        requiresOperator: true,
+      },
+      {
         id: "settings",
         label: "Settings",
         about: "Scheduling, AI model selection, soft-delete, and other course-level configuration.",
@@ -199,6 +206,7 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       { keys: "E", action: "callback", callbackId: "tab:learners", label: "Learners tab (Enrolled)" },
       { keys: "P", action: "callback", callbackId: "tab:proof", label: "Proof Points tab" },
       { keys: "O", action: "callback", callbackId: "tab:goals", label: "Goals tab (gOals — G is reserved as a chord prefix)" },
+      { keys: "V", action: "callback", callbackId: "tab:voice", label: "Voice tab", requiresOperator: true },
       { keys: "T", action: "callback", callbackId: "tab:settings", label: "Settings tab", requiresOperator: true },
     ],
   },
