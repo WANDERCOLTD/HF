@@ -151,6 +151,33 @@ The runbook section below stays in this ADR — if quality complaints land, run 
 - Reviewer: Tech Lead agent confirmed the cascade plumbing is fully wired and the swap is single-config-flip reversible ([review comment](https://github.com/WANDERCOLTD/HF/issues/1334#issuecomment-4650299662)).
 - Date: 2026-06-08.
 
+### Baseline data (captured post-merge, pre-migration effect)
+
+Pulled from `hf_sandbox.Call.voiceCostUsd / voiceDurationSeconds` via `/tmp/vm-cost-baseline.sh` immediately after the migration ran on the VM but before any post-migration calls had completed. So this is the **pre-migration** baseline — every call here used the prior default (VAPI's underlying ElevenLabs).
+
+Last 30 days, 21 calls with cost data, 8 of those ≥ 30 seconds:
+
+| Metric | $/min |
+|---|---|
+| Mean (n=8) | **$0.0933** |
+| Median | $0.0905 |
+| Min | $0.0828 |
+| Max | $0.1137 |
+
+**Reality check on the original $0.18/min estimate.** This ADR opened by quoting "~$0.18/min" as the ElevenLabs price point and "~12× cheaper" as the framing. The measured bundled cost is **$0.093/min** — about half what the ADR estimated. VAPI is presumably using ElevenLabs Turbo (~$0.05/min) and/or volume pricing, not Multilingual Standard. The TTS-only line in the bundle is therefore closer to $0.05/min, not $0.18/min.
+
+**Updated projection** (TTS-only swap, holding STT + LLM constant at their bundled rates):
+- Old TTS contribution: ~$0.05/min (ElevenLabs Turbo via VAPI)
+- New TTS contribution: ~$0.015/min (Deepgram Aura via VAPI)
+- Per-min saving: ~$0.035/min
+- New projected total: **~$0.058/min** vs **$0.093/min** baseline = **~37% reduction**, not 90%.
+
+Real saving will be in the next 5–10 post-migration calls. Re-run `/tmp/vm-cost-baseline.sh` then to confirm.
+
+### Open follow-on: UsageEvent.costCents not populated for VOICE
+
+While capturing the baseline, found that `UsageEvent` has 1,334 rows in the last 30 days with `category = "VOICE"` and **all rows have `costCents = 0`**. The cost data lives on `Call.voiceCostUsd` (canonical post-#1020 column) and that's the only authoritative source today. `processStatusUpdate` in `lib/voice/route-handlers.ts:262` writes `costCents` per status-update event but those writes aren't materialising in the table. Worth a focused look if we want per-component (TTS / STT / LLM) cost breakdowns rather than per-call totals. Not blocking — Call.voiceCostUsd works for #1334 measurement.
+
 ## Risks + footguns
 
 - **Voice ID provider-mismatch:** setting `voiceProvider: "deepgram"` with an ElevenLabs voice ID (or vice versa) results in a silent failure inside VAPI's TTS layer — calls connect, no audio, learner hears nothing. Today there's no form-level validation. Mitigation: copy the voice ID exactly from this ADR; double-check both fields are saved together. Follow-on: file a form-validation issue if the pilot trips this footgun.
