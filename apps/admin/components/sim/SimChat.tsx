@@ -220,76 +220,106 @@ export function SimChat({
   // the existing useVoiceMode coverage stays green.
   const localSimVoiceModeEnabled = config.features.localSimVoiceMode;
 
+  // #1368 — shared SSE event handler for BOTH WebRTC [Talk Here] AND
+  // PSTN [Call me]. Pre-#1368 only WebRTC subscribed via useProviderCall;
+  // PSTN bubbles required a page refresh because no SSE was open during
+  // the call. Now both surfaces share this handler — WebRTC plugs it
+  // into useProviderCall.onSseEvent, PSTN plugs it into a useEffect-
+  // managed EventSource keyed on outboundDial.callId below.
+  const handleVoiceSseEvent = useCallback((event: import('@/lib/voice/sse-registry').VoiceCallSseEvent) => {
+    if (event.type === 'transcript-partial') {
+      const id = `voice-${event.timestampMs}-${event.role}`;
+      const isLearner = event.role === 'learner';
+      setMessages((prev) => {
+        // #1365 — Coalesce same-role chunks by REPLACE, not APPEND.
+        // VAPI's transcript-bearing events carry the latest interim for
+        // the current speaker turn — each is the FULL transcript-so-far,
+        // not a delta to concatenate. REPLACE shows a single growing
+        // bubble per turn.
+        const last = prev[prev.length - 1];
+        if (
+          last &&
+          last.id.startsWith('voice-') &&
+          ((isLearner && last.role === 'user') ||
+            (!isLearner && last.role === 'assistant'))
+        ) {
+          if (last.content === event.text) return prev;
+          const updated = { ...last, content: event.text };
+          return [...prev.slice(0, -1), updated];
+        }
+        return [
+          ...prev,
+          {
+            id,
+            role: isLearner ? 'user' : 'assistant',
+            content: event.text,
+            timestamp: new Date(event.timestampMs),
+          },
+        ];
+      });
+    } else if (event.type === 'share-content') {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `share-${event.timestampMs}`,
+          role: 'assistant',
+          content: event.caption ?? `[Shared media: ${event.mediaId}]`,
+          timestamp: new Date(event.timestampMs),
+        },
+      ]);
+    } else if (event.type === 'send-text') {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `text-${event.timestampMs}`,
+          role: 'assistant',
+          content: event.message,
+          timestamp: new Date(event.timestampMs),
+        },
+      ]);
+    }
+  }, []);
+
   // #1092 — provider-backed "Call me" mixed mode. Lazy-imports the
   // VAPI Web SDK on first click; opens an SSE stream keyed on Call.id
   // and pushes incoming events into the chat surface as messages.
   const providerCall = useProviderCall({
     callerId,
     intent: 'chat',
-    onSseEvent: useCallback((event: import('@/lib/voice/sse-registry').VoiceCallSseEvent) => {
-      if (event.type === 'transcript-partial') {
-        const id = `voice-${event.timestampMs}-${event.role}`;
-        const isLearner = event.role === 'learner';
-        setMessages((prev) => {
-          // #1364 — Coalesce same-role chunks by REPLACE, not APPEND.
-          // VAPI's `transcript` events carry the latest Deepgram interim
-          // result for the current speaker turn — each chunk is the FULL
-          // transcript-so-far, not a delta to concatenate. APPEND
-          // produced duplication like "hello hello there hello there how
-          // are you". REPLACE shows a single growing bubble per turn.
-          // Pre-existing bug, masked until #1361 made the bubbles appear.
-          const last = prev[prev.length - 1];
-          if (
-            last &&
-            last.id.startsWith('voice-') &&
-            ((isLearner && last.role === 'user') ||
-              (!isLearner && last.role === 'assistant'))
-          ) {
-            // Drop no-op events (same text as the bubble already shows).
-            if (last.content === event.text) {
-              return prev;
-            }
-            const updated = { ...last, content: event.text };
-            return [...prev.slice(0, -1), updated];
-          }
-          return [
-            ...prev,
-            {
-              id,
-              role: isLearner ? 'user' : 'assistant',
-              content: event.text,
-              timestamp: new Date(event.timestampMs),
-            },
-          ];
-        });
-      } else if (event.type === 'share-content') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `share-${event.timestampMs}`,
-            role: 'assistant',
-            content: event.caption ?? `[Shared media: ${event.mediaId}]`,
-            timestamp: new Date(event.timestampMs),
-          },
-        ]);
-      } else if (event.type === 'send-text') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `text-${event.timestampMs}`,
-            role: 'assistant',
-            content: event.message,
-            timestamp: new Date(event.timestampMs),
-          },
-        ]);
-      }
-    }, []),
+    onSseEvent: handleVoiceSseEvent,
   });
 
   // PSTN [Call me] hook — separate from the browser WebRTC [Talk Here]
   // above. VAPI rings the learner's actual phone. Just-in-time phone
   // capture handles the "no number on file" case.
   const outboundDial = useOutboundDial({ callerId });
+
+  // #1368 — Open SSE on the PSTN placeholder Call.id as soon as
+  // outboundDial fires. Mirrors what useProviderCall does internally
+  // for WebRTC. Same handler, same coalesce/dedup semantics — PSTN
+  // bubbles now appear LIVE during the phone call without a refresh.
+  useEffect(() => {
+    const cid = outboundDial.callId;
+    if (!cid) return;
+    const url = `/api/voice/calls/${encodeURIComponent(cid)}/stream`;
+    const es = new EventSource(url, { withCredentials: true });
+    const dispatch = (msg: MessageEvent<string>) => {
+      try {
+        const parsed = JSON.parse(msg.data) as import('@/lib/voice/sse-registry').VoiceCallSseEvent;
+        handleVoiceSseEvent(parsed);
+      } catch (err) {
+        console.warn('[SimChat] PSTN SSE parse error:', err);
+      }
+    };
+    es.onmessage = dispatch;
+    ['call-started', 'transcript-partial', 'share-content', 'send-text', 'request-artifact', 'call-ended'].forEach((name) => {
+      es.addEventListener(name, dispatch as EventListener);
+    });
+    es.onerror = (err) => console.warn('[SimChat] PSTN SSE error:', err);
+    return () => {
+      es.close();
+    };
+  }, [outboundDial.callId, handleVoiceSseEvent]);
   const [phoneDraft, setPhoneDraft] = useState('');
 
   // Abort in-flight stream on unmount (prevents orphaned fetches during key-based remount)
