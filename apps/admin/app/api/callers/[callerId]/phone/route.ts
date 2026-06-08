@@ -112,19 +112,17 @@ export async function PATCH(
     select: { id: true, externalId: true },
   });
   if (phoneTaken) {
-    // Admin test-caller takeover: when an OPERATOR+ session is updating
-    // a phone number AND the existing holder is a synthetic admin-test
-    // Caller (externalId starts with `admin-test-` — written by
-    // `POST /api/intake/v2/admin-test-enrol`), clear the old holder's
-    // phone so the new test caller can re-use the number. Real learner
-    // conflicts still 409 unchanged. This unblocks the common admin
-    // test-loop ("re-enrol with the same phone twice in a row").
+    // OPERATOR+ unconditional takeover (widened from the #1299 admin-test-
+    // only gate). Original gate only allowed reclaiming phones held by
+    // synthetic callers with externalId starting with `admin-test-`, which
+    // kept biting the common test loop where the phone holder was any other
+    // synthetic / re-enrolled / regular-but-stale caller. Admins are
+    // trusted; the audit log + warn breadcrumb is the safety net.
+    //
+    // STUDENT (role level 1) still gets the 409 — real-world protection
+    // against learner-vs-learner phone collisions.
     const sessionRoleLevel = ROLE_LEVEL[auth.session.user.role] ?? 0;
-    const adminTakeoverAllowed =
-      sessionRoleLevel >= ROLE_LEVEL.OPERATOR &&
-      typeof phoneTaken.externalId === "string" &&
-      phoneTaken.externalId.startsWith("admin-test-");
-    if (!adminTakeoverAllowed) {
+    if (sessionRoleLevel < ROLE_LEVEL.OPERATOR) {
       return NextResponse.json(
         {
           ok: false,
@@ -135,7 +133,7 @@ export async function PATCH(
       );
     }
     console.warn(
-      `[phone/takeover] OPERATOR+ session reclaimed phone ${normalized} from admin-test caller ${phoneTaken.id} for new caller ${callerId} — admin=${auth.session.user.id} (${auth.session.user.role}) at ${new Date().toISOString()}`,
+      `[phone/takeover] OPERATOR+ session reclaimed phone ${normalized} from caller ${phoneTaken.id} (externalId=${phoneTaken.externalId ?? "<null>"}) for new caller ${callerId} — admin=${auth.session.user.id} (${auth.session.user.role}) at ${new Date().toISOString()}`,
     );
     await prisma.$transaction([
       prisma.caller.update({

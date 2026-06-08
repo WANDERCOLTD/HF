@@ -1,16 +1,14 @@
 /**
- * Tests for PATCH /api/callers/[callerId]/phone — admin test-caller
- * takeover path.
+ * Tests for PATCH /api/callers/[callerId]/phone — operator takeover path.
  *
- * Behaviour summary (this PR adds the OPERATOR+ override):
- *   - Conflict with a REAL caller (externalId not "admin-test-*") →
- *     still 409 regardless of session role
- *   - Conflict with an ADMIN-TEST caller AND OPERATOR+ session →
- *     transaction clears the old phone, sets the new, returns 200
- *     with takeoverFrom
- *   - Conflict with an ADMIN-TEST caller AND STUDENT session →
- *     still 409 (no privilege escalation)
- *   - No conflict → unchanged 200 path
+ * Contract (widened post the #1299 admin-test-only gate):
+ *   - OPERATOR+ session → always wins, regardless of who holds the phone
+ *     (admin-test caller, real caller, NULL externalId, legacy join row).
+ *     Transaction clears the old holder's phone, sets the new, returns 200
+ *     with takeoverFrom. Audit log via console.warn.
+ *   - STUDENT session → never wins, 409 regardless of holder type
+ *     (real-world protection against learner-vs-learner phone collisions).
+ *   - No conflict → unchanged 200 path.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -91,7 +89,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("PATCH /api/callers/[id]/phone — admin test-caller takeover", () => {
+describe("PATCH /api/callers/[id]/phone — operator unconditional takeover", () => {
   it("OPERATOR+ takeover from an admin-test caller (externalId 'admin-test-*') succeeds", async () => {
     mockRequireAuth.mockResolvedValue(makeAuth("OPERATOR"));
     mockResolveScope.mockResolvedValue({ scopedCallerId: "new-caller" });
@@ -143,8 +141,42 @@ describe("PATCH /api/callers/[id]/phone — admin test-caller takeover", () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it("OPERATOR+ cannot take over from a REAL caller (externalId is not 'admin-test-*')", async () => {
+  it("OPERATOR+ CAN take over from a real caller (post-#1357 widening)", async () => {
     mockRequireAuth.mockResolvedValue(makeAuth("OPERATOR"));
+    mockResolveScope.mockResolvedValue({ scopedCallerId: "new-caller" });
+    mockCallerFindUnique.mockResolvedValue({ id: "new-caller", phone: null });
+    mockCallerFindFirst.mockResolvedValue({
+      id: "real-caller",
+      externalId: "join-12345",
+    });
+    mockTransaction.mockResolvedValue([]);
+
+    const { status, json } = await callPatch("new-caller", { phone: "+447768485153" });
+
+    expect(status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.takeoverFrom).toBe("real-caller");
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("OPERATOR+ CAN take over from a caller with NULL externalId (post-#1357 widening)", async () => {
+    mockRequireAuth.mockResolvedValue(makeAuth("ADMIN"));
+    mockResolveScope.mockResolvedValue({ scopedCallerId: "new-caller" });
+    mockCallerFindUnique.mockResolvedValue({ id: "new-caller", phone: null });
+    mockCallerFindFirst.mockResolvedValue({
+      id: "legacy-caller",
+      externalId: null,
+    });
+    mockTransaction.mockResolvedValue([]);
+
+    const { status, json } = await callPatch("new-caller", { phone: "+447768485153" });
+    expect(status).toBe(200);
+    expect(json.takeoverFrom).toBe("legacy-caller");
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("STUDENT session is still blocked from taking over a real caller's phone", async () => {
+    mockRequireAuth.mockResolvedValue(makeAuth("STUDENT"));
     mockResolveScope.mockResolvedValue({ scopedCallerId: "new-caller" });
     mockCallerFindUnique.mockResolvedValue({ id: "new-caller", phone: null });
     mockCallerFindFirst.mockResolvedValue({
@@ -153,23 +185,8 @@ describe("PATCH /api/callers/[id]/phone — admin test-caller takeover", () => {
     });
 
     const { status, json } = await callPatch("new-caller", { phone: "+447768485153" });
-
     expect(status).toBe(409);
     expect(json.error).toMatch(/already in use/i);
-    expect(mockTransaction).not.toHaveBeenCalled();
-  });
-
-  it("OPERATOR+ cannot take over from a caller with NULL externalId", async () => {
-    mockRequireAuth.mockResolvedValue(makeAuth("ADMIN"));
-    mockResolveScope.mockResolvedValue({ scopedCallerId: "new-caller" });
-    mockCallerFindUnique.mockResolvedValue({ id: "new-caller", phone: null });
-    mockCallerFindFirst.mockResolvedValue({
-      id: "legacy-caller",
-      externalId: null,
-    });
-
-    const { status } = await callPatch("new-caller", { phone: "+447768485153" });
-    expect(status).toBe(409);
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
