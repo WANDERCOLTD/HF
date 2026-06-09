@@ -1,0 +1,20 @@
+{
+  "slug": "1343-intake-event-pre",
+  "description": "Pre-fix state for #1343 (epic #1338 Slice 2). Intake-chat sessions only live in process-memory; restart wipes everything. There is no intake_event row and no Session.intentId column. Audit-bundle download relies on a still-live process. Crash mid-intake = data loss.",
+  "captured_at": "2026-06-08T00:00:00Z",
+  "schema_state": {
+    "intake_event_table_exists": false,
+    "session_intentId_column_exists": false
+  },
+  "in_memory_state": {
+    "active_sessions": [
+      {
+        "intentId": "intent-pre-fix-demo",
+        "events_in_memory": 4,
+        "events_persisted_to_db": 0
+      }
+    ]
+  },
+  "caller_attribute_intake_chat_rows": [],
+  "bug_class": "Intake hash-chain cannot survive a process restart. Audit-bundle download is the only output the spike produces; it requires the source session to still be in memory. Once Slice 2 lands, the chain is durable and the Tune tab gains a CallerAttribute(scope='INTAKE_CHAT') projection that surfaces the captured Q&A."
+}

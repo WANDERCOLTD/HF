@@ -99,11 +99,15 @@ describe("IntakeDoneClient — Continue to course (no visible /join flash)", () 
     });
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/x/sim/caller-new"));
+    // intentId is propagated to the join body so the server can link the
+    // resulting Session(kind=ENROLLMENT) row back to the IntakeEvent
+    // chain (Slice 2 of epic #1338 — #1343).
     expect(joinBodySeen).toEqual({
       firstName: "warren",
       lastName: "Warner",
       email: "warren@example.com",
       ageRange: "35-44",
+      intentId: "intent-1",
     });
     // Continue button never produced an `<a href="/join/...">` nav.
     expect(screen.getByTestId("intake-done-continue").tagName).toBe("BUTTON");

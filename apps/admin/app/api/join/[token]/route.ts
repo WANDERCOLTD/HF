@@ -8,6 +8,7 @@ import { mintAndSetSessionCookie } from "@/lib/auth-session-cookie";
 import { issueFirstCallPin } from "@/lib/identity/issue-pin";
 import { toE164 } from "@/lib/voice/phone-format";
 import { hasHigherRoleSession } from "@/lib/auth/has-higher-role-session";
+import { writeIntakeQAProjections } from "@/lib/intake/project-intake-qa";
 
 function missingSecretResponse(): NextResponse {
   return NextResponse.json(
@@ -110,7 +111,29 @@ export async function POST(
   const body = await request.json();
   const v = validateBody(joinPostSchema, body);
   if (!v.ok) return v.error;
-  const { firstName, lastName, email, ageRange, playbookId, skipOnboarding, phone } = v.data;
+  const { firstName, lastName, email, ageRange, playbookId, skipOnboarding, phone, intentId } = v.data;
+  // Q&A projection source: the validated body itself. `buildJoinBody` in
+  // `IntakeDoneClient` already iterates the EnrollmentIntake spec fields
+  // and drops internal/empty entries, so every key landing here is a
+  // legitimate captured-field value. See lib/intake/project-intake-qa.ts.
+  const intakeQAValues: Readonly<Record<string, unknown>> = {
+    firstName,
+    lastName,
+    email,
+    ...(ageRange ? { ageRange } : {}),
+    ...(phone ? { phone } : {}),
+  };
+  // `intentId` from the in-flight intake-chat session. The Session
+  // model gained an `intentId` column in #1343 so a future Slice 3
+  // `createSession({kind:'ENROLLMENT', intentId})` write here can link
+  // the resulting Session row back to the IntakeEvent hash chain.
+  // Slice 0 explicitly forbids any application Session writes from
+  // landing in this slice — see `prisma/schema.prisma` Session model
+  // header — so we observe the field, log it for forensic continuity,
+  // and defer the write to Slice 3.
+  if (intentId) {
+    console.log(`[intake-join] intent=${intentId} committed for token=${token}`);
+  }
   // E.164 normalisation via lib/voice/phone-format.ts — was a mechanical
   // strip which let `07…` UK domestic format through unchanged. VAPI
   // requires strict E.164 so the dialer was 502-ing on rural-UK numbers.
@@ -249,6 +272,11 @@ export async function POST(
         });
       }
 
+      // Project the intake Q&A pairs into CallerAttribute(scope='INTAKE_CHAT')
+      // so the Tune tab's existing SurveySection reader can render them.
+      // Idempotent — upserts on (callerId, key, scope). #1343.
+      await writeIntakeQAProjections(prisma, returningCallerId, intakeQAValues);
+
       // Returning learner — sign them in and redirect to their journey
       const returningResponse = NextResponse.json({
         ok: true,
@@ -299,6 +327,11 @@ export async function POST(
         update: { stringValue: ageRange },
       });
     }
+
+    // Project the intake Q&A pairs into CallerAttribute(scope='INTAKE_CHAT')
+    // so the Tune tab's existing SurveySection reader can render them.
+    // Idempotent — upserts on (callerId, key, scope). #1343.
+    await writeIntakeQAProjections(prisma, newCaller.id, intakeQAValues);
 
     // Create join table membership
     await prisma.callerCohortMembership.create({
@@ -392,6 +425,11 @@ export async function POST(
         update: { stringValue: ageRange },
       });
     }
+
+    // Project the intake Q&A pairs into CallerAttribute(scope='INTAKE_CHAT')
+    // so the Tune tab's existing SurveySection reader can render them.
+    // Idempotent — upserts on (callerId, key, scope). #1343.
+    await writeIntakeQAProjections(tx, newCaller.id, intakeQAValues);
 
     // Create join table membership
     await tx.callerCohortMembership.create({

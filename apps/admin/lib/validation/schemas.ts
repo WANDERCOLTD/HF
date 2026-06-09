@@ -68,6 +68,14 @@ export const joinPostSchema = z.object({
    * If absent the SimChat just-in-time prompt captures it at click-time.
    */
   phone: z.string().trim().min(7).max(20).optional(),
+  /**
+   * Optional intent id from the in-flight intake-chat session
+   * (`intent-<uuid>` shape). Used by the join handler to link the
+   * resulting `Session(kind=ENROLLMENT)` row back to the IntakeEvent
+   * hash chain (Slice 2 / #1343). When absent the join still succeeds —
+   * the legacy three-field join form has no `intentId`.
+   */
+  intentId: z.string().trim().min(1).max(80).optional(),
 });
 
 /** POST /api/auth/login (superadmin token auth) */
