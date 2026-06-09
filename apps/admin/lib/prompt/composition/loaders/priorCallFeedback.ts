@@ -301,7 +301,39 @@ async function maybeSynthesizeRecap(
   const recapCfg = opts.playbookConfig?.priorCallRecap;
   if (!recapCfg?.enabled) return null;
 
-  const depth: PriorCallRecapDepth = recapCfg.depth ?? "minimal";
+  const requestedDepth: PriorCallRecapDepth = recapCfg.depth ?? "minimal";
+
+  // #1404 — Cross-course safety degrade. `rich` depth feeds the previous
+  // call's raw transcript (up to RICH_TRANSCRIPT_SLICE_LIMIT chars)
+  // straight into the synthesis LLM. ASR errors flow through unsanitised
+  // ("folk-psychology terms" → "folk mouses", "shy/neurotic" → "sky
+  // neurotic" — surfaced live 2026-06-09 on the Big 5 Personality course).
+  //
+  // Until the transcript sanitiser ships (#TBD A2), degrade `rich` → `standard`
+  // GLOBALLY for every course — existing courses that explicitly opted into
+  // `rich` get `standard`, new courses default to `minimal`. Operators
+  // re-enable rich per-deploy by setting `PRIOR_CALL_RECAP_RICH_DEPTH_ENABLED=true`
+  // ONCE the sanitiser is in place. This is the same kill-switch pattern
+  // as gate 1 above.
+  //
+  // Logged once per (callerId, playbookId, day) via the existing audit
+  // pattern so we can see how often the degrade fires across the fleet.
+  const depth: PriorCallRecapDepth =
+    requestedDepth === "rich" &&
+    process.env.PRIOR_CALL_RECAP_RICH_DEPTH_ENABLED !== "true"
+      ? "standard"
+      : requestedDepth;
+  if (depth !== requestedDepth) {
+    console.log(
+      "[prior-call-recap/degrade] rich → standard (sanitiser not yet enabled)",
+      {
+        callerId: opts.callerId,
+        playbookId: opts.playbookId ?? null,
+        currentCallId: opts.currentCallId ?? null,
+      },
+    );
+  }
+
   // `minimal` depth is documented as "no AI call". Short-circuit before
   // running the allowlist / cap queries.
   if (depth === "minimal") return null;
