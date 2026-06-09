@@ -64,14 +64,45 @@ if [[ -z "${DB_PASSWORD:-}" ]]; then
 fi
 
 # ---------------- clone -----------------
-log "cloning to PIT $PIT (expect ~10min on db-f1-micro)"
-if ! gcloud sql instances clone "$SOURCE_INSTANCE" "$DRILL_INSTANCE" \
-       --point-in-time="$PIT" \
-       --project="$PROJECT" \
-       --quiet 2>&1; then
-  fail 2 "clone failed — check PITR window, quota, or tier restrictions"
+# `gcloud sql instances clone` waits synchronously by default but caps its wait
+# at ~10 min — db-f1-micro routinely takes longer, leaving the operation running
+# server-side while the CLI bails with "taking longer than expected" and the
+# script falls through to `fail 2`. CLOUDSDK_CORE_OPERATION_TIMEOUT does NOT
+# apply to `gcloud sql`. Submit async, poll the operation explicitly with a
+# longer budget. (#1394 spike — observed 2026-06-09.)
+CLONE_POLL_MAX=60          # 60 × 30s = 30 min ceiling
+CLONE_POLL_INTERVAL=30
+
+log "cloning to PIT $PIT (async; poll up to $((CLONE_POLL_MAX * CLONE_POLL_INTERVAL / 60))min)"
+OP_ID=$(gcloud sql instances clone "$SOURCE_INSTANCE" "$DRILL_INSTANCE" \
+          --point-in-time="$PIT" --project="$PROJECT" --async \
+          --format='value(name)' 2>&1) || fail 2 "clone submit failed: $OP_ID"
+log "clone op submitted: $OP_ID"
+
+for i in $(seq 1 "$CLONE_POLL_MAX"); do
+  STATUS=$(gcloud sql operations describe "$OP_ID" --project="$PROJECT" \
+             --format='value(status)' 2>/dev/null || echo UNKNOWN)
+  case "$STATUS" in
+    DONE)
+      ERR=$(gcloud sql operations describe "$OP_ID" --project="$PROJECT" \
+              --format='value(error.errors[0].code,error.errors[0].message)' 2>/dev/null)
+      if [ -n "$ERR" ]; then
+        fail 2 "clone op failed: $ERR"
+      fi
+      ok "clone complete (op DONE in ~$((i * CLONE_POLL_INTERVAL))s)"
+      break
+      ;;
+    PENDING|RUNNING)
+      sleep "$CLONE_POLL_INTERVAL"
+      ;;
+    *)
+      fail 2 "unexpected clone op status: $STATUS"
+      ;;
+  esac
+done
+if [ "$STATUS" != "DONE" ]; then
+  fail 2 "clone op did not reach DONE within $((CLONE_POLL_MAX * CLONE_POLL_INTERVAL / 60))min — see gcloud sql operations describe $OP_ID"
 fi
-ok "clone complete"
 
 # ---------------- sanity SQL -------------
 CONN=$(gcloud sql instances describe "$DRILL_INSTANCE" --project="$PROJECT" --format='value(connectionName)')

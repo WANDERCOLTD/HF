@@ -15,10 +15,20 @@ recipe if the script changes.
 - `gcloud auth login` as a user with `roles/cloudsql.admin`, `roles/run.admin`,
   `roles/iam.serviceAccountAdmin`, `roles/monitoring.alertPolicyEditor` on `hf-admin-prod`.
 - The DB superuser password stored in Secret Manager as `cloud-sql-drill-db-password`.
+- **App Engine app in `europe-west2`** — required by Cloud Scheduler (§4). One-time, free:
 
 ```bash
-# One-time: create the secret (skip if already present)
-echo -n "<paste DB password>" | gcloud secrets create cloud-sql-drill-db-password \
+gcloud app describe --project=hf-admin-prod >/dev/null 2>&1 \
+  || gcloud app create --region=europe-west2 --project=hf-admin-prod
+```
+
+```bash
+# One-time: create the secret (skip if already present). The easiest source
+# is the password embedded in the existing DATABASE_URL_SANDBOX secret —
+# extract it once and store as a derived secret:
+URL=$(gcloud secrets versions access latest --secret=DATABASE_URL_SANDBOX --project=hf-admin-prod)
+PASS=$(python3 -c "import sys; from urllib.parse import urlparse, unquote; print(unquote(urlparse(sys.argv[1]).password))" "$URL")
+printf '%s' "$PASS" | gcloud secrets create cloud-sql-drill-db-password \
   --data-file=- --project=hf-admin-prod --replication-policy=user-managed --locations=europe-west2
 ```
 
@@ -32,9 +42,18 @@ gcloud iam service-accounts create "$SA" \
 
 SA_EMAIL="${SA}@hf-admin-prod.iam.gserviceaccount.com"
 
-# Only the rights the drill actually needs
+# Least-privilege custom role. Verified 2026-06-09 against the actual operations the
+# drill performs: clone, describe, delete. PITR clone also needs backupRuns.{get,list}.
+# `roles/cloudsql.editor` is INSUFFICIENT — it lacks instances.clone and instances.delete
+# despite the role name. `roles/cloudsql.admin` works but is too broad.
+gcloud iam roles create restoreDrillMinimal --project=hf-admin-prod \
+  --title="Restore Drill (minimal)" \
+  --description="Clone + delete drill instances; describe hf-db. No stop/restart/modify." \
+  --permissions="cloudsql.instances.clone,cloudsql.instances.create,cloudsql.instances.delete,cloudsql.instances.get,cloudsql.instances.list,cloudsql.backupRuns.get,cloudsql.backupRuns.list" \
+  --stage=GA
+
 for ROLE in \
-  roles/cloudsql.editor \
+  projects/hf-admin-prod/roles/restoreDrillMinimal \
   roles/cloudsql.client \
   roles/logging.logWriter \
   roles/secretmanager.secretAccessor; do
@@ -83,7 +102,7 @@ gcloud run jobs create cloud-sql-restore-drill \
   --region=europe-west2 \
   --service-account="${SA_EMAIL}" \
   --max-retries=0 \
-  --task-timeout=30m \
+  --task-timeout=60m \
   --memory=512Mi \
   --set-env-vars=PROJECT=hf-admin-prod,SOURCE_INSTANCE=hf-db,DRILL_DB=hf_sandbox,DB_USER=postgres,DB_PASSWORD_SECRET=cloud-sql-drill-db-password \
   --project=hf-admin-prod
@@ -95,7 +114,8 @@ gcloud run jobs execute cloud-sql-restore-drill --region=europe-west2 --wait --p
 ## 4. Cloud Scheduler (monthly, 1st @ 03:00 UTC)
 
 ```bash
-SCHED_SA=cloud-sql-restore-drill-scheduler
+SCHED_SA=drill-scheduler  # GCP SA IDs cap at 30 chars; long names like
+                          # cloud-sql-restore-drill-scheduler are rejected.
 gcloud iam service-accounts create "$SCHED_SA" \
   --display-name="Cloud SQL restore drill — scheduler" \
   --project=hf-admin-prod
