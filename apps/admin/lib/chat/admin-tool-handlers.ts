@@ -2496,7 +2496,7 @@ async function handleUpdateVoiceConfig(input: Record<string, any>) {
  * layer (system / provider / domain / course) won for every cascadeable
  * field. No DB writes; no pendingChange.
  */
-async function handleExplainVoiceCascade(input: Record<string, any>) {
+async function handleExplainVoiceCascade(input: Record<string, unknown>) {
   const callerId = typeof input.callerId === "string" ? input.callerId : "";
   if (!callerId) return { error: "callerId is required" };
 
