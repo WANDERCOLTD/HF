@@ -34,6 +34,46 @@ export type ProviderCallStatus =
   | "ended"
   | "error";
 
+/**
+ * Extract the most useful error string from an unknown caught value.
+ * VAPI's web SDK and various lazy-import failure modes throw shapes
+ * that aren't always Error instances — typed strings, plain objects
+ * with .message, Promise-rejection reasons. Pre-#1380 the catch
+ * collapsed to "(undefined)" for any of these. Walks the common
+ * shapes in priority order; returns empty string when nothing useful
+ * could be found, so the caller can fall back to a default label.
+ */
+function describeError(err: unknown): string {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  if (err instanceof Error) {
+    const parts = [err.message];
+    // Some SDKs wrap the real cause inside .cause (ES2022) or .reason.
+    const e = err as Error & { cause?: unknown; reason?: unknown };
+    if (e.cause) parts.push(`cause: ${describeError(e.cause)}`);
+    if (e.reason) parts.push(`reason: ${describeError(e.reason)}`);
+    return parts.filter(Boolean).join(" — ");
+  }
+  if (typeof err === "object") {
+    const o = err as Record<string, unknown>;
+    if (typeof o.message === "string" && o.message.length > 0) return o.message;
+    if (typeof o.error === "string" && o.error.length > 0) return o.error;
+    if (typeof o.reason === "string" && o.reason.length > 0) return o.reason;
+    try {
+      const json = JSON.stringify(err);
+      if (json && json !== "{}") return json.slice(0, 240);
+    } catch {
+      // circular / non-serialisable — fall through
+    }
+  }
+  try {
+    const s = String(err);
+    return s === "undefined" || s === "null" ? "" : s;
+  } catch {
+    return "";
+  }
+}
+
 interface ProviderCallStartResponse {
   ok: boolean;
   callId?: string;
@@ -230,8 +270,16 @@ export function useProviderCall(
           setStatus("ended");
           teardown();
         });
+        // #1380 — Surface SDK-side errors that fire AFTER start() resolves.
+        // VAPI's web SDK emits "error" events for transport / WebRTC /
+        // network issues that the start() Promise itself doesn't reject on.
+        // Pre-#1380 these were console.warns and the UI sat at "active"
+        // status while audio was broken.
         vapi.on("error", (err: unknown) => {
-          console.warn("[useProviderCall] vapi error event:", err);
+          console.error("[useProviderCall] vapi error event:", err);
+          const msg = describeError(err) || "Voice provider error (see console)";
+          setErrorMessage(msg);
+          setStatus("error");
         });
       } else {
         // Retell WebRTC is out of scope for #1092 — placeholder error.
@@ -240,8 +288,13 @@ export function useProviderCall(
         );
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn("[useProviderCall] start failed:", msg);
+      // #1380 — Richer error capture. Pre-fix the catch did
+      // `err instanceof Error ? err.message : String(err)` which gave
+      // "(undefined)" for any thrown undefined / Promise rejection with
+      // no message. console.error the raw err so devtools can inspect
+      // the full object shape; describeError extracts the best string.
+      console.error("[useProviderCall] start failed — raw error:", err);
+      const msg = describeError(err) || "Voice session failed to start (see console)";
       setErrorMessage(msg);
       setStatus("error");
       await teardown();
