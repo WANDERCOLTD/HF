@@ -1,0 +1,61 @@
+{
+  "$schema": "../README.md#fixture-shape",
+  "issue": 1333,
+  "scenario": "outbound-dial Stage A populates playbookId + requestedModuleId + curriculumModuleId via createCallEnteringPipeline",
+  "appliesAfter": "createCallEnteringPipeline adopted in app/api/voice/calls/outbound-dial/route.ts (Stage A)",
+  "caller": {
+    "id": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+    "name": "Bertie Tallstaff",
+    "lastSelectedModuleId": null,
+    "note": "Pre-fix orphan Calls 2 + 3 stay as forensic evidence — NOT backfilled per AC."
+  },
+  "activePlaybook": {
+    "id": "pb-bertie-ielts-v1",
+    "callerPlaybookStatus": "ACTIVE"
+  },
+  "callsAfterFix": [
+    {
+      "callSequence": 1,
+      "source": "sim",
+      "voiceProvider": null,
+      "playbookId": "pb-bertie-ielts-v1",
+      "requestedModuleId": "part1",
+      "curriculumModuleId": "cm-part1",
+      "note": "Unchanged — sim path always used full FK chain."
+    },
+    {
+      "callSequence": 2,
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "playbookId": null,
+      "requestedModuleId": null,
+      "curriculumModuleId": null,
+      "note": "Pre-fix orphan — preserved as forensic evidence."
+    },
+    {
+      "callSequence": 3,
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "playbookId": null,
+      "requestedModuleId": null,
+      "curriculumModuleId": null,
+      "note": "Pre-fix orphan — preserved as forensic evidence."
+    },
+    {
+      "callSequence": 4,
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "playbookId": "pb-bertie-ielts-v1",
+      "requestedModuleId": "part1",
+      "curriculumModuleId": "cm-part1",
+      "note": "Post-fix: every new outbound-dial Call carries all three FKs at placeholder-create."
+    }
+  ],
+  "assertedInvariants": [
+    "Call.playbookId IS NOT NULL for every new outbound-dial Call when an ACTIVE CallerPlaybook exists.",
+    "Call.requestedModuleId resolves to either the explicit URL/CLI arg, Caller.lastSelectedModuleId, or the G6 default (in that order).",
+    "Call.curriculumModuleId resolves via resolveModuleByLogicalId scoped to the Playbook's curriculumId.",
+    "When all three FKs cannot resolve, NONE are written (NULL together) — never one populated and the others NULL.",
+    "scripts/check-fk-consistency.ts voice-call-null-playbook-attribution WARN-only count plateaus (no new growth)."
+  ]
+}

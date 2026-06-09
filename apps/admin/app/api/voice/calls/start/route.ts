@@ -11,8 +11,7 @@ import {
 } from "@/lib/voice/resolve-voice-provider";
 import { startVoiceSpan } from "@/lib/voice/telemetry";
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
-import { resolveActivePlaybookId } from "@/lib/caller/resolve-active-playbook";
-import { resolveDefaultModuleForCaller } from "@/lib/curriculum/resolve-default-module";
+import { createCallEnteringPipeline } from "@/lib/voice/create-call-entering-pipeline";
 
 export const runtime = "nodejs";
 
@@ -154,52 +153,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // G6 / #1154 — pre-resolve playbook + default module BEFORE the call
-    // row is created. Pre-G6 this route's placeholder Call had no playbook
-    // attribution and no module, so COMPOSE on the next pipeline run
-    // couldn't pick the right specs and the #1006 / I-C1 module-lock
-    // invariant silently short-circuited (audit observed 100% null
-    // requestedModuleId on the voice path).
-    const activePlaybookId = await resolveActivePlaybookId(caller.id);
-    let defaultModuleSlug: string | null = null;
-    let defaultModuleCurriculumId: string | null = null;
-    if (activePlaybookId) {
-      const defaultModule = await resolveDefaultModuleForCaller(
-        caller.id,
-        activePlaybookId,
-      );
-      if (defaultModule) {
-        defaultModuleSlug = defaultModule.moduleSlug;
-        defaultModuleCurriculumId = defaultModule.curriculumModuleId;
-        console.log(
-          `[voice/calls/start] G6 auto-resolved module for caller=${caller.id.slice(0, 8)} playbook=${activePlaybookId.slice(0, 8)} → ${defaultModule.moduleSlug} (source: ${defaultModule.source})`,
-        );
-      }
-    }
-
-    // Pre-create the Call row so the SSE channel has a stable id. The
-    // provider's webhook will update this row's externalId / capture
-    // fields when the call actually ends.
-    const placeholderCall = await prisma.call.create({
-      data: {
-        callerId: caller.id,
-        source: providerSlug,
-        voiceProvider: providerSlug,
-        // externalId is filled in by the webhook handler once the
-        // provider sends its first event. Leaving it null is fine —
-        // the field is indexed but not unique on Call.
-        transcript: "",
-        // G6 / #1154 — attribute the placeholder to the caller's active
-        // playbook so pipeline COMPOSE has a scope from the very first
-        // event. Webhook patches if it gets a more specific value.
-        ...(activePlaybookId ? { playbookId: activePlaybookId } : {}),
-        ...(defaultModuleSlug ? { requestedModuleId: defaultModuleSlug } : {}),
-        ...(defaultModuleCurriculumId
-          ? { curriculumModuleId: defaultModuleCurriculumId }
-          : {}),
-      },
-      select: { id: true },
+    // G6 / #1154 / #1333 — pre-resolve playbook + default module BEFORE the
+    // call row is created and attribute the placeholder so COMPOSE has a
+    // scope from the very first event. The builder is the chokepoint for
+    // pipeline-entry Call creation (see docs/CHAIN-CONTRACTS.md §3 Link 3);
+    // net-zero behavioural change vs. the prior hand-rolled cascade.
+    const entry = await createCallEnteringPipeline({
+      callerId: caller.id,
+      source: providerSlug,
+      voiceProvider: providerSlug,
     });
+    const placeholderCall = entry.call;
+    if (entry.playbookId && entry.requestedModuleId) {
+      console.log(
+        `[voice/calls/start] G6 auto-resolved module for caller=${caller.id.slice(0, 8)} playbook=${entry.playbookId.slice(0, 8)} → ${entry.requestedModuleId}`,
+      );
+    }
 
     // Surface the provider's public key for the browser SDK. Marketing-
     // safe credentials only; HMAC secret + private api key stay in the

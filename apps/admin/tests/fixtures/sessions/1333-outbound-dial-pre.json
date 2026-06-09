@@ -1,0 +1,70 @@
+{
+  "$schema": "../README.md#fixture-shape",
+  "issue": 1333,
+  "scenario": "outbound-dial Stage A drops playbookId / requestedModuleId / curriculumModuleId",
+  "capturedFrom": {
+    "db": "hf_sandbox",
+    "capturedAt": "2026-06-08T00:00:00.000Z",
+    "method": "Bertie Tallstaff live state shown in #1333 'Live evidence' table; synthetic shape — never replayed against prod"
+  },
+  "caller": {
+    "id": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+    "name": "Bertie Tallstaff",
+    "lastSelectedModuleId": null
+  },
+  "activePlaybook": {
+    "id": "pb-bertie-ielts-v1",
+    "callerPlaybookStatus": "ACTIVE"
+  },
+  "curriculum": {
+    "id": "curr-bertie-ielts-v1",
+    "modules": [
+      { "id": "cm-part1", "slug": "part1", "sortOrder": 0 },
+      { "id": "cm-part2", "slug": "part2", "sortOrder": 1 }
+    ]
+  },
+  "callsBeforeFix": [
+    {
+      "callSequence": 1,
+      "source": "sim",
+      "voiceProvider": null,
+      "playbookId": "pb-bertie-ielts-v1",
+      "requestedModuleId": "part1",
+      "curriculumModuleId": "cm-part1",
+      "note": "Sim path — already used full FK chain via POST /api/callers/[id]/calls. Reference behaviour."
+    },
+    {
+      "callSequence": null,
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "playbookId": "pb-bertie-ielts-v1",
+      "requestedModuleId": null,
+      "curriculumModuleId": null,
+      "note": "Ghost VAPI row (10:06:02 UTC) — out-of-scope per #1333 TL revision #5; tracked as separate dedup follow-on."
+    },
+    {
+      "callSequence": 2,
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "playbookId": null,
+      "requestedModuleId": null,
+      "curriculumModuleId": null,
+      "note": "Pre-fix: outbound-dial dropped all three FKs at placeholder-create — this is THE bug."
+    },
+    {
+      "callSequence": 3,
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "playbookId": null,
+      "requestedModuleId": null,
+      "curriculumModuleId": null,
+      "note": "Pre-fix: same drift as Call 2."
+    }
+  ],
+  "downstreamSymptom": {
+    "composedPromptsForCaller": 3,
+    "composedPromptsWithPlaybookId": 1,
+    "composedPromptsScopeless": 2,
+    "simUiOutcome": "Call 4 had no usable next-prompt because the (callerId, playbookId) lookup against ComposedPrompt missed every scopeless row."
+  }
+}

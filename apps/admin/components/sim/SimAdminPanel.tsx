@@ -17,7 +17,7 @@ const APP_ENV = process.env.NEXT_PUBLIC_APP_ENV;
 interface SimAdminPanelProps {
   onClose: () => void;
   callId: string | null;
-  callPhase: 'loading' | 'lobby' | 'active' | 'ended';
+  callPhase: 'loading' | 'lobby' | 'active' | 'wrapping' | 'ended';
   messageCount: number;
   isStreaming: boolean;
   error: string | null;

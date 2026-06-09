@@ -13,6 +13,7 @@ import noVapiColumnRef from "./eslint-rules/hf-voice/no-vapi-column-ref.mjs";
 import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-definitions-const.mjs";
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
 import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
+import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -154,6 +155,16 @@ const eslintConfig = defineConfig([
             noModuleReadWithoutCourseStyleGuard,
         },
       },
+      // #1333 — block bare `prisma.call.create` outside the explicit
+      // allow-list. Pipeline-entry Call creation MUST route through
+      // `createCallEnteringPipeline` so playbookId / requestedModuleId /
+      // curriculumModuleId always populate. Defends the chain-contract
+      // pre-condition for Link 3 (CURRICULUM → CALL compose).
+      "hf-call": {
+        rules: {
+          "no-bare-call-create": noBareCallCreate,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -175,6 +186,11 @@ const eslintConfig = defineConfig([
       // Promoted to `error` once full sweep complete + audit counter
       // reads 0 for ≥7 days.
       "hf-pipeline/no-module-read-without-course-style-guard": "error",
+      // #1333 — error severity from day 1. Allow-list covers every
+      // existing legitimate `prisma.call.create` site; any new site must
+      // either route through the builder or add to the allow-list with
+      // a documented bypass justification.
+      "hf-call/no-bare-call-create": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

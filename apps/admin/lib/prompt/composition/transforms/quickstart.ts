@@ -605,7 +605,7 @@ registerTransform("computeQuickStart", (
               callerName: caller?.name ?? null,
               subjectRef,
               moduleTitle:
-                lockedModule?.title ?? lockedModule?.name ?? nextModule?.title ?? null,
+                nextModule?.title ?? null,
             });
           }
         }

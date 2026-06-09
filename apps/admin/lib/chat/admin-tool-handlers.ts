@@ -2448,7 +2448,10 @@ async function handleUpdateVoiceConfig(input: Record<string, any>) {
     ...sanitised,
   };
 
-  await updatePlaybookConfig(playbookId, { voice: mergedVoice } as Partial<PlaybookConfig>);
+  await updatePlaybookConfig(playbookId, (current) => ({
+    ...current,
+    voice: mergedVoice,
+  }));
 
   const changedKeys = Object.keys(sanitised);
   const pendingChange = buildPendingChangePayload({

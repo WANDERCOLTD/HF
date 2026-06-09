@@ -5,7 +5,7 @@
  * No mocking - tests real behavior.
  */
 
-import { beforeAll, expect } from 'vitest';
+import { beforeAll, afterAll, expect } from 'vitest';
 
 // Base URL for API tests
 export const API_BASE_URL = process.env.TEST_API_URL || 'http://localhost:3000';
@@ -42,6 +42,12 @@ beforeAll(async () => {
   const testPath = expect.getState?.()?.testPath || "";
   if (testPath.includes("/journey/") || testPath.includes("/sessions/")) {
     console.log("✓ DB-only test — skipping server health check");
+    return;
+  }
+  if (testPath.includes("/sessions/")) {
+    console.log(
+      "✓ Sessions test — self-skips on unreachable server; setup health check bypassed",
+    );
     return;
   }
 
