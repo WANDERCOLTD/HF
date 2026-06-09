@@ -15,7 +15,7 @@ import { createCallEnteringPipeline } from "@/lib/voice/create-call-entering-pip
 
 export const runtime = "nodejs";
 
-const bodySchema = z
+export const bodySchema = z
   .object({
     callerId: z.string().min(1),
     /** Intent hint — populates `runtime.hasChatRail` optimistically at
