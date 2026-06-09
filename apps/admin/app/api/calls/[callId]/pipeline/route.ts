@@ -9,6 +9,7 @@
  * @body callerId string - The caller ID (required)
  * @body mode string - Pipeline mode: "prep" (all stages except COMPOSE) or "prompt" (all stages including COMPOSE) (required)
  * @body engine string - AI engine to use: "mock" | "claude" | "openai" (default: "claude")
+ * @body partialFailureMode string - Optional. When "minimal", COMPOSE short-circuits the LLM path and carries the prior prompt forward via the I-CT2 cascade. Used by the Slice 5 reconciler (#1346).
  * @response 200 { ok: true, mode: "prep" | "prompt", message: string, data: { scoresCreated, memoriesCreated, callTargetsCreated, agentMeasurements, ... }, prompt?: object, logs: LogEntry[], duration: number }
  * @response 400 { ok: false, error: "callerId is required" | "mode must be 'prep' or 'prompt'", logs: LogEntry[] }
  * @response 404 { ok: false, error: "Call not found", logs: LogEntry[] }
@@ -56,6 +57,7 @@ import { loadPipelineStages, PipelineStage } from "@/lib/pipeline/config";
 import { TRAITS } from "@/lib/registry";
 import { recoverBrokenJson } from "@/lib/utils/json-recovery";
 import { executeComposition, persistComposedPrompt, loadComposeConfig } from "@/lib/prompt/composition";
+import { carryThroughCompose } from "@/lib/voice/carry-through-compose";
 import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";
 import { getAudienceOption, type AudienceId } from "@/lib/prompt/composition/transforms/audience";
 import { getPipelineGates, getAITimeoutSettings } from "@/lib/system-settings";
@@ -3244,6 +3246,15 @@ interface PipelineContext {
    * "structured"` resolves to `"continuous"`. See `lib/pipeline/course-style.ts`.
    */
   courseStyle: CourseStyle;
+  /**
+   * #1346 Slice 5 — partial-failure mode flag. When set to `"minimal"`,
+   * the COMPOSE stage runner skips the live LLM pipeline and routes to
+   * `carryThroughCompose` — produces a ComposedPrompt by carrying the
+   * I-CT2 cascade prompt forward, stamped with `inputs.partialFailureMode
+   * = "minimal"` so the Tune tab shows the "↻ reconciled" badge. Called
+   * by the reconciler cron and by ops doing manual recovery.
+   */
+  partialFailureMode?: "minimal";
   // Accumulated results from previous stages
   results: Record<string, any>;
 }
@@ -3839,6 +3850,41 @@ const stageExecutors: Record<string, StageExecutor> = {
   COMPOSE: async (ctx, stage) => {
     ctx.log.info(`Stage ${stage.name}: ${stage.description}`);
 
+    // #1346 Slice 5 — partial-failure minimal mode short-circuits the
+    // entire COMPOSE LLM path. Reads the I-CT2 cascade and carries the
+    // prior prompt forward; ALWAYS produces a ComposedPrompt; never
+    // throws (unless the cascade returns null, which is the brand-new-
+    // caller edge case).
+    if (ctx.partialFailureMode === "minimal") {
+      const sessionIdForCarry = ctx.call.sessionId;
+      if (!sessionIdForCarry) {
+        const msg = "partialFailureMode='minimal' but Call.sessionId is null — Slice 4 cutover should have set this for every Call.";
+        ctx.log.error(msg);
+        throw new Error(msg);
+      }
+      ctx.log.info(
+        `[COMPOSE/minimal] short-circuiting LLM path; carrying forward via I-CT2 cascade for session ${sessionIdForCarry.slice(0, 8)}`,
+      );
+      const carried = await carryThroughCompose({
+        sessionId: sessionIdForCarry,
+        callerId: ctx.callerId,
+        playbookId: ctx.call.playbookId,
+        triggerType: "pipeline-minimal-mode",
+      });
+      ctx.log.info(
+        `[COMPOSE/minimal] reconciled — composedPromptId=${carried.composedPromptId.slice(0, 8)} source=${carried.carryForwardSource}${carried.raced ? " (raced — kept prior winner)" : ""}`,
+      );
+      return {
+        promptId: carried.composedPromptId,
+        prompt: "(minimal-mode carry-through — body inherited from " +
+          `${carried.carryForwardPromptId.slice(0, 8)} via cascade source=${carried.carryForwardSource})`,
+        partialFailureMode: "minimal",
+        carryForwardSource: carried.carryForwardSource,
+        carryForwardPromptId: carried.carryForwardPromptId,
+        raced: carried.raced,
+      };
+    }
+
     // Direct function call — no HTTP self-call
     const playbookIds = ctx.call.playbookId ? [ctx.call.playbookId] : undefined;
     const { fullSpecConfig, sections, specSlug } = await loadComposeConfig({ playbookIds });
@@ -4067,6 +4113,11 @@ export async function POST(
     const { callId } = await params;
     const body = await request.json().catch(() => ({}));
     const { callerId, mode, engine: requestedEngine, force = false } = body;
+    // #1346 Slice 5 — accept partialFailureMode from the request body. The
+    // only supported value today is "minimal" — anything else is ignored.
+    // Wired by the reconciler cron + ops manual-recovery surfaces.
+    const partialFailureMode: "minimal" | undefined =
+      body && body.partialFailureMode === "minimal" ? "minimal" : undefined;
 
     if (!callerId) {
       return NextResponse.json({ ok: false, error: "callerId is required", logs: log.getLogs() }, { status: 400 });
@@ -4148,6 +4199,7 @@ export async function POST(
       request,
       userName: pipelineUserName,
       courseStyle,
+      partialFailureMode,
       results: {},
     };
 

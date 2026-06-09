@@ -1504,3 +1504,16 @@
   text-align: center;
   font-style: italic;
 }
+
+/* #1346 Slice 5 — Reconciled badge (carry-through reconciler). Shown on a
+   ComposedPrompt row when triggerType === "reconciler" OR inputs.partialFailureMode === "minimal".
+   Indicates the pipeline output for the parent Session was reconstructed
+   after a downstream failure. Tooltip surfaces the timestamp + cascade source. */
+.ptr-reconciled-badge {
+  background: color-mix(in srgb, var(--status-warning-text, #d97706) 14%, transparent);
+  color: var(--status-warning-text, #d97706);
+  border: 1px solid color-mix(in srgb, var(--status-warning-text, #d97706) 30%, transparent);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
