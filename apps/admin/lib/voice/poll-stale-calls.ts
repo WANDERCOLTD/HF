@@ -66,6 +66,10 @@ export interface PollBatchResult {
   abortedOn429: boolean;
   /** Calls actually attempted before the abort. */
   pollsCompleted: number;
+  /** #1340 — FailureLog rows written by ghost detection this cycle. */
+  failureLogsWritten: number;
+  /** #1340 — Session(status=GHOST) rows minted this cycle (Call had no parent). */
+  ghostSessionsCreated: number;
   durationMs: number;
 }
 
@@ -85,6 +89,18 @@ const DEFAULT_STALE_AFTER_MS = 90 * 1000;
 const DEFAULT_BATCH_LIMIT = 50;
 const DEFAULT_CONCURRENCY = 3;
 const VAPI_BASE_URL = "https://api.vapi.ai";
+
+// #1340 — pipeline stages that have no usable input on a ghost Session.
+// Set at Session-create time so Slice 5's read-side gate can short-circuit
+// the stage runners. The list mirrors §4.2's "FAILURE → skip" column:
+// EXTRACT/SCORE_AGENT/PROSODY/REWARD all require a transcript that a
+// ghost (never connected) Session never produced.
+const FAILURE_SESSION_SKIP_STAGES: readonly string[] = [
+  "EXTRACT",
+  "SCORE_AGENT",
+  "PROSODY",
+  "REWARD",
+];
 
 /**
  * Run one polling pass. Idempotent + race-safe.
@@ -107,7 +123,17 @@ export async function pollStaleVoiceCalls(
       source: slug,
       createdAt: { lt: cutoff },
     },
-    select: { id: true, externalId: true },
+    // #1340 — `callerId`, `sessionId`, `createdAt`, `playbookId` added so
+    // the ghost-detection branch can attach a FailureLog to the parent
+    // Session (or mint one if missing).
+    select: {
+      id: true,
+      externalId: true,
+      callerId: true,
+      sessionId: true,
+      createdAt: true,
+      playbookId: true,
+    },
     take: batchLimit,
     orderBy: { createdAt: "asc" },
   });
@@ -122,6 +148,8 @@ export async function pollStaleVoiceCalls(
     upstreamErrors: 0,
     abortedOn429: false,
     pollsCompleted: 0,
+    failureLogsWritten: 0,
+    ghostSessionsCreated: 0,
     durationMs: 0,
   };
 
@@ -215,12 +243,30 @@ export async function pollStaleVoiceCalls(
         result.notFound += 1;
         // Permanent: mark the row failed so it stops polling.
         await markPollFailed(row.id, "not_found_in_vapi");
+
+        // #1340 (epic #1338 Slice 1) — typed ghost detection.
+        //
+        // The Call placeholder was minted, an externalId was stamped, and
+        // VAPI now reports "never heard of it" — exactly the ghost-class
+        // bug from Bertie Tallstaff 10:06:02 on hf_sandbox 2026-06-08.
+        // Pre-Slice 1 this row sat invisible in the Tune tab; now we
+        // surface it as a typed FailureLog so the operator can see it
+        // and ADAPT can soft-acknowledge.
+        const ghostWrite = await writeGhostFailureLog(row, "not_found_in_vapi");
+        if (ghostWrite.sessionCreated) result.ghostSessionsCreated += 1;
+        if (ghostWrite.failureLogCreated) result.failureLogsWritten += 1;
+
         void logVoiceEvent({
           slug,
           operation: "poll_stale_call",
           durationMs: Date.now() - perStart,
           callId: row.id,
-          metadata: { stage: "vapi_404", externalId: row.externalId },
+          metadata: {
+            stage: "vapi_404",
+            externalId: row.externalId,
+            failureLogCreated: ghostWrite.failureLogCreated,
+            sessionCreated: ghostWrite.sessionCreated,
+          },
           errorMessage: "VAPI returned 404",
         });
         return;
@@ -329,6 +375,129 @@ export async function pollStaleVoiceCalls(
     metadata: result as unknown as Record<string, unknown>,
   });
   return result;
+}
+
+/**
+ * #1340 (epic #1338 Slice 1) — write a FailureLog(GHOST_NEVER_CONNECTED)
+ * row attached to the Call's parent Session. Creates the Session row if
+ * the Call has no `sessionId` (pre-Slice 0 backfill rows or live
+ * outbound-dial placeholders pending Slice 3 wiring).
+ *
+ * Idempotent. Best-effort — a Postgres exception is logged but does not
+ * throw upstream (the markPollFailed contract is "stop polling forever",
+ * not "stop polling unless FailureLog write fails").
+ *
+ * Returns `{ sessionCreated, failureLogCreated }` so the batch result
+ * can attribute counters honestly.
+ */
+async function writeGhostFailureLog(
+  row: {
+    id: string;
+    externalId: string | null;
+    callerId: string | null;
+    sessionId: string | null;
+    createdAt: Date;
+    playbookId: string | null;
+  },
+  reason: "not_found_in_vapi",
+): Promise<{ sessionCreated: boolean; failureLogCreated: boolean }> {
+  let sessionCreated = false;
+  let sessionId = row.sessionId;
+
+  try {
+    // 1. Ensure a parent Session row exists. Pre-Slice 0 backfill rows
+    //    were given one by the migration; live outbound-dial placeholders
+    //    do NOT have one until Slice 3 wires `createSession` into the
+    //    builder. We mint a minimal Session here so the FailureLog FK
+    //    can land — `kind=VOICE_CALL`, `status=GHOST`, `skipStages=[…]`.
+    //
+    //    `callerId` is the only hard requirement (Session.callerId is
+    //    NOT NULL with onDelete: Restrict). If the Call has no caller
+    //    we can't mint a Session — log and bail (no FailureLog either).
+    if (!sessionId) {
+      if (!row.callerId) {
+        return { sessionCreated: false, failureLogCreated: false };
+      }
+      // Sequence number bootstrap — read MAX(sequenceNumber) for this
+      // (callerId, kind) and increment. Slice 3 replaces this with the
+      // atomic `CallerSequenceCounter` UPDATE RETURNING; in Slice 1 the
+      // race is acceptable because the poll-cron runs serially.
+      const last = await prisma.session.findFirst({
+        where: { callerId: row.callerId, kind: "VOICE_CALL" },
+        orderBy: { sequenceNumber: "desc" },
+        select: { sequenceNumber: true },
+      });
+      const nextSeq = (last?.sequenceNumber ?? 0) + 1;
+
+      const created = await prisma.session.create({
+        data: {
+          callerId: row.callerId,
+          playbookId: row.playbookId,
+          kind: "VOICE_CALL",
+          sequenceNumber: nextSeq,
+          status: "GHOST",
+          startedAt: row.createdAt,
+          endedAt: new Date(),
+          // Ghost sessions never produced a transcript — skip every
+          // stage that consumes one. Slice 5 wires the read side.
+          skipStages: [...FAILURE_SESSION_SKIP_STAGES],
+          // Ghosts don't count toward the learner-facing call counter
+          // (epic #1338 §"Class-by-class rules"); they DO count toward
+          // the pipeline-number so ADAPT/COMPOSE still run.
+          countsTowardLearnerNumber: false,
+          countsTowardPipelineNumber: true,
+        },
+        select: { id: true },
+      });
+      sessionId = created.id;
+      sessionCreated = true;
+
+      // Link the Call back to its parent Session. updateMany so the
+      // `sessionId IS NULL` guard against a webhook landing during the
+      // poll cycle is enforceable in the WHERE clause (Prisma `update`
+      // rejects null on nullable columns in a unique-where).
+      try {
+        await prisma.call.updateMany({
+          where: { id: row.id, sessionId: null },
+          data: { sessionId },
+        });
+      } catch {
+        // Webhook beat us. The FailureLog still attaches to the
+        // Session we just created; the Call link gets reconciled by
+        // Slice 5.
+      }
+    }
+
+    // 2. Write the FailureLog child. attemptNumber = (existing rows for
+    //    this sessionId/kind pair) + 1, so a retry loop stacks cleanly.
+    const priorFailures = await prisma.failureLog.count({
+      where: { sessionId, kind: "GHOST_NEVER_CONNECTED" },
+    });
+
+    await prisma.failureLog.create({
+      data: {
+        sessionId,
+        kind: "GHOST_NEVER_CONNECTED",
+        attemptNumber: priorFailures + 1,
+        errorPayload: {
+          callId: row.id,
+          externalId: row.externalId,
+          reason,
+          ageSeconds: Math.round((Date.now() - row.createdAt.getTime()) / 1000),
+          detectedBy: "poll-stale-calls",
+        },
+      },
+    });
+
+    return { sessionCreated, failureLogCreated: true };
+  } catch (err) {
+    // Best-effort — don't break the poll batch.
+    console.error(
+      `[poll-stale-calls] failed to write ghost FailureLog for call ${row.id}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+    return { sessionCreated, failureLogCreated: false };
+  }
 }
 
 /**

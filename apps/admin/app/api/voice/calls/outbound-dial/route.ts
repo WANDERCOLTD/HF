@@ -11,6 +11,7 @@ import {
 } from "@/lib/voice/resolve-voice-provider";
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
 import { createCallEnteringPipeline } from "@/lib/voice/create-call-entering-pipeline";
+import { recordCallFailure } from "@/lib/voice/record-call-failure";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { log } from "@/lib/logger";
 
@@ -208,7 +209,20 @@ export async function POST(request: Request) {
       const { toE164, isE164 } = await import("@/lib/voice/phone-format");
       const e164 = toE164(caller.phone) ?? caller.phone;
       if (!isE164(e164)) {
-        await prisma.call.delete({ where: { id: placeholderCall.id } });
+        // #1340 — was `prisma.call.delete` (pre-Slice 1). Now preserves
+        // the placeholder Call + writes a FailureLog so the Tune tab
+        // can render a FAILED card. OUTBOUND_DIAL_FAILED kind because
+        // we never even reached VAPI — the dial was rejected client-side.
+        await recordCallFailure({
+          callId: placeholderCall.id,
+          kind: "OUTBOUND_DIAL_FAILED",
+          errorPayload: {
+            stage: "phone_validation",
+            providerSlug: providerRow.slug,
+            phoneE164Attempt: e164,
+            errorMessage: `Caller phone not in E.164 format: ${caller.phone}`,
+          },
+        });
         endSpan({ errorMessage: `Caller phone not in E.164: ${caller.phone}` });
         return NextResponse.json(
           {
@@ -266,7 +280,23 @@ export async function POST(request: Request) {
           vapiMessage: vapiBody?.message ?? null,
           vapiBody: vapiBody ? JSON.stringify(vapiBody).slice(0, 1500) : null,
         });
-        await prisma.call.delete({ where: { id: placeholderCall.id } });
+        // #1340 — was `prisma.call.delete` (pre-Slice 1). Preserve the
+        // placeholder + write a FailureLog(VAPI_502) so the Tune tab
+        // can render a FAILED card AND the operator can read the VAPI
+        // error payload without losing it to the delete.
+        await recordCallFailure({
+          callId: placeholderCall.id,
+          kind: "VAPI_502",
+          errorPayload: {
+            stage: "vapi_post_call",
+            providerSlug: providerRow.slug,
+            httpStatus: vapiResp.status,
+            vapiError: vapiBody?.error ?? null,
+            vapiMessage: vapiBody?.message ?? null,
+            vapiBody: vapiBody ? JSON.stringify(vapiBody).slice(0, 1500) : null,
+            errorMessage: message,
+          },
+        });
         endSpan({ errorMessage: message });
         return NextResponse.json(
           { ok: false, error: `VAPI returned: ${message}` },
@@ -275,8 +305,22 @@ export async function POST(request: Request) {
       }
       vapiCallId = vapiBody.id;
     } catch (err) {
-      await prisma.call.delete({ where: { id: placeholderCall.id } });
+      // #1340 — was `prisma.call.delete` (pre-Slice 1). Preserve the
+      // placeholder + write a FailureLog(OUTBOUND_DIAL_FAILED). The
+      // throw branch is reached on network errors, abort, etc. — the
+      // forensic value of the exception message is now captured in the
+      // FailureLog payload rather than dying with the deleted Call row.
       const message = err instanceof Error ? err.message : String(err);
+      await recordCallFailure({
+        callId: placeholderCall.id,
+        kind: "OUTBOUND_DIAL_FAILED",
+        errorPayload: {
+          stage: "vapi_fetch_throw",
+          providerSlug: providerRow.slug,
+          errorMessage: message,
+          errorName: err instanceof Error ? err.name : null,
+        },
+      });
       endSpan({ errorMessage: message });
       return NextResponse.json(
         { ok: false, error: `Failed to call VAPI: ${message}` },
@@ -312,24 +356,22 @@ export async function POST(request: Request) {
         providerSlug: providerRow.slug,
         error: stampMessage,
       });
-      // TODO(#1338-slice-1): replace delete with FailureLog write once
-      // Slice 1 ships the FailureLog table. Today we delete the orphan
-      // to keep the DB clean — without it the row sits with no
-      // externalId, no endedAt, and is exactly the #1345 ghost class
-      // that the poll-stale reconciler can't fix (it only polls rows
-      // that HAVE an externalId).
-      try {
-        await prisma.call.delete({ where: { id: placeholderCall.id } });
-      } catch (cleanupErr) {
-        log("system", "voice.outbound_dial.placeholder_cleanup_failed", {
-          level: "error",
-          placeholderId: placeholderCall.id,
-          error:
-            cleanupErr instanceof Error
-              ? cleanupErr.message
-              : String(cleanupErr),
-        });
-      }
+      // #1340 — was `prisma.call.delete` (pre-Slice 1, with explicit
+      // TODO pointing to this slice). Now we preserve the placeholder
+      // and write a FailureLog so the Tune tab can render the FAILED
+      // card AND the operator can read the stamp error. The vapiCallId
+      // is captured in the payload — it's the only forensic link back
+      // to the VAPI side that pre-fix died with the delete.
+      await recordCallFailure({
+        callId: placeholderCall.id,
+        kind: "OUTBOUND_DIAL_FAILED",
+        errorPayload: {
+          stage: "externalid_stamp",
+          providerSlug: providerRow.slug,
+          vapiCallId,
+          errorMessage: stampMessage,
+        },
+      });
       endSpan({ errorMessage: `externalId stamp failed: ${stampMessage}` });
       return NextResponse.json(
         {

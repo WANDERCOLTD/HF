@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "issue": "#1340",
+    "epic": "#1338 Slice 1",
+    "name": "failurelog-ghost-detection-pre",
+    "description": "Pre-fix DB state replicating Bertie Tallstaff's 2026-06-08 10:06:02 ghost row on hf_sandbox AFTER #1345 Part A (dedup) landed but BEFORE Slice 1 (FailureLog wiring). The outbound-dial placeholder is stamped with an externalId (so #1345 dedup wouldn't fire on a duplicate webhook), but VAPI never returns 'ended' for it — the poll-stale reconciler eventually hits the 404 path. Pre-#1340 the row sat at endedAt:NULL forever AND was completely invisible in the Tune tab; markPollFailed flipped endedAt to NOW but no FailureLog was written and no parent Session row existed.",
+    "callerId": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+    "voiceProvider": "vapi",
+    "source": "hf_sandbox 2026-06-08 (post-#1345 Part A baseline)",
+    "capturedAt": "2026-06-08T10:09:32Z"
+  },
+  "callers": [
+    {
+      "id": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+      "name": "Bertie Tallstaff",
+      "phone": "+447700900042"
+    }
+  ],
+  "calls": [
+    {
+      "id": "11111111-1111-1111-1111-111110060201",
+      "callerId": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "externalId": "vapi-call-ghost-xyz",
+      "transcript": "",
+      "endedAt": null,
+      "endSource": null,
+      "sessionId": null,
+      "callSequence": null,
+      "createdAt": "2026-06-08T10:06:02Z",
+      "_role": "ghost-pending-poll-detection",
+      "_note": "Placeholder from /api/voice/calls/outbound-dial. externalId stamped successfully (#1345 Part B held). VAPI never reports the call as 'ended' — poll-stale-calls will hit 404 on next cycle (>=90s after createdAt). Pre-#1340, markPollFailed flipped endedAt to NOW but no FailureLog was written and no parent Session row existed; the row was invisible to the Tune tab."
+    }
+  ],
+  "sessions": [],
+  "failureLogs": [],
+  "_expected_state_pre_fix": {
+    "totalCallRows": 1,
+    "totalSessions": 0,
+    "totalFailureLogs": 0,
+    "ghostRowsHidden": 1,
+    "narrative": "One Call row that the operator can't see in the Tune tab AND ADAPT can't read to soft-acknowledge in the next prompt. The structural gap Slice 1 closes."
+  }
+}
