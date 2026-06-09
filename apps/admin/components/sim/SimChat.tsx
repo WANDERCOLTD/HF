@@ -1573,11 +1573,15 @@ export function SimChat({
             hid the lobby — and with it, the Talk Here status text + the
             fat red end-call button (both lived inside the lobby JSX).
             Hoisting these here means they're visible whenever a voice
-            call is in any non-idle state, regardless of callPhase. */}
+            call is in any non-idle state, regardless of callPhase.
+            #1383 — also stays visible during 'wrapping' so the user sees
+            the "Ending your session..." feedback at the SAME location
+            they just clicked, instead of a silent transition. */}
         {(providerCall.status === 'starting' ||
           providerCall.status === 'connecting' ||
           providerCall.status === 'active' ||
-          providerCall.status === 'error') && (
+          providerCall.status === 'error' ||
+          callPhase === 'wrapping') && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '16px 12px 8px' }}>
             {providerCall.status === 'starting' && (
               <p style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
@@ -1594,21 +1598,42 @@ export function SimChat({
                 {providerCall.errorMessage}
               </p>
             )}
+            {/* #1383 — Active call: red end button. */}
             {(providerCall.status === 'starting' ||
               providerCall.status === 'connecting' ||
-              providerCall.status === 'active') && (
+              providerCall.status === 'active') &&
+              callPhase !== 'wrapping' && (
+                <>
+                  <button
+                    className="wa-lobby-end-btn"
+                    onClick={() => { void providerCall.end(); }}
+                    aria-label="End voice session"
+                    title="End voice session"
+                  >
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                      <path transform="rotate(135 12 12)" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                    </svg>
+                  </button>
+                  <span style={{ fontSize: 12, color: 'var(--wa-text-secondary)' }}>End voice session</span>
+                </>
+              )}
+            {/* #1383 — Wrapping: replace the button with a spinner +
+                "Ending…" so the click feels acknowledged immediately at
+                the same screen location. Pre-fix the only feedback was a
+                small marker at the END of the message list — easy to
+                miss when the user's eye is still on the button. */}
+            {callPhase === 'wrapping' && (
               <>
-                <button
-                  className="wa-lobby-end-btn"
-                  onClick={() => { void providerCall.end(); }}
-                  aria-label="End voice session"
-                  title="End voice session"
-                >
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                    <path transform="rotate(135 12 12)" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                  </svg>
-                </button>
-                <span style={{ fontSize: 12, color: 'var(--wa-text-secondary)' }}>End voice session</span>
+                <div style={{
+                  width: 72, height: 72, borderRadius: '50%',
+                  background: 'color-mix(in srgb, var(--status-error-text, #ef4444) 30%, transparent)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <div className="hf-spinner" style={{ width: 28, height: 28, borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)', borderTopColor: 'white' }} />
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--wa-text-secondary)', textAlign: 'center', margin: 0 }}>
+                  Ending your session&hellip; saving the conversation.
+                </span>
               </>
             )}
           </div>
