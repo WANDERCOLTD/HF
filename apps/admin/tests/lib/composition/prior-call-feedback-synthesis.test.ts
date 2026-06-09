@@ -116,6 +116,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED;
+  // #1404 degrade kill-switch — clean up if set by individual tests
+  delete process.env.PRIOR_CALL_RECAP_RICH_DEPTH_ENABLED;
 });
 
 describe("priorCallFeedback synthesis — kill-switch gate", () => {
@@ -430,6 +432,11 @@ describe("priorCallFeedback synthesis — audit log on success", () => {
   });
 
   it("rich depth passes transcript slice; caller's first name extracted", async () => {
+    // #1404 — the degrade kill-switch (`PRIOR_CALL_RECAP_RICH_DEPTH_ENABLED`)
+    // was added to main AFTER this branch was cut. In CI the merge-commit
+    // includes the degrade, so `rich` → `standard` unless we opt back in.
+    // Set the env var here so we can verify the rich code path specifically.
+    process.env.PRIOR_CALL_RECAP_RICH_DEPTH_ENABLED = "true";
     const longTranscript = "x".repeat(8000);
     const prisma = makePrismaStub({
       allowlist: JSON.stringify([PLAYBOOK_ID]),
