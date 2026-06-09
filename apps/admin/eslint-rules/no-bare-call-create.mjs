@@ -130,6 +130,7 @@ const noBareCallCreateRule = {
     docs: {
       description:
         "Disallow bare `prisma.call.create` (#1333) and `prisma.session.create` (#1342) outside the explicit allow-lists. Use `createCallEnteringPipeline` / `createSession` so FK scope + atomic counter + voice snapshot land at creation time.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-bare-call-create",
     },
     schema: [],
     messages: {

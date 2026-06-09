@@ -104,6 +104,7 @@ export default {
     docs: {
       description:
         "Block hardcoded learner-facing greetings in prompt-composition transforms and voice assistant-config builders. See #1384.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-hardcoded-greeting-in-composition",
     },
     schema: [],
     messages,

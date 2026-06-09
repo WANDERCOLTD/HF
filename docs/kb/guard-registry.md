@@ -35,8 +35,8 @@ a guard that guards the guards. Baseline only ever drops as rules are wired (cur
 
 ✅ = KB-linked (`meta.docs.url` set).
 
-All 10 rules **✅ KB-linked** (`meta.docs.url` → the matching `#guard-<name>` anchor below).
-The meta-ratchet (`check-guard-kb-links.ts`) holds this at 10/10.
+All 12 rules **✅ KB-linked** (`meta.docs.url` → the matching `#guard-<name>` anchor below).
+The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 
 | Rule | Prevents | Born | Class |
 |---|---|---|---|
@@ -47,6 +47,8 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 10/10.
 | [`no-direct-domain-onboarding-write`](#guard-no-direct-domain-onboarding-write) | Direct writes to Domain `onboarding*`/`identitySpec` outside `lib/domain/update*` | #828 | **a** |
 | [`no-orphan-instruction-fallback`](#guard-no-orphan-instruction-fallback) | Generic-noun fallbacks for missing module/LO names in prompt transforms (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-C4) | #1006/#1008 | **a** |
 | [`no-undeclared-field-require`](#guard-no-undeclared-field-require) | `has(...)` refs to field keys not declared in the enclosing spec `define` | #1078 | **a** |
+| [`no-bare-call-create`](#guard-no-bare-call-create) | Bare `prisma.call.create` / `prisma.session.create` outside allow-list; must use `createCallEnteringPipeline` / `createSession` | #1333/#1342 | **a** |
+| [`no-hardcoded-greeting-in-composition`](#guard-no-hardcoded-greeting-in-composition) | Literal greeting strings in prompt-composition transforms / voice assistant-config builders | #1384 | **a** |
 | [`no-unscoped-slug-lookup`](#guard-no-unscoped-slug-lookup) | Unscoped slug/ref lookups on per-parent-unique entities (`CurriculumModule`, LO) | #407/#411 | **b** |
 | [`no-deprecated-curricula-relation`](#guard-no-deprecated-curricula-relation) | Reads of the `@deprecated Playbook.curricula` relation; use `playbookCurricula` | #1205 | **b** |
 | [`no-module-read-without-course-style-guard`](#guard-no-module-read-without-course-style-guard) | `CallerModuleProgress` reads/writes outside a `courseStyle === 'structured'` guard (default-deny) | #1252 | **b** |
@@ -144,6 +146,35 @@ is dropped from the schema.
 `CallerModuleProgress` reads/writes must sit behind a `courseStyle === 'structured'` guard
 (default-deny). **Survives hardening: conditionally** — tied to the current `courseStyle`
 modelling; revisit if course styles are reworked.
+
+<a id="guard-no-bare-call-create"></a>
+**`no-bare-call-create`** · class **(a) invariant** · born #1333/#1342 ·
+[rule source](../../apps/admin/eslint-rules/no-bare-call-create.mjs)
+
+Every `Call` row entering the pipeline MUST carry `(playbookId, requestedModuleId,
+curriculumModuleId)` at creation time; every `Session` row MUST go through `createSession`
+so `CallerSequenceCounter` increments atomically, `voiceConfigSnapshot` populates, and the
+I-CT2 `usedPromptId` cascade resolves. This rule blocks bare `prisma.call.create` and
+`prisma.session.create` outside the explicit allow-list of canonical builder sites.
+The allow-list in `no-bare-call-create.mjs` must be updated when adding a deliberate
+bypass (harness, seed, batch import) — making the bypass intentional and documented.
+**Survives hardening:** FK-completeness and atomic counter assignment are write-path
+invariants independent of architecture; the builder pattern carries forward.
+
+<a id="guard-no-hardcoded-greeting-in-composition"></a>
+**`no-hardcoded-greeting-in-composition`** · class **(a) invariant** · born #1384 ·
+[rule source](../../apps/admin/eslint-rules/no-hardcoded-greeting-in-composition.mjs)
+
+Greeting style ("Hi ${name}!", "Welcome back!") is a course-tunable behaviour — it MUST
+be read from `playbook.config.welcome.*` / `firstCall.*` or live in the explicit system-default
+templates under `lib/prompt/composition/defaults/`. Literal greeting strings in
+prompt-composition transforms or voice assistant-config builders bypass the configurable
+layers and make greetings un-customisable from Course Design Console. This rule fires on
+`Literal` / `TemplateLiteral` nodes matching the greeting-word regex inside guarded paths
+(`lib/prompt/composition/transforms/`, `lib/voice/build-assistant-config.ts`,
+`lib/voice/route-handlers.ts`), excepting the explicit defaults allowlist.
+**Survives hardening:** "Configuration over Code" for learner-facing utterances is an
+architectural principle, not tied to the current prompt-composition structure.
 
 ## CI check scripts — `apps/admin/scripts/`
 
