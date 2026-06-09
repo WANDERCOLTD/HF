@@ -283,10 +283,17 @@ export function SimChat({
   // #1092 — provider-backed "Call me" mixed mode. Lazy-imports the
   // VAPI Web SDK on first click; opens an SSE stream keyed on Call.id
   // and pushes incoming events into the chat surface as messages.
+  //
+  // #1391 — forward `requestedModuleId` to the call-start route so the
+  // placeholder Call carries the learner's picked module from the very
+  // first event. Without this, the URL param was dropped at the
+  // SimChat → useProviderCall boundary and the call entered the
+  // pipeline with `requestedModuleId = null`, defeating the picker.
   const providerCall = useProviderCall({
     callerId,
     intent: 'chat',
     onSseEvent: handleVoiceSseEvent,
+    requestedModuleId: requestedModuleId ?? undefined,
   });
 
   // PSTN [Call me] hook — separate from the browser WebRTC [Talk Here]

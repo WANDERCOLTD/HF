@@ -27,6 +27,13 @@ const bodySchema = z
      *  per-session override is NOT persisted on Caller — that's
      *  what the per-caller setting is for. */
     overrideProviderSlug: z.string().min(1).max(64).optional(),
+    /** #1391 — module slug the learner picked (via `?requestedModuleId=`
+     *  in the sim URL or `Caller.lastSelectedModuleId`). Forwarded to
+     *  `createCallEnteringPipeline` so the placeholder Call carries the
+     *  picked module from creation. Without this the WebRTC path
+     *  dropped the param at the SimChat boundary and the call entered
+     *  the pipeline with `requestedModuleId = null`. */
+    requestedModuleId: z.string().min(1).max(128).optional(),
   })
   .strict();
 
@@ -53,6 +60,7 @@ const bodySchema = z
  *   callerId: string,
  *   intent?: "chat" | "audio-only",
  *   overrideProviderSlug?: string,
+ *   requestedModuleId?: string,
  * }
  * @response 200 {
  *   ok: true,
@@ -162,6 +170,13 @@ export async function POST(request: Request) {
       callerId: caller.id,
       source: providerSlug,
       voiceProvider: providerSlug,
+      // #1391 — explicit module hint beats the
+      // `Caller.lastSelectedModuleId` fallback inside the builder, so a
+      // mid-session URL change picks up the new module on the very next
+      // [Talk Here] click rather than the previous pick.
+      ...(parsed.data.requestedModuleId
+        ? { requestedModuleId: parsed.data.requestedModuleId }
+        : {}),
     });
     const placeholderCall = entry.call;
     if (entry.playbookId && entry.requestedModuleId) {
