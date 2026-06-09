@@ -7,7 +7,6 @@ import {
   MASQUERADE_COOKIE,
   MASQUERADE_MAX_AGE,
   getMasqueradeState,
-  canMasquerade,
   isRoleEscalation,
   type MasqueradeState,
 } from "@/lib/masquerade";
