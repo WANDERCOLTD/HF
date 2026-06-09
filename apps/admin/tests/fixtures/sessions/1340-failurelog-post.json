@@ -1,0 +1,77 @@
+{
+  "_meta": {
+    "issue": "#1340",
+    "epic": "#1338 Slice 1",
+    "name": "failurelog-ghost-detection-post",
+    "description": "Expected DB state AFTER poll-stale-calls hits the 404 path on the ghost row from 1340-failurelog-pre.json. The writer mints a parent Session(status=GHOST) with the documented skipStages, attaches the Call back to the Session, and writes a FailureLog(kind=GHOST_NEVER_CONNECTED) child carrying the callId / externalId / ageSeconds payload. The Tune tab can now render a FAILED card; ADAPT can now read the FailureLog to soft-acknowledge in the n+1 prompt.",
+    "callerId": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+    "voiceProvider": "vapi",
+    "source": "hf_sandbox 2026-06-08 (post-#1340 expected)",
+    "capturedAt": "2026-06-08T10:09:32Z"
+  },
+  "calls": [
+    {
+      "id": "11111111-1111-1111-1111-111110060201",
+      "callerId": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "externalId": "vapi-call-ghost-xyz",
+      "transcript": "",
+      "endedAt": "<reconciler-now>",
+      "endSource": "poll",
+      "voiceEndedReason": "vapi_poll_failed",
+      "sessionId": "<minted-session-id>",
+      "createdAt": "2026-06-08T10:06:02Z",
+      "_role": "ghost-now-attributed",
+      "_note": "Same row as pre — endedAt/endSource set by markPollFailed (existing behaviour); sessionId is the NEW link to the parent Session this slice mints."
+    }
+  ],
+  "sessions": [
+    {
+      "id": "<minted-session-id>",
+      "callerId": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+      "playbookId": null,
+      "kind": "VOICE_CALL",
+      "sequenceNumber": 1,
+      "status": "GHOST",
+      "startedAt": "2026-06-08T10:06:02Z",
+      "endedAt": "<reconciler-now>",
+      "skipStages": ["EXTRACT", "SCORE_AGENT", "PROSODY", "REWARD"],
+      "countsTowardLearnerNumber": false,
+      "countsTowardPipelineNumber": true,
+      "_role": "ghost-session-parent",
+      "_note": "Minted by writeGhostFailureLog when the Call had no sessionId. kind=VOICE_CALL (the row WAS a voice call attempt); status=GHOST (epic #1338 §rules). countsTowardLearnerNumber=false — ghost doesn't push the visible call counter. skipStages = documented FAILURE_SESSION_SKIP_STAGES."
+    }
+  ],
+  "failureLogs": [
+    {
+      "id": "<uuid>",
+      "sessionId": "<minted-session-id>",
+      "kind": "GHOST_NEVER_CONNECTED",
+      "attemptNumber": 1,
+      "errorPayload": {
+        "callId": "11111111-1111-1111-1111-111110060201",
+        "externalId": "vapi-call-ghost-xyz",
+        "reason": "not_found_in_vapi",
+        "ageSeconds": "<>= 90>",
+        "detectedBy": "poll-stale-calls"
+      },
+      "occurredAt": "<reconciler-now>"
+    }
+  ],
+  "_expected_state_post_fix": {
+    "totalCallRows": 1,
+    "totalSessions": 1,
+    "totalFailureLogs": 1,
+    "ghostRowsAttributed": 1,
+    "callSessionLinkPresent": true,
+    "tuneTabCanRenderFailedCard": true,
+    "adaptCanReadFailureSignal": true,
+    "narrative": "Ghost row no longer invisible. Session(status=GHOST) is the parent the Tune tab reads to render a FAILED card. FailureLog child carries the forensic payload AND drives extractFailureAdaptation's soft signal on the next ADAPT run.",
+    "ciCheck": {
+      "name": "session-ghost-without-failurelog",
+      "expectedRows": 0,
+      "rationale": "Slice 1 writes Session and FailureLog together; the WARN check should return 0 on a clean DB. Non-zero indicates the best-effort write failed mid-flight (Slice 5 reconciler closes the gap)."
+    }
+  }
+}

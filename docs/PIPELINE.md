@@ -133,7 +133,10 @@ AGGREGATE    reads:  CallScore, VOICE_PROSODY_V1 envelope (#1119 consumer)
                      CallScore for CONV_PACE + pace_indicators (mode=general, #1119)
 REWARD       reads:  BehaviorMeasurement, BehaviorTarget
              writes: RewardScore
-ADAPT        reads:  CallerPersonalityProfile, transcript, Goal
+ADAPT        reads:  CallerPersonalityProfile, transcript, Goal,
+                     FailureLog (sub-op 8, #1340 — pre-pipeline writes
+                       from error branches in outbound-dial /
+                       poll-stale-calls; ADAPT does NOT write FailureLog)
              writes: CallTarget, CallerTarget, Goal, GoalProgress
 SUPERVISE    reads:  CallTarget, CallerTarget
              writes: clamped CallTarget, aggregated CallerTarget
@@ -205,7 +208,7 @@ See `lib/config.ts` for the full 16-slug surface. **Rule:** never hardcode a slu
 
 ## 7. ADAPT sub-operations
 
-The ADAPT executor runs 7 sub-operations: 3 in parallel, 4 sequential. Each is non-blocking individually.
+The ADAPT executor runs 8 sub-operations: 3 in parallel, 5 sequential. Each is non-blocking individually.
 
 **Parallel batch (`Promise.allSettled`):**
 
@@ -219,6 +222,7 @@ The ADAPT executor runs 7 sub-operations: 3 in parallel, 4 sequential. Each is n
 5. `evaluateCheckpoints(callerId, callId, sessionNumber=1)` — comprehension/discussion/coaching checkpoints. *sessionNumber is hardcoded to 1; scheduler owns pacing now — see TODO in executor.*
 6. `extractGoalCompletionSignals()` — detects "I passed!" claims; surfaces as teacher alerts (NOT a SUPERVISE concern — see §8)
 7. `applyAssessmentAdaptation()` — `CallerTarget` adjustment based on proximity to assessment threshold
+8. `extractFailureAdaptation(failureLogs)` — derives a soft "previous attempt failed" signal from `FailureLog` rows attached to the parent Session. Returns null when the Session has no failures (normal path). The signal feeds the COMPOSE preamble (Slice 5 wires the read side; Slice 1 only emits + logs the signal). **Inputs:** `FailureLog` rows for the call's `Session.id`. **Outputs:** stage result includes `failureSignal: { kind, failureCount, signal } | null`. **Idempotent.** See `lib/pipeline/extract-failure-adaptation.ts` and epic #1338 Slice 1 / story #1340.
 
 For internal logic of (3)/(4)/(6)/(7) see `memory/flow-goal-tracking.md`. That memory file is Claude-only; if you change goal mechanics, update both this section and that file.
 

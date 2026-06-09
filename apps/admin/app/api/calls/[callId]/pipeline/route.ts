@@ -27,6 +27,7 @@ import { runProsodyStage } from "@/lib/pipeline/prosody-runner";
 import { applyProsodyContractToAggregate } from "@/lib/pipeline/prosody-consumer";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
+import { extractFailureAdaptation } from "@/lib/pipeline/extract-failure-adaptation";
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
 import { shouldSkipForEvidenceFirst, shouldSkipForZeroEvidence } from "@/lib/pipeline/evidence-gate";
 import { validateSpecDependencies } from "@/lib/pipeline/validate-dependencies";
@@ -3225,7 +3226,7 @@ async function updateTpMasteryAfterCall(
 interface PipelineContext {
   callId: string;
   callerId: string;
-  call: { id: string; transcript: string | null; playbookId: string | null; requestedModuleId: string | null; curriculumModuleId: string | null };
+  call: { id: string; transcript: string | null; playbookId: string | null; requestedModuleId: string | null; curriculumModuleId: string | null; sessionId: string | null };
   engine: AIEngine;
   guardrails: GuardrailsConfig;
   pipelineStages: PipelineStage[];
@@ -3769,6 +3770,29 @@ const stageExecutors: Record<string, StageExecutor> = {
       ctx.log.info(`Assessment adaptation applied`, { adjustments: assessmentAdapt.adjustments });
     }
 
+    // 7. Failure adaptation (#1340, ADAPT sub-op 8) — derives a soft
+    //    "previous attempt failed" signal from FailureLog rows attached
+    //    to the parent Session. The signal feeds COMPOSE's preamble
+    //    (Slice 5 wires the read side); Slice 1 only emits + observes.
+    //    No-ops cleanly when the Session has no FailureLog children
+    //    (per `extract-failure-adaptation.ts` contract — L7 risk).
+    let failureSignal: { kind: string; failureCount: number; signal: string } | null = null;
+    if (ctx.call.sessionId) {
+      const failureLogs = await prisma.failureLog.findMany({
+        where: { sessionId: ctx.call.sessionId },
+        orderBy: { occurredAt: "desc" },
+      });
+      const extracted = extractFailureAdaptation(failureLogs);
+      if (extracted) {
+        failureSignal = {
+          kind: extracted.kind,
+          failureCount: extracted.failureCount,
+          signal: extracted.signal,
+        };
+        ctx.log.info(`Failure adaptation signal emitted`, failureSignal);
+      }
+    }
+
     ctx.log.info(`ADAPT parallel ops completed in ${Date.now() - startTime}ms`);
 
     return {
@@ -3783,6 +3807,7 @@ const stageExecutors: Record<string, StageExecutor> = {
       goalsCompleted: goalResult.completed,
       completionSignalsDetected: completionSignals.signalsDetected,
       assessmentAdaptations: assessmentAdapt.adjustments,
+      failureSignal,
     };
   },
 
@@ -4062,9 +4087,15 @@ export async function POST(
     log.info("Pipeline started", { callId, callerId, mode, engine });
 
     // Load call
+    // #1340 — `sessionId` added for ADAPT sub-op 8
+    // (`extractFailureAdaptation`). Nullable during the Slice 0→4
+    // transition: backfilled Calls have a parent Session; the live
+    // create paths in `createCallEnteringPipeline` don't yet stamp the
+    // FK (Slice 3 wires `createSession`). Pipeline gracefully no-ops
+    // the failure sub-op when sessionId is null.
     const call = await prisma.call.findUnique({
       where: { id: callId },
-      select: { id: true, transcript: true, playbookId: true, requestedModuleId: true, curriculumModuleId: true },
+      select: { id: true, transcript: true, playbookId: true, requestedModuleId: true, curriculumModuleId: true, sessionId: true },
     });
 
     if (!call) {

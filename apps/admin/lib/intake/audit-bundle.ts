@@ -6,6 +6,7 @@
 
 import {
   composeAuditBundle,
+  customEventKind,
   type AuditBundle,
   type Disclosure,
   type Consent,
@@ -20,6 +21,24 @@ import {
   type IntakeSession,
 } from "./session-store";
 import type { IntentId } from "./tallyseal";
+
+/**
+ * #1340 (epic #1338 Slice 1) — Tallyseal event-kind brand for
+ * FailureLog rows piping into the audit-bundle hash chain.
+ *
+ * Per the Tallyseal reply on #1340 (2026-06-08): no allowlist needed;
+ * the `customEventKind` brand satisfies the `EventKind` discriminated
+ * union, passes through `appendEvent` unchanged, hashes correctly via
+ * `computeContentHash`, and `isSystemEventKind(kind)` returns `false`
+ * so any future dispatcher routes to a host-side projection registry.
+ *
+ * Exported so the Slice 2 PrismaEventStore writer can attach the brand
+ * when an intake-side FailureLog (INTAKE_SCHEMA_FAIL) needs to land in
+ * the bundle's event sequence. Slice 1 wires the brand but defers the
+ * call-site to Slice 2 (intake still uses the in-memory IntakeSession
+ * Map — see `lib/intake/session-store.ts`).
+ */
+export const FAILURE_LOG_EVENT_KIND = customEventKind("FailureLog");
 
 interface ComposeOptions {
   readonly intentId: IntentId;

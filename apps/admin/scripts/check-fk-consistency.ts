@@ -309,6 +309,46 @@ async function runChecks(): Promise<CheckResult[]> {
     warnOnly: true,
   });
 
+  // Query 9 — #1340 — Session(status=GHOST) without a FailureLog child
+  // (WARN-only). Every GHOST Session MUST have at least one
+  // FailureLog(kind=GHOST_NEVER_CONNECTED) child by definition — the
+  // poll-stale-calls writer mints both together. A GHOST Session with
+  // zero FailureLog children means either:
+  //   (a) the writer crashed between the Session insert and the
+  //       FailureLog insert (current Slice 1 writes are best-effort,
+  //       NOT transactional — Slice 5 reconciler closes this gap), OR
+  //   (b) something else minted a GHOST Session without going through
+  //       writeGhostFailureLog (e.g., a future reconciler that bypasses
+  //       the contract).
+  // WARN-only because (a) is a known structural gap until Slice 5 lands;
+  // forensic evidence is more useful than a hard CI block.
+  const ghostSessionsWithoutFailureLogs = await prisma.$queryRaw<
+    Array<{ id: string; callerId: string; startedAt: Date }>
+  >`
+    SELECT s."id", s."callerId", s."startedAt"
+    FROM "Session" s
+    WHERE s."status" = 'GHOST'
+      AND NOT EXISTS (
+        SELECT 1 FROM "FailureLog" f
+        WHERE f."sessionId" = s."id"
+      )
+    ORDER BY s."startedAt" DESC
+    LIMIT 200
+  `;
+  results.push({
+    name: "session-ghost-without-failurelog",
+    description:
+      "#1340 — Session(status=GHOST) rows with zero FailureLog children. Every ghost Session should carry at least one FailureLog(kind=GHOST_NEVER_CONNECTED) child written by the poll-stale-calls reconciler. WARN-only — Slice 1 writes are best-effort (not transactional); Slice 5 reconciler closes the gap. Should return 0 on a clean hf_sandbox post-migration.",
+    rows: ghostSessionsWithoutFailureLogs.map((r) => ({
+      id: r.id,
+      detail: {
+        callerId: r.callerId,
+        startedAt: r.startedAt.toISOString(),
+      },
+    })),
+    warnOnly: true,
+  });
+
   const divergences = findAnchorDivergence(anchorCurricula);
   results.push({
     name: "qualification-anchor-divergence",

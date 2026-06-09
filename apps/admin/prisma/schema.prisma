@@ -938,11 +938,54 @@ model Session {
   // of the legacy `triggerCallId` → `triggeredPrompts` relation on Call.
   triggeredComposedPrompts ComposedPrompt[] @relation("SessionTriggeredPrompts")
 
+  // #1340 (epic #1338 Slice 1) — typed children for failed attempts. Every
+  // Session(status=GHOST|FAILED) MUST have at least one FailureLog child;
+  // the CI consistency check `session-ghost-without-failurelog` enforces
+  // this on a clean DB. Successful Sessions usually have zero children.
+  failureLogs FailureLog[]
+
   @@unique([callerId, kind, sequenceNumber])
   @@index([callerId, startedAt])
   @@index([playbookId])
   @@index([kind])
   @@index([status])
+}
+
+// #1340 (epic #1338 Slice 1) — typed failure children of Session.
+//
+// Recorded by error branches that previously deleted the Call placeholder
+// (`outbound-dial/route.ts`) or left orphan rows invisible
+// (`poll-stale-calls.ts` ghost detection). Each row carries the original
+// error payload so operators can read why an interaction never produced a
+// transcript, AND so ADAPT can soft-acknowledge the failure in the next
+// prompt (`lib/pipeline/extract-failure-adaptation.ts`).
+//
+// `kind` is an open-ended string (not a Prisma enum) so Slice 3+ can add
+// new failure classes (e.g., LLM_TIMEOUT, SCHEDULER_NO_MODULE) without a
+// migration. Documented values:
+//   GHOST_NEVER_CONNECTED   — poll-stale-calls 90s budget exceeded
+//   VAPI_502                — VAPI POST /call returned non-2xx
+//   OUTBOUND_DIAL_FAILED    — exception thrown around the VAPI fetch
+//   INTAKE_SCHEMA_FAIL      — zod/AI-tool-call validation (Slice 2 wiring)
+//
+// `attemptNumber` supports retry recording — one Session, multiple
+// FailureLog children when a retry loop fires (no sequence inflation).
+//
+// `errorPayload` is provider-specific JSON. Shape is intentionally
+// untyped at the schema level; callers stash {status, vapiBody, errorMessage}
+// or {callId, externalId, ageSeconds} as appropriate.
+model FailureLog {
+  id            String   @id @default(uuid())
+  sessionId     String
+  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  kind          String
+  attemptNumber Int      @default(1)
+  errorPayload  Json
+  occurredAt    DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([kind])
+  @@index([occurredAt])
 }
 
 // Atomic counter for `Session.sequenceNumber`. Replaces the current
@@ -1642,7 +1685,7 @@ model Call {
   onboardingSessionsAsFirstCall OnboardingSession[]
 
   // Live observation
-  endedAt  DateTime? // null = call may still be active (or pre-feature calls)
+  endedAt   DateTime? // null = call may still be active (or pre-feature calls)
   // #1241 — how the call ended (analytics + UI labelling on the wrap card).
   // Documented values (TS const in `lib/voice/end-source.ts`):
   //   "sdk"     VAPI Web SDK call-end event (browser hangup)
@@ -1654,7 +1697,7 @@ model Call {
   // Nullable: pre-existing rows have null; current writers populate where
   // known so future analytics can break it down.
   endSource String?
-  messages CallMessage[]
+  messages  CallMessage[]
 
   // Voice provider slug that served this call. References VoiceProvider.slug
   // (data-driven — admins manage providers via /x/settings/voice-providers
@@ -2669,14 +2712,14 @@ model CurriculumModule {
   updatedAt DateTime @updatedAt
 
   // Relations
-  learningObjectives LearningObjective[]
-  callerProgress     CallerModuleProgress[]
-  calls              Call[]
-  callScores         CallScore[] // #491 Slice 1.2 — multi-attribute scoring
+  learningObjectives    LearningObjective[]
+  callerProgress        CallerModuleProgress[]
+  calls                 Call[]
+  callScores            CallScore[] // #491 Slice 1.2 — multi-attribute scoring
   // #1245 — Callers whose last picked module is this one. SetNull on
   // delete means the Caller row keeps a null FK rather than being
   // cascade-deleted along with the module.
-  lastSelectedByCallers Caller[] @relation("CallerLastSelectedModule")
+  lastSelectedByCallers Caller[]               @relation("CallerLastSelectedModule")
 
   // #1341 (epic #1338 Slice 0) — Learner Sessions scoped to this module.
   sessions Session[]
@@ -5045,10 +5088,10 @@ model VoiceSystemSettings {
   // consume the full request window. On timeout, PROSODY emits
   // mode:"unavailable" + errorReason:"vendor_timeout" — pipeline
   // continues, AGGREGATE skips prosody-dependent writes for the call.
-  vendorTimeoutMs          Int      @default(30000)
+  vendorTimeoutMs Int @default(30000)
 
-  updatedAt              DateTime @updatedAt
-  createdAt              DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 // IntakeSpec — admin-authored CrawcusSpec entries (#1140 Phase 2a).
@@ -5074,21 +5117,21 @@ model VoiceSystemSettings {
 // don't have to forge a User row. Per .claude/rules/ai-to-db-guard.md
 // the trust triangle's Author side is observable from these FKs.
 model IntakeSpec {
-  id          String           @id @default(cuid())
-  key         String           // e.g., "CreateCourse", "CreateRecipe"
-  version     String           // semver, e.g., "1.0.0"
-  body        Json             // CrawcusSpec-shaped JSON cache of `source` (list-page reads body without parse)
-  source      String?          @db.Text // #1194 — canonical TS source for @tallyseal/spec-emitter parse(). Nullable for pre-#1194 rows; re-seed populates.
-  status      IntakeSpecStatus @default(DRAFT)
-  parentKey   String?          // for `extends` — Phase 4 reserve
-  createdById String?
+  id            String           @id @default(cuid())
+  key           String // e.g., "CreateCourse", "CreateRecipe"
+  version       String // semver, e.g., "1.0.0"
+  body          Json // CrawcusSpec-shaped JSON cache of `source` (list-page reads body without parse)
+  source        String?          @db.Text // #1194 — canonical TS source for @tallyseal/spec-emitter parse(). Nullable for pre-#1194 rows; re-seed populates.
+  status        IntakeSpecStatus @default(DRAFT)
+  parentKey     String? // for `extends` — Phase 4 reserve
+  createdById   String?
   publishedById String?
-  publishedAt DateTime?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  publishedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  createdBy   User?            @relation("IntakeSpecCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  publishedBy User?            @relation("IntakeSpecPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  createdBy   User? @relation("IntakeSpecCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedBy User? @relation("IntakeSpecPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
 
   @@unique([key, version])
   @@index([key, status])
