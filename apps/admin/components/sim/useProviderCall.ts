@@ -97,6 +97,15 @@ interface UseProviderCallOptions {
   callerId: string;
   intent?: "chat" | "audio-only";
   overrideProviderSlug?: string;
+  /**
+   * #1391 — module slug the learner picked (via URL `?requestedModuleId=`
+   * or `Caller.lastSelectedModuleId`). Forwarded to /api/voice/calls/start
+   * so `createCallEnteringPipeline` attributes the placeholder Call with
+   * `requestedModuleId` + `curriculumModuleId` at creation time, before
+   * any pipeline event fires. Without this the URL param was dropped at
+   * the hook boundary.
+   */
+  requestedModuleId?: string;
   onSseEvent?: (event: VoiceCallSseEvent) => void;
 }
 
@@ -216,6 +225,9 @@ export function useProviderCall(
           ...(options.overrideProviderSlug
             ? { overrideProviderSlug: options.overrideProviderSlug }
             : {}),
+          ...(options.requestedModuleId
+            ? { requestedModuleId: options.requestedModuleId }
+            : {}),
         }),
       });
       const body = (await res.json()) as ProviderCallStartResponse;
@@ -302,7 +314,7 @@ export function useProviderCall(
       setStatus("error");
       await teardown();
     }
-  }, [openSse, options.callerId, options.intent, options.overrideProviderSlug, teardown]);
+  }, [openSse, options.callerId, options.intent, options.overrideProviderSlug, options.requestedModuleId, teardown]);
 
   useEffect(() => {
     return () => {
