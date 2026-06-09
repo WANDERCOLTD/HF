@@ -14,7 +14,7 @@
  * Run:  npx tsx scripts/capture/model-map.ts        (from apps/admin)
  * CI:   re-run and `git diff --exit-code` the JSON to catch schema drift.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,6 +22,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "../../../..");
 const SCHEMA_PATH = resolve(REPO_ROOT, "apps/admin/prisma/schema.prisma");
 const OUT_PATH = resolve(REPO_ROOT, "docs/kb/generated/model-map.json");
+const OVERRIDES_PATH = resolve(REPO_ROOT, "docs/kb/model-map-overrides.json");
 
 const PRISMA_SCALARS = new Set([
   "String", "Int", "Boolean", "DateTime", "Float", "Decimal", "BigInt", "Bytes", "Json",
@@ -132,6 +133,33 @@ function parseModel(name: string, body: string, scalarTypes: Set<string>): Model
   };
 }
 
+type Override = {
+  proposedClass?: ModelInfo["proposedClass"];
+  notes?: string;
+  confidence?: ModelInfo["confidence"];
+};
+
+function loadOverrides(): Record<string, Override> {
+  if (!existsSync(OVERRIDES_PATH)) return {};
+  const j = JSON.parse(readFileSync(OVERRIDES_PATH, "utf8"));
+  return (j.overrides ?? {}) as Record<string, Override>;
+}
+
+function applyOverrides(models: ModelInfo[]): number {
+  const overrides = loadOverrides();
+  let n = 0;
+  for (const m of models) {
+    const o = overrides[m.name];
+    if (!o) continue;
+    if (o.proposedClass) m.proposedClass = o.proposedClass;
+    if (o.confidence) m.confidence = o.confidence;
+    if (o.notes) m.notes = o.notes;
+    m.reviewed = true;
+    n++;
+  }
+  return n;
+}
+
 function main() {
   const src = readFileSync(SCHEMA_PATH, "utf8");
   const scalarTypes = new Set([...PRISMA_SCALARS, ...collectEnums(src)]);
@@ -144,13 +172,16 @@ function main() {
   }
   models.sort((a, b) => a.name.localeCompare(b.name));
 
+  const ratifiedCount = applyOverrides(models);
+
   const summary = models.reduce(
     (acc, mdl) => {
       acc[mdl.proposedClass]++;
       if (mdl.hasTenantHint) acc.alreadyTenantAware++;
+      if (mdl.reviewed) acc.ratified++;
       return acc;
     },
-    { "tenant-scoped": 0, global: 0, join: 0, alreadyTenantAware: 0 } as Record<string, number>,
+    { "tenant-scoped": 0, global: 0, join: 0, alreadyTenantAware: 0, ratified: 0 } as Record<string, number>,
   );
 
   const out = {
@@ -158,8 +189,9 @@ function main() {
     generatedAt: new Date().toISOString(),
     generator: "scripts/capture/model-map.ts",
     schemaPath: "apps/admin/prisma/schema.prisma",
-    note: "Tier-2 generated KB. proposedClass is a HEURISTIC; ratify each row (set reviewed:true) to make this the authoritative tenant-scoping map. Do not hand-edit — re-run the generator.",
+    note: "Tier-2 generated KB. proposedClass is a HEURISTIC unless reviewed:true. Human ratifications live in docs/kb/model-map-overrides.json and are reapplied by the generator on each run. Do not hand-edit this JSON — edit the overrides file.",
     modelCount: models.length,
+    ratifiedCount,
     summary,
     models,
   };
@@ -171,6 +203,7 @@ function main() {
   console.log(
     `[model-map] proposed: ${summary["tenant-scoped"]} tenant-scoped · ${summary.global} global · ${summary.join} join · ${summary.alreadyTenantAware} already tenant-aware`,
   );
+  console.log(`[model-map] ratified: ${ratifiedCount}/${models.length} (via model-map-overrides.json)`);
 }
 
 main();
