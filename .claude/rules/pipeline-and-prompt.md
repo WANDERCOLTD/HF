@@ -71,3 +71,20 @@ Use `config.specs.*` — never hardcode spec slug strings like `"pipeline-001"`.
 ## AI Calls
 
 All AI calls go through metered wrappers (`getConfiguredMeteredAICompletion`). ESLint enforces this. Never pass explicit maxTokens/temperature — use cascade.
+
+## ⚠️ MANDATORY — Search before editing `lib/prompt/composition/transforms/` or `lib/voice/build-assistant-config.ts`
+
+#1367 / #1384 live incident: a 2-line "fix" inside `quickstart.ts::first_line()` returned a hardcoded greeting template (`Hi ${name}! Let's get into "${module}".`) — intercepting BEFORE the existing configurable layers (identity-spec opening, phase-derived opening, fallback templates) could fire. The greeting became un-customisable from Course Design. Root cause: nobody checked whether the architecture already covered this case.
+
+**Before touching any file under `lib/prompt/composition/transforms/` or `lib/voice/build-assistant-config.ts` you MUST:**
+
+1. **Search existing config surface.** Run at minimum:
+   - `qmd search "<concept>"` — e.g. `welcome`, `firstCall`, `greeting`, `opening`
+   - Read the relevant interface in `lib/types/json-fields.ts` (`PlaybookConfig`, `WelcomeConfig`, `FirstCallConfig`)
+   - Read the existing branches in the transform you're about to edit — many have a cascade that already reads from configurable sources
+2. **Write findings in the PR description.** Two lines minimum: "I searched X, found Y, decided to Z because A."
+3. **If the right answer is a new config field** — add it to `PlaybookConfig` first, wire the cascade read, THEN the transform. The transform should NEVER hold a literal AI utterance that isn't sourced from config or from an explicit system-default template under `lib/prompt/composition/defaults/`.
+
+**Mechanically enforced** by `hf-compose/no-hardcoded-greeting-in-composition` (severity `error`). A literal `Hi`, `Hello`, `Welcome`, `Hey`, `Good morning|afternoon|evening` string returned from one of these files will fail the lint. Move it to `lib/prompt/composition/defaults/` (the allow-listed system-default home) or read from `playbook.config.welcome.*` / `firstCall.*`.
+
+**Why this matters:** the AI's literal utterances are tutor-behavior contracts. Educators tune them via Course Design. Code constants make those knobs invisible — the educator changes nothing in the UI because the value is baked in the bundle.
