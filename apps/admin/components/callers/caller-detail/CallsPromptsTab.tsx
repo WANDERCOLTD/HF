@@ -865,7 +865,11 @@ export function CallsPromptsTab({
                 </div>
                 <div className="cpt-call-status">
                   {isProcessing && <span className="cpt-processing-dot" title="Pipeline is processing this call" />}
-                  {entry.hasPrompt && <FileText size={12} className="cpt-has-prompt" title="Prompt composed for next call" />}
+                  {entry.hasPrompt && (
+                    <span title="Prompt composed for next call">
+                      <FileText size={12} className="cpt-has-prompt" />
+                    </span>
+                  )}
                 </div>
               </button>
 

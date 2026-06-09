@@ -435,7 +435,11 @@ export async function seedJourneyFixtures(prisma: PrismaClient): Promise<Journey
         "Student: What's the chemical equation?",
         "AI: Great question! 6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂. Let's break it down...",
       ].join("\n"),
-      moduleId: mod1.id,
+      // #1344 follow-up — Call has `curriculumModuleId`, not `moduleId`.
+      // Pre-existing schema-rot baseline error that the pre-push hook flagged
+      // once this file landed in the change set; fixing inline to keep the
+      // hook clean.
+      curriculumModuleId: mod1.id,
     },
   });
 
