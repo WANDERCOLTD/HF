@@ -2477,4 +2477,3 @@ async function handleUpdateVoiceConfig(input: Record<string, any>) {
     pendingChange,
   };
 }
-
