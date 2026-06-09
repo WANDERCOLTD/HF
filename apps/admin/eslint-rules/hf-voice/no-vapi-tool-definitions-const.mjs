@@ -27,6 +27,7 @@ export default {
     docs: {
       description:
         "Disallow the `VAPI_TOOL_DEFINITIONS` TypeScript constant. Load tool definitions from TOOLS-001 spec via `lib/voice/load-tool-definitions.ts`. See #1019.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-vapi-tool-definitions-const",
     },
     schema: [],
     messages: {

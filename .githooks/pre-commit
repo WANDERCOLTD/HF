@@ -176,4 +176,31 @@ if command -v npx >/dev/null 2>&1; then
   fi
 fi
 
+# 7) Block accidental secret commits — gitleaks if installed (non-blocking if
+#    missing; warn so we know we lost the gate). Auto-skip on doc-only commits
+#    to keep the hook cheap on the common path.
+if command -v gitleaks >/dev/null 2>&1; then
+  has_code_change="0"
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    case "$f" in
+      *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.yaml|*.yml|*.sh|.env*|*.config.*)
+        has_code_change="1"; break ;;
+    esac
+  done <<< "${STAGED_FILES}"
+
+  if [[ "$has_code_change" == "1" ]]; then
+    if ! gitleaks protect --staged --no-banner --redact --exit-code 1 2>&1; then
+      echo "[pre-commit] ✖ ERROR: gitleaks detected a secret in staged changes."
+      echo "[pre-commit]   Remove the secret + re-stage. To diagnose:"
+      echo "[pre-commit]     gitleaks protect --staged --no-banner --verbose"
+      echo "[pre-commit]   To override for a single false-positive: git commit --no-verify (audit log required)."
+      exit 1
+    fi
+  fi
+else
+  echo "[pre-commit] ⚠ gitleaks not installed — secret-detection gate is OFF."
+  echo "[pre-commit]   Install: brew install gitleaks  (or https://github.com/gitleaks/gitleaks)"
+fi
+
 exit 0
