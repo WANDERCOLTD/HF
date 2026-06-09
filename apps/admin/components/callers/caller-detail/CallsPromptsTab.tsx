@@ -629,12 +629,25 @@ export function CallsPromptsTab({
 
   const latestId = entries[0]?.id ?? null;
 
-  // Auto-expand latest call on first render only (can be closed afterward)
+  // Auto-expand latest call on first render only (can be closed afterward).
+  // Smoke 2026-06-09 — also scroll the latest call into view so the user
+  // doesn't land on "looks empty, scroll up" after returning from /x/sim.
+  // The tab body sits inside the caller-detail-v2 scroll surface; an inert
+  // scrollIntoView on the latest call's card is the smallest fix.
   const didAutoExpand = useRef(false);
   useEffect(() => {
     if (!didAutoExpand.current && latestId && expandedCallId === null && externalExpanded === undefined) {
       didAutoExpand.current = true;
       setInternalExpanded(latestId);
+      // Defer to the next frame so the expanded card has rendered before we
+      // try to scroll to it. requestAnimationFrame is enough — the timeline
+      // builds synchronously from the already-loaded calls + prompts arrays.
+      if (typeof window !== "undefined") {
+        requestAnimationFrame(() => {
+          const el = document.getElementById(`cpt-call-${latestId}`);
+          if (el) el.scrollIntoView({ behavior: "auto", block: "start" });
+        });
+      }
     }
   }, [latestId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -835,7 +848,7 @@ export function CallsPromptsTab({
         const latestResult = callResults.prompt || callResults.prep;
 
         return (
-          <div key={entry.id} className={`cpt-call ${isExpanded ? "cpt-call--expanded" : ""} ${isProcessing ? "cpt-call--processing" : ""}`}>
+          <div id={`cpt-call-${entry.id}`} key={entry.id} className={`cpt-call ${isExpanded ? "cpt-call--expanded" : ""} ${isProcessing ? "cpt-call--processing" : ""}`}>
             {/* Call header */}
             <div className="cpt-call-header">
               <button
