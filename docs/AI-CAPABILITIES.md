@@ -4,9 +4,9 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-06-07T09:41:48.182Z
+> Last generated: 2026-06-09T10:10:51.009Z
 > Surfaces: 4
-> Total tools: 64 (58 live, 6 roadmap stubs)
+> Total tools: 65 (59 live, 6 roadmap stubs)
 
 ## Contract
 
@@ -22,7 +22,7 @@ Per `docs/CHAIN-CONTRACTS.md` §3 Link 3:
 
 Source: `apps/admin/lib/chat/admin-tools.ts`
 
-33 live, 6 stubs.
+34 live, 6 stubs.
 
 ### Live tools
 
@@ -34,6 +34,7 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 | `create_subject_with_source` | OPERATOR | `subject_slug`, `subject_name`, `source_slug`, `source_name` | `subject_description`, `source_description`, `tags` | Create a new Subject and its primary ContentSource in one step. |
 | `detach_linked_curriculum` | OPERATOR | `playbook_id`, `curriculum_id`, `reason` | — | Remove a 'linked' Curriculum from a Playbook. |
 | `dismiss_goal` | OPERATOR | `goal_id`, `reason` | — | Dismiss a pending completion signal on a Goal without marking the goal COMPLETED. |
+| `explain_voice_cascade` | (route-level) | `callerId` | — | Read-only. |
 | `generate_curriculum` | OPERATOR | `subject_id` | — | Trigger async AI curriculum generation for a subject. |
 | `get_caller_detail` | OPERATOR | `caller_id` | — | Get the full caller profile — same data the caller detail page shows. |
 | `get_domain_info` | OPERATOR | — | `domain_id`, `domain_name` | Get detailed info about a domain: description, playbook, specs in the playbook, caller count, and identity/content spec configs. |
