@@ -108,6 +108,7 @@ export default {
     docs: {
       description:
         "Disallow direct writes to compose-affecting AnalysisSpec fields outside lib/analysis-spec/update-analysis-spec-config.ts. See #829.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-direct-spec-config-write",
     },
     schema: [],
     messages: {

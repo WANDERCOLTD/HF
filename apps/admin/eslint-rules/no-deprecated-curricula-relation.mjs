@@ -131,6 +131,7 @@ export default {
     docs: {
       description:
         "Disallow reads of the @deprecated Playbook.curricula direct relation; use Playbook.playbookCurricula (canonical join). See #1205.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-deprecated-curricula-relation",
     },
     schema: [],
     messages: {

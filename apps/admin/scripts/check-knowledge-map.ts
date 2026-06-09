@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+// KB: catalogued in docs/kb/guard-registry.md (CI check scripts). See for class + why.
 /**
  * KNOWLEDGE-MAP.md ratchet — keeps the repo-root translation layer in step
  * with the code, specs, and data it references.

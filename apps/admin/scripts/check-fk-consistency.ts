@@ -1,3 +1,4 @@
+// KB: catalogued in docs/kb/guard-registry.md (CI check scripts). See for class + why.
 /**
  * #415 — FK consistency check.
  *

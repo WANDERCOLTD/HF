@@ -74,6 +74,8 @@ const noAiFanoutAllRule = {
     docs: {
       description:
         "Disallow AI tool executors from passing `fanoutScope: 'all'` to recompose helpers — cohort fan-out is human-only. See epic #854.",
+      // KB pointer — why this guard exists + survives-hardening class.
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-ai-fanout-all",
     },
     schema: [],
     messages: {

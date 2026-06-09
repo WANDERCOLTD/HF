@@ -79,6 +79,7 @@ export default {
     docs: {
       description:
         "Disallow direct writes to Domain onboarding* / identitySpec fields outside lib/domain/update-domain-config.ts. See #828.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-direct-domain-onboarding-write",
     },
     schema: [],
     messages: {

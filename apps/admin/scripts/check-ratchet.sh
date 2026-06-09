@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# KB: catalogued in docs/kb/guard-registry.md (CI check scripts). See for class + why.
 # check-ratchet.sh — count-cap ratchet gate (#227)
 #
 # Reads `.ratchet.json` at the repo root, measures four counts in the

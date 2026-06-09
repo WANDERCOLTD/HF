@@ -89,6 +89,7 @@ export default {
     docs: {
       description:
         "Disallow direct writes to Playbook.config — use `updatePlaybookConfig` from `lib/playbook/update-playbook-config.ts`. See #826.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-direct-playbook-config-write",
     },
     schema: [],
     messages: {

@@ -160,6 +160,7 @@ export default {
     docs: {
       description:
         "Block CallerModuleProgress prisma reads/writes outside a courseStyle === 'structured' guard. Default-deny per #1252.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-module-read-without-course-style-guard",
     },
     schema: [],
     messages: {
