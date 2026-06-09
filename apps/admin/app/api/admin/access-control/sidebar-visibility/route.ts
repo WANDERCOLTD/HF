@@ -5,8 +5,6 @@ import sidebarManifest from "@/lib/sidebar/sidebar-manifest.json";
 
 const SETTING_KEY = "sidebar.visibility_rules";
 
-type VisibilityState = "visible" | "hidden_default" | "blocked";
-
 type SidebarVisibilityRules = {
   sections: Record<
     string,

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { AgentRunStatus as DbAgentRunStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { resolveAgentPaths } from '@/lib/agent-paths';
 import { requireAuth, isAuthError } from '@/lib/permissions';

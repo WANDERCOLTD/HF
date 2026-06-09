@@ -233,7 +233,7 @@ describe("endSession", () => {
     // is wired into a fire-and-forget Promise, so we just need to ensure
     // endSession itself returns normally even when the underlying network call
     // would have rejected.
-    global.fetch = vi.fn().mockRejectedValue(new Error("network down")) as any;
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down")) as unknown as typeof global.fetch;
     mockPrisma.call.findFirst.mockResolvedValueOnce({ id: "call-1" });
 
     const { endSession } = await import("@/lib/voice/end-session");
@@ -249,7 +249,7 @@ describe("endSession", () => {
 
   it("triggerPipelineAsync=false skips fetch entirely", async () => {
     const fetchMock = vi.fn();
-    global.fetch = fetchMock as any;
+    global.fetch = fetchMock as unknown as typeof global.fetch;
 
     const { endSession } = await import("@/lib/voice/end-session");
     await endSession("session-1", {

@@ -16,7 +16,6 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { MemoryCategory } from "@prisma/client";
 import { AIEngine, isEngineAvailable } from "@/lib/ai/client";
 import { classifyAIError, userMessageForError } from "@/lib/ai/error-utils";
 import { getConfiguredMeteredAICompletion, logMockAIUsage } from "@/lib/metering";
@@ -3110,10 +3109,8 @@ async function updateTpMasteryAfterCall(
     if (pbCurr) {
       // #1008 (Finding C) — AI-returned masteryThreshold is authoritative when present;
       // fall back to CURRICULUM_PROGRESS_V1 contract, hard literal only if registry empty.
-      const threshold =
-        learningAssessment.masteryThreshold ||
-        (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ||
-        0.7;
+      // NOTE: threshold itself is not consumed by this branch (per-LO scores are
+      // persisted raw); the comparison happens at LO read time via the same cascade.
       const assessedLoRefs = Object.keys(learningAssessment.outcomes);
       const loRows = await prisma.learningObjective.findMany({
         where: {

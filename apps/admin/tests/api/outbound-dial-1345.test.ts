@@ -6,8 +6,10 @@
  *
  *   1. Happy path — externalId stamps normally, placeholder kept,
  *      200 returned. (Regression guard.)
- *   2. Stamp exception — Prisma throws on the update; route deletes the
- *      placeholder explicitly, logs structured context, returns 502.
+ *   2. Stamp exception — Prisma throws on the update; route records a
+ *      FailureLog against the placeholder (per #1340 the placeholder is
+ *      now preserved, not deleted, so the Tune tab can render a FAILED
+ *      card), logs structured context, returns 502.
  */
 
 import { describe, expect, it, vi, beforeEach, afterAll } from "vitest";
@@ -42,6 +44,8 @@ const stores = vi.hoisted(() => ({
   failStampUpdate: { value: false },
   // Track delete calls so we can assert the cleanup path.
   deleteCalls: [] as string[],
+  // Track recordCallFailure calls so we can assert the #1340 preserve-+-FailureLog path.
+  failureCalls: [] as Array<{ callId: string; kind: string; errorPayload: Record<string, unknown> }>,
   // Track log calls for the structured-context assertion.
   logCalls: [] as Array<{ event: string; payload: Record<string, unknown> }>,
 }));
@@ -132,6 +136,53 @@ vi.mock("@/lib/voice/build-assistant-config", () => ({
   }),
 }));
 
+// Route now uses createCallEnteringPipeline to mint the placeholder. The
+// helper has many DB-side dependencies (active-playbook lookup, module
+// cascade, FK writes) — short-circuit by writing through the existing
+// callStore mock so the rest of the assertions don't need to change.
+vi.mock("@/lib/voice/create-call-entering-pipeline", () => ({
+  createCallEnteringPipeline: vi.fn(
+    async (args: { callerId: string; source: string; voiceProvider: string }) => {
+      const id = `call-${stores.callStore.size + 1}`;
+      const row: MockCall = {
+        id,
+        callerId: args.callerId,
+        source: args.source,
+        voiceProvider: args.voiceProvider,
+        transcript: "",
+        externalId: null,
+      };
+      stores.callStore.set(id, row);
+      return {
+        call: { id },
+        playbookId: null,
+        requestedModuleId: null,
+        curriculumModuleId: null,
+      };
+    },
+  ),
+}));
+
+// Route uses recordCallFailure (post-#1340) instead of prisma.call.delete
+// to preserve the placeholder + write a FailureLog. Mock so the test can
+// assert the FailureLog payload without standing up the Session helpers.
+vi.mock("@/lib/voice/record-call-failure", () => ({
+  recordCallFailure: vi.fn(
+    async (args: {
+      callId: string;
+      kind: string;
+      errorPayload: Record<string, unknown>;
+    }) => {
+      stores.failureCalls.push(args);
+      return {
+        sessionId: null,
+        sessionCreated: false,
+        failureLogCreated: true,
+      };
+    },
+  ),
+}));
+
 vi.mock("@/lib/voice/telemetry", () => ({
   startVoiceSpan: vi.fn().mockReturnValue(() => undefined),
   logVoiceEvent: vi.fn(),
@@ -158,6 +209,7 @@ beforeEach(() => {
   stores.callerStore.clear();
   stores.providerStore.clear();
   stores.deleteCalls.length = 0;
+  stores.failureCalls.length = 0;
   stores.logCalls.length = 0;
   stores.failStampUpdate.value = false;
   // Re-stub global fetch (don't clear vi mocks, just rewire fetch).
@@ -217,7 +269,7 @@ describe("#1345 Part B — outbound-dial externalId-stamp safety", () => {
     expect(stores.deleteCalls).toHaveLength(0);
   });
 
-  it("stamp exception: placeholder explicitly deleted, 502 returned, structured error logged", async () => {
+  it("stamp exception: placeholder preserved + FailureLog written, 502 returned, structured error logged", async () => {
     seedHappyState();
     stores.failStampUpdate.value = true;
     const { POST } = await loadRoute();
@@ -229,9 +281,19 @@ describe("#1345 Part B — outbound-dial externalId-stamp safety", () => {
     expect(body.ok).toBe(false);
     expect(body.error).toContain("externalId");
     expect(body.error).toContain("simulated prisma exception");
-    // Placeholder explicitly cleaned up — no ghost row left.
-    expect(stores.deleteCalls).toHaveLength(1);
-    expect(stores.callStore.size).toBe(0);
+    // #1340 — placeholder is preserved (NOT deleted) so the Tune tab can
+    // render the FAILED card. Forensic detail lives in the FailureLog.
+    expect(stores.deleteCalls).toHaveLength(0);
+    expect(stores.callStore.size).toBe(1);
+    expect(stores.failureCalls).toHaveLength(1);
+    const failure = stores.failureCalls[0];
+    expect(failure.kind).toBe("OUTBOUND_DIAL_FAILED");
+    expect(failure.errorPayload.stage).toBe("externalid_stamp");
+    expect(failure.errorPayload.providerSlug).toBe("vapi");
+    expect(failure.errorPayload.vapiCallId).toBe("vapi-call-xyz");
+    expect(failure.errorPayload.errorMessage).toContain(
+      "simulated prisma exception",
+    );
     // Structured error logged with captured context.
     const stampLog = stores.logCalls.find(
       (l) => l.event === "voice.outbound_dial.externalid_stamp_failed",

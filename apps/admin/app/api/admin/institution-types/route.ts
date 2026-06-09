@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { TERM_KEYS } from "@/lib/terminology/types";
-import { invalidateTerminologyCache } from "@/lib/terminology";
 
 /**
  * @api GET /api/admin/institution-types
