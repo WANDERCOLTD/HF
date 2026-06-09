@@ -1,0 +1,4880 @@
+{
+  "$schema": "model-map/v1",
+  "generatedAt": "2026-06-09T07:59:51.089Z",
+  "generator": "scripts/capture/model-map.ts",
+  "schemaPath": "apps/admin/prisma/schema.prisma",
+  "note": "Tier-2 generated KB. proposedClass is a HEURISTIC; ratify each row (set reviewed:true) to make this the authoritative tenant-scoping map. Do not hand-edit — re-run the generator.",
+  "modelCount": 105,
+  "summary": {
+    "tenant-scoped": 89,
+    "global": 8,
+    "join": 8,
+    "alreadyTenantAware": 1
+  },
+  "models": [
+    {
+      "name": "Account",
+      "fieldCount": 13,
+      "relationCount": 1,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "userId",
+        "type",
+        "provider",
+        "providerAccountId",
+        "refresh_token",
+        "access_token",
+        "expires_at",
+        "token_type",
+        "scope",
+        "id_token",
+        "session_state"
+      ],
+      "relations": [
+        {
+          "field": "user",
+          "target": "User"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AgentInstance",
+      "fieldCount": 15,
+      "relationCount": 3,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "agentId",
+        "name",
+        "description",
+        "version",
+        "status",
+        "settings",
+        "settingsHash",
+        "parentVersionId",
+        "createdAt",
+        "publishedAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "parentVersion",
+          "target": "AgentInstance"
+        },
+        {
+          "field": "childVersions",
+          "target": "AgentInstance"
+        },
+        {
+          "field": "runs",
+          "target": "AgentRun"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AgentRun",
+      "fieldCount": 15,
+      "relationCount": 1,
+      "meaningfulScalarCount": 10,
+      "scalarFields": [
+        "id",
+        "agentInstanceId",
+        "agentId",
+        "agentTitle",
+        "opid",
+        "dryRun",
+        "status",
+        "startedAt",
+        "finishedAt",
+        "summary",
+        "stdout",
+        "stderr",
+        "artifacts",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "agentInstance",
+          "target": "AgentInstance"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AIConfig",
+      "fieldCount": 13,
+      "relationCount": 0,
+      "meaningfulScalarCount": 10,
+      "scalarFields": [
+        "id",
+        "callPoint",
+        "label",
+        "provider",
+        "model",
+        "maxTokens",
+        "temperature",
+        "transcriptLimit",
+        "timeoutMs",
+        "isActive",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "global",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+    },
+    {
+      "name": "AIModel",
+      "fieldCount": 10,
+      "relationCount": 0,
+      "meaningfulScalarCount": 6,
+      "scalarFields": [
+        "id",
+        "modelId",
+        "provider",
+        "label",
+        "tier",
+        "maxOutputTokens",
+        "isActive",
+        "sortOrder",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AnalysisAction",
+      "fieldCount": 13,
+      "relationCount": 2,
+      "meaningfulScalarCount": 6,
+      "scalarFields": [
+        "id",
+        "triggerId",
+        "description",
+        "weight",
+        "parameterId",
+        "learnCategory",
+        "learnKeyPrefix",
+        "learnKeyHint",
+        "sortOrder",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        },
+        {
+          "field": "trigger",
+          "target": "AnalysisTrigger"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AnalysisProfile",
+      "fieldCount": 10,
+      "relationCount": 1,
+      "meaningfulScalarCount": 6,
+      "scalarFields": [
+        "id",
+        "name",
+        "description",
+        "createdAt",
+        "updatedAt",
+        "usageCount",
+        "isLocked",
+        "lockedAt",
+        "lockedReason"
+      ],
+      "relations": [
+        {
+          "field": "parameters",
+          "target": "AnalysisProfileParameter"
+        }
+      ],
+      "blockAttrs": [
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AnalysisProfileParameter",
+      "fieldCount": 16,
+      "relationCount": 2,
+      "meaningfulScalarCount": 10,
+      "scalarFields": [
+        "id",
+        "analysisProfileId",
+        "parameterId",
+        "definition",
+        "scaleType",
+        "directionality",
+        "interpretationLow",
+        "interpretationHigh",
+        "enabled",
+        "weight",
+        "biasValue",
+        "thresholdLow",
+        "thresholdHigh",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "analysisProfile",
+          "target": "AnalysisProfile"
+        },
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AnalysisSpec",
+      "fieldCount": 36,
+      "relationCount": 7,
+      "meaningfulScalarCount": 23,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "scope",
+        "outputType",
+        "specType",
+        "specRole",
+        "domain",
+        "priority",
+        "isActive",
+        "extendsAgent",
+        "isArchetype",
+        "isDeletable",
+        "version",
+        "compiledAt",
+        "compiledSetId",
+        "isDirty",
+        "dirtyReason",
+        "sourceFeatureSetId",
+        "isLocked",
+        "lockedAt",
+        "lockedReason",
+        "usageCount",
+        "promptTemplate",
+        "config",
+        "promptSlugId",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "sourceFeatureSet",
+          "target": "BDDFeatureSet"
+        },
+        {
+          "field": "promptSlug",
+          "target": "PromptSlug"
+        },
+        {
+          "field": "triggers",
+          "target": "AnalysisTrigger"
+        },
+        {
+          "field": "callScores",
+          "target": "CallScore"
+        },
+        {
+          "field": "playbookItems",
+          "target": "PlaybookItem"
+        },
+        {
+          "field": "goals",
+          "target": "Goal"
+        },
+        {
+          "field": "domainsUsingForOnboarding",
+          "target": "Domain"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "global",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+    },
+    {
+      "name": "AnalysisTrigger",
+      "fieldCount": 12,
+      "relationCount": 2,
+      "meaningfulScalarCount": 6,
+      "scalarFields": [
+        "id",
+        "specId",
+        "given",
+        "when",
+        "then",
+        "name",
+        "notes",
+        "sortOrder",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "spec",
+          "target": "AnalysisSpec"
+        },
+        {
+          "field": "actions",
+          "target": "AnalysisAction"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AppLog",
+      "fieldCount": 17,
+      "relationCount": 0,
+      "meaningfulScalarCount": 12,
+      "scalarFields": [
+        "id",
+        "type",
+        "stage",
+        "level",
+        "message",
+        "promptPreview",
+        "promptLength",
+        "responsePreview",
+        "responseLength",
+        "durationMs",
+        "inputTokens",
+        "outputTokens",
+        "callId",
+        "callerId",
+        "userId",
+        "metadata",
+        "createdAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AssertionMedia",
+      "fieldCount": 8,
+      "relationCount": 2,
+      "meaningfulScalarCount": 2,
+      "scalarFields": [
+        "id",
+        "assertionId",
+        "mediaId",
+        "figureRef",
+        "sortOrder",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "assertion",
+          "target": "ContentAssertion"
+        },
+        {
+          "field": "media",
+          "target": "MediaAsset"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AuditLog",
+      "fieldCount": 10,
+      "relationCount": 0,
+      "meaningfulScalarCount": 6,
+      "scalarFields": [
+        "id",
+        "userId",
+        "userEmail",
+        "action",
+        "entityType",
+        "entityId",
+        "metadata",
+        "ipAddress",
+        "userAgent",
+        "createdAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "BDDFeatureSet",
+      "fieldCount": 25,
+      "relationCount": 4,
+      "meaningfulScalarCount": 17,
+      "scalarFields": [
+        "id",
+        "featureId",
+        "name",
+        "description",
+        "version",
+        "specType",
+        "parameters",
+        "constraints",
+        "definitions",
+        "validations",
+        "promptGuidance",
+        "thresholds",
+        "rawSpec",
+        "scoringSpec",
+        "parameterCount",
+        "constraintCount",
+        "definitionCount",
+        "isActive",
+        "activatedAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "createdSpecs",
+          "target": "AnalysisSpec"
+        },
+        {
+          "field": "createdParameters",
+          "target": "Parameter"
+        },
+        {
+          "field": "createdPromptSlugs",
+          "target": "PromptSlug"
+        },
+        {
+          "field": "createdAnchors",
+          "target": "ParameterScoringAnchor"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "BDDUpload",
+      "fieldCount": 7,
+      "relationCount": 0,
+      "meaningfulScalarCount": 4,
+      "scalarFields": [
+        "id",
+        "filename",
+        "content",
+        "status",
+        "error",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "BehaviorMeasurement",
+      "fieldCount": 11,
+      "relationCount": 2,
+      "meaningfulScalarCount": 5,
+      "scalarFields": [
+        "id",
+        "callId",
+        "parameterId",
+        "actualValue",
+        "confidence",
+        "evidence",
+        "measuredAt",
+        "measuredBy",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "call",
+          "target": "Call"
+        },
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "BehaviorTarget",
+      "fieldCount": 23,
+      "relationCount": 5,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "parameterId",
+        "scope",
+        "playbookId",
+        "segmentId",
+        "callerIdentityId",
+        "targetValue",
+        "skillRef",
+        "confidence",
+        "source",
+        "effectiveFrom",
+        "effectiveUntil",
+        "supersededById",
+        "observationCount",
+        "lastLearnedAt",
+        "sourceContentId",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        },
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        },
+        {
+          "field": "segment",
+          "target": "Segment"
+        },
+        {
+          "field": "callerIdentity",
+          "target": "CallerIdentity"
+        },
+        {
+          "field": "sourceContent",
+          "target": "ContentSource"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Call",
+      "fieldCount": 44,
+      "relationCount": 18,
+      "meaningfulScalarCount": 17,
+      "scalarFields": [
+        "id",
+        "source",
+        "externalId",
+        "transcript",
+        "createdAt",
+        "callerId",
+        "playbookId",
+        "curriculumModuleId",
+        "requestedModuleId",
+        "previousCallId",
+        "callSequence",
+        "usedPromptId",
+        "endedAt",
+        "endSource",
+        "voiceProvider",
+        "recordingUrl",
+        "stereoRecordingUrl",
+        "voiceDurationSeconds",
+        "voiceEndedReason",
+        "voiceCostUsd",
+        "voiceAnalysisSummary",
+        "voiceStructuredData",
+        "voiceSuccessEvaluation",
+        "voiceProviderRaw",
+        "voiceProsody",
+        "scratchMastery"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        },
+        {
+          "field": "curriculumModule",
+          "target": "CurriculumModule"
+        },
+        {
+          "field": "previousCall",
+          "target": "Call"
+        },
+        {
+          "field": "nextCalls",
+          "target": "Call"
+        },
+        {
+          "field": "scores",
+          "target": "CallScore"
+        },
+        {
+          "field": "rewardScore",
+          "target": "RewardScore"
+        },
+        {
+          "field": "personalityObservation",
+          "target": "PersonalityObservation"
+        },
+        {
+          "field": "promptSlugSelections",
+          "target": "PromptSlugSelection"
+        },
+        {
+          "field": "extractedMemories",
+          "target": "CallerMemory"
+        },
+        {
+          "field": "behaviorMeasurements",
+          "target": "BehaviorMeasurement"
+        },
+        {
+          "field": "triggeredPrompts",
+          "target": "ComposedPrompt"
+        },
+        {
+          "field": "usedPrompt",
+          "target": "ComposedPrompt"
+        },
+        {
+          "field": "callTargets",
+          "target": "CallTarget"
+        },
+        {
+          "field": "artifacts",
+          "target": "ConversationArtifact"
+        },
+        {
+          "field": "actions",
+          "target": "CallAction"
+        },
+        {
+          "field": "onboardingSessionsAsFirstCall",
+          "target": "OnboardingSession"
+        },
+        {
+          "field": "messages",
+          "target": "CallMessage"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallAction",
+      "fieldCount": 25,
+      "relationCount": 3,
+      "meaningfulScalarCount": 16,
+      "scalarFields": [
+        "id",
+        "callId",
+        "callerId",
+        "type",
+        "title",
+        "description",
+        "mediaUrl",
+        "mediaType",
+        "artifactId",
+        "assignee",
+        "status",
+        "priority",
+        "dueAt",
+        "completedAt",
+        "completedBy",
+        "source",
+        "confidence",
+        "evidence",
+        "notes",
+        "createdAt",
+        "updatedAt",
+        "createdBy"
+      ],
+      "relations": [
+        {
+          "field": "call",
+          "target": "Call"
+        },
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "artifact",
+          "target": "ConversationArtifact"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Caller",
+      "fieldCount": 46,
+      "relationCount": 28,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "email",
+        "name",
+        "phone",
+        "externalId",
+        "role",
+        "userId",
+        "voiceProvider",
+        "domainId",
+        "previousDomainId",
+        "domainSwitchCount",
+        "cohortGroupId",
+        "supervisorCallerId",
+        "artifactConsent",
+        "archivedAt",
+        "createdAt",
+        "composeInputsUpdatedAt",
+        "lastSelectedModuleId"
+      ],
+      "relations": [
+        {
+          "field": "user",
+          "target": "User"
+        },
+        {
+          "field": "domain",
+          "target": "Domain"
+        },
+        {
+          "field": "cohortGroup",
+          "target": "CohortGroup"
+        },
+        {
+          "field": "cohortMemberships",
+          "target": "CallerCohortMembership"
+        },
+        {
+          "field": "supervisorCaller",
+          "target": "Caller"
+        },
+        {
+          "field": "supervisedCallers",
+          "target": "Caller"
+        },
+        {
+          "field": "ownedCohorts",
+          "target": "CohortGroup"
+        },
+        {
+          "field": "personality",
+          "target": "CallerPersonality"
+        },
+        {
+          "field": "personalityProfile",
+          "target": "CallerPersonalityProfile"
+        },
+        {
+          "field": "personalityObservations",
+          "target": "PersonalityObservation"
+        },
+        {
+          "field": "calls",
+          "target": "Call"
+        },
+        {
+          "field": "promptSlugSelections",
+          "target": "PromptSlugSelection"
+        },
+        {
+          "field": "memories",
+          "target": "CallerMemory"
+        },
+        {
+          "field": "memorySummary",
+          "target": "CallerMemorySummary"
+        },
+        {
+          "field": "callScores",
+          "target": "CallScore"
+        },
+        {
+          "field": "callerIdentities",
+          "target": "CallerIdentity"
+        },
+        {
+          "field": "identityChallenges",
+          "target": "CallerIdentityChallenge"
+        },
+        {
+          "field": "composedPrompts",
+          "target": "ComposedPrompt"
+        },
+        {
+          "field": "callerTargets",
+          "target": "CallerTarget"
+        },
+        {
+          "field": "callerAttributes",
+          "target": "CallerAttribute"
+        },
+        {
+          "field": "goals",
+          "target": "Goal"
+        },
+        {
+          "field": "moduleProgress",
+          "target": "CallerModuleProgress"
+        },
+        {
+          "field": "enrollments",
+          "target": "CallerPlaybook"
+        },
+        {
+          "field": "artifacts",
+          "target": "ConversationArtifact"
+        },
+        {
+          "field": "actions",
+          "target": "CallAction"
+        },
+        {
+          "field": "inboundMessages",
+          "target": "InboundMessage"
+        },
+        {
+          "field": "onboardingSessions",
+          "target": "OnboardingSession"
+        },
+        {
+          "field": "lastSelectedModule",
+          "target": "CurriculumModule"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerAttribute",
+      "fieldCount": 16,
+      "relationCount": 1,
+      "meaningfulScalarCount": 10,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "key",
+        "scope",
+        "domain",
+        "sourceSpecSlug",
+        "valueType",
+        "stringValue",
+        "numberValue",
+        "booleanValue",
+        "jsonValue",
+        "confidence",
+        "validUntil",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerCohortMembership",
+      "fieldCount": 7,
+      "relationCount": 2,
+      "meaningfulScalarCount": 2,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "cohortGroupId",
+        "joinedAt",
+        "role"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "cohortGroup",
+          "target": "CohortGroup"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerIdentity",
+      "fieldCount": 18,
+      "relationCount": 3,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "externalId",
+        "name",
+        "segmentId",
+        "callerPrompt",
+        "promptComposedAt",
+        "promptSnapshot",
+        "nextPrompt",
+        "nextPromptComposedAt",
+        "nextPromptInputs",
+        "callCount",
+        "lastCallAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "segment",
+          "target": "Segment"
+        },
+        {
+          "field": "behaviorTargets",
+          "target": "BehaviorTarget"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerIdentityChallenge",
+      "fieldCount": 13,
+      "relationCount": 1,
+      "meaningfulScalarCount": 10,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "pinHash",
+        "channel",
+        "recipient",
+        "issuedAt",
+        "expiresAt",
+        "verifiedAt",
+        "attemptCount",
+        "lockedAt",
+        "resendCount",
+        "lastResentAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerMemory",
+      "fieldCount": 24,
+      "relationCount": 4,
+      "meaningfulScalarCount": 14,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "callId",
+        "category",
+        "source",
+        "key",
+        "value",
+        "normalizedKey",
+        "evidence",
+        "context",
+        "confidence",
+        "decayFactor",
+        "expiresAt",
+        "supersededById",
+        "extractedAt",
+        "extractedBy",
+        "verifiedAt",
+        "verifiedBy",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "supersededBy",
+          "target": "CallerMemory"
+        },
+        {
+          "field": "supersedes",
+          "target": "CallerMemory"
+        },
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "call",
+          "target": "Call"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerMemorySummary",
+      "fieldCount": 14,
+      "relationCount": 1,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "factCount",
+        "preferenceCount",
+        "eventCount",
+        "topicCount",
+        "keyFacts",
+        "topTopics",
+        "preferences",
+        "lastMemoryAt",
+        "lastAggregatedAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        }
+      ],
+      "blockAttrs": [
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerModuleProgress",
+      "fieldCount": 14,
+      "relationCount": 2,
+      "meaningfulScalarCount": 6,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "moduleId",
+        "mastery",
+        "status",
+        "startedAt",
+        "completedAt",
+        "lastCallId",
+        "callCount",
+        "loScoresJson",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "module",
+          "target": "CurriculumModule"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerPersonality",
+      "fieldCount": 18,
+      "relationCount": 1,
+      "meaningfulScalarCount": 13,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "parameterValues",
+        "openness",
+        "conscientiousness",
+        "extraversion",
+        "agreeableness",
+        "neuroticism",
+        "preferredTone",
+        "preferredLength",
+        "technicalLevel",
+        "lastAggregatedAt",
+        "observationsUsed",
+        "confidenceScore",
+        "decayHalfLife",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        }
+      ],
+      "blockAttrs": [
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerPersonalityProfile",
+      "fieldCount": 9,
+      "relationCount": 1,
+      "meaningfulScalarCount": 4,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "parameterValues",
+        "lastUpdatedAt",
+        "callsUsed",
+        "specsUsed",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        }
+      ],
+      "blockAttrs": [
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerPlaybook",
+      "fieldCount": 14,
+      "relationCount": 2,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "playbookId",
+        "status",
+        "enrolledAt",
+        "completedAt",
+        "pausedAt",
+        "droppedAt",
+        "enrolledBy",
+        "isDefault",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallerTarget",
+      "fieldCount": 14,
+      "relationCount": 2,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "parameterId",
+        "targetValue",
+        "currentScore",
+        "lastScoredAt",
+        "callsUsed",
+        "confidence",
+        "decayHalfLife",
+        "lastUpdatedAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallMessage",
+      "fieldCount": 9,
+      "relationCount": 2,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "callId",
+        "role",
+        "content",
+        "senderName",
+        "createdAt",
+        "mediaId"
+      ],
+      "relations": [
+        {
+          "field": "call",
+          "target": "Call"
+        },
+        {
+          "field": "media",
+          "target": "MediaAsset"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallScore",
+      "fieldCount": 20,
+      "relationCount": 5,
+      "meaningfulScalarCount": 8,
+      "scalarFields": [
+        "id",
+        "callId",
+        "callerId",
+        "parameterId",
+        "moduleId",
+        "score",
+        "confidence",
+        "evidence",
+        "reasoning",
+        "hasLearnerEvidence",
+        "evidenceQuality",
+        "analysisSpecId",
+        "scoredAt",
+        "scoredBy",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "call",
+          "target": "Call"
+        },
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        },
+        {
+          "field": "analysisSpec",
+          "target": "AnalysisSpec"
+        },
+        {
+          "field": "curriculumModule",
+          "target": "CurriculumModule"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CallTarget",
+      "fieldCount": 11,
+      "relationCount": 2,
+      "meaningfulScalarCount": 4,
+      "scalarFields": [
+        "id",
+        "callId",
+        "parameterId",
+        "targetValue",
+        "confidence",
+        "sourceSpecSlug",
+        "reasoning",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "call",
+          "target": "Call"
+        },
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ChannelConfig",
+      "fieldCount": 9,
+      "relationCount": 1,
+      "meaningfulScalarCount": 4,
+      "scalarFields": [
+        "id",
+        "channelType",
+        "domainId",
+        "isEnabled",
+        "config",
+        "priority",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "domain",
+          "target": "Domain"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "global",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+    },
+    {
+      "name": "CohortGroup",
+      "fieldCount": 21,
+      "relationCount": 8,
+      "meaningfulScalarCount": 6,
+      "scalarFields": [
+        "id",
+        "name",
+        "description",
+        "domainId",
+        "ownerId",
+        "maxMembers",
+        "isActive",
+        "joinToken",
+        "joinTokenExp",
+        "institutionId",
+        "groupId",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "domain",
+          "target": "Domain"
+        },
+        {
+          "field": "owner",
+          "target": "Caller"
+        },
+        {
+          "field": "members",
+          "target": "Caller"
+        },
+        {
+          "field": "memberships",
+          "target": "CallerCohortMembership"
+        },
+        {
+          "field": "institution",
+          "target": "Institution"
+        },
+        {
+          "field": "group",
+          "target": "PlaybookGroup"
+        },
+        {
+          "field": "invites",
+          "target": "Invite"
+        },
+        {
+          "field": "playbooks",
+          "target": "CohortPlaybook"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CohortPlaybook",
+      "fieldCount": 8,
+      "relationCount": 2,
+      "meaningfulScalarCount": 1,
+      "scalarFields": [
+        "id",
+        "cohortGroupId",
+        "playbookId",
+        "assignedBy",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "cohortGroup",
+          "target": "CohortGroup"
+        },
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "join",
+      "confidence": "medium",
+      "reviewed": false,
+      "notes": "2 relations, 1 meaningful scalar(s) — likely a join/link table."
+    },
+    {
+      "name": "ComposedPrompt",
+      "fieldCount": 20,
+      "relationCount": 4,
+      "meaningfulScalarCount": 11,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "playbookId",
+        "prompt",
+        "llmPrompt",
+        "triggerType",
+        "triggerCallId",
+        "inputs",
+        "model",
+        "status",
+        "evalResult",
+        "evalAt",
+        "recapSynthesisCache",
+        "composedAt",
+        "expiresAt",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        },
+        {
+          "field": "triggerCall",
+          "target": "Call"
+        },
+        {
+          "field": "usedForCalls",
+          "target": "Call"
+        },
+        {
+          "field": "caller",
+          "target": "Caller"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ContentAssertion",
+      "fieldCount": 38,
+      "relationCount": 9,
+      "meaningfulScalarCount": 21,
+      "scalarFields": [
+        "id",
+        "assertion",
+        "sourceId",
+        "subjectSourceId",
+        "chapter",
+        "section",
+        "pageRef",
+        "trustLevel",
+        "category",
+        "tags",
+        "validFrom",
+        "validUntil",
+        "taxYear",
+        "examRelevance",
+        "learningOutcomeRef",
+        "contentHash",
+        "depth",
+        "parentId",
+        "orderIndex",
+        "topicSlug",
+        "teachMethod",
+        "learningObjectiveId",
+        "linkConfidence",
+        "figureRefs",
+        "createdBy",
+        "reviewedBy",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "source",
+          "target": "ContentSource"
+        },
+        {
+          "field": "subjectSource",
+          "target": "SubjectSource"
+        },
+        {
+          "field": "parent",
+          "target": "ContentAssertion"
+        },
+        {
+          "field": "children",
+          "target": "ContentAssertion"
+        },
+        {
+          "field": "learningObjective",
+          "target": "LearningObjective"
+        },
+        {
+          "field": "embedding",
+          "target": "Unsupported(\"vector(1536)\")"
+        },
+        {
+          "field": "questions",
+          "target": "ContentQuestion"
+        },
+        {
+          "field": "vocabulary",
+          "target": "ContentVocabulary"
+        },
+        {
+          "field": "mediaLinks",
+          "target": "AssertionMedia"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ContentQuestion",
+      "fieldCount": 33,
+      "relationCount": 5,
+      "meaningfulScalarCount": 22,
+      "scalarFields": [
+        "id",
+        "sourceId",
+        "subjectSourceId",
+        "questionText",
+        "questionType",
+        "options",
+        "correctAnswer",
+        "answerExplanation",
+        "markScheme",
+        "assertionId",
+        "linkReconciledAt",
+        "learningOutcomeRef",
+        "skillRef",
+        "difficulty",
+        "pageRef",
+        "chapter",
+        "section",
+        "tags",
+        "sortOrder",
+        "contentHash",
+        "bloomLevel",
+        "assessmentUse",
+        "trustLevel",
+        "metadata",
+        "createdAt",
+        "updatedAt",
+        "reviewedBy",
+        "reviewedAt"
+      ],
+      "relations": [
+        {
+          "field": "source",
+          "target": "ContentSource"
+        },
+        {
+          "field": "subjectSource",
+          "target": "SubjectSource"
+        },
+        {
+          "field": "assertion",
+          "target": "ContentAssertion"
+        },
+        {
+          "field": "embedding",
+          "target": "Unsupported(\"vector(1536)\")"
+        },
+        {
+          "field": "reviewer",
+          "target": "User"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ContentSource",
+      "fieldCount": 49,
+      "relationCount": 14,
+      "meaningfulScalarCount": 29,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "trustLevel",
+        "documentType",
+        "documentTypeSource",
+        "textSample",
+        "contentHash",
+        "aiClassification",
+        "classificationCorrected",
+        "contentDeclaration",
+        "publisherOrg",
+        "accreditingBody",
+        "accreditationRef",
+        "authors",
+        "isbn",
+        "doi",
+        "edition",
+        "publicationYear",
+        "validFrom",
+        "validUntil",
+        "qualificationRef",
+        "moduleCoverage",
+        "verifiedBy",
+        "verifiedAt",
+        "verificationNotes",
+        "linkedSourceId",
+        "extractorVersion",
+        "lastExtractedAt",
+        "isActive",
+        "archivedAt",
+        "supersededById",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "linkedSource",
+          "target": "ContentSource"
+        },
+        {
+          "field": "linkedBy",
+          "target": "ContentSource"
+        },
+        {
+          "field": "supersededBy",
+          "target": "ContentSource"
+        },
+        {
+          "field": "supersedes",
+          "target": "ContentSource"
+        },
+        {
+          "field": "assertions",
+          "target": "ContentAssertion"
+        },
+        {
+          "field": "questions",
+          "target": "ContentQuestion"
+        },
+        {
+          "field": "vocabulary",
+          "target": "ContentVocabulary"
+        },
+        {
+          "field": "curricula",
+          "target": "Curriculum"
+        },
+        {
+          "field": "subjects",
+          "target": "SubjectSource"
+        },
+        {
+          "field": "playbookSources",
+          "target": "PlaybookSource"
+        },
+        {
+          "field": "mediaAssets",
+          "target": "MediaAsset"
+        },
+        {
+          "field": "projectedGoals",
+          "target": "Goal"
+        },
+        {
+          "field": "projectedBehaviorTargets",
+          "target": "BehaviorTarget"
+        },
+        {
+          "field": "projectedCurriculumModules",
+          "target": "CurriculumModule"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ContentVocabulary",
+      "fieldCount": 25,
+      "relationCount": 5,
+      "meaningfulScalarCount": 14,
+      "scalarFields": [
+        "id",
+        "sourceId",
+        "subjectSourceId",
+        "term",
+        "definition",
+        "partOfSpeech",
+        "exampleUsage",
+        "pronunciation",
+        "topic",
+        "difficulty",
+        "chapter",
+        "pageRef",
+        "tags",
+        "assertionId",
+        "contentHash",
+        "sortOrder",
+        "createdAt",
+        "updatedAt",
+        "reviewedBy",
+        "reviewedAt"
+      ],
+      "relations": [
+        {
+          "field": "source",
+          "target": "ContentSource"
+        },
+        {
+          "field": "subjectSource",
+          "target": "SubjectSource"
+        },
+        {
+          "field": "assertion",
+          "target": "ContentAssertion"
+        },
+        {
+          "field": "embedding",
+          "target": "Unsupported(\"vector(1536)\")"
+        },
+        {
+          "field": "reviewer",
+          "target": "User"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ConversationArtifact",
+      "fieldCount": 25,
+      "relationCount": 4,
+      "meaningfulScalarCount": 14,
+      "scalarFields": [
+        "id",
+        "callId",
+        "callerId",
+        "createdBy",
+        "type",
+        "title",
+        "content",
+        "mediaUrl",
+        "mediaType",
+        "mediaId",
+        "contentAssertionIds",
+        "trustLevel",
+        "confidence",
+        "evidence",
+        "status",
+        "channel",
+        "externalMessageId",
+        "deliveredAt",
+        "readAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "call",
+          "target": "Call"
+        },
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "media",
+          "target": "MediaAsset"
+        },
+        {
+          "field": "actions",
+          "target": "CallAction"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Curriculum",
+      "fieldCount": 32,
+      "relationCount": 4,
+      "meaningfulScalarCount": 21,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "authors",
+        "sourceTitle",
+        "sourceYear",
+        "notableInfo",
+        "coreArgument",
+        "caseStudies",
+        "discussionQuestions",
+        "critiques",
+        "deliveryConfig",
+        "constraints",
+        "sourceSpecId",
+        "version",
+        "trustLevel",
+        "primarySourceId",
+        "qualificationBody",
+        "qualificationNumber",
+        "qualificationLevel",
+        "qualificationAnchor",
+        "crossCuttingSkillsConfig",
+        "validFrom",
+        "validUntil",
+        "subjectId",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "primarySource",
+          "target": "ContentSource"
+        },
+        {
+          "field": "subject",
+          "target": "Subject"
+        },
+        {
+          "field": "modules",
+          "target": "CurriculumModule"
+        },
+        {
+          "field": "playbookLinks",
+          "target": "PlaybookCurriculum"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "CurriculumModule",
+      "fieldCount": 24,
+      "relationCount": 7,
+      "meaningfulScalarCount": 12,
+      "scalarFields": [
+        "id",
+        "curriculumId",
+        "slug",
+        "title",
+        "description",
+        "sortOrder",
+        "estimatedDurationMinutes",
+        "masteryThreshold",
+        "prerequisites",
+        "keyTerms",
+        "assessmentCriteria",
+        "terminal",
+        "coversModules",
+        "isActive",
+        "createdAt",
+        "updatedAt",
+        "sourceContentId"
+      ],
+      "relations": [
+        {
+          "field": "curriculum",
+          "target": "Curriculum"
+        },
+        {
+          "field": "learningObjectives",
+          "target": "LearningObjective"
+        },
+        {
+          "field": "callerProgress",
+          "target": "CallerModuleProgress"
+        },
+        {
+          "field": "calls",
+          "target": "Call"
+        },
+        {
+          "field": "callScores",
+          "target": "CallScore"
+        },
+        {
+          "field": "lastSelectedByCallers",
+          "target": "Caller"
+        },
+        {
+          "field": "sourceContent",
+          "target": "ContentSource"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Domain",
+      "fieldCount": 28,
+      "relationCount": 11,
+      "meaningfulScalarCount": 12,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "kind",
+        "isDefault",
+        "isActive",
+        "onboardingWelcome",
+        "onboardingIdentitySpecId",
+        "onboardingFlowPhases",
+        "onboardingDefaultTargets",
+        "lessonPlanDefaults",
+        "config",
+        "institutionId",
+        "createdAt",
+        "updatedAt",
+        "composeInputsUpdatedAt"
+      ],
+      "relations": [
+        {
+          "field": "onboardingIdentitySpec",
+          "target": "AnalysisSpec"
+        },
+        {
+          "field": "institution",
+          "target": "Institution"
+        },
+        {
+          "field": "callers",
+          "target": "Caller"
+        },
+        {
+          "field": "playbooks",
+          "target": "Playbook"
+        },
+        {
+          "field": "onboardingSessions",
+          "target": "OnboardingSession"
+        },
+        {
+          "field": "invites",
+          "target": "Invite"
+        },
+        {
+          "field": "subjects",
+          "target": "SubjectDomain"
+        },
+        {
+          "field": "assignedUsers",
+          "target": "User"
+        },
+        {
+          "field": "cohortGroups",
+          "target": "CohortGroup"
+        },
+        {
+          "field": "channelConfigs",
+          "target": "ChannelConfig"
+        },
+        {
+          "field": "playbookGroups",
+          "target": "PlaybookGroup"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ExcludedCaller",
+      "fieldCount": 5,
+      "relationCount": 0,
+      "meaningfulScalarCount": 2,
+      "scalarFields": [
+        "id",
+        "phone",
+        "externalId",
+        "reason",
+        "createdAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@unique",
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "FailedCall",
+      "fieldCount": 11,
+      "relationCount": 1,
+      "meaningfulScalarCount": 6,
+      "scalarFields": [
+        "id",
+        "processedFileId",
+        "callIndex",
+        "externalId",
+        "errorType",
+        "errorMessage",
+        "rawData",
+        "retryCount",
+        "resolvedAt",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "processedFile",
+          "target": "ProcessedFile"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Goal",
+      "fieldCount": 25,
+      "relationCount": 4,
+      "meaningfulScalarCount": 14,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "playbookId",
+        "type",
+        "name",
+        "description",
+        "status",
+        "contentSpecId",
+        "isAssessmentTarget",
+        "assessmentConfig",
+        "progress",
+        "progressMetrics",
+        "priority",
+        "startedAt",
+        "completedAt",
+        "targetDate",
+        "createdAt",
+        "updatedAt",
+        "sourceContentId",
+        "ref",
+        "progressStrategy"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        },
+        {
+          "field": "contentSpec",
+          "target": "AnalysisSpec"
+        },
+        {
+          "field": "sourceContent",
+          "target": "ContentSource"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "InboundMessage",
+      "fieldCount": 12,
+      "relationCount": 1,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "channel",
+        "externalMessageId",
+        "type",
+        "content",
+        "mediaUrl",
+        "mediaType",
+        "processed",
+        "processedAs",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Institution",
+      "fieldCount": 18,
+      "relationCount": 5,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "name",
+        "slug",
+        "websiteUrl",
+        "logoUrl",
+        "primaryColor",
+        "secondaryColor",
+        "welcomeMessage",
+        "terminology",
+        "isActive",
+        "typeId",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "type",
+          "target": "InstitutionType"
+        },
+        {
+          "field": "users",
+          "target": "User"
+        },
+        {
+          "field": "activeUsers",
+          "target": "User"
+        },
+        {
+          "field": "cohortGroups",
+          "target": "CohortGroup"
+        },
+        {
+          "field": "domains",
+          "target": "Domain"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "InstitutionType",
+      "fieldCount": 12,
+      "relationCount": 1,
+      "meaningfulScalarCount": 8,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "isActive",
+        "terminology",
+        "setupSpecSlug",
+        "defaultDomainKind",
+        "defaultArchetypeSlug",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "institutions",
+          "target": "Institution"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "IntakeSpec",
+      "fieldCount": 14,
+      "relationCount": 2,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "key",
+        "version",
+        "body",
+        "source",
+        "status",
+        "parentKey",
+        "createdById",
+        "publishedById",
+        "publishedAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "createdBy",
+          "target": "User"
+        },
+        {
+          "field": "publishedBy",
+          "target": "User"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "global",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+    },
+    {
+      "name": "Invite",
+      "fieldCount": 20,
+      "relationCount": 4,
+      "meaningfulScalarCount": 10,
+      "scalarFields": [
+        "id",
+        "email",
+        "token",
+        "role",
+        "expiresAt",
+        "usedAt",
+        "createdBy",
+        "createdAt",
+        "firstName",
+        "lastName",
+        "domainId",
+        "sentAt",
+        "cohortGroupId",
+        "callerRole",
+        "invitedById",
+        "playbookId"
+      ],
+      "relations": [
+        {
+          "field": "domain",
+          "target": "Domain"
+        },
+        {
+          "field": "cohortGroup",
+          "target": "CohortGroup"
+        },
+        {
+          "field": "invitedBy",
+          "target": "User"
+        },
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "KnowledgeChunk",
+      "fieldCount": 11,
+      "relationCount": 3,
+      "meaningfulScalarCount": 5,
+      "scalarFields": [
+        "id",
+        "docId",
+        "chunkIndex",
+        "startChar",
+        "endChar",
+        "content",
+        "tokens",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "doc",
+          "target": "KnowledgeDoc"
+        },
+        {
+          "field": "embedding",
+          "target": "VectorEmbedding"
+        },
+        {
+          "field": "parameterLinks",
+          "target": "ParameterKnowledgeLink"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "KnowledgeDoc",
+      "fieldCount": 14,
+      "relationCount": 1,
+      "meaningfulScalarCount": 10,
+      "scalarFields": [
+        "id",
+        "sourcePath",
+        "title",
+        "content",
+        "meta",
+        "contentSha",
+        "status",
+        "ingestedAt",
+        "chunksExpected",
+        "chunksCreated",
+        "errorMessage",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "chunks",
+          "target": "KnowledgeChunk"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "LearningObjective",
+      "fieldCount": 16,
+      "relationCount": 3,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "moduleId",
+        "ref",
+        "description",
+        "sortOrder",
+        "masteryThreshold",
+        "originalText",
+        "learnerVisible",
+        "performanceStatement",
+        "systemRole",
+        "humanOverriddenAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "module",
+          "target": "CurriculumModule"
+        },
+        {
+          "field": "assertions",
+          "target": "ContentAssertion"
+        },
+        {
+          "field": "classifications",
+          "target": "LoClassification"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "LoClassification",
+      "fieldCount": 13,
+      "relationCount": 1,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "loId",
+        "classifierVersion",
+        "runAt",
+        "proposedLearnerVisible",
+        "proposedPerformanceStatement",
+        "proposedSystemRole",
+        "confidence",
+        "rationale",
+        "applied",
+        "appliedAt",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "lo",
+          "target": "LearningObjective"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "MediaAsset",
+      "fieldCount": 26,
+      "relationCount": 6,
+      "meaningfulScalarCount": 16,
+      "scalarFields": [
+        "id",
+        "fileName",
+        "fileSize",
+        "mimeType",
+        "contentHash",
+        "storageKey",
+        "storageType",
+        "title",
+        "description",
+        "tags",
+        "pageNumber",
+        "positionIndex",
+        "captionText",
+        "figureRef",
+        "extractedFrom",
+        "uploadedBy",
+        "sourceId",
+        "trustLevel",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "uploader",
+          "target": "User"
+        },
+        {
+          "field": "source",
+          "target": "ContentSource"
+        },
+        {
+          "field": "subjects",
+          "target": "SubjectMedia"
+        },
+        {
+          "field": "messages",
+          "target": "CallMessage"
+        },
+        {
+          "field": "artifacts",
+          "target": "ConversationArtifact"
+        },
+        {
+          "field": "assertionLinks",
+          "target": "AssertionMedia"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Message",
+      "fieldCount": 13,
+      "relationCount": 4,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "senderId",
+        "recipientId",
+        "subject",
+        "content",
+        "readAt",
+        "parentId",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "sender",
+          "target": "User"
+        },
+        {
+          "field": "recipient",
+          "target": "User"
+        },
+        {
+          "field": "parent",
+          "target": "Message"
+        },
+        {
+          "field": "replies",
+          "target": "Message"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "MessagingProvider",
+      "fieldCount": 11,
+      "relationCount": 0,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "slug",
+        "displayName",
+        "adapterKey",
+        "secretRef",
+        "fromAddress",
+        "institutionId",
+        "isDefault",
+        "enabled",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "OnboardingSession",
+      "fieldCount": 15,
+      "relationCount": 3,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "domainId",
+        "currentPhase",
+        "completedPhases",
+        "isComplete",
+        "wasSkipped",
+        "firstCallId",
+        "discoveredGoals",
+        "successMetricsMet",
+        "createdAt",
+        "completedAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "domain",
+          "target": "Domain"
+        },
+        {
+          "field": "firstCall",
+          "target": "Call"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Parameter",
+      "fieldCount": 45,
+      "relationCount": 14,
+      "meaningfulScalarCount": 24,
+      "scalarFields": [
+        "id",
+        "parameterId",
+        "sectionId",
+        "domainGroup",
+        "name",
+        "definition",
+        "measurementMvp",
+        "measurementVoiceOnly",
+        "interpretationHigh",
+        "interpretationLow",
+        "scaleType",
+        "directionality",
+        "computedBy",
+        "createdAt",
+        "updatedAt",
+        "parameterType",
+        "isAdjustable",
+        "baseParameterId",
+        "goalTarget",
+        "goalWindow",
+        "enrichedHigh",
+        "enrichedLow",
+        "enrichedAt",
+        "enrichmentChunkIds",
+        "sourceFeatureSetId",
+        "isCanonical",
+        "deprecatedAt",
+        "replacedBy",
+        "aliases",
+        "defaultTarget",
+        "config"
+      ],
+      "relations": [
+        {
+          "field": "baseParameter",
+          "target": "Parameter"
+        },
+        {
+          "field": "deltaParameters",
+          "target": "Parameter"
+        },
+        {
+          "field": "tags",
+          "target": "ParameterTag"
+        },
+        {
+          "field": "analysisProfileParameters",
+          "target": "AnalysisProfileParameter"
+        },
+        {
+          "field": "callScores",
+          "target": "CallScore"
+        },
+        {
+          "field": "knowledgeLinks",
+          "target": "ParameterKnowledgeLink"
+        },
+        {
+          "field": "analysisActions",
+          "target": "AnalysisAction"
+        },
+        {
+          "field": "scoringAnchors",
+          "target": "ParameterScoringAnchor"
+        },
+        {
+          "field": "promptSlugLinks",
+          "target": "PromptSlugParameter"
+        },
+        {
+          "field": "behaviorTargets",
+          "target": "BehaviorTarget"
+        },
+        {
+          "field": "behaviorMeasurements",
+          "target": "BehaviorMeasurement"
+        },
+        {
+          "field": "callerTargets",
+          "target": "CallerTarget"
+        },
+        {
+          "field": "callTargets",
+          "target": "CallTarget"
+        },
+        {
+          "field": "sourceFeatureSet",
+          "target": "BDDFeatureSet"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ParameterKnowledgeLink",
+      "fieldCount": 7,
+      "relationCount": 2,
+      "meaningfulScalarCount": 1,
+      "scalarFields": [
+        "id",
+        "parameterId",
+        "chunkId",
+        "relevanceScore",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        },
+        {
+          "field": "chunk",
+          "target": "KnowledgeChunk"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "join",
+      "confidence": "medium",
+      "reviewed": false,
+      "notes": "2 relations, 1 meaningful scalar(s) — likely a join/link table."
+    },
+    {
+      "name": "ParameterScoringAnchor",
+      "fieldCount": 15,
+      "relationCount": 2,
+      "meaningfulScalarCount": 8,
+      "scalarFields": [
+        "id",
+        "parameterId",
+        "example",
+        "score",
+        "rationale",
+        "positiveSignals",
+        "negativeSignals",
+        "isGold",
+        "source",
+        "sourceFeatureSetId",
+        "sortOrder",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "sourceFeatureSet",
+          "target": "BDDFeatureSet"
+        },
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "ParameterTag",
+      "fieldCount": 6,
+      "relationCount": 2,
+      "meaningfulScalarCount": 0,
+      "scalarFields": [
+        "id",
+        "parameterId",
+        "tagId",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        },
+        {
+          "field": "tag",
+          "target": "Tag"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "join",
+      "confidence": "medium",
+      "reviewed": false,
+      "notes": "2 relations, 0 meaningful scalar(s) — likely a join/link table."
+    },
+    {
+      "name": "PersonalityObservation",
+      "fieldCount": 15,
+      "relationCount": 2,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "callerId",
+        "callId",
+        "parameterValues",
+        "openness",
+        "conscientiousness",
+        "extraversion",
+        "agreeableness",
+        "neuroticism",
+        "observedAt",
+        "confidence",
+        "decayFactor",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "call",
+          "target": "Call"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PipelineRun",
+      "fieldCount": 17,
+      "relationCount": 1,
+      "meaningfulScalarCount": 12,
+      "scalarFields": [
+        "id",
+        "phase",
+        "callerId",
+        "callId",
+        "triggeredBy",
+        "status",
+        "startedAt",
+        "finishedAt",
+        "durationMs",
+        "stepsTotal",
+        "stepsSucceeded",
+        "stepsFailed",
+        "stepsSkipped",
+        "errorSummary",
+        "metadata",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "steps",
+          "target": "PipelineStep"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "global",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+    },
+    {
+      "name": "PipelineStep",
+      "fieldCount": 23,
+      "relationCount": 1,
+      "meaningfulScalarCount": 18,
+      "scalarFields": [
+        "id",
+        "runId",
+        "operation",
+        "label",
+        "sortOrder",
+        "status",
+        "startedAt",
+        "finishedAt",
+        "durationMs",
+        "specId",
+        "specSlug",
+        "inputs",
+        "inputCounts",
+        "outputs",
+        "outputCounts",
+        "createdRecordIds",
+        "error",
+        "errorStack",
+        "sectionsActivated",
+        "sectionsSkipped",
+        "sectionTimings",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "run",
+          "target": "PipelineRun"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "global",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+    },
+    {
+      "name": "Playbook",
+      "fieldCount": 37,
+      "relationCount": 16,
+      "meaningfulScalarCount": 15,
+      "scalarFields": [
+        "id",
+        "name",
+        "description",
+        "domainId",
+        "groupId",
+        "sortOrder",
+        "status",
+        "version",
+        "parentVersionId",
+        "publishedAt",
+        "publishedBy",
+        "config",
+        "validationErrors",
+        "validationPassed",
+        "measureSpecCount",
+        "learnSpecCount",
+        "adaptSpecCount",
+        "parameterCount",
+        "createdAt",
+        "updatedAt",
+        "composeInputsUpdatedAt"
+      ],
+      "relations": [
+        {
+          "field": "domain",
+          "target": "Domain"
+        },
+        {
+          "field": "group",
+          "target": "PlaybookGroup"
+        },
+        {
+          "field": "parentVersion",
+          "target": "Playbook"
+        },
+        {
+          "field": "childVersions",
+          "target": "Playbook"
+        },
+        {
+          "field": "items",
+          "target": "PlaybookItem"
+        },
+        {
+          "field": "behaviorTargets",
+          "target": "BehaviorTarget"
+        },
+        {
+          "field": "goals",
+          "target": "Goal"
+        },
+        {
+          "field": "enrollments",
+          "target": "CallerPlaybook"
+        },
+        {
+          "field": "cohortAssignments",
+          "target": "CohortPlaybook"
+        },
+        {
+          "field": "subjects",
+          "target": "PlaybookSubject"
+        },
+        {
+          "field": "playbookSources",
+          "target": "PlaybookSource"
+        },
+        {
+          "field": "playbookCurricula",
+          "target": "PlaybookCurriculum"
+        },
+        {
+          "field": "calls",
+          "target": "Call"
+        },
+        {
+          "field": "composedPrompts",
+          "target": "ComposedPrompt"
+        },
+        {
+          "field": "invites",
+          "target": "Invite"
+        },
+        {
+          "field": "wizardSessions",
+          "target": "WizardSession"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PlaybookCurriculum",
+      "fieldCount": 7,
+      "relationCount": 2,
+      "meaningfulScalarCount": 1,
+      "scalarFields": [
+        "id",
+        "playbookId",
+        "curriculumId",
+        "role",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        },
+        {
+          "field": "curriculum",
+          "target": "Curriculum"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "join",
+      "confidence": "medium",
+      "reviewed": false,
+      "notes": "2 relations, 1 meaningful scalar(s) — likely a join/link table."
+    },
+    {
+      "name": "PlaybookGroup",
+      "fieldCount": 15,
+      "relationCount": 4,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "domainId",
+        "name",
+        "slug",
+        "description",
+        "groupType",
+        "identityOverride",
+        "sortOrder",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "domain",
+          "target": "Domain"
+        },
+        {
+          "field": "playbooks",
+          "target": "Playbook"
+        },
+        {
+          "field": "cohortGroups",
+          "target": "CohortGroup"
+        },
+        {
+          "field": "subjects",
+          "target": "PlaybookGroupSubject"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PlaybookGroupSubject",
+      "fieldCount": 7,
+      "relationCount": 2,
+      "meaningfulScalarCount": 1,
+      "scalarFields": [
+        "id",
+        "groupId",
+        "subjectId",
+        "sortOrder",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "group",
+          "target": "PlaybookGroup"
+        },
+        {
+          "field": "subject",
+          "target": "Subject"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "join",
+      "confidence": "medium",
+      "reviewed": false,
+      "notes": "2 relations, 1 meaningful scalar(s) — likely a join/link table."
+    },
+    {
+      "name": "PlaybookItem",
+      "fieldCount": 15,
+      "relationCount": 3,
+      "meaningfulScalarCount": 5,
+      "scalarFields": [
+        "id",
+        "playbookId",
+        "itemType",
+        "groupId",
+        "groupLabel",
+        "groupOrder",
+        "specId",
+        "promptTemplateId",
+        "isEnabled",
+        "sortOrder",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "spec",
+          "target": "AnalysisSpec"
+        },
+        {
+          "field": "promptTemplate",
+          "target": "PromptTemplate"
+        },
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PlaybookSource",
+      "fieldCount": 9,
+      "relationCount": 2,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "playbookId",
+        "sourceId",
+        "sortOrder",
+        "tags",
+        "trustLevelOverride",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        },
+        {
+          "field": "source",
+          "target": "ContentSource"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PlaybookSubject",
+      "fieldCount": 6,
+      "relationCount": 2,
+      "meaningfulScalarCount": 0,
+      "scalarFields": [
+        "id",
+        "playbookId",
+        "subjectId",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        },
+        {
+          "field": "subject",
+          "target": "Subject"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "join",
+      "confidence": "medium",
+      "reviewed": false,
+      "notes": "2 relations, 0 meaningful scalar(s) — likely a join/link table."
+    },
+    {
+      "name": "ProcessedFile",
+      "fieldCount": 16,
+      "relationCount": 1,
+      "meaningfulScalarCount": 13,
+      "scalarFields": [
+        "id",
+        "filename",
+        "filepath",
+        "fileHash",
+        "fileType",
+        "callCount",
+        "callsExtracted",
+        "callsFailed",
+        "callersCreated",
+        "sizeBytes",
+        "status",
+        "processedAt",
+        "sourcePreserved",
+        "errorMessage",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "failedCalls",
+          "target": "FailedCall"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PromptBlock",
+      "fieldCount": 10,
+      "relationCount": 0,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "category",
+        "content",
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PromptSlug",
+      "fieldCount": 24,
+      "relationCount": 4,
+      "meaningfulScalarCount": 16,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "sourceType",
+        "memoryCategory",
+        "memoryMode",
+        "memoryMaxItems",
+        "memoryMinConfidence",
+        "memoryKeyPattern",
+        "memoryDecayEnabled",
+        "memorySummaryTemplate",
+        "memoryTrigger",
+        "fallbackPrompt",
+        "priority",
+        "isActive",
+        "version",
+        "sourceFeatureSetId",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "parameters",
+          "target": "PromptSlugParameter"
+        },
+        {
+          "field": "ranges",
+          "target": "PromptSlugRange"
+        },
+        {
+          "field": "sourceFeatureSet",
+          "target": "BDDFeatureSet"
+        },
+        {
+          "field": "analysisSpecs",
+          "target": "AnalysisSpec"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PromptSlugParameter",
+      "fieldCount": 9,
+      "relationCount": 2,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "slugId",
+        "parameterId",
+        "weight",
+        "mode",
+        "sortOrder",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "slug",
+          "target": "PromptSlug"
+        },
+        {
+          "field": "parameter",
+          "target": "Parameter"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PromptSlugRange",
+      "fieldCount": 12,
+      "relationCount": 1,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "slugId",
+        "minValue",
+        "maxValue",
+        "condition",
+        "prompt",
+        "label",
+        "metadata",
+        "sortOrder",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "slug",
+          "target": "PromptSlug"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PromptSlugSelection",
+      "fieldCount": 12,
+      "relationCount": 2,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "callId",
+        "callerId",
+        "promptSlug",
+        "confidence",
+        "reasoning",
+        "personalitySnapshot",
+        "recentSlugs",
+        "selectedAt",
+        "selectionMethod"
+      ],
+      "relations": [
+        {
+          "field": "call",
+          "target": "Call"
+        },
+        {
+          "field": "caller",
+          "target": "Caller"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PromptTemplate",
+      "fieldCount": 12,
+      "relationCount": 1,
+      "meaningfulScalarCount": 8,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "version",
+        "description",
+        "systemPrompt",
+        "personalityModifiers",
+        "contextTemplate",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "playbookItems",
+          "target": "PlaybookItem"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "global",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+    },
+    {
+      "name": "RewardScore",
+      "fieldCount": 23,
+      "relationCount": 1,
+      "meaningfulScalarCount": 20,
+      "scalarFields": [
+        "id",
+        "callId",
+        "overallScore",
+        "clarityScore",
+        "empathyScore",
+        "resolutionScore",
+        "efficiencyScore",
+        "coherenceScore",
+        "modelVersion",
+        "scoredAt",
+        "scoredBy",
+        "customerSatisfaction",
+        "taskCompleted",
+        "escalated",
+        "followUpRequired",
+        "parametersSnapshot",
+        "effectiveTargets",
+        "actualBehavior",
+        "parameterDiffs",
+        "outcomeSignals",
+        "goalProgressScore",
+        "targetUpdatesApplied"
+      ],
+      "relations": [
+        {
+          "field": "call",
+          "target": "Call"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Segment",
+      "fieldCount": 13,
+      "relationCount": 4,
+      "meaningfulScalarCount": 5,
+      "scalarFields": [
+        "id",
+        "name",
+        "description",
+        "type",
+        "parentId",
+        "metadata",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "parent",
+          "target": "Segment"
+        },
+        {
+          "field": "children",
+          "target": "Segment"
+        },
+        {
+          "field": "behaviorTargets",
+          "target": "BehaviorTarget"
+        },
+        {
+          "field": "callerIdentities",
+          "target": "CallerIdentity"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Session",
+      "fieldCount": 5,
+      "relationCount": 1,
+      "meaningfulScalarCount": 2,
+      "scalarFields": [
+        "id",
+        "sessionToken",
+        "userId",
+        "expires"
+      ],
+      "relations": [
+        {
+          "field": "user",
+          "target": "User"
+        }
+      ],
+      "blockAttrs": [],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "SpeechAssessmentProvider",
+      "fieldCount": 10,
+      "relationCount": 0,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "slug",
+        "displayName",
+        "adapterKey",
+        "credentials",
+        "config",
+        "isDefault",
+        "enabled",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Subject",
+      "fieldCount": 20,
+      "relationCount": 6,
+      "meaningfulScalarCount": 11,
+      "scalarFields": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "defaultTrustLevel",
+        "qualificationBody",
+        "qualificationRef",
+        "qualificationLevel",
+        "teachingDepth",
+        "teachingProfile",
+        "teachingOverrides",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "sources",
+          "target": "SubjectSource"
+        },
+        {
+          "field": "domains",
+          "target": "SubjectDomain"
+        },
+        {
+          "field": "curricula",
+          "target": "Curriculum"
+        },
+        {
+          "field": "media",
+          "target": "SubjectMedia"
+        },
+        {
+          "field": "playbooks",
+          "target": "PlaybookSubject"
+        },
+        {
+          "field": "groups",
+          "target": "PlaybookGroupSubject"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "SubjectDomain",
+      "fieldCount": 6,
+      "relationCount": 2,
+      "meaningfulScalarCount": 0,
+      "scalarFields": [
+        "id",
+        "subjectId",
+        "domainId",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "subject",
+          "target": "Subject"
+        },
+        {
+          "field": "domain",
+          "target": "Domain"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "join",
+      "confidence": "medium",
+      "reviewed": false,
+      "notes": "2 relations, 0 meaningful scalar(s) — likely a join/link table."
+    },
+    {
+      "name": "SubjectMedia",
+      "fieldCount": 7,
+      "relationCount": 2,
+      "meaningfulScalarCount": 1,
+      "scalarFields": [
+        "id",
+        "subjectId",
+        "mediaId",
+        "sortOrder",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "subject",
+          "target": "Subject"
+        },
+        {
+          "field": "media",
+          "target": "MediaAsset"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "join",
+      "confidence": "medium",
+      "reviewed": false,
+      "notes": "2 relations, 1 meaningful scalar(s) — likely a join/link table."
+    },
+    {
+      "name": "SubjectSource",
+      "fieldCount": 12,
+      "relationCount": 5,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "subjectId",
+        "sourceId",
+        "trustLevelOverride",
+        "tags",
+        "sortOrder",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "subject",
+          "target": "Subject"
+        },
+        {
+          "field": "source",
+          "target": "ContentSource"
+        },
+        {
+          "field": "assertions",
+          "target": "ContentAssertion"
+        },
+        {
+          "field": "questions",
+          "target": "ContentQuestion"
+        },
+        {
+          "field": "vocabulary",
+          "target": "ContentVocabulary"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "SystemSetting",
+      "fieldCount": 5,
+      "relationCount": 0,
+      "meaningfulScalarCount": 2,
+      "scalarFields": [
+        "id",
+        "key",
+        "value",
+        "updatedAt",
+        "createdAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "global",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+    },
+    {
+      "name": "Tag",
+      "fieldCount": 7,
+      "relationCount": 1,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "name",
+        "slug",
+        "tone",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "parameters",
+          "target": "ParameterTag"
+        }
+      ],
+      "blockAttrs": [],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "Ticket",
+      "fieldCount": 21,
+      "relationCount": 3,
+      "meaningfulScalarCount": 13,
+      "scalarFields": [
+        "id",
+        "ticketNumber",
+        "creatorId",
+        "assigneeId",
+        "title",
+        "description",
+        "status",
+        "priority",
+        "category",
+        "tags",
+        "pageContext",
+        "screenshotUrl",
+        "githubIssueUrl",
+        "githubIssueNumber",
+        "createdAt",
+        "updatedAt",
+        "resolvedAt",
+        "closedAt"
+      ],
+      "relations": [
+        {
+          "field": "creator",
+          "target": "User"
+        },
+        {
+          "field": "assignee",
+          "target": "User"
+        },
+        {
+          "field": "comments",
+          "target": "TicketComment"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "TicketComment",
+      "fieldCount": 9,
+      "relationCount": 2,
+      "meaningfulScalarCount": 2,
+      "scalarFields": [
+        "id",
+        "ticketId",
+        "authorId",
+        "content",
+        "isInternal",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "ticket",
+          "target": "Ticket"
+        },
+        {
+          "field": "author",
+          "target": "User"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "UsageCostRate",
+      "fieldCount": 10,
+      "relationCount": 0,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "category",
+        "operation",
+        "costPerUnit",
+        "unitType",
+        "effectiveFrom",
+        "effectiveUntil",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "UsageEvent",
+      "fieldCount": 14,
+      "relationCount": 0,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "category",
+        "operation",
+        "userId",
+        "callerId",
+        "callId",
+        "quantity",
+        "unitType",
+        "costCents",
+        "engine",
+        "model",
+        "sourceOp",
+        "metadata",
+        "createdAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "UsageRollup",
+      "fieldCount": 12,
+      "relationCount": 0,
+      "meaningfulScalarCount": 8,
+      "scalarFields": [
+        "id",
+        "period",
+        "periodStart",
+        "periodEnd",
+        "category",
+        "operation",
+        "userId",
+        "eventCount",
+        "totalQty",
+        "totalCost",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "User",
+      "fieldCount": 33,
+      "relationCount": 18,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "email",
+        "emailVerified",
+        "passwordHash",
+        "role",
+        "name",
+        "displayName",
+        "avatarInitials",
+        "image",
+        "isActive",
+        "createdAt",
+        "updatedAt",
+        "assignedDomainId",
+        "institutionId",
+        "activeInstitutionId"
+      ],
+      "relations": [
+        {
+          "field": "accounts",
+          "target": "Account"
+        },
+        {
+          "field": "sessions",
+          "target": "Session"
+        },
+        {
+          "field": "sentMessages",
+          "target": "Message"
+        },
+        {
+          "field": "receivedMessages",
+          "target": "Message"
+        },
+        {
+          "field": "createdTickets",
+          "target": "Ticket"
+        },
+        {
+          "field": "assignedTickets",
+          "target": "Ticket"
+        },
+        {
+          "field": "ticketComments",
+          "target": "TicketComment"
+        },
+        {
+          "field": "tasks",
+          "target": "UserTask"
+        },
+        {
+          "field": "assignedDomain",
+          "target": "Domain"
+        },
+        {
+          "field": "institution",
+          "target": "Institution"
+        },
+        {
+          "field": "activeInstitution",
+          "target": "Institution"
+        },
+        {
+          "field": "callers",
+          "target": "Caller"
+        },
+        {
+          "field": "sentInvites",
+          "target": "Invite"
+        },
+        {
+          "field": "mediaUploads",
+          "target": "MediaAsset"
+        },
+        {
+          "field": "reviewedQuestions",
+          "target": "ContentQuestion"
+        },
+        {
+          "field": "reviewedVocabulary",
+          "target": "ContentVocabulary"
+        },
+        {
+          "field": "authoredIntakeSpecs",
+          "target": "IntakeSpec"
+        },
+        {
+          "field": "publishedIntakeSpecs",
+          "target": "IntakeSpec"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": true,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Already carries a tenant-ish FK."
+    },
+    {
+      "name": "UserTask",
+      "fieldCount": 14,
+      "relationCount": 1,
+      "meaningfulScalarCount": 10,
+      "scalarFields": [
+        "id",
+        "userId",
+        "taskType",
+        "status",
+        "currentStep",
+        "totalSteps",
+        "completedSteps",
+        "blockers",
+        "context",
+        "startedAt",
+        "completedAt",
+        "archivedAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "user",
+          "target": "User"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "VectorEmbedding",
+      "fieldCount": 8,
+      "relationCount": 2,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "chunkId",
+        "embeddingData",
+        "model",
+        "dimensions",
+        "createdAt"
+      ],
+      "relations": [
+        {
+          "field": "embedding",
+          "target": "Unsupported(\"vector(1536)\")"
+        },
+        {
+          "field": "chunk",
+          "target": "KnowledgeChunk"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "VerificationToken",
+      "fieldCount": 3,
+      "relationCount": 0,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "identifier",
+        "token",
+        "expires"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@unique"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "VoiceProvider",
+      "fieldCount": 10,
+      "relationCount": 0,
+      "meaningfulScalarCount": 7,
+      "scalarFields": [
+        "id",
+        "slug",
+        "displayName",
+        "adapterKey",
+        "credentials",
+        "config",
+        "isDefault",
+        "enabled",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "VoiceSystemSettings",
+      "fieldCount": 12,
+      "relationCount": 0,
+      "meaningfulScalarCount": 9,
+      "scalarFields": [
+        "id",
+        "fallbackOnAdapterError",
+        "maxCostPerCallUsd",
+        "auditRetentionDays",
+        "defaultProviderSlug",
+        "silenceTimeoutSeconds",
+        "maxDurationSeconds",
+        "voicemailDetectionEnabled",
+        "endCallPhrases",
+        "vendorTimeoutMs",
+        "updatedAt",
+        "createdAt"
+      ],
+      "relations": [],
+      "blockAttrs": [],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "WizardSession",
+      "fieldCount": 8,
+      "relationCount": 1,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "playbookId",
+        "specKey",
+        "specVersion",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "Playbook",
+          "target": "Playbook"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    }
+  ]
+}
