@@ -82,12 +82,20 @@ re-derived on every run.
 - **What is true & enforced?** → this KB (authoritative, curated).
 - **Query the facts** → `jq` over `docs/kb/generated/*.json`.
 
-## Drift discipline (wired)
+## Drift discipline (self-maintaining loop)
 
-Tier-2 JSON is committed; `npm run kb:check` (step **8/8** of `npm run ctl check`) re-runs
-the generators and fails if the committed facts are stale — ignoring the volatile
-`generatedAt` line (`git diff -I`). Same spirit as `check-fk-consistency` (step 5).
-The meta-ratchet `check-guard-kb-links.ts` holds ESLint→KB back-links at 10/10.
+The KB integrity gate fires at **three** points; together they make it self-maintaining:
+
+| When | What | Result |
+|---|---|---|
+| **Pre-commit** | `.githooks/pre-commit` § 6 auto-regenerates `model-map.json` if `schema.prisma` or `model-map-overrides.json` is staged, and `route-inventory.json` if any `app/api/**/route.ts` is staged. Regen'd JSON is `git add`-ed to the same commit. | Drift never reaches a commit in the common case. |
+| **Local** (manual) | `npm run kb:check` (also step **8/8** of `npm run ctl check`) runs the meta-ratchet (`check-guard-kb-links.ts`) + the freshness diff (`check-kb-fresh.sh`, ignores volatile `generatedAt` via `git diff -I`). | Dev confirms before push. |
+| **CI** | `.github/workflows/test.yml` runs `npm run kb:check` as a blocking step in the Lint & Type Check job. | Forgetting all the above still gets caught before merge. |
+
+Tier-2 JSON is committed so a fresh `git diff --exit-code -I '"generatedAt":'` is the
+actual check — same spirit as `check-fk-consistency` (CI step 5). The meta-ratchet
+holds ESLint→KB back-links at the floor (any rule that loses its `meta.docs.url`
+fails CI).
 
 ## The hardening program this feeds
 
