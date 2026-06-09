@@ -911,8 +911,13 @@ describe("computeSessionPedagogy transform", () => {
         loadedData: {
           ...makeContext().loadedData,
           systemSpecs: [{
+            id: "spec-tut-001-id",
             slug: "spec-tut-001",
             name: "TUT-001",
+            description: null,
+            specRole: null,
+            outputType: "PEDAGOGY",
+            domain: null,
             config: {
               session_pedagogy: {
                 postCoverageFlow: {
