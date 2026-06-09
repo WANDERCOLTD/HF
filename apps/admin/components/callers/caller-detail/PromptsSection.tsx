@@ -210,12 +210,14 @@ export function UnifiedPromptSection({
   const selected = indexed[idx] ?? null;
   const prevPrompt = idx > 0 ? indexed[idx - 1] : null;
 
-  // #642: sibling = same triggerCallId, different id. Used to surface
+  // #642: sibling = same trigger Session, different id. Used to surface
   // "Variant M of K for Call N" and to drive the default Diff comparator.
+  // #1344 Slice 4 — was `triggerCallId`; now group by `triggerSessionId`
+  // (the parent Session is the canonical scope).
   const siblings = useMemo(() => {
-    if (!selected?.triggerCallId) return [] as typeof indexed;
+    if (!selected?.triggerSessionId) return [] as typeof indexed;
     return indexed.filter(
-      (p) => p.triggerCallId === selected.triggerCallId,
+      (p) => p.triggerSessionId === selected.triggerSessionId,
     );
   }, [indexed, selected]);
   const siblingIndex = useMemo(() => {

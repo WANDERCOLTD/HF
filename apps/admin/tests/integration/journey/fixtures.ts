@@ -425,7 +425,9 @@ export async function seedJourneyFixtures(prisma: PrismaClient): Promise<Journey
       source: `${JOURNEY_PREFIX}`,
       externalId: `${JOURNEY_PREFIX}-call-1`,
       callerId: caller.id,
-      callSequence: 1,
+      // #1344 Slice 4 — `Call.callSequence` dropped; sequencing lives on
+      // `Session.learnerFacingNumber`. Journey fixture predates the Session
+      // model and doesn't create a Session row.
       transcript: [
         "AI: Welcome! Today we'll explore photosynthesis. What do you already know about how plants make food?",
         "Student: I know plants need sunlight and water.",

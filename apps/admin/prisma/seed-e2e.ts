@@ -147,7 +147,8 @@ async function main(externalPrisma?: PrismaClient) {
       externalId: "e2e-call-1",
       callerId: caller.id,
       transcript: E2E_TRANSCRIPT,
-      callSequence: 1,
+      // #1344 Slice 4 — `Call.callSequence` dropped; sequencing lives on
+      // `Session.learnerFacingNumber`. e2e fixture has no Session.
     },
   });
   console.log("  Call: 1 created with transcript");

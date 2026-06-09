@@ -350,7 +350,13 @@ export type ComposedPrompt = {
   inputs: Record<string, any> | null;
   evalResult: Record<string, any> | null;  // Persisted AI quality evaluation
   evalAt: string | null;
-  triggerCall?: { id: string; createdAt: string; source: string } | null;
+  // #1344 Slice 4 — replaces the dropped `triggerCall` field. Consumers
+  // walk `triggerSession.call.{source, createdAt}` for the legacy display.
+  triggerSession?: {
+    id: string;
+    startedAt: string;
+    call?: { id: string; source: string; createdAt: string } | null;
+  } | null;
 };
 
 // ---------------------------------------------------------------------------

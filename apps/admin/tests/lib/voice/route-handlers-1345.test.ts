@@ -33,7 +33,12 @@ interface MockCallRow {
   transcript: string;
   endedAt: Date | null;
   endSource: string | null;
+  // #1344 Slice 4 — `callSequence` retained on the mock interface as
+  // null-only so existing where-clauses that check `callSequence !== null`
+  // (legacy dedup filter) still type-check; the column is dropped in
+  // production. New fan-out lives on `sessionId`.
   callSequence: number | null;
+  sessionId: string | null;
   createdAt: Date;
   playbookId: string | null;
   usedPromptId: string | null;
@@ -115,6 +120,10 @@ vi.mock("@/lib/prisma", () => ({
           endedAt: data.endedAt ?? null,
           endSource: data.endSource ?? null,
           callSequence: data.callSequence ?? null,
+          // #1344 Slice 4 — fresh-create branch threads `sessionId`
+          // from `createSession`. Honour it in the mock so the test
+          // can assert the link.
+          sessionId: data.sessionId ?? null,
           createdAt: data.createdAt ?? new Date(),
           playbookId: data.playbookId ?? null,
           usedPromptId: data.usedPromptId ?? null,
@@ -171,6 +180,36 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/enrollment/resolve-playbook", () => ({
   resolvePlaybookId: vi.fn().mockResolvedValue(null),
+}));
+
+// #1344 Slice 4 — `persistEndOfCall` now calls `createSession({kind:VOICE_CALL})`
+// for fresh-arrival rows (no placeholder match within the dedup window).
+// Mock so the test doesn't need to stand up `CallerSequenceCounter` /
+// PlaybookCurriculum / etc. The fresh-create branch will read
+// `result.session.id` and write it onto the new Call row's `sessionId`.
+vi.mock("@/lib/voice/create-session", () => ({
+  createSession: vi.fn(async (_args: { callerId: string; kind: string }) => ({
+    session: {
+      id: "fresh-session-1",
+      sequenceNumber: 1,
+      learnerFacingNumber: 1,
+      kind: _args.kind,
+    },
+    playbookId: null,
+    requestedModuleId: null,
+    curriculumModuleId: null,
+    usedPromptId: null,
+    voiceConfigSnapshot: null,
+    countsTowardLearnerNumber: true,
+    countsTowardPipelineNumber: true,
+    skipStages: [] as string[],
+  })),
+}));
+
+// #1344 Slice 4 — persistEndOfCall fires `endSession` for fresh rows.
+// Mock to a no-op so the test doesn't need the Session writer plumbing.
+vi.mock("@/lib/voice/end-session", () => ({
+  endSession: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/voice/load-voice-config", () => ({
@@ -256,6 +295,7 @@ describe("#1345 — persistEndOfCall ghost-row dedup", () => {
       endedAt: null,
       endSource: null,
       callSequence: null,
+      sessionId: null,
       createdAt: new Date(Date.now() - 5000),
       playbookId: null,
       usedPromptId: null,
@@ -304,7 +344,10 @@ describe("#1345 — persistEndOfCall ghost-row dedup", () => {
     const created = [...stores.callStore.values()][0];
     expect(created.externalId).toBe("vapi-call-abc123");
     expect(created.endedAt).not.toBeNull();
-    expect(created.callSequence).toBe(1);
+    // #1344 Slice 4 — `Call.callSequence` dropped; sequencing now lives on
+    // `Session.learnerFacingNumber`. The fresh-create branch threads the
+    // mocked `createSession` Session id onto `Call.sessionId`.
+    expect(created.sessionId).toBe("fresh-session-1");
     expect(result.ok).toBe(true);
     expect(result.merged).toBeUndefined();
   });
@@ -328,6 +371,7 @@ describe("#1345 — persistEndOfCall ghost-row dedup", () => {
       endedAt: null,
       endSource: null,
       callSequence: null,
+      sessionId: null,
       createdAt: new Date(Date.now() - 60_000),
       playbookId: null,
       usedPromptId: null,
@@ -371,6 +415,7 @@ describe("#1345 — persistEndOfCall ghost-row dedup", () => {
       endedAt: null,
       endSource: null,
       callSequence: null,
+      sessionId: null,
       createdAt: new Date(Date.now() - 60_000),
       playbookId: null,
       usedPromptId: null,
@@ -412,6 +457,7 @@ describe("#1345 — persistEndOfCall ghost-row dedup", () => {
       endedAt: null,
       endSource: null,
       callSequence: null,
+      sessionId: null,
       createdAt: new Date(Date.now() - 2000),
       playbookId: null,
       usedPromptId: null,

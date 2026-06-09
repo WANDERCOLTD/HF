@@ -34,7 +34,16 @@ export async function GET(
     where: { id: promptId },
     include: {
       playbook: { select: { id: true, name: true } },
-      triggerCall: { select: { id: true, createdAt: true, source: true } },
+      // #1344 Slice 4 — was `triggerCall`; the column was dropped. Walk via
+      // `triggerSession.call` for the legacy `source` + `createdAt` fields
+      // the PromptsSection consumer still reads.
+      triggerSession: {
+        select: {
+          id: true,
+          startedAt: true,
+          call: { select: { id: true, source: true, createdAt: true } },
+        },
+      },
     },
   });
 

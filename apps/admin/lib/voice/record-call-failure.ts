@@ -148,13 +148,25 @@ export async function recordCallFailure(
       // Session exists — flip its status to FAILED if it's still
       // STARTED/ACTIVE. Don't clobber COMPLETED (a webhook may have
       // landed late).
+      //
+      // #1344 Slice 4 cascade — the outbound-dial route now pre-creates
+      // the Session via `createSession` (status=STARTED, skipStages=[]).
+      // When we flip it to FAILED here we also need to set the skip-
+      // stages so the pipeline router doesn't run EXTRACT / SCORE_AGENT
+      // / PROSODY / REWARD against an empty transcript. Mirrors the
+      // mint-new-Session branch above.
       try {
         await prisma.session.updateMany({
           where: {
             id: sessionId,
             status: { in: ["STARTED", "ACTIVE"] },
           },
-          data: { status: "FAILED", endedAt: new Date() },
+          data: {
+            status: "FAILED",
+            endedAt: new Date(),
+            skipStages: [...FAILURE_SESSION_SKIP_STAGES],
+            countsTowardLearnerNumber: false,
+          },
         });
       } catch (err) {
         console.error(

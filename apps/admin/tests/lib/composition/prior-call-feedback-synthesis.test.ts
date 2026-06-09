@@ -46,13 +46,28 @@ interface StubOptions {
   transcript?: string | null;
 }
 
+const CURRENT_SESSION_ID = "session-current";
+
 function makePrismaStub(stub: StubOptions = {}) {
   const auditWrites: Array<Record<string, unknown>> = [];
   return {
     auditWrites,
     call: {
       findFirst: vi.fn(async () => ({ id: PRIOR_CALL_ID, createdAt: PRIOR_CALL_AT })),
-      findUnique: vi.fn(async () => (stub.transcript !== undefined ? { transcript: stub.transcript } : null)),
+      // #1344 Slice 4 — cache key now walks via `Call.sessionId` (the
+      // legacy `triggerCallId` column was dropped). The loader does
+      // TWO selects against `call.findUnique`:
+      //   1. `{ where:{id:currentCallId}, select:{sessionId} }` — used to
+      //      build the cache key. Must return the synthetic sessionId so
+      //      the cache lookup against `composedPrompt.findFirst` runs.
+      //   2. `{ where:{id:lastCallId}, select:{transcript} }` — only on
+      //      `depth==='rich'`. Returns the stub-supplied transcript.
+      findUnique: vi.fn(async (args: { select?: Record<string, boolean> }) => {
+        if (args.select?.sessionId) {
+          return { sessionId: CURRENT_SESSION_ID };
+        }
+        return stub.transcript !== undefined ? { transcript: stub.transcript } : null;
+      }),
     },
     callScore: {
       findMany: vi.fn(async () => [
