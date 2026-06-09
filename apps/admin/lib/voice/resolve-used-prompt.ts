@@ -60,6 +60,17 @@ export async function resolveUsedPromptId(args: {
 
   // Step 2 — any ACTIVE ComposedPrompt for the caller. The historic
   // status discriminator is the lower-case string "active".
+  //
+  // NOTE(multi-playbook): step 2 is intentionally NOT scoped by
+  // playbookId. `build-assistant-config.ts:159-167` DOES scope its own
+  // active-prompt lookup by `defaultPlaybookId`. The asymmetry is
+  // benign for single-enrollment callers (one ACTIVE row exists), but
+  // a caller enrolled in two courses could resolve the "wrong" prompt
+  // here. Tracked as the multi-playbook follow-up to #1420; the
+  // current mitigation is the post-tx auto-compose writing per-
+  // playbook rows so the most-recent one is the relevant one. If
+  // multi-playbook enrolment ever becomes the common case, tighten
+  // this to take a `playbookId` arg.
   const activePrompt = await prisma.composedPrompt.findFirst({
     where: {
       callerId,
