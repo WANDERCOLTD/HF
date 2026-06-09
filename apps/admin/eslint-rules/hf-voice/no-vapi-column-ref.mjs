@@ -58,6 +58,7 @@ export default {
     docs: {
       description:
         "Disallow the 6 pre-#1020 vapi-prefixed Call column names. Use voice* names. See docs/CHAIN-CONTRACTS.md I-VP3.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-vapi-column-ref",
     },
     schema: [],
     messages: {

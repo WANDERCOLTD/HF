@@ -57,7 +57,8 @@ already exists, scattered across mechanisms that were never designed as one syst
 cd apps/admin
 npm run kb:model-map     # → docs/kb/generated/model-map.json   (109 models classified)
 npm run kb:routes        # → docs/kb/generated/route-inventory.json (501 routes)
-npm run kb:check         # meta-ratchet (guard back-links) + generated-fact freshness
+npm run kb:rule-tests    # meta-ratchet: every custom ESLint rule has a sibling test
+npm run kb:check         # all three meta-ratchets + generated-fact freshness
 ```
 
 ### Ratifying a model classification
