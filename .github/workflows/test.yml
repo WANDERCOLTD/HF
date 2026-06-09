@@ -107,6 +107,15 @@ jobs:
       - name: AI-CAPABILITIES.md drift guard
         run: npm run docs:ai-capabilities:check
 
+      # KB integrity. Blocking. Runs the meta-ratchet that holds every
+      # custom ESLint rule pointing back at its guard-registry anchor
+      # (check-guard-kb-links.ts), and the freshness check that fails
+      # if docs/kb/generated/*.json drifted from the schema/route walk
+      # (check-kb-fresh.sh, ignores the volatile generatedAt). See
+      # docs/kb/README.md. Same one-liner as `ctl check` step 8/8.
+      - name: KB integrity (guard back-links + generated-fact freshness)
+        run: npm run kb:check
+
   # Job 2: Unit Tests
   unit-tests:
     name: Unit Tests

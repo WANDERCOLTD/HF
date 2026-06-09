@@ -140,4 +140,40 @@ apps/admin/docs-archive/bdd-specs/*)
   fi
 fi
 
+# 6) Auto-regen the KB Tier-2 generated facts when their inputs change.
+#    Schema edits → model-map; route edits → route-inventory; overrides
+#    edits → model-map. Adds the regenerated JSON to the same commit so
+#    the CI freshness gate (kb:check, .github/workflows/test.yml) passes
+#    without a follow-up commit. Non-blocking on failure. See docs/kb/README.md.
+if command -v npx >/dev/null 2>&1; then
+  schema_changed="0"
+  routes_changed="0"
+  while IFS= read -r f; do
+    case "$f" in
+      apps/admin/prisma/schema.prisma|docs/kb/model-map-overrides.json)
+        schema_changed="1" ;;
+      apps/admin/app/api/*route.ts)
+        routes_changed="1" ;;
+    esac
+  done <<< "${STAGED_FILES}"
+
+  if [[ "$schema_changed" == "1" ]]; then
+    echo "[pre-commit] Regenerating docs/kb/generated/model-map.json..."
+    if (cd apps/admin && npx tsx scripts/capture/model-map.ts >/dev/null 2>&1); then
+      git add docs/kb/generated/model-map.json
+    else
+      echo "[pre-commit] ⚠ model-map regen failed (non-blocking). Run: cd apps/admin && npm run kb:model-map"
+    fi
+  fi
+
+  if [[ "$routes_changed" == "1" ]]; then
+    echo "[pre-commit] Regenerating docs/kb/generated/route-inventory.json..."
+    if (cd apps/admin && npx tsx scripts/capture/route-inventory.ts >/dev/null 2>&1); then
+      git add docs/kb/generated/route-inventory.json
+    else
+      echo "[pre-commit] ⚠ route-inventory regen failed (non-blocking). Run: cd apps/admin && npm run kb:routes"
+    fi
+  fi
+fi
+
 exit 0
