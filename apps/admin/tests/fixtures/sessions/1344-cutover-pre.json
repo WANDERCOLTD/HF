@@ -1,0 +1,22 @@
+{
+  "$schema": "../README.md#fixture-shape",
+  "issue": 1344,
+  "scenario": "Bertie-class pre-state — caller exists with a single SIM_CALL drop (counts=false, lfn=NULL) then no real calls yet. Compose-header reader must narrate '(call #1)' for the first real VOICE_CALL.",
+  "capturedFrom": {
+    "db": "synthetic — Bertie-class shape, not pulled from live hf_sandbox",
+    "capturedAt": "2026-06-09T00:00:00.000Z",
+    "method": "Constructed so the cutover reader (nextLearnerFacingNumber loader) reads 1 even though sequenceNumber=1 was already burned by the sim drop."
+  },
+  "callerId": "00000000-0000-0000-0000-000000001344",
+  "preExistingSimDrop": {
+    "id": "00000000-0000-0000-0010-000000001344",
+    "kind": "SIM_CALL",
+    "status": "FAILED",
+    "sequenceNumber": 1,
+    "learnerFacingNumber": null,
+    "countsTowardLearnerNumber": false,
+    "scenario": "Bertie's hf_sandbox 09:55 sim drop — 6s duration, transcript empty"
+  },
+  "expectedNextLearnerFacingNumberBeforeRealCall": 1,
+  "scenarioNarrative": "Caller has burned SIM_CALL sequence=1 but it doesn't count. nextLearnerFacingNumber loader reads MAX(learnerFacingNumber WHERE counts=true)=NULL, returns 0+1=1. Composing the first real call must render '(call #1)' — not '(call #2)' which is what the pre-Slice-4 callCount-based reader produced."
+}

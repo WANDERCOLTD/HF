@@ -71,11 +71,17 @@ function TriggerIcon({ p, size = 13 }: { p: ComposedPrompt; size?: number }) {
   return <FileText size={size} className={cls} />;
 }
 
-/** Group prompts by (triggerCallId, triggerType-when-null). null-call groups
+/** Group prompts by (triggerSessionId, triggerType-when-null). null-session groups
  *  also split on triggerType so a sim recompose followed by a tuner_fanout
  *  apply each get their own labelled section — instead of being lumped into
- *  one section labelled by whichever came first. */
-type Group = { callId: string | null; prompts: ComposedPrompt[] };
+ *  one section labelled by whichever came first.
+ *
+ *  #1344 Slice 4 — was keyed on `triggerCallId`; now keyed on
+ *  `triggerSessionId`. Resolution to a Call id for rendering happens via
+ *  the caller-side `sessionIdToCallId` map (Call.sessionId is 1:1 with
+ *  Session).
+ */
+type Group = { sessionId: string | null; prompts: ComposedPrompt[] };
 
 function groupPrompts(prompts: ComposedPrompt[]): Group[] {
   const sorted = [...prompts].sort(
@@ -84,11 +90,12 @@ function groupPrompts(prompts: ComposedPrompt[]): Group[] {
   const groups: Group[] = [];
   let prevKey: string | undefined = undefined;
   for (const p of sorted) {
-    // Group key: callId (when present) OR a synthetic "standalone:<type>" key
-    // so consecutive null-callId prompts of DIFFERENT triggerTypes split.
-    const key = p.triggerCallId ?? `standalone:${(p.triggerType || "—").toLowerCase()}`;
+    // Group key: sessionId (when present) OR a synthetic "standalone:<type>"
+    // key so consecutive null-session prompts of DIFFERENT triggerTypes
+    // split.
+    const key = p.triggerSessionId ?? `standalone:${(p.triggerType || "—").toLowerCase()}`;
     if (key !== prevKey) {
-      groups.push({ callId: p.triggerCallId, prompts: [p] });
+      groups.push({ sessionId: p.triggerSessionId, prompts: [p] });
       prevKey = key;
     } else {
       groups[groups.length - 1].prompts.push(p);
@@ -653,6 +660,14 @@ export function PromptTimelineRows({
     for (const c of calls) m.set(c.id, c);
     return m;
   }, [calls]);
+  // #1344 Slice 4 — prompt timeline groups by `triggerSessionId`; UI
+  // renders against the Call. Build a session-id → Call lookup so the
+  // group→call resolution stays one Map.get away.
+  const callsBySessionId = useMemo(() => {
+    const m = new Map<string, Call>();
+    for (const c of calls) if (c.sessionId) m.set(c.sessionId, c);
+    return m;
+  }, [calls]);
   const scoresByCall = useMemo(
     () => rollupScoresByCall(callScores ?? []),
     [callScores],
@@ -775,7 +790,13 @@ export function PromptTimelineRows({
       setRePromptingIds((prev) => new Set(prev).add(sourcePrompt.id));
       try {
         const body: Record<string, unknown> = { triggerType: "manual" };
-        if (sourcePrompt.triggerCallId) body.triggerCallId = sourcePrompt.triggerCallId;
+        // #1344 Slice 4 — `triggerCallId` is gone. Resolve via the
+        // session-id → call lookup; the server still accepts the
+        // back-compat `triggerCallId` body field and walks to Session.
+        if (sourcePrompt.triggerSessionId) {
+          const linkedCall = callsBySessionId.get(sourcePrompt.triggerSessionId);
+          if (linkedCall) body.triggerCallId = linkedCall.id;
+        }
         const res = await fetch(`/api/callers/${callerId}/compose-prompt`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -841,32 +862,32 @@ export function PromptTimelineRows({
         // user cares about by default).
         let lastCallDiffGroupIdx = -1;
         for (let i = 1; i < groups.length; i++) {
-          const a = groups[i - 1].callId ? callsById.get(groups[i - 1].callId!) : null;
-          const b = groups[i].callId ? callsById.get(groups[i].callId!) : null;
+          const a = groups[i - 1].sessionId ? callsBySessionId.get(groups[i - 1].sessionId!) : null;
+          const b = groups[i].sessionId ? callsBySessionId.get(groups[i].sessionId!) : null;
           if (a && b && computeCallDiff(a, b, scoresByCall).length > 0) {
             lastCallDiffGroupIdx = i;
           }
         }
         return groups.map((group, groupIdx) => {
-        const call = group.callId ? callsById.get(group.callId) : null;
-        // #642 — only the FIRST chronological null-triggerCallId group is
+        const call = group.sessionId ? callsBySessionId.get(group.sessionId) : null;
+        // #642 — only the FIRST chronological null-triggerSession group is
         // a real Bootstrap (initial enrollment prompt). Later null groups
         // are standalone recomposes (sim / TUNER_FANOUT / manual / etc.)
         // and get labelled by their dominant triggerType.
-        const isFirstNullGroup = group.callId == null && groups.findIndex((g) => g.callId == null) === groupIdx;
+        const isFirstNullGroup = group.sessionId == null && groups.findIndex((g) => g.sessionId == null) === groupIdx;
         const dominantTrigger = group.prompts[0]?.triggerType || "—";
-        const header = group.callId == null
+        const header = group.sessionId == null
           ? (isFirstNullGroup
               ? "Bootstrap"
               : `Standalone · ${dominantTrigger.toLowerCase().replace(/_/g, " ")} · ${formatDate(group.prompts[0].composedAt)}`)
           : call
             ? `Call ${call.callSequence ?? "—"} · ${formatDate(call.createdAt)}`
-            : `Triggered by call ${group.callId.slice(0, 8)}…`;
+            : `Triggered by session ${group.sessionId.slice(0, 8)}…`;
 
         // #642 — CALL DIFF row: state-delta between this call and the previous one.
         // Only renders when both calls have scored params we can compare.
         const prevGroup = groupIdx > 0 ? groups[groupIdx - 1] : null;
-        const prevCall = prevGroup?.callId ? callsById.get(prevGroup.callId) : null;
+        const prevCall = prevGroup?.sessionId ? callsBySessionId.get(prevGroup.sessionId) : null;
         const callDiff = call && prevCall
           ? computeCallDiff(prevCall, call, scoresByCall)
           : null;
@@ -885,7 +906,7 @@ export function PromptTimelineRows({
         const callEffectRemoved = callEffect ? callEffect.filter((d) => d.type === "removed").length : 0;
 
         return (
-          <section key={`${group.callId ?? "bootstrap"}-${groupIdx}`} className="ptr-group">
+          <section key={`${group.sessionId ?? "bootstrap"}-${groupIdx}`} className="ptr-group">
             {/* CALL DIFF row — between consecutive call groups.
                 Auto-expand the most recent one (latest state delta is what
                 the user lands on the page wanting to see). */}

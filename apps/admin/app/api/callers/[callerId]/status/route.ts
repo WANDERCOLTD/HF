@@ -29,23 +29,29 @@ export async function GET(
   const [recentCalls, scoreCounts, promptCalls] = await Promise.all([
     prisma.call.findMany({
       where: { callerId, createdAt: { gte: fiveMinAgo } },
-      select: { id: true },
+      select: { id: true, sessionId: true },
     }),
     prisma.callScore.groupBy({
       by: ["callId"],
       where: { call: { callerId, createdAt: { gte: fiveMinAgo } } },
       _count: { id: true },
     }),
+    // #1344 Slice 4 — `triggerCallId` is gone; walk via parent Session.
     prisma.composedPrompt.findMany({
       where: { callerId, createdAt: { gte: fiveMinAgo } },
-      select: { triggerCallId: true },
-      distinct: ["triggerCallId"],
+      select: { triggerSessionId: true },
+      distinct: ["triggerSessionId"],
     }),
   ]);
 
   const scoreSet = new Set(scoreCounts.map((s) => s.callId));
+  const triggeredSessionSet = new Set(
+    promptCalls.map((p) => p.triggerSessionId).filter((id): id is string => !!id),
+  );
   const promptSet = new Set(
-    promptCalls.map((p) => p.triggerCallId).filter(Boolean),
+    recentCalls
+      .filter((c) => c.sessionId && triggeredSessionSet.has(c.sessionId))
+      .map((c) => c.id),
   );
 
   return NextResponse.json({

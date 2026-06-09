@@ -27,9 +27,13 @@
 
 // Substrings checked against the linted file path (after normalising slashes).
 // A file matches if ANY substring is a suffix of the path or contained in it.
+// #1344 Slice 4 — `lib/voice/create-call-entering-pipeline.ts` is GONE.
+// The V1 wrapper is deleted; outbound-dial + start now call
+// `createSession({kind:VOICE_CALL})` directly and create the Call child
+// inline. The route paths replace the wrapper's allow-listed entry.
 const ALLOWED_CALL_PATH_SUFFIXES = [
-  "lib/voice/create-call-entering-pipeline.ts",
-  "tests/lib/voice/create-call-entering-pipeline.test.ts",
+  "app/api/voice/calls/outbound-dial/route.ts",
+  "app/api/voice/calls/start/route.ts",
   "app/api/callers/[callerId]/calls/route.ts",
   "lib/test-harness/sim-runner.ts",
   "app/api/test-harness/onboarding-call/route.ts",

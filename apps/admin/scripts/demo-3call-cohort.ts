@@ -98,14 +98,15 @@ type ComposedPromptSummary = Prisma.ComposedPromptGetPayload<{
     composedAt: true;
     status: true;
     triggerType: true;
-    triggerCallId: true;
+    triggerSessionId: true;
   };
 }>;
 
 type CallSummary = Prisma.CallGetPayload<{
   select: {
     id: true;
-    callSequence: true;
+    sessionId: true;
+    session: { select: { sequenceNumber: true; learnerFacingNumber: true } };
     requestedModuleId: true;
     curriculumModuleId: true;
     endedAt: true;
@@ -258,13 +259,25 @@ async function findLastCallId(callerId: string): Promise<string> {
 }
 
 /**
- * Poll until a fresh ComposedPrompt with triggerCallId === justEndedCallId
- * AND status === 'active' appears, or timeout.
+ * Poll until a fresh ComposedPrompt with triggerSessionId === justEndedCall.sessionId
+ * AND status === 'active' appears, or timeout. (#1344 Slice 4 — walks
+ * via Session FK; pre-Slice 4 used `triggerCallId` directly.)
  */
 async function pollForFreshComposedPrompt(
   callerId: string,
   justEndedCallId: string,
 ): Promise<ComposedPromptSummary | null> {
+  const callRow = await prisma.call.findUnique({
+    where: { id: justEndedCallId },
+    select: { sessionId: true },
+  });
+  const triggerSessionId = callRow?.sessionId ?? null;
+  if (!triggerSessionId) {
+    console.error(
+      `   ✗ Call ${justEndedCallId.slice(0, 8)} has no sessionId — pre-Slice-3 row or write failed.`,
+    );
+    return null;
+  }
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let attempts = 0;
   while (Date.now() < deadline) {
@@ -272,7 +285,7 @@ async function pollForFreshComposedPrompt(
     const fresh = await prisma.composedPrompt.findFirst({
       where: {
         callerId,
-        triggerCallId: justEndedCallId,
+        triggerSessionId,
         status: "active",
       },
       orderBy: { composedAt: "desc" },
@@ -281,7 +294,7 @@ async function pollForFreshComposedPrompt(
         composedAt: true,
         status: true,
         triggerType: true,
-        triggerCallId: true,
+        triggerSessionId: true,
       },
     });
     if (fresh) {
@@ -295,7 +308,7 @@ async function pollForFreshComposedPrompt(
   }
   console.error(
     `   ✗ Timed out after ${POLL_TIMEOUT_MS / 1000}s waiting for ComposedPrompt with ` +
-      `triggerCallId=${justEndedCallId} (attempts=${attempts})`,
+      `triggerSessionId=${triggerSessionId} (attempts=${attempts})`,
   );
   return null;
 }
@@ -424,7 +437,8 @@ async function main(): Promise<void> {
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
-      callSequence: true,
+      sessionId: true,
+      session: { select: { sequenceNumber: true, learnerFacingNumber: true } },
       requestedModuleId: true,
       curriculumModuleId: true,
       endedAt: true,
@@ -433,8 +447,9 @@ async function main(): Promise<void> {
   });
   console.log(`│  Calls           ${calls.length}`);
   for (const c of calls) {
+    const n = c.session?.learnerFacingNumber ?? c.session?.sequenceNumber ?? "?";
     console.log(
-      `│    #${String(c.callSequence ?? "?").padStart(2)} ${c.id.slice(0, 8)} ` +
+      `│    #${String(n).padStart(2)} ${c.id.slice(0, 8)} ` +
         `module=${c.requestedModuleId ?? "?"} ended=${c.endedAt ? "yes" : "no"}`,
     );
   }
@@ -447,13 +462,13 @@ async function main(): Promise<void> {
       composedAt: true,
       status: true,
       triggerType: true,
-      triggerCallId: true,
+      triggerSessionId: true,
     },
   });
   console.log(`│  Pipeline prompts ${pipelinePrompts.length}`);
   for (const p of pipelinePrompts) {
     console.log(
-      `│    ${p.id.slice(0, 8)} trigger=${p.triggerCallId?.slice(0, 8) ?? "—"} status=${p.status}`,
+      `│    ${p.id.slice(0, 8)} trigger=${p.triggerSessionId?.slice(0, 8) ?? "—"} status=${p.status}`,
     );
   }
 
@@ -514,20 +529,21 @@ async function main(): Promise<void> {
     );
   }
 
-  // (ii) 3 pipeline-trigger ComposedPrompt rows whose triggerCallIds match
-  //      the 3 calls in order.
+  // (ii) 3 pipeline-trigger ComposedPrompt rows whose triggerSessionIds match
+  //      the 3 calls' parent Sessions in order. (#1344 Slice 4.)
   if (pipelinePrompts.length < 3) {
     failures.push(
       `expected at least 3 pipeline-triggered ComposedPrompts, got ${pipelinePrompts.length}`,
     );
   } else {
-    const callIds = calls.map((c) => c.id);
-    const expectedTriggerIds = callIds.slice(0, 3);
-    const actualTriggerIds = pipelinePrompts.slice(0, 3).map((p) => p.triggerCallId);
+    const expectedTriggerIds = calls
+      .slice(0, 3)
+      .map((c) => c.sessionId ?? null);
+    const actualTriggerIds = pipelinePrompts.slice(0, 3).map((p) => p.triggerSessionId);
     for (let i = 0; i < expectedTriggerIds.length; i++) {
       if (actualTriggerIds[i] !== expectedTriggerIds[i]) {
         failures.push(
-          `ComposedPrompt #${i + 1} triggerCallId mismatch: expected ${expectedTriggerIds[i]?.slice(0, 8)}, ` +
+          `ComposedPrompt #${i + 1} triggerSessionId mismatch: expected ${expectedTriggerIds[i]?.slice(0, 8) ?? "null"}, ` +
             `got ${actualTriggerIds[i]?.slice(0, 8) ?? "null"}`,
         );
       }

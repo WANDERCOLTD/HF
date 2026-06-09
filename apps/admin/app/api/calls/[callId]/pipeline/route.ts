@@ -3852,11 +3852,15 @@ const stageExecutors: Record<string, StageExecutor> = {
     );
     const promptSummary = renderPromptSummary(composition.llmPrompt);
 
+    // #1344 Slice 4 — resolve the parent Session id from the Call row so
+    // the new `triggerSessionId` lands. `Call.sessionId` is the 1:1 link
+    // written by `createSession`; null only for pre-#1342 historical Calls.
+    const triggerSessionId = ctx.call.sessionId ?? null;
     const persisted = await persistComposedPrompt(composition, promptSummary, {
       callerId: ctx.callerId,
       playbookId: ctx.call.playbookId,
       triggerType: "pipeline",
-      triggerCallId: ctx.callId,
+      triggerSessionId,
       composeSpecSlug: specSlug,
       specConfig: fullSpecConfig,
     });

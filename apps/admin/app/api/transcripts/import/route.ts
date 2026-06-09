@@ -894,18 +894,21 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Get current call sequence for this caller
-      let callSequence = 1;
+      // #1344 Slice 4 — `Call.callSequence` column dropped; sequencing
+      // moved to the Session parent. Transcript-import Calls don't have
+      // a corresponding Session (intentionally — these are back-loaded
+      // historicals); previousCallId chain still works for ADAPT-style
+      // delta calculations.
       let previousCallId: string | null = null;
 
       const existingCalls = await prisma.call.findMany({
         where: { callerId: caller!.id },
-        orderBy: { callSequence: "desc" },
+        orderBy: { createdAt: "desc" },
         take: 1,
+        select: { id: true },
       });
 
-      if (existingCalls.length > 0 && existingCalls[0].callSequence) {
-        callSequence = existingCalls[0].callSequence + 1;
+      if (existingCalls.length > 0) {
         previousCallId = existingCalls[0].id;
       }
 
@@ -919,7 +922,6 @@ export async function POST(request: NextRequest) {
         if (existingCall) {
           if (duplicateHandling === "skip") {
             previousCallId = existingCall.id;
-            if (existingCall.callSequence) callSequence = existingCall.callSequence + 1;
             results.skipped++;
             continue;
           } else if (duplicateHandling === "overwrite") {
@@ -929,7 +931,6 @@ export async function POST(request: NextRequest) {
             });
             results.updated++;
             previousCallId = existingCall.id;
-            if (existingCall.callSequence) callSequence = existingCall.callSequence + 1;
             continue;
           }
           // create_new - fall through
@@ -961,7 +962,6 @@ export async function POST(request: NextRequest) {
               : vapiCall.id,
             callerId: caller!.id,
             transcript: vapiCall.transcript,
-            callSequence,
             previousCallId,
             createdAt: callStartTime,
             usedPromptId: activePrompt?.id || null,
@@ -971,7 +971,6 @@ export async function POST(request: NextRequest) {
 
         results.callsImported++;
         previousCallId = createdCall.id;
-        callSequence++;
       }
     }
 

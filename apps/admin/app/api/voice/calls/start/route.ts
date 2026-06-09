@@ -11,7 +11,7 @@ import {
 } from "@/lib/voice/resolve-voice-provider";
 import { startVoiceSpan } from "@/lib/voice/telemetry";
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
-import { createCallEnteringPipeline } from "@/lib/voice/create-call-entering-pipeline";
+import { createSession } from "@/lib/voice/create-session";
 
 export const runtime = "nodejs";
 
@@ -155,18 +155,42 @@ export async function POST(request: Request) {
 
     // G6 / #1154 / #1333 — pre-resolve playbook + default module BEFORE the
     // call row is created and attribute the placeholder so COMPOSE has a
-    // scope from the very first event. The builder is the chokepoint for
-    // pipeline-entry Call creation (see docs/CHAIN-CONTRACTS.md §3 Link 3);
-    // net-zero behavioural change vs. the prior hand-rolled cascade.
-    const entry = await createCallEnteringPipeline({
+    // scope from the very first event.
+    //
+    // #1344 Slice 4 — `createCallEnteringPipeline` wrapper deleted; we
+    // now call `createSession({kind:VOICE_CALL})` directly and create
+    // the Call child here. createSession owns the chain-contract cascade
+    // (resolveActivePlaybookId → requestedModuleId → CurriculumModule)
+    // plus the atomic Session sequencer + voiceConfigSnapshot.
+    const sessionResult = await createSession({
       callerId: caller.id,
+      kind: "VOICE_CALL",
       source: providerSlug,
       voiceProvider: providerSlug,
     });
-    const placeholderCall = entry.call;
-    if (entry.playbookId && entry.requestedModuleId) {
+    const placeholderCall = await prisma.call.create({
+      data: {
+        callerId: caller.id,
+        source: providerSlug,
+        voiceProvider: providerSlug,
+        transcript: "",
+        sessionId: sessionResult.session.id,
+        ...(sessionResult.playbookId ? { playbookId: sessionResult.playbookId } : {}),
+        ...(sessionResult.requestedModuleId
+          ? { requestedModuleId: sessionResult.requestedModuleId }
+          : {}),
+        ...(sessionResult.curriculumModuleId
+          ? { curriculumModuleId: sessionResult.curriculumModuleId }
+          : {}),
+        ...(sessionResult.usedPromptId
+          ? { usedPromptId: sessionResult.usedPromptId }
+          : {}),
+      },
+      select: { id: true },
+    });
+    if (sessionResult.playbookId && sessionResult.requestedModuleId) {
       console.log(
-        `[voice/calls/start] G6 auto-resolved module for caller=${caller.id.slice(0, 8)} playbook=${entry.playbookId.slice(0, 8)} → ${entry.requestedModuleId}`,
+        `[voice/calls/start] G6 auto-resolved module for caller=${caller.id.slice(0, 8)} playbook=${sessionResult.playbookId.slice(0, 8)} → ${sessionResult.requestedModuleId}`,
       );
     }
 

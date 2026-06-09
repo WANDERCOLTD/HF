@@ -97,7 +97,7 @@ function makeContext(opts: MakeCtxOpts = {}): AssembledContext {
       personality: null,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 0,
+      nextLearnerFacingNumber: 1,
       behaviorTargets: [],
       callerTargets: (opts.callerTargets ?? []) as unknown as AssembledContext["loadedData"]["callerTargets"],
       callerAttributes: [],

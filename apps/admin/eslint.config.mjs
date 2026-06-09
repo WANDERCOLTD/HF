@@ -161,14 +161,17 @@ const eslintConfig = defineConfig([
             noModuleReadWithoutCourseStyleGuard,
         },
       },
-      // #1333 + #1342 — block bare `prisma.call.create` AND
-      // `prisma.session.create` outside the explicit allow-lists.
-      // Pipeline-entry Call creation MUST route through
-      // `createCallEnteringPipeline`; every Session row MUST go through
-      // `createSession` so the atomic counter + voice snapshot + I-CT2
-      // cascade all land at creation time. Defends the chain-contract
-      // pre-condition for Link 3 (CURRICULUM → CALL compose) and the
-      // Session-boundary invariants in Link 3b.
+      // #1333 + #1342 + #1344 — block bare `prisma.call.create` AND
+      // `prisma.session.create` outside the explicit allow-lists. Every
+      // Session row MUST go through `createSession` so the atomic
+      // counter + voice snapshot + I-CT2 cascade all land at creation
+      // time. The legacy `createCallEnteringPipeline` wrapper was
+      // deleted in #1344 Slice 4 — the two routes that used it
+      // (outbound-dial, start) now call `createSession({kind:VOICE_CALL})`
+      // directly and create the Call child inline.
+      // Defends the chain-contract pre-condition for Link 3
+      // (CURRICULUM → CALL compose) and the Session-boundary invariants
+      // in Link 3b.
       "hf-call": {
         rules: {
           "no-bare-call-create": noBareCallCreate,
@@ -204,12 +207,12 @@ const eslintConfig = defineConfig([
       // Promoted to `error` once full sweep complete + audit counter
       // reads 0 for ≥7 days.
       "hf-pipeline/no-module-read-without-course-style-guard": "error",
-      // #1333 + #1342 — error severity from day 1. Allow-list covers
-      // every existing legitimate `prisma.call.create` site and the
-      // builder + test files for `prisma.session.create`; any new site
-      // must either route through `createCallEnteringPipeline` /
-      // `createSession` or add to the allow-list with a documented
-      // bypass justification.
+      // #1333 + #1342 + #1344 — error severity from day 1. Allow-list
+      // covers every existing legitimate `prisma.call.create` site and
+      // the builder + test files for `prisma.session.create`; any new
+      // site must either route through `createSession` (with a small
+      // inline Call insert when needed) or add to the allow-list with a
+      // documented bypass justification.
       "hf-call/no-bare-call-create": "error",
     },
   },

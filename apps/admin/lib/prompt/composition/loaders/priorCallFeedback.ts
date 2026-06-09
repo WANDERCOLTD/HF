@@ -338,17 +338,25 @@ async function maybeSynthesizeRecap(
     return null;
   }
 
-  // Gate 5 — cache read. Existing ComposedPrompt for this triggerCallId with
-  // a matching depth → reuse text (no AI call, no audit row).
+  // Gate 5 — cache read. Existing ComposedPrompt for this triggerSession
+  // with a matching depth → reuse text (no AI call, no audit row).
+  // #1344 Slice 4 — walk via Call.sessionId to find the parent Session
+  // for the cache key; the legacy `triggerCallId` column is gone.
   if (opts.currentCallId) {
-    const cached = await readCachedRecap(prisma, {
-      callerId: opts.callerId,
-      triggerCallId: opts.currentCallId,
-      playbookId,
-      depth,
+    const callRow = await prisma.call.findUnique({
+      where: { id: opts.currentCallId },
+      select: { sessionId: true },
     });
-    if (cached) {
-      return { ...cached, cachedHit: true };
+    if (callRow?.sessionId) {
+      const cached = await readCachedRecap(prisma, {
+        callerId: opts.callerId,
+        triggerSessionId: callRow.sessionId,
+        playbookId,
+        depth,
+      });
+      if (cached) {
+        return { ...cached, cachedHit: true };
+      }
     }
   }
 
@@ -446,7 +454,7 @@ async function countSynthesisUsageToday(
 
 interface CachedRecapKey {
   callerId: string;
-  triggerCallId: string;
+  triggerSessionId: string;
   playbookId: string;
   depth: PriorCallRecapDepth;
 }
@@ -458,7 +466,7 @@ async function readCachedRecap(
   const row = await prisma.composedPrompt.findFirst({
     where: {
       callerId: key.callerId,
-      triggerCallId: key.triggerCallId,
+      triggerSessionId: key.triggerSessionId,
       playbookId: key.playbookId,
     },
     orderBy: { composedAt: "desc" },

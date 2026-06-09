@@ -15,8 +15,8 @@ export const runtime = "nodejs";
  * @tags callers, composition, prompts
  * @description Compose a personalized next-call prompt for a caller using the declarative composition pipeline driven by COMP-001 spec sections. Loads caller data, applies section transformations, renders a deterministic prompt summary, stores the result, and supersedes previous active prompts.
  * @pathParam callerId string - The caller ID to compose a prompt for
- * @body triggerType string - What triggered this composition (default: "manual")
- * @body triggerCallId string - Optional call ID that triggered this composition
+  * @body triggerType string - What triggered this composition (default: "manual")
+ * @body triggerCallId string - DEPRECATED in #1344 Slice 4. Caller resolves Call.sessionId → Session before write. Body field still accepted for back-compat; we walk the Call→Session FK server-side.
  * @body targetOverrides object - Preview overrides for behavior targets (not persisted)
  * @body playbookIds string[] - Optional filter to specific playbooks for A/B comparison
  * @body forceFirstCall boolean - Override to treat as first call regardless of history (preview-only, not persisted)
@@ -132,12 +132,24 @@ export async function POST(
     // Render deterministic prompt summary
     const promptSummary = renderPromptSummary(composition.llmPrompt);
 
+    // #1344 Slice 4 — resolve `triggerSessionId` from the body's
+    // `triggerCallId` (back-compat) by walking `Call.sessionId`. When
+    // the caller didn't supply a Call id, leave the trigger empty.
+    let triggerSessionId: string | null = null;
+    if (triggerCallId && typeof triggerCallId === "string") {
+      const triggerCall = await prisma.call.findUnique({
+        where: { id: triggerCallId },
+        select: { sessionId: true },
+      });
+      triggerSessionId = triggerCall?.sessionId ?? null;
+    }
+
     // Persist and supersede (shared helper) — skip DB write for preview-only mode
     const composedPrompt = await persistComposedPrompt(composition, promptSummary, {
       callerId,
       playbookId: playbookIds?.[0] || null,
       triggerType: forceFirstCall ? "preview_first_call" : triggerType,
-      triggerCallId,
+      triggerSessionId,
       composeSpecSlug: specSlug,
       specConfig: fullSpecConfig,
       skipPersist: forceFirstCall,
@@ -203,6 +215,9 @@ export async function GET(
     const limit = parseInt(searchParams.get("limit") || "20");
     const status = searchParams.get("status"); // "active" | "superseded" | "all"
 
+    // #1344 Slice 4 — `triggerCall` relation removed with the
+    // `triggerCallId` column drop. The parent surface is the Session;
+    // walk via `triggerSession.call` for the once-needed Call attrs.
     const prompts = await prisma.composedPrompt.findMany({
       where: {
         callerId,
@@ -211,11 +226,12 @@ export async function GET(
       orderBy: { composedAt: "desc" },
       take: limit,
       include: {
-        triggerCall: {
+        triggerSession: {
           select: {
             id: true,
-            createdAt: true,
-            source: true,
+            call: {
+              select: { id: true, createdAt: true, source: true },
+            },
           },
         },
       },

@@ -117,7 +117,8 @@ export async function GET(
           source: true,
           externalId: true,
           createdAt: true,
-          callSequence: true,
+          // #1344 Slice 4 — `callSequence` gone; walk via Session FK.
+          session: { select: { learnerFacingNumber: true } },
           transcript: includeTranscripts,
           _count: {
             select: {
@@ -154,7 +155,8 @@ export async function GET(
             select: {
               externalId: true,
               createdAt: true,
-              callSequence: true,
+              // #1344 Slice 4 — `callSequence` gone; walk via Session FK.
+              session: { select: { learnerFacingNumber: true } },
             },
           },
         },
@@ -363,7 +365,8 @@ export async function GET(
         source: call.source,
         externalId: call.externalId,
         createdAt: call.createdAt,
-        callSequence: call.callSequence,
+        // #1344 Slice 4 — `callSequence` gone; surface from Session.
+        callSequence: call.session?.learnerFacingNumber ?? null,
         transcript: (call as any).transcript || undefined,
         scoreCount: call._count?.scores || 0,
         scores: (scoresByCall.get(call.id) || []).map((s) => ({

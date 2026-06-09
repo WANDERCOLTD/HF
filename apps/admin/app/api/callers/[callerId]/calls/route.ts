@@ -19,7 +19,7 @@ import { createSession } from "@/lib/voice/create-session";
  * @description Get the most recent active sim call for a caller (endedAt is null, source is sim, within last 2 hours).
  * @pathParam callerId string - The caller ID
  * @query active boolean - If "true", only return active (non-ended) calls
- * @response 200 { ok: true, call: { id, callSequence, source, createdAt } | null }
+ * @response 200 { ok: true, call: { id, source, createdAt, sessionId, session: { sequenceNumber, learnerFacingNumber } } | null }
  */
 export async function GET(
   _request: NextRequest,
@@ -46,15 +46,22 @@ export async function GET(
         : {}),
     };
 
+    // #1344 Slice 4 — `Call.callSequence` is dropped; the per-Caller
+    // learner-facing number now lives on `Session.learnerFacingNumber`
+    // (joined via `Call.sessionId`). Older sim consumers that read
+    // `call.callSequence` should switch to the Session FK.
     const call = await prisma.call.findFirst({
       where,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
-        callSequence: true,
         source: true,
         createdAt: true,
         endedAt: true,
+        sessionId: true,
+        session: {
+          select: { sequenceNumber: true, learnerFacingNumber: true },
+        },
       },
     });
 
@@ -77,10 +84,9 @@ export async function GET(
  * @description Create a new call record for a caller. Auto-determines call sequence number if not provided. Links to previous call for chain tracking.
  * @pathParam callerId string - The caller ID to create a call for
  * @body source string - Call source identifier (default: "ai-simulation")
- * @body callSequence number - Explicit sequence number (optional, auto-incremented if omitted)
  * @body transcript string - Call transcript text (default: "")
  * @body playbookId string - Optional playbook (course) ID. If omitted, resolves from the caller's default enrollment via resolvePlaybookId.
- * @response 200 { ok: true, call: { id, callSequence, source, createdAt } }
+ * @response 200 { ok: true, call: { id, source, createdAt } }
  * @response 400 { ok: false, error } - Caller has no active enrollment, or multiple enrollments with no default and no explicit playbookId
  * @response 404 { ok: false, error: "Caller not found" }
  * @response 500 { ok: false, error: "Failed to create call" }
@@ -95,7 +101,7 @@ export async function POST(
 
     const { callerId } = await params;
     const body = await request.json();
-    const { source = "ai-simulation", callSequence, transcript = "", usedPromptId, playbookId, requestedModuleId } = body;
+    const { source = "ai-simulation", transcript = "", usedPromptId, playbookId, requestedModuleId } = body;
 
     // Verify caller exists
     const caller = await prisma.caller.findUnique({
@@ -163,21 +169,15 @@ export async function POST(
       resolvedCurriculumModuleId = resolved.id;
     }
 
-    // Determine call sequence (scoped to this course — see #203 for chain fix)
-    let sequence = callSequence;
-    if (!sequence) {
-      const lastCall = await prisma.call.findFirst({
-        where: { callerId },
-        orderBy: { callSequence: "desc" },
-        select: { callSequence: true },
-      });
-      sequence = (lastCall?.callSequence || 0) + 1;
-    }
-
-    // Get previous call ID for linking
+    // #1344 Slice 4 — legacy `callSequence` is gone. The Session parent
+    // row owns sequencing via `CallerSequenceCounter`; sim calls do NOT
+    // bump the learner-facing counter (SIM_CALL has
+    // `countsTowardLearnerNumber=false`), so this route no longer hand-
+    // rolls a `MAX(callSequence)+1` read. Previous-call linkage stays —
+    // we order by `createdAt` instead.
     const previousCall = await prisma.call.findFirst({
       where: { callerId },
-      orderBy: { callSequence: "desc" },
+      orderBy: { createdAt: "desc" },
       select: { id: true },
     });
 
@@ -202,12 +202,12 @@ export async function POST(
       }
     }
 
-    // #1342 — Session Model V2 path. When the flag is on, write a
-    // SIM_CALL Session parent row first and link the Call via
-    // `sessionId`. The Session row owns the atomic per-(callerId, kind)
-    // sequence; the Call's `callSequence` mirrors the Session's
-    // learnerFacingNumber when the class qualifies (SIM_CALL doesn't,
-    // so callSequence stays null for sim — matches epic intent).
+    // #1342 + #1344 — write a SIM_CALL Session parent row first and link
+    // the Call via `sessionId`. The Session row owns the atomic
+    // per-(callerId, kind) sequence. SIM_CALL has
+    // `countsTowardLearnerNumber=false`, so `learnerFacingNumber` stays
+    // null on this Session — sim drives don't bump the user-facing
+    // "(call #N)" counter (epic #1338 class-rules).
     let sessionParentId: string | null = null;
     if (isSessionModelV2Enabled()) {
       const result = await createSession({
@@ -220,12 +220,13 @@ export async function POST(
       sessionParentId = result.session.id;
     }
 
-    // Create the call
+    // Create the call. #1344 Slice 4 — `callSequence` column dropped;
+    // sequencing now lives on `Session.sequenceNumber` /
+    // `Session.learnerFacingNumber`.
     const call = await prisma.call.create({
       data: {
         callerId,
         source,
-        callSequence: sequence,
         previousCallId: previousCall?.id || null,
         transcript: transcript || "",
         externalId: source === "playground-upload" ? `upload-${Date.now()}` : `ai-sim-${Date.now()}`,
@@ -248,7 +249,6 @@ export async function POST(
       ok: true,
       call: {
         id: call.id,
-        callSequence: call.callSequence,
         source: call.source,
         createdAt: call.createdAt,
       },

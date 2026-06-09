@@ -729,7 +729,8 @@ export async function backfillUsedPromptIds(options: {
       id: true,
       callerId: true,
       createdAt: true,
-      callSequence: true,
+      // #1344 Slice 4 — `callSequence` gone. Walk via Session FK.
+      session: { select: { learnerFacingNumber: true } },
     },
     orderBy: { createdAt: "asc" },
     take: limit,
@@ -741,7 +742,7 @@ export async function backfillUsedPromptIds(options: {
     console.log("\n=== BACKFILL PLAN ===");
     console.log(`Calls to process: ${calls.length}`);
     for (const call of calls.slice(0, 10)) {
-      console.log(`  - Call ${call.id.slice(0, 8)}... (seq #${call.callSequence || "?"}) at ${call.createdAt.toISOString()}`);
+      console.log(`  - Call ${call.id.slice(0, 8)}... (seq #${call.session?.learnerFacingNumber ?? "?"}) at ${call.createdAt.toISOString()}`);
     }
     if (calls.length > 10) console.log(`  ... and ${calls.length - 10} more`);
     return result;

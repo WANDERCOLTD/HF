@@ -15,7 +15,7 @@ function makeContext(overrides: Partial<AssembledContext> = {}): AssembledContex
       personality: null,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 0,
+            nextLearnerFacingNumber: 1,
       behaviorTargets: [],
       callerTargets: [],
       callerAttributes: [],

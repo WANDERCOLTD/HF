@@ -595,28 +595,11 @@ export async function persistEndOfCall(
     // what the downstream pipeline trigger condition checks.
     const isFirstEndOfCall = !existing.endedAt && eventKind !== "basic";
 
-    // #922 — callSequence stamping. Placeholders pre-created by /start
-    // or /outbound-dial don't compute callSequence (the create-path
-    // assignment further below never runs for them). Without this,
-    // every PSTN/WebRTC call finished with callSequence=null even
-    // after the pipeline ran — so /sim's "Call #N" header and the
-    // prompt composer's "this is call N" templating both ignored the
-    // sequence and fell back to a count() or "first session" path.
-    // Lookup is one indexed-orderBy query on (callerId, callSequence).
-    let nextSequence: number | undefined;
-    if (isFirstEndOfCall && existing.callerId) {
-      const lastCall = await prisma.call.findFirst({
-        where: {
-          callerId: existing.callerId,
-          callSequence: { not: null },
-          id: { not: existing.id },
-        },
-        orderBy: { callSequence: "desc" },
-        select: { callSequence: true },
-      });
-      nextSequence = (lastCall?.callSequence ?? 0) + 1;
-    }
-
+    // #1344 Slice 4 — legacy `MAX(callSequence)+1` writer DELETED.
+    // Sequencing now lives on the Session parent row, assigned atomically
+    // by `createSession` via `CallerSequenceCounter`. The Call.callSequence
+    // column is gone; downstream readers walk `Call.sessionId →
+    // Session.learnerFacingNumber` instead.
     const updateData: Prisma.CallUpdateInput = {
       // Only overwrite transcript if the new event actually carried one
       ...(transcript ? { transcript } : {}),
@@ -633,7 +616,6 @@ export async function persistEndOfCall(
             endSource: sourceTag === "fallback" ? "poll" : "webhook",
           }
         : {}),
-      ...(nextSequence != null ? { callSequence: nextSequence } : {}),
     };
     let updated;
     try {
@@ -799,7 +781,7 @@ export async function persistEndOfCall(
         createdAt: { gt: cutoff },
       },
       orderBy: { createdAt: "desc" },
-      select: { id: true, callSequence: true, sessionId: true },
+      select: { id: true, sessionId: true },
     });
     if (placeholder) {
       adoptedPlaceholderId = placeholder.id;
@@ -807,21 +789,10 @@ export async function persistEndOfCall(
     }
   }
 
-  let nextSequence: number | null = null;
-  if (callerId) {
-    const lastCall = await prisma.call.findFirst({
-      where: {
-        callerId,
-        callSequence: { not: null },
-        // Don't double-count the placeholder we're about to adopt.
-        ...(adoptedPlaceholderId ? { id: { not: adoptedPlaceholderId } } : {}),
-      },
-      orderBy: { callSequence: "desc" },
-      select: { callSequence: true },
-    });
-    nextSequence = (lastCall?.callSequence ?? 0) + 1;
-  }
-
+  // #1344 Slice 4 — legacy `MAX(callSequence)+1` writer DELETED. Session
+  // parent row's `learnerFacingNumber` is the canonical learner-facing
+  // counter (assigned atomically by `createSession` via
+  // `CallerSequenceCounter`). The Call.callSequence column is gone.
   const endedAt = new Date();
 
   // #1345 — Adopt the pending placeholder by UPDATE rather than CREATE.
@@ -844,7 +815,6 @@ export async function persistEndOfCall(
         endedAt,
         endSource: sourceTag === "fallback" ? "poll" : "webhook",
         ...(playbookId ? { playbookId } : {}),
-        ...(nextSequence != null ? { callSequence: nextSequence } : {}),
         ...persistableCapture,
       },
     });
@@ -951,7 +921,6 @@ export async function persistEndOfCall(
       endSource: sourceTag === "fallback" ? "poll" : "webhook",
       ...(freshSessionId ? { sessionId: freshSessionId } : {}),
       ...(playbookId ? { playbookId } : {}),
-      ...(nextSequence != null ? { callSequence: nextSequence } : {}),
       ...persistableCapture,
     },
   });

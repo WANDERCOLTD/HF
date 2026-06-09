@@ -141,7 +141,8 @@ const createMockComposedPrompt = <T extends Record<string, unknown>>(overrides?:
   prompt: "Generated personalized prompt...",
   llmPrompt: "Structured prompt content...",
   triggerType: "manual",
-  triggerCallId: null,
+  // #1344 Slice 4 — was `triggerCallId`; now `triggerSessionId`.
+  triggerSessionId: null,
   model: "mock-model",
   status: "active",
   composedAt: new Date(),
@@ -439,18 +440,23 @@ describe("/api/callers/[callerId]/compose-prompt", () => {
       expect(expectedQuery.orderBy.composedAt).toBe("desc");
     });
 
-    it("should include trigger call relationship", async () => {
+    it("should include trigger session relationship (#1344 Slice 4)", async () => {
+      // #1344 Slice 4 — `triggerCall` relation gone; walk via
+      // `triggerSession.call` (1:1 with Session).
       const promptWithTrigger = createMockComposedPrompt({
-        triggerCallId: "call-123",
-        triggerCall: {
-          id: "call-123",
-          createdAt: new Date(),
-          source: "phone",
+        triggerSessionId: "sess-123",
+        triggerSession: {
+          id: "sess-123",
+          call: {
+            id: "call-123",
+            createdAt: new Date(),
+            source: "phone",
+          },
         },
       });
       mockPrisma.composedPrompt.findMany.mockResolvedValue([promptWithTrigger]);
 
-      expect((promptWithTrigger as any).triggerCall.id).toBe("call-123");
+      expect((promptWithTrigger as any).triggerSession.call.id).toBe("call-123");
     });
 
     it("should handle database errors gracefully", async () => {

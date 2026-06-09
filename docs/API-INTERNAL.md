@@ -2571,7 +2571,7 @@ Get the most recent active sim call for a caller (endedAt is null, source is sim
 
 **Response** `200`
 ```json
-{ ok: true, call: { id, callSequence, source, createdAt } | null }
+{ ok: true, call: { id, source, createdAt, sessionId, session: { sequenceNumber, learnerFacingNumber } } | null }
 ```
 
 ---
@@ -2586,13 +2586,12 @@ Create a new call record for a caller. Auto-determines call sequence number if n
 |-----------|-----|------|----------|-------------|
 | callerId | path | string | Yes | The caller ID to create a call for |
 | source | body | string | No | Call source identifier (default: "ai-simulation") |
-| callSequence | body | number | No | Explicit sequence number (optional, auto-incremented if omitted) |
 | transcript | body | string | No | Call transcript text (default: "") |
 | playbookId | body | string | No | Optional playbook (course) ID. If omitted, resolves from the caller's default enrollment via resolvePlaybookId. |
 
 **Response** `200`
 ```json
-{ ok: true, call: { id, callSequence, source, createdAt } }
+{ ok: true, call: { id, source, createdAt } }
 ```
 
 **Response** `400`
@@ -2646,7 +2645,7 @@ Compose a personalized next-call prompt for a caller using the declarative compo
 |-----------|-----|------|----------|-------------|
 | callerId | path | string | Yes | The caller ID to compose a prompt for |
 | triggerType | body | string | No | What triggered this composition (default: "manual") |
-| triggerCallId | body | string | No | Optional call ID that triggered this composition |
+| triggerCallId | body | string | No | DEPRECATED in #1344 Slice 4. Caller resolves Call.sessionId → Session before write. Body field still accepted for back-compat; we walk the Call→Session FK server-side. |
 | targetOverrides | body | object | No | Preview overrides for behavior targets (not persisted) |
 | forceFirstCall | body | boolean | No | Override to treat as first call regardless of history (preview-only, not persisted) |
 

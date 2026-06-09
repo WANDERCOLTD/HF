@@ -1703,7 +1703,11 @@ model Call {
   previousCallId String?
   previousCall   Call?   @relation("CallSequence", fields: [previousCallId], references: [id])
   nextCalls      Call[]  @relation("CallSequence")
-  callSequence   Int? // 1, 2, 3... for this caller's calls
+  // #1344 Slice 4 — `callSequence` column DROPPED. Sequencing now lives
+  // on the Session parent row (`Session.sequenceNumber` per
+  // (callerId, kind); `Session.learnerFacingNumber` for the user-facing
+  // "(call #N)" counter, gated by `countsTowardLearnerNumber`). Walk
+  // `Call.session → Session.learnerFacingNumber` instead.
 
   scores                 CallScore[]
   rewardScore            RewardScore?
@@ -1716,8 +1720,9 @@ model Call {
   // Behavior measurements (what agent actually did)
   behaviorMeasurements BehaviorMeasurement[]
 
-  // Prompts triggered by this call
-  triggeredPrompts ComposedPrompt[] @relation("TriggeredPrompts")
+  // #1344 Slice 4 — `triggeredPrompts` inverse relation REMOVED with
+  // the `ComposedPrompt.triggerCallId` column drop. Walk
+  // `Call.session.triggeredComposedPrompts` (Session-level FK) instead.
 
   // The prompt that was active/used DURING this call
   // Set when the call is created, captures the state at call time
@@ -3598,13 +3603,11 @@ model ComposedPrompt {
   // What triggered this composition
   triggerType String // "manual" | "post_call" | "scheduled" | "analysis_complete"
 
-  // Optional: which call triggered this composition
-  triggerCallId String?
-  triggerCall   Call?   @relation("TriggeredPrompts", fields: [triggerCallId], references: [id])
+  // #1344 Slice 4 — `triggerCallId` column DROPPED. The dual-FK
+  // transition window from #1341 Slice 0 is complete; every composer
+  // now writes `triggerSessionId` exclusively. Readers walk
+  // `Session.call` to recover the Call row when needed.
 
-  // #1341 (epic #1338 Slice 0) — dual-FK with `triggerCallId` during the
-  // transition window. Slice 3 wires the live writer; Slice 4 drops
-  // `triggerCallId` once every reader is cut over.
   triggerSessionId String?
   triggerSession   Session? @relation("SessionTriggeredPrompts", fields: [triggerSessionId], references: [id], onDelete: SetNull)
 
@@ -3648,8 +3651,8 @@ model ComposedPrompt {
   @@index([callerId])
   @@index([playbookId])
   @@index([composedAt])
-  @@index([triggerCallId])
   // #1341 — index for Slice 3 reconciler scans of orphan COMPOSE rows.
+  // #1344 Slice 4 dropped the legacy `@@index([triggerCallId])`.
   @@index([triggerSessionId])
   @@index([status])
 }

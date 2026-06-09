@@ -31,7 +31,7 @@ function makeContext(personality: PersonalityData | null = null): AssembledConte
       personality,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 0,
+            nextLearnerFacingNumber: 1,
       behaviorTargets: [],
       callerTargets: [],
       callerAttributes: [],

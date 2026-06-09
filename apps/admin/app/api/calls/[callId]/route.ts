@@ -36,7 +36,8 @@ export async function GET(
           externalId: true,
           transcript: true,
           createdAt: true,
-          callSequence: true,
+          // #1344 Slice 4 — `callSequence` gone; walk via Session FK.
+          session: { select: { learnerFacingNumber: true, sequenceNumber: true } },
           callerId: true,
           caller: {
             select: {
@@ -131,9 +132,13 @@ export async function GET(
         },
       }),
 
-      // Prompts triggered by this call
+      // Prompts triggered by this call.
+      // #1344 Slice 4 — `triggerCallId` is GONE. Walk via the parent
+      // Session: `Call.sessionId → ComposedPrompt.triggerSessionId`.
+      // Inline as a relation read on the Call's own session so a single
+      // round-trip suffices.
       prisma.composedPrompt.findMany({
-        where: { triggerCallId: callId },
+        where: { triggerSession: { call: { id: callId } } },
         orderBy: { composedAt: "desc" },
         select: {
           id: true,

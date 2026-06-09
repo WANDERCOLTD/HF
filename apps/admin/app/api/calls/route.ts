@@ -62,10 +62,18 @@ export async function GET(req: Request) {
         behaviorMeasurements: {
           select: { id: true },
         },
-        triggeredPrompts: {
-          select: { id: true, composedAt: true },
-          take: 1,
-          orderBy: { composedAt: "desc" },
+        // #1344 Slice 4 — walk via the parent Session for prompts this
+        // Call triggered. Pre-Slice 4 this was `triggeredPrompts` (the
+        // legacy `Call.triggeredPrompts` inverse). Sessions are 1:1
+        // with Calls; one round-trip suffices.
+        session: {
+          select: {
+            triggeredComposedPrompts: {
+              select: { id: true, composedAt: true },
+              take: 1,
+              orderBy: { composedAt: "desc" },
+            },
+          },
         },
         _count: {
           select: { scores: true, extractedMemories: true, behaviorMeasurements: true },
@@ -90,7 +98,9 @@ export async function GET(req: Request) {
           // Derive pipeline status
           pipelineStatus: {
             prepComplete: (call._count?.scores || 0) > 0 && (call._count?.behaviorMeasurements || 0) > 0,
-            promptComposed: call.triggeredPrompts.length > 0 || hasNextPrompt,
+            promptComposed:
+              (call.session?.triggeredComposedPrompts?.length ?? 0) > 0 ||
+              hasNextPrompt,
           },
         };
       })

@@ -51,7 +51,9 @@ function indexPrompts(prompts: ComposedPrompt[]) {
 function promptLabel(p: ComposedPrompt & { _idx: number }, total: number): string {
   if (p._idx === 0) return "Bootstrap";
   if (p._idx === total - 1 && p.status === "active") return "Next Prompt";
-  if (p.triggerCallId) return `After Call ${p._idx}`;
+  // #1344 Slice 4 — was `p.triggerCallId`; the parent Session is the
+  // canonical trigger now.
+  if (p.triggerSessionId) return `After Call ${p._idx}`;
   return `Prompt ${p._idx}`;
 }
 
@@ -230,8 +232,12 @@ export function UnifiedPromptSection({
   // the triggering call's createdAt). Cheap heuristic — works for the
   // common case where there's one prompt per moment.
   const callInputPrompt = useMemo(() => {
-    if (!selected?.triggerCall?.createdAt) return null;
-    const callTime = new Date(selected.triggerCall.createdAt).getTime();
+    // #1344 Slice 4 — `triggerCall` is gone; walk via `triggerSession.call`.
+    const triggerCall = (selected as unknown as {
+      triggerSession?: { call?: { createdAt?: string | Date } | null } | null;
+    })?.triggerSession?.call;
+    if (!triggerCall?.createdAt) return null;
+    const callTime = new Date(triggerCall.createdAt).getTime();
     let best: typeof indexed[number] | null = null;
     for (const p of indexed) {
       if (new Date(p.composedAt).getTime() < callTime) {
@@ -460,11 +466,18 @@ export function UnifiedPromptSection({
           <span className="hf-text-sm hf-text-muted">
             {new Date(selected.composedAt).toLocaleString()}
           </span>
-          {selected.triggerCall && (
-            <span className="hf-text-xs hf-text-placeholder">
-              triggered by {selected.triggerCall.source} call
-            </span>
-          )}
+          {/* #1344 Slice 4 — walk via `triggerSession.call`. */}
+          {(() => {
+            const tc = (selected as unknown as {
+              triggerSession?: { call?: { source?: string } | null } | null;
+            }).triggerSession?.call;
+            if (!tc?.source) return null;
+            return (
+              <span className="hf-text-xs hf-text-placeholder">
+                triggered by {tc.source} call
+              </span>
+            );
+          })()}
         </div>
         <div className="ps-meta-right">
           {/* View Toggle */}

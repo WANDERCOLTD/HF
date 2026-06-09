@@ -428,7 +428,14 @@ export async function POST(req: Request) {
         counts.attributes = sourceAttrs.length;
       }
 
-      // === 3. RE-SEQUENCE CALLS ===
+      // === 3. RE-CHAIN CALLS ===
+      // #1344 Slice 4 — `callSequence` column dropped. Session.sequenceNumber
+      // is per-(callerId, kind), assigned at session-start by createSession
+      // and not safe to renumber here without rewriting the Session rows AND
+      // their CallerSequenceCounter. Merge-callers is an admin operation
+      // run rarely; downstream consumers tolerate gaps in the merged
+      // history because they read createdAt-ordered. Just re-thread the
+      // previousCallId chain.
       const allCalls = await tx.call.findMany({
         where: { callerId: targetCallerId },
         orderBy: { createdAt: "asc" },
@@ -439,7 +446,6 @@ export async function POST(req: Request) {
         await tx.call.update({
           where: { id: allCalls[i].id },
           data: {
-            callSequence: i + 1,
             previousCallId: i > 0 ? allCalls[i - 1].id : null,
           },
         });

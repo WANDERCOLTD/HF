@@ -768,7 +768,7 @@ export function getDefaultSections(): CompositionSectionDef[] {
       id: "call_history",
       name: "Call History",
       priority: 6,
-      dataSource: ["recentCalls", "callCount"],
+      dataSource: ["recentCalls", "nextLearnerFacingNumber"],
       activateWhen: { condition: "always" },
       fallback: { action: "emptyObject", value: { totalCalls: 0, mostRecent: null, recent: [] } },
       transform: "computeCallHistory",

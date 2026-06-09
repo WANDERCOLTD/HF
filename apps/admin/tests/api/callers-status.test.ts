@@ -48,17 +48,20 @@ describe("GET /api/callers/:callerId/status", () => {
   });
 
   it("returns correct hasScores/hasPrompt flags", async () => {
+    // #1344 Slice 4 — Call rows now carry `sessionId`; ComposedPrompt
+    // joins via `triggerSessionId`. The route walks Call.sessionId →
+    // triggerSessionId to fold the prompt flag back to the Call.
     mockPrisma.call.findMany.mockResolvedValue([
-      { id: "call-1" },
-      { id: "call-2" },
-      { id: "call-3" },
+      { id: "call-1", sessionId: "sess-1" },
+      { id: "call-2", sessionId: "sess-2" },
+      { id: "call-3", sessionId: "sess-3" },
     ]);
     mockPrisma.callScore.groupBy.mockResolvedValue([
       { callId: "call-1", _count: { id: 5 } },
       { callId: "call-3", _count: { id: 2 } },
     ]);
     mockPrisma.composedPrompt.findMany.mockResolvedValue([
-      { triggerCallId: "call-1" },
+      { triggerSessionId: "sess-1" },
     ]);
 
     const res = await GET(makeRequest(), {
@@ -117,11 +120,11 @@ describe("GET /api/callers/:callerId/status", () => {
     expect(createdAtGte.getTime()).toBeLessThan(fiveMinAgo + 1000);
   });
 
-  it("handles null triggerCallId in prompts", async () => {
-    mockPrisma.call.findMany.mockResolvedValue([{ id: "call-1" }]);
+  it("handles null triggerSessionId in prompts", async () => {
+    mockPrisma.call.findMany.mockResolvedValue([{ id: "call-1", sessionId: "sess-1" }]);
     mockPrisma.callScore.groupBy.mockResolvedValue([]);
     mockPrisma.composedPrompt.findMany.mockResolvedValue([
-      { triggerCallId: null },
+      { triggerSessionId: null },
     ]);
 
     const res = await GET(makeRequest(), {

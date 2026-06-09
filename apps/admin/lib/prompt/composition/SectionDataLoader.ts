@@ -122,7 +122,7 @@ export async function loadAllData(
     personality,
     learnerProfile,
     recentCalls,
-    callCount,
+    nextLearnerFacingNumber,
     behaviorTargets,
     callerTargets,
     callerAttributes,
@@ -147,7 +147,7 @@ export async function loadAllData(
     loaderRegistry.get("personality")!(callerId),
     loaderRegistry.get("learnerProfile")!(callerId),
     loaderRegistry.get("recentCalls")!(callerId, { limit: recentCallsLimit }),
-    loaderRegistry.get("callCount")!(callerId),
+    loaderRegistry.get("nextLearnerFacingNumber")!(callerId),
     loaderRegistry.get("behaviorTargets")!(callerId),
     loaderRegistry.get("callerTargets")!(callerId),
     loaderRegistry.get("callerAttributes")!(callerId),
@@ -212,7 +212,7 @@ export async function loadAllData(
     personality,
     learnerProfile,
     recentCalls: recentCalls || [],
-    callCount: callCount || 0,
+    nextLearnerFacingNumber: nextLearnerFacingNumber || 1,
     behaviorTargets: behaviorTargets || [],
     callerTargets: callerTargets || [],
     callerAttributes: callerAttributes || [],
@@ -632,10 +632,35 @@ registerLoader("recentCalls", async (callerId, config) => {
   });
 });
 
-registerLoader("callCount", async (callerId) => {
-  return prisma.call.count({
-    where: { callerId, endedAt: { not: null } },
+/**
+ * #1344 Slice 4 — single-counter cutover. Replaces the legacy `callCount`
+ * loader (which counted `prisma.call` rows with `endedAt: not null`) so
+ * the composed prompt header "(call #N)" reads from a single source of
+ * truth: `Session.learnerFacingNumber`.
+ *
+ * Returns the NEXT learner-facing number for this caller — i.e. the
+ * value to render as "(call #N)" in the prompt about to be composed.
+ * That equals `MAX(Session.learnerFacingNumber WHERE
+ * countsTowardLearnerNumber = true) + 1`, with `0 + 1 = 1` for brand-new
+ * callers (no qualifying Session rows yet).
+ *
+ * Class-rules (epic #1338): only Sessions where
+ * `countsTowardLearnerNumber = true` are counted. Sim drops, ghosts,
+ * enrolment chats, and short voice calls (<30s) do NOT bump the number
+ * — `createSession` + `endSession` (Slice 3) maintain the flag.
+ *
+ * Why a loader, not a raw counter read? The compose path runs in
+ * forecast mode too (preview lens, sim playground). Reading from the
+ * `Session` aggregate keeps preview + live in sync without changing the
+ * loader signature.
+ */
+registerLoader("nextLearnerFacingNumber", async (callerId) => {
+  const result = await prisma.session.aggregate({
+    where: { callerId, countsTowardLearnerNumber: true },
+    _max: { learnerFacingNumber: true },
   });
+  const max = result._max.learnerFacingNumber ?? 0;
+  return max + 1;
 });
 
 /**

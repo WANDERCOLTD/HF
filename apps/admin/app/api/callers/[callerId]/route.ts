@@ -173,7 +173,14 @@ export async function GET(
           transcript: true,
           createdAt: true,
           endedAt: true,
-          callSequence: true,
+          // #1344 Slice 4 — `Call.callSequence` is gone; sequencing now
+          // lives on the Session parent. Select the FK + the parent's
+          // `learnerFacingNumber` so the UI can render "Call #N" without
+          // a second round-trip.
+          sessionId: true,
+          session: {
+            select: { sequenceNumber: true, learnerFacingNumber: true },
+          },
           playbookId: true,
           curriculumModuleId: true,
           requestedModuleId: true,
@@ -483,17 +490,25 @@ export async function GET(
     // was uncapped over the caller's lifetime; restrict to the calls we're
     // actually returning so the work is bounded by `take` on the calls query
     // above. Eliminates a tail-call scan on long-running learners.
-    const promptsByCall = calls.length > 0
-      ? await prisma.composedPrompt.findMany({
-          where: {
-            triggerCallId: { in: calls.map((c) => c.id) },
-          },
-          select: {
-            triggerCallId: true,
-          },
-        })
-      : [];
-    const promptedCallIds = new Set(promptsByCall.map((p) => p.triggerCallId));
+    //
+    // #1344 Slice 4 — `triggerCallId` is gone. Walk via the parent
+    // Session: `Call.sessionId → ComposedPrompt.triggerSessionId`.
+    const sessionIds = calls.map((c) => c.sessionId).filter((id): id is string => !!id);
+    const promptedSessionIds = new Set<string>();
+    if (sessionIds.length > 0) {
+      const prompts = await prisma.composedPrompt.findMany({
+        where: { triggerSessionId: { in: sessionIds } },
+        select: { triggerSessionId: true },
+      });
+      for (const p of prompts) {
+        if (p.triggerSessionId) promptedSessionIds.add(p.triggerSessionId);
+      }
+    }
+    const promptedCallIds = new Set(
+      calls
+        .filter((c) => c.sessionId && promptedSessionIds.has(c.sessionId))
+        .map((c) => c.id),
+    );
 
     // Transform calls to include analysis status
     const callsWithStatus = calls.map((call) => ({
@@ -502,7 +517,11 @@ export async function GET(
       externalId: call.externalId,
       transcript: call.transcript,
       createdAt: call.createdAt,
-      callSequence: call.callSequence,
+      // #1344 Slice 4 — `callSequence` column is gone. Emit the parent
+      // Session's learner-facing number for back-compat with the
+      // existing UI shape; null when the Call pre-dates Slice 3 (no
+      // Session parent).
+      callSequence: call.session?.learnerFacingNumber ?? null,
       playbookId: call.playbookId || null,
       // Analysis status flags
       hasScores: call._count.scores > 0,

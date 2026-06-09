@@ -95,15 +95,23 @@ function buildTimeline(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
 
-  const bootstrap = prompts.find(p => !p.triggerCallId) ?? null;
+  // #1344 Slice 4 — `triggerCallId` is gone; walk via parent Session.
+  // `triggerSessionId` is the canonical FK. Build a sessionId→Call
+  // lookup so the next loop can still key on callId for downstream use.
+  const callBySessionId = new Map<string, Call>();
+  for (const c of calls) if (c.sessionId) callBySessionId.set(c.sessionId, c);
 
-  // Map: callId → prompt composed AFTER that call (prefer active over superseded)
+  const bootstrap = prompts.find(p => !p.triggerSessionId) ?? null;
+
+  // Map: callId → prompt composed AFTER that call (prefer active over superseded).
   const afterCallMap = new Map<string, ComposedPrompt>();
   for (const p of prompts) {
-    if (!p.triggerCallId) continue;
-    const existing = afterCallMap.get(p.triggerCallId);
+    if (!p.triggerSessionId) continue;
+    const linkedCall = callBySessionId.get(p.triggerSessionId);
+    if (!linkedCall) continue;
+    const existing = afterCallMap.get(linkedCall.id);
     if (!existing || (p.status === "active" && existing.status !== "active")) {
-      afterCallMap.set(p.triggerCallId, p);
+      afterCallMap.set(linkedCall.id, p);
     }
   }
 

@@ -384,22 +384,16 @@ async function processFile(
         // Tolerates null — VAPI imports can legitimately predate enrollment.
         const importedPlaybookId = callerId ? await resolvePlaybookId(callerId) : null;
 
-        // Stamp callSequence (1, 2, 3...) so the prompt timeline can label
-        // this call as "Call N". Mirrors sim-runner.ts / vapi/webhook.
-        // Only meaningful when callerId is known.
-        let importedSequence: number | null = null;
-        if (callerId) {
-          const lastCall = await prisma.call.findFirst({
-            where: { callerId },
-            orderBy: { callSequence: "desc" },
-            select: { callSequence: true },
-          });
-          importedSequence = (lastCall?.callSequence ?? 0) + 1;
-        }
+        // #1344 Slice 4 — `Call.callSequence` column dropped. Sequencing
+        // lives on the Session parent row (assigned by `createSession`).
+        // Bulk transcript imports don't carry a corresponding Session by
+        // design (these are historical rows the operator is back-loading);
+        // future readers walk `Call.sessionId → Session.learnerFacingNumber`
+        // and naturally show "—" for these legacy imports.
 
         // Create Call record. `endedAt` set to now: this is a bulk import
-        // of historical completed calls, so the composer must include them
-        // in callCount / recentCalls (filter: endedAt != null).
+        // of historical completed calls, so downstream readers (filter:
+        // endedAt != null) include them in recentCalls.
         await prisma.call.create({
           data: {
             source: "VAPI",
@@ -408,7 +402,6 @@ async function processFile(
             callerId: callerId || null,
             endedAt: new Date(),
             ...(importedPlaybookId ? { playbookId: importedPlaybookId } : {}),
-            ...(importedSequence != null ? { callSequence: importedSequence } : {}),
           }
         });
 

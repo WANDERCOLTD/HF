@@ -1,0 +1,15 @@
+{
+  "$schema": "../README.md#fixture-shape",
+  "issue": 1344,
+  "scenario": "Post-Slice-4 state — first real VOICE_CALL Session lands; sequenceNumber=2 (per-(callerId,kind) atomic counter), learnerFacingNumber=1, countsTowardLearnerNumber=true.",
+  "callerId": "00000000-0000-0000-0000-000000001344",
+  "expectedFirstRealCall": {
+    "kind": "VOICE_CALL",
+    "sequenceNumber": 1,
+    "learnerFacingNumber": 1,
+    "countsTowardLearnerNumber": true
+  },
+  "expectedNextLearnerFacingNumberAfter": 2,
+  "expectedComposeHeader": "(call #1)",
+  "expectedComposeHeaderRegression": "(call #2)"
+}

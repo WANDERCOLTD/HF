@@ -1054,13 +1054,17 @@ export async function computeSharedState(
 
   // 1-based: this is the Nth call about to be composed.
   //
-  // Must use `data.callCount` (full count from the loader), NOT
-  // `data.recentCalls.length` — the latter is CAPPED at `recentCallsLimit`
-  // (default 5). Anyone past their 5th call previously got the wrong number
-  // baked into the prompt body (quickstart.ts:651 "This is call X — the final
-  // session") AND wrong session-specific rules selected by
-  // course-instructions / pedagogy session-range matching.
-  const callNumber = data.callCount + 1;
+  // #1344 Slice 4 — single-counter cutover. Reads from the new
+  // `nextLearnerFacingNumber` loader which sources from
+  // `Session.learnerFacingNumber` (via createSession's
+  // CallerSequenceCounter). Replaces the legacy `data.callCount + 1`
+  // shape that counted ENDED Call rows with `prisma.call.count({endedAt:
+  // not null})`. Two counters previously drifted (Bertie's hf_sandbox
+  // case 2026-06-08: callCount-based reader said "(call #4)" while the
+  // canonical Call.callSequence was 3). Class-rules (epic #1338) gate
+  // which Sessions bump the number — sim drops / ghosts / short voice
+  // calls do not.
+  const callNumber = data.nextLearnerFacingNumber;
   const isFinalByBudget = !!(sessionCount && sessionCount > 0 && callNumber >= sessionCount);
   const isFinalByScheduler = schedulerTotalLOs > 0 && schedulerTotalMastered >= schedulerTotalLOs;
   const isFinalByModules = modules.length > 0 && completedModules.size >= modules.length;
@@ -1118,7 +1122,10 @@ registerTransform("computeModuleProgress", (
   const { sharedState, loadedData, resolvedSpecs } = context;
   const { modules, completedModules, estimatedProgress, lastCompletedIndex, nextModule } = sharedState;
   const callerAttributes = loadedData.callerAttributes;
-  const totalCallCount = loadedData.callCount;
+  // #1344 Slice 4 — `totalCallCount` is the count of qualifying prior
+  // learner sessions = `nextLearnerFacingNumber - 1`. Replaces the
+  // legacy `loadedData.callCount` field.
+  const totalCallCount = Math.max(0, loadedData.nextLearnerFacingNumber - 1);
   // #598 Slice 1 — read the resolved cascade winner stored by
   // computeSharedState. curriculumMetadata.masteryThreshold tracks the same
   // value but staying on the sharedState field keeps the read explicit when
