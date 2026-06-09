@@ -87,6 +87,7 @@ const noOrphanInstructionFallbackRule = {
     docs: {
       description:
         "Disallow generic-noun fallbacks for missing module/LO names in prompt-composition transforms — drop the line via a conditional spread instead. See #1006 / #1008 chain-contracts.md I-C4.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-orphan-instruction-fallback",
     },
     schema: [],
     messages: {

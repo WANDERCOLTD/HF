@@ -33,11 +33,11 @@ already exists, scattered across mechanisms that were never designed as one syst
 
 | # | Part | Format | Lives in | Status |
 |---|---|---|---|---|
-| 1 | Structural facts (model map, routes, coupling) | generated JSON | `docs/kb/generated/` | 🟡 model-map done |
-| 2 | Guard / contract registry | markdown (CHAIN-style) | `docs/kb/guard-registry.md` | 🟡 first cut |
-| 2b | Guards *process* (the ritual) | markdown | `docs/kb/guards-process.md` | 🟡 first cut |
+| 1 | Structural facts (model map, routes, coupling) | generated JSON | `docs/kb/generated/` | 🟡 model-map + routes done; coupling TODO |
+| 2 | Guard / contract registry | markdown (CHAIN-style) | `docs/kb/guard-registry.md` | 🟢 10/10 ESLint rules wired |
+| 2b | Guards *process* (the ritual) | markdown | `docs/kb/guards-process.md` | 🟢 first cut |
 | 3 | Narrative invariants / history | markdown | `docs/kb/invariants.md` | 🟡 seeded |
-| 4 | Decisions (ADRs) | markdown | `docs/decisions/` | ✅ via `/adr` |
+| 4 | Decisions (ADRs) | markdown | `docs/decisions/` | ✅ via `/adr` (tenancy ADR 2026-06-09) |
 | 5 | Flow maps | markdown + ASCII | `memory/flow-*.md` | ✅ |
 | 6 | Domain language | markdown | `KNOWLEDGE-MAP.md`, `memory/entities.md` | ✅ |
 | 7 | Operational runbooks | markdown | `CLAUDE.md` (to extract) | 🔴 buried in prose |
@@ -55,7 +55,9 @@ already exists, scattered across mechanisms that were never designed as one syst
 
 ```bash
 cd apps/admin
-npx tsx scripts/capture/model-map.ts   # → docs/kb/generated/model-map.json
+npm run kb:model-map     # → docs/kb/generated/model-map.json   (105 models classified)
+npm run kb:routes        # → docs/kb/generated/route-inventory.json (501 routes)
+npm run kb:check         # meta-ratchet (guard back-links) + generated-fact freshness
 ```
 
 - **Find something** → `qmd search` (semantic recall over the whole corpus).
@@ -63,11 +65,12 @@ npx tsx scripts/capture/model-map.ts   # → docs/kb/generated/model-map.json
 - **What is true & enforced?** → this KB (authoritative, curated).
 - **Query the facts** → `jq` over `docs/kb/generated/*.json`.
 
-## Drift discipline
+## Drift discipline (wired)
 
-Tier-2 JSON is committed so a CI step can re-run each generator and fail on
-`git diff` — same spirit as `check-fk-consistency` (CI step 5) and `check-doc-citations`.
-Wire `model-map.ts` into that gate once the classification is ratified.
+Tier-2 JSON is committed; `npm run kb:check` (step **8/8** of `npm run ctl check`) re-runs
+the generators and fails if the committed facts are stale — ignoring the volatile
+`generatedAt` line (`git diff -I`). Same spirit as `check-fk-consistency` (step 5).
+The meta-ratchet `check-guard-kb-links.ts` holds ESLint→KB back-links at 10/10.
 
 ## The hardening program this feeds
 
@@ -75,8 +78,9 @@ Wire `model-map.ts` into that gate once the classification is ratified.
 Phase 0  Legibility   ← this KB. Map models/routes/guards. Delete dead code (ratchet ↓).
 Phase 1  Safety       ← tested-restore backups, migration gates, RLS in log-only mode,
                          burn down the 212 baselined tsc_errors.
-Phase 2  Isolation    ← tenantId + Postgres RLS, driven by generated/model-map.json
-                         (89 models proposed tenant-scoped, 1 already aware).
+Phase 2  Isolation    ← tenantId + Postgres RLS. Driven by generated/model-map.json
+                         (89 proposed tenant-scoped, 1 aware) + route-inventory.json
+                         (130 possibly-unscoped routes). See ADR 2026-06-09-tenancy-isolation-model.
 Phase 3  Modularity   ← strangle the worst module first; characterization tests pin
                          behaviour before each cut. Touch the adaptive loop last.
 ```

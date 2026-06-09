@@ -91,6 +91,7 @@ const noAiForbiddenFieldsRule = {
     docs: {
       description:
         "Disallow AI tool input_schema.properties from declaring globally forbidden fields (role, domainId, ownerId, etc.). Privilege escalation, cross-tenant moves, and per-parent identity slugs are human-only.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-ai-forbidden-fields",
     },
     schema: [],
     messages: {

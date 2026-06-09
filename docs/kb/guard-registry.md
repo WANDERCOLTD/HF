@@ -35,18 +35,21 @@ a guard that guards the guards. Baseline only ever drops as rules are wired (cur
 
 ✅ = KB-linked (`meta.docs.url` set).
 
+All 10 rules **✅ KB-linked** (`meta.docs.url` → the matching `#guard-<name>` anchor below).
+The meta-ratchet (`check-guard-kb-links.ts`) holds this at 10/10.
+
 | Rule | Prevents | Born | Class |
 |---|---|---|---|
-| ✅ [`no-ai-fanout-all`](#guard-no-ai-fanout-all) | AI tool executors passing `fanoutScope:'all'` (cohort fan-out from an AI batch) | #854/#878 | **a** |
-| `no-ai-forbidden-fields` | AI `input_schema.properties` declaring globally forbidden fields (`role`, …) | — | **a** |
-| `no-direct-playbook-config-write` | Direct writes to `Playbook.config`; must use `updatePlaybookConfig` | #854 | **a** |
-| `no-direct-spec-config-write` | Direct writes to compose-affecting `AnalysisSpec` fields outside `lib/analysis-spec/` | — | **a** |
-| `no-direct-domain-onboarding-write` | Direct writes to Domain `onboarding*`/`identitySpec` outside `lib/domain/update*` | — | **a** |
-| `no-orphan-instruction-fallback` | Generic-noun fallbacks for missing module/LO names in prompt transforms (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md)) | #605 | **a** |
-| `no-undeclared-field-require` | `has(...)` refs to field keys not declared in the enclosing `define` | — | **a** |
-| `no-unscoped-slug-lookup` | Unscoped slug/ref lookups on per-parent-unique entities (`CurriculumModule`, LO) | #407/#411 | **b** |
-| `no-deprecated-curricula-relation` | Reads of the `@deprecated Playbook.curricula` relation; use `playbookCurriculum` | #1177 | **b** |
-| `no-module-read-without-course-style-guard` | `CallerModuleProgress` reads/writes outside a `courseStyle` guard | — | **b** |
+| [`no-ai-fanout-all`](#guard-no-ai-fanout-all) | AI tool executors passing `fanoutScope:'all'` (cohort fan-out from an AI batch) | #854/#878 | **a** |
+| [`no-ai-forbidden-fields`](#guard-no-ai-forbidden-fields) | AI `input_schema.properties` declaring globally forbidden fields (`role`, `domainId`, `ownerId`) — privilege escalation / cross-tenant moves | — | **a** |
+| [`no-direct-playbook-config-write`](#guard-no-direct-playbook-config-write) | Direct writes to `Playbook.config`; must use `updatePlaybookConfig` | #826 | **a** |
+| [`no-direct-spec-config-write`](#guard-no-direct-spec-config-write) | Direct writes to compose-affecting `AnalysisSpec` fields outside `lib/analysis-spec/` | #829 | **a** |
+| [`no-direct-domain-onboarding-write`](#guard-no-direct-domain-onboarding-write) | Direct writes to Domain `onboarding*`/`identitySpec` outside `lib/domain/update*` | #828 | **a** |
+| [`no-orphan-instruction-fallback`](#guard-no-orphan-instruction-fallback) | Generic-noun fallbacks for missing module/LO names in prompt transforms (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-C4) | #1006/#1008 | **a** |
+| [`no-undeclared-field-require`](#guard-no-undeclared-field-require) | `has(...)` refs to field keys not declared in the enclosing spec `define` | #1078 | **a** |
+| [`no-unscoped-slug-lookup`](#guard-no-unscoped-slug-lookup) | Unscoped slug/ref lookups on per-parent-unique entities (`CurriculumModule`, LO) | #407/#411 | **b** |
+| [`no-deprecated-curricula-relation`](#guard-no-deprecated-curricula-relation) | Reads of the `@deprecated Playbook.curricula` relation; use `playbookCurricula` | #1205 | **b** |
+| [`no-module-read-without-course-style-guard`](#guard-no-module-read-without-course-style-guard) | `CallerModuleProgress` reads/writes outside a `courseStyle === 'structured'` guard (default-deny) | #1252 | **b** |
 | `hf-voice/*` | Voice-surface lint rules | — | _TODO(confirm)_ |
 
 ### Guard detail
@@ -61,9 +64,86 @@ AI-initiated config change may request a **single-caller** recompose, never a **
 fan-out**. "Recompose all N affected learners" (Toggle 2) must remain a human-only switch.
 This rule fires when an AI tool executor passes `fanoutScope: 'all'` to
 `updatePlaybookConfig` / `updateDomainConfig` / `updateAnalysisSpecConfig`. Use `'caller'`
-or `'none'`. **Survives hardening:** this is a domain-safety truth independent of
-architecture — carry it forward (and, post-multi-tenancy, it also bounds blast radius to
-a single tenant's learner).
+or `'none'`. **Survives hardening:** a domain-safety truth independent of architecture —
+carry it forward (post-multi-tenancy it also bounds blast radius to a single tenant's learner).
+
+<a id="guard-no-ai-forbidden-fields"></a>
+**`no-ai-forbidden-fields`** · class **(a) invariant** ·
+[rule source](../../apps/admin/eslint-rules/no-ai-forbidden-fields.mjs)
+
+AI tool `input_schema.properties` may not declare globally forbidden fields — `role`,
+`domainId`, `ownerId`, per-parent identity slugs. Privilege escalation, cross-tenant moves,
+and identity reassignment are **human-only**. **Survives hardening:** this is the AI-side
+twin of the tenant-isolation invariant — directly carries into multi-tenancy.
+
+<a id="guard-no-direct-playbook-config-write"></a>
+**`no-direct-playbook-config-write`** · class **(a) invariant** · born #826 ·
+[rule source](../../apps/admin/eslint-rules/no-direct-playbook-config-write.mjs)
+
+All writes to `Playbook.config` must go through `updatePlaybookConfig`
+(`lib/playbook/update-playbook-config.ts`) — the choke point that bumps compose staleness
+and routes through the pending-changes tray. Direct `prisma.playbook.update({config})`
+bypasses both. **Survives hardening:** the choke-point pattern is architecture-independent.
+
+<a id="guard-no-direct-spec-config-write"></a>
+**`no-direct-spec-config-write`** · class **(a) invariant** · born #829 ·
+[rule source](../../apps/admin/eslint-rules/no-direct-spec-config-write.mjs)
+
+Compose-affecting `AnalysisSpec` fields may only be written via
+`lib/analysis-spec/update-analysis-spec-config.ts`. Same choke-point rationale as the
+Playbook rule above.
+
+<a id="guard-no-direct-domain-onboarding-write"></a>
+**`no-direct-domain-onboarding-write`** · class **(a) invariant** · born #828 ·
+[rule source](../../apps/admin/eslint-rules/no-direct-domain-onboarding-write.mjs)
+
+Domain `onboarding*` / `identitySpec` fields may only be written via
+`lib/domain/update-domain-config.ts`. Same choke-point rationale.
+
+<a id="guard-no-orphan-instruction-fallback"></a>
+**`no-orphan-instruction-fallback`** · class **(a) invariant** · born #1006/#1008 ·
+[rule source](../../apps/admin/eslint-rules/no-orphan-instruction-fallback.mjs) ·
+mechanism → [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-C4
+
+Prompt-composition transforms must not paper over a missing module/LO name with a
+generic-noun fallback ("the module", "this objective") — drop the line via a conditional
+spread instead. A wrong-but-plausible name silently corrupts the composed prompt.
+**Survives hardening:** a content-integrity truth at a COMPOSE-stage boundary.
+
+<a id="guard-no-undeclared-field-require"></a>
+**`no-undeclared-field-require`** · class **(a) invariant** · born #1078 ·
+[rule source](../../apps/admin/eslint-rules/no-undeclared-field-require.mjs)
+
+`has(...)` may only reference field keys declared in the enclosing spec `define` block —
+catches typo'd / removed keys at lint time instead of as a silent always-false at runtime.
+**Survives hardening:** contract-integrity between a spec's declaration and its readers.
+
+<a id="guard-no-unscoped-slug-lookup"></a>
+**`no-unscoped-slug-lookup`** · class **(b) scaffold** · born #407/#411 ·
+[rule source](../../apps/admin/eslint-rules/no-unscoped-slug-lookup.mjs)
+
+Slug/ref lookups on `CurriculumModule` / `LearningObjective` must be scoped by their
+parent (`curriculumId`) — slugs are **per-parent-unique, not global**. Use
+`resolveModuleByLogicalId`. **Survives hardening: conditionally** — class **b** because it
+encodes today's per-parent-unique slug schema. If the data model changes (e.g. globally
+unique IDs, or tenant-scoped slugs), retire this rule consciously, in the same PR.
+
+<a id="guard-no-deprecated-curricula-relation"></a>
+**`no-deprecated-curricula-relation`** · class **(b) scaffold** · born #1205 ·
+[rule source](../../apps/admin/eslint-rules/no-deprecated-curricula-relation.mjs)
+
+Reads of the `@deprecated Playbook.curricula` direct relation are blocked; use the
+canonical `Playbook.playbookCurricula` join. **Survives hardening: no** — this is migration
+scaffolding for the #1177 Curriculum/Playbook collapse. Delete once the deprecated relation
+is dropped from the schema.
+
+<a id="guard-no-module-read-without-course-style-guard"></a>
+**`no-module-read-without-course-style-guard`** · class **(b) scaffold** · born #1252 ·
+[rule source](../../apps/admin/eslint-rules/no-module-read-without-course-style-guard.mjs)
+
+`CallerModuleProgress` reads/writes must sit behind a `courseStyle === 'structured'` guard
+(default-deny). **Survives hardening: conditionally** — tied to the current `courseStyle`
+modelling; revisit if course styles are reworked.
 
 ## CI check scripts — `apps/admin/scripts/`
 

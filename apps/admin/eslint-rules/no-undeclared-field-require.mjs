@@ -97,6 +97,7 @@ export default {
     docs: {
       description:
         "Disallow `has(...)` references to field keys that are not declared in the enclosing defineCrawcusSpec fields. See #1078.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-undeclared-field-require",
     },
     schema: [],
     messages: {

@@ -1,6 +1,6 @@
 {
   "$schema": "model-map/v1",
-  "generatedAt": "2026-06-09T07:59:51.089Z",
+  "generatedAt": "2026-06-09T08:30:14.496Z",
   "generator": "scripts/capture/model-map.ts",
   "schemaPath": "apps/admin/prisma/schema.prisma",
   "note": "Tier-2 generated KB. proposedClass is a HEURISTIC; ratify each row (set reviewed:true) to make this the authoritative tenant-scoping map. Do not hand-edit — re-run the generator.",

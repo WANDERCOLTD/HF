@@ -95,6 +95,7 @@ export default {
     docs: {
       description:
         "Disallow unscoped slug/ref lookups on per-parent-unique entities (CurriculumModule, LearningObjective). See #407.",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-unscoped-slug-lookup",
     },
     schema: [],
     messages: {

@@ -1,3 +1,4 @@
+// KB: catalogued in docs/kb/guard-registry.md (CI check scripts). See for class + why.
 /**
  * #1081 Slice 2B.3 — qualificationAnchor slug-set divergence detector.
  *

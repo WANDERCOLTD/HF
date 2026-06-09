@@ -554,25 +554,25 @@ program
   .action(async () => {
     log('\n🔍 Running All Checks\n', colors.bright);
 
-    info('1/7: Linting...');
+    info('1/8: Linting...');
     exec('npm run lint');
 
-    info('2/7: Type checking...');
+    info('2/8: Type checking...');
     exec('npx tsc --noEmit');
 
-    info('3/7: Unit tests...');
+    info('3/8: Unit tests...');
     exec('npm run test');
 
-    info('4/7: Integration tests...');
+    info('4/8: Integration tests...');
     await runTestsWithServer(
       'npm run test:integration',
       'Running integration tests...'
     );
 
-    info('5/7: FK consistency (slug-scope #407 guard)...');
+    info('5/8: FK consistency (slug-scope #407 guard)...');
     exec('npx tsx scripts/check-fk-consistency.ts');
 
-    info('6/7: Epic 100 adaptive-loop audit (#600 / #631)...');
+    info('6/8: Epic 100 adaptive-loop audit (#600 / #631)...');
     exec('npx tsx scripts/audit-epic-100.ts');
 
     // #904 — harness hooks live outside apps/admin/ but their
@@ -580,8 +580,14 @@ program
     // workflows. We had a five-commit fix chain in 24h because the
     // hooks were not tested; this step prevents regression of either
     // the PID ancestor walk (#899) or the worktree-isolation block.
-    info('7/7: Harness hooks (.claude/hooks/__tests__/test-*.sh)...');
+    info('7/8: Harness hooks (.claude/hooks/__tests__/test-*.sh)...');
     exec('npm run test:hooks');
+
+    // KB integrity: guards point back at the registry (meta-ratchet) and the
+    // Tier-2 generated facts (model-map / route-inventory) are fresh vs schema
+    // + API surface. See docs/kb/README.md.
+    info('8/8: KB integrity (guard back-links + generated-fact freshness)...');
+    exec('npm run kb:check');
 
     success('All checks passed!');
   });

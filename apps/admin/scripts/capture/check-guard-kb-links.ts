@@ -21,8 +21,9 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const RULES_DIR = resolve(SCRIPT_DIR, "../../eslint-rules");
 const KB_NEEDLE = "docs/kb/guard-registry.md";
 
-// Baseline: 10 top-level rules, 1 wired (no-ai-fanout-all). Lower as you wire more.
-const MAX_MISSING = 9;
+// Baseline: all 10 top-level rules wired. Ratchet is at the floor — keep it there.
+// A new rule lands UNwired → this fails → wire it (add meta.docs.url + a registry row).
+const MAX_MISSING = 0;
 
 function main() {
   const ruleFiles = readdirSync(RULES_DIR).filter((f) => f.endsWith(".mjs"));
