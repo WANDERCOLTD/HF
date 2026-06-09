@@ -1,0 +1,73 @@
+{
+  "_meta": {
+    "issue": "#1341 (epic #1338 Slice 0)",
+    "description": "Pre-migration fixture: existing Call rows for Bertie Tallstaff (hf_sandbox, 2026-06-08). Shape mirrors apps/admin/prisma/schema.prisma::Call as of pre-1341. Used by tests/integration/sessions/1341-schema.test.ts to seed an ephemeral DB and verify the migration backfills the expected Session + CallerSequenceCounter shape.",
+    "shape_note": "Caller.id, Playbook.id, CurriculumModule.id are stable test UUIDs (anchored so the post-fixture can refer to them by FK).",
+    "ghost_row_note": "callId=call-bertie-ghost reproduces the #1338 motivating bug — endedAt IS NULL and callSequence IS NULL, so the migration's ROW_NUMBER tie-break must fire."
+  },
+  "callerId": "11111111-1111-1111-1111-bertieTallstaf",
+  "playbookId": "22222222-2222-2222-2222-pbBertieAcad22",
+  "curriculumModuleId": "33333333-3333-3333-3333-modBertiePart1",
+  "calls": [
+    {
+      "id": "call-bertie-1",
+      "source": "vapi",
+      "externalId": "vapi-1",
+      "transcript": "Hi pop. How are you? — Welcome back...",
+      "createdAt": "2026-06-05T09:00:00.000Z",
+      "callerId": "11111111-1111-1111-1111-bertieTallstaf",
+      "playbookId": "22222222-2222-2222-2222-pbBertieAcad22",
+      "curriculumModuleId": "33333333-3333-3333-3333-modBertiePart1",
+      "callSequence": 1,
+      "endedAt": "2026-06-05T09:08:00.000Z",
+      "voiceProvider": "vapi",
+      "usedPromptId": null,
+      "requestedModuleId": null
+    },
+    {
+      "id": "call-bertie-2",
+      "source": "vapi",
+      "externalId": "vapi-2",
+      "transcript": "Second call transcript...",
+      "createdAt": "2026-06-06T09:00:00.000Z",
+      "callerId": "11111111-1111-1111-1111-bertieTallstaf",
+      "playbookId": "22222222-2222-2222-2222-pbBertieAcad22",
+      "curriculumModuleId": "33333333-3333-3333-3333-modBertiePart1",
+      "callSequence": 2,
+      "endedAt": "2026-06-06T09:09:00.000Z",
+      "voiceProvider": "vapi",
+      "usedPromptId": null,
+      "requestedModuleId": null
+    },
+    {
+      "id": "call-bertie-3",
+      "source": "vapi",
+      "externalId": "vapi-3",
+      "transcript": "Third call transcript...",
+      "createdAt": "2026-06-07T09:00:00.000Z",
+      "callerId": "11111111-1111-1111-1111-bertieTallstaf",
+      "playbookId": "22222222-2222-2222-2222-pbBertieAcad22",
+      "curriculumModuleId": "33333333-3333-3333-3333-modBertiePart1",
+      "callSequence": 3,
+      "endedAt": "2026-06-07T09:08:00.000Z",
+      "voiceProvider": "vapi",
+      "usedPromptId": null,
+      "requestedModuleId": null
+    },
+    {
+      "id": "call-bertie-ghost",
+      "source": "vapi",
+      "externalId": "vapi-ghost",
+      "transcript": "",
+      "createdAt": "2026-06-08T09:00:00.000Z",
+      "callerId": "11111111-1111-1111-1111-bertieTallstaf",
+      "playbookId": "22222222-2222-2222-2222-pbBertieAcad22",
+      "curriculumModuleId": null,
+      "callSequence": null,
+      "endedAt": null,
+      "voiceProvider": "vapi",
+      "usedPromptId": null,
+      "requestedModuleId": "part1"
+    }
+  ]
+}

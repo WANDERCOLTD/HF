@@ -5,7 +5,7 @@
  * No mocking - tests real behavior.
  */
 
-import { beforeAll, afterAll } from 'vitest';
+import { beforeAll, expect } from 'vitest';
 
 // Base URL for API tests
 export const API_BASE_URL = process.env.TEST_API_URL || 'http://localhost:3000';
@@ -34,11 +34,13 @@ export async function apiPost(path: string, body: unknown) {
 }
 
 // Health check before running integration tests
-// Skipped for DB-only tests (journey/) — they manage their own DB connection.
+// Skipped for DB-only tests (journey/, sessions/) — they manage their own
+// DB connection.
 beforeAll(async () => {
-  // DB-only tests (e.g., journey/) don't need a running server
+  // DB-only tests (e.g., journey/, sessions/) don't need a running server.
+  // sessions/ added 2026-06-08 by #1341 (Slice 0 Session schema proof).
   const testPath = expect.getState?.()?.testPath || "";
-  if (testPath.includes("/journey/")) {
+  if (testPath.includes("/journey/") || testPath.includes("/sessions/")) {
     console.log("✓ DB-only test — skipping server health check");
     return;
   }

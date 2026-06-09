@@ -124,10 +124,12 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
   }
 
-  // Delete related records first, then the user
+  // Delete related records first, then the user.
+  // #1341 — `Session` was renamed to `AuthSession` to make room for the
+  // canonical learner-Session parent; this is NextAuth's session table.
   await prisma.$transaction([
     prisma.account.deleteMany({ where: { userId: id } }),
-    prisma.session.deleteMany({ where: { userId: id } }),
+    prisma.authSession.deleteMany({ where: { userId: id } }),
     prisma.userTask.deleteMany({ where: { userId: id } }),
     prisma.user.delete({ where: { id } }),
   ]);

@@ -7,9 +7,27 @@ import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { sendMagicLinkEmail, EMAIL_FROM_DEFAULT } from "./email";
+import { withRenamedSessionModel } from "./auth/with-renamed-session-model";
 import type { UserRole } from "@prisma/client";
-import type { Adapter } from "next-auth/adapters";
 import type { Provider } from "next-auth/providers";
+
+// NextAuth carries its own nested `@auth/core` copy, so the `Adapter` type
+// it consumes at its config boundary differs nominally from the top-level
+// `@auth/core` Adapter that `@auth/prisma-adapter` returns. Both are
+// structurally identical — they're the same source file installed twice
+// due to npm dedupe semantics. We extract NextAuth's adapter type from
+// its own `NextAuthConfig` and cast through `unknown` at the single
+// boundary, rather than letting the resolution gap leak further into the
+// codebase. (Not a behaviour change; the wrapper at
+// `./auth/with-renamed-session-model.ts` enforces the AdapterSession
+// surface contract by construction.)
+type NextAuthCfg = Exclude<
+  Parameters<typeof NextAuth>[0],
+  (...args: never[]) => unknown
+>;
+type NextAuthAdapter = NonNullable<
+  NextAuthCfg extends { adapter?: infer A } ? A : never
+>;
 
 /**
  * OAuth providers (#1141 follow-up). Each provider is registered ONLY
@@ -108,8 +126,25 @@ if (!process.env.SMTP_PASSWORD && !process.env.RESEND_API_KEY) {
   console.warn("[auth] No SMTP_PASSWORD or RESEND_API_KEY set — magic link emails will fail. Set one to enable email sign-in.");
 }
 
+// `@auth/prisma-adapter` returns the top-level `@auth/core` Adapter, but
+// our wrapper imports its Adapter type from `next-auth/adapters` — which
+// resolves to the nested copy. Cast the PrismaAdapter return through
+// `unknown` to bridge the two structurally-identical types at this single
+// boundary. The wrapper preserves the AdapterSession surface contract.
+const adapter = withRenamedSessionModel(
+  PrismaAdapter(prisma) as unknown as NextAuthAdapter,
+  prisma,
+);
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma) as Adapter,
+  // #1341 — NextAuth's `model Session` was renamed to `AuthSession` so
+  // the canonical learner-Session parent can take the simple name.
+  // The wrapper redirects the adapter's four session methods at
+  // `prisma.authSession.*`. JWT strategy makes these dormant for
+  // credentials sign-in, but the wrapper keeps them functional.
+  // See the `// NextAuth carries…` block above the imports for why this
+  // is routed through `unknown`.
+  adapter,
   session: {
     strategy: "jwt", // JWT for credentials support
   },
