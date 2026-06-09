@@ -163,7 +163,15 @@ describe("/api/playbooks/:playbookId/voice-config (#1271 Slice C)", () => {
       expect(res.status).toBe(200);
       expect(body.ok).toBe(true);
       expect(body.applied).toBe("set");
-      expect(mockUpdatePlaybookConfig).toHaveBeenCalledWith("pb-1", {
+      // Post-#1359: route now calls updatePlaybookConfig(playbookId, transformer).
+      // Assert on the playbookId arg + invoke the transformer to verify it
+      // produces the expected config (preserves siblings, sets voice override).
+      expect(mockUpdatePlaybookConfig).toHaveBeenCalledTimes(1);
+      const [calledPlaybookId, transformer] = mockUpdatePlaybookConfig.mock.calls[0];
+      expect(calledPlaybookId).toBe("pb-1");
+      expect(typeof transformer).toBe("function");
+      expect(transformer({ someOther: "kept" })).toEqual({
+        someOther: "kept",
         voice: { autoPipeline: false },
       });
     });
@@ -248,8 +256,15 @@ describe("/api/playbooks/:playbookId/voice-config (#1271 Slice C)", () => {
       const body = await res.json();
       expect(res.status).toBe(200);
       expect(body.applied).toBe("cleared");
-      // voice object should NOT contain autoPipeline (cleared), still has voiceId.
-      expect(mockUpdatePlaybookConfig).toHaveBeenCalledWith("pb-1", {
+      // Post-#1359: route now calls updatePlaybookConfig(playbookId, transformer).
+      // Invoke the transformer to confirm the resulting voice object does NOT
+      // contain autoPipeline (cleared), still has voiceId.
+      expect(mockUpdatePlaybookConfig).toHaveBeenCalledTimes(1);
+      const [calledPlaybookId, transformer] = mockUpdatePlaybookConfig.mock.calls[0];
+      expect(calledPlaybookId).toBe("pb-1");
+      expect(typeof transformer).toBe("function");
+      expect(transformer({ someOther: "kept" })).toEqual({
+        someOther: "kept",
         voice: { voiceId: "rachel" },
       });
     });
