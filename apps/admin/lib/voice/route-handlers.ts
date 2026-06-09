@@ -718,10 +718,68 @@ export async function persistEndOfCall(
 
   const playbookId = callerId ? await resolvePlaybookId(callerId) : null;
 
+  // #1345 — Ghost-row dedup. Before creating a fresh Call row, check for
+  // a recent unended placeholder for the same caller+provider that has
+  // no externalId stamped yet. Three races land us here:
+  //
+  //   (a) /outbound-dial pre-created the placeholder but the externalId
+  //       stamp at lines 281-284 ran AFTER the first webhook arrived —
+  //       so our `findFirst({externalId, source})` above missed it.
+  //   (b) VAPI dialled, the first end-of-call webhook landed under a
+  //       new call id we've never seen, and there's a pending placeholder
+  //       waiting for any externalId at all.
+  //   (c) /outbound-dial's externalId stamp threw an exception (the
+  //       fix in #1345 Part B catches + deletes that placeholder
+  //       explicitly, but for any historic / non-stamp exception, the
+  //       placeholder is still pending here).
+  //
+  // Without this guard the fresh-row branch creates a duplicate Call
+  // and orphans the placeholder permanently — Bertie's 10:06:02 ghost
+  // (hf_sandbox 2026-06-08).
+  //
+  // Window invariant: GHOST_ROW_DEDUP_WINDOW_SECONDS MUST stay below
+  // poll-stale-calls.ts::DEFAULT_STALE_AFTER_MS (90s, see
+  // `lib/voice/poll-stale-calls.ts:84`). If they invert, the reconciler
+  // could mark the placeholder as `vapi_poll_failed` (endedAt stamped)
+  // while we still consider it eligible for adoption — and the merge
+  // branch above would never run because our findFirst-by-externalId
+  // wouldn't match. 30s is well inside the budget.
+  // Read env via globalThis to dodge the codebase-wide missing
+  // @types/node typing (other call-sites in lib/config.ts use the
+  // same pattern under a typed wrapper; route-handlers.ts has no
+  // pre-existing env read so we resolve inline).
+  const envWindow =
+    (globalThis as { process?: { env?: Record<string, string | undefined> } })
+      .process?.env?.GHOST_ROW_DEDUP_WINDOW_SECONDS ?? "30";
+  const dedupWindowSeconds = Number.parseInt(envWindow, 10);
+  let adoptedPlaceholderId: string | null = null;
+  if (callerId && Number.isFinite(dedupWindowSeconds) && dedupWindowSeconds > 0) {
+    const cutoff = new Date(Date.now() - dedupWindowSeconds * 1000);
+    const placeholder = await prisma.call.findFirst({
+      where: {
+        callerId,
+        voiceProvider: slug,
+        endedAt: null,
+        externalId: null,
+        createdAt: { gt: cutoff },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, callSequence: true },
+    });
+    if (placeholder) {
+      adoptedPlaceholderId = placeholder.id;
+    }
+  }
+
   let nextSequence: number | null = null;
   if (callerId) {
     const lastCall = await prisma.call.findFirst({
-      where: { callerId },
+      where: {
+        callerId,
+        callSequence: { not: null },
+        // Don't double-count the placeholder we're about to adopt.
+        ...(adoptedPlaceholderId ? { id: { not: adoptedPlaceholderId } } : {}),
+      },
       orderBy: { callSequence: "desc" },
       select: { callSequence: true },
     });
@@ -729,6 +787,67 @@ export async function persistEndOfCall(
   }
 
   const endedAt = new Date();
+
+  // #1345 — Adopt the pending placeholder by UPDATE rather than CREATE.
+  // Merges the webhook payload onto the existing row, stamps externalId,
+  // and stamps the sequence + endSource that the create branch would
+  // have set. Falls back cleanly to the original create path when no
+  // placeholder is in the dedup window.
+  if (adoptedPlaceholderId) {
+    const adopted = await prisma.call.update({
+      where: { id: adoptedPlaceholderId },
+      data: {
+        externalId: externalCallId,
+        // Re-affirm source/voiceProvider in case the placeholder was
+        // created with a different slug (defensive — the WHERE clause
+        // already filters by voiceProvider).
+        source: slug,
+        voiceProvider: slug,
+        transcript: transcript || "(no transcript)",
+        usedPromptId,
+        endedAt,
+        endSource: sourceTag === "fallback" ? "poll" : "webhook",
+        ...(playbookId ? { playbookId } : {}),
+        ...(nextSequence != null ? { callSequence: nextSequence } : {}),
+        ...persistableCapture,
+      },
+    });
+
+    console.log(
+      `[voice/${slug}/webhook] Adopted placeholder ${adopted.id} for ${slug} ${externalCallId} (eventKind=${eventKind}, dedupWindowSeconds=${dedupWindowSeconds})` +
+        (callerId ? ` for caller ${callerId}` : ""),
+    );
+
+    broadcastToCall({
+      type: "call-ended",
+      callId: adopted.id,
+      reason: capture.endedReason ?? null,
+      totalDurationMs:
+        typeof capture.durationSeconds === "number"
+          ? Math.round(capture.durationSeconds * 1000)
+          : null,
+      timestampMs: Date.now(),
+    }).catch((err) =>
+      console.warn(`[voice/${slug}/webhook] call-ended broadcast failed:`, err),
+    );
+
+    // Pipeline gating identical to the fresh-create branch below — see
+    // the comment block there for the #1270/#1241 cascade rationale.
+    if (eventKind !== "basic" && callerId) {
+      const resolved = await loadResolvedVoiceConfig({ callerId, playbookId });
+      const autoPipeline = resolved.fields.autoPipeline?.value === true;
+      if (autoPipeline) {
+        triggerPipeline(adopted.id, callerId).catch((err) => {
+          console.error(
+            `[voice/${slug}/${sourceTag}] Pipeline trigger failed for adopted placeholder ${adopted.id}:`,
+            err,
+          );
+        });
+      }
+    }
+
+    return { ok: true, callId: adopted.id, callerId, merged: true };
+  }
 
   const newCall = await prisma.call.create({
     data: {

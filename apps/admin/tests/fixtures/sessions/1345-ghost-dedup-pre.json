@@ -1,0 +1,47 @@
+{
+  "_meta": {
+    "issue": "#1345",
+    "name": "ghost-row-dedup-pre",
+    "description": "Pre-fix DB state replicating Bertie Tallstaff's 2026-06-08 10:06:02 ghost row on hf_sandbox. The outbound-dial placeholder at 10:06:02 lost its externalId stamp (line 281 exception outside the try/catch). 47 seconds later VAPI's webhook arrived with a fresh externalId; persistEndOfCall's findFirst({externalId, source}) missed the placeholder (it had externalId=NULL), fell into the fresh-row branch, and created a duplicate Call row. The original placeholder lingered as a permanent ghost.",
+    "callerId": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+    "voiceProvider": "vapi",
+    "source": "hf_sandbox 2026-06-08",
+    "capturedAt": "2026-06-08T10:06:49Z"
+  },
+  "calls": [
+    {
+      "id": "00000000-0000-0000-0000-000010060201",
+      "callerId": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "externalId": null,
+      "transcript": "",
+      "endedAt": null,
+      "endSource": null,
+      "callSequence": null,
+      "createdAt": "2026-06-08T10:06:02Z",
+      "_role": "ghost",
+      "_note": "Placeholder from /api/voice/calls/outbound-dial line 168. The externalId stamp at line 281 was supposed to set externalId=<vapiCallId> but an exception was raised outside the try/catch — placeholder orphaned."
+    },
+    {
+      "id": "00000000-0000-0000-0000-000010064902",
+      "callerId": "ae3362f0-3e66-4e49-96f1-d83e10bce321",
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "externalId": "vapi-call-abc123",
+      "transcript": "(real transcript captured by webhook)",
+      "endedAt": "2026-06-08T10:06:49Z",
+      "endSource": "webhook",
+      "callSequence": 2,
+      "createdAt": "2026-06-08T10:06:49Z",
+      "_role": "duplicate-from-fresh-row-branch",
+      "_note": "persistEndOfCall first-arrival branch: findFirst({externalId:vapi-call-abc123, source:vapi}) returned null, so a fresh Call row was created. Pre-#1345, no dedup check was made for the pending placeholder."
+    }
+  ],
+  "_expected_state_pre_fix": {
+    "totalCallRows": 2,
+    "ghostRows": 1,
+    "realRows": 1,
+    "narrative": "Two Call rows where only one interaction occurred. The ghost row pollutes the Tune tab and the call-history readers."
+  }
+}

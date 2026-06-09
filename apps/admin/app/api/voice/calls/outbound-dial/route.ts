@@ -278,10 +278,60 @@ export async function POST(request: Request) {
     }
 
     // Stamp the externalId so the webhook handler can merge by it.
-    await prisma.call.update({
-      where: { id: placeholderCall.id },
-      data: { externalId: vapiCallId },
-    });
+    //
+    // #1345 — Wrap in its own try/catch. Pre-fix this update sat OUTSIDE
+    // the surrounding try/catch (which ends at the `} catch (err)` block
+    // above wrapping the VAPI fetch). Any exception here silently
+    // orphaned the placeholder — exactly Bertie's 10:06:02 ghost on
+    // hf_sandbox 2026-06-08, where the placeholder lingered with
+    // externalId=NULL and the webhook 47s later created a duplicate row.
+    //
+    // On exception: log structured context + explicitly delete the
+    // placeholder (today's behaviour — keeps the DB clean) + return 502
+    // so the operator knows the dial didn't complete cleanly.
+    try {
+      await prisma.call.update({
+        where: { id: placeholderCall.id },
+        data: { externalId: vapiCallId },
+      });
+    } catch (stampErr) {
+      const stampMessage =
+        stampErr instanceof Error ? stampErr.message : String(stampErr);
+      log("system", "voice.outbound_dial.externalid_stamp_failed", {
+        level: "error",
+        callerId: caller.id,
+        placeholderId: placeholderCall.id,
+        vapiCallId,
+        providerSlug: providerRow.slug,
+        error: stampMessage,
+      });
+      // TODO(#1338-slice-1): replace delete with FailureLog write once
+      // Slice 1 ships the FailureLog table. Today we delete the orphan
+      // to keep the DB clean — without it the row sits with no
+      // externalId, no endedAt, and is exactly the #1345 ghost class
+      // that the poll-stale reconciler can't fix (it only polls rows
+      // that HAVE an externalId).
+      try {
+        await prisma.call.delete({ where: { id: placeholderCall.id } });
+      } catch (cleanupErr) {
+        log("system", "voice.outbound_dial.placeholder_cleanup_failed", {
+          level: "error",
+          placeholderId: placeholderCall.id,
+          error:
+            cleanupErr instanceof Error
+              ? cleanupErr.message
+              : String(cleanupErr),
+        });
+      }
+      endSpan({ errorMessage: `externalId stamp failed: ${stampMessage}` });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Failed to stamp externalId on placeholder: ${stampMessage}`,
+        },
+        { status: 502 },
+      );
+    }
 
     logVoiceEvent({
       slug: providerRow.slug,
