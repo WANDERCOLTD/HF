@@ -220,13 +220,20 @@ export class VapiProvider implements VoiceProvider {
       if (vc.recordingEnabled === false) {
         assistant.recordingEnabled = false;
       }
-      // #1374 — Filler injection masks Claude's response latency by
-      // playing "mm-hmm, let me think..." while the AI generates. Default
-      // ON for new envs (cuts perceived pause time dramatically). Cascade
-      // can flip off per-cohort if it feels intrusive.
-      if (vc.fillerInjectionEnabled === true) {
-        assistant.fillerInjectionEnabled = true;
-      }
+      // #1382 — `fillerInjectionEnabled` REMOVED from the wire payload.
+      // VAPI's assistant schema rejects this field outright with HTTP
+      // 400: "assistant.property fillerInjectionEnabled should not
+      // exist". Live evidence: caller 0f6f6ed6 / 2026-06-09 09:35 —
+      // every Talk Here attempt failed before mic-permission with
+      // exactly this error. Field likely moved (renamed, plan-tier
+      // gated, or only valid on PSTN assistant shape, not WebRTC).
+      // Haiku model + 30-cap teaching points (#1377) carry most of
+      // the latency win on their own.
+      //
+      // Field stays declared in getConfigSchema so when the right
+      // name resurfaces we can wire it back without re-editing the
+      // schema. Cascade reads it but the adapter no-ops it for now.
+      void vc.fillerInjectionEnabled;
     }
 
     return { assistant };
