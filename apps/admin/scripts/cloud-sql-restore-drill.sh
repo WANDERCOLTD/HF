@@ -93,7 +93,27 @@ log "starting auth proxy on :$PROXY_PORT  conn=$CONN"
 "$PROXY_BIN" "$CONN" --port "$PROXY_PORT" >/tmp/restore-drill-proxy.log 2>&1 &
 PROXY_PID=$!
 trap '[[ -n "${PROXY_PID:-}" ]] && kill "$PROXY_PID" 2>/dev/null || true' EXIT
-sleep 6  # let the proxy come up
+# Wait for the proxy + cloned DB to actually accept connections, not just
+# "be running." On a cold Cloud Run container against a freshly-cloned
+# db-f1-micro, the Cloud SQL backend itself can need 10-20s to accept
+# connections after the proxy starts. A naive `sleep 6` produced
+# "server closed the connection unexpectedly" mid-handshake (#1394, observed
+# 2026-06-09 — final exit(3) bug after PR #1415).
+log "waiting for proxy + cloned DB to accept connections (max 60s)"
+PROXY_READY=0
+for try in $(seq 1 12); do
+  if PGPASSWORD="$DB_PASSWORD" psql -h localhost -p "$PROXY_PORT" \
+       -U "$DB_USER" -d postgres -c 'SELECT 1' >/dev/null 2>&1; then
+    PROXY_READY=1
+    ok "proxy + DB ready after ~$((try * 5))s"
+    break
+  fi
+  sleep 5
+done
+if [[ "$PROXY_READY" != "1" ]]; then
+  cat /tmp/restore-drill-proxy.log 2>/dev/null | tail -5
+  fail 3 "proxy + DB did not accept connections within 60s"
+fi
 
 cleanup_clone() {
   log "deleting drill instance $DRILL_INSTANCE"
