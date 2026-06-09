@@ -1,38 +1,33 @@
 /**
- * #1333 — block bare `prisma.call.create` outside the explicit allow-list.
+ * #1333 + #1342 — block bare `prisma.call.create` AND `prisma.session.create`
+ * outside the explicit allow-lists.
  *
- * Every Call row entering the pipeline MUST carry `playbookId`,
- * `requestedModuleId`, and `curriculumModuleId` at creation time. Two
- * hand-rolled implementations of the placeholder-create operation
- * (`outbound-dial/route.ts` and `voice/calls/start/route.ts`) drifted —
- * `outbound-dial` silently dropped all three FKs, producing orphan Calls
- * (Bertie Tallstaff `ae3362f0-3e66-4e49-96f1-d83e10bce321` Calls 2 + 3 on
- * hf_sandbox 2026-06-08). Downstream COMPOSE then wrote scopeless
- * `ComposedPrompt` rows and the sim UI couldn't load the next prompt.
+ * Two related guards in one rule (they share the path-allow-list scaffolding):
  *
- * The builder `lib/voice/create-call-entering-pipeline.ts` is now the
- * canonical entry point. This rule blocks any new bare `prisma.call.create`
- * (or `tx.call.create`) outside the explicit allow-list. Intentional
- * friction — every new site must either route through the builder or
- * justify why it bypasses (and update the allow-list).
+ *   1. `prisma.call.create` (#1333) — every Call row entering the pipeline
+ *      MUST carry `playbookId`, `requestedModuleId`, `curriculumModuleId`
+ *      at creation time. Two hand-rolled implementations of the
+ *      placeholder-create (`outbound-dial/route.ts` vs `voice/calls/start/route.ts`)
+ *      drifted — `outbound-dial` silently dropped all three FKs, producing
+ *      Bertie's orphan Calls 2 + 3. The builder `createCallEnteringPipeline`
+ *      is now the canonical entry point.
  *
- * Allow-list (verbatim, from the issue spec):
- *   lib/voice/create-call-entering-pipeline.ts   — the builder itself
- *   tests/lib/voice/create-call-entering-pipeline.test.ts — unit tests
- *   app/api/callers/[callerId]/calls/route.ts   — sim path, already has full FK chain
- *   lib/test-harness/sim-runner.ts               — harness, null tolerated by design
- *   app/api/test-harness/onboarding-call/route.ts — harness, no enrollment yet
- *   lib/ops/transcripts-process.ts               — offline batch import
- *   app/api/transcripts/import/route.ts          — historical import
- *   scripts/sim-drive-call.ts                    — CLI, has own FK scoping
- *   lib/voice/route-handlers.ts                  — persistEndOfCall (Stage C)
- *   prisma/seed-*.ts                             — seed data
- *   prisma/_archived/seed-*.ts                   — archived seeds
+ *   2. `prisma.session.create` (#1342) — every Session row MUST go through
+ *      `createSession` so `CallerSequenceCounter` increments atomically,
+ *      `voiceConfigSnapshot` populates, and the I-CT2 cascade resolves
+ *      `usedPromptId`. Without this rule the cascade can drift the same
+ *      way the FK triple did.
+ *
+ * Intentional friction — every new site must either route through the
+ * builder or justify why it bypasses (and update the allow-list).
+ *
+ * @see lib/voice/create-call-entering-pipeline.ts
+ * @see lib/voice/create-session.ts
  */
 
 // Substrings checked against the linted file path (after normalising slashes).
 // A file matches if ANY substring is a suffix of the path or contained in it.
-const ALLOWED_PATH_SUFFIXES = [
+const ALLOWED_CALL_PATH_SUFFIXES = [
   "lib/voice/create-call-entering-pipeline.ts",
   "tests/lib/voice/create-call-entering-pipeline.test.ts",
   "app/api/callers/[callerId]/calls/route.ts",
@@ -44,14 +39,27 @@ const ALLOWED_PATH_SUFFIXES = [
   "lib/voice/route-handlers.ts",
 ];
 
-// Allow-list patterns (matched via simple includes after path normalisation).
+const ALLOWED_SESSION_PATH_SUFFIXES = [
+  "lib/voice/create-session.ts",
+  "lib/voice/end-session.ts",
+  "tests/lib/voice/create-session.test.ts",
+  "tests/lib/voice/end-session.test.ts",
+  // Slice 1 (#1340 / #1386) recovery writers — record GHOST/FAILED
+  // Session rows for transcripts that never arrived. They predate the
+  // Slice 3 builder by design (the reconciler in Slice 5 will route
+  // through `createSession` + `endSession`); allow-listed here with a
+  // documented bypass until that refactor lands.
+  "lib/voice/poll-stale-calls.ts",
+  "lib/voice/record-call-failure.ts",
+];
+
+// Shared path-allow-list patterns (matched via includes after normalisation).
 const ALLOWED_PATH_CONTAINS = [
   "prisma/seed-",
   "prisma/_archived/seed-",
-  // Tests routinely mock or hand-roll Call shapes; the rule's job is to
+  // Tests routinely mock or hand-roll shapes; the rule's job is to
   // protect production write paths, not assertions. The dedicated
-  // `tests/lib/voice/create-call-entering-pipeline.test.ts` exercises
-  // the builder directly via the real `prisma.call.create` call.
+  // builder tests exercise the real `prisma.{call,session}.create` call.
   "/tests/",
   "/__tests__/",
   ".test.ts",
@@ -63,10 +71,10 @@ const ALLOWED_PATH_CONTAINS = [
   "/_archived/",
 ];
 
-function isAllowedPath(filename) {
+function isAllowedForCallCreate(filename) {
   if (!filename) return false;
   const normalised = filename.replace(/\\/g, "/");
-  for (const suffix of ALLOWED_PATH_SUFFIXES) {
+  for (const suffix of ALLOWED_CALL_PATH_SUFFIXES) {
     if (normalised.endsWith(suffix)) return true;
   }
   for (const substr of ALLOWED_PATH_CONTAINS) {
@@ -75,9 +83,21 @@ function isAllowedPath(filename) {
   return false;
 }
 
-// Match `prisma.call.create(...)` or `tx.call.create(...)` or any
-// identifier.call.create(...). We only care about the `.call.create` tail.
-function isCallCreate(callee) {
+function isAllowedForSessionCreate(filename) {
+  if (!filename) return false;
+  const normalised = filename.replace(/\\/g, "/");
+  for (const suffix of ALLOWED_SESSION_PATH_SUFFIXES) {
+    if (normalised.endsWith(suffix)) return true;
+  }
+  for (const substr of ALLOWED_PATH_CONTAINS) {
+    if (normalised.includes(substr)) return true;
+  }
+  return false;
+}
+
+// Match `prisma.<model>.create(...)` or `tx.<model>.create(...)` or any
+// identifier.<model>.create(...). We only care about the `.<model>.create` tail.
+function isModelCreate(callee, modelName) {
   if (
     !callee ||
     callee.type !== "MemberExpression" ||
@@ -93,7 +113,7 @@ function isCallCreate(callee) {
     inner.type !== "MemberExpression" ||
     !inner.property ||
     inner.property.type !== "Identifier" ||
-    inner.property.name !== "call"
+    inner.property.name !== modelName
   ) {
     return false;
   }
@@ -105,21 +125,31 @@ const noBareCallCreateRule = {
     type: "problem",
     docs: {
       description:
-        "Disallow bare `prisma.call.create` outside the explicit allow-list. Use `createCallEnteringPipeline` from `@/lib/voice/create-call-entering-pipeline` so playbookId / requestedModuleId / curriculumModuleId always populate. See #1333.",
+        "Disallow bare `prisma.call.create` (#1333) and `prisma.session.create` (#1342) outside the explicit allow-lists. Use `createCallEnteringPipeline` / `createSession` so FK scope + atomic counter + voice snapshot land at creation time.",
     },
     schema: [],
     messages: {
       bareCallCreate:
         "Bare `prisma.call.create` (or `tx.call.create`) outside the #1333 allow-list. Route through `createCallEnteringPipeline` from `@/lib/voice/create-call-entering-pipeline` so the Call row carries `playbookId` / `requestedModuleId` / `curriculumModuleId` at creation time. If this is a deliberate bypass (harness, seed, batch import), add the path to the allow-list in `eslint-rules/no-bare-call-create.mjs` AND document why in the file header. See CHAIN-CONTRACTS.md §3 Link 3.",
+      bareSessionCreate:
+        "Bare `prisma.session.create` (or `tx.session.create`) outside the #1342 allow-list. Route through `createSession` from `@/lib/voice/create-session` so `CallerSequenceCounter` increments atomically (race-safe), `voiceConfigSnapshot` populates, the I-CT2 `usedPromptId` cascade resolves, and `skipStages` derives correctly. If this is a deliberate bypass (seed, archived migration), add the path to the allow-list AND document why. See CHAIN-CONTRACTS.md §3 Link 3b.",
     },
   },
   create(context) {
     const filename = context.getFilename ? context.getFilename() : context.filename;
-    if (isAllowedPath(filename)) return {};
+    const callAllowed = isAllowedForCallCreate(filename);
+    const sessionAllowed = isAllowedForSessionCreate(filename);
+    if (callAllowed && sessionAllowed) return {};
     return {
       CallExpression(node) {
-        if (!isCallCreate(node.callee)) return;
-        context.report({ node, messageId: "bareCallCreate" });
+        if (!callAllowed && isModelCreate(node.callee, "call")) {
+          context.report({ node, messageId: "bareCallCreate" });
+          return;
+        }
+        if (!sessionAllowed && isModelCreate(node.callee, "session")) {
+          context.report({ node, messageId: "bareSessionCreate" });
+          return;
+        }
       },
     };
   },

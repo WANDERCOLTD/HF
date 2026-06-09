@@ -58,6 +58,9 @@ import type {
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { loadResolvedVoiceConfig } from "@/lib/voice/load-voice-config";
+import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
+import { createSession } from "@/lib/voice/create-session";
+import { endSession } from "@/lib/voice/end-session";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
 import { log } from "@/lib/logger";
 
@@ -681,6 +684,33 @@ export async function persistEndOfCall(
         );
       });
     }
+    // #1342 — when the Session Model V2 flag is on AND this row was
+    // pre-created with a Session parent (createCallEnteringPipelineV2),
+    // finalise the Session via `endSession`. Best-effort; failures log
+    // but don't break the merge response. `endSession` is idempotent on
+    // already-ended rows (forward-only status transition).
+    if (isSessionModelV2Enabled() && existing.sessionId) {
+      const outcome =
+        sourceTag === "fallback" ? "FAILED" :
+        capture.durationSeconds !== undefined && capture.durationSeconds < 30 ? "ABORTED" :
+        "COMPLETED";
+      endSession(existing.sessionId, {
+        outcome,
+        ...(transcript ? { transcript } : {}),
+        endSource: sourceTag === "fallback" ? "poll" : "webhook",
+        ...(capture.durationSeconds !== undefined
+          ? { durationSecondsOverride: capture.durationSeconds }
+          : {}),
+        // Pipeline trigger is handled by the legacy `triggerPipeline`
+        // above; don't double-fire from endSession.
+        triggerPipelineAsync: false,
+      }).catch((err) => {
+        console.error(
+          `[voice/${slug}/${sourceTag}] endSession failed for session ${existing.sessionId}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      });
+    }
     return { ok: true, callId: updated.id, merged: true };
   }
 
@@ -753,6 +783,7 @@ export async function persistEndOfCall(
       .process?.env?.GHOST_ROW_DEDUP_WINDOW_SECONDS ?? "30";
   const dedupWindowSeconds = Number.parseInt(envWindow, 10);
   let adoptedPlaceholderId: string | null = null;
+  let adoptedPlaceholderSessionId: string | null = null;
   if (callerId && Number.isFinite(dedupWindowSeconds) && dedupWindowSeconds > 0) {
     const cutoff = new Date(Date.now() - dedupWindowSeconds * 1000);
     const placeholder = await prisma.call.findFirst({
@@ -764,10 +795,11 @@ export async function persistEndOfCall(
         createdAt: { gt: cutoff },
       },
       orderBy: { createdAt: "desc" },
-      select: { id: true, callSequence: true },
+      select: { id: true, callSequence: true, sessionId: true },
     });
     if (placeholder) {
       adoptedPlaceholderId = placeholder.id;
+      adoptedPlaceholderSessionId = placeholder.sessionId ?? null;
     }
   }
 
@@ -846,7 +878,57 @@ export async function persistEndOfCall(
       }
     }
 
+    // #1342 — finalise the linked Session row when V2 is on. The
+    // placeholder was created by `createCallEnteringPipelineV2` with a
+    // Session parent; endSession commits the outcome + skipStages.
+    if (isSessionModelV2Enabled() && adoptedPlaceholderSessionId) {
+      const outcome =
+        sourceTag === "fallback" ? "FAILED" :
+        capture.durationSeconds !== undefined && capture.durationSeconds < 30 ? "ABORTED" :
+        "COMPLETED";
+      endSession(adoptedPlaceholderSessionId, {
+        outcome,
+        ...(transcript ? { transcript } : {}),
+        endSource: sourceTag === "fallback" ? "poll" : "webhook",
+        ...(capture.durationSeconds !== undefined
+          ? { durationSecondsOverride: capture.durationSeconds }
+          : {}),
+        triggerPipelineAsync: false,
+      }).catch((err) => {
+        console.error(
+          `[voice/${slug}/${sourceTag}] endSession failed for adopted-placeholder session ${adoptedPlaceholderSessionId}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      });
+    }
+
     return { ok: true, callId: adopted.id, callerId, merged: true };
+  }
+
+  // #1342 — fresh-arrival Session row. Under V2 the Session is created
+  // BEFORE the Call so the Call carries `sessionId` at insert time. The
+  // Session row is created with provisional `STARTED` status and
+  // immediately closed by `endSession` below — this branch handles
+  // end-of-call events for calls that never went through the
+  // `createCallEnteringPipeline` placeholder flow (e.g. an inbound call
+  // we never pre-allocated). The dual-write may look redundant but it
+  // preserves the I-CT2 cascade + voiceConfigSnapshot for these rows.
+  let freshSessionId: string | null = null;
+  if (isSessionModelV2Enabled() && callerId) {
+    try {
+      const result = await createSession({
+        callerId,
+        kind: "VOICE_CALL",
+        source: slug,
+        voiceProvider: slug,
+      });
+      freshSessionId = result.session.id;
+    } catch (err) {
+      console.error(
+        `[voice/${slug}/${sourceTag}] fresh createSession failed:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   }
 
   const newCall = await prisma.call.create({
@@ -863,6 +945,7 @@ export async function persistEndOfCall(
       // mirror it: 'webhook' for normal end-of-call, 'poll' when the
       // 90s stale-calls cron reconciled. See lib/voice/end-source.ts.
       endSource: sourceTag === "fallback" ? "poll" : "webhook",
+      ...(freshSessionId ? { sessionId: freshSessionId } : {}),
       ...(playbookId ? { playbookId } : {}),
       ...(nextSequence != null ? { callSequence: nextSequence } : {}),
       ...persistableCapture,
@@ -910,6 +993,30 @@ export async function persistEndOfCall(
         );
       });
     }
+  }
+
+  // #1342 — finalise the fresh Session row when V2 is on. The Session
+  // was created at `STARTED`; commit the end-of-call outcome so the
+  // counter flags / skipStages settle.
+  if (isSessionModelV2Enabled() && freshSessionId) {
+    const outcome =
+      sourceTag === "fallback" ? "FAILED" :
+      capture.durationSeconds !== undefined && capture.durationSeconds < 30 ? "ABORTED" :
+      "COMPLETED";
+    endSession(freshSessionId, {
+      outcome,
+      ...(transcript ? { transcript } : {}),
+      endSource: sourceTag === "fallback" ? "poll" : "webhook",
+      ...(capture.durationSeconds !== undefined
+        ? { durationSecondsOverride: capture.durationSeconds }
+        : {}),
+      triggerPipelineAsync: false,
+    }).catch((err) => {
+      console.error(
+        `[voice/${slug}/${sourceTag}] endSession failed for fresh session ${freshSessionId}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    });
   }
 
   return { ok: true, callId: newCall.id, callerId };

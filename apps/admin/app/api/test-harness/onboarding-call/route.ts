@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { executeComposition, loadComposeConfig, persistComposedPrompt } from "@/lib/prompt/composition";
 import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
+import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
+import { createSession } from "@/lib/voice/create-session";
 
 /**
  * @api POST /api/test-harness/onboarding-call
@@ -63,6 +65,20 @@ export async function POST(req: NextRequest) {
     });
     const nextSequence = (lastCall?.callSequence ?? 0) + 1;
 
+    // #1342 — when the Session Model V2 flag is on, write a VOICE_CALL
+    // Session parent for the harness call so its narrative card lands in
+    // the Tune tab. Source "harness" so the proof script can distinguish.
+    let sessionParentId: string | null = null;
+    if (isSessionModelV2Enabled()) {
+      const result = await createSession({
+        callerId,
+        kind: "VOICE_CALL",
+        source: "harness",
+        voiceProvider: null,
+      });
+      sessionParentId = result.session.id;
+    }
+
     const call = await prisma.call.create({
       data: {
         callerId,
@@ -71,6 +87,7 @@ export async function POST(req: NextRequest) {
         transcript: "",
         usedPromptId: composedPrompt.id,
         previousCallId: lastCall?.id || null,
+        ...(sessionParentId ? { sessionId: sessionParentId } : {}),
       },
     });
 

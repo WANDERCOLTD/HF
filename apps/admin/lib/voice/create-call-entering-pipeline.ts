@@ -45,6 +45,8 @@ import {
   resolveModuleByLogicalId,
 } from "@/lib/curriculum/resolve-module";
 import { resolveDefaultModuleForCaller } from "@/lib/curriculum/resolve-default-module";
+import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
+import { createSession } from "@/lib/voice/create-session";
 
 export interface CallEntryArgs {
   callerId: string;
@@ -58,6 +60,12 @@ export interface CallEntryResult {
   playbookId: string | null;
   requestedModuleId: string | null;
   curriculumModuleId: string | null;
+  /**
+   * Session row id when `HF_FLAG_SESSION_MODEL_V2=true`; null otherwise.
+   * Existing callers may ignore — Slice 4 turns this into a hard
+   * dependency.
+   */
+  sessionId?: string | null;
 }
 
 /**
@@ -72,6 +80,18 @@ export async function createCallEnteringPipeline(
   args: CallEntryArgs,
 ): Promise<CallEntryResult> {
   const { callerId, source, voiceProvider } = args;
+
+  // #1342 — when the Session Model V2 flag is on, route through
+  // `createSession` so the Session parent row + atomic counter + voice
+  // config snapshot all land. The Call row is still created (the
+  // pipeline runner is voice-call-keyed until Slice 4), and now carries
+  // `sessionId` pointing back at the parent.
+  //
+  // Flag false: preserve the pre-#1342 behaviour exactly (the existing
+  // unit-test suite asserts this path).
+  if (isSessionModelV2Enabled()) {
+    return await createCallEnteringPipelineV2(args);
+  }
 
   // 1. Playbook attribution — null when no ACTIVE enrollment. Returning
   //    null is intentional; the caller decides whether to abort or proceed
@@ -143,5 +163,71 @@ export async function createCallEnteringPipeline(
     playbookId,
     requestedModuleId: resolvedRequestedSlug,
     curriculumModuleId,
+    sessionId: null,
+  };
+}
+
+/**
+ * V2 path — Session parent row + Call child linked via `sessionId`.
+ *
+ * Reuses `createSession` for the cascade + counter + snapshot logic so
+ * the V1 fallback and V2 flag-on paths share the same FK resolution
+ * code. The Call insert here exists only because the pipeline runner
+ * is still voice-call-keyed; Slice 4 collapses Call→Session.
+ *
+ * Note: this is the ONLY V1-allow-listed `prisma.call.create` that the
+ * ESLint rule preserves — the create-call-entering-pipeline.ts file is
+ * already in the no-bare-call-create allow-list. The Session row is
+ * written by `createSession` (which is in the no-bare-session-create
+ * allow-list).
+ */
+async function createCallEnteringPipelineV2(
+  args: CallEntryArgs,
+): Promise<CallEntryResult> {
+  const { callerId, source, voiceProvider } = args;
+
+  const result = await createSession({
+    callerId,
+    kind: "VOICE_CALL",
+    source,
+    voiceProvider,
+    ...(args.requestedModuleId ? { requestedModuleId: args.requestedModuleId } : {}),
+  });
+
+  // Create the Call child linked to the Session parent. The Call carries
+  // the same FK triple so legacy readers still work; the unique
+  // `Call.sessionId` lets readers cross-walk.
+  const call = await prisma.call.create({
+    data: {
+      callerId,
+      source,
+      transcript: "",
+      sessionId: result.session.id,
+      // The Session already stamped `learnerFacingNumber`; mirror to
+      // Call.callSequence so legacy callers' "Call #N" reads stay
+      // consistent during the dual-write window. Slice 4 removes the
+      // legacy column.
+      ...(result.session.learnerFacingNumber != null
+        ? { callSequence: result.session.learnerFacingNumber }
+        : {}),
+      ...(voiceProvider !== null ? { voiceProvider } : {}),
+      ...(result.playbookId ? { playbookId: result.playbookId } : {}),
+      ...(result.requestedModuleId
+        ? { requestedModuleId: result.requestedModuleId }
+        : {}),
+      ...(result.curriculumModuleId
+        ? { curriculumModuleId: result.curriculumModuleId }
+        : {}),
+      ...(result.usedPromptId ? { usedPromptId: result.usedPromptId } : {}),
+    },
+    select: { id: true },
+  });
+
+  return {
+    call,
+    playbookId: result.playbookId,
+    requestedModuleId: result.requestedModuleId,
+    curriculumModuleId: result.curriculumModuleId,
+    sessionId: result.session.id,
   };
 }

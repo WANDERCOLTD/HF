@@ -1,0 +1,38 @@
+{
+  "$schema": "../README.md#fixture-shape",
+  "issue": 1342,
+  "scenario": "Pre-Slice-3 state — caller exists with prior Call rows but no Session rows yet. Race-prone MAX(callSequence)+1 sequencer; no atomic counter; voiceConfigSnapshot column unused; usedPromptId cascade lives only in route-handlers comments.",
+  "capturedFrom": {
+    "db": "synthetic — Bertie-class shape, not pulled from live hf_sandbox",
+    "capturedAt": "2026-06-08T00:00:00.000Z",
+    "method": "Constructed to exercise the builders against a populated Caller + Playbook + Curriculum tree with no Sessions"
+  },
+  "callerId": "00000000-0000-0000-0000-000000001342",
+  "domainId": "00000000-0000-0000-0001-000000001342",
+  "playbookId": "00000000-0000-0000-0002-000000001342",
+  "curriculumId": "00000000-0000-0000-0003-000000001342",
+  "curriculumModule": {
+    "id": "00000000-0000-0000-0004-000000001342",
+    "slug": "part2",
+    "title": "Part 2: Long Turn"
+  },
+  "preExistingCalls": [
+    {
+      "id": "00000000-0000-0000-0010-000000001342",
+      "source": "vapi",
+      "voiceProvider": "vapi",
+      "callSequence": 1,
+      "playbookId": "00000000-0000-0000-0002-000000001342",
+      "transcript": "First call transcript",
+      "endedAt": "2026-06-08T09:00:00.000Z"
+    }
+  ],
+  "preExistingComposedPrompts": [
+    {
+      "id": "00000000-0000-0000-0020-000000001342",
+      "status": "active",
+      "composedAt": "2026-06-08T09:01:00.000Z",
+      "label": "ComposedPrompt produced after Call 1 — should be the I-CT2 step 2 hit when no prior Session exists"
+    }
+  ]
+}
