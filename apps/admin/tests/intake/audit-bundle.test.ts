@@ -179,7 +179,11 @@ describe("End-to-end audit bundle composition", () => {
       expect(curr.prevHash).toBe(prev.contentHash);
     }
 
-    // First event's prevHash is the genesis (all zeros).
-    expect(session.events[0].prevHash).toBe("0".repeat(64));
+    // First event's prevHash is the genesis sentinel — `null` per the
+    // Tallyseal spec (`GENESIS_PREV_HASH` from @tallyseal/core).
+    // Pre-#1343 this was a 64-char zero string; switched in Slice 2
+    // so both the in-memory store and PrismaEventStore converge with
+    // Tallyseal's `computeContentHash` pipeline.
+    expect(session.events[0].prevHash).toBeNull();
   });
 });

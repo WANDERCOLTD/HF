@@ -898,6 +898,14 @@ model Session {
   // SIM_CALL / TEXT_CHAT / ENROLLMENT / ASSESSMENT.
   voiceProvider String?
 
+  // Cross-link to the IntakeEvent hash chain that produced this Session.
+  // Set when `kind = ENROLLMENT` and the intake committed; null otherwise.
+  // Soft FK by design — `IntakeEvent` rows are keyed by `intentId` (string)
+  // and lifecycle-managed by `PrismaEventStore`, not by the Session table.
+  // Slice 2 of epic #1338 (#1343). The Tune tab joins through this column
+  // to render the captured intake Q&A.
+  intentId String?
+
   // Snapshot from `resolveVoiceConfig()` at session-start (Slice 3).
   // Shape: `VoiceConfig` from lib/voice/types.ts (#1269 / #1270).
   voiceConfigSnapshot Json?
@@ -949,6 +957,50 @@ model Session {
   @@index([playbookId])
   @@index([kind])
   @@index([status])
+  @@index([intentId])
+}
+
+// =============================================================
+// INTAKE EVENT STORE (epic #1338 Slice 2 — story #1343)
+// =============================================================
+// Durable hash-chained event log for the Tallyseal intake spike. Owned
+// by `lib/intake/prisma-event-store.ts::PrismaEventStore`. Each row is
+// one immutable event on a per-`intentId` chain; ordering is preserved
+// by the `(intentId, version)` unique composite, which also enforces
+// the monotonic version invariant.
+//
+// Chain shape:
+//   - `prevHash` is `null` only for `version = 0` (genesis)
+//   - `contentHash` is the SHA-256 over canonical-JSON of every field
+//     except `id` and `contentHash` itself, computed via
+//     `@tallyseal/core::computeContentHash`
+//
+// `payload` is `Json` because event shapes are kind-specific and the
+// store does not interpret content — only the chain primitives do.
+//
+// The full `Event` shape from `@tallyseal/core` includes fields like
+// `tenantId`, `actor`, `lawfulBasis`, `purpose`, `dataSubjectIds`,
+// `consentEventId`, `ai`, `correlationId`, `causationId`. These are all
+// folded into `payload` rather than promoted to columns — the store is
+// a generic event log, not an intake-specific schema. Per-kind shape
+// validation lives in the writer (see `lib/intake/session-store.ts`).
+//
+// NOT cross-referenced via Prisma `@relation` to `Session.intentId` —
+// intentId is a soft FK by design (the Tallyseal `Intent` concept owns
+// the keyspace and may outlive any single Session).
+model IntakeEvent {
+  id          String   @id @default(cuid())
+  intentId    String
+  version     Int // monotonic per intent, starts at 0
+  kind        String // SystemEventKind or customEventKind name
+  prevHash    String? // null only for version 0
+  contentHash String
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  @@unique([intentId, version])
+  @@index([intentId])
+  @@map("intake_event")
 }
 
 // #1340 (epic #1338 Slice 1) — typed failure children of Session.

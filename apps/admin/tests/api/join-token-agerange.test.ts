@@ -197,6 +197,18 @@ describe("/api/join/[token] — ageRange propagation (#1036)", () => {
     });
     await POST(request as never, { params: Promise.resolve({ token: "validtok" }) });
 
-    expect(mockPrisma.callerAttribute.upsert).not.toHaveBeenCalled();
+    // The `intake.ageRange` CallerAttribute row is skipped when ageRange
+    // is omitted — that's the #1036 invariant being asserted here.
+    // The intake-Q&A projection (#1343, scope='INTAKE_CHAT') still fires
+    // for firstName / lastName / email; those are not what this test
+    // gates. Scope the assertion to the GLOBAL/ageRange row only.
+    const upsertCalls = (mockPrisma.callerAttribute.upsert as ReturnType<typeof vi.fn>).mock.calls;
+    const ageRangeCalls = upsertCalls.filter(
+      (call: unknown[]) =>
+        typeof call[0] === "object" &&
+        call[0] !== null &&
+        JSON.stringify(call[0]).includes('"intake.ageRange"'),
+    );
+    expect(ageRangeCalls).toHaveLength(0);
   });
 });

@@ -1,0 +1,28 @@
+{
+  "slug": "1343-intake-event-post",
+  "description": "Post-fix state for #1343 (epic #1338 Slice 2). The intake_event table exists; Session.intentId column exists; PrismaEventStore.buildAndAppendEvent persists each event with a verifyChain-valid hash chain. /api/join projects intake Q&A into CallerAttribute(scope='INTAKE_CHAT').",
+  "captured_at": "2026-06-09T00:00:00Z",
+  "schema_state": {
+    "intake_event_table_exists": true,
+    "session_intentId_column_exists": true,
+    "intake_event_indexes": [
+      "intake_event_pkey",
+      "intake_event_intentId_version_key",
+      "intake_event_intentId_idx"
+    ]
+  },
+  "expected_event_count_after_proof_seed": 3,
+  "expected_chain_invariants": {
+    "version_0_prev_hash_is_null": true,
+    "all_subsequent_prev_hashes_match_predecessor_content_hash": true,
+    "verifyChain_valid": true
+  },
+  "expected_caller_attribute_intake_chat_keys": [
+    "q:firstName",
+    "a:firstName",
+    "q:lastName",
+    "a:lastName",
+    "q:email",
+    "a:email"
+  ]
+}

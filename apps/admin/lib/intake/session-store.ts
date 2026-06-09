@@ -17,8 +17,8 @@
 // process restarts, sessions clear — that's the right behaviour for a
 // dev/sandbox spike. Replace with PrismaEventStore in Phase 1.5.
 
-import { randomUUID, createHash } from "node:crypto";
-import { canonicalJSON } from "./tallyseal";
+import { randomUUID } from "node:crypto";
+import { computeContentHash, GENESIS_PREV_HASH as TALLYSEAL_GENESIS_PREV_HASH } from "./tallyseal";
 import type {
   ActorId,
   ContentHash,
@@ -103,7 +103,18 @@ export function __resetSessionStore(): void {
 
 // ── Event append (mini writeEvent — Phase 1 simplification) ────────
 
-const GENESIS_PREV_HASH = "0".repeat(64) as ContentHash;
+/**
+ * Genesis previous-hash sentinel. Re-exports `@tallyseal/core`'s
+ * `GENESIS_PREV_HASH` (which is `null` per spec) so both the in-memory
+ * store and `PrismaEventStore` (#1343) anchor their chains identically.
+ *
+ * Pre-#1343 this was a hand-rolled 64-char zero string; switching to
+ * the spec-blessed `null` makes hashes byte-identical with Tallyseal's
+ * own `writeEvent` and with the `runHashChainContract` golden sequence.
+ * In-memory chains don't survive a process restart so no migration
+ * concern — every test/dev run starts fresh.
+ */
+const GENESIS_PREV_HASH: ContentHash | null = TALLYSEAL_GENESIS_PREV_HASH;
 
 export interface AppendInput<TPayload> {
   readonly kind: EventKind;
@@ -137,7 +148,7 @@ export function appendEvent<TPayload>(
   input: AppendInput<TPayload>,
 ): Event {
   const version = session.events.length + 1;
-  const prevHash =
+  const prevHash: ContentHash | null =
     session.events.length === 0
       ? GENESIS_PREV_HASH
       : session.events[session.events.length - 1].contentHash;
@@ -145,22 +156,33 @@ export function appendEvent<TPayload>(
   const id = `evt-${randomUUID()}` as EventId;
 
   // Canonical hash over the event content excluding `id` + `contentHash`.
-  const hashable = {
+  // `computeContentHash` from @tallyseal/core bundles
+  // normaliseForCanonical → canonicalJSON → sha256 — the exact pipeline
+  // Tallyseal's `writeEvent` uses. PrismaEventStore (#1343) uses the
+  // same primitive, so the two paths converge byte-identically.
+  // `normaliseForCanonical` handles Date → ISO conversion so passing a
+  // raw Date here is equivalent to the prior `.toISOString()` call.
+  const hashable: Omit<Event, "id" | "contentHash"> = {
     tenantId: session.tenant.id,
     intentId: session.intentId,
     kind: input.kind,
     version,
-    timestamp: timestamp.toISOString(),
+    timestamp,
     actor: session.actor,
     lawfulBasis: input.lawfulBasis,
     purpose: input.purpose,
     dataSubjectIds: input.dataSubjectIds,
-    consentEventId: input.consentEventId ?? null,
+    // ConsentEventId is a branded subtype of EventId. AppendInput
+    // takes the parent type for ergonomics; cast at the boundary.
+    consentEventId: input.consentEventId as Event["consentEventId"],
+    specialCategoryBasis: undefined,
     prevHash,
     payload: input.payload,
-    ai: input.ai ?? null,
+    ai: input.ai,
+    correlationId: undefined,
+    causationId: undefined,
   };
-  const contentHash = sha256Hex(canonicalJSON(hashable)) as ContentHash;
+  const contentHash = computeContentHash(hashable);
 
   const event = {
     id,
@@ -235,10 +257,6 @@ export function buildChainProof(session: IntakeSession): HashChainProof {
     entries,
     genesisPrevHash: GENESIS_PREV_HASH,
   } as unknown as HashChainProof;
-}
-
-function sha256Hex(input: string): string {
-  return createHash("sha256").update(input).digest("hex");
 }
 
 // Re-export ActorId for callers building synthetic actors.

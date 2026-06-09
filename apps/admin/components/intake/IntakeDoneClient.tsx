@@ -114,6 +114,10 @@ export function IntakeDoneClient() {
     setJoinError(null);
     try {
       const body = buildJoinBody(snapshot!.values);
+      // Pass intentId so the join handler can link the resulting
+      // Session(kind=ENROLLMENT) row back to the IntakeEvent chain
+      // (Slice 2 of epic #1338 — #1343). Optional on the join schema.
+      if (intentId) body.intentId = intentId;
       const res = await fetch(
         `/api/join/${encodeURIComponent(token)}`,
         {

@@ -41,6 +41,7 @@ export type {
   EventAIProvenance,
   SystemEventKind,
   CustomEventKind,
+  SpecialCategoryBasis,
 
   // Tenant + actor
   Tenant,
