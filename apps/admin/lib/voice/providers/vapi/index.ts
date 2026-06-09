@@ -468,6 +468,23 @@ export class VapiProvider implements VoiceProvider {
           sensitive: false,
           required: false,
         },
+        {
+          // #1373 — Live transcript-bubble stream toggle. Cascade-aware.
+          // When false, /api/voice/calls/[id]/stream still serves the
+          // call-started + call-ended events but transcript-partial
+          // broadcasts are suppressed server-side. Post-call transcript
+          // (Call.transcript via end-of-call pipeline) is unaffected —
+          // bubbles still appear after the call. Default true preserves
+          // current behaviour; set false per Course for cohorts where
+          // operators prefer the chat surface stays empty during calls.
+          key: "transcriptStreamEnabled",
+          label: "Live transcript bubbles",
+          type: "boolean",
+          default: true,
+          help: "When on, SimChat shows the conversation in real-time as bubbles while the call is live. When off, bubbles only appear after the call ends (from the persisted transcript). Off can reduce visual noise during high-volume cohort calls.",
+          sensitive: false,
+          required: false,
+        },
       ],
     };
   }
