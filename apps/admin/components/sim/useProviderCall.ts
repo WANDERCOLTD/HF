@@ -247,6 +247,26 @@ export function useProviderCall(
           on: (event: string, cb: (...args: unknown[]) => void) => void;
         };
         sdkRef.current = vapi;
+
+        // #1381 — Register listeners BEFORE calling start(). VAPI's web
+        // SDK uses an EventEmitter (Node-style polyfill in the browser
+        // bundle). If start() emits an "error" event before a listener
+        // is attached, the polyfill throws synchronously with the
+        // generic message "Unhandled error. (undefined)" — exactly
+        // what showed up in /sim screenshots when the call failed.
+        // Reordering catches the real cause and routes it to the UI.
+        vapi.on("error", (err: unknown) => {
+          console.error("[useProviderCall] vapi error event:", err);
+          const msg = describeError(err) || "Voice provider error (see console)";
+          setErrorMessage(msg);
+          setStatus("error");
+        });
+        vapi.on("call-end", () => {
+          setEndedBy((prev) => prev ?? "sdk");
+          setStatus("ended");
+          teardown();
+        });
+
         // Path B (PR voice-cost-knobs): HF built the full assistant
         // config server-side and we pass it inline. The Web SDK does
         // NOT trigger our /api/voice/vapi/assistant-request webhook —
@@ -264,23 +284,6 @@ export function useProviderCall(
             .assistant ?? assistantConfig;
         await vapi.start(inlineAssistant);
         setStatus("active");
-
-        vapi.on("call-end", () => {
-          setEndedBy((prev) => prev ?? "sdk");
-          setStatus("ended");
-          teardown();
-        });
-        // #1380 — Surface SDK-side errors that fire AFTER start() resolves.
-        // VAPI's web SDK emits "error" events for transport / WebRTC /
-        // network issues that the start() Promise itself doesn't reject on.
-        // Pre-#1380 these were console.warns and the UI sat at "active"
-        // status while audio was broken.
-        vapi.on("error", (err: unknown) => {
-          console.error("[useProviderCall] vapi error event:", err);
-          const msg = describeError(err) || "Voice provider error (see console)";
-          setErrorMessage(msg);
-          setStatus("error");
-        });
       } else {
         // Retell WebRTC is out of scope for #1092 — placeholder error.
         throw new Error(
