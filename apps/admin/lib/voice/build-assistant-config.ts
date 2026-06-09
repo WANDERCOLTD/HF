@@ -32,6 +32,10 @@ import { getVoiceCallSettings } from "@/lib/system-settings";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { loadResolvedVoiceConfig } from "@/lib/voice/load-voice-config";
 import { flatten as flattenVoice } from "@/lib/voice/config";
+import {
+  UNKNOWN_CALLER_FIRST_LINE,
+  noActivePromptFirstLine,
+} from "@/lib/prompt/composition/defaults/fallback-first-lines";
 import type { ProviderAssistantConfig } from "@/lib/voice/types";
 
 export interface BuildAssistantOptions {
@@ -118,7 +122,7 @@ export async function buildAssistantConfigForCaller(
       callerName: null,
       customerPhone: null,
       voicePrompt: vs.unknownCallerPrompt,
-      firstLine: "Hello! I don't think we've spoken before. What's your name?",
+      firstLine: UNKNOWN_CALLER_FIRST_LINE,
       toolDefinitions: [],
       knowledgePlanEnabled: false,
       serverUrlBase,
@@ -174,7 +178,7 @@ export async function buildAssistantConfigForCaller(
       callerName: caller.name,
       customerPhone: caller.phone,
       voicePrompt: fallbackPrompt,
-      firstLine: `Hi${caller.name ? ` ${caller.name}` : ""}! Good to hear from you.`,
+      firstLine: noActivePromptFirstLine(caller.name),
       toolDefinitions: [],
       knowledgePlanEnabled: false,
       serverUrlBase,

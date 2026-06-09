@@ -32,12 +32,12 @@
  *     that path holds the explicit system-default templates; greetings
  *     LIVE there by design
  *
- * Severity: lands at `warn` because the four known offences need a
- * companion rollback PR (#1384 follow-up) that touches the prompt-
- * composition path — and per `.claude/rules/pipeline-and-prompt.md`
- * that path requires BA+TL grooming. The rollback PR promotes this
- * rule to `error` in the same commit that removes the last offence,
- * so the "halt — not accumulate" intent holds end-to-end.
+ * Severity: `error`. Promoted in #1385 in the same commit that removed
+ * the last offence — the "halt, do not accumulate" intent holds end-to-
+ * end. The six known offences (quickstart.ts:549,566 +
+ * build-assistant-config.ts:121,177 + route-handlers.ts:1204,1250) were
+ * all dropped or rehomed under `lib/prompt/composition/defaults/
+ * fallback-first-lines.ts` in the same PR.
  *
  * Companion: `.claude/rules/pipeline-and-prompt.md` documents the
  * "search for existing config before editing prompt-composition
@@ -47,6 +47,7 @@
 const GUARDED_PATH_FRAGMENTS = [
   "lib/prompt/composition/transforms/",
   "lib/voice/build-assistant-config.ts",
+  "lib/voice/route-handlers.ts",
 ];
 
 /** Paths where literal greeting strings ARE the contract — system-default

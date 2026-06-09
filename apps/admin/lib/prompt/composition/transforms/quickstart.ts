@@ -86,7 +86,7 @@ registerTransform("computeQuickStart", (
   context: AssembledContext,
 ) => {
   const { sharedState, loadedData, resolvedSpecs, sections } = context;
-  const { modules, isFirstCall, completedModules, moduleToReview, nextModule, thresholds, callNumber, schedulerDecision, schedulerPolicy, moduleAttemptCounts, hasAttemptData, lockedModule } = sharedState;
+  const { modules, isFirstCall, completedModules, moduleToReview, nextModule, thresholds, callNumber, schedulerDecision, schedulerPolicy, moduleAttemptCounts, lockedModule } = sharedState;
   const caller = loadedData.caller;
   const learnerGoals = loadedData.goals;
   const identitySpec = resolvedSpecs.identitySpec;
@@ -534,37 +534,22 @@ registerTransform("computeQuickStart", (
       // touching unrelated callers in this file.
       const injectSubject = sanitiseWelcome;
 
-      // 0a. #274 Slice B / #1367: locked-module opening — highest priority.
-      // The learner has explicitly picked a module via the Module Picker.
-      // Return a LITERAL greeting (VAPI speaks `first_line` verbatim as
-      // assistant.firstMessage). The system-prompt body already carries
-      // "lockedModule.name" and the "don't ask what they want to work on"
-      // intent — the AI doesn't need a meta-instruction inside the line
-      // it's literally going to say out loud.
-      // Pre-#1367 this returned the directive text starting with "The
-      // learner has picked..." which VAPI dutifully spoke aloud as the
-      // greeting — surfaced live 2026-06-08 on /x/sim Peter Parker call.
-      if (lockedModule) {
-        const namePart = caller?.name ? ` ${caller.name}` : "";
-        return `Hi${namePart}! Let's get into "${lockedModule.name}".`;
-      }
-
-      // 0b. #266 Slice 1 / #1367: module-progress opening for authored
-      // courses with attempt history. Same bug class as 0a — was returning
-      // an AI directive instead of a literal opening. The directive ("open
-      // by referencing progress") belongs in the system prompt body, not
-      // in the literal-spoken greeting. Keep first_line short and warm;
-      // let TUT-001 persona + the Module-progress prompt section drive
-      // the actual referencing.
-      if (
-        !isFirstCall &&
-        pbConfig.modulesAuthored === true &&
-        hasAttemptData === true &&
-        modules.length > 0
-      ) {
-        const namePart = caller?.name ? ` ${caller.name}` : "";
-        return `Welcome back${namePart}!`;
-      }
+      // #1385 — rollback of #1367. Locked-module and module-progress
+      // branches previously short-circuited with hardcoded literal
+      // greetings ("Hi ${name}! Let's get into ${module}.", "Welcome
+      // back ${name}!"). Those literals intercepted BEFORE the
+      // configurable cascade (identity spec, phase-derived #1195,
+      // course-scoped welcome, generic fallback) could fire, making the
+      // greeting un-customisable from Course Design and breaking the
+      // "Configuration over Code" contract.
+      //
+      // After rollback: the cascade below handles every case. The
+      // system-prompt body still carries `lockedModule.name` and the
+      // "don't ask what they want to work on" intent — that's the right
+      // home for those directives, not the literal-spoken greeting.
+      // Mechanically enforced by `hf-compose/no-hardcoded-greeting-in-
+      // composition` (severity `error`). See `.claude/rules/pipeline-
+      // and-prompt.md` MANDATORY rule.
 
       // 1. Identity spec instruction (highest priority — persona spec)
       const identityOpening = (identitySpec?.config as SpecConfig)?.sessionStructure?.opening?.instruction;
