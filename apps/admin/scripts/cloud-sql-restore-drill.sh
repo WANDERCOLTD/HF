@@ -90,7 +90,12 @@ ok "clone complete"
 # ---------------- sanity SQL -------------
 CONN=$(gcloud sql instances describe "$DRILL_INSTANCE" --project="$PROJECT" --format='value(connectionName)')
 log "starting auth proxy on :$PROXY_PORT  conn=$CONN"
-"$PROXY_BIN" "$CONN" --port "$PROXY_PORT" >/tmp/restore-drill-proxy.log 2>&1 &
+# --private-ip: hf-db is a private-IP instance; clones inherit. Public IP is
+# off (verified `gcloud sql instances describe hf-db` 2026-06-09). Without
+# this flag the proxy errors "instance does not have IP of type 'PUBLIC'".
+# The Cloud Run Job must also have a VPC connector with egress to reach the
+# private IP — see RB-1394-DEPLOY.md § 3.
+"$PROXY_BIN" "$CONN" --port "$PROXY_PORT" --private-ip >/tmp/restore-drill-proxy.log 2>&1 &
 PROXY_PID=$!
 trap '[[ -n "${PROXY_PID:-}" ]] && kill "$PROXY_PID" 2>/dev/null || true' EXIT
 # Wait for the proxy + cloned DB to actually accept connections, not just

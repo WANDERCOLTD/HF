@@ -98,14 +98,21 @@ gcloud builds submit /tmp/build \
 
 ```bash
 gcloud run jobs create cloud-sql-restore-drill \
-  --image=europe-west2-docker.pkg.dev/hf-admin-prod/hf/cloud-sql-restore-drill:latest \
+  --image=europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/cloud-sql-restore-drill:latest \
   --region=europe-west2 \
   --service-account="${SA_EMAIL}" \
   --max-retries=0 \
   --task-timeout=60m \
   --memory=512Mi \
+  --vpc-connector=hf-connector \
+  --vpc-egress=private-ranges-only \
   --set-env-vars=PROJECT=hf-admin-prod,SOURCE_INSTANCE=hf-db,DRILL_DB=hf_sandbox,DB_USER=postgres,DB_PASSWORD_SECRET=cloud-sql-drill-db-password \
   --project=hf-admin-prod
+
+# VPC connector: hf-db is a private-IP-only instance; the drill clone inherits.
+# Cloud Run's default egress can't reach private IPs in the project VPC. The
+# existing `hf-connector` (used by hf-admin-dev) routes private-range traffic
+# into the VPC, letting the drill's Cloud SQL Auth Proxy connect via private IP.
 
 # Manual test (do this once before scheduling)
 gcloud run jobs execute cloud-sql-restore-drill --region=europe-west2 --wait --project=hf-admin-prod
