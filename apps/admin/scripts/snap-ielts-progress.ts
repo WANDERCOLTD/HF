@@ -32,12 +32,13 @@ async function main() {
   const progress = await p.callerModuleProgress.findMany({
     where: { callerId: CALEB_CALLER_ID, moduleId: { in: modules.map((m) => m.id) } },
   });
+  // #1344 Slice 4 — `callSequence` gone; walk via Session FK.
   const calls = await p.call.findMany({
     where: { callerId: CALEB_CALLER_ID, playbookId: IELTS_PLAYBOOK_ID },
-    orderBy: { callSequence: "asc" },
+    orderBy: { createdAt: "asc" },
     select: {
       id: true,
-      callSequence: true,
+      session: { select: { learnerFacingNumber: true } },
       source: true,
       endedAt: true,
       requestedModuleId: true,
@@ -85,7 +86,7 @@ async function main() {
     const len = c.transcript?.length ?? 0;
     const moduleSlug = c.curriculumModuleId ? moduleMap[c.curriculumModuleId] : c.requestedModuleId ?? "(none)";
     console.log(
-      `  #${c.callSequence} ${c.id.slice(0, 8)} src=${c.source} ended=${c.endedAt ? "Y" : "N"} module=${(moduleSlug || "(none)").padEnd(6)} transcript=${String(len).padStart(5)}ch scores=${c._count.scores}`,
+      `  #${(c.session?.learnerFacingNumber ?? "?")} ${c.id.slice(0, 8)} src=${c.source} ended=${c.endedAt ? "Y" : "N"} module=${(moduleSlug || "(none)").padEnd(6)} transcript=${String(len).padStart(5)}ch scores=${c._count.scores}`,
     );
   }
 
@@ -97,7 +98,7 @@ async function main() {
   for (const c of calls) {
     const ss = scoresByCall[c.id] || [];
     if (ss.length === 0) {
-      console.log(`  #${c.callSequence} (no scores)`);
+      console.log(`  #${(c.session?.learnerFacingNumber ?? "?")} (no scores)`);
       continue;
     }
     const line = ss
@@ -108,7 +109,7 @@ async function main() {
         return `${key}=${s.score.toFixed(2)}${mod}${he}`;
       })
       .join("  ");
-    console.log(`  #${c.callSequence}: ${line}`);
+    console.log(`  #${(c.session?.learnerFacingNumber ?? "?")}: ${line}`);
   }
 
   await p.$disconnect();

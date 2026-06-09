@@ -601,7 +601,8 @@ async function getCallerContext(callerId: string): Promise<string | null> {
         select: {
           id: true,
           createdAt: true,
-          callSequence: true,
+          // #1344 Slice 4 — `callSequence` gone; walk via Session FK.
+          session: { select: { learnerFacingNumber: true } },
           transcript: true,
           usedPrompt: {
             select: {
@@ -677,7 +678,7 @@ async function getCallerContext(callerId: string): Promise<string | null> {
       parts.push(`\n**Recent Calls (showing ${recentCall.length} of ${caller._count.calls}${moreNote}):**`);
       for (let i = 0; i < recentCall.length; i++) {
         const call = recentCall[i];
-        parts.push(`- Call #${call.callSequence || "?"} on ${call.createdAt.toLocaleString()} (id: ${call.id})`);
+        parts.push(`- Call #${call.session?.learnerFacingNumber ?? "?"} on ${call.createdAt.toLocaleString()} (id: ${call.id})`);
         if (i < 3 && call.transcript) {
           const preview = call.transcript.slice(0, 200).replace(/\n/g, " ");
           parts.push(`  Transcript: "${preview}${call.transcript.length > 200 ? "..." : ""}"`);
@@ -780,7 +781,10 @@ async function getCallContext(callId: string): Promise<string | null> {
       `- **Date:** ${call.createdAt.toLocaleString()}`,
       ...(call.caller?.name ? [`- **Caller:** ${call.caller.name}`] : []),
       ...(call.source ? [`- **Source:** ${call.source}`] : []),
-      ...((call as any).callSequence ? [`- **Call Sequence:** #${(call as any).callSequence}`] : []),
+      // #1344 Slice 4 — `callSequence` gone; walk via Session FK when present.
+      ...((call as any).session?.learnerFacingNumber
+        ? [`- **Call Sequence:** #${(call as any).session.learnerFacingNumber}`]
+        : []),
     ];
 
     // Show the prompt that was used FOR this call

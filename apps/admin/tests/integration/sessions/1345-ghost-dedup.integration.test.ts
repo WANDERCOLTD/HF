@@ -176,7 +176,11 @@ describe("#1345 — Ghost-row dedup integration (live DB)", () => {
     expect(postRows[0].externalId).toBe(event.externalCallId);
     expect(postRows[0].endedAt).not.toBeNull();
     expect(postRows[0].endSource).toBe("webhook");
-    expect(postRows[0].callSequence).toBe(1);
+    // #1344 Slice 4 — `Call.callSequence` column dropped; sequencing now
+    // lives on the Session parent (`Session.learnerFacingNumber`). The
+    // adoption path doesn't go through `createSession`, so the parent
+    // remains unbumped.
+    expect(postRows[0].sessionId).toBeNull();
     expect(result.merged).toBe(true);
     expect(result.callId).toBe(placeholder.id);
   });

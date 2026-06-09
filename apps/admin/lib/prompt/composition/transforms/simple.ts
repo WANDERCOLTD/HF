@@ -13,10 +13,10 @@ import type { AssembledContext, RecentCallData, CallerAttributeData, GoalData } 
  * Extracted from route.ts lines 1387-1395, 1922-1926.
  */
 registerTransform("computeCallHistory", (
-  rawData: { recentCalls: RecentCallData[]; callCount: number },
+  rawData: { recentCalls: RecentCallData[]; nextLearnerFacingNumber: number },
   context: AssembledContext,
 ) => {
-  const { recentCalls, callCount } = rawData;
+  const { recentCalls, nextLearnerFacingNumber } = rawData;
   const { thresholds, callNumber } = context.sharedState;
 
   const callHistory = recentCalls.map((call) => ({
@@ -29,14 +29,20 @@ registerTransform("computeCallHistory", (
     })),
   }));
 
+  // #1344 Slice 4 — `totalCalls` is the count of qualifying prior
+  // learner sessions = `nextLearnerFacingNumber - 1`. Sourced from
+  // `Session.learnerFacingNumber`, not from the count-based
+  // `prisma.call.count({endedAt: not null})` reader.
+  const totalCalls = Math.max(0, nextLearnerFacingNumber - 1);
+
   return {
     // #1010 follow-up (I-C2) — expose the canonical compose-time
-    // call number alongside the raw ENDED-calls total. Footer
+    // call number alongside the prior-sessions total. Footer
     // renderers (renderPromptSummary.ts) prefer `callNumber` so the
     // `*Call #N with this caller*` line matches Quick Start's
-    // `(call #N)` label. `totalCalls` retained for back-compat.
-    totalCalls: callCount,
-    callNumber: callNumber ?? callCount + 1,
+    // `(call #N)` label.
+    totalCalls,
+    callNumber: callNumber ?? nextLearnerFacingNumber,
     mostRecent: callHistory[0] || null,
     recent: callHistory.slice(0, 3),
   };

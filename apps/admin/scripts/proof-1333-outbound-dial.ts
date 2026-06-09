@@ -68,21 +68,27 @@ async function main() {
     process.exit(1);
   }
 
-  const calls = await prisma.call.findMany({
+  // #1344 Slice 4 — `Call.callSequence` dropped. Sequencing lives on
+  // `Session.learnerFacingNumber`; pull it through the 1:1 Session join.
+  const rawCalls = await prisma.call.findMany({
     where: { callerId },
     select: {
       id: true,
       source: true,
-      callSequence: true,
       voiceProvider: true,
       playbookId: true,
       requestedModuleId: true,
       curriculumModuleId: true,
       createdAt: true,
       endedAt: true,
+      session: { select: { learnerFacingNumber: true } },
     },
     orderBy: { createdAt: "asc" },
   });
+  const calls = rawCalls.map((c) => ({
+    ...c,
+    callSequence: c.session?.learnerFacingNumber ?? null,
+  }));
 
   // Check 1 — pre-fix orphan presence (forensic evidence preserved).
   const preFixOrphans = calls.filter(

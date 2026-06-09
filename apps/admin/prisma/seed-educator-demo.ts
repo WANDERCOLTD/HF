@@ -1257,7 +1257,9 @@ async function createCalls(
           externalId: `edu-demo-call-${pupil.externalId}-${c + 1}`,
           callerId: pupil.id,
           transcript,
-          callSequence: c + 1,
+          // #1344 Slice 4 — `Call.callSequence` dropped; sequencing now lives
+          // on `Session.learnerFacingNumber`. Demo seed creates Calls without
+          // Sessions and therefore no sequence number.
           createdAt: callDate,
           endedAt: endDate,
         },

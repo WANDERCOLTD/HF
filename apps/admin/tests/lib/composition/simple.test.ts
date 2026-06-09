@@ -15,7 +15,7 @@ function makeContext(overrides: Partial<AssembledContext> = {}): AssembledContex
       personality: null,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 0,
+            nextLearnerFacingNumber: 1,
       behaviorTargets: [],
       callerTargets: [],
       callerAttributes: [],
@@ -71,7 +71,10 @@ describe("computeCallHistory transform", () => {
 
   it("returns empty history when no calls", () => {
     const ctx = makeContext();
-    const rawData = { recentCalls: [], callCount: 0 };
+    // #1344 Slice 4 — `callCount` reader replaced by `nextLearnerFacingNumber`
+    // (the COMPOSE-time read from `Session.learnerFacingNumber + 1`).
+    // `totalCalls` derives from `nextLearnerFacingNumber - 1`.
+    const rawData = { recentCalls: [], nextLearnerFacingNumber: 1 };
     const result = getTransform("computeCallHistory")!(rawData, ctx, makeSectionDef());
 
     expect(result.totalCalls).toBe(0);
@@ -93,7 +96,9 @@ describe("computeCallHistory transform", () => {
     ];
 
     const ctx = makeContext();
-    const rawData = { recentCalls: calls, callCount: 5 };
+    // #1344 Slice 4 — `totalCalls` derives from `nextLearnerFacingNumber - 1`
+    // (Session-counter-sourced). 5 prior learner calls → nextLF=6.
+    const rawData = { recentCalls: calls, nextLearnerFacingNumber: 6 };
     const result = getTransform("computeCallHistory")!(rawData, ctx, makeSectionDef());
 
     expect(result.totalCalls).toBe(5);
@@ -113,7 +118,12 @@ describe("computeCallHistory transform", () => {
     }));
 
     const ctx = makeContext();
-    const result = getTransform("computeCallHistory")!({ recentCalls: calls, callCount: 10 }, ctx, makeSectionDef());
+    // #1344 Slice 4 — totalCalls=10 means nextLearnerFacingNumber=11.
+    const result = getTransform("computeCallHistory")!(
+      { recentCalls: calls, nextLearnerFacingNumber: 11 },
+      ctx,
+      makeSectionDef(),
+    );
     expect(result.recent).toHaveLength(3);
   });
 });

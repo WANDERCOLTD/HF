@@ -58,12 +58,16 @@ export async function POST(req: NextRequest) {
 
     console.log(`[test-harness/onboarding-call] Prompt composed for caller ${callerId}: ${composedPrompt.id}`);
 
-    // Step 2: Create call record
+    // Step 2: Create call record.
+    // #1344 Slice 4 — `Call.callSequence` is gone. The Session parent
+    // row (when V2 flag is on, which is now the default) owns sequencing
+    // via `CallerSequenceCounter`. Just grab the prior Call id for the
+    // chain link.
     const lastCall = await prisma.call.findFirst({
       where: { callerId },
-      orderBy: { callSequence: "desc" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
     });
-    const nextSequence = (lastCall?.callSequence ?? 0) + 1;
 
     // #1342 — when the Session Model V2 flag is on, write a VOICE_CALL
     // Session parent for the harness call so its narrative card lands in
@@ -83,7 +87,6 @@ export async function POST(req: NextRequest) {
       data: {
         callerId,
         source: "ai-simulation",
-        callSequence: nextSequence,
         transcript: "",
         usedPromptId: composedPrompt.id,
         previousCallId: lastCall?.id || null,
@@ -91,7 +94,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log(`[test-harness/onboarding-call] Call #${nextSequence} created for caller ${callerId}: ${call.id}`);
+    console.log(`[test-harness/onboarding-call] Call ${call.id.slice(0, 8)} created for caller ${callerId}`);
 
     // Step 3: Optionally generate AI greeting
     let greeting: string | undefined;
@@ -128,7 +131,9 @@ export async function POST(req: NextRequest) {
       },
       call: {
         id: call.id,
-        callSequence: call.callSequence,
+        // #1344 Slice 4 — `callSequence` column dropped; null for back-
+        // compat with existing UI shape.
+        callSequence: null as number | null,
         source: call.source,
       },
       greeting,

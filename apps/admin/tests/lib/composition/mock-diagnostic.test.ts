@@ -596,7 +596,7 @@ describe("mockDiagnostic composition (executor end-to-end)", () => {
       personality: null,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 0,
+            nextLearnerFacingNumber: 1,
       behaviorTargets: [],
       callerTargets: [],
       callerAttributes: [],

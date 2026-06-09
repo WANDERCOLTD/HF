@@ -32,6 +32,13 @@ const mockPrisma = vi.hoisted(() => ({
 const mockRequireAuth = vi.hoisted(() => vi.fn());
 const mockIsAuthError = vi.hoisted(() => vi.fn().mockReturnValue(false));
 const mockResolvePlaybookId = vi.hoisted(() => vi.fn());
+// #1344 Slice 4 — POST now calls `createSession({kind:'SIM_CALL'})` to
+// mint the Session parent row before creating the Call. Mock it to a
+// deterministic shape so the route's `result.session.id` read doesn't
+// hit the real (Prisma-driven) implementation.
+const mockCreateSession = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ session: { id: "session-1" } }),
+);
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
@@ -45,6 +52,10 @@ vi.mock("@/lib/permissions", () => ({
 
 vi.mock("@/lib/enrollment/resolve-playbook", () => ({
   resolvePlaybookId: (...args: unknown[]) => mockResolvePlaybookId(...args),
+}));
+
+vi.mock("@/lib/voice/create-session", () => ({
+  createSession: (...args: unknown[]) => mockCreateSession(...args),
 }));
 
 import { POST } from "@/app/api/callers/[callerId]/calls/route";

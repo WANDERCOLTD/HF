@@ -118,7 +118,8 @@ export async function GET(
           id: true,
           source: true,
           createdAt: true,
-          callSequence: true,
+          // #1344 Slice 4 — `callSequence` gone; walk via Session FK.
+          session: { select: { learnerFacingNumber: true } },
           _count: { select: { scores: true, behaviorMeasurements: true } },
         },
       }),
@@ -293,11 +294,15 @@ export async function GET(
 
     // 5. CALL CLUSTER
     if (calls.length > 0) {
-      const maxSeq = Math.max(...calls.map(c => c.callSequence ?? 0), 1);
+      const maxSeq = Math.max(
+        ...calls.map((c) => c.session?.learnerFacingNumber ?? 0),
+        1,
+      );
       for (const call of calls) {
         const dateStr = call.createdAt.toISOString().split("T")[0];
-        const seq = call.callSequence ? `#${call.callSequence}` : "";
-        const age = maxSeq > 0 ? 1 - ((call.callSequence ?? 0) / maxSeq) : 0;
+        const lfn = call.session?.learnerFacingNumber ?? null;
+        const seq = lfn != null ? `#${lfn}` : "";
+        const age = maxSeq > 0 ? 1 - ((lfn ?? 0) / maxSeq) : 0;
         addNode({
           id: `call:${call.id}`,
           label: `${seq} ${dateStr}`.trim(),
@@ -308,7 +313,7 @@ export async function GET(
           details: [
             { label: "Date", value: dateStr },
             { label: "Source", value: call.source },
-            { label: "Sequence", value: call.callSequence },
+            { label: "Sequence", value: lfn },
             { label: "Scores", value: call._count.scores },
             { label: "Measurements", value: call._count.behaviorMeasurements },
           ].filter(d => d.value !== null && d.value !== undefined),

@@ -425,7 +425,9 @@ export async function seedJourneyFixtures(prisma: PrismaClient): Promise<Journey
       source: `${JOURNEY_PREFIX}`,
       externalId: `${JOURNEY_PREFIX}-call-1`,
       callerId: caller.id,
-      callSequence: 1,
+      // #1344 Slice 4 — `Call.callSequence` dropped; sequencing lives on
+      // `Session.learnerFacingNumber`. Journey fixture predates the Session
+      // model and doesn't create a Session row.
       transcript: [
         "AI: Welcome! Today we'll explore photosynthesis. What do you already know about how plants make food?",
         "Student: I know plants need sunlight and water.",
@@ -433,7 +435,11 @@ export async function seedJourneyFixtures(prisma: PrismaClient): Promise<Journey
         "Student: What's the chemical equation?",
         "AI: Great question! 6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂. Let's break it down...",
       ].join("\n"),
-      moduleId: mod1.id,
+      // #1344 follow-up — Call has `curriculumModuleId`, not `moduleId`.
+      // Pre-existing schema-rot baseline error that the pre-push hook flagged
+      // once this file landed in the change set; fixing inline to keep the
+      // hook clean.
+      curriculumModuleId: mod1.id,
     },
   });
 

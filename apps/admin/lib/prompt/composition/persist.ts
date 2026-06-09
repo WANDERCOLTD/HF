@@ -12,7 +12,14 @@ export interface PersistOptions {
   callerId: string;
   playbookId?: string | null;
   triggerType?: string;
-  triggerCallId?: string | null;
+  /**
+   * #1344 Slice 4 — `triggerCallId` is GONE. Pipeline callers must pass
+   * `triggerSessionId` (looked up via `Call.sessionId` when starting from
+   * a Call id, or resolved directly from the active Session). The
+   * Session is the canonical trigger surface; the dual-FK transition
+   * window from #1341 Slice 0 is complete.
+   */
+  triggerSessionId?: string | null;
   composeSpecSlug?: string | null;
   specConfig?: Record<string, any>;
   /** Skip DB persistence — return a preview-only mock prompt (used by forceFirstCall) */
@@ -47,7 +54,7 @@ export async function persistComposedPrompt(
     callerId,
     playbookId,
     triggerType = "pipeline",
-    triggerCallId,
+    triggerSessionId,
     composeSpecSlug,
     specConfig,
     skipPersist = false,
@@ -71,7 +78,7 @@ export async function persistComposedPrompt(
   // #599 Slice 1 — populate the recap cache column when the loader produced
   // a synthesized recap. The loader writes the AI call + audit row; persist
   // just stores the cached text alongside the new prompt row so subsequent
-  // composes for the same triggerCallId can short-circuit.
+  // composes for the same triggerSessionId can short-circuit.
   const synthesizedRecap = composition.loadedData?.priorCallFeedback?.synthesizedRecap ?? null;
   const recapSynthesisCache = synthesizedRecap
     ? {
@@ -96,7 +103,7 @@ export async function persistComposedPrompt(
         prompt: promptSummary,
         llmPrompt,
         triggerType,
-        triggerCallId: triggerCallId || null,
+        triggerSessionId: triggerSessionId || null,
         model: "deterministic",
         status: "active",
         ...(recapSynthesisCache ? { recapSynthesisCache } : {}),

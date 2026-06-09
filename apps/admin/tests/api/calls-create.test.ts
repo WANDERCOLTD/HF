@@ -32,6 +32,14 @@ vi.mock("@/lib/permissions", () => ({
   isAuthError: vi.fn(() => false),
 }));
 
+// #1344 Slice 4 — POST creates a SIM_CALL Session parent row via
+// `createSession` before writing the Call. Mock to a deterministic id so
+// the route reaches `prisma.call.create` (the unit under test) instead of
+// the real (Prisma-driven) Session writer.
+vi.mock("@/lib/voice/create-session", () => ({
+  createSession: vi.fn().mockResolvedValue({ session: { id: "session-1" } }),
+}));
+
 const buildRequest = (body: Record<string, unknown>): NextRequest => {
   return {
     json: async () => body,
@@ -53,7 +61,9 @@ describe("POST /api/callers/:callerId/calls — playbookId resolution", () => {
     mockPrisma.call.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({
         id: "new-call",
-        callSequence: data.callSequence,
+        // #1344 Slice 4 — `Call.callSequence` dropped; sequencing now lives
+        // on `Session.learnerFacingNumber`. The route no longer writes
+        // `callSequence`, so it's no longer surfaced on the create result.
         source: data.source,
         createdAt: new Date(),
         playbookId: data.playbookId,

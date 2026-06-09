@@ -42,6 +42,17 @@ export interface ComposeInvariantContext {
   lockedModuleName?: string | null;
   /** sharedState.callNumber — the canonical "(call #N)" value. */
   callNumber: number;
+  /**
+   * #1344 Slice 4 — cross-system source of truth for the learner-facing
+   * call number. When supplied, I-C2 also asserts that
+   * `callNumber === sessionLearnerFacingNumber + 1`
+   * (i.e. the composer is narrating the right "next call number" for
+   * this caller). Supplied by the COMPOSE caller via a side-channel
+   * `Session.learnerFacingNumber` read (taking the MAX of qualifying
+   * Sessions). Undefined during the grace window or in tests that
+   * don't thread the DB read — those skip the cross-system check.
+   */
+  sessionMaxLearnerFacingNumber?: number | null;
   /** Count of CallerMemory rows loaded for this caller. */
   memoryCount: number;
   /** Whether the priorCallFeedback loader produced any feedback content. */
@@ -142,6 +153,35 @@ export function checkComposeInvariants(
       message: `Call-counter coherence: assembled prompt contains ${distinct.size} distinct call numbers ${JSON.stringify(Array.from(distinct))}. Canonical sharedState.callNumber=${ctx.callNumber}. Source of drift is usually quickstart.this_caller vs offboarding/session_pedagogy fields.`,
       offendingText: Array.from(distinct).join(","),
     });
+  }
+
+  // ---------------------------------------------------------------
+  // I-C2 (cross-system, #1344 Slice 4) — `callNumber` MUST equal
+  // `Session.learnerFacingNumber + 1` (i.e. the next learner-facing
+  // number for this Caller). The composer reads from
+  // `data.nextLearnerFacingNumber` which is the Session aggregate;
+  // when the COMPOSE caller threads `sessionMaxLearnerFacingNumber`
+  // here as a side-channel evidence read, we assert they agree.
+  //
+  // WARN severity initially — the grace window after #1344 lands may
+  // surface legacy callers whose Session backfill is incomplete. Promote
+  // to ERROR once `scripts/proof-1344-cutover.ts` reads green for
+  // ≥7 days on dev/staging.
+  // ---------------------------------------------------------------
+  if (ctx.sessionMaxLearnerFacingNumber !== undefined && ctx.sessionMaxLearnerFacingNumber !== null) {
+    const expected = ctx.sessionMaxLearnerFacingNumber + 1;
+    if (ctx.callNumber !== expected) {
+      violations.push({
+        id: "I-C2",
+        severity: "warn",
+        message:
+          `Call-counter cross-system coherence (#1344 Slice 4): canonical sharedState.callNumber=${ctx.callNumber} ` +
+          `but Session.learnerFacingNumber MAX=${ctx.sessionMaxLearnerFacingNumber} (expected next=${expected}). ` +
+          `One side has drifted — typically the backfill missed a Session row or createSession failed to bump the counter. ` +
+          `Run scripts/backfill-learner-facing-number.ts to reconcile.`,
+        offendingText: `${ctx.callNumber}≠${expected}`,
+      });
+    }
   }
 
   // ---------------------------------------------------------------

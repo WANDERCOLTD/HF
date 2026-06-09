@@ -56,7 +56,11 @@ export async function autoComposeForCaller(callerId: string, playbookId?: string
       callerId,
       playbookId: playbookId ?? null,
       triggerType: "enrollment",
-      triggerCallId: undefined,
+      // #1344 Slice 4 — enrollment compose has no Session trigger; the
+      // ENROLLMENT Session (when one exists via the IntakeEvent path) is
+      // not the trigger of the n+1 prompt — the enrolment event itself
+      // is. Leave undefined.
+      triggerSessionId: undefined,
       composeSpecSlug: specSlug,
       specConfig: fullSpecConfig,
     });

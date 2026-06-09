@@ -158,7 +158,9 @@ export async function main(externalPrisma?: PrismaClient) {
         externalId: `demo-call-${i + 1}`,
         callerId: caller.id,
         transcript: t.transcript,
-        callSequence: i + 1,
+        // #1344 Slice 4 — `Call.callSequence` dropped; sequencing now lives
+        // on the Session row (`learnerFacingNumber`). Demo fixtures don't
+        // produce Sessions, so no sequence number is recorded here.
       },
     });
   }

@@ -13,6 +13,8 @@ import type {
   AssembledContext,
   CompositionSectionDef,
   CurriculumAssertionData,
+  CurriculumQuestionData,
+  CurriculumVocabularyData,
   SharedComputedState,
   ModuleData,
 } from "@/lib/prompt/composition/types";
@@ -36,6 +38,8 @@ function makeAssertion(overrides: Partial<CurriculumAssertionData> = {}): Curric
     trustLevel: "ACCREDITED_MATERIAL",
     examRelevance: 0.9,
     learningOutcomeRef: null,
+    // #142 — FK to LearningObjective. Tests run without LO linkage by default.
+    learningObjectiveId: null,
     sourceName: "Level 2 Food Hygiene",
     sourceTrustLevel: "ACCREDITED_MATERIAL",
     sourceId: "src-1",
@@ -72,8 +76,8 @@ function makeContext(overrides: {
   nextModule?: ModuleData | null;
   moduleToReview?: ModuleData | null;
   lessonPlanEntry?: SharedComputedState["lessonPlanEntry"];
-  vocabulary?: Array<{ id: string; term: string; definition: string; partOfSpeech?: string; exampleUsage?: string; topic?: string }>;
-  questions?: Array<{ id: string; questionText: string; questionType?: string; options?: any; correctAnswer?: string; chapter?: string; learningOutcomeRef?: string; difficulty?: string }>;
+  vocabulary?: CurriculumVocabularyData[];
+  questions?: CurriculumQuestionData[];
 } = {}): AssembledContext {
   const sharedState: SharedComputedState = {
     channel: "voice",
@@ -100,7 +104,7 @@ function makeContext(overrides: {
       personality: null,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 0,
+            nextLearnerFacingNumber: 1,
       behaviorTargets: [],
       callerTargets: [],
       callerAttributes: [],
@@ -527,10 +531,10 @@ describe("renderTeachingContent transform", () => {
   // =====================================================
 
   describe("session-scoped vocabulary filtering", () => {
-    const vocab = [
-      { id: "v1", term: "Bacteria", definition: "Single-celled organisms", partOfSpeech: "noun" },
-      { id: "v2", term: "Pathogen", definition: "Disease-causing agent", partOfSpeech: "noun" },
-      { id: "v3", term: "Contamination", definition: "Introduction of harmful substances" },
+    const vocab: CurriculumVocabularyData[] = [
+      { id: "v1", term: "Bacteria", definition: "Single-celled organisms", partOfSpeech: "noun", exampleUsage: null, topic: null },
+      { id: "v2", term: "Pathogen", definition: "Disease-causing agent", partOfSpeech: "noun", exampleUsage: null, topic: null },
+      { id: "v3", term: "Contamination", definition: "Introduction of harmful substances", partOfSpeech: null, exampleUsage: null, topic: null },
     ];
 
     it("renders all vocabulary when no vocabularyIds in lesson plan", () => {
@@ -554,10 +558,23 @@ describe("renderTeachingContent transform", () => {
   // =====================================================
 
   describe("session-scoped question filtering", () => {
-    const questions = [
-      { id: "q1", questionText: "What temperature is the danger zone?", correctAnswer: "8-63°C" },
-      { id: "q2", questionText: "Name three food safety hazards", correctAnswer: "biological, chemical, physical" },
-      { id: "q3", questionText: "How long can food be in the danger zone?", correctAnswer: "Max 4 hours" },
+    const makeQuestion = (overrides: Partial<CurriculumQuestionData>): CurriculumQuestionData => ({
+      id: "q-default",
+      questionText: "default",
+      questionType: "short_answer",
+      options: null,
+      correctAnswer: null,
+      chapter: null,
+      learningOutcomeRef: null,
+      difficulty: null,
+      skillRef: null,
+      metadata: null,
+      ...overrides,
+    });
+    const questions: CurriculumQuestionData[] = [
+      makeQuestion({ id: "q1", questionText: "What temperature is the danger zone?", correctAnswer: "8-63°C" }),
+      makeQuestion({ id: "q2", questionText: "Name three food safety hazards", correctAnswer: "biological, chemical, physical" }),
+      makeQuestion({ id: "q3", questionText: "How long can food be in the danger zone?", correctAnswer: "Max 4 hours" }),
     ];
 
     it("renders all questions when no questionIds in lesson plan", () => {
@@ -605,12 +622,23 @@ describe("renderTeachingContent transform", () => {
   describe("backward compatibility (no IDs in lesson plan)", () => {
     it("existing lesson plans without vocab/question IDs show all items", () => {
       const assertions = [makeAssertion()];
-      const vocab = [
-        { id: "v1", term: "Term1", definition: "Def1" },
-        { id: "v2", term: "Term2", definition: "Def2" },
+      const vocab: CurriculumVocabularyData[] = [
+        { id: "v1", term: "Term1", definition: "Def1", partOfSpeech: null, exampleUsage: null, topic: null },
+        { id: "v2", term: "Term2", definition: "Def2", partOfSpeech: null, exampleUsage: null, topic: null },
       ];
-      const questions = [
-        { id: "q1", questionText: "Q1?", correctAnswer: "A1" },
+      const questions: CurriculumQuestionData[] = [
+        {
+          id: "q1",
+          questionText: "Q1?",
+          questionType: "short_answer",
+          options: null,
+          correctAnswer: "A1",
+          chapter: null,
+          learningOutcomeRef: null,
+          difficulty: null,
+          skillRef: null,
+          metadata: null,
+        },
       ];
       const ctx = makeContext({
         assertions,

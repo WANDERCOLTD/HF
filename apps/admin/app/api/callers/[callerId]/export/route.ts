@@ -66,7 +66,8 @@ export async function GET(
           source: true,
           externalId: true,
           createdAt: true,
-          callSequence: true,
+          // #1344 Slice 4 — `callSequence` gone; walk via Session FK.
+          session: { select: { learnerFacingNumber: true } },
           scores: {
             select: {
               parameterId: true,

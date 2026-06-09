@@ -360,7 +360,7 @@ describe("priorCallFeedbackExists activation logic", () => {
       personality: null,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 0,
+            nextLearnerFacingNumber: 1,
       behaviorTargets: [],
       callerTargets: [],
       callerAttributes: [],

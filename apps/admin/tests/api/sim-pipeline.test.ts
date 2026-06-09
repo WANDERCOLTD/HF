@@ -330,6 +330,9 @@ function setupSimMocks() {
       id: "call-sim-1",
       transcript: SIM_TRANSCRIPT,
       createdAt: new Date(),
+      // #1344 Slice 4 — Call rows now carry sessionId; pipeline reads it
+      // to set triggerSessionId on the composed prompt.
+      sessionId: "sess-sim-1",
     };
   });
 
@@ -537,14 +540,15 @@ describe("Sim Pipeline End-to-End", () => {
         expect.anything()
       );
 
-      // Prompt should be persisted with triggerCallId
+      // #1344 Slice 4 — prompt is persisted with triggerSessionId; the
+      // route walks Call.sessionId → triggerSessionId.
       expect(mockPersistComposedPrompt).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
         expect.objectContaining({
           callerId: "caller-sim-1",
           triggerType: "pipeline",
-          triggerCallId: "call-sim-1",
+          triggerSessionId: "sess-sim-1",
         })
       );
 
@@ -590,7 +594,7 @@ describe("Sim Pipeline End-to-End", () => {
       expect(mockPrisma.callerMemory.create).toHaveBeenCalled();
     });
 
-    it("links composed prompt to the call via triggerCallId", async () => {
+    it("links composed prompt to the call's parent Session via triggerSessionId (#1344 Slice 4)", async () => {
       const { POST } = await import("@/app/api/calls/[callId]/pipeline/route");
 
       const request = createMockRequest({
@@ -603,11 +607,12 @@ describe("Sim Pipeline End-to-End", () => {
         params: Promise.resolve({ callId: "call-sim-1" }),
       });
 
-      // The persist call should include triggerCallId linking to the call
+      // The persist call should include triggerSessionId linking to the
+      // Call's parent Session. #1344 Slice 4 dropped `triggerCallId`.
       const persistCall = mockPersistComposedPrompt.mock.calls[0];
       expect(persistCall).toBeDefined();
       const metadata = persistCall[2];
-      expect(metadata.triggerCallId).toBe("call-sim-1");
+      expect(metadata.triggerSessionId).toBe("sess-sim-1");
       expect(metadata.triggerType).toBe("pipeline");
     });
 

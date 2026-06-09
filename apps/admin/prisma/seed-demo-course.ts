@@ -799,7 +799,9 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
               playbookId: playbook.id,
               curriculumModuleId: moduleId,
               transcript,
-              callSequence: c + 1,
+              // #1344 Slice 4 — `Call.callSequence` column dropped. Sequencing
+              // lives on the Session row (`learnerFacingNumber`); seeded calls
+              // run without a Session link and therefore no sequence number.
               createdAt: callDate,
               endedAt: endDate,
             },
@@ -976,12 +978,15 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
         for (const p of fixtures.composedPrompts) {
           const callerId = callerExtToId.get(p.callerExt);
           if (!callerId) continue;
-          const triggerCallId = p.triggerCallExt ? callExtToId.get(p.triggerCallExt) ?? null : null;
+          // #1344 Slice 4 — `ComposedPrompt.triggerCallId` column dropped.
+          // The new `triggerSessionId` link comes from the unified Session
+          // model; demo-course seed doesn't currently produce Session rows,
+          // so the trigger linkage stays null.
           await prisma.composedPrompt.create({
             data: {
               callerId, playbookId: playbook.id,
               prompt: p.prompt, triggerType: p.triggerType,
-              triggerCallId, model: p.model, status: p.status,
+              model: p.model, status: p.status,
               composedAt: daysAgo(2),
             },
           });

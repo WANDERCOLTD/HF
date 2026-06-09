@@ -1,6 +1,6 @@
 {
   "$schema": "model-map/v1",
-  "generatedAt": "2026-06-09T10:29:17.601Z",
+  "generatedAt": "2026-06-09T14:09:52.171Z",
   "generator": "scripts/capture/model-map.ts",
   "schemaPath": "apps/admin/prisma/schema.prisma",
   "note": "Tier-2 generated KB. proposedClass is a HEURISTIC unless reviewed:true. Human ratifications live in docs/kb/model-map-overrides.json and are reapplied by the generator on each run. Do not hand-edit this JSON — edit the overrides file.",
@@ -736,9 +736,9 @@
     },
     {
       "name": "Call",
-      "fieldCount": 46,
-      "relationCount": 19,
-      "meaningfulScalarCount": 17,
+      "fieldCount": 44,
+      "relationCount": 18,
+      "meaningfulScalarCount": 16,
       "scalarFields": [
         "id",
         "source",
@@ -751,7 +751,6 @@
         "curriculumModuleId",
         "requestedModuleId",
         "previousCallId",
-        "callSequence",
         "usedPromptId",
         "endedAt",
         "endSource",
@@ -816,10 +815,6 @@
         {
           "field": "behaviorMeasurements",
           "target": "BehaviorMeasurement"
-        },
-        {
-          "field": "triggeredPrompts",
-          "target": "ComposedPrompt"
         },
         {
           "field": "usedPrompt",
@@ -1809,8 +1804,8 @@
     },
     {
       "name": "ComposedPrompt",
-      "fieldCount": 24,
-      "relationCount": 7,
+      "fieldCount": 22,
+      "relationCount": 6,
       "meaningfulScalarCount": 11,
       "scalarFields": [
         "id",
@@ -1819,7 +1814,6 @@
         "prompt",
         "llmPrompt",
         "triggerType",
-        "triggerCallId",
         "triggerSessionId",
         "inputs",
         "model",
@@ -1835,10 +1829,6 @@
         {
           "field": "playbook",
           "target": "Playbook"
-        },
-        {
-          "field": "triggerCall",
-          "target": "Call"
         },
         {
           "field": "triggerSession",
@@ -1862,7 +1852,6 @@
         }
       ],
       "blockAttrs": [
-        "@@index",
         "@@index",
         "@@index",
         "@@index",

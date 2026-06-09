@@ -124,7 +124,7 @@ function makeMayaLoadedData(
       { id: "call-1", endedAt: new Date("2026-06-02T16:30:00Z") } as unknown as never,
       { id: "call-2", endedAt: new Date("2026-06-02T16:53:09Z") } as unknown as never,
     ],
-    callCount: 2,
+    nextLearnerFacingNumber: 3,
     behaviorTargets: [],
     callerTargets: [],
     callerAttributes: [],
@@ -257,12 +257,13 @@ describe("Compose invariants — Maya IELTS hallucination fixture (#1006 / #1008
       expect(callNumberInQuickstart).toBe(ctx.sharedState.callNumber);
     });
 
-    it("does not collapse callCount === 0 into '(call #1)' via || 1 fallback", async () => {
+    it("does not collapse nextLearnerFacingNumber === 1 into '(call #1)' via || 1 fallback", async () => {
       // The current implementation uses `loadedData.callCount || 1` which
       // is indistinguishable from a genuine first call. Maya's case has
-      // callCount=2 so the bug is hidden here, but the empty-state path
-      // must use `?? 1` semantics. This pin uses callCount=0.
-      const loadedData = makeMayaLoadedData({ callCount: 0, recentCalls: [] });
+      // nextLearnerFacingNumber=3 so the bug is hidden here, but the empty-state
+      // path must use `?? 1` semantics. This pin uses nextLearnerFacingNumber=1
+      // (the brand-new caller value).
+      const loadedData = makeMayaLoadedData({ nextLearnerFacingNumber: 1, recentCalls: [] });
       const sharedState = await computeSharedState(loadedData, makeResolvedSpecs(), {}, undefined, "part2");
       const ctx: AssembledContext = {
         loadedData,
@@ -355,7 +356,7 @@ describe("Compose invariants — Maya IELTS hallucination fixture (#1006 / #1008
       // Inflate recentCalls so the heuristic (recentCalls.length / 2)
       // would pick a high catalogue index. The lock must win.
       const data = makeMayaLoadedData({
-        callCount: 8,
+        nextLearnerFacingNumber: 9,
         recentCalls: [
           { id: "c-a", endedAt: new Date() } as unknown as never,
           { id: "c-b", endedAt: new Date() } as unknown as never,

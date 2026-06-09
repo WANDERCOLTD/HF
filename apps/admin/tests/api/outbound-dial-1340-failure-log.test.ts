@@ -95,7 +95,12 @@ vi.mock("@/lib/prisma", () => ({
           voiceProvider: data.voiceProvider ?? "vapi",
           transcript: data.transcript ?? "",
           externalId: data.externalId ?? null,
-          sessionId: null,
+          // #1344 Slice 4 — outbound-dial now writes `sessionId` on the
+          // placeholder Call (linking to the Session created by
+          // `createSession`). The mock honours it so the
+          // `recordCallFailure` else-branch (sessionId-not-null) is
+          // exercised — otherwise the test would mint a second Session.
+          sessionId: data.sessionId ?? null,
           endedAt: null,
           endSource: null,
           voiceEndedReason: null,
@@ -276,35 +281,50 @@ vi.mock("@/lib/voice/build-assistant-config", () => ({
   }),
 }));
 
-vi.mock("@/lib/voice/create-call-entering-pipeline", () => ({
-  createCallEnteringPipeline: vi.fn(
+// #1344 Slice 4 — `create-call-entering-pipeline` wrapper deleted; the
+// outbound-dial route now calls `createSession({kind:VOICE_CALL})` then
+// `prisma.call.create` inline. Mock `createSession` to mint a Session
+// row in the test store and return the canonical builder shape; the
+// Call row is written by the real route through the `prisma.call.create`
+// stub above.
+vi.mock("@/lib/voice/create-session", () => ({
+  createSession: vi.fn(
     async (args: {
       callerId: string;
-      source: string;
-      voiceProvider: string | null;
+      kind: string;
+      source?: string;
+      voiceProvider?: string | null;
     }) => {
-      // Mirror real builder — write a Call row directly to the mock store.
-      const id = `call-${stores.callStore.size + 1}`;
-      const row: MockCall = {
+      const id = `session-${stores.sessionStore.size + 1}`;
+      const row: MockSession = {
         id,
         callerId: args.callerId,
-        source: args.source,
-        voiceProvider: args.voiceProvider ?? "vapi",
-        transcript: "",
-        externalId: null,
-        sessionId: null,
-        endedAt: null,
-        endSource: null,
-        voiceEndedReason: null,
         playbookId: null,
-        createdAt: new Date(),
+        kind: args.kind,
+        sequenceNumber: stores.sessionStore.size + 1,
+        status: "STARTED",
+        startedAt: new Date(),
+        endedAt: null,
+        skipStages: [],
+        countsTowardLearnerNumber: args.kind === "VOICE_CALL",
+        countsTowardPipelineNumber: true,
       };
-      stores.callStore.set(id, row);
+      stores.sessionStore.set(id, row);
       return {
-        call: { id },
+        session: {
+          id,
+          sequenceNumber: row.sequenceNumber,
+          learnerFacingNumber: null,
+          kind: args.kind,
+        },
         playbookId: null,
         requestedModuleId: null,
         curriculumModuleId: null,
+        usedPromptId: null,
+        voiceConfigSnapshot: null,
+        countsTowardLearnerNumber: row.countsTowardLearnerNumber,
+        countsTowardPipelineNumber: row.countsTowardPipelineNumber,
+        skipStages: row.skipStages,
       };
     },
   ),

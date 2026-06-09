@@ -140,11 +140,15 @@ export async function runSimulation(options: SimRunnerOptions): Promise<SimRunne
   }
 
   // ─── Create call record ───
+  // #1344 Slice 4 — `Call.callSequence` is gone. Sim harness Calls don't
+  // need a per-Caller sequence (Session.sequenceNumber is the canonical
+  // counter, owned by `createSession`). Just grab the prior Call id for
+  // the chain link.
   const lastCall = await prisma.call.findFirst({
     where: { callerId },
-    orderBy: { callSequence: "desc" },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
   });
-  const nextSequence = (lastCall?.callSequence ?? 0) + 1;
 
   // Stamp playbookId from caller's default enrollment so the sim is
   // attributed to the correct course (otherwise UI filters hide it). Null
@@ -169,7 +173,6 @@ export async function runSimulation(options: SimRunnerOptions): Promise<SimRunne
     data: {
       callerId,
       source: "ai-simulation",
-      callSequence: nextSequence,
       transcript: "",
       previousCallId: lastCall?.id || null,
       ...(harnessPlaybookId ? { playbookId: harnessPlaybookId } : {}),
@@ -177,7 +180,7 @@ export async function runSimulation(options: SimRunnerOptions): Promise<SimRunne
     },
   });
 
-  onProgress({ phase: "init", message: `Call #${nextSequence} created` });
+  onProgress({ phase: "init", message: `Call ${call.id.slice(0, 8)} created` });
 
   // ─── Build persona prompts ───
   const callerPersonaPrompt = await buildCallerPersonaPrompt(callerName, domainName);

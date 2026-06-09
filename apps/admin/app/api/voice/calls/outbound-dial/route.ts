@@ -10,7 +10,7 @@ import {
   resolveVoiceProviderForCaller,
 } from "@/lib/voice/resolve-voice-provider";
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
-import { createCallEnteringPipeline } from "@/lib/voice/create-call-entering-pipeline";
+import { createSession } from "@/lib/voice/create-session";
 import { recordCallFailure } from "@/lib/voice/record-call-failure";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { log } from "@/lib/logger";
@@ -168,20 +168,45 @@ export async function POST(request: Request) {
     // Pre-create the Call row so we have a stable id even before VAPI
     // sends its first webhook. Mirrors the WebRTC call-start flow.
     //
-    // #1333 — was hand-rolling `prisma.call.create` with just
-    // `{ callerId, source, voiceProvider, transcript }` and silently
-    // dropping playbookId / requestedModuleId / curriculumModuleId. Live
-    // evidence: Bertie Tallstaff Calls 2 + 3 on hf_sandbox 2026-06-08 had
-    // playbookId = NULL because of this drift; downstream COMPOSE wrote
-    // orphan ComposedPrompts and the sim UI couldn't find the next prompt.
-    // The builder is the chokepoint that fixes the chain-contract
-    // pre-condition (see docs/CHAIN-CONTRACTS.md §3 Link 3).
-    const entry = await createCallEnteringPipeline({
+    // #1333 fix: stamp playbookId / requestedModuleId / curriculumModuleId
+    // at creation time so the chain-contract pre-condition (CURRICULUM →
+    // CALL compose, docs/CHAIN-CONTRACTS.md §3 Link 3) holds. Pre-#1333
+    // this route hand-rolled `prisma.call.create({callerId, source,
+    // voiceProvider, transcript})` and dropped all three FKs — Bertie's
+    // hf_sandbox 2026-06-08 evidence of orphan Calls 2 + 3.
+    //
+    // #1344 Slice 4 — `createCallEnteringPipeline` wrapper deleted; we
+    // now call `createSession({kind:VOICE_CALL})` directly and create
+    // the Call child here so the FKs resolved by the Session cascade
+    // (playbookId, requestedModuleId, curriculumModuleId, usedPromptId)
+    // are carried onto the Call row. The Session is the canonical
+    // sequencer + voiceConfigSnapshot owner.
+    const sessionResult = await createSession({
       callerId: caller.id,
+      kind: "VOICE_CALL",
       source: providerSlug,
       voiceProvider: providerSlug,
     });
-    const placeholderCall = entry.call;
+    const placeholderCall = await prisma.call.create({
+      data: {
+        callerId: caller.id,
+        source: providerSlug,
+        voiceProvider: providerSlug,
+        transcript: "",
+        sessionId: sessionResult.session.id,
+        ...(sessionResult.playbookId ? { playbookId: sessionResult.playbookId } : {}),
+        ...(sessionResult.requestedModuleId
+          ? { requestedModuleId: sessionResult.requestedModuleId }
+          : {}),
+        ...(sessionResult.curriculumModuleId
+          ? { curriculumModuleId: sessionResult.curriculumModuleId }
+          : {}),
+        ...(sessionResult.usedPromptId
+          ? { usedPromptId: sessionResult.usedPromptId }
+          : {}),
+      },
+      select: { id: true },
+    });
 
     // Build the inline assistant config so VAPI's PSTN call uses the
     // same per-caller prompt + tools + knowledge + cost-safety knobs

@@ -37,7 +37,7 @@ function makeLoadedData(overrides: Partial<LoadedDataContext> = {}): LoadedDataC
     personality: null,
     learnerProfile: null,
     recentCalls: [],
-    callCount: 0,
+        nextLearnerFacingNumber: 1,
     behaviorTargets: [],
     callerTargets: [],
     callerAttributes: [],
@@ -435,7 +435,7 @@ describe("computeModuleProgress transform", () => {
     };
     return {
       sharedState,
-      loadedData: makeLoadedData({ callCount: 1 }),
+      loadedData: makeLoadedData({ nextLearnerFacingNumber: 2 }),
       resolvedSpecs: makeResolvedSpecs(),
       sections: {},
       specConfig: {},
@@ -541,7 +541,7 @@ describe("computeModuleProgress transform", () => {
     const ctx = makeContext(modules, undefined, false);
     // Override loadedData callCount=0 + lastCompletedIndex=-1 so the legacy
     // attribute-based getModuleStatus path returns "not_started" (no progress signal).
-    ctx.loadedData = makeLoadedData({ callCount: 0 });
+    ctx.loadedData = makeLoadedData({ nextLearnerFacingNumber: 1 });
     ctx.sharedState.lastCompletedIndex = -1;
     const out: any = transform({}, ctx, {} as any);
     expect(out.modules[0].callCount).toBe(0);

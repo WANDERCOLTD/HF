@@ -67,7 +67,15 @@ export interface LoadedDataContext {
   personality: PersonalityData | null;
   learnerProfile: LearnerProfileData | null;
   recentCalls: RecentCallData[];
-  callCount: number;
+  /**
+   * #1344 Slice 4 — single-counter cutover. The next learner-facing call
+   * number (1-based) the composer should narrate as "(call #N)". Replaces
+   * the legacy `callCount` field (which was `prisma.call.count({endedAt: not null})`).
+   * Source of truth: `MAX(Session.learnerFacingNumber WHERE
+   * countsTowardLearnerNumber = true) + 1`. See `SectionDataLoader.ts`
+   * for the loader.
+   */
+  nextLearnerFacingNumber: number;
   behaviorTargets: BehaviorTargetData[];
   callerTargets: CallerTargetData[];
   callerAttributes: CallerAttributeData[];

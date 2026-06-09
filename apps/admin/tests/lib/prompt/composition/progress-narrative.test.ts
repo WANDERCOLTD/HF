@@ -72,7 +72,7 @@ function makeContext(opts: {
       personality: null,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 0,
+      nextLearnerFacingNumber: 1,
       behaviorTargets: [],
       callerTargets: [],
       // Cast — test stub only carries the fields the transform reads.

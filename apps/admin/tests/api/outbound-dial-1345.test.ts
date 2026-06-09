@@ -136,30 +136,34 @@ vi.mock("@/lib/voice/build-assistant-config", () => ({
   }),
 }));
 
-// Route now uses createCallEnteringPipeline to mint the placeholder. The
-// helper has many DB-side dependencies (active-playbook lookup, module
-// cascade, FK writes) — short-circuit by writing through the existing
-// callStore mock so the rest of the assertions don't need to change.
-vi.mock("@/lib/voice/create-call-entering-pipeline", () => ({
-  createCallEnteringPipeline: vi.fn(
-    async (args: { callerId: string; source: string; voiceProvider: string }) => {
-      const id = `call-${stores.callStore.size + 1}`;
-      const row: MockCall = {
-        id,
-        callerId: args.callerId,
-        source: args.source,
-        voiceProvider: args.voiceProvider,
-        transcript: "",
-        externalId: null,
-      };
-      stores.callStore.set(id, row);
-      return {
-        call: { id },
-        playbookId: null,
-        requestedModuleId: null,
-        curriculumModuleId: null,
-      };
-    },
+// #1344 Slice 4 — `create-call-entering-pipeline` wrapper deleted. The
+// outbound-dial route now calls `createSession({kind:VOICE_CALL})` and
+// writes the placeholder Call inline via `prisma.call.create`. Mock
+// `createSession` to return a deterministic shape; the Call row is
+// minted by the real route through the `prisma.call.create` stub.
+vi.mock("@/lib/voice/create-session", () => ({
+  createSession: vi.fn(
+    async (_args: {
+      callerId: string;
+      kind: string;
+      source?: string;
+      voiceProvider?: string | null;
+    }) => ({
+      session: {
+        id: "session-1",
+        sequenceNumber: 1,
+        learnerFacingNumber: null,
+        kind: _args.kind,
+      },
+      playbookId: null,
+      requestedModuleId: null,
+      curriculumModuleId: null,
+      usedPromptId: null,
+      voiceConfigSnapshot: null,
+      countsTowardLearnerNumber: _args.kind === "VOICE_CALL",
+      countsTowardPipelineNumber: true,
+      skipStages: [] as string[],
+    }),
   ),
 }));
 

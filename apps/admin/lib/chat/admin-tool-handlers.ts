@@ -1138,7 +1138,14 @@ async function handleGetCallerDetail(input: Record<string, any>) {
     prisma.call.findFirst({
       where: { callerId },
       orderBy: { createdAt: "desc" },
-      select: { id: true, createdAt: true, endedAt: true, callSequence: true, playbookId: true },
+      // #1344 Slice 4 — `callSequence` column gone; walk via Session FK.
+      select: {
+        id: true,
+        createdAt: true,
+        endedAt: true,
+        playbookId: true,
+        session: { select: { learnerFacingNumber: true } },
+      },
     }),
     prisma.callerPlaybook.findMany({
       where: { callerId },
@@ -1930,7 +1937,7 @@ async function handleRecomposeCallerPrompt(input: Record<string, any>) {
     callerId,
     playbookId: null,
     triggerType: "manual",
-    triggerCallId: null,
+    triggerSessionId: null,
     composeSpecSlug: specSlug,
     specConfig: fullSpecConfig,
     skipPersist: false,

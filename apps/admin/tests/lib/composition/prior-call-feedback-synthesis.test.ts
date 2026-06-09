@@ -46,13 +46,28 @@ interface StubOptions {
   transcript?: string | null;
 }
 
+const CURRENT_SESSION_ID = "session-current";
+
 function makePrismaStub(stub: StubOptions = {}) {
   const auditWrites: Array<Record<string, unknown>> = [];
   return {
     auditWrites,
     call: {
       findFirst: vi.fn(async () => ({ id: PRIOR_CALL_ID, createdAt: PRIOR_CALL_AT })),
-      findUnique: vi.fn(async () => (stub.transcript !== undefined ? { transcript: stub.transcript } : null)),
+      // #1344 Slice 4 — cache key now walks via `Call.sessionId` (the
+      // legacy `triggerCallId` column was dropped). The loader does
+      // TWO selects against `call.findUnique`:
+      //   1. `{ where:{id:currentCallId}, select:{sessionId} }` — used to
+      //      build the cache key. Must return the synthetic sessionId so
+      //      the cache lookup against `composedPrompt.findFirst` runs.
+      //   2. `{ where:{id:lastCallId}, select:{transcript} }` — only on
+      //      `depth==='rich'`. Returns the stub-supplied transcript.
+      findUnique: vi.fn(async (args: { select?: Record<string, boolean> }) => {
+        if (args.select?.sessionId) {
+          return { sessionId: CURRENT_SESSION_ID };
+        }
+        return stub.transcript !== undefined ? { transcript: stub.transcript } : null;
+      }),
     },
     callScore: {
       findMany: vi.fn(async () => [
@@ -101,6 +116,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED;
+  // #1404 degrade kill-switch — clean up if set by individual tests
+  delete process.env.PRIOR_CALL_RECAP_RICH_DEPTH_ENABLED;
 });
 
 describe("priorCallFeedback synthesis — kill-switch gate", () => {
@@ -415,6 +432,11 @@ describe("priorCallFeedback synthesis — audit log on success", () => {
   });
 
   it("rich depth passes transcript slice; caller's first name extracted", async () => {
+    // #1404 — the degrade kill-switch (`PRIOR_CALL_RECAP_RICH_DEPTH_ENABLED`)
+    // was added to main AFTER this branch was cut. In CI the merge-commit
+    // includes the degrade, so `rich` → `standard` unless we opt back in.
+    // Set the env var here so we can verify the rich code path specifically.
+    process.env.PRIOR_CALL_RECAP_RICH_DEPTH_ENABLED = "true";
     const longTranscript = "x".repeat(8000);
     const prisma = makePrismaStub({
       allowlist: JSON.stringify([PLAYBOOK_ID]),

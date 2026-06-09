@@ -70,6 +70,11 @@ export type Call = {
   transcript: string;
   createdAt: string;
   callSequence?: number | null;
+  // #1344 Slice 4 — parent Session id (Call.sessionId on the wire).
+  // Null for pre-Slice 3 historical Calls. Required by the prompt
+  // timeline grouping which now joins via Session FK instead of the
+  // legacy `triggerCallId`.
+  sessionId?: string | null;
   playbookId?: string | null;
   // Analysis status (persistent - from database)
   hasScores?: boolean;
@@ -335,7 +340,9 @@ export type ComposedPrompt = {
   prompt: string;
   llmPrompt: Record<string, any> | null;  // LLM-friendly structured JSON version
   triggerType: string;
-  triggerCallId: string | null;
+  // #1344 Slice 4 — `triggerCallId` column dropped. The API surfaces
+  // `triggerSessionId` instead; null when no Session has been linked.
+  triggerSessionId: string | null;
   playbookId: string | null;
   model: string | null;
   status: string;
@@ -343,7 +350,13 @@ export type ComposedPrompt = {
   inputs: Record<string, any> | null;
   evalResult: Record<string, any> | null;  // Persisted AI quality evaluation
   evalAt: string | null;
-  triggerCall?: { id: string; createdAt: string; source: string } | null;
+  // #1344 Slice 4 — replaces the dropped `triggerCall` field. Consumers
+  // walk `triggerSession.call.{source, createdAt}` for the legacy display.
+  triggerSession?: {
+    id: string;
+    startedAt: string;
+    call?: { id: string; source: string; createdAt: string } | null;
+  } | null;
 };
 
 // ---------------------------------------------------------------------------

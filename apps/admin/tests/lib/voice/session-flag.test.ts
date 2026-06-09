@@ -1,6 +1,8 @@
 /**
- * #1342 — feature-flag accessor tests. Exercises both flag states so the
- * cut-over routes can guarantee the false-path is untouched.
+ * #1342 / #1344 — feature-flag accessor tests.
+ *
+ * #1344 Slice 4 flipped the default: the flag is ON unless explicitly
+ * set to "false". Slice 5 removes the flag entirely.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -20,28 +22,28 @@ describe("isSessionModelV2Enabled", () => {
     else process.env[ENV_VAR] = original;
   });
 
-  it("returns false when unset", async () => {
-    const { isSessionModelV2Enabled } = await import("@/lib/voice/session-flag");
-    expect(isSessionModelV2Enabled()).toBe(false);
-  });
-
-  it("returns false when set to empty string", async () => {
-    process.env[ENV_VAR] = "";
-    const { isSessionModelV2Enabled } = await import("@/lib/voice/session-flag");
-    expect(isSessionModelV2Enabled()).toBe(false);
-  });
-
-  it("returns true ONLY for literal 'true'", async () => {
-    process.env[ENV_VAR] = "true";
+  it("returns TRUE when unset (default on per #1344 Slice 4)", async () => {
     const { isSessionModelV2Enabled } = await import("@/lib/voice/session-flag");
     expect(isSessionModelV2Enabled()).toBe(true);
   });
 
-  it("returns false for '1', 'TRUE', 'on', 'yes' (strict literal)", async () => {
+  it("returns TRUE when set to empty string", async () => {
+    process.env[ENV_VAR] = "";
     const { isSessionModelV2Enabled } = await import("@/lib/voice/session-flag");
-    for (const v of ["1", "TRUE", "on", "yes", "false", "0"]) {
+    expect(isSessionModelV2Enabled()).toBe(true);
+  });
+
+  it("returns FALSE ONLY for literal 'false'", async () => {
+    process.env[ENV_VAR] = "false";
+    const { isSessionModelV2Enabled } = await import("@/lib/voice/session-flag");
+    expect(isSessionModelV2Enabled()).toBe(false);
+  });
+
+  it("returns TRUE for 'true', '1', 'TRUE', 'on', 'yes', '0' (anything that isn't literal 'false')", async () => {
+    const { isSessionModelV2Enabled } = await import("@/lib/voice/session-flag");
+    for (const v of ["true", "1", "TRUE", "on", "yes", "0"]) {
       process.env[ENV_VAR] = v;
-      expect(isSessionModelV2Enabled()).toBe(false);
+      expect(isSessionModelV2Enabled()).toBe(true);
     }
   });
 });

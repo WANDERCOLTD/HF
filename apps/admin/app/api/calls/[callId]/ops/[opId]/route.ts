@@ -305,7 +305,12 @@ const opHandlers: Record<string, OpHandler> = {
 
     const call = await prisma.call.findUnique({
       where: { id: callId },
-      select: { id: true, transcript: true, callSequence: true },
+      // #1344 Slice 4 — `callSequence` gone; walk via Session FK.
+      select: {
+        id: true,
+        transcript: true,
+        session: { select: { learnerFacingNumber: true } },
+      },
     });
 
     if (!call) {
@@ -313,7 +318,10 @@ const opHandlers: Record<string, OpHandler> = {
       return { ok: false, message: "Call not found" };
     }
 
-    log.info("Found call", { transcriptLength: call.transcript?.length, callSequence: call.callSequence });
+    log.info("Found call", {
+      transcriptLength: call.transcript?.length,
+      callSequence: call.session?.learnerFacingNumber ?? null,
+    });
 
     // Load active, compiled MEASURE specs
     const specs = await prisma.analysisSpec.findMany({

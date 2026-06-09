@@ -64,7 +64,9 @@ async function main() {
     callersCreated++;
 
     // Link all calls in this group to the caller
-    let sequence = 1;
+    // #1344 Slice 4 — `Call.callSequence` dropped; sequencing lives on
+    // `Session.learnerFacingNumber`. Orphan-call recovery now only sets
+    // the caller link and the previousCallId chain.
     let previousCallId: string | null = null;
 
     for (const call of calls) {
@@ -72,13 +74,11 @@ async function main() {
         where: { id: call.id },
         data: {
           callerId: caller.id,
-          callSequence: sequence,
           previousCallId,
         },
       });
       callsLinked++;
       previousCallId = call.id;
-      sequence++;
     }
 
     console.log(`   ✓ Created caller "${caller.name}" with ${calls.length} calls`);

@@ -94,7 +94,7 @@ function makeContext(
       personality: null,
       learnerProfile: null,
       recentCalls: [],
-      callCount: 1,
+            nextLearnerFacingNumber: 2,
       behaviorTargets: [],
       callerTargets: [],
       callerAttributes: [],
