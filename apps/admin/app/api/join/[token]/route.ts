@@ -9,12 +9,46 @@ import { issueFirstCallPin } from "@/lib/identity/issue-pin";
 import { toE164 } from "@/lib/voice/phone-format";
 import { hasHigherRoleSession } from "@/lib/auth/has-higher-role-session";
 import { writeIntakeQAProjections } from "@/lib/intake/project-intake-qa";
+import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
+import { createSession } from "@/lib/voice/create-session";
 
 function missingSecretResponse(): NextResponse {
   return NextResponse.json(
     { ok: false, error: "Server configuration error" },
     { status: 500 },
   );
+}
+
+/**
+ * #1342 — write the ENROLLMENT Session row that opens the unified
+ * narrative for this learner. Linked to the IntakeEvent hash chain via
+ * `intentId` when one is supplied.
+ *
+ * Behind the `HF_FLAG_SESSION_MODEL_V2` flag; until it's enabled the
+ * function is a no-op so the existing join flow is untouched. Best-
+ * effort (never throws): a Session-create failure must NOT roll back
+ * the just-committed Caller. Pre-#1342 the join handler had no Session
+ * row at all, so this is strictly additive.
+ */
+async function maybeWriteEnrollmentSession(
+  callerId: string,
+  intentId: string | undefined,
+): Promise<void> {
+  if (!isSessionModelV2Enabled()) return;
+  try {
+    await createSession({
+      callerId,
+      kind: "ENROLLMENT",
+      source: "join",
+      voiceProvider: null,
+      ...(intentId ? { intentId } : {}),
+    });
+  } catch (err) {
+    console.error(
+      `[intake-join] ENROLLMENT createSession failed for caller=${callerId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
 }
 
 /** Separate rate-limit key for GET (token probing) vs POST (account creation) */
@@ -277,6 +311,12 @@ export async function POST(
       // Idempotent — upserts on (callerId, key, scope). #1343.
       await writeIntakeQAProjections(prisma, returningCallerId, intakeQAValues);
 
+      // #1342 — ENROLLMENT Session row for the returning learner. The
+      // join is a fresh enrolment intent even though the User row
+      // already exists; the IntakeEvent chain (if any) belongs to this
+      // commit. Flag-gated; no-op when V2 is off.
+      await maybeWriteEnrollmentSession(returningCallerId, intentId);
+
       // Returning learner — sign them in and redirect to their journey
       const returningResponse = NextResponse.json({
         ok: true,
@@ -332,6 +372,9 @@ export async function POST(
     // so the Tune tab's existing SurveySection reader can render them.
     // Idempotent — upserts on (callerId, key, scope). #1343.
     await writeIntakeQAProjections(prisma, newCaller.id, intakeQAValues);
+
+    // #1342 — ENROLLMENT Session row + IntakeEvent linkage.
+    await maybeWriteEnrollmentSession(newCaller.id, intentId);
 
     // Create join table membership
     await prisma.callerCohortMembership.create({
@@ -447,6 +490,12 @@ export async function POST(
 
     return { newUser, newCallerId: newCaller.id };
   });
+
+  // #1342 — ENROLLMENT Session row. Outside the user+caller tx by
+  // design (same as the PIN email and `applySkipOnboarding`): a
+  // Session-create failure must NOT roll back the just-committed
+  // Caller. Flag-gated; no-op when V2 is off.
+  await maybeWriteEnrollmentSession(result.newCallerId, intentId);
 
   // Skip onboarding after tx commits (applySkipOnboarding uses global prisma)
   if (skipOnboarding && cohort.domainId) {

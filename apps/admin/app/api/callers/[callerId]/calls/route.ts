@@ -7,6 +7,8 @@ import {
   resolveCurriculumIdForPlaybook,
   resolveModuleByLogicalId,
 } from "@/lib/curriculum/resolve-module";
+import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
+import { createSession } from "@/lib/voice/create-session";
 
 /**
  * @api GET /api/callers/:callerId/calls
@@ -200,6 +202,24 @@ export async function POST(
       }
     }
 
+    // #1342 — Session Model V2 path. When the flag is on, write a
+    // SIM_CALL Session parent row first and link the Call via
+    // `sessionId`. The Session row owns the atomic per-(callerId, kind)
+    // sequence; the Call's `callSequence` mirrors the Session's
+    // learnerFacingNumber when the class qualifies (SIM_CALL doesn't,
+    // so callSequence stays null for sim — matches epic intent).
+    let sessionParentId: string | null = null;
+    if (isSessionModelV2Enabled()) {
+      const result = await createSession({
+        callerId,
+        kind: "SIM_CALL",
+        source: source ?? "sim",
+        voiceProvider: null,
+        ...(finalRequestedModuleId ? { requestedModuleId: finalRequestedModuleId } : {}),
+      });
+      sessionParentId = result.session.id;
+    }
+
     // Create the call
     const call = await prisma.call.create({
       data: {
@@ -210,6 +230,7 @@ export async function POST(
         transcript: transcript || "",
         externalId: source === "playground-upload" ? `upload-${Date.now()}` : `ai-sim-${Date.now()}`,
         playbookId: resolvedPlaybookId,
+        ...(sessionParentId ? { sessionId: sessionParentId } : {}),
         ...(usedPromptId ? { usedPromptId } : {}),
         // #242 Slice 2: learner's pre-call module pick from the picker (slug).
         // #491 Slice 1.1: also write the resolved CurriculumModule.id so the

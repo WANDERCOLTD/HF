@@ -16,6 +16,8 @@ import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummar
 import { getPromptTemplate } from "@/lib/prompts/prompt-settings";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
+import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
+import { createSession } from "@/lib/voice/create-session";
 
 // =============================================================================
 // TYPES
@@ -149,6 +151,20 @@ export async function runSimulation(options: SimRunnerOptions): Promise<SimRunne
   // is tolerated for harness flows where the caller has no enrollment yet.
   const harnessPlaybookId = await resolvePlaybookId(callerId);
 
+  // #1342 — when the Session Model V2 flag is on, write a SIM_CALL
+  // Session parent so the harness participates in the unified narrative
+  // (Tune-tab card). Otherwise preserve the pre-#1342 behaviour exactly.
+  let sessionParentId: string | null = null;
+  if (isSessionModelV2Enabled()) {
+    const result = await createSession({
+      callerId,
+      kind: "SIM_CALL",
+      source: "harness",
+      voiceProvider: null,
+    });
+    sessionParentId = result.session.id;
+  }
+
   const call = await prisma.call.create({
     data: {
       callerId,
@@ -157,6 +173,7 @@ export async function runSimulation(options: SimRunnerOptions): Promise<SimRunne
       transcript: "",
       previousCallId: lastCall?.id || null,
       ...(harnessPlaybookId ? { playbookId: harnessPlaybookId } : {}),
+      ...(sessionParentId ? { sessionId: sessionParentId } : {}),
     },
   });
 

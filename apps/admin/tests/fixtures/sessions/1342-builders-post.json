@@ -1,0 +1,70 @@
+{
+  "$schema": "../README.md#fixture-shape",
+  "issue": 1342,
+  "scenario": "After Slice 3 — every createSession call writes a Session row + atomic counter, every endSession commits status + skipStages.",
+  "expectedShapeAfterSequentialCreateCalls": {
+    "sessionCount": 3,
+    "callerSequenceCounters": [
+      { "kind": "VOICE_CALL", "nextSeq": 3 },
+      { "kind": "SIM_CALL", "nextSeq": 2 },
+      { "kind": "learnerFacing", "nextSeq": 3 }
+    ],
+    "voiceCall1": {
+      "kind": "VOICE_CALL",
+      "sequenceNumber": 1,
+      "learnerFacingNumberPresent": true,
+      "countsTowardLearnerNumber": true,
+      "countsTowardPipelineNumber": true,
+      "skipStages": [],
+      "voiceConfigSnapshotPresent": true,
+      "playbookIdPresent": true,
+      "curriculumModuleIdPresent": true
+    },
+    "simCall1": {
+      "kind": "SIM_CALL",
+      "sequenceNumber": 1,
+      "learnerFacingNumberNull": true,
+      "countsTowardLearnerNumber": false,
+      "countsTowardPipelineNumber": true,
+      "skipStages": [],
+      "voiceConfigSnapshotPresent": true
+    },
+    "voiceCall2": {
+      "kind": "VOICE_CALL",
+      "sequenceNumber": 2,
+      "countsTowardLearnerNumber": true,
+      "skipStages": []
+    }
+  },
+  "expectedShapeAfterConcurrencyTest": {
+    "description": "50 concurrent createSession calls on the same (callerId, kind) produce 50 contiguous sequenceNumber values from 1..50 with no gaps and no duplicates.",
+    "sessionCount": 50,
+    "uniqueSequenceNumbers": 50,
+    "minSequence": 1,
+    "maxSequence": 50,
+    "counterFinalNextSeq": 51
+  },
+  "expectedShapeAfterEndSession": {
+    "completed": {
+      "status": "COMPLETED",
+      "endedAtPresent": true,
+      "skipStages": []
+    },
+    "failed": {
+      "status": "FAILED",
+      "skipStages": ["EXTRACT", "PROSODY", "REWARD", "SCORE_AGENT"]
+    },
+    "ghost": {
+      "status": "GHOST",
+      "countsTowardLearnerNumber": false,
+      "countsTowardPipelineNumber": false,
+      "skipStages": ["EXTRACT", "PROSODY", "REWARD", "SCORE_AGENT"]
+    },
+    "shortAborted": {
+      "status": "FAILED",
+      "countsTowardLearnerNumber": false,
+      "countsTowardPipelineNumber": true,
+      "note": "VOICE_CALL aborted < 30s flips learner counter false but pipeline still runs"
+    }
+  }
+}
