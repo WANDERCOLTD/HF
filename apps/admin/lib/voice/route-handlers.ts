@@ -404,6 +404,27 @@ async function processTranscriptUpdate(
       });
   }
 
+  // #1373 — Cascade-aware live-bubble gate. Resolve once per call (cached
+  // in-process for ~30s) so we don't pay the cascade-lookup cost on every
+  // ~1Hz conversation-update event. When the cascaded value is false,
+  // skip the broadcast entirely — Call.transcript still persists at
+  // end-of-call so bubbles appear after the call from the saved transcript.
+  const streamEnabled = await resolveTranscriptStreamEnabled({
+    callId: callRow.id,
+    callerId: callRow.callerId,
+  });
+  if (!streamEnabled) {
+    logVoiceEvent({
+      slug,
+      operation: `voice:${slug}:webhook:transcript-update-gated`,
+      durationMs: 0,
+      callId: callRow.id,
+      callerId: callRow.callerId,
+      metadata: { reason: "transcriptStreamEnabled=false" },
+    });
+    return;
+  }
+
   await broadcastToCall({
     type: "transcript-partial",
     callId: callRow.id,
@@ -424,6 +445,46 @@ async function processTranscriptUpdate(
       matchedBy: parsed.hfCallId && callRow.id === parsed.hfCallId ? "hfCallId" : "externalId",
     },
   });
+}
+
+// #1373 — Per-call in-process cache for the resolved transcriptStreamEnabled
+// bool. TTL aligned with provider-factory's 5-min cache (entries get reaped
+// on call-ended via SSE registry cleanup paths in a follow-up; for now,
+// reasonable bounds on a single call's lifetime). Map size is the count of
+// active calls; trivial memory.
+const transcriptGateCache = new Map<string, { value: boolean; expiresAt: number }>();
+const TRANSCRIPT_GATE_TTL_MS = 5 * 60 * 1000;
+
+async function resolveTranscriptStreamEnabled(args: {
+  callId: string;
+  callerId: string | null;
+}): Promise<boolean> {
+  const now = Date.now();
+  const cached = transcriptGateCache.get(args.callId);
+  if (cached && cached.expiresAt > now) return cached.value;
+
+  // Default = true (preserves pre-#1373 behaviour). Only flip when the
+  // cascade resolves to an explicit false.
+  let value = true;
+  try {
+    if (args.callerId) {
+      const resolved = await loadResolvedVoiceConfig({ callerId: args.callerId });
+      const flat = resolved.fields["transcriptStreamEnabled"];
+      if (flat?.value === false) value = false;
+    }
+  } catch (err) {
+    console.warn(
+      `[voice/transcript-gate] cascade resolve failed for callId=${args.callId} — defaulting to enabled:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+  transcriptGateCache.set(args.callId, { value, expiresAt: now + TRANSCRIPT_GATE_TTL_MS });
+  return value;
+}
+
+/** Test/observability — clears the in-process gate cache. */
+export function _resetTranscriptGateCache(): void {
+  transcriptGateCache.clear();
 }
 
 /** Structured result of `persistEndOfCall` — wraps the older NextResponse
