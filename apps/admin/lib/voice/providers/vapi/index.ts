@@ -197,8 +197,21 @@ export class VapiProvider implements VoiceProvider {
         assistant.voice = { provider: voiceProvider, voiceId };
       }
       const transcriber = vc.transcriber;
+      const transcriberEndpointingMs = vc.transcriberEndpointingMs;
       if (typeof transcriber === "string" && transcriber.length > 0) {
-        assistant.transcriber = { provider: transcriber };
+        const transcriberBlock: Record<string, unknown> = { provider: transcriber };
+        // #1374 — endpointing controls how long VAPI waits after
+        // detecting silence before committing the learner's turn.
+        // Lower = faster turn-takes; higher = fewer mid-thought
+        // interruptions. Deepgram default is 300ms.
+        if (
+          typeof transcriberEndpointingMs === "number" &&
+          Number.isFinite(transcriberEndpointingMs) &&
+          transcriberEndpointingMs > 0
+        ) {
+          transcriberBlock.endpointing = transcriberEndpointingMs;
+        }
+        assistant.transcriber = transcriberBlock;
       }
       const backgroundSound = vc.backgroundSound;
       if (typeof backgroundSound === "string" && backgroundSound !== "off") {
@@ -206,6 +219,13 @@ export class VapiProvider implements VoiceProvider {
       }
       if (vc.recordingEnabled === false) {
         assistant.recordingEnabled = false;
+      }
+      // #1374 — Filler injection masks Claude's response latency by
+      // playing "mm-hmm, let me think..." while the AI generates. Default
+      // ON for new envs (cuts perceived pause time dramatically). Cascade
+      // can flip off per-cohort if it feels intrusive.
+      if (vc.fillerInjectionEnabled === true) {
+        assistant.fillerInjectionEnabled = true;
       }
     }
 
@@ -482,6 +502,34 @@ export class VapiProvider implements VoiceProvider {
           type: "boolean",
           default: true,
           help: "When on, SimChat shows the conversation in real-time as bubbles while the call is live. When off, bubbles only appear after the call ends (from the persisted transcript). Off can reduce visual noise during high-volume cohort calls.",
+          sensitive: false,
+          required: false,
+        },
+        {
+          // #1374 — VAPI filler injection. Plays brief "mm-hmm, let me
+          // think..." style audio while the AI generates its response.
+          // Hides Claude's ~3s response latency from the learner —
+          // critical for natural-feeling conversation. Default ON;
+          // educator can turn off per-cohort if it feels intrusive.
+          key: "fillerInjectionEnabled",
+          label: "Filler injection (mask AI thinking time)",
+          type: "boolean",
+          default: true,
+          help: "When on, VAPI plays brief 'uh-huh, let me think' audio while the AI generates each response — masks the ~3 second latency so the conversation feels natural. Turn off only if the fillers feel intrusive for your cohort.",
+          sensitive: false,
+          required: false,
+        },
+        {
+          // #1374 — Deepgram transcriber endpointing threshold. Lower
+          // = AI commits to "learner finished" sooner = faster turn-take.
+          // Default 300ms is conservative; 100-200ms feels snappier but
+          // increases mid-thought interruption risk. Numbers > 1000 add
+          // perceived lag.
+          key: "transcriberEndpointingMs",
+          label: "Transcriber endpointing (ms)",
+          type: "number",
+          default: 150,
+          help: "Milliseconds of silence after the learner stops speaking before VAPI commits the turn and the AI starts responding. Default 150ms feels snappy. Raise to 300+ for cohorts who pause mid-thought; lower to 100 for fast back-and-forth practice.",
           sensitive: false,
           required: false,
         },
