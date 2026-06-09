@@ -9,6 +9,7 @@ import noDirectSpecConfigWrite from "./eslint-rules/no-direct-spec-config-write.
 import noAiFanoutAll from "./eslint-rules/no-ai-fanout-all.mjs";
 import noAiForbiddenFields from "./eslint-rules/no-ai-forbidden-fields.mjs";
 import noOrphanInstructionFallback from "./eslint-rules/no-orphan-instruction-fallback.mjs";
+import noHardcodedGreetingInComposition from "./eslint-rules/no-hardcoded-greeting-in-composition.mjs";
 import noVapiColumnRef from "./eslint-rules/hf-voice/no-vapi-column-ref.mjs";
 import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-definitions-const.mjs";
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
@@ -116,6 +117,11 @@ const eslintConfig = defineConfig([
       "hf-compose": {
         rules: {
           "no-orphan-instruction-fallback": noOrphanInstructionFallback,
+          // #1384 — block hardcoded learner-facing greetings in
+          // prompt-composition transforms + voice assistant-config
+          // builders. The greeting is course-tunable behaviour, not a
+          // code constant. Companion: `.claude/rules/pipeline-and-prompt.md`.
+          "no-hardcoded-greeting-in-composition": noHardcodedGreetingInComposition,
         },
       },
       // AnyVoice #1024 — block reintroduction of pre-rename vapi*
@@ -178,6 +184,15 @@ const eslintConfig = defineConfig([
       // once `composeGenericNounFallbackCount` reads 0 in dev/test/prod for
       // ≥7 days (per the chain-contract severity-escalation path).
       "hf-compose/no-orphan-instruction-fallback": "warn",
+      // #1384 — hardcoded greeting guard. Lands at `warn` because the
+      // four known offences (quickstart.ts:549,566 + build-assistant-
+      // config.ts:121,177) still need their rollback PR — which itself
+      // needs BA+TL grooming per `.claude/rules/pipeline-and-prompt.md`
+      // "search before editing prompt-composition transforms". The
+      // rollback PR PROMOTES this to `error` in the same commit that
+      // removes the last offence. Pre-existing failure pattern: see
+      // `no-orphan-instruction-fallback` companion comment.
+      "hf-compose/no-hardcoded-greeting-in-composition": "warn",
       "hf-voice/no-vapi-column-ref": "error",
       "hf-voice/no-vapi-tool-definitions-const": "error",
       "hf-wizard-v6/no-undeclared-field-require": "error",
