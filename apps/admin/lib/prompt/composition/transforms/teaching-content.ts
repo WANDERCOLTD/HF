@@ -534,6 +534,35 @@ registerTransform("renderTeachingContent", (
     }
   }
 
+  // #1377 — Per-session teaching-points cap (latency win). Even after
+  // module-LO filtering, large courses with bundled LOs (e.g. a single
+  // "Cialdini" module covering all 7 principles) leave 100+ assertions
+  // → ~35k chars of teaching content → ~3s Claude TTFT. The cap bounds
+  // the prompt regardless of LO-mapping quality.
+  //
+  // Hardcoded at 30 today; covers a single voice turn comfortably while
+  // keeping the system prompt < ~15k chars. Cascade tuning (per-Course /
+  // per-Cohort) is a follow-up — needs `voiceConfig` wired into the
+  // composition sharedState. When cap fires, sort by exam relevance
+  // (high signal first), then drop the tail.
+  const TEACHING_POINTS_CAP = 30;
+  if (assertions.length > TEACHING_POINTS_CAP) {
+    const before = assertions.length;
+    // Sort: examRelevance HIGH > MEDIUM > LOW > undefined; stable for the rest.
+    const examWeight = (a: typeof assertions[number]): number => {
+      const r = (a.examRelevance ?? "").toString().toUpperCase();
+      if (r === "HIGH") return 3;
+      if (r === "MEDIUM") return 2;
+      if (r === "LOW") return 1;
+      return 0;
+    };
+    const sorted = [...assertions].sort((a, b) => examWeight(b) - examWeight(a));
+    assertions = sorted.slice(0, TEACHING_POINTS_CAP);
+    console.log(
+      `[teaching-content] cap fired: ${before} → ${TEACHING_POINTS_CAP} assertions (latency lever per #1377). Cascade-tunable in a follow-up.`,
+    );
+  }
+
   // Detect if we have pyramid hierarchy
   const hasHierarchy = assertions.some((a) => a.depth !== null && a.depth !== undefined);
 

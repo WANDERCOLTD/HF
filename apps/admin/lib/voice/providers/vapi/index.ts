@@ -533,6 +533,11 @@ export class VapiProvider implements VoiceProvider {
           sensitive: false,
           required: false,
         },
+        // #1377 — Teaching-points cap is hardcoded at 30 in
+        // lib/prompt/composition/transforms/teaching-content.ts today.
+        // Future PR wires `voiceConfig` into composition sharedState so
+        // the cap becomes cascade-tunable (per-Course / per-Cohort).
+        // See GH issue for cascade plumbing scope.
       ],
     };
   }
