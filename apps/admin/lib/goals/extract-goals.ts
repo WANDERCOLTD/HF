@@ -12,6 +12,10 @@ import { prisma } from "@/lib/prisma";
 import { GoalType, GoalStatus, Goal } from "@prisma/client";
 import { AIEngine } from "@/lib/ai/client";
 import { getConfiguredMeteredAICompletion, logMockAIUsage } from "@/lib/metering";
+import {
+  GOALS_EXTRACT_SYSTEM_PROMPT,
+  GOALS_EXTRACT_COMPLETION_SIGNALS_SYSTEM_PROMPT,
+} from "@/lib/ai/analyst-system-prompts";
 
 import { getGoalSettings, getAITimeoutSettings, type GoalSettings } from "@/lib/system-settings";
 
@@ -138,7 +142,7 @@ export async function extractGoals(
         messages: [
           {
             role: "system",
-            content: "You are an expert at understanding learner intentions. Extract goals from conversations. Return valid JSON only.",
+            content: GOALS_EXTRACT_SYSTEM_PROMPT,
           },
           { role: "user", content: prompt },
         ],
@@ -474,7 +478,7 @@ If no signals, return: {"signals":[]}`;
         callPoint: "pipeline.extract_completion_signals",
         engineOverride: engine,
         messages: [
-          { role: "system", content: "You detect when learners claim to have achieved assessment goals. Return valid JSON only." },
+          { role: "system", content: GOALS_EXTRACT_COMPLETION_SIGNALS_SYSTEM_PROMPT },
           { role: "user", content: prompt },
         ],
         maxTokens: 512,

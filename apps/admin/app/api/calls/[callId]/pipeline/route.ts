@@ -19,6 +19,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { AIEngine, isEngineAvailable } from "@/lib/ai/client";
 import { classifyAIError, userMessageForError } from "@/lib/ai/error-utils";
 import { getConfiguredMeteredAICompletion, logMockAIUsage } from "@/lib/metering";
+import {
+  PIPELINE_MEASURE_SYSTEM_PROMPT,
+  PIPELINE_SCORE_AGENT_SYSTEM_PROMPT,
+  PIPELINE_ADAPT_SYSTEM_PROMPT,
+} from "@/lib/ai/analyst-system-prompts";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { runAggregateSpecs } from "@/lib/pipeline/aggregate-runner";
@@ -1126,7 +1131,7 @@ async function runBatchedCallerAnalysis(
         callPoint: "pipeline.measure",
         engineOverride: engine,
         messages: [
-          { role: "system", content: "You are an expert behavioral analyst. Always respond with valid JSON." },
+          { role: "system", content: PIPELINE_MEASURE_SYSTEM_PROMPT },
           { role: "user", content: prompt },
         ],
         maxTokens: Math.max(2048, (measureParams.length + learnActions.length) * 120),
@@ -1566,7 +1571,7 @@ async function runBatchedAgentAnalysis(
         callPoint: "pipeline.score_agent",
         engineOverride: engine,
         messages: [
-          { role: "system", content: "You are an expert at evaluating conversational AI behavior. Always respond with valid JSON. Keep evidence arrays brief (1-2 short quotes max per parameter)." },
+          { role: "system", content: PIPELINE_SCORE_AGENT_SYSTEM_PROMPT },
           { role: "user", content: prompt },
         ],
         maxTokens: estimatedTokens,
@@ -2574,7 +2579,7 @@ async function runAdaptSpecs(
         callPoint: "pipeline.adapt",
         engineOverride: engine,
         messages: [
-          { role: "system", content: "You are an expert at personalizing AI behaviour based on caller profiles. Always respond with valid JSON." },
+          { role: "system", content: PIPELINE_ADAPT_SYSTEM_PROMPT },
           { role: "user", content: prompt },
         ],
         maxTokens: 1024,
