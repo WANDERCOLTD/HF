@@ -187,15 +187,15 @@ const eslintConfig = defineConfig([
       // once `composeGenericNounFallbackCount` reads 0 in dev/test/prod for
       // ≥7 days (per the chain-contract severity-escalation path).
       "hf-compose/no-orphan-instruction-fallback": "warn",
-      // #1384 — hardcoded greeting guard. Lands at `warn` because the
-      // four known offences (quickstart.ts:549,566 + build-assistant-
-      // config.ts:121,177) still need their rollback PR — which itself
-      // needs BA+TL grooming per `.claude/rules/pipeline-and-prompt.md`
-      // "search before editing prompt-composition transforms". The
-      // rollback PR PROMOTES this to `error` in the same commit that
-      // removes the last offence. Pre-existing failure pattern: see
-      // `no-orphan-instruction-fallback` companion comment.
-      "hf-compose/no-hardcoded-greeting-in-composition": "warn",
+      // #1384 / #1385 — hardcoded greeting guard. Promoted to `error`
+      // in the same PR that removed the six known offences
+      // (quickstart.ts:549,566 + build-assistant-config.ts:121,177 +
+      // route-handlers.ts:1204,1250 — all rehomed under
+      // `lib/prompt/composition/defaults/fallback-first-lines.ts`).
+      // Any new literal greeting in `lib/prompt/composition/transforms/`,
+      // `lib/voice/build-assistant-config.ts`, or `lib/voice/route-
+      // handlers.ts` now fails CI.
+      "hf-compose/no-hardcoded-greeting-in-composition": "error",
       "hf-voice/no-vapi-column-ref": "error",
       "hf-voice/no-vapi-tool-definitions-const": "error",
       "hf-wizard-v6/no-undeclared-field-require": "error",

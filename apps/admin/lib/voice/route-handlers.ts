@@ -62,6 +62,10 @@ import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
 import { createSession } from "@/lib/voice/create-session";
 import { endSession } from "@/lib/voice/end-session";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
+import {
+  UNKNOWN_CALLER_FIRST_LINE,
+  noActivePromptFirstLine,
+} from "@/lib/prompt/composition/defaults/fallback-first-lines";
 import { log } from "@/lib/logger";
 
 // `getVoiceSystemSettings` is imported for the existing cost-cap
@@ -1308,7 +1312,7 @@ export async function handleVoiceAssistantRequestPost(
           callerName: null,
           customerPhone: normalizedPhone,
           voicePrompt: vs.unknownCallerPrompt,
-          firstLine: "Hello! I don't think we've spoken before. What's your name?",
+          firstLine: UNKNOWN_CALLER_FIRST_LINE,
           toolDefinitions: [],
           knowledgePlanEnabled: false,
           serverUrlBase,
@@ -1354,7 +1358,7 @@ export async function handleVoiceAssistantRequestPost(
           callerName: caller.name,
           customerPhone: normalizedPhone,
           voicePrompt: `${vs.noActivePromptFallback} The caller is ${callerLabel}.`,
-          firstLine: `Hi${caller.name ? ` ${caller.name}` : ""}! Good to hear from you.`,
+          firstLine: noActivePromptFirstLine(caller.name),
           toolDefinitions: [],
           knowledgePlanEnabled: false,
           serverUrlBase,
