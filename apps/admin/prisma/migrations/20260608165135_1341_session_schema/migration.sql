@@ -146,11 +146,13 @@ CREATE INDEX "ComposedPrompt_triggerSessionId_idx"
 
 -- =================================================================
 -- Step 6a — Backfill: one Session row per Call row.
--- Sequence assignment uses COALESCE(callSequence, ROW_NUMBER OVER ...).
--- Tie-break (per kind) on createdAt ASC, id ASC for determinism. The
--- ROW_NUMBER fallback only fires when callSequence is NULL on the
--- legacy Call row (which is the historical happy path, plus the few
--- ghost rows the epic was named after).
+-- Sequence assignment uses ROW_NUMBER unconditionally — the legacy
+-- `Call.callSequence` is NOT unique per (callerId, source) (sim test
+-- loops reset it to 1 repeatedly), so COALESCE(callSequence, …) would
+-- violate `Session_callerId_kind_sequenceNumber_key`. The original
+-- callSequence value is preserved in `learnerFacingNumber`, which has
+-- no unique constraint and may carry duplicates / NULLs.
+-- Tie-break (per kind) on createdAt ASC, id ASC for determinism.
 -- =================================================================
 
 WITH ranked AS (
@@ -169,18 +171,15 @@ WITH ranked AS (
       WHEN 'sim'  THEN 'SIM_CALL'::"SessionKind"
       ELSE             'VOICE_CALL'::"SessionKind"
     END AS kind,
-    COALESCE(
-      c."callSequence",
-      ROW_NUMBER() OVER (
-        PARTITION BY c."callerId",
-          CASE c.source
-            WHEN 'vapi' THEN 'VOICE_CALL'
-            WHEN 'sim'  THEN 'SIM_CALL'
-            ELSE             'VOICE_CALL'
-          END
-        ORDER BY c."createdAt", c.id
-      )::int
-    ) AS seq
+    ROW_NUMBER() OVER (
+      PARTITION BY c."callerId",
+        CASE c.source
+          WHEN 'vapi' THEN 'VOICE_CALL'
+          WHEN 'sim'  THEN 'SIM_CALL'
+          ELSE             'VOICE_CALL'
+        END
+      ORDER BY c."createdAt", c.id
+    )::int AS seq
   FROM "Call" c
   WHERE c."callerId" IS NOT NULL
     AND NOT EXISTS (
@@ -227,28 +226,55 @@ FROM ranked r;
 
 -- =================================================================
 -- Step 6b — Wire Call.sessionId to the newly-created Session row.
--- Join key: (callerId, startedAt = createdAt, sequenceNumber = COALESCE).
--- The sequenceNumber tie-breaker disambiguates Calls that share the same
--- createdAt timestamp for the same caller (ghost-row duplicates).
+-- Join key: (callerId, startedAt = createdAt) — paired by row-number
+-- to handle Calls that share the same createdAt timestamp for the same
+-- caller (ghost-row duplicates). We can no longer use sequenceNumber
+-- as a join key because Step 6a now always re-numbers via ROW_NUMBER
+-- (the old COALESCE assumed callSequence was unique per kind, which
+-- doesn't hold — sim test loops produce many callSequence=1 rows).
 -- =================================================================
 
+WITH unmatched AS (
+  SELECT
+    c.id AS call_id,
+    c."callerId",
+    c."createdAt",
+    ROW_NUMBER() OVER (
+      PARTITION BY c."callerId", c."createdAt"
+      ORDER BY c.id
+    ) AS rn
+  FROM "Call" c
+  WHERE c."sessionId" IS NULL AND c."callerId" IS NOT NULL
+),
+candidates AS (
+  SELECT
+    s.id AS session_id,
+    s."callerId",
+    s."startedAt",
+    ROW_NUMBER() OVER (
+      PARTITION BY s."callerId", s."startedAt"
+      ORDER BY s."sequenceNumber"
+    ) AS rn
+  FROM "Session" s
+  WHERE NOT EXISTS (SELECT 1 FROM "Call" c WHERE c."sessionId" = s.id)
+)
 UPDATE "Call" c
-SET "sessionId" = s.id
-FROM "Session" s
-WHERE c."sessionId" IS NULL
-  AND s."callerId" = c."callerId"
-  AND s."startedAt" = c."createdAt"
-  AND s."sequenceNumber" = COALESCE(
-        c."callSequence",
-        s."sequenceNumber" -- when both NULL, the ROW_NUMBER fallback
-                            -- in step 6a wrote the same value into both
-                            -- columns via the CTE
-      );
+SET "sessionId" = pick.session_id
+FROM (
+  SELECT u.call_id, x.session_id
+  FROM unmatched u
+  JOIN candidates x
+    ON x."callerId" = u."callerId"
+   AND x."startedAt" = u."createdAt"
+   AND x.rn = u.rn
+) pick
+WHERE c.id = pick.call_id;
 
 -- Last-resort fallback: any Call row whose sessionId is still NULL is
--- linked to its caller's earliest UNLINKED Session (sequenceNumber ASC).
--- This handles the corner-case where two ghost Calls share the same
--- (callerId, createdAt) and only one matched in the prior UPDATE.
+-- linked to its caller's earliest UNLINKED Session by sequenceNumber.
+-- Defends against any (callerId, createdAt) where row-counts mismatch
+-- between unmatched and candidates (shouldn't happen post-fix; kept
+-- for paranoia).
 WITH unmatched AS (
   SELECT c.id AS call_id, c."callerId", c."createdAt"
   FROM "Call" c
