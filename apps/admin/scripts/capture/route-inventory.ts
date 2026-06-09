@@ -49,7 +49,19 @@ function main() {
     );
 
     const authLevels = [...src.matchAll(/requireAuth\(\s*["'`](\w+)["'`]/g)].map((m) => m[1]);
-    const hasRequireAuth = /requireAuth\s*\(/.test(src);
+    // HF auth gates fan out beyond requireAuth — each helper enforces a role/scope.
+    // Discovered via `grep -hoE 'require[A-Z]\w+\(' apps/admin/app/api/**/route.ts`.
+    const AUTH_GATES = [
+      "requireAuth",
+      "requireEntityAccess",
+      "requireEducator",
+      "requireEducatorOrAdmin",
+      "requireEducatorCohortOwnership",
+      "requireEducatorStudentAccess",
+      "requireCohortOwnership",
+      "requireStudentOrAdmin",
+    ];
+    const hasAuthGate = AUTH_GATES.some((g) => new RegExp(`\\b${g}\\s*\\(`).test(src));
     const handlesInternalSecret = /x-internal-secret|INTERNAL_API_SECRET/.test(src);
     const acceptsCallerIdParam = /callerId/.test(src);
     const usesScopeHelper = /resolveCallerScopeForReading|resolvePlaybookId|learner-scope/.test(src);
@@ -62,7 +74,7 @@ function main() {
       handlesInternalSecret,
       rawPrisma,
       possiblyUnscoped: acceptsCallerIdParam && !usesScopeHelper,
-      noAuthGate: !hasRequireAuth && !handlesInternalSecret,
+      noAuthGate: !hasAuthGate && !handlesInternalSecret,
     };
 
     return {
@@ -70,7 +82,7 @@ function main() {
       file: relative(REPO_ROOT, file),
       methods: methods.length ? methods : ["<none-detected>"],
       authLevels: [...new Set(authLevels)],
-      hasRequireAuth,
+      hasAuthGate,
       tenantSignals,
       reviewed: false,
     };
@@ -84,7 +96,7 @@ function main() {
     internalSecret: 0,
   };
   for (const r of routes) {
-    const key = r.authLevels.length ? r.authLevels.join("+") : r.hasRequireAuth ? "requireAuth(?)" : "<none>";
+    const key = r.authLevels.length ? r.authLevels.join("+") : r.hasAuthGate ? "auth-gate(non-role)" : "<none>";
     summary.byAuthLevel[key] = (summary.byAuthLevel[key] ?? 0) + 1;
     if (r.tenantSignals.noAuthGate) summary.noAuthGate++;
     if (r.tenantSignals.possiblyUnscoped) summary.possiblyUnscoped++;
