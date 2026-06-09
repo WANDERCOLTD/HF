@@ -1,0 +1,42 @@
+{
+  "$schema": "../README.md#fixture-shape",
+  "issue": 1346,
+  "scenario": "Pre-reconcile state — caller Bertie has completed Sessions 1-4 (each producing P1..P5 via the live pipeline), and a Session 5 whose pipeline crashed mid-COMPOSE. Session 5 has endedAt set (more than 60s ago) but producedComposedPromptId IS NULL. P5 (Call 4's produced prompt) is the most recent ACTIVE ComposedPrompt for the caller. The reconciler is expected to detect Session 5 as an orphan and carry forward via the I-CT2 cascade.",
+  "capturedFrom": {
+    "db": "synthetic — Bertie-class shape, captures the failure mode #1346 must reconcile",
+    "capturedAt": "2026-06-08T12:00:00.000Z",
+    "method": "Constructed to exercise reconcileCarryThrough against an orphan Session whose caller has prior history"
+  },
+  "callerId": "00000000-0000-0000-0000-000000001346",
+  "playbookId": "00000000-0000-0000-0002-000000001346",
+  "sessions": [
+    {
+      "id": "00000000-0000-0000-0050-000000001346",
+      "kind": "VOICE_CALL",
+      "sequenceNumber": 4,
+      "learnerFacingNumber": 4,
+      "status": "COMPLETED",
+      "endedAt": "2026-06-08T11:50:00.000Z",
+      "producedComposedPromptId": "00000000-0000-0000-0040-000000001346",
+      "countsTowardPipelineNumber": true,
+      "note": "Session 4 (Call 4) completed cleanly — produced P5 via the live pipeline."
+    },
+    {
+      "id": "00000000-0000-0000-0051-000000001346",
+      "kind": "VOICE_CALL",
+      "sequenceNumber": 5,
+      "learnerFacingNumber": 5,
+      "status": "COMPLETED",
+      "endedAt": "2026-06-08T11:58:00.000Z",
+      "producedComposedPromptId": null,
+      "countsTowardPipelineNumber": true,
+      "note": "Session 5 (Call 5) — transcript landed, endSession ran, but the pipeline crashed mid-COMPOSE. NO producedComposedPromptId. THIS IS THE ORPHAN."
+    }
+  ],
+  "preExistingActivePrompt": {
+    "id": "00000000-0000-0000-0040-000000001346",
+    "status": "active",
+    "composedAt": "2026-06-08T11:51:00.000Z",
+    "label": "P5 — produced after Session 4. ACTIVE for (caller, playbookId). Must be carried forward to Session 5 by the reconciler."
+  }
+}

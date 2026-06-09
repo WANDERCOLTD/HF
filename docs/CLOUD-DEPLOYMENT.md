@@ -687,3 +687,78 @@ curl -X POST "$APP_URL/api/voice/poll-stale-calls" \
 ```
 
 Response is the batch summary: `{stale, attempted, recovered, racedAgainstWebhook, notFound, authFailed, upstreamErrors, abortedOn429, pollsCompleted, durationMs}`.
+
+---
+
+## Carry-Through Reconciler Cron (#1346 — epic #1338 Slice 5)
+
+Parallel cron to the voice poll above. Scans for Sessions whose pipeline
+ended (`endedAt IS NOT NULL`) but never wrote a `producedComposedPromptId`
+within 60 seconds — the I-CT1 invariant target. For each orphan, runs
+the minimal-mode COMPOSE fallback (`lib/voice/carry-through-compose.ts`)
+which reads the I-CT2 cascade and carries the prior prompt forward,
+stamping `inputs.partialFailureMode = "minimal"` so the Tune tab surfaces
+the "↻ reconciled" badge.
+
+Lives at `POST /api/voice/reconcile-carry-through`. Auth: `ADMIN` session
+cookie OR `x-internal-secret` header (same dual-path as the voice poll).
+
+### Cloud Run (prod) — Cloud Scheduler setup
+
+```bash
+ENV=dev  # or test, prod
+APP_URL="https://hf-admin-${ENV}-311250123759.europe-west2.run.app"
+INTERNAL_API_SECRET="$(gcloud secrets versions access latest --secret=hf-internal-api-secret-${ENV})"
+
+gcloud scheduler jobs create http "hf-${ENV}-session-reconcile" \
+  --location=europe-west2 \
+  --schedule="* * * * *" \
+  --time-zone="UTC" \
+  --uri="${APP_URL}/api/voice/reconcile-carry-through" \
+  --http-method=POST \
+  --headers="x-internal-secret=${INTERNAL_API_SECRET},Content-Type=application/json" \
+  --message-body='{}' \
+  --attempt-deadline=30s
+```
+
+Verify:
+
+```bash
+gcloud scheduler jobs run "hf-${ENV}-session-reconcile" --location=europe-west2
+gcloud scheduler jobs describe "hf-${ENV}-session-reconcile" --location=europe-west2
+```
+
+The job runs every minute; the reconciler is idempotent (orphan WHERE
+clause + atomic Session.updateMany guard) so over-running is harmless.
+
+### Sandbox VM — crontab alternative
+
+```bash
+# Add to crontab (every minute):
+* * * * * curl -sS -X POST http://localhost:3000/api/voice/reconcile-carry-through \
+  -H "x-internal-secret: $(grep '^INTERNAL_API_SECRET=' /home/paul_thewanders_com/HF/apps/admin/.env.local | cut -d= -f2)" \
+  -H "Content-Type: application/json" -d '{}' >> /tmp/session-reconcile.log 2>&1
+```
+
+Same `.env.local` precedence rule as the voice poll above.
+
+### Response shape
+
+`{ok: true, summary: {scanned, reconciled, failed, durationMs, failureSamples}}`
+
+`scanned` = orphan Sessions in this batch. `reconciled` = successfully
+carried forward. `failed` = the I-CT2 cascade returned null (brand-new
+caller with no ENROLLMENT bootstrap — surfaces via `failureSamples` for
+operator triage).
+
+### Operational handoff after Slice 5 ships
+
+1. Merge the Slice 5 PR.
+2. On `hf-dev` VM: `/vm-cppd` to deploy.
+3. Create the Cloud Scheduler job (or VM cron) per above.
+4. Watch the job for 30 minutes — `summary.scanned` should drop to 0
+   between cycles once the pre-existing orphan backlog has drained.
+5. After 3 weeks of clean readings, promote `I_CT1_CARRY_THROUGH_SEVERITY`
+   in `lib/prompt/composition/compose-invariants.ts` from `"warn"` to
+   `"error"` and flip the matching `warnOnly` flag in
+   `scripts/check-fk-consistency.ts::session-without-composed-prompt`.

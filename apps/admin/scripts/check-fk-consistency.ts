@@ -350,6 +350,51 @@ async function runChecks(): Promise<CheckResult[]> {
     warnOnly: true,
   });
 
+  // Query 10 — #1346 Slice 5 — I-CT1 orphan Sessions (WARN-only).
+  // Session(endedAt NOT NULL, countsTowardPipelineNumber = true) older
+  // than 60 seconds with `producedComposedPromptId IS NULL` is the
+  // canonical I-CT1 violation. The Slice 5 reconciler runs every 60s
+  // and drives this count toward zero; a persistent non-zero count
+  // means the reconciler is failing or not scheduled.
+  //
+  // WARN-only initially per the 3-week soak window in #1346 — promote
+  // to ERROR by editing the `warnOnly` flag below (keep in sync with
+  // I_CT1_CARRY_THROUGH_SEVERITY in lib/prompt/composition/compose-invariants.ts).
+  // The detector keeps the population visible as forensic evidence even
+  // before promotion.
+  const sessionsWithoutComposedPrompt = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      callerId: string;
+      kind: string;
+      endedAt: Date;
+    }>
+  >`
+    SELECT s."id", s."callerId", s."kind", s."endedAt"
+    FROM "Session" s
+    WHERE s."endedAt" IS NOT NULL
+      AND s."endedAt" < NOW() - INTERVAL '60 seconds'
+      AND s."producedComposedPromptId" IS NULL
+      AND s."countsTowardPipelineNumber" = true
+    ORDER BY s."endedAt" DESC
+    LIMIT 200
+  `;
+  results.push({
+    name: "session-without-composed-prompt",
+    description:
+      "#1346 — Session(endedAt NOT NULL, countsTowardPipelineNumber=true) rows older than 60s with no producedComposedPromptId. Canonical I-CT1 violation. The Slice 5 reconciler runs every 60s and drives this count to zero. WARN-only during the 3-week soak window; promote to ERROR (and flip I_CT1_CARRY_THROUGH_SEVERITY) once `proof-1346-reconciler.ts` reads green on dev/staging.",
+    rows: sessionsWithoutComposedPrompt.map((r) => ({
+      id: r.id,
+      detail: {
+        callerId: r.callerId,
+        kind: r.kind,
+        endedAt: r.endedAt.toISOString(),
+        ageSeconds: Math.round((Date.now() - r.endedAt.getTime()) / 1000),
+      },
+    })),
+    warnOnly: true,
+  });
+
   const divergences = findAnchorDivergence(anchorCurricula);
   results.push({
     name: "qualification-anchor-divergence",

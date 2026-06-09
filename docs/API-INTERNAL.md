@@ -3421,6 +3421,7 @@ SPEC-DRIVEN pipeline endpoint that runs analysis in configurable stages. Pipelin
 | callerId | body | string | No | The caller ID (required) |
 | mode | body | string | No | Pipeline mode: "prep" (all stages except COMPOSE) or "prompt" (all stages including COMPOSE) (required) |
 | engine | body | string | No | AI engine to use: "mock" | "claude" | "openai" (default: "claude") |
+| partialFailureMode | body | string | No | Optional. When "minimal", COMPOSE short-circuits the LLM path and carries the prior prompt forward via the I-CT2 cascade. Used by the Slice 5 reconciler (#1346). |
 
 **Response** `200`
 ```json
@@ -15386,6 +15387,29 @@ Run one polling cycle to recover Call rows that VAPI
 
 ---
 
+### `POST` /api/voice/reconcile-carry-through
+
+Run one carry-through reconciliation cycle (Slice 5 of
+
+**Auth**: session ADMIN OR x-internal-secret (dual path)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| staleAfterMs | body | number | No | Optional override; defaults to 60_000 ms |
+| batchLimit | body | number | No | Optional override; defaults to 50 |
+
+**Response** `200`
+```json
+{ ok: true, summary: ReconcileBatchResult }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" }
+```
+
+---
+
 ### `GET` /api/voice/telemetry/[providerId]
 
 Recent telemetry rows for a voice provider (AnyVoice
@@ -15694,8 +15718,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 501 |
-| Files with annotations | 491 |
+| Route files found | 502 |
+| Files with annotations | 492 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 

@@ -1,0 +1,23 @@
+{
+  "$schema": "../README.md#fixture-shape",
+  "issue": 1346,
+  "scenario": "Post-reconcile state — the orphan Session 5 now has a producedComposedPromptId pointing at a fresh ComposedPrompt that was carried forward from P5 (the I-CT2 cascade step 1 hit on Session 4). The new ComposedPrompt is the new ACTIVE for (caller, playbookId); P5 has been superseded. inputs.partialFailureMode === 'minimal' so the Tune tab can surface the '↻ reconciled' badge.",
+  "expectations": {
+    "session5.producedComposedPromptId": "non-null — the fresh carry-forward ComposedPrompt's id",
+    "freshComposedPrompt.triggerType": "reconciler",
+    "freshComposedPrompt.triggerSessionId": "Session 5's id",
+    "freshComposedPrompt.status": "active",
+    "freshComposedPrompt.inputs.partialFailureMode": "minimal",
+    "freshComposedPrompt.inputs.carryForwardPromptId": "P5's id (00000000-0000-0000-0040-000000001346)",
+    "freshComposedPrompt.inputs.carryForwardSource": "previous-session",
+    "P5.status": "superseded — replaced by the fresh carry-forward row",
+    "activePromptCountForCaller": 1,
+    "I-CT1.passed": true,
+    "I-CT1.violatingCount": 0
+  },
+  "guarantees": [
+    "If Call 6 fires immediately after this reconcile, createSession's I-CT2 cascade step 1 finds Session 5's producedComposedPromptId (= the carry-forward row) and Call 6 runs with prompt = P5's body (carried forward). The '↻ reconciled' badge shows on Session 5's Tune tab card.",
+    "If Call 6 fires before the reconcile runs, createSession's I-CT2 cascade step 1 still finds Session 4's producedComposedPromptId (= P5 directly) because Session 4 is the most recent Session with a non-null producedComposedPromptId.",
+    "The 'Call 5 fails AND reconciler fails → Call 6 uses P5' guarantee holds in either ordering."
+  ]
+}

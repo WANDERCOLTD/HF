@@ -53,6 +53,39 @@ function triggerLabel(p: ComposedPrompt): string {
   return p.triggerType || "—";
 }
 
+/**
+ * #1346 Slice 5 — true when this ComposedPrompt was minted by the
+ * carry-through reconciler (Session.endedAt happened but the pipeline
+ * never wrote producedComposedPromptId within 60s, so the reconciler
+ * carried the prior prompt forward).
+ *
+ * Detection runs against two signals (either is sufficient):
+ *   - `triggerType === "reconciler"` — written by the reconciler itself.
+ *   - `inputs.partialFailureMode === "minimal"` — written by the minimal-
+ *     mode COMPOSE path. Same row in practice; the OR keeps the badge
+ *     visible even if a future code path only sets one signal.
+ */
+function isReconciledPrompt(p: ComposedPrompt): boolean {
+  if ((p.triggerType || "").toLowerCase() === "reconciler") return true;
+  const inputs = p.inputs as Record<string, unknown> | null;
+  return inputs?.partialFailureMode === "minimal";
+}
+
+function reconciledTooltip(p: ComposedPrompt): string {
+  const inputs = p.inputs as Record<string, unknown> | null;
+  const reconciledAt = typeof inputs?.reconciledAt === "string" ? inputs.reconciledAt : null;
+  const source = typeof inputs?.carryForwardSource === "string" ? inputs.carryForwardSource : null;
+  let when = "";
+  if (reconciledAt) {
+    try {
+      when = ` at ${new Date(reconciledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    } catch {
+      /* ignore */
+    }
+  }
+  return `Pipeline output for this Session was reconstructed${when} after a downstream failure${source ? ` (cascade: ${source})` : ""}.`;
+}
+
 /** #642 — triggerType → icon. Makes it obvious where a prompt came from at a glance.
  *  Note: post_call / pipeline use MessageSquare (a "prompt" / message icon) — the
  *  enclosing call-group header carries the Phone icon for the call itself, so
@@ -1093,6 +1126,15 @@ export function PromptTimelineRows({
                       <span className={`hf-micro-badge hf-uppercase ${triggerColourClass(p)}`}>
                         {triggerLabel(p)}
                       </span>
+                      {isReconciledPrompt(p) && (
+                        <span
+                          className="hf-micro-badge ptr-reconciled-badge"
+                          title={reconciledTooltip(p)}
+                          aria-label="reconciled"
+                        >
+                          ↻ reconciled
+                        </span>
+                      )}
                       <span className="ptr-row-time">{formatDate(p.composedAt)}</span>
                       {!isPromptOpen && p.prompt && (
                         <span className="ptr-row-preview" title={p.prompt.slice(0, 200)}>

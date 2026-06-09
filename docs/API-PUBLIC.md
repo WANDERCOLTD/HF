@@ -1267,6 +1267,7 @@ SPEC-DRIVEN pipeline endpoint that runs analysis in configurable stages. Pipelin
 | callerId | body | string | No | The caller ID (required) |
 | mode | body | string | No | Pipeline mode: "prep" (all stages except COMPOSE) or "prompt" (all stages including COMPOSE) (required) |
 | engine | body | string | No | AI engine to use: "mock" | "claude" | "openai" (default: "claude") |
+| partialFailureMode | body | string | No | Optional. When "minimal", COMPOSE short-circuits the LLM path and carries the prior prompt forward via the I-CT2 cascade. Used by the Slice 5 reconciler (#1346). |
 
 **Response** `200`
 ```json

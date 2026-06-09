@@ -1,13 +1,13 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-09T14:09:55.865Z",
+  "generatedAt": "2026-06-09T15:10:42.696Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 501,
+    "routeCount": 502,
     "byAuthLevel": {
       "VIEWER": 112,
-      "ADMIN": 80,
+      "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
       "OPERATOR": 133,
@@ -26,7 +26,7 @@
     },
     "noAuthGate": 27,
     "possiblyUnscoped": 130,
-    "internalSecret": 7
+    "internalSecret": 8
   },
   "routes": [
     {
@@ -9877,6 +9877,26 @@
     {
       "route": "/api/voice/poll-stale-calls",
       "file": "apps/admin/app/api/voice/poll-stale-calls/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "ADMIN"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": true,
+        "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/voice/reconcile-carry-through",
+      "file": "apps/admin/app/api/voice/reconcile-carry-through/route.ts",
       "methods": [
         "POST"
       ],
