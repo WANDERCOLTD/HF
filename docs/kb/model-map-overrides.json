@@ -1,0 +1,47 @@
+{
+  "$schema": "model-map-overrides/v1",
+  "note": "Human-ratified classifications applied AFTER the heuristic in scripts/capture/model-map.ts. Any model named here gets reviewed:true in the generated map. Edit this file to ratify a model; never hand-edit docs/kb/generated/model-map.json.",
+  "lastReviewedAt": "2026-06-09",
+  "overrides": {
+    "AnalysisSpec": {
+      "proposedClass": "tenant-scoped",
+      "confidence": "medium",
+      "notes": "Has `scope` field (SYSTEM | DOMAIN | CALLER). SYSTEM rows are platform-global, DOMAIN/CALLER rows are tenant-scoped via FK chain. As a single table it carries tenant data — requires tenantId. Heuristic wrongly matched /Spec/ → global."
+    },
+    "ChannelConfig": {
+      "proposedClass": "tenant-scoped",
+      "confidence": "medium",
+      "notes": "Has `domainId` FK — already scoped per Domain. Multi-tenancy: domain → tenant gives the scoping chain. Heuristic matched /Config$/ → global."
+    },
+    "PipelineRun": {
+      "proposedClass": "tenant-scoped",
+      "confidence": "medium",
+      "notes": "Records of a pipeline execution with `callerId` and `callId` FKs. Each row is per-call tenant data, not platform config. Heuristic wrongly matched /^Pipeline/ → global."
+    },
+    "PipelineStep": {
+      "proposedClass": "tenant-scoped",
+      "confidence": "medium",
+      "notes": "Child of PipelineRun via `runId`; tenancy inherited through `run.callerId`. Heuristic wrongly matched /^Pipeline/ → global."
+    },
+    "AIConfig": {
+      "proposedClass": "global",
+      "confidence": "medium",
+      "notes": "Call-point AI config (provider, model, temperature, timeouts). Platform-global; identical for all tenants on a single deployment. Verified — no FK to per-tenant entities."
+    },
+    "IntakeSpec": {
+      "proposedClass": "global",
+      "confidence": "medium",
+      "notes": "Tallyseal-shaped spec registry (key + version + body). Authored by admins, consumed by enrollment chat. No per-tenant data."
+    },
+    "PromptTemplate": {
+      "proposedClass": "global",
+      "confidence": "medium",
+      "notes": "Catalog of prompt templates referenced by PlaybookItem. The template content is shared across tenants; per-playbook usage carries tenancy via Playbook."
+    },
+    "SystemSetting": {
+      "proposedClass": "global",
+      "confidence": "medium",
+      "notes": "Key/value system settings — by definition platform-global."
+    }
+  }
+}

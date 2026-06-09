@@ -33,7 +33,7 @@ already exists, scattered across mechanisms that were never designed as one syst
 
 | # | Part | Format | Lives in | Status |
 |---|---|---|---|---|
-| 1 | Structural facts (model map, routes, coupling) | generated JSON | `docs/kb/generated/` | 🟡 model-map + routes done; coupling TODO |
+| 1 | Structural facts (model map, routes, coupling) | generated JSON | `docs/kb/generated/` | 🟡 model-map + routes done; 8/109 ratified (the high-stakes globals); coupling TODO |
 | 2 | Guard / contract registry | markdown (CHAIN-style) | `docs/kb/guard-registry.md` | 🟢 10/10 ESLint rules wired |
 | 2b | Guards *process* (the ritual) | markdown | `docs/kb/guards-process.md` | 🟢 first cut |
 | 3 | Narrative invariants / history | markdown | `docs/kb/invariants.md` | 🟡 seeded |
@@ -55,10 +55,27 @@ already exists, scattered across mechanisms that were never designed as one syst
 
 ```bash
 cd apps/admin
-npm run kb:model-map     # → docs/kb/generated/model-map.json   (105 models classified)
+npm run kb:model-map     # → docs/kb/generated/model-map.json   (109 models classified)
 npm run kb:routes        # → docs/kb/generated/route-inventory.json (501 routes)
 npm run kb:check         # meta-ratchet (guard back-links) + generated-fact freshness
 ```
+
+### Ratifying a model classification
+
+The model map's `proposedClass` is a heuristic; ratify a row by adding an entry to
+[`model-map-overrides.json`](./model-map-overrides.json) (NOT the generated JSON):
+
+```json
+{
+  "overrides": {
+    "ModelName": { "proposedClass": "tenant-scoped", "confidence": "medium", "notes": "why" }
+  }
+}
+```
+
+Re-run `npm run kb:model-map`; the generator applies overrides and sets `reviewed:true`
+on each ratified row. The overrides file is the *human* tier; the generated JSON is
+re-derived on every run.
 
 - **Find something** → `qmd search` (semantic recall over the whole corpus).
   qmd is **not** retired — it's how this KB gets built (search → curate → register).

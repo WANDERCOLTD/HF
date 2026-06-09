@@ -1,15 +1,17 @@
 {
   "$schema": "model-map/v1",
-  "generatedAt": "2026-06-09T08:30:14.496Z",
+  "generatedAt": "2026-06-09T10:29:17.601Z",
   "generator": "scripts/capture/model-map.ts",
   "schemaPath": "apps/admin/prisma/schema.prisma",
-  "note": "Tier-2 generated KB. proposedClass is a HEURISTIC; ratify each row (set reviewed:true) to make this the authoritative tenant-scoping map. Do not hand-edit — re-run the generator.",
-  "modelCount": 105,
+  "note": "Tier-2 generated KB. proposedClass is a HEURISTIC unless reviewed:true. Human ratifications live in docs/kb/model-map-overrides.json and are reapplied by the generator on each run. Do not hand-edit this JSON — edit the overrides file.",
+  "modelCount": 109,
+  "ratifiedCount": 8,
   "summary": {
-    "tenant-scoped": 89,
-    "global": 8,
+    "tenant-scoped": 97,
+    "global": 4,
     "join": 8,
-    "alreadyTenantAware": 1
+    "alreadyTenantAware": 1,
+    "ratified": 8
   },
   "models": [
     {
@@ -157,9 +159,9 @@
       ],
       "hasTenantHint": false,
       "proposedClass": "global",
-      "confidence": "low",
-      "reviewed": false,
-      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+      "confidence": "medium",
+      "reviewed": true,
+      "notes": "Call-point AI config (provider, model, temperature, timeouts). Platform-global; identical for all tenants on a single deployment. Verified — no FK to per-tenant entities."
     },
     {
       "name": "AIModel",
@@ -383,10 +385,10 @@
         "@@map"
       ],
       "hasTenantHint": false,
-      "proposedClass": "global",
-      "confidence": "low",
-      "reviewed": false,
-      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+      "proposedClass": "tenant-scoped",
+      "confidence": "medium",
+      "reviewed": true,
+      "notes": "Has `scope` field (SYSTEM | DOMAIN | CALLER). SYSTEM rows are platform-global, DOMAIN/CALLER rows are tenant-scoped via FK chain. As a single table it carries tenant data — requires tenantId. Heuristic wrongly matched /Spec/ → global."
     },
     {
       "name": "AnalysisTrigger",
@@ -522,6 +524,30 @@
         "@@index",
         "@@index"
       ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "AuthSession",
+      "fieldCount": 5,
+      "relationCount": 1,
+      "meaningfulScalarCount": 2,
+      "scalarFields": [
+        "id",
+        "sessionToken",
+        "userId",
+        "expires"
+      ],
+      "relations": [
+        {
+          "field": "user",
+          "target": "User"
+        }
+      ],
+      "blockAttrs": [],
       "hasTenantHint": false,
       "proposedClass": "tenant-scoped",
       "confidence": "low",
@@ -710,8 +736,8 @@
     },
     {
       "name": "Call",
-      "fieldCount": 44,
-      "relationCount": 18,
+      "fieldCount": 46,
+      "relationCount": 19,
       "meaningfulScalarCount": 17,
       "scalarFields": [
         "id",
@@ -720,6 +746,7 @@
         "transcript",
         "createdAt",
         "callerId",
+        "sessionId",
         "playbookId",
         "curriculumModuleId",
         "requestedModuleId",
@@ -745,6 +772,10 @@
         {
           "field": "caller",
           "target": "Caller"
+        },
+        {
+          "field": "session",
+          "target": "Session"
         },
         {
           "field": "playbook",
@@ -890,8 +921,8 @@
     },
     {
       "name": "Caller",
-      "fieldCount": 46,
-      "relationCount": 28,
+      "fieldCount": 47,
+      "relationCount": 29,
       "meaningfulScalarCount": 9,
       "scalarFields": [
         "id",
@@ -1025,6 +1056,10 @@
         {
           "field": "lastSelectedModule",
           "target": "CurriculumModule"
+        },
+        {
+          "field": "sessions",
+          "target": "Session"
         }
       ],
       "blockAttrs": [
@@ -1449,6 +1484,27 @@
       "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
     },
     {
+      "name": "CallerSequenceCounter",
+      "fieldCount": 4,
+      "relationCount": 0,
+      "meaningfulScalarCount": 2,
+      "scalarFields": [
+        "callerId",
+        "kind",
+        "nextSeq",
+        "updatedAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@id"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
       "name": "CallerTarget",
       "fieldCount": 14,
       "relationCount": 2,
@@ -1645,10 +1701,10 @@
         "@@index"
       ],
       "hasTenantHint": false,
-      "proposedClass": "global",
-      "confidence": "low",
-      "reviewed": false,
-      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+      "proposedClass": "tenant-scoped",
+      "confidence": "medium",
+      "reviewed": true,
+      "notes": "Has `domainId` FK — already scoped per Domain. Multi-tenancy: domain → tenant gives the scoping chain. Heuristic matched /Config$/ → global."
     },
     {
       "name": "CohortGroup",
@@ -1753,8 +1809,8 @@
     },
     {
       "name": "ComposedPrompt",
-      "fieldCount": 20,
-      "relationCount": 4,
+      "fieldCount": 24,
+      "relationCount": 7,
       "meaningfulScalarCount": 11,
       "scalarFields": [
         "id",
@@ -1764,6 +1820,7 @@
         "llmPrompt",
         "triggerType",
         "triggerCallId",
+        "triggerSessionId",
         "inputs",
         "model",
         "status",
@@ -1784,8 +1841,20 @@
           "target": "Call"
         },
         {
+          "field": "triggerSession",
+          "target": "Session"
+        },
+        {
           "field": "usedForCalls",
           "target": "Call"
+        },
+        {
+          "field": "sessionsUsedBy",
+          "target": "Session"
+        },
+        {
+          "field": "sessionsProducedBy",
+          "target": "Session"
         },
         {
           "field": "caller",
@@ -1793,6 +1862,7 @@
         }
       ],
       "blockAttrs": [
+        "@@index",
         "@@index",
         "@@index",
         "@@index",
@@ -2276,8 +2346,8 @@
     },
     {
       "name": "CurriculumModule",
-      "fieldCount": 24,
-      "relationCount": 7,
+      "fieldCount": 25,
+      "relationCount": 8,
       "meaningfulScalarCount": 12,
       "scalarFields": [
         "id",
@@ -2322,6 +2392,10 @@
         {
           "field": "lastSelectedByCallers",
           "target": "Caller"
+        },
+        {
+          "field": "sessions",
+          "target": "Session"
         },
         {
           "field": "sourceContent",
@@ -2469,6 +2543,36 @@
         {
           "field": "processedFile",
           "target": "ProcessedFile"
+        }
+      ],
+      "blockAttrs": [
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "FailureLog",
+      "fieldCount": 7,
+      "relationCount": 1,
+      "meaningfulScalarCount": 4,
+      "scalarFields": [
+        "id",
+        "sessionId",
+        "kind",
+        "attemptNumber",
+        "errorPayload",
+        "occurredAt"
+      ],
+      "relations": [
+        {
+          "field": "session",
+          "target": "Session"
         }
       ],
       "blockAttrs": [
@@ -2665,6 +2769,33 @@
       "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
     },
     {
+      "name": "IntakeEvent",
+      "fieldCount": 8,
+      "relationCount": 0,
+      "meaningfulScalarCount": 5,
+      "scalarFields": [
+        "id",
+        "intentId",
+        "version",
+        "kind",
+        "prevHash",
+        "contentHash",
+        "payload",
+        "createdAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@map"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
       "name": "IntakeSpec",
       "fieldCount": 14,
       "relationCount": 2,
@@ -2700,9 +2831,9 @@
       ],
       "hasTenantHint": false,
       "proposedClass": "global",
-      "confidence": "low",
-      "reviewed": false,
-      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+      "confidence": "medium",
+      "reviewed": true,
+      "notes": "Tallyseal-shaped spec registry (key + version + body). Authored by admins, consumed by enrollment chat. No per-tenant data."
     },
     {
       "name": "Invite",
@@ -3398,10 +3529,10 @@
         "@@index"
       ],
       "hasTenantHint": false,
-      "proposedClass": "global",
-      "confidence": "low",
-      "reviewed": false,
-      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+      "proposedClass": "tenant-scoped",
+      "confidence": "medium",
+      "reviewed": true,
+      "notes": "Records of a pipeline execution with `callerId` and `callId` FKs. Each row is per-call tenant data, not platform config. Heuristic wrongly matched /^Pipeline/ → global."
     },
     {
       "name": "PipelineStep",
@@ -3445,15 +3576,15 @@
         "@@index"
       ],
       "hasTenantHint": false,
-      "proposedClass": "global",
-      "confidence": "low",
-      "reviewed": false,
-      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+      "proposedClass": "tenant-scoped",
+      "confidence": "medium",
+      "reviewed": true,
+      "notes": "Child of PipelineRun via `runId`; tenancy inherited through `run.callerId`. Heuristic wrongly matched /^Pipeline/ → global."
     },
     {
       "name": "Playbook",
-      "fieldCount": 37,
-      "relationCount": 16,
+      "fieldCount": 38,
+      "relationCount": 17,
       "meaningfulScalarCount": 15,
       "scalarFields": [
         "id",
@@ -3542,6 +3673,10 @@
         {
           "field": "wizardSessions",
           "target": "WizardSession"
+        },
+        {
+          "field": "sessions",
+          "target": "Session"
         }
       ],
       "blockAttrs": [
@@ -4042,9 +4177,9 @@
       ],
       "hasTenantHint": false,
       "proposedClass": "global",
-      "confidence": "low",
-      "reviewed": false,
-      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+      "confidence": "medium",
+      "reviewed": true,
+      "notes": "Catalog of prompt templates referenced by PlaybookItem. The template content is shared across tenants; per-playbook usage carries tenancy via Playbook."
     },
     {
       "name": "RewardScore",
@@ -4139,22 +4274,72 @@
     },
     {
       "name": "Session",
-      "fieldCount": 5,
-      "relationCount": 1,
-      "meaningfulScalarCount": 2,
+      "fieldCount": 27,
+      "relationCount": 8,
+      "meaningfulScalarCount": 11,
       "scalarFields": [
         "id",
-        "sessionToken",
-        "userId",
-        "expires"
+        "callerId",
+        "playbookId",
+        "kind",
+        "sequenceNumber",
+        "learnerFacingNumber",
+        "requestedModuleId",
+        "curriculumModuleId",
+        "voiceProvider",
+        "intentId",
+        "voiceConfigSnapshot",
+        "startedAt",
+        "endedAt",
+        "status",
+        "countsTowardLearnerNumber",
+        "countsTowardPipelineNumber",
+        "skipStages",
+        "usedPromptId",
+        "producedComposedPromptId"
       ],
       "relations": [
         {
-          "field": "user",
-          "target": "User"
+          "field": "caller",
+          "target": "Caller"
+        },
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        },
+        {
+          "field": "curriculumModule",
+          "target": "CurriculumModule"
+        },
+        {
+          "field": "usedPrompt",
+          "target": "ComposedPrompt"
+        },
+        {
+          "field": "producedComposedPrompt",
+          "target": "ComposedPrompt"
+        },
+        {
+          "field": "call",
+          "target": "Call"
+        },
+        {
+          "field": "triggeredComposedPrompts",
+          "target": "ComposedPrompt"
+        },
+        {
+          "field": "failureLogs",
+          "target": "FailureLog"
         }
       ],
-      "blockAttrs": [],
+      "blockAttrs": [
+        "@@unique",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index",
+        "@@index"
+      ],
       "hasTenantHint": false,
       "proposedClass": "tenant-scoped",
       "confidence": "low",
@@ -4376,9 +4561,9 @@
       ],
       "hasTenantHint": false,
       "proposedClass": "global",
-      "confidence": "low",
-      "reviewed": false,
-      "notes": "Name matches a platform/config pattern — verify it holds no per-tenant data."
+      "confidence": "medium",
+      "reviewed": true,
+      "notes": "Key/value system settings — by definition platform-global."
     },
     {
       "name": "Tag",
@@ -4620,8 +4805,8 @@
           "target": "Account"
         },
         {
-          "field": "sessions",
-          "target": "Session"
+          "field": "authSessions",
+          "target": "AuthSession"
         },
         {
           "field": "sentMessages",
