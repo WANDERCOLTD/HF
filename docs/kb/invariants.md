@@ -20,20 +20,17 @@
   `findFirst({where:{slug}})`. Slugs are per-parent-unique, not global. — #407/#411 →
   `no-unscoped-slug-lookup`, `resolveModuleByLogicalId`.
 
-## Adaptive-loop stage boundaries (from `CHAIN-CONTRACTS.md`)
+## Adaptive-loop stage boundaries
 
-Every "implicit contract" bug was a stage boundary where producer and consumer agreed
-on shape verbally but not in code:
+> **Mechanism lives in [`CHAIN-CONTRACTS.md`](../CHAIN-CONTRACTS.md)** (producer → consumer →
+> shape → enforcement → test). This file states only the *durable invariant*; do not copy
+> the contract detail back here — point at the CHAIN row / issue instead.
 
-- **Instruction-category directives are never rendered as learner quiz questions.**
-  Tutor-only directives must not be assigned a learner-facing `teachMethod`. — #605 →
-  `no-orphan-instruction-fallback`, `assertNoLearnerMethodOnInstructionCategory()`.
-- **A learner has exactly one CONTENT AUTHORITY source per course.** Two creation paths
-  must not each link a `PlaybookSubject`. — #607 → `unlinkNonPrimaryPlaybookSubjects()`.
-- **SYSTEM-scope archetypes never enter the IDENTITY-fallback pool.** — #608.
-- **LO mastery has one canonical key form (slug, not display name).** Dual key shapes
-  produced non-deterministic mastery reads. — #614 → `resolveModuleSlug` + drain script.
-- **Returning-caller behaviour is driven by playbook `teachingMode`, not hardcoded.** — #604.
+- **Instruction-category directives are never rendered as learner quiz questions.** — #605
+- **A learner has exactly one CONTENT AUTHORITY source per course.** — #607
+- **SYSTEM-scope archetypes never enter the IDENTITY-fallback pool.** — #608
+- **LO mastery has one canonical key form (slug, not display name).** — #614
+- **Returning-caller behaviour is driven by playbook `teachingMode`, not hardcoded.** — #604
 
 ## Curriculum / Playbook (from `CONTRACTS-PLAYBOOK-CURRICULUM.md`)
 

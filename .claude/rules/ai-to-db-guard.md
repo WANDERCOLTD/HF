@@ -1,5 +1,10 @@
 # AI-to-DB Guard Pattern
 
+> Full guard lifecycle (invariant → guard → register → wire → pin → retire) and the
+> survives-hardening classification live in [`docs/kb/guards-process.md`](../../docs/kb/guards-process.md).
+> The catalogue of every existing guard is [`docs/kb/guard-registry.md`](../../docs/kb/guard-registry.md).
+> This file holds the AI-to-DB *trigger* and pattern; the KB holds the procedure.
+
 ## Rule: Never let AI output directly drive entity creation
 
 When AI returns structured data that will be used to create, update, or delete database records, **always** insert a deterministic validation step between the AI response and the DB write.

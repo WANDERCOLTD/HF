@@ -35,6 +35,7 @@ already exists, scattered across mechanisms that were never designed as one syst
 |---|---|---|---|---|
 | 1 | Structural facts (model map, routes, coupling) | generated JSON | `docs/kb/generated/` | 🟡 model-map done |
 | 2 | Guard / contract registry | markdown (CHAIN-style) | `docs/kb/guard-registry.md` | 🟡 first cut |
+| 2b | Guards *process* (the ritual) | markdown | `docs/kb/guards-process.md` | 🟡 first cut |
 | 3 | Narrative invariants / history | markdown | `docs/kb/invariants.md` | 🟡 seeded |
 | 4 | Decisions (ADRs) | markdown | `docs/decisions/` | ✅ via `/adr` |
 | 5 | Flow maps | markdown + ASCII | `memory/flow-*.md` | ✅ |

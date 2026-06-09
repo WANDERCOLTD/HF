@@ -17,21 +17,53 @@
 | **(c) Drain** | Temporary ratchet for an in-flight migration | Track to zero, then delete. |
 | **(meta)** | Process gate / fitness function (not domain logic) | Keep & extend — these are the methodology. |
 
+## KB-link convention (makes this registry load-bearing)
+
+Every guard points **back** at its row here, closing the loop *guard fires → reads the
+invariant → understands the incident → doesn't bypass it*:
+
+- **ESLint rules** set `meta.docs.url` → `…/guard-registry.md#guard-<rule-name>`.
+- **`check-*` scripts** print the same anchor URL in their failure output.
+- Each wired guard gets a stable anchor below (`<a id="guard-…">`). The table is the
+  index; the anchored **Guard detail** blocks are the link targets.
+
+**Meta-ratchet:** [`scripts/capture/check-guard-kb-links.ts`](../../apps/admin/scripts/capture/check-guard-kb-links.ts)
+counts ESLint rules missing a KB link and fails if the count rises above its baseline —
+a guard that guards the guards. Baseline only ever drops as rules are wired (currently 1/10 wired).
+
 ## ESLint rules — `apps/admin/eslint-rules/`
+
+✅ = KB-linked (`meta.docs.url` set).
 
 | Rule | Prevents | Born | Class |
 |---|---|---|---|
-| `no-ai-fanout-all` | AI tool executors passing `fanoutScope:'all'` (cohort fan-out from an AI batch) | #854/#878 | **a** |
+| ✅ [`no-ai-fanout-all`](#guard-no-ai-fanout-all) | AI tool executors passing `fanoutScope:'all'` (cohort fan-out from an AI batch) | #854/#878 | **a** |
 | `no-ai-forbidden-fields` | AI `input_schema.properties` declaring globally forbidden fields (`role`, …) | — | **a** |
 | `no-direct-playbook-config-write` | Direct writes to `Playbook.config`; must use `updatePlaybookConfig` | #854 | **a** |
 | `no-direct-spec-config-write` | Direct writes to compose-affecting `AnalysisSpec` fields outside `lib/analysis-spec/` | — | **a** |
 | `no-direct-domain-onboarding-write` | Direct writes to Domain `onboarding*`/`identitySpec` outside `lib/domain/update*` | — | **a** |
-| `no-orphan-instruction-fallback` | Generic-noun fallbacks for missing module/LO names in prompt transforms | #605 | **a** |
+| `no-orphan-instruction-fallback` | Generic-noun fallbacks for missing module/LO names in prompt transforms (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md)) | #605 | **a** |
 | `no-undeclared-field-require` | `has(...)` refs to field keys not declared in the enclosing `define` | — | **a** |
 | `no-unscoped-slug-lookup` | Unscoped slug/ref lookups on per-parent-unique entities (`CurriculumModule`, LO) | #407/#411 | **b** |
 | `no-deprecated-curricula-relation` | Reads of the `@deprecated Playbook.curricula` relation; use `playbookCurriculum` | #1177 | **b** |
 | `no-module-read-without-course-style-guard` | `CallerModuleProgress` reads/writes outside a `courseStyle` guard | — | **b** |
 | `hf-voice/*` | Voice-surface lint rules | — | _TODO(confirm)_ |
+
+### Guard detail
+
+<a id="guard-no-ai-fanout-all"></a>
+**`no-ai-fanout-all`** · class **(a) invariant** · born #854/#878 ·
+[rule source](../../apps/admin/eslint-rules/no-ai-fanout-all.mjs) ·
+invariant → [`invariants.md`](./invariants.md#ai-to-db-never-let-ai-output-directly-drive-entity-creation)
+
+The pending-changes tray (epic #854) has an asymmetric-default safety property: an
+AI-initiated config change may request a **single-caller** recompose, never a **cohort
+fan-out**. "Recompose all N affected learners" (Toggle 2) must remain a human-only switch.
+This rule fires when an AI tool executor passes `fanoutScope: 'all'` to
+`updatePlaybookConfig` / `updateDomainConfig` / `updateAnalysisSpecConfig`. Use `'caller'`
+or `'none'`. **Survives hardening:** this is a domain-safety truth independent of
+architecture — carry it forward (and, post-multi-tenancy, it also bounds blast radius to
+a single tenant's learner).
 
 ## CI check scripts — `apps/admin/scripts/`
 
