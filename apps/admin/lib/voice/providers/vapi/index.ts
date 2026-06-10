@@ -154,11 +154,28 @@ export class VapiProvider implements VoiceProvider {
     //   2. `?secret=...` query — VAPI naively concatenates
     //      "/chat/completions" onto the END, mangling the value.
     //   3. Pass-through auth (empty webhookSecret) — works in dev.
-    //      Prod will need a path-segment scheme.
-    const customLlmProxyUrl = ctx.serverUrlBase
+    //   4. **Path-segment auth (#TBD-pathseg)** — survives VAPI's
+    //      "/chat/completions" append cleanly. When `ctx.customLlmSecret`
+    //      is set AND hex-shaped, URL becomes ".../llm-proxy/auth/<HEX>";
+    //      VAPI's append produces ".../llm-proxy/auth/<HEX>/chat/completions"
+    //      → hits `app/api/voice/llm-proxy/auth/[secret]/chat/completions`
+    //      which path-validates + timing-safe-compares against
+    //      `credentials.webhookSecret`. Non-hex / wrong-length secrets
+    //      fall back to the header surface — pass-through if empty,
+    //      401 otherwise (the operator should see a clear error in the
+    //      VM log + diag dump rather than ship a mangled URL).
+    const llmProxyBase = ctx.serverUrlBase
       .replace(new RegExp(`/${this.slug}$`), "")
       .concat("/llm-proxy");
-    void ctx.customLlmSecret; // intentionally unused — see comment above
+    const secret = ctx.customLlmSecret;
+    const useHexPathSegment =
+      typeof secret === "string" &&
+      secret.length >= 8 &&
+      secret.length <= 256 &&
+      /^[A-Fa-f0-9]+$/.test(secret);
+    const customLlmProxyUrl = useHexPathSegment
+      ? `${llmProxyBase}/auth/${secret}`
+      : llmProxyBase;
     const modelBlock: Record<string, unknown> = isCustomLlm
       ? {
           provider: "custom-llm",
