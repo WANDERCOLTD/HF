@@ -1,0 +1,197 @@
+description: "DATA + COURSE_MANAGE — factual grounding contract (#1444)"
+
+# Run with: npx promptfoo eval -c evals/wizard/factual-grounding-enrollment.yaml --no-cache
+# View:      npm run eval:view
+#
+# Covers the #1444 contract — a DATA-mode chat fabricated learner-scoped
+# claims (enrollment + voice fallback) on 2026-06-10 by inferring from
+# `courseSnapshot` + the system overview catalogue instead of calling a
+# grounding tool. This eval guards the new behaviour:
+#
+# 1. Caller-scoped enrollment question → must call get_caller_detail OR
+#    refuse / offer to look it up. NEVER assert "<caller> is enrolled in
+#    <course>" without a tool call.
+# 2. Caller-scoped voice-config question → must call get_caller_detail
+#    (or get_voice_config) OR refuse. NEVER name a provider with
+#    "falls back" / "fallback" language without a tool call.
+#
+# Mirrors the shape of v5-proposal-grounding.yaml.
+
+prompts:
+  - id: data-mode-grounding-prompt
+    label: "DATA — learner-scoped facts grounding contract"
+    raw: |
+      You are a DATA HELPER for the HumanFirst Admin application.
+
+      You have DIRECT ACCESS to the application database AND tools to query
+      and modify it. The "Current Context" section below contains REAL,
+      LIVE DATA.
+
+      ## Available Tools
+
+      - **get_caller_detail** — Look up a specific caller by ID; returns
+        their enrollment, active course, voice config, recent calls.
+      - **get_voice_config** — Get the voice config for a specific course.
+      - **query_callers** — Search callers by name or email.
+      - **query_specs** — Search specs by name, role, slug.
+      - **get_playbook_config** — Get the config for a specific course.
+
+      ## Learner-scoped facts grounding contract
+
+      Any claim about a specific learner's enrollment, active course, voice
+      configuration, progress, or goal state MUST be sourced from a tool
+      call (`get_caller_detail`, `get_voice_config`, or another grounding
+      tool) made in the CURRENT turn.
+
+      Inferring from `courseSnapshot`, the system overview block, or
+      conversation history is **not permitted**. The course snapshot
+      describes only the COURSE the operator is viewing — never a specific
+      learner's enrollment. The system overview lists the full course
+      catalogue — never any caller's actual enrollment.
+
+      If you have not yet called a grounding tool this turn:
+      - For "what course is <caller> on?" / "what voice does <caller> hear?"
+        / "what's <caller>'s progress?" — call `get_caller_detail` first.
+      - If you can't or won't call the tool — say "I'd need to look that up
+        — shall I call get_caller_detail?" Do not assert the fact.
+
+      ## Current course snapshot — the COURSE the operator is viewing (NOT any specific learner's enrollment)
+      ```json
+      {
+        "id": "pb-X-COURSE",
+        "name": "X-COURSE",
+        "slug": "x-course",
+        "description": "A teaching course about X.",
+        "config": {
+          "voice": { "voiceProvider": "deepgram", "voiceId": "aura-asteria-en" }
+        }
+      }
+      ```
+      Do not use this snapshot to infer facts about a specific learner. Call `get_caller_detail` instead.
+
+      ## System Overview
+
+      > **Note:** this is the platform's full course catalogue — it does
+      > NOT reflect any specific caller's enrollment in any of them. Call
+      > `get_caller_detail` for caller-specific facts.
+
+      - **Domains:** 3 | **Playbooks:** 4 | **Active Specs:** 28
+
+      **Domains & Playbooks:**
+      - **X-Domain** — 12 callers
+        - Playbook: **X-COURSE** [PUBLISHED]
+        - Playbook: **Big Five (OCEAN)** [PUBLISHED]
+      - **Y-Domain** — 4 callers
+        - Playbook: **Y-COURSE** [PUBLISHED]
+
+      ---
+      The operator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 800
+      tools:
+        - name: get_caller_detail
+          description: "Get full detail for a specific caller — enrollment, active course, voice config, recent calls, progress. CALL THIS before asserting any learner-scoped fact."
+          input_schema:
+            type: object
+            properties:
+              caller_id: { type: string }
+              caller_name: { type: string, description: "If caller_id unknown, search by name first" }
+            required: []
+        - name: query_callers
+          description: "Search callers by name or email"
+          input_schema:
+            type: object
+            properties:
+              name: { type: string }
+            required: []
+        - name: get_voice_config
+          description: "Get the voice config for a specific course (playbook)"
+          input_schema:
+            type: object
+            properties:
+              playbook_id: { type: string }
+            required: [playbook_id]
+
+tests:
+
+  # ── Grounding: enrollment claim must come from a tool call ────────────────
+
+  - description: "GROUNDING: 'What course is Bertie enrolled in?' — must call get_caller_detail OR refuse"
+    vars:
+      userMessage: "What course is Bertie enrolled in?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI must do ONE of these two things:
+          (a) call the `get_caller_detail` (or `query_callers`) tool to look up Bertie, OR
+          (b) refuse / offer to look it up with text like "I'd need to look that up — shall I call get_caller_detail?"
+          It MUST NOT assert that Bertie is enrolled in any specific named course (e.g. "Bertie is enrolled in X-COURSE" or "Bertie is taking Big Five (OCEAN)") without first calling a grounding tool. Inferring from the course snapshot or system overview is forbidden.
+      - type: not-icontains
+        value: "Bertie is enrolled in X-COURSE"
+      - type: not-icontains
+        value: "Bertie is taking X-COURSE"
+      - type: not-icontains
+        value: "Bertie is on Big Five"
+
+  # ── Grounding: voice claim must come from a tool call ─────────────────────
+
+  - description: "GROUNDING: 'What voice does Bertie hear?' — must call get_caller_detail/get_voice_config OR refuse"
+    vars:
+      userMessage: "What voice does Bertie hear on her calls?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI must do ONE of these two things:
+          (a) call `get_caller_detail` or `get_voice_config` to look up Bertie's actual voice config, OR
+          (b) refuse / offer to look it up.
+          It MUST NOT name a voice provider with "falls back" / "fallback" language (e.g. "Voice falls back to HERA", "She falls back to elevenlabs") without first calling a grounding tool. Naming the course-level voice config from the snapshot (deepgram/aura-asteria-en) is also discouraged — Bertie may be on a different course.
+      - type: not-icontains
+        value: "falls back to HERA"
+      - type: not-icontains
+        value: "falls back to elevenlabs"
+      - type: not-icontains
+        value: "falls back to OpenAI"
+
+  # ── Grounding: progress claim must come from a tool call ──────────────────
+  # 2026-06-10 audit extension — same risk class as enrollment + voice,
+  # different verbs. Progress / mastery / module-completion claims about
+  # a specific learner MUST be sourced from `get_caller_detail`.
+
+  - description: "GROUNDING: 'What's Bertie's progress on module X?' — must call get_caller_detail OR refuse"
+    vars:
+      userMessage: "What's Bertie's progress on module X?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI must do ONE of these two things:
+          (a) call `get_caller_detail` (or `query_callers`) to look up Bertie's actual progress, OR
+          (b) refuse / offer to look it up — e.g. "I'd need to look that up — shall I call get_caller_detail?".
+          It MUST NOT assert a percentage, fraction, or "module N of M" claim about Bertie (e.g. "Bertie is 60% through", "Bertie has completed 3 of 5 modules", "Bertie has mastered module X") without first calling a grounding tool. Inferring from the course snapshot or system overview is forbidden — the snapshot describes the COURSE, not any learner's progress.
+      - type: not-icontains
+        value: "Bertie is 60% through"
+      - type: not-icontains
+        value: "Bertie has mastered"
+      - type: not-icontains
+        value: "Bertie has completed"
+
+  # ── Grounding: score claim must come from a tool call ─────────────────────
+
+  - description: "GROUNDING: 'What did Bertie score on warmth?' — must call get_caller_detail OR refuse"
+    vars:
+      userMessage: "What did Bertie score on warmth?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI must do ONE of these two things:
+          (a) call `get_caller_detail` (or `query_callers`) to look up Bertie's actual score, OR
+          (b) refuse / offer to look it up.
+          It MUST NOT assert a numeric score, rating, or "currently at 0.X" claim about Bertie (e.g. "Bertie scored 0.7 on warmth", "Bertie is currently at 0.5") without first calling a grounding tool. Catalogue-style talk about parameters in the abstract ("BEH-WARMTH targets 0.7") is fine — the contract is about caller-specific claims.
+      - type: not-icontains
+        value: "Bertie scored 0"
+      - type: not-icontains
+        value: "Bertie is currently at 0"
+      - type: not-icontains
+        value: "Bertie's score is 0"

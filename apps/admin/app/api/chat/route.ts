@@ -14,6 +14,9 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
 import { extractPendingChangeFromToolResult, type PendingChangePayload } from "@/lib/chat/pending-change-payload";
+import { detectUngroundedLearnerClaim, detectFabricatedFilePaths } from "./factual-grounding-intercept";
+import path from "node:path";
+import { existsSync as fsExistsSync } from "node:fs";
 
 // TUNING mode gets a narrow tool surface — behaviour-target writer + playbook
 // config writer. Broader admin tools stay in DATA mode where they belong.
@@ -96,6 +99,35 @@ interface EntityBreadcrumb {
 }
 
 const MAX_TOOL_ITERATIONS = 5;
+
+/**
+ * Resolve the absolute path to the monorepo's `apps/admin/` directory
+ * for the #1444 file-path intercept. Walks up from `process.cwd()` to
+ * find the `apps/admin` segment; returns the absolute path or null if
+ * not found.
+ *
+ * Resolution survives next-dev's CWD variation: locally `cwd` is
+ * `apps/admin`, on the VM it's the same, in Cloud Run it's the root.
+ * If the helper can't find the root we bail open (no block) — the
+ * intercept is a safety net, not a correctness gate.
+ */
+function resolveAppAdminRoot(): string | null {
+  const cwd = process.cwd();
+  // A sentinel file we know lives under apps/admin and is unlikely to
+  // ever move — used to validate the candidate root resolves to the
+  // right place. If it doesn't exist, bail open (return null) so the
+  // intercept doesn't fire false positives.
+  const sentinel = path.join("app", "api", "chat", "route.ts");
+
+  // Case A: cwd already ends with apps/admin (local + VM dev paths).
+  if (cwd.endsWith(`${path.sep}apps${path.sep}admin`)) {
+    return fsExistsSync(path.join(cwd, sentinel)) ? cwd : null;
+  }
+
+  // Case B: cwd is the monorepo root → apps/admin lives under it.
+  const candidate = path.join(cwd, "apps", "admin");
+  return fsExistsSync(path.join(candidate, sentinel)) ? candidate : null;
+}
 
 /**
  * @api POST /api/chat
@@ -398,12 +430,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // BUG mode: streaming diagnosis, no tool calling
+    // BUG mode: non-streaming diagnosis (no tool calling), buffered so the
+    // file-path intercept can inspect the full response. #1444 — fabricated
+    // `apps/admin/...:N` citations in bug-diagnosis mode were one of the
+    // failure classes the same-day audit flagged. The mode response is
+    // typically short (diagnosis-shaped), so the buffered single-emit
+    // round-trip is acceptable; switching back to streaming would require
+    // accumulating the chunk stream and re-emitting once — same end-state.
     if (mode === "BUG") {
       // @ai-call chat.bug — Bug diagnosis with code context | config: /x/ai-config
       const callPoint = "chat.bug";
 
-      const { stream: meteredStream } = await getConfiguredMeteredAICompletionStream(
+      const response = await getConfiguredMeteredAICompletion(
         {
           callPoint,
           engineOverride: engine,
@@ -412,9 +450,37 @@ export async function POST(request: NextRequest) {
         { sourceOp: callPoint }
       );
 
+      // #1444 extension — fs-existence check on every `apps/admin/...:N`
+      // citation. `appAdminRoot` is the directory of this route file's
+      // monorepo subtree — we resolve it from `process.cwd()` upward to
+      // the `apps/admin` segment so the check survives next-dev's
+      // working-directory variation across local / VM / Cloud Run.
+      let finalContent = response.content;
+      const appAdminRoot = resolveAppAdminRoot();
+      if (appAdminRoot) {
+        const pathIntercept = detectFabricatedFilePaths({
+          assistantText: finalContent,
+          appAdminRoot,
+        });
+        if (pathIntercept.blocked && pathIntercept.replacementText) {
+          console.warn(
+            `[file-path-intercept] mode=BUG fabricated=${JSON.stringify(pathIntercept.fabricatedPaths)} suppressed="${(pathIntercept.suppressedText ?? "").slice(0, 200)}"`,
+          );
+          finalContent = pathIntercept.replacementText;
+        }
+      }
+
       logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext);
 
-      return new Response(meteredStream, {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(finalContent));
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
           "Transfer-Encoding": "chunked",
@@ -474,6 +540,12 @@ async function handleDataModeWithTools(
   // via X-Pending-Changes response header for the client renderer to
   // push into the PendingChangesTray.
   const pendingChanges: PendingChangePayload[] = [];
+  // #1444 — accumulate every tool_use name across the loop so the
+  // factual-grounding intercept can tell whether a learner-scoped
+  // grounding tool (`get_caller_detail` / `get_voice_config`) was
+  // called this turn. Reset per-request (each route invocation rebuilds
+  // the closure).
+  const toolUsesInTurn: Array<{ name: string }> = [];
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     // @ai-call chat.data — Non-streaming with tools | config: /x/ai-config
@@ -495,6 +567,8 @@ async function handleDataModeWithTools(
 
     // Model wants to use tools
     toolCallCount += response.toolUses.length;
+    // #1444 — record the tool_use names for the factual-grounding intercept.
+    for (const tu of response.toolUses) toolUsesInTurn.push({ name: tu.name });
 
     // Add assistant's response (with tool_use blocks) to the conversation
     loopMessages.push({
@@ -533,6 +607,24 @@ async function handleDataModeWithTools(
   // If loop exhausted without final content, use the last response
   if (!finalContent) {
     finalContent = "I used several tools but couldn't complete the request. Please try again with a more specific question.";
+  }
+
+  // #1444 — structural intercept. The DATA / COURSE_MANAGE modes are the
+  // only places where the model sees both a course snapshot AND a system
+  // overview that could mislead it into inferring learner-scoped facts.
+  // If the model asserted an enrollment or voice-fallback claim without
+  // first calling a grounding tool, suppress and replace with a refusal.
+  // Streaming branches are out of scope for this slice (tracked as a
+  // follow-up — would need to buffer the chunk stream before emitting).
+  const intercept = detectUngroundedLearnerClaim({
+    assistantText: finalContent,
+    toolUsesInTurn,
+  });
+  if (intercept.blocked && intercept.replacementText) {
+    console.warn(
+      `[factual-grounding-intercept] mode=${mode} reason="${intercept.reason}" suppressed="${(intercept.suppressedText ?? "").slice(0, 200)}"`,
+    );
+    finalContent = intercept.replacementText;
   }
 
   logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext, toolCallCount);
