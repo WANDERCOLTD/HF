@@ -79,6 +79,11 @@ while IFS=$'\t' read -r wt_path branch_ref; do
         REMOVED=$((REMOVED + 1))
       else
         log "  rm     $short_wt ($branch — PR $state)"
+        # `git worktree remove --force` does NOT bypass the `locked` flag;
+        # unlock first (no-op on unlocked worktrees) then remove. Observed
+        # 2026-06-10: without the unlock, `--force` silently leaves locked
+        # worktrees in place even though the script logs "rm".
+        git worktree unlock "$wt_path" 2>/dev/null || true
         git worktree remove --force "$wt_path" 2>/dev/null || true
         git branch -D "$branch" 2>/dev/null || true
         REMOVED=$((REMOVED + 1))
