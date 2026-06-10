@@ -14,6 +14,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
 import { extractPendingChangeFromToolResult, type PendingChangePayload } from "@/lib/chat/pending-change-payload";
+import { detectUngroundedLearnerClaim } from "./factual-grounding-intercept";
 
 // TUNING mode gets a narrow tool surface — behaviour-target writer + playbook
 // config writer. Broader admin tools stay in DATA mode where they belong.
@@ -474,6 +475,12 @@ async function handleDataModeWithTools(
   // via X-Pending-Changes response header for the client renderer to
   // push into the PendingChangesTray.
   const pendingChanges: PendingChangePayload[] = [];
+  // #1444 — accumulate every tool_use name across the loop so the
+  // factual-grounding intercept can tell whether a learner-scoped
+  // grounding tool (`get_caller_detail` / `get_voice_config`) was
+  // called this turn. Reset per-request (each route invocation rebuilds
+  // the closure).
+  const toolUsesInTurn: Array<{ name: string }> = [];
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     // @ai-call chat.data — Non-streaming with tools | config: /x/ai-config
@@ -495,6 +502,8 @@ async function handleDataModeWithTools(
 
     // Model wants to use tools
     toolCallCount += response.toolUses.length;
+    // #1444 — record the tool_use names for the factual-grounding intercept.
+    for (const tu of response.toolUses) toolUsesInTurn.push({ name: tu.name });
 
     // Add assistant's response (with tool_use blocks) to the conversation
     loopMessages.push({
@@ -533,6 +542,24 @@ async function handleDataModeWithTools(
   // If loop exhausted without final content, use the last response
   if (!finalContent) {
     finalContent = "I used several tools but couldn't complete the request. Please try again with a more specific question.";
+  }
+
+  // #1444 — structural intercept. The DATA / COURSE_MANAGE modes are the
+  // only places where the model sees both a course snapshot AND a system
+  // overview that could mislead it into inferring learner-scoped facts.
+  // If the model asserted an enrollment or voice-fallback claim without
+  // first calling a grounding tool, suppress and replace with a refusal.
+  // Streaming branches are out of scope for this slice (tracked as a
+  // follow-up — would need to buffer the chunk stream before emitting).
+  const intercept = detectUngroundedLearnerClaim({
+    assistantText: finalContent,
+    toolUsesInTurn,
+  });
+  if (intercept.blocked && intercept.replacementText) {
+    console.warn(
+      `[factual-grounding-intercept] mode=${mode} reason="${intercept.reason}" suppressed="${(intercept.suppressedText ?? "").slice(0, 200)}"`,
+    );
+    finalContent = intercept.replacementText;
   }
 
   logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext, toolCallCount);

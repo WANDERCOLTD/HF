@@ -88,13 +88,24 @@ export function buildPageContextBlock(pageContext: PageContextHint | undefined):
   // snapshot so the AI can propose informed deltas instead of asking
   // "what is the current value?". Serialised as JSON inside a fenced
   // block so the AI sees structure without parser ambiguity.
+  //
+  // #1444 — heading + footnote explicitly disclaim that this is the
+  // COURSE the operator is viewing, NOT any specific learner's
+  // enrollment / progress / voice. A 2026-06-10 DATA-mode chat
+  // fabricated enrollment + voice-fallback claims about Bertie
+  // Tallstaff by inferring from this block instead of calling
+  // `get_caller_detail`. The label is the structural cue; the
+  // grounding contract in DATA_SYSTEM_PROMPT (#1444) and the
+  // post-response regex intercept (`factual-grounding-intercept.ts`)
+  // are the secondary + tertiary defences.
   let snapshotBlock = "";
   if (pageContext.page === "course" && pageContext.params.courseSnapshot) {
     snapshotBlock =
-      "\n\n## Current course snapshot (live editable surface)\n" +
+      "\n\n## Current course snapshot — the COURSE the operator is viewing (NOT any specific learner's enrollment)\n" +
       "```json\n" +
       JSON.stringify(pageContext.params.courseSnapshot, null, 2) +
-      "\n```";
+      "\n```\n" +
+      "Do not use this snapshot to infer facts about a specific learner. Call `get_caller_detail` instead.";
   }
 
   return `\n\n## Page context (what the user is looking at)\n${lines.join("\n")}${snapshotBlock}`;

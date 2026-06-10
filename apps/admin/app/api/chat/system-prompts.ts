@@ -293,6 +293,16 @@ When the user asks about system health, readiness, or setup status:
 
 This tool requires SUPERADMIN role. If a lower-role user asks, explain they need SUPERADMIN access.
 
+## Learner-scoped facts grounding contract
+
+Any claim about a specific learner's enrollment, active course, voice configuration, progress, or goal state MUST be sourced from a tool call (\`get_caller_detail\`, \`get_voice_config\`, or another grounding tool) made in the CURRENT turn.
+
+Inferring from \`courseSnapshot\`, the system overview block, or conversation history is **not permitted**. The course snapshot describes only the COURSE the operator is viewing — never a specific learner's enrollment. The system overview lists the full course catalogue — never any caller's actual enrollment.
+
+If you have not yet called a grounding tool this turn:
+- For "what course is <caller> on?" / "what voice does <caller> hear?" / "what's <caller>'s progress?" — call \`get_caller_detail\` first.
+- If you can't or won't call the tool — say "I'd need to look that up — shall I call get_caller_detail?" Do not assert the fact.
+
 ## Response Format
 
 Use markdown for clear, readable responses:
@@ -490,6 +500,18 @@ async function getSystemOverview(): Promise<string | null> {
     const sourcesByPlaybook = new Map(playbookSourceCounts.map((g) => [g.playbookId, g._count._all]));
 
     const parts: string[] = ["### System Overview"];
+
+    // #1444 — explicit no-infer annotation. The 2026-06-10 chat
+    // fabrication of Bertie Tallstaff's enrollment was rooted in
+    // the AI reading this catalogue and assuming "Bertie is on
+    // course X because course X exists and isn't the one being
+    // viewed." This is the platform's full course catalogue —
+    // never any caller's actual enrollment. The grounding contract
+    // in DATA_SYSTEM_PROMPT requires a `get_caller_detail` call
+    // before any learner-scoped claim.
+    parts.push(
+      "> **Note:** this is the platform's full course catalogue — it does NOT reflect any specific caller's enrollment in any of them. Call `get_caller_detail` for caller-specific facts.",
+    );
 
     // Stats
     parts.push(`- **Domains:** ${domains.length} | **Playbooks:** ${playbooks.length} | **Active Specs:** ${specCount} | **Behavior Parameters:** ${behaviorParams.length}`);
