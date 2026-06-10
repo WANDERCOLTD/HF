@@ -64,6 +64,21 @@ interface TargetOverrideRow {
   value: number;
 }
 
+/**
+ * Read-only row sourced from `BehaviorTarget(scope=PLAYBOOK)` (#1417).
+ * These rows are visible in this panel but are NOT editable here — the
+ * canonical write surface is the AgentTuner / Cmd+K. We surface them so
+ * educators don't see "No overrides set" when targets are live; pre-fix
+ * three live rows on the OCEAN course were invisible because the panel
+ * only read `playbook.config.firstSessionTargets`.
+ */
+interface BehaviorTargetRow {
+  parameterId: string;
+  value: number;
+  source: string | null;
+  updatedAt: string | null;
+}
+
 const FIRST_CALL_MODE_OPTIONS: Array<{
   value: FirstCallMode;
   label: string;
@@ -137,6 +152,46 @@ export function FirstSessionSettings({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // #1417 — read-only BehaviorTarget(scope=PLAYBOOK) rows merged in
+  // from `GET /api/courses/[courseId]/design`. Fetched on mount so the
+  // panel reflects what compose sees, not just what this panel writes.
+  const [behaviorRows, setBehaviorRows] = useState<BehaviorTargetRow[]>([]);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/courses/${courseId}/design`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: {
+        ok?: boolean;
+        rows?: Array<{
+          parameterId: string;
+          value: number;
+          origin: "firstSessionTargets" | "behaviorTarget";
+          source?: string;
+          updatedAt?: string;
+        }>;
+      } | null) => {
+        if (!alive || !json?.ok || !json.rows) return;
+        // We only need the behaviorTarget-origin rows; firstSessionTargets
+        // come from `playbookConfig` prop already.
+        setBehaviorRows(
+          json.rows
+            .filter((r) => r.origin === "behaviorTarget")
+            .map((r) => ({
+              parameterId: r.parameterId,
+              value: r.value,
+              source: r.source ?? null,
+              updatedAt: r.updatedAt ?? null,
+            })),
+        );
+      })
+      .catch(() => {
+        /* read-only merged display is non-critical — silently no-op */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [courseId]);
 
   // #798 — course-ref Layer-0 override preview. Read-only fetch on mount.
   const [courseRefPreview, setCourseRefPreview] = useState<Call1OverridePreview | null>(null);
@@ -274,11 +329,54 @@ export function FirstSessionSettings({
           exists. Falls back to domain defaults when not set.
         </div>
 
-        {rows.length === 0 ? (
+        {/* #1417 — read-only BehaviorTarget(scope=PLAYBOOK) rows. Edit
+            from the AgentTuner / Cmd+K; not editable here. */}
+        {behaviorRows.length > 0 ? (
+          <div className="hf-flex-col hf-gap-xs hf-mb-sm">
+            {behaviorRows.map((row) => {
+              const param = COMMON_BEHAVIOR_PARAMS.find(
+                (p) => p.id === row.parameterId,
+              );
+              const conflicts = rows.some(
+                (r) => r.parameterId === row.parameterId,
+              );
+              return (
+                <div
+                  key={`bt-${row.parameterId}`}
+                  className="hf-flex hf-gap-sm hf-items-center"
+                  data-origin="behaviorTarget"
+                  title={conflicts
+                    ? `Conflict: ${row.parameterId} is also in firstSessionTargets. BehaviorTarget rows win at compose time — remove the duplicate firstSessionTargets entry to clear the conflict.`
+                    : `Managed via AgentTuner — edit from the Tuning tab. Source: ${row.source ?? "MANUAL"}.`}
+                >
+                  <span className="hf-input hf-text-xs hf-text-muted" style={{ minWidth: 0 }}>
+                    {param?.label ?? row.parameterId} ({row.parameterId})
+                  </span>
+                  <span
+                    className="hf-input hf-text-xs hf-text-muted hf-text-center"
+                    aria-label={`Current value ${row.value.toFixed(2)} (read-only)`}
+                  >
+                    {row.value.toFixed(2)}
+                  </span>
+                  <span className="hf-category-label" data-tone="info">
+                    Managed via AgentTuner
+                  </span>
+                  {conflicts ? (
+                    <span className="hf-category-label" data-tone="warning">
+                      Conflict with editable row
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {rows.length === 0 && behaviorRows.length === 0 ? (
           <div className="hf-empty hf-text-xs hf-text-muted hf-mb-sm">
             No overrides set — domain defaults apply.
           </div>
-        ) : (
+        ) : rows.length === 0 ? null : (
           <div className="hf-flex-col hf-gap-sm hf-mb-sm">
             {rows.map((row, i) => (
               <div

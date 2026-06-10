@@ -5343,6 +5343,24 @@ Read-only preview of `ContentAssertion` rows scoped to this
 
 ---
 
+### `GET` /api/courses/[courseId]/design
+
+Returns the merged "first-call behaviour targets" payload
+
+**Auth**: session (OPERATOR+) · **Scope**: `course:read`
+
+**Response** `200`
+```json
+{ ok: true, rows: Array<{ parameterId, value, origin: "firstSessionTargets" | "behaviorTarget" }>, firstCallMode? }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
 ### `PUT` /api/courses/[courseId]/design
 
 Save student experience design config. Writes to
