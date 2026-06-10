@@ -167,6 +167,38 @@ If a route doesn't check `x-internal-secret` and isn't on the public allowlist, 
 
 ---
 
+## Debugging — verbose voice diagnostics (`VOICE_DIAG_VERBOSE`)
+
+The voice path has a three-tier observability model documented in `lib/voice/diag.ts`:
+
+1. **Audit** (always on) — `FailureLog` + `log()` to `AppLog`
+2. **Operator-visible** (always on) — structured detail in error responses (e.g. `vapiDetails: string[]` on the outbound-dial 502 → modal toast)
+3. **Verbose voice-trace** (OFF in prod by default) — gated on env-var `VOICE_DIAG_VERBOSE=1`
+
+**When to flip ON for an incident:** silent VAPI rejection with no actionable error in the modal, schema drift suspected, WebRTC `[Talk Here]` failing before mic-permission, "end-of-call never landed" reports.
+
+**Dump sites today:** `voice.outbound_dial.assistant_payload` (PSTN), `voice.calls_start.assistant_payload` (WebRTC), `voice.webhook.body` (every inbound webhook arrival). All strip `model.secret` before emit.
+
+**Flip ON:**
+- Local: `VOICE_DIAG_VERBOSE=1 npm run dev`
+- hf-dev VM: append to `~/HF/apps/admin/.env.local`, restart `next dev`
+- Cloud Run: `gcloud run services update <svc> --region=europe-west2 --set-env-vars VOICE_DIAG_VERBOSE=1`
+
+**Flip OFF:**
+- Cloud Run: `gcloud run services update <svc> --remove-env-vars VOICE_DIAG_VERBOSE`
+- VM: `sed -i "/^VOICE_DIAG_VERBOSE=/d" .env.local` + restart
+
+**View the dumps:**
+- VM: `tail -200 /tmp/hf-dev.log | grep -E "assistant_payload|webhook.body"`
+- Cloud Run: `gcloud run services logs read <svc> --region=europe-west2 --limit=100 | grep voice.outbound_dial`
+- `/x/logs` admin UI: filter subject contains `voice.outbound_dial.assistant_payload` etc.
+
+**After the incident: flip OFF.** The verbose tier writes structured records to `AppLog` on every voice call — high signal, but log volume scales with traffic. Cost when off: one `process.env === "1"` compare per call site (effectively zero).
+
+To extend the verbose tier with a new dump point, call `voiceDiagDump(subject, payload)` from `lib/voice/diag.ts` — same env-var gate, same no-op-when-off semantics.
+
+---
+
 ## Reference Docs (read before re-reading code)
 
 These memory files are kept in sync with the codebase. Consult them first.
