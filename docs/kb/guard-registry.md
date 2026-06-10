@@ -52,7 +52,8 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-unscoped-slug-lookup`](#guard-no-unscoped-slug-lookup) | Unscoped slug/ref lookups on per-parent-unique entities (`CurriculumModule`, LO) | #407/#411 | **b** |
 | [`no-deprecated-curricula-relation`](#guard-no-deprecated-curricula-relation) | Reads of the `@deprecated Playbook.curricula` relation; use `playbookCurricula` | #1205 | **b** |
 | [`no-module-read-without-course-style-guard`](#guard-no-module-read-without-course-style-guard) | `CallerModuleProgress` reads/writes outside a `courseStyle === 'structured'` guard (default-deny) | #1252 | **b** |
-| `hf-voice/*` | Voice-surface lint rules | — | _TODO(confirm)_ |
+| [`hf-voice/no-vapi-column-ref`](#guard-no-vapi-column-ref) | Disallow the 6 pre-#1020 `vapi`-prefixed Call columns; use `voice*` names (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP3) | #1020/#1024 | **a** |
+| [`hf-voice/no-vapi-tool-definitions-const`](#guard-no-vapi-tool-definitions-const) | Disallow the `VAPI_TOOL_DEFINITIONS` TS const; load via TOOLS-001 spec (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP2) | #1019/#1024 | **a** |
 
 ### Guard detail
 
@@ -176,6 +177,32 @@ layers and make greetings un-customisable from Course Design Console. This rule 
 **Survives hardening:** "Configuration over Code" for learner-facing utterances is an
 architectural principle, not tied to the current prompt-composition structure.
 
+<a id="guard-no-vapi-column-ref"></a>
+**`hf-voice/no-vapi-column-ref`** · class **(a) invariant** · born #1020/#1024 ·
+[rule source](../../apps/admin/eslint-rules/hf-voice/no-vapi-column-ref.mjs) ·
+mechanism → [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP3 (COMPOSE → VOICE PROVIDER)
+
+#1020 renamed 6 `Call.vapi*` columns to canonical `Call.voice*` to decouple the
+schema from any single voice vendor. The audit counter `vapiNamedColumnsOnCallModel`
+(#1016) drove to 0 after the migration; this rule keeps it at 0 by failing CI on any
+reference to the old names (`vapiCallId`, `vapiTranscript`, `vapiRecordingUrl`,
+`vapiCost`, `vapiStartedAt`, `vapiEndedAt`). **Survives hardening:** vendor-neutral
+schema naming is an architectural principle independent of which voice providers HF
+supports — carry forward through any future provider mix.
+
+<a id="guard-no-vapi-tool-definitions-const"></a>
+**`hf-voice/no-vapi-tool-definitions-const`** · class **(a) invariant** · born #1019/#1024 ·
+[rule source](../../apps/admin/eslint-rules/hf-voice/no-vapi-tool-definitions-const.mjs) ·
+mechanism → [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP2 (COMPOSE → VOICE PROVIDER)
+
+#1019 moved voice tool definitions into the `TOOLS-001` AnalysisSpec; runtime loading
+goes through `lib/voice/load-tool-definitions.ts`. The audit counter
+`vapiToolDefinitionsConstantPresent` (#1016) drove to 0 after the spec migration; this
+rule keeps it at 0 by failing CI on any future re-introduction of a hardcoded TS
+constant named `VAPI_TOOL_DEFINITIONS`. **Survives hardening:** the
+"specs-as-source-of-truth-for-AI-tooling" pattern is architecture-independent —
+parallel rules will be needed if/when other tool-loading constants are migrated.
+
 ## CI check scripts — `apps/admin/scripts/`
 
 | Script | Prevents / asserts | Born | Class |
@@ -225,4 +252,4 @@ promote each verbal/doc-only contract into an executable guard (a class-**a** in
 - [ ] `CONTRACTS-PLAYBOOK-CURRICULUM.md` invariants not yet covered by an ESLint rule or CI check.
 - [ ] Tenant-isolation invariant (Phase 2): *no tenant-scoped query without a tenant predicate* — promote to a Postgres RLS policy + a fitness-function test.
 
-> _TODO: confirm Class for `hf-voice/*` and any `scripts/audit-*.ts` not yet listed._
+> _TODO: catalogue `scripts/audit-*.ts` not yet listed._
