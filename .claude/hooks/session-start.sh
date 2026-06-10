@@ -145,6 +145,15 @@ fi
 if [ "$DIRTY" -gt 0 ]; then
   MSG="$MSG⚠️  $DIRTY uncommitted changes from last session. "
 fi
+
+# Agent-worktree zombie nudge — surfaces when accumulation gets noisy
+# without making an gh API call on every session start. Threshold of 6
+# allows for typical in-flight work + main; above that, the cleanup
+# script almost always has zombies to garbage-collect.
+ZOMBIE_COUNT=$(find "$REPO_ROOT/.claude/worktrees" -maxdepth 1 -type d -name 'agent-*' 2>/dev/null | wc -l | tr -d ' ')
+if [ "$ZOMBIE_COUNT" -gt 6 ]; then
+  MSG="${MSG}🧟 $ZOMBIE_COUNT agent worktrees in .claude/worktrees/ — likely zombies from merged-PR agents. Run \`bash scripts/cleanup-agent-worktrees.sh --dry-run\` to see what's removable; drop \`--dry-run\` to GC. "
+fi
 if [ "$PEER_COUNT" -gt 1 ]; then
   MSG="${MSG}🚨 $PEER_COUNT concurrent claude processes detected. They share this working tree — peer 'git checkout' calls will swap HEAD under you. Treat any unexplained branch change as confirmation. See memory/feedback_concurrent_claude_processes.md for recovery. "
 fi

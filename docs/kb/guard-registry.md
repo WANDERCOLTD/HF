@@ -214,6 +214,7 @@ parallel rules will be needed if/when other tool-loading constants are migrated.
 | `check-doc-citations.ts` | Canonical-doc `file::symbol` citation drift | — | **meta** (KB integrity) |
 | `check-knowledge-map.ts` | `KNOWLEDGE-MAP.md` ratchet — repo translation layer stays in step | — | **meta** (KB integrity) |
 | `check-uplift-visual.ts` | Caller Insights visual regression | — | **meta** (test) |
+| `cleanup-agent-worktrees.sh` | GC of agent-spawned worktrees whose PR is MERGED or CLOSED. Operator script; nudge surfaced in SessionStart hook when count > 6. | — | **meta** (process hygiene) |
 
 ## Runtime guards & contracts
 

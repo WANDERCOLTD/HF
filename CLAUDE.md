@@ -105,6 +105,8 @@ If you discover work has started on `main`, stop and move it: `git checkout -b <
    - **PreToolUse `git-lock-enforcer.sh` (#849):** defence-in-depth for anything that slips past the first two — blocks destructive git from secondary sessions sharing a tree.
 
    When you spawn peer agents that touch code, use `isolation: "worktree"` on the `Agent` tool — the agent gets its own `git worktree add ../HF-feat-X feat/X-…` checkout, lock-keyed on `git rev-parse --show-toplevel`, so every worktree is its own PRIMARY slot.
+
+   **Agent-worktree GC:** The Agent tool's contract auto-deletes the worktree only if the agent made no changes. Productive agents leave their worktree behind; across many sessions these pile up under `.claude/worktrees/agent-*` (21 GB observed 2026-06-10, 14 of 17 zombies). Run `bash scripts/cleanup-agent-worktrees.sh --dry-run` after a PR-closing session to see what's GC-able; drop `--dry-run` to actually remove (script keeps `main`, OPEN PRs, and no-PR branches; only removes MERGED/CLOSED). The SessionStart hook nudges when the count exceeds 6.
 4. **Operator override (one-shot, per command):** export `HF_FORCE_GIT=1` before the blocked git command. Use only when you have confirmed the peer is finished or you accept the HEAD-swap risk.
 5. **Recovery when drift hits anyway:**
    - `git stash --include-untracked -m '<work-description>'`
