@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-10T17:00:22.973Z",
+  "generatedAt": "2026-06-10T17:09:09.904Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1630,
-  "edgeCount": 3745,
+  "fileCount": 1631,
+  "edgeCount": 3746,
   "skippedEdges": 1,
   "edges": [
     {
@@ -930,6 +930,10 @@
     {
       "from": "app/api/callers/[callerId]/route.ts",
       "to": "lib/audit.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/route.ts",
+      "to": "lib/callers/serialize-call-for-detail.ts"
     },
     {
       "from": "app/api/callers/[callerId]/route.ts",
@@ -15407,7 +15411,7 @@
     {
       "path": "app/api/callers/[callerId]/route.ts",
       "inDegree": 0,
-      "outDegree": 9
+      "outDegree": 10
     },
     {
       "path": "app/api/callers/[callerId]/session-flow-progress/route.ts",
@@ -20238,6 +20242,11 @@
       "path": "lib/caller/resolve-active-playbook.ts",
       "inDegree": 2,
       "outDegree": 1
+    },
+    {
+      "path": "lib/callers/serialize-call-for-detail.ts",
+      "inDegree": 1,
+      "outDegree": 0
     },
     {
       "path": "lib/cascade/voice-explain.ts",
