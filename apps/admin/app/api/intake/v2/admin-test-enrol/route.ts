@@ -119,11 +119,17 @@ export async function POST(req: Request) {
   });
 
   if (cohort.domainId) {
+    // #1429 — `policyMode: 'demo'` flags this synthetic caller for eager
+    // reprompt-on-bump (see `lib/compose/eager-reprompt-on-bump.ts`).
+    // A test call made seconds after an educator tweaks a setting will
+    // see the new config — no waiting for next-call-but-one.
     await enrollCallerInCohortPlaybooks(
       result.callerId,
       cohort.id,
       cohort.domainId,
       "admin-test-enrol",
+      undefined,
+      { policyMode: "demo" },
     );
   }
 

@@ -9806,6 +9806,29 @@ Returns the most recent COURSE_REFERENCE markdown document
 
 ---
 
+### `GET` /api/courses/:courseId/staleness-aggregate
+
+Aggregates prompt staleness across every demo caller
+
+**Auth**: session (OPERATOR+) · **Scope**: `courses:read`
+
+**Response** `200`
+```json
+{ ok: true, totalDemoCallers: number, staleCount: number, staleCallers: Array<{ callerId, name, lastComposedAt }>, cachedAt: string }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/courses/[courseId]/classrooms
 
 List all classrooms (cohort groups) assigned to a course (playbook).
@@ -15786,8 +15809,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 504 |
-| Files with annotations | 494 |
+| Route files found | 505 |
+| Files with annotations | 495 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 
