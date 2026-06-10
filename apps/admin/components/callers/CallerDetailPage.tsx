@@ -13,9 +13,7 @@ import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
 import { VoiceProviderOverride } from "@/components/callers/VoiceProviderOverride";
 import { VoiceCostPanel } from "@/components/callers/VoiceCostPanel";
 import { CascadeLensPanel } from "@/components/callers/CascadeLensPanel";
-import { SimChat } from "@/components/sim/SimChat";
-import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from "@/components/sim/ModulePickerBanners";
-import { SimStateBreadcrumb } from "@/components/sim/SimStateBreadcrumb";
+import { CallerVoiceSurface } from "@/components/callers/CallerVoiceSurface";
 import '@/app/x/sim/sim.css';
 import './caller-detail-page.css';
 import './caller-detail/lens.css';
@@ -156,10 +154,9 @@ export default function CallerDetailPage() {
     }
   };
   const [simChatMounted, setSimChatMounted] = useState(initialTab === "ai-call");
-  const [callSession, setCallSession] = useState(0);
-  // #396: parent-owned "is a call live?" flag so the SimStateBreadcrumb pill
-  // reads "(Active)" while the user is mid-call instead of always "(Pre-call)".
-  const [isCallActive, setIsCallActive] = useState(false);
+  // #1448 — callSession remount + isCallActive state moved INTO
+  // CallerVoiceSurface. The state machine for "is the call live" + "should
+  // SimChat unmount on New call" is now owned by the shared component.
   if (activeSection === "ai-call" && !simChatMounted) setSimChatMounted(true);
 
   // Dynamic parameter display configuration (fetched from database)
@@ -185,13 +182,9 @@ export default function CallerDetailPage() {
   // sharing the Curriculum), not the variant alone. Populated by the
   // /api/playbooks/[id] fetch below.
   const [variantSiblingIds, setVariantSiblingIds] = useState<string[]>([]);
-  // #253-follow-up: surface "Pick module" header button when the active
-  // playbook has authored modules. Mirrors /x/sim/[callerId] wiring.
-  const [modulesAuthored, setModulesAuthored] = useState<boolean>(false);
-  // #357: authored modules — needed so the selection banner can resolve a
-  // human label for the module id rather than show the raw id.
-  const [authoredModules, setAuthoredModules] = useState<Array<{ id: string; label?: string }>>([]);
-  const requestedModuleId = searchParams.get("requestedModuleId") || undefined;
+  // #1448 — modulesAuthored / authoredModules moved INTO CallerVoiceSurface.
+  // The playbook fetch below now only writes `variantSiblingIds` (used by
+  // the Calls/Prompts filter elsewhere in this page).
   const [progressVis, toggleProgressVis] = useSectionVisibility("caller-progress", {
     scores: true, behaviour: true, goals: true, exam: true,
   });
@@ -529,12 +522,13 @@ export default function CallerDetailPage() {
     );
   }, [composedPrompts, callMatchSet]);
 
-  // #253-follow-up: load `modulesAuthored` from the active playbook's config
-  // so the SimChat header shows the "Pick module" button when authored
-  // modules exist for this course. Mirrors /x/sim/[callerId] wiring.
+  // #1177 — variant fan-out: sibling Playbook IDs (parent + linked variants
+  // sharing a Curriculum). Used to widen the Calls/Prompts filter so a
+  // learner's history isn't hidden when a variant is selected instead of
+  // the parent. #1448: trimmed of the now-moved modulesAuthored /
+  // authoredModules state (those live in CallerVoiceSurface).
   useEffect(() => {
     if (!selectedPlaybookId || selectedPlaybookId === "all") {
-      setModulesAuthored(false);
       setVariantSiblingIds([]);
       return;
     }
@@ -543,18 +537,6 @@ export default function CallerDetailPage() {
       .then((r) => r.json())
       .then((pbData) => {
         if (cancelled || !pbData?.ok) return;
-        const cfg = (pbData.playbook?.config as Record<string, unknown> | null) ?? {};
-        setModulesAuthored(cfg.modulesAuthored === true);
-        // #357: also surface the authored module list for the banner label.
-        if (Array.isArray(cfg.modules)) {
-          setAuthoredModules(cfg.modules as Array<{ id: string; label?: string }>);
-        } else {
-          setAuthoredModules([]);
-        }
-        // #1177 — variant fan-out: sibling Playbook IDs (parent + linked
-        // variants sharing a Curriculum). Used to widen the Calls/Prompts
-        // filter so a learner's history isn't hidden when a variant is
-        // selected instead of the parent.
         if (Array.isArray(pbData.siblingPlaybookIds)) {
           setVariantSiblingIds(pbData.siblingPlaybookIds as string[]);
         } else {
@@ -562,35 +544,12 @@ export default function CallerDetailPage() {
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setModulesAuthored(false);
-          setAuthoredModules([]);
-          setVariantSiblingIds([]);
-        }
+        if (!cancelled) setVariantSiblingIds([]);
       });
     return () => {
       cancelled = true;
     };
   }, [selectedPlaybookId]);
-
-  const handlePickModule = useCallback(() => {
-    if (selectedPlaybookId === "all" || !selectedPlaybookId) return;
-    const sp = new URLSearchParams();
-    // #270: pass callerId so the picker (admin context) can include it on
-    // GET /api/student/module-progress — without it the route returns 400
-    // because requireStudentOrAdmin demands explicit caller selection for
-    // non-STUDENT users.
-    sp.set("callerId", callerId);
-    // Strip requestedModuleId from the carry-over so the banner doesn't
-    // double-fire when the learner returns from the picker.
-    const carryParams = new URLSearchParams(searchParams.toString());
-    carryParams.delete("requestedModuleId");
-    sp.set(
-      "returnTo",
-      `/x/callers/${callerId}${carryParams.toString() ? `?${carryParams.toString()}` : ""}`,
-    );
-    router.push(`/x/student/${selectedPlaybookId}/modules?${sp.toString()}`);
-  }, [callerId, router, searchParams, selectedPlaybookId]);
 
   // ── Processing detection + auto-poll ──────────────
   // A call is "processing" if it's recent (< 5 min) and hasn't been analyzed yet.
@@ -1493,57 +1452,23 @@ export default function CallerDetailPage() {
 
       {simChatMounted && (
         <div className={activeSection === "ai-call" ? undefined : "hf-hidden"}>
-          {/* #357: mirror the sim-view module-picker banners + state
-              breadcrumb so the admin caller-detail surface gives the same
-              signals as /x/sim/[id]. */}
-          <SimStateBreadcrumb
-            pastCallCount={(data?.calls ?? []).filter((c: { transcript?: string | null }) => c.transcript?.trim()).length}
-            activeCall={isCallActive}
-            requestedModuleId={requestedModuleId ?? null}
-            modules={authoredModules}
-            onPickModule={
-              modulesAuthored && selectedPlaybookId && selectedPlaybookId !== "all"
-                ? handlePickModule
-                : undefined
-            }
-          />
-          {requestedModuleId ? (
-            <ModulePickerSelectionBanner
-              moduleId={requestedModuleId}
-              modules={authoredModules}
-            />
-          ) : modulesAuthored && selectedPlaybookId && selectedPlaybookId !== "all" ? (
-            <ModulePickerInviteBanner
-              moduleCount={authoredModules.length}
-              onPick={handlePickModule}
-            />
-          ) : null}
-          <SimChat
-            key={callSession}
+          {/* #1448 — voice surface is now a single shared component
+              between sim page + this Call tab. Owns banners, breadcrumb,
+              QualificationContextStrip, ModuleQuickSwitcher, SimChat
+              + caller/playbook/journey loading. `onPostCallRefresh`
+              keeps CallerDetailPage's other tabs (Calls, Prompts) in
+              sync after each call. The pre-#1448 hand-rolled wiring
+              (SimStateBreadcrumb / module banners / SimChat with
+              `key={callSession}`) lived here verbatim with the
+              divergences documented in #1448 BA brief; all moved into
+              CallerVoiceSurface. */}
+          <CallerVoiceSurface
             callerId={callerId}
-            callerName={data.caller.name || "Caller"}
-            domainName={data.caller.domain?.name}
-            playbookId={selectedPlaybookId === "all" ? undefined : selectedPlaybookId}
-            mode="embedded"
-            /* #1447 / closing the prop-parity gap with /x/sim/[callerId] —
-               sim page derives pastCalls from data.calls identically (same
-               filter + map + sort as `app/x/sim/[callerId]/page.tsx:203-206`).
-               Pre-fix the embedded SimChat had no past-call context, so an
-               operator switching into the Call tab saw an empty timeline
-               under the "History" divider even when the caller had real
-               calls on record. The deeper surface-unification refactor
-               is tracked as #1448. */
-            pastCalls={(data.calls ?? [])
-              .filter((c: { transcript?: string | null }) => c.transcript?.trim())
-              .map((c: { transcript: string; createdAt: string }) => ({
-                transcript: c.transcript,
-                createdAt: c.createdAt,
-              }))
-              .sort(
-                (a: { createdAt: string }, b: { createdAt: string }) =>
-                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-              )}
-            onCallEnd={() => {
+            layout="embedded"
+            playbookIdOverride={
+              selectedPlaybookId === "all" ? undefined : selectedPlaybookId
+            }
+            onPostCallRefresh={() => {
               fetch(`/api/callers/${callerId}`)
                 .then((r) => r.json())
                 .then((result) => {
@@ -1556,9 +1481,6 @@ export default function CallerDetailPage() {
                 });
               fetchPrompts();
             }}
-            onNewCall={() => setCallSession(prev => prev + 1)}
-            onCallStateChange={setIsCallActive}
-            requestedModuleId={requestedModuleId}
           />
         </div>
       )}
