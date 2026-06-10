@@ -106,7 +106,10 @@ gcloud run jobs create cloud-sql-restore-drill \
   --memory=512Mi \
   --vpc-connector=hf-connector \
   --vpc-egress=private-ranges-only \
-  --set-env-vars=PROJECT=hf-admin-prod,SOURCE_INSTANCE=hf-db,DRILL_DB=hf_sandbox,DB_USER=postgres,DB_PASSWORD_SECRET=cloud-sql-drill-db-password \
+  --set-env-vars=PROJECT=hf-admin-prod,SOURCE_INSTANCE=hf-db,DRILL_DB=hf_sandbox,DB_USER=hf_user,DB_PASSWORD_SECRET=cloud-sql-drill-db-password \
+  # DB_USER=hf_user matches the password we extracted from DATABASE_URL_SANDBOX.
+  # `postgres` (the maintenance superuser) is NOT in that secret. Using postgres
+  # here produced auth-fail at the readiness probe (#1394 deploy, 2026-06-09).
   --project=hf-admin-prod
 
 # VPC connector: hf-db is a private-IP-only instance; the drill clone inherits.

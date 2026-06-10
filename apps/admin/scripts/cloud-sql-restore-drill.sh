@@ -107,8 +107,15 @@ trap '[[ -n "${PROXY_PID:-}" ]] && kill "$PROXY_PID" 2>/dev/null || true' EXIT
 log "waiting for proxy + cloned DB to accept connections (max 60s)"
 PROXY_READY=0
 for try in $(seq 1 12); do
+  # Probe against $DRILL_DB, not the hardcoded `postgres` maintenance DB.
+  # The drill SA's password (extracted from DATABASE_URL_SANDBOX) belongs
+  # to `hf_user`, which has access to `hf_sandbox` and `hf_staging` but NOT
+  # to the `postgres` maintenance DB. Hardcoding `postgres` here produced
+  # auth failures during the 2026-06-09 #1394 deploy: proxy connected
+  # ("Accepted connection") but Postgres rejected the user, psql disconnected,
+  # readiness loop timed out. Use the DB we're actually going to query.
   if PGPASSWORD="$DB_PASSWORD" psql -h localhost -p "$PROXY_PORT" \
-       -U "$DB_USER" -d postgres -c 'SELECT 1' >/dev/null 2>&1; then
+       -U "$DB_USER" -d "$DRILL_DB" -c 'SELECT 1' >/dev/null 2>&1; then
     PROXY_READY=1
     ok "proxy + DB ready after ~$((try * 5))s"
     break

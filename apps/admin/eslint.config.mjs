@@ -15,6 +15,7 @@ import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-def
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
 import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
 import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
+import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -177,6 +178,11 @@ const eslintConfig = defineConfig([
           "no-bare-call-create": noBareCallCreate,
         },
       },
+      "hf-ops": {
+        rules: {
+          "no-ops-import-from-api": noOpsImportFromApi,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -214,6 +220,11 @@ const eslintConfig = defineConfig([
       // inline Call insert when needed) or add to the allow-list with a
       // documented bypass justification.
       "hf-call/no-bare-call-create": "error",
+
+      // #1395 / #1423 — Block app/api routes from importing the 5 lib/ops/*
+      // files that instantiate their own PrismaClient (bypass the singleton).
+      // Carves out app/api/ops/route.ts (the legitimate ops surface).
+      "hf-ops/no-ops-import-from-api": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
