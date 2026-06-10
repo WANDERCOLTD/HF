@@ -124,14 +124,14 @@ function mockByUrl(
         status: 404,
         headers: { get: () => "application/json" },
         json: async () => ({ ok: false, error: `no mock for ${url}` }),
-      } as Response);
+      } as unknown as Response);
     }
     return Promise.resolve({
       ok: (match.status ?? 200) < 400,
       status: match.status ?? 200,
       headers: { get: () => "application/json" },
       json: async () => match.body,
-    } as Response);
+    } as unknown as Response);
   });
 }
 
@@ -144,7 +144,7 @@ function mockFetchSequence(...responses: Array<{ status?: number; body: unknown 
       status: r.status ?? 200,
       headers: { get: () => "application/json" },
       json: async () => r.body,
-    } as Response);
+    } as unknown as Response);
   });
 }
 
