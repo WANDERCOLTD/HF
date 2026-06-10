@@ -1525,6 +1525,24 @@ export default function CallerDetailPage() {
             domainName={data.caller.domain?.name}
             playbookId={selectedPlaybookId === "all" ? undefined : selectedPlaybookId}
             mode="embedded"
+            /* #1447 / closing the prop-parity gap with /x/sim/[callerId] —
+               sim page derives pastCalls from data.calls identically (same
+               filter + map + sort as `app/x/sim/[callerId]/page.tsx:203-206`).
+               Pre-fix the embedded SimChat had no past-call context, so an
+               operator switching into the Call tab saw an empty timeline
+               under the "History" divider even when the caller had real
+               calls on record. The deeper surface-unification refactor
+               is tracked as #1448. */
+            pastCalls={(data.calls ?? [])
+              .filter((c: { transcript?: string | null }) => c.transcript?.trim())
+              .map((c: { transcript: string; createdAt: string }) => ({
+                transcript: c.transcript,
+                createdAt: c.createdAt,
+              }))
+              .sort(
+                (a: { createdAt: string }, b: { createdAt: string }) =>
+                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+              )}
             onCallEnd={() => {
               fetch(`/api/callers/${callerId}`)
                 .then((r) => r.json())
