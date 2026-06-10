@@ -134,17 +134,23 @@ describe("triggerEagerRepromptForDemoCallers — #1429", () => {
 });
 
 describe("bumpPlaybookComposeTimestamp does NOT fire the fan-out (architectural — #1429)", () => {
-  it("does NOT import the eager-reprompt helper from bump-timestamp.ts", async () => {
+  it("does NOT import the eager-reprompt helper from bump-timestamp.ts", () => {
     // The architectural rule from the TL review is that the fan-out is
     // NOT wired into bump-timestamp.ts. Curriculum/LO edits land in a
     // for-loop calling bumpPlaybookComposeTimestamp per sibling playbook;
     // wiring there would multiply the fan-out by playbook count. Static
     // assertion: source of bump-timestamp.ts must not reference
     // `triggerEagerRepromptForDemoCallers`.
-    const fs = await import("node:fs/promises");
-    const path = await import("node:path");
-    const source = await fs.readFile(
-      path.resolve(process.cwd(), "lib/compose/bump-timestamp.ts"),
+    //
+    // Synchronous fs read via `node:fs` (NOT `node:fs/promises`) avoids
+    // collisions with global `vi.mock("node:fs/promises")` set up by
+    // sibling tests in the same worker.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { readFileSync } = require("node:fs") as typeof import("node:fs");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { resolve } = require("node:path") as typeof import("node:path");
+    const source = readFileSync(
+      resolve(process.cwd(), "lib/compose/bump-timestamp.ts"),
       "utf-8",
     );
     expect(source).not.toContain("triggerEagerRepromptForDemoCallers");
