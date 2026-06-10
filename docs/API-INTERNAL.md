@@ -15425,20 +15425,48 @@ Health snapshot for a voice provider (AnyVoice #1080).
 
 ---
 
-### `POST` /api/voice/llm-proxy/chat/completions
+### `POST` /api/voice/llm-proxy/auth/[secret]/chat/completions
 
-OpenAI-compatible chat-completions endpoint. VAPI's
+VAPI custom-llm proxy with auth via URL path segment.
 
-**Auth**: x-vapi-secret header
+**Auth**: path-segment shared-secret · **Scope**: `voice:llm-proxy:chat-completions`
 
 **Response** `200`
 ```json
-(streamed) — OpenAI chat-completion SSE chunks
+— same shape as the header-auth route
+```
+
+**Response** `400`
+```json
+— invalid secret format in path (non-hex / too short / too long)
+```
+
+**Response** `401`
+```json
+— path secret doesn't match stored webhookSecret
+```
+
+**Response** `500`
+```json
+— Anthropic upstream error
+```
+
+---
+
+### `POST` /api/voice/llm-proxy/chat/completions
+
+VAPI custom-llm chat completions, OpenAI-compatible
+
+**Auth**: shared-secret (`x-vapi-secret` header) — pass-through when empty · **Scope**: `voice:llm-proxy:chat-completions`
+
+**Response** `200`
+```json
+(streamed) — SSE OpenAI deltas (`text/event-stream`)
 ```
 
 **Response** `200`
 ```json
-(non-streamed) — `{ id, choices: [{message,finish_reason}], usage }`
+(non-streamed) — `{ id, choices, usage }`
 ```
 
 **Response** `400`
@@ -15809,8 +15837,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 505 |
-| Files with annotations | 495 |
+| Route files found | 506 |
+| Files with annotations | 496 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 

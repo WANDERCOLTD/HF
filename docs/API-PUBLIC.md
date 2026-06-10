@@ -4964,6 +4964,67 @@ Shared voice provider webhook endpoint (AnyVoice #1079).
 
 ---
 
+### `POST` /api/v1/voice/llm-proxy/auth/[secret]/chat/completions
+
+VAPI custom-llm proxy with auth via URL path segment.
+
+**Auth**: path-segment shared-secret · **Scope**: `voice:llm-proxy:chat-completions`
+
+**Response** `200`
+```json
+— same shape as the header-auth route
+```
+
+**Response** `400`
+```json
+— invalid secret format in path (non-hex / too short / too long)
+```
+
+**Response** `401`
+```json
+— path secret doesn't match stored webhookSecret
+```
+
+**Response** `500`
+```json
+— Anthropic upstream error
+```
+
+---
+
+### `POST` /api/v1/voice/llm-proxy/chat/completions
+
+VAPI custom-llm chat completions, OpenAI-compatible
+
+**Auth**: shared-secret (`x-vapi-secret` header) — pass-through when empty · **Scope**: `voice:llm-proxy:chat-completions`
+
+**Response** `200`
+```json
+(streamed) — SSE OpenAI deltas (`text/event-stream`)
+```
+
+**Response** `200`
+```json
+(non-streamed) — `{ id, choices, usage }`
+```
+
+**Response** `400`
+```json
+— un-parseable request body
+```
+
+**Response** `401`
+```json
+— bad / missing `x-vapi-secret`
+```
+
+**Response** `500`
+```json
+— Anthropic upstream error (OpenAI-format error body)
+```
+
+---
+
 ## Voice Integration
 
 HF integrates with popular voice platforms to analyse live conversations

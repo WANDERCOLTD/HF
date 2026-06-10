@@ -37,6 +37,103 @@ export interface SecretVerifyResult {
 }
 
 /**
+ * #1441 — Verify a secret already extracted from a URL path segment
+ * against the slug's stored webhookSecret. Used by
+ * `/api/voice/llm-proxy/auth/[secret]/chat/completions` — the only
+ * auth surface that survives VAPI's URL-concatenation mangling
+ * (see `lib/voice/providers/vapi/index.ts` #922 comments).
+ *
+ * Unlike `verifyVapiSecret` which pass-throughs when no secret is
+ * configured (local-dev convention on the header surface), this
+ * variant ALWAYS rejects when `webhookSecret` is empty — the operator
+ * chose path-segment auth, so the secret has to be present.
+ */
+export async function verifyVapiSecretFromPath(
+  presented: string,
+  slug: string,
+): Promise<SecretVerifyResult> {
+  const providerRow = await prisma.voiceProvider.findUnique({
+    where: { slug },
+    select: { slug: true, credentials: true },
+  });
+  if (!providerRow) {
+    log("system", "voice.llm_proxy.secret.unknown_slug", {
+      level: "error",
+      slug,
+      headerPresent: false,
+      headerLen: presented.length,
+    });
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: { message: `Unknown voice provider slug: ${slug}`, type: "auth_error" } },
+        { status: 401 },
+      ),
+    };
+  }
+  const creds = (providerRow.credentials as Record<string, unknown>) ?? {};
+  const expectedRaw = typeof creds.webhookSecret === "string" ? creds.webhookSecret : "";
+  if (!expectedRaw) {
+    log("system", "voice.llm_proxy.secret.path.no_expected", {
+      level: "error",
+      slug,
+      presentedLen: presented.length,
+      message:
+        "Path-segment auth requires a configured webhookSecret. Either set it or use the /chat/completions pass-through surface.",
+    });
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: {
+            message:
+              "Path-segment auth requires a configured webhookSecret on the VAPI VoiceProvider row.",
+            type: "auth_error",
+          },
+        },
+        { status: 401 },
+      ),
+    };
+  }
+  if (!presented) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: { message: "Empty secret path param", type: "auth_error" } },
+        { status: 401 },
+      ),
+    };
+  }
+  const expectedBuf = Buffer.from(expectedRaw);
+  const presentedBuf = Buffer.from(presented);
+  if (
+    presentedBuf.length === expectedBuf.length &&
+    crypto.timingSafeEqual(expectedBuf, presentedBuf)
+  ) {
+    log("system", "voice.llm_proxy.secret.ok", {
+      level: "info",
+      slug,
+      expectedLen: expectedBuf.length,
+      source: "path",
+    });
+    return { ok: true, providerSlug: providerRow.slug };
+  }
+  log("system", "voice.llm_proxy.secret.path.no_match", {
+    level: "error",
+    slug,
+    expectedLen: expectedBuf.length,
+    presentedLen: presentedBuf.length,
+  });
+  return {
+    ok: false,
+    response: NextResponse.json(
+      { error: { message: "Invalid secret", type: "auth_error" } },
+      { status: 401 },
+    ),
+  };
+}
+
+/**
  * Verify the request's `x-vapi-secret` header against the slug's
  * stored webhookSecret. Pass-through when no secret is configured.
  */
