@@ -17,6 +17,14 @@ const mockPrisma = {
   domain: { findUnique: vi.fn(), update: vi.fn() },
   caller: { findFirst: vi.fn() },
   callerPlaybook: { findFirst: vi.fn() },
+  // #1421 follow-up — routes now look up the VoiceProvider row by slug
+  // to surface its id in the response (drives the VoiceSampleButton's
+  // POST target). Always returns a stable test id so the route's
+  // `enabledProviderId` field is non-null; tests that don't assert on
+  // it stay unaffected.
+  voiceProvider: {
+    findUnique: vi.fn(async () => ({ id: "vp-test-id" })),
+  },
 };
 
 vi.mock("@/lib/prisma", () => ({
