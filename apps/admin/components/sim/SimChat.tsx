@@ -277,6 +277,16 @@ export function SimChat({
           timestamp: new Date(event.timestampMs),
         },
       ]);
+    } else if (event.type === 'call-ended') {
+      // #1453 — PSTN [Call me] path: VAPI's end-of-call webhook fires a
+      // `call-ended` SSE event. WebRTC path was already wired via
+      // useProviderCall's own internal dispatch (registers `call-ended`
+      // separately + setStatus + teardown), but the PSTN handler only
+      // routed transcript-partial / share-content / send-text through
+      // handleVoiceSseEvent — call-ended fell through to no-op. Result:
+      // after PSTN hangup the UI stayed on the active-call screen until
+      // the user refreshed. Flip callPhase so post-call UI renders.
+      setCallPhase((prev) => (prev === 'active' || prev === 'wrapping' ? 'ended' : prev));
     }
   }, []);
 
