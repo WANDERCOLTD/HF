@@ -18,6 +18,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { VoiceSampleButton } from "@/components/voice/VoiceSampleButton";
+
+interface VoiceCatalogEntry {
+  voiceProvider: string;
+  voiceId: string;
+  label: string;
+  description?: string;
+}
 
 interface ConfigField {
   key: string;
@@ -98,6 +106,8 @@ export default function VoiceProviderEditPage() {
   const [row, setRow] = useState<VoiceProviderRow | null>(null);
   const [configSchema, setConfigSchema] = useState<ConfigField[] | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
+  // #1421 — catalog state for the voiceId dropdown.
+  const [voiceCatalog, setVoiceCatalog] = useState<VoiceCatalogEntry[] | null>(null);
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
 
@@ -161,6 +171,37 @@ export default function VoiceProviderEditPage() {
       setLoading(false);
     }
   }, [id]);
+
+  // #1421 — fetch the voiceId catalog whenever `fieldValues.voiceProvider`
+  // changes. Filters by the current TTS engine; empty list means
+  // free-text + custom-ID hatch.
+  useEffect(() => {
+    if (!row?.slug) return;
+    const vp = String(fieldValues.voiceProvider ?? "");
+    if (!vp) {
+      setVoiceCatalog(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/voice/${encodeURIComponent(row.slug)}/catalog?voiceProvider=${encodeURIComponent(vp)}`,
+        );
+        if (!res.ok) {
+          if (!cancelled) setVoiceCatalog([]);
+          return;
+        }
+        const body = (await res.json()) as { ok: boolean; voices: VoiceCatalogEntry[] };
+        if (!cancelled) setVoiceCatalog(body.voices ?? []);
+      } catch {
+        if (!cancelled) setVoiceCatalog([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [row?.slug, fieldValues.voiceProvider]);
 
   useEffect(() => {
     load();
@@ -623,6 +664,44 @@ export default function VoiceProviderEditPage() {
                     setFieldValues({ ...fieldValues, [f.key]: e.target.checked })
                   }
                 />
+              ) : f.key === "voiceId" && voiceCatalog && voiceCatalog.length > 0 ? (
+                /* #1421 — vendor-validated dropdown for voiceId. Mirrors
+                   VoiceConfigSection's dropdown branch. */
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <select
+                    id={`field-${f.key}`}
+                    className="hf-input"
+                    value={String(fieldValues[f.key] ?? "")}
+                    onChange={(e) =>
+                      setFieldValues({ ...fieldValues, [f.key]: e.target.value })
+                    }
+                    style={{ minWidth: 280 }}
+                  >
+                    <option value="">— select —</option>
+                    {voiceCatalog.map((v) => (
+                      <option key={v.voiceId} value={v.voiceId}>
+                        {v.label}
+                      </option>
+                    ))}
+                    {(() => {
+                      const cur = String(fieldValues[f.key] ?? "");
+                      const known = new Set(voiceCatalog.map((v) => v.voiceId));
+                      if (cur && !known.has(cur)) {
+                        return (
+                          <option value={cur}>
+                            {cur} (custom — not in {String(fieldValues.voiceProvider ?? "")} catalog)
+                          </option>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </select>
+                  <VoiceSampleButton
+                    voiceProviderId={row.id}
+                    voiceProvider={String(fieldValues.voiceProvider ?? "") || null}
+                    voiceId={String(fieldValues[f.key] ?? "") || null}
+                  />
+                </div>
               ) : (
                 <input
                   id={`field-${f.key}`}
