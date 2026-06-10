@@ -56,8 +56,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 const patchSchema = z.object({
   displayName: z.string().min(1).max(128).optional(),
   adapterKey: z.string().min(1).optional(),
+  /** #1433 — merge semantics (NOT replace). Keys present in the patch
+   *  body are set / overwritten. Keys absent from the patch body are
+   *  PRESERVED on the existing row. To explicitly clear a key, list it
+   *  in `clearCredentials`. */
   credentials: z.record(z.string(), z.unknown()).optional(),
+  /** Same merge semantics as credentials. */
   config: z.record(z.string(), z.unknown()).optional(),
+  /** Explicit clear list — these keys are deleted from `credentials`
+   *  AFTER the merge above. Defends against the wipe class fixed in
+   *  #1433: a UI bug or stale form can no longer silently empty the
+   *  credentials JSON by shipping `credentials: {}`. */
+  clearCredentials: z.array(z.string()).optional(),
+  clearConfig: z.array(z.string()).optional(),
   isDefault: z.boolean().optional(),
   enabled: z.boolean().optional(),
 });
@@ -160,6 +171,37 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
+  // #1433 — merge credentials + config field-by-field instead of replace.
+  // Pre-fix: shipping `credentials: {}` blew away the entire credentials
+  // JSON (webhookSecret + apiKey + every other sensitive field). Now:
+  // - Keys present in patch body → set/overwrite
+  // - Keys absent → preserve existing value
+  // - Keys listed in `clearCredentials` → delete after merge
+  const existingCredentials = (existing.credentials ?? {}) as Record<string, unknown>;
+  const existingConfig = (existing.config ?? {}) as Record<string, unknown>;
+  const nextCredentials: Record<string, unknown> = {
+    ...existingCredentials,
+    ...(data.credentials ?? {}),
+  };
+  for (const k of data.clearCredentials ?? []) {
+    delete nextCredentials[k];
+  }
+  const nextConfig: Record<string, unknown> = {
+    ...existingConfig,
+    ...(data.config ?? {}),
+  };
+  for (const k of data.clearConfig ?? []) {
+    delete nextConfig[k];
+  }
+  // Only write to the JSON columns when there's actually something to
+  // write (avoid no-op updates that nudge updatedAt).
+  const credentialsChanged =
+    (data.credentials && Object.keys(data.credentials).length > 0) ||
+    (data.clearCredentials && data.clearCredentials.length > 0);
+  const configChanged =
+    (data.config && Object.keys(data.config).length > 0) ||
+    (data.clearConfig && data.clearConfig.length > 0);
+
   const updated = await prisma.$transaction(async (tx) => {
     if (data.isDefault === true) {
       await tx.voiceProvider.updateMany({
@@ -172,10 +214,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       data: {
         ...(data.displayName !== undefined ? { displayName: data.displayName } : {}),
         ...(data.adapterKey !== undefined ? { adapterKey: data.adapterKey } : {}),
-        ...(data.credentials !== undefined
-          ? { credentials: data.credentials as Prisma.InputJsonValue }
+        ...(credentialsChanged
+          ? { credentials: nextCredentials as Prisma.InputJsonValue }
           : {}),
-        ...(data.config !== undefined ? { config: data.config as Prisma.InputJsonValue } : {}),
+        ...(configChanged ? { config: nextConfig as Prisma.InputJsonValue } : {}),
         ...(data.isDefault !== undefined ? { isDefault: data.isDefault } : {}),
         ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
       },
