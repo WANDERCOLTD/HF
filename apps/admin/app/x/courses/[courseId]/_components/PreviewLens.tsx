@@ -33,6 +33,7 @@ import {
   type SessionFlowLens,
 } from "@/components/session-flow/SessionFlowEditor";
 import "./preview-lens.css";
+import { emptyOnboardingBubble } from "./empty-onboarding-bubble";
 
 interface PreviewLensProps {
   courseId: string;
@@ -51,6 +52,16 @@ interface SessionFlowResp {
     welcomeMessage: string | null;
     offboarding: { phases: Array<{ phase: string }>; triggerAfterCalls?: number };
     stops: Array<{ id: string; kind: string; trigger?: { type: string; threshold?: number; count?: number } }>;
+    /** Provenance — which layer of the cascade supplied each section's
+     *  value. Used by the empty-state copy below (#1418) to distinguish
+     *  "explicitly disabled" from "never configured / using INIT-001". */
+    source?: {
+      intake?: "new-shape" | "legacy-welcome" | "defaults";
+      onboarding?: "new-shape" | "playbook-legacy" | "domain" | "init001";
+      stops?: "new-shape" | "synthesized-from-legacy";
+      offboarding?: "new-shape" | "playbook-legacy" | "defaults";
+      welcomeMessage?: "playbook" | "domain" | "generic";
+    };
   };
   courseName?: string;
   error?: string;
@@ -392,10 +403,16 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
       });
     }
   } else {
+    // #1418 — distinguish "explicitly disabled" from "never configured".
+    // Pre-fix both states landed here with the same INIT-001 fallback
+    // copy; the resolver's `source` carries the distinction.
+    const bubble = emptyOnboardingBubble(sf.source?.onboarding);
     items.push({
-      kind: "bubble", side: "bot", lens: "onboarding", lensLabel: "Add Onboarding phases", ghost: true,
-      caption: "No onboarding phases configured",
-      text: "(falls back to INIT-001 default phases)",
+      kind: "bubble", side: "bot", lens: "onboarding",
+      lensLabel: bubble.lensLabel,
+      ghost: true,
+      caption: bubble.caption,
+      text: bubble.text,
     });
   }
 
