@@ -9,6 +9,7 @@ import type { CallerRole } from "@prisma/client";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { getSkillTierMapping } from "@/lib/goals/track-progress";
 import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { serializeCallForCallerDetail } from "@/lib/callers/serialize-call-for-detail";
 
 /**
  * @api GET /api/callers/:callerId
@@ -510,30 +511,18 @@ export async function GET(
         .map((c) => c.id),
     );
 
-    // Transform calls to include analysis status
-    const callsWithStatus = calls.map((call) => ({
-      id: call.id,
-      source: call.source,
-      externalId: call.externalId,
-      transcript: call.transcript,
-      createdAt: call.createdAt,
-      // #1344 Slice 4 — `callSequence` column is gone. Emit the parent
-      // Session's learner-facing number for back-compat with the
-      // existing UI shape; null when the Call pre-dates Slice 3 (no
-      // Session parent).
-      callSequence: call.session?.learnerFacingNumber ?? null,
-      playbookId: call.playbookId || null,
-      // Analysis status flags
-      hasScores: call._count.scores > 0,
-      hasMemories: (memoryCountMap.get(call.id) || 0) > 0,
-      hasBehaviorMeasurements: call._count.behaviorMeasurements > 0,
-      hasRewardScore: !!call.rewardScore,
-      // Prompt status
-      hasPrompt: promptedCallIds.has(call.id),
-      // Module context
-      curriculumModuleId: call.curriculumModuleId || null,
-      curriculumModule: call.curriculumModule || null,
-    }));
+    // Transform calls to include analysis status (#1459 — extracted to
+    // `lib/callers/serialize-call-for-detail.ts` so the wire contract
+    // is pinned by a unit test instead of requiring a 30-mock route
+    // integration test). Adds back `sessionId` + voice end-state fields
+    // that the old inline transform stripped from the response.
+    const callsWithStatus = calls.map((call) =>
+      serializeCallForCallerDetail(
+        call,
+        memoryCountMap.get(call.id) || 0,
+        promptedCallIds.has(call.id),
+      ),
+    );
 
     // Extract available slug variable names from playbook templates
     const availableSlugNames = new Set<string>();
