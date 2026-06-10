@@ -14,6 +14,22 @@ import { createSession } from "@/lib/voice/create-session";
 import { recordCallFailure } from "@/lib/voice/record-call-failure";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { log } from "@/lib/logger";
+import { voiceDiagDump } from "@/lib/voice/diag";
+
+/**
+ * Normalise VAPI's `message` field on a 4xx body into a string array.
+ *
+ * VAPI returns `message: string[]` for validation errors (one element per
+ * failed field) and `message: string` for other errors. Normalising lets
+ * the route surface the detail array to the modal toast unchanged for
+ * validation failures while still carrying single-string errors safely.
+ */
+function vapiDetailsFrom(body: { message?: string | string[] } | null): string[] {
+  const m = body?.message;
+  if (Array.isArray(m)) return m.filter((s): s is string => typeof s === "string");
+  if (typeof m === "string") return [m];
+  return [];
+}
 
 export const runtime = "nodejs";
 
@@ -51,7 +67,7 @@ const bodySchema = z
  * @response 403 { ok: false, error: "Forbidden" } (STUDENT cross-caller)
  * @response 404 { ok: false, error: "Caller not found" }
  * @response 409 { ok: false, error: "Caller has no phone on file" }
- * @response 502 { ok: false, error: "VAPI returned …" }
+ * @response 502 { ok: false, error: "VAPI returned …", vapiDetails: string[] }
  * @response 503 { ok: false, error: "Provider not configured for outbound dial" }
  */
 export async function POST(request: Request) {
@@ -272,6 +288,24 @@ export async function POST(request: Request) {
         firstLine: (inlineAssistant as { firstMessage?: string })?.firstMessage ?? null,
         serverUrl: (inlineAssistant as { serverUrl?: string })?.serverUrl ?? null,
       });
+      // #1438 — Verbose-tier diagnostic. OFF in prod by default
+      // (gated on `VOICE_DIAG_VERBOSE=1`). When on, dumps the full
+      // assistant payload we're about to send so an operator
+      // investigating "why did THIS field cause a 400" can see every
+      // resolved value at the wire boundary without a repro. Strip the
+      // model `secret` before emit — never log credentials.
+      const assistantForDump = (inlineAssistant as Record<string, unknown>) ?? {};
+      const modelForDump = (assistantForDump.model as Record<string, unknown> | undefined) ?? {};
+      const { secret: _modelSecret, ...modelSansSecret } = modelForDump;
+      void _modelSecret;
+      voiceDiagDump("voice.outbound_dial.assistant_payload", {
+        callId: placeholderCall.id,
+        callerIdShort: caller.id.slice(0, 8),
+        providerSlug: providerRow.slug,
+        assistant: { ...assistantForDump, model: modelSansSecret },
+        phoneNumberId,
+        customerE164Masked: e164.replace(/(.{3})(.+)(.{4})/, "$1***$3"),
+      });
       const vapiResp = await fetch("https://api.vapi.ai/call", {
         method: "POST",
         headers: {
@@ -285,12 +319,13 @@ export async function POST(request: Request) {
         }),
       });
       const vapiBody = (await vapiResp.json().catch(() => null)) as
-        | { id?: string; error?: string; message?: string }
+        | { id?: string; error?: string; message?: string | string[] }
         | null;
       if (!vapiResp.ok || !vapiBody?.id) {
+        const vapiDetails = vapiDetailsFrom(vapiBody);
         const message =
           vapiBody?.error ||
-          vapiBody?.message ||
+          (vapiDetails.length > 0 ? vapiDetails.join("; ") : null) ||
           `VAPI HTTP ${vapiResp.status}`;
         // #922 — log the full VAPI rejection BEFORE we delete the
         // placeholder. The placeholder delete used to take the only
@@ -323,8 +358,18 @@ export async function POST(request: Request) {
           },
         });
         endSpan({ errorMessage: message });
+        // #1438 — surface the VAPI validation message array to the modal
+        // toast. Pre-fix the response only carried `error: "Bad Request"`
+        // (the coarse top-level), and the actionable detail (e.g.
+        // "assistant.backgroundSound must be a valid URL or…") sat on
+        // the FailureLog where the operator never saw it. Now the hook
+        // can render the first detail line inline.
         return NextResponse.json(
-          { ok: false, error: `VAPI returned: ${message}` },
+          {
+            ok: false,
+            error: `VAPI returned: ${message}`,
+            vapiDetails,
+          },
           { status: 502 },
         );
       }

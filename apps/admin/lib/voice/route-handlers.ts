@@ -67,6 +67,7 @@ import {
   noActivePromptFirstLine,
 } from "@/lib/prompt/composition/defaults/fallback-first-lines";
 import { log } from "@/lib/logger";
+import { voiceDiagDump } from "@/lib/voice/diag";
 
 // `getVoiceSystemSettings` is imported for the existing cost-cap
 // trickle below AND for the assistant-request handler's cost-safety
@@ -156,6 +157,22 @@ export async function handleVoiceWebhookPost(
         { status: 400 },
       );
     }
+
+    // #1438 — Verbose-tier diagnostic for inbound webhooks. OFF in prod
+    // by default; gated on VOICE_DIAG_VERBOSE=1. Dumps the raw parsed
+    // body (capped at ~10 KB by JSON.stringify slice) so future schema
+    // drift in a provider's payload — or a new event kind we haven't
+    // wired up — is visible at the wire boundary without a repro. The
+    // body is also written to FailureLog when end-of-call merge fails
+    // (audit layer); this dump fires on EVERY webhook for diagnosis,
+    // not just on failure.
+    voiceDiagDump("voice.webhook.body", {
+      slug,
+      bodyLen: rawBody.length,
+      // Cap to keep AppLog rows reasonable. The audit layer (FailureLog)
+      // already captures the full body on the error path.
+      bodyPreview: rawBody.slice(0, 10000),
+    });
 
     // #922 — sniff event-shape hints from the body so the next "no
     // end-of-call" report shows whether VAPI sent a message-shaped

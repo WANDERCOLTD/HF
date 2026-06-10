@@ -12,6 +12,7 @@ import {
 import { startVoiceSpan } from "@/lib/voice/telemetry";
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
 import { createSession } from "@/lib/voice/create-session";
+import { voiceDiagDump } from "@/lib/voice/diag";
 
 export const runtime = "nodejs";
 
@@ -258,6 +259,26 @@ export async function POST(request: Request) {
       built.assistantConfig,
       { hfCallId: placeholderCall.id },
     );
+
+    // #1438 — Verbose-tier diagnostic for WebRTC start. Symmetric with
+    // the outbound-dial dump. OFF in prod by default; gated on
+    // VOICE_DIAG_VERBOSE=1. Captures the inline assistant payload that
+    // the browser SDK will pass straight to `vapi.start(...)`. Strip
+    // `model.secret` before emit — never log credentials.
+    const assistantForDump =
+      (assistantConfigWithMeta as { assistant?: Record<string, unknown> })
+        .assistant ?? assistantConfigWithMeta;
+    const modelForDump = (assistantForDump.model as Record<string, unknown> | undefined) ?? {};
+    const { secret: _modelSecret, ...modelSansSecret } = modelForDump;
+    void _modelSecret;
+    voiceDiagDump("voice.calls_start.assistant_payload", {
+      callId: placeholderCall.id,
+      callerIdShort: caller.id.slice(0, 8),
+      providerSlug: providerRow.slug,
+      intent: parsed.data.intent,
+      adapterKey: providerRow.adapterKey,
+      assistant: { ...assistantForDump, model: modelSansSecret },
+    });
 
     const response = NextResponse.json({
       ok: true,
