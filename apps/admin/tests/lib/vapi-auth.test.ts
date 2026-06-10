@@ -19,19 +19,19 @@ import { NextRequest } from "next/server";
 
 const SECRET = "test-secret-key";
 
-function makeRequest(signature?: string): NextRequest {
+function makeRequest(opts: {
+  signature?: string;
+  plainSecret?: string;
+} = {}): NextRequest {
   const req = new NextRequest("https://example.com/api/vapi/webhook", {
     method: "POST",
     body: JSON.stringify({ event: "call.completed" }),
   });
-  if (signature !== undefined) {
-    vi.spyOn(req.headers, "get").mockImplementation((name) => {
-      if (name === "x-vapi-signature") return signature;
-      return null;
-    });
-  } else {
-    vi.spyOn(req.headers, "get").mockImplementation(() => null);
-  }
+  vi.spyOn(req.headers, "get").mockImplementation((name) => {
+    if (name === "x-vapi-signature") return opts.signature ?? null;
+    if (name === "x-vapi-secret") return opts.plainSecret ?? null;
+    return null;
+  });
   return req;
 }
 
@@ -50,17 +50,17 @@ describe("verifyVapiRequest", () => {
     expect(result).toBeNull();
   });
 
-  it("returns 401 when x-vapi-signature header is missing", async () => {
-    const req = makeRequest(undefined);
+  it("returns 401 when both x-vapi-secret and x-vapi-signature are missing", async () => {
+    const req = makeRequest();
     const result = verifyVapiRequest(req, '{"event":"call.completed"}', SECRET);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
     const body = await result!.json();
-    expect(body.error).toBe("Missing signature");
+    expect(body.error).toBe("Missing signature or secret");
   });
 
   it("returns 401 when signature length does not match expected HMAC", async () => {
-    const req = makeRequest("tooshort");
+    const req = makeRequest({ signature: "tooshort" });
     const result = verifyVapiRequest(req, '{"event":"call.completed"}', SECRET);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
@@ -71,7 +71,7 @@ describe("verifyVapiRequest", () => {
   it("returns 401 when signature is correct length but wrong value", async () => {
     const body = '{"event":"call.completed"}';
     const wrongSig = "a".repeat(64);
-    const req = makeRequest(wrongSig);
+    const req = makeRequest({ signature: wrongSig });
     const result = verifyVapiRequest(req, body, SECRET);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
@@ -82,7 +82,7 @@ describe("verifyVapiRequest", () => {
   it("returns null (pass) when HMAC-SHA256 signature is valid", () => {
     const body = '{"event":"call.completed","callId":"abc123"}';
     const sig = makeSignature(SECRET, body);
-    const req = makeRequest(sig);
+    const req = makeRequest({ signature: sig });
     const result = verifyVapiRequest(req, body, SECRET);
     expect(result).toBeNull();
   });
@@ -91,9 +91,59 @@ describe("verifyVapiRequest", () => {
     const originalBody = '{"event":"call.completed"}';
     const tamperedBody = '{"event":"call.ended"}';
     const sig = makeSignature(SECRET, originalBody);
-    const req = makeRequest(sig);
+    const req = makeRequest({ signature: sig });
     const result = verifyVapiRequest(req, tamperedBody, SECRET);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
+  });
+
+  // #TBD-webhook-secret — x-vapi-secret plain shared-secret path
+  describe("x-vapi-secret plain-header path (#TBD-webhook-secret)", () => {
+    it("returns null (pass) when x-vapi-secret matches the stored secret", () => {
+      const req = makeRequest({ plainSecret: SECRET });
+      const result = verifyVapiRequest(req, '{"event":"any"}', SECRET);
+      expect(result).toBeNull();
+    });
+
+    it("returns 401 when x-vapi-secret is present but wrong value", async () => {
+      const req = makeRequest({ plainSecret: "wrong-secret-key" });
+      const result = verifyVapiRequest(req, '{"event":"any"}', SECRET);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe(401);
+      const body = await result!.json();
+      expect(body.error).toBe("Invalid x-vapi-secret");
+    });
+
+    it("returns 401 when x-vapi-secret is present but length mismatches stored", async () => {
+      const req = makeRequest({ plainSecret: "x" });
+      const result = verifyVapiRequest(req, '{"event":"any"}', SECRET);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe(401);
+    });
+
+    it("does NOT fall through to HMAC path when x-vapi-secret is wrong", () => {
+      // Same request also has a valid HMAC signature — but x-vapi-secret
+      // takes precedence and rejects. This matches VAPI's mutually-
+      // exclusive behaviour: it sends ONE auth header per webhook,
+      // never both.
+      const body = '{"event":"any"}';
+      const validSig = makeSignature(SECRET, body);
+      const req = makeRequest({
+        plainSecret: "wrong-secret-key",
+        signature: validSig,
+      });
+      const result = verifyVapiRequest(req, body, SECRET);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe(401);
+    });
+
+    it("falls through to HMAC path when x-vapi-secret is absent (header=null)", () => {
+      const body = '{"event":"any","callId":"x"}';
+      const sig = makeSignature(SECRET, body);
+      // No plainSecret → falls through to HMAC verification on signature.
+      const req = makeRequest({ signature: sig });
+      const result = verifyVapiRequest(req, body, SECRET);
+      expect(result).toBeNull();
+    });
   });
 });

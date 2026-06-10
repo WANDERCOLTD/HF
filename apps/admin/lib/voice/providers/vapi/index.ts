@@ -191,9 +191,26 @@ export class VapiProvider implements VoiceProvider {
           ...(tools.length > 0 ? { tools } : {}),
         };
 
+    // #TBD-webhook-secret — inline `serverUrlSecret` instructs VAPI to
+    // add an `x-vapi-secret: <plain-value>` header on every webhook to
+    // this assistant's serverUrl. The verifier in
+    // `lib/voice/providers/vapi/auth.ts::verifyVapiRequest` accepts
+    // either this plain header OR the HMAC `x-vapi-signature` (the
+    // signature path is used by orgs that configure HMAC via the VAPI
+    // dashboard at the org level — different VAPI feature). Without
+    // this field, VAPI ships webhooks UNSIGNED (no header at all),
+    // because dynamic inline assistants don't inherit the dashboard
+    // Server URL Secret — that field only applies to assistants the
+    // operator creates in the VAPI UI. Live evidence on hf-dev
+    // 2026-06-10: 20+ webhook 401s with "Missing x-vapi-signature
+    // header" — VAPI never sent it because we never set the secret on
+    // the per-call assistant payload.
     const assistant: Record<string, unknown> = {
       model: modelBlock,
       serverUrl: webhookUrl,
+      ...(typeof ctx.customLlmSecret === "string" && ctx.customLlmSecret.length > 0
+        ? { serverUrlSecret: ctx.customLlmSecret }
+        : {}),
     };
 
     if (ctx.firstLine) {
