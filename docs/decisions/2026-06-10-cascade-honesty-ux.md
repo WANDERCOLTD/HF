@@ -172,6 +172,18 @@ Existing override at OCEAN:             [ Replace override on OCEAN ]
 
 Same primitive, label flips based on `resolveEffective().layers` membership. This is primary spec, not a stylistic guard.
 
+**Write routing — `setKnobAtLayer` is a router, not a writer.** The function dispatches to the canonical write helper for the requested layer; it never calls `prisma.*` directly:
+
+| Layer | Routes to | Bump helper called after |
+|---|---|---|
+| `PLAYBOOK` | `lib/playbook/update-playbook-config.ts::updatePlaybookConfig(playbookId, transformer)` | Automatic — `updatePlaybookConfig` bumps `composeInputsUpdatedAt` when a compose-affecting key changes |
+| `DOMAIN` | `lib/domain/update-domain-config.ts::updateDomainConfig(domainId, updatable)` | Automatic via `updateDomainConfig` |
+| `CALLER` | `writeCallerBehaviorTarget` (existing) + `bumpCallerComposeTimestamp` (existing) | Explicit — caller-scope writes don't go through a single chokepoint today |
+| `SEGMENT`, `CALL` | Not in Sprint 1 (see §4 OUT) | n/a |
+| `SYSTEM` | Out of Sprint 1 scope. ADMIN-only when added; no auto-dispatch | n/a |
+
+Direct `prisma.*` calls from `set-at-layer.ts` are not permitted. Adding `lib/cascade/set-at-layer.ts` to the `hf-playbook/no-direct-playbook-config-write` or `hf-domain/no-direct-onboarding-write` ESLint allowlists is **not acceptable** — the file must call the helper, not own the write. (TL revision 2.)
+
 ### 3.4 Surface 3 — `<ScopePicker>` (the write affordance)
 
 When the operator chooses "Override for a specific caller" (or types `set warmth 0.8 @beckett` in Cmd+K — same primitive both sides), they need to pick which scope to write to:
@@ -184,6 +196,14 @@ When the operator chooses "Override for a specific caller" (or types `set warmth
 │              │ OCEAN (Big Five)             [chip] │ │
 │              └─────────────────────────────────────┘ │
 │              Affects all 4 enrolled learners.        │
+│                                                       │
+│  ○ Domain    ┌─────────────────────────────────────┐ │
+│              │ Education                     ▼     │ │
+│              └─────────────────────────────────────┘ │
+│              ⚠ Affects every course in this domain.  │
+│                All enrolled learners across the      │
+│                domain will receive updated settings  │
+│                on their next call.                   │
 │                                                       │
 │  ○ Segment   ┌─────────────────────────────────────┐ │
 │              │ (no segments on OCEAN)        ▼     │ │
@@ -222,13 +242,13 @@ Operator pins differentiate by scope — `set warmth @caller` and `set warmth ^p
 
 ### IN (this ADR commits to building)
 
-| Resolver | Knob family | First UI consumer |
-|---|---|---|
-| `resolvers/behavior-target.ts` | All `BEH-*` parameters (response-length, concision, warmth, etc.) | #1417 fix on `FirstSessionSettings.tsx` |
-| `resolvers/session-flow.ts` | Onboarding phases, source provenance | #1418 fix on `PreviewLens.tsx` |
-| `resolvers/welcome-message.ts` | Playbook welcome → Domain `onboardingWelcome` → null | Welcome editor badge |
-| `resolvers/voice-config.ts` | Wraps existing `lib/voice/voice-config-cascade.ts` | (no UI consumer in Sprint 1 — primitive only, for Sprint 3 Cmd+K) |
-| `resolvers/identity-spec.ts` | Group → Playbook → Domain → DEFAULT_ARCHETYPE_SLUG | (no UI consumer in Sprint 1 — primitive only) |
+| Resolver | Knob family | Wraps (verified 2026-06-10) | First UI consumer |
+|---|---|---|---|
+| `resolvers/behavior-target.ts` | All `BEH-*` parameters (response-length, concision, warmth, etc.) | `lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts` — already exposes per-layer values (`systemValue`, `playbookValue`, `callerValue`). **NOT** `mergeTargets` in `transforms/quickstart.ts` — that runs at COMPOSE-stage, not resolution. | #1417 fix on `FirstSessionSettings.tsx` |
+| `resolvers/session-flow.ts` | Onboarding phases, source provenance | `lib/session-flow/resolver.ts::resolveSessionFlow` — already returns `{value, source}` tuples; thin adapter maps source strings (`"new-shape"`, `"init001"`, etc.) to `Layer` enum. | #1418 fix on `PreviewLens.tsx` |
+| `resolvers/welcome-message.ts` | Playbook welcome → Domain `onboardingWelcome` → null | `lib/session-flow/resolver.ts::resolveWelcomeMessage` (embedded in the same file, line 286). | Welcome editor badge |
+| `resolvers/voice-config.ts` | Voice provider, voiceId, model | **REUSE `lib/cascade/voice-explain.ts` — ALREADY EXISTS** (shipped with #1348). Sprint 1 task is rename/re-export under `lib/cascade/resolvers/`, NOT a new file. Two read paths reconstructing the same chain risks drift. | (no UI consumer in Sprint 1 — primitive only, for Sprint 3 Cmd+K) |
+| `resolvers/identity-spec.ts` | Group → Playbook → Domain → DEFAULT_ARCHETYPE_SLUG | Reads same DB rows as `transforms/identity.ts::resolveSpecs` but does NOT call it — `resolveSpecs` returns only the winner, not `LayerHit[]`. Reconstruct chain from raw DB. | (no UI consumer in Sprint 1 — primitive only) |
 
 ### OUT (deferred)
 
@@ -327,6 +347,26 @@ All four originally-open questions decided after the 2026-06-10 operator-#1 inte
 - Sidetray pattern precedent — Course Design Console (2026-06-07 epic close, `handoff-design-console-shipped-20260607.md`)
 - AI-write tray precedent — `hooks/use-pending-changes-tray.tsx` (#878)
 - Chain-contract constraints — `docs/CHAIN-CONTRACTS.md` §3 Link 3 (stamp-on-write/check-on-read; new cascade writes go through `updatePlaybookConfig`)
+
+---
+
+## 11. TL review revisions baked in (2026-06-10)
+
+PR #1450 (this ADR) opened in parallel with `tech-lead` agent review. TL returned **NEEDS REVISIONS** with three concrete fixes. All three baked into §3.3, §3.4, and §4 above. Plus one critical reuse miss from the `reuse-finder` agent.
+
+| # | Finding | Where fixed | Source |
+|---|---|---|---|
+| 1 | `mergeTargets` citation was wrong — that runs at COMPOSE stage, not resolution. Correct wrap target is `lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts` (already exposes `systemValue` / `playbookValue` / `callerValue`). | §4 IN table, behavior-target row | TL §2 |
+| 2 | `setKnobAtLayer` write routing was unspecified — risked bypassing `hf-playbook/no-direct-playbook-config-write` lint rule. Explicit per-layer dispatch table added. | §3.3 "Write routing" subsection | TL §1, §4 |
+| 3 | ScopePicker mockup missing DOMAIN-scope fanout warning copy. Operator could click without knowing the change cascades across every course in the domain. | §3.4 ScopePicker mockup | TL §3 |
+| 4 | `lib/cascade/voice-explain.ts` **already exists** (shipped with #1348). Sprint 1's `resolvers/voice-config.ts` should rename/re-export, NOT duplicate. Parallel read paths drift on schema change. | §4 IN table, voice-config row | reuse-finder |
+
+**Open items the BA story must own (TL flagged, not baked into ADR):**
+
+- **`setBy` / `setAt` provenance source per knob family** (TL Guard 1, HIGH risk). `BehaviorTarget` has `source` enum but no `setBy userId` column. `Playbook.config` has no authorship metadata. The tooltip mockup ("Set by Paul / 2026-05-22") needs a per-resolver answer: either (a) the field exists today and resolver returns it, (b) a schema migration adds it, or (c) resolver returns `null` and tray renders "Set by (unknown)". The BA must specify for each of the 5 resolvers.
+- **New GET route for cascade inspector payload** (TL Guard 3 + Guard 4). Inspector tray needs an API to call `resolveEffective`. Route name + auth level (OPERATOR+) to be specified in the story.
+- **`TrayEntryScope` enum has `"playbook" | "domain" | "system"` but no `"caller"`.** ScopePicker writes at CALLER scope either need a new tray scope value or bypass the tray. BA must decide which.
+- **Sprint 3 ESLint addition** (when Cmd+K domain writes ship): add `lib/cascade/set-at-layer.ts` to `AI_TOOL_PATH_FRAGMENTS` in `eslint-rules/no-ai-fanout-all.mjs`. Not Sprint 1.
 
 **External prior-art sources (researched 2026-06-10):**
 - [Chrome DevTools — Find invalid, overridden, inactive CSS](https://developer.chrome.com/docs/devtools/css/issues)
