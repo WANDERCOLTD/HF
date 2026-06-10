@@ -55,6 +55,7 @@ import { FeltProgressSettings } from "@/components/course-design/FeltProgressSet
 import { TolerancesSettings } from "@/components/course-design/TolerancesSettings";
 import { BandingPicker } from "@/components/shared/BandingPicker";
 import { PreviewLens } from "./PreviewLens";
+import { StalePromptPillForCourse } from "@/components/callers/caller-detail/StalePromptPillForCourse";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 type DesignLensId =
@@ -275,6 +276,9 @@ export function CourseDesignConsole({
         ariaNavLabel="Course design lenses"
         idPrefix="hf-course-design"
         comingSoonHelpText={COMING_SOON_HELP}
+        // #1429 — staleness aggregate above the lens nav. Self-hides
+        // when no demo callers on this course have a stale prompt.
+        headerBanner={<StalePromptPillForCourse courseId={courseId} />}
       />
     </>
   );
