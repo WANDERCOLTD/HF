@@ -36,6 +36,36 @@ For each chain found:
 - Identify the root cause (missing acceptance criterion / no spike / FK ordering / CSS debugging / scope creep)
 - Estimate wasted commits (how many could have been caught in the original feat)
 
+## Step 2b — Auto-file an incident issue for each fix chain
+
+A fix-chain that goes uncaptured today is a fix-chain that will re-emerge next
+sprint. For each detected chain, spawn the `post-mortem` agent so the lesson
+ends up in `docs/kb/invariants.md` + `docs/kb/guard-registry.md` via the ritual
+flow (`docs/kb/guards-process.md`).
+
+Skip if an open issue labelled `incident` already mentions the same topic
+(duplicate guard work). Use `gh issue list --label incident --state open` to
+check before spawning.
+
+Prompt to pass the post-mortem agent (one per chain):
+
+```
+Topic: <chain topic from Step 2>
+Trigger: "fix-chain detected by retro-bot"
+Commits: <list of fix: commit shas from the chain>
+Time window: <start>..<end>
+Root-cause hypothesis (refine with 5 Whys): <your Step 2 finding>
+
+Produce the standard post-mortem GitHub issue body INCLUDING the §6b
+"KB additions (draft)" section. Tag the issue `incident` so the CI ritual gate
+fires on the closing PR.
+```
+
+This closes the upstream gap that allowed the chain to happen in the first
+place: without an `incident`-labelled issue, the
+`check-incident-guard-ritual.ts` CI gate never fires, and the fix lands without
+the lesson being locked in structure.
+
 ## Step 3 — Identify repeated problem classes
 
 ```bash

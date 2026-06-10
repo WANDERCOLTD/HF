@@ -33,7 +33,7 @@ already exists, scattered across mechanisms that were never designed as one syst
 
 | # | Part | Format | Lives in | Status |
 |---|---|---|---|---|
-| 1 | Structural facts (model map, routes, coupling) | generated JSON | `docs/kb/generated/` | 🟡 model-map + routes done; 8/109 ratified (the high-stakes globals); coupling TODO |
+| 1 | Structural facts (model map, routes, coupling) | generated JSON | `docs/kb/generated/` | 🟢 all three done; 8/109 models ratified |
 | 2 | Guard / contract registry | markdown (CHAIN-style) | `docs/kb/guard-registry.md` | 🟢 10/10 ESLint rules wired |
 | 2b | Guards *process* (the ritual) | markdown | `docs/kb/guards-process.md` | 🟢 first cut |
 | 3 | Narrative invariants / history | markdown | `docs/kb/invariants.md` | 🟡 seeded |
@@ -57,6 +57,7 @@ already exists, scattered across mechanisms that were never designed as one syst
 cd apps/admin
 npm run kb:model-map     # → docs/kb/generated/model-map.json   (109 models classified)
 npm run kb:routes        # → docs/kb/generated/route-inventory.json (501 routes)
+npm run kb:coupling      # → docs/kb/generated/coupling-graph.json (~1600 files, ~3700 edges)
 npm run kb:rule-tests    # meta-ratchet: every custom ESLint rule has a sibling test
 npm run kb:check         # all three meta-ratchets + generated-fact freshness
 ```

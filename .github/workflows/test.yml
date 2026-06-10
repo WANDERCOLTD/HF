@@ -116,6 +116,17 @@ jobs:
       - name: KB integrity (guard back-links + generated-fact freshness)
         run: npm run kb:check
 
+      # Incident → invariant → guard ritual (#1424). Only fires when this PR
+      # closes an issue labelled `incident` AND that issue has a post-mortem
+      # KB-additions comment. No-op for normal PRs. See:
+      # apps/admin/scripts/capture/check-incident-guard-ritual.ts
+      - name: Incident-guard ritual (lesson-loop enforcement)
+        if: github.event_name == 'pull_request'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: tsx scripts/capture/check-incident-guard-ritual.ts
+
   # Job 2: Unit Tests
   unit-tests:
     name: Unit Tests
