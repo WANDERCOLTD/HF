@@ -167,15 +167,15 @@ function cacheSet(
 
 /**
  * Drop every cache entry for the given `knobKey` (across all scope
- * chains). Called from `setKnobAtLayer` (Slice 2) after a successful
- * write so the next read returns the fresh winner.
+ * chains). Called from:
+ *   - `setKnobAtLayer` after every successful write (cascade write path)
+ *   - `writeBehaviorTarget` / `writeCallerBehaviorTarget` (BEH-* writes
+ *     from non-cascade paths — sidebar PATCH, chat tool, etc.)
  *
- * TODO(slice-2-invalidation-coverage): existing mutators
- * (`updatePlaybookConfig`, `updateDomainConfig`, direct `BehaviorTarget`
- * writes via `/api/playbooks/[id]/behavior-targets`) do NOT call
- * `invalidateKnob` today — same-session reads can race a same-session
- * write within the 30s window. Slice 2 wires `invalidateKnob` into the
- * shared write helpers so non-cascade write paths also self-invalidate.
+ * `updatePlaybookConfig` and `updateDomainConfig` call `invalidateAll`
+ * instead because diffing the JSON blob to identify changed knob keys
+ * would have to enumerate every cascade family — coarse invalidation
+ * is cheaper and equally correct (next reads rebuild lazily).
  */
 export function invalidateKnob(knobKey: string): void {
   const prefix = `${knobKey}|`;

@@ -42,6 +42,7 @@ import {
   COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS,
 } from "@/lib/compose/affecting-keys";
 import { triggerEagerRepromptForDemoCallers } from "@/lib/compose/eager-reprompt-on-bump";
+import { invalidateAll } from "@/lib/cascade/effective-value";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 export interface UpdatePlaybookConfigOptions {
@@ -157,6 +158,13 @@ export async function updatePlaybookConfig(
     // the helper filters on `policyMode='demo'`.
     void triggerEagerRepromptForDemoCallers(playbookId);
   }
+
+  // #1454 Slice 2 — drop every cascade-cache entry so the next
+  // `resolveEffective` re-reads fresh. Coarse invalidation: cheaper than
+  // diffing the JSON blob to identify exactly which knob keys changed,
+  // and the cache rebuilds lazily on demand. Safe even when this writer
+  // is called from a non-cascade code path (e.g. wizard, AI tray).
+  invalidateAll();
 
   return {
     playbook,

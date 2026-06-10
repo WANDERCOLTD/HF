@@ -34,7 +34,9 @@ import {
 const STORAGE_KEY = "hf-pending-tray-v1";
 const PERSIST_DEBOUNCE_MS = 3_000;
 
-export type TrayEntryScope = "playbook" | "domain" | "system";
+// "caller" added for ScopePicker (Epic #1442 Layer 2) — preserves audit
+// trail for caller-scope cascade overrides. Slice 2 of #1454.
+export type TrayEntryScope = "playbook" | "domain" | "system" | "caller";
 export type FanoutScope = "none" | "caller" | "all";
 
 export interface TrayEntry {
@@ -234,7 +236,9 @@ export function PendingChangesTrayProvider({
         return;
       }
       const scope: TrayEntryScope =
-        p.scope === "domain" || p.scope === "system" ? p.scope : "playbook";
+        p.scope === "domain" || p.scope === "system" || p.scope === "caller"
+          ? p.scope
+          : "playbook";
       const fanoutScope: FanoutScope =
         p.fanoutScope === "caller" || p.fanoutScope === "none"
           ? p.fanoutScope
