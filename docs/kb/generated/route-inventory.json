@@ -1,16 +1,16 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-09T15:10:42.696Z",
+  "generatedAt": "2026-06-10T10:40:37.904Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 502,
+    "routeCount": 504,
     "byAuthLevel": {
       "VIEWER": 112,
       "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
-      "OPERATOR": 133,
+      "OPERATOR": 135,
       "OPERATOR+VIEWER": 8,
       "VIEWER+OPERATOR": 56,
       "auth-gate(non-role)": 54,
@@ -9602,6 +9602,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/voice-providers/[id]/sample",
+      "file": "apps/admin/app/api/voice-providers/[id]/sample/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/voice-providers/[id]/test-connection",
       "file": "apps/admin/app/api/voice-providers/[id]/test-connection/route.ts",
       "methods": [
@@ -9699,6 +9719,26 @@
         "rawPrisma": false,
         "possiblyUnscoped": false,
         "noAuthGate": true
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/voice/[slug]/catalog",
+      "file": "apps/admin/app/api/voice/[slug]/catalog/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
       },
       "reviewed": false
     },
