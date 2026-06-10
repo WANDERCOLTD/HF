@@ -15461,12 +15461,14 @@ Run one carry-through reconciliation cycle (Slice 5 of
 
 | Parameter | In | Type | Required | Description |
 |-----------|-----|------|----------|-------------|
-| staleAfterMs | body | number | No | Optional override; defaults to 60_000 ms |
-| batchLimit | body | number | No | Optional override; defaults to 50 |
+| staleAfterMs | body | number | No | Optional override; defaults to 60_000 ms (carry-through) |
+| batchLimit | body | number | No | Optional override; defaults to 50 (carry-through) |
+| bootstrapStaleAfterMs | body | number | No | Optional override; defaults to 300_000 ms (enrollment-bootstrap) |
+| bootstrapBatchLimit | body | number | No | Optional override; defaults to 50 (enrollment-bootstrap) |
 
 **Response** `200`
 ```json
-{ ok: true, summary: ReconcileBatchResult }
+{ ok: true, summary: ReconcileBatchResult, bootstrapSummary: BootstrapReconcileBatchResult }
 ```
 
 **Response** `401`

@@ -125,7 +125,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: tsx scripts/capture/check-incident-guard-ritual.ts
+        run: npx tsx scripts/capture/check-incident-guard-ritual.ts
 
   # Job 2: Unit Tests
   unit-tests:

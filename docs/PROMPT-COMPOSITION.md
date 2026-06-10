@@ -72,6 +72,7 @@ Entry points (all funnel into `executeComposition`):
 |--------|--------------|-------|
 | Manual / UI / sim | `app/api/callers/[callerId]/compose-prompt/route.ts::POST` | Persists. |
 | Pipeline COMPOSE stage | `lib/ops/pipeline-run.ts` | Triggered after AGGREGATE → REWARD → ADAPT → SUPERVISE complete. |
+| **Enrollment bootstrap** (#1420) | `lib/enrollment/auto-compose.ts::autoComposeForCaller` | Fired POST-tx from `/api/join/[token]` (new-user path) and `/api/invite/accept`. Persists with `triggerType: "enrollment"`. After success, `lib/voice/stamp-enrollment-session-prompt.ts` links the prompt back to the ENROLLMENT Session row (I-CT2 step 3 terminal anchor). Reconciler backstop: `lib/voice/reconcile-missing-bootstrap.ts` (every 60s via `/api/voice/reconcile-carry-through`). |
 | Dry-run (tuning) | `app/api/courses/[courseId]/dry-run-prompt/route.ts::POST` | Returns trace; does **not** persist. |
 | Diff viewer | `app/api/composed-prompts/[promptId]/diff/route.ts::GET` | Reads `inputs.composition` off a persisted row. |
 | CLI | `cli/control.ts::compose-prompt` | Wraps the API. |

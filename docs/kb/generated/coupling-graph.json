@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-10T08:35:53.926Z",
+  "generatedAt": "2026-06-10T10:40:43.262Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1619,
-  "edgeCount": 3713,
+  "fileCount": 1626,
+  "edgeCount": 3729,
   "skippedEdges": 1,
   "edges": [
     {
@@ -4045,6 +4045,10 @@
     },
     {
       "from": "app/api/invite/accept/route.ts",
+      "to": "lib/enrollment/auto-compose.ts"
+    },
+    {
+      "from": "app/api/invite/accept/route.ts",
       "to": "lib/enrollment/index.ts"
     },
     {
@@ -4106,6 +4110,10 @@
     {
       "from": "app/api/join/[token]/route.ts",
       "to": "lib/auth/has-higher-role-session.ts"
+    },
+    {
+      "from": "app/api/join/[token]/route.ts",
+      "to": "lib/enrollment/auto-compose.ts"
     },
     {
       "from": "app/api/join/[token]/route.ts",
@@ -6204,6 +6212,22 @@
       "to": "lib/voice/provider-factory.ts"
     },
     {
+      "from": "app/api/voice-providers/[id]/sample/route.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "app/api/voice-providers/[id]/sample/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/voice-providers/[id]/sample/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/voice-providers/[id]/sample/route.ts",
+      "to": "lib/rate-limit.ts"
+    },
+    {
       "from": "app/api/voice-providers/[id]/test-connection/route.ts",
       "to": "lib/permissions.ts"
     },
@@ -6262,6 +6286,14 @@
     {
       "from": "app/api/voice/[slug]/assistant-request/route.ts",
       "to": "lib/voice/route-handlers.ts"
+    },
+    {
+      "from": "app/api/voice/[slug]/catalog/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/voice/[slug]/catalog/route.ts",
+      "to": "lib/voice/provider-factory.ts"
     },
     {
       "from": "app/api/voice/[slug]/knowledge/route.ts",
@@ -6426,6 +6458,10 @@
     {
       "from": "app/api/voice/reconcile-carry-through/route.ts",
       "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/voice/reconcile-carry-through/route.ts",
+      "to": "lib/voice/reconcile-missing-bootstrap.ts"
     },
     {
       "from": "app/api/voice/reconcile-carry-through/route.ts",
@@ -9536,6 +9572,10 @@
       "to": "lib/settings-panels.ts"
     },
     {
+      "from": "app/x/settings/voice-providers/[id]/page.tsx",
+      "to": "components/voice/VoiceSampleButton.tsx"
+    },
+    {
       "from": "app/x/settings/voice-providers/page.tsx",
       "to": "components/settings/VoiceProvidersPanel.tsx"
     },
@@ -11762,6 +11802,10 @@
     {
       "from": "lib/enrollment/auto-compose.ts",
       "to": "lib/prompt/composition/renderPromptSummary.ts"
+    },
+    {
+      "from": "lib/enrollment/auto-compose.ts",
+      "to": "lib/voice/stamp-enrollment-session-prompt.ts"
     },
     {
       "from": "lib/enrollment/create-test-learner.ts",
@@ -14036,6 +14080,14 @@
       "to": "lib/voice/types.ts"
     },
     {
+      "from": "lib/voice/reconcile-missing-bootstrap.ts",
+      "to": "lib/enrollment/auto-compose.ts"
+    },
+    {
+      "from": "lib/voice/reconcile-missing-bootstrap.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "lib/voice/reconciler.ts",
       "to": "lib/prisma.ts"
     },
@@ -14170,6 +14222,10 @@
     {
       "from": "lib/voice/runtime-features.ts",
       "to": "lib/voice/sse-registry.ts"
+    },
+    {
+      "from": "lib/voice/stamp-enrollment-session-prompt.ts",
+      "to": "lib/prisma.ts"
     },
     {
       "from": "lib/voice/system-settings.ts",
@@ -14509,6 +14565,14 @@
     },
     {
       "from": "scripts/backfill-embeddings.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "scripts/backfill-enrollment-bootstrap.ts",
+      "to": "lib/enrollment/auto-compose.ts"
+    },
+    {
+      "from": "scripts/backfill-enrollment-bootstrap.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -16344,7 +16408,7 @@
     {
       "path": "app/api/invite/accept/route.ts",
       "inDegree": 0,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "app/api/invite/verify/route.ts",
@@ -16364,7 +16428,7 @@
     {
       "path": "app/api/join/[token]/route.ts",
       "inDegree": 0,
-      "outDegree": 12
+      "outDegree": 13
     },
     {
       "path": "app/api/lab/features/[id]/activate/route.ts",
@@ -17247,6 +17311,11 @@
       "outDegree": 5
     },
     {
+      "path": "app/api/voice-providers/[id]/sample/route.ts",
+      "inDegree": 0,
+      "outDegree": 4
+    },
+    {
       "path": "app/api/voice-providers/[id]/test-connection/route.ts",
       "inDegree": 0,
       "outDegree": 3
@@ -17270,6 +17339,11 @@
       "path": "app/api/voice/[slug]/assistant-request/route.ts",
       "inDegree": 0,
       "outDegree": 1
+    },
+    {
+      "path": "app/api/voice/[slug]/catalog/route.ts",
+      "inDegree": 0,
+      "outDegree": 2
     },
     {
       "path": "app/api/voice/[slug]/knowledge/route.ts",
@@ -17324,7 +17398,7 @@
     {
       "path": "app/api/voice/reconcile-carry-through/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/voice/telemetry/[providerId]/route.ts",
@@ -18694,7 +18768,7 @@
     {
       "path": "app/x/settings/voice-providers/[id]/page.tsx",
       "inDegree": 0,
-      "outDegree": 0
+      "outDegree": 1
     },
     {
       "path": "app/x/settings/voice-providers/[id]/telemetry/page.tsx",
@@ -19642,6 +19716,11 @@
       "outDegree": 0
     },
     {
+      "path": "components/voice/VoiceSampleButton.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "components/wizards/IntakeToggleGroup.tsx",
       "inDegree": 1,
       "outDegree": 0
@@ -20273,7 +20352,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 85,
+      "inDegree": 86,
       "outDegree": 0
     },
     {
@@ -20833,8 +20912,8 @@
     },
     {
       "path": "lib/enrollment/auto-compose.ts",
-      "inDegree": 6,
-      "outDegree": 4
+      "inDegree": 10,
+      "outDegree": 5
     },
     {
       "path": "lib/enrollment/create-test-learner.ts",
@@ -21413,7 +21492,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 433,
+      "inDegree": 435,
       "outDegree": 3
     },
     {
@@ -21533,7 +21612,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 600,
+      "inDegree": 604,
       "outDegree": 0
     },
     {
@@ -21813,7 +21892,7 @@
     },
     {
       "path": "lib/rate-limit.ts",
-      "inDegree": 5,
+      "inDegree": 6,
       "outDegree": 0
     },
     {
@@ -22163,7 +22242,7 @@
     },
     {
       "path": "lib/voice/provider-factory.ts",
-      "inDegree": 13,
+      "inDegree": 14,
       "outDegree": 3
     },
     {
@@ -22179,6 +22258,11 @@
     {
       "path": "lib/voice/providers/vapi/index.ts",
       "inDegree": 2,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/voice/reconcile-missing-bootstrap.ts",
+      "inDegree": 1,
       "outDegree": 2
     },
     {
@@ -22230,6 +22314,11 @@
       "path": "lib/voice/sse-registry.ts",
       "inDegree": 4,
       "outDegree": 0
+    },
+    {
+      "path": "lib/voice/stamp-enrollment-session-prompt.ts",
+      "inDegree": 1,
+      "outDegree": 1
     },
     {
       "path": "lib/voice/system-settings.ts",
@@ -22522,6 +22611,11 @@
       "outDegree": 2
     },
     {
+      "path": "scripts/backfill-enrollment-bootstrap.ts",
+      "inDegree": 0,
+      "outDegree": 2
+    },
+    {
       "path": "scripts/backfill-ielts-indicative-label-rule.ts",
       "inDegree": 0,
       "outDegree": 1
@@ -22588,6 +22682,11 @@
     },
     {
       "path": "scripts/capture/check-guard-kb-links.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/check-incident-guard-ritual.ts",
       "inDegree": 0,
       "outDegree": 0
     },
@@ -22960,12 +23059,12 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 600,
+      "inDegree": 604,
       "outDegree": 0
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 433,
+      "inDegree": 435,
       "outDegree": 3
     },
     {
@@ -22975,7 +23074,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 85,
+      "inDegree": 86,
       "outDegree": 0
     },
     {

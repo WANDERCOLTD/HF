@@ -171,6 +171,24 @@ export async function buildAssistantConfigForCaller(
   });
 
   if (!composedPrompt?.llmPrompt) {
+    // #1420 — structured CRITICAL log. After this fix the fallback
+    // should never fire for a fresh-enrolment caller: the post-tx
+    // `autoComposeForCaller` hook + the `reconcileMissingBootstrap`
+    // backstop populate `ComposedPrompt(status='active')` for every
+    // ACTIVE enrollment within 5 minutes of enrolment. A hit here means
+    // EITHER (a) the caller has zero ACTIVE enrollments and dialled the
+    // system anyway, OR (b) both the post-tx hook AND the reconciler
+    // failed for >5 minutes — a real telemetry signal worth waking
+    // someone up for. After 7 days clean this branch becomes a hard
+    // error (TL revision: defence-in-depth keep-the-fallback-but-log
+    // approach is correct for the staged-rollout window).
+    console.error(
+      `[CRITICAL][build-assistant-config] fallback fired — composed-prompt cascade returned null. ` +
+        `callerId=${caller.id.slice(0, 8)} playbookId=${defaultPlaybookId?.slice(0, 8) ?? "null"} ` +
+        `cause=no-active-composed-prompt — see #1420 for the I-CT2 bootstrap gap. ` +
+        `Either the post-tx auto-compose hook AND the reconciler both failed for >5min, ` +
+        `or this caller has zero ACTIVE enrollments.`,
+    );
     const callerLabel = caller.name || "a returning caller";
     const fallbackPrompt = `${vs.noActivePromptFallback} The caller is ${callerLabel}.`;
     const assistantConfig = responseProvider.buildAssistantConfig({
