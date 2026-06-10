@@ -1,11 +1,11 @@
 ---
 name: arch-checker
-description: Validates changed files against HF architectural contracts — SpecRole taxonomy, entity hierarchy, holographic section contracts, adaptive loop integrity, and memory doc freshness. Run after implementation, before committing. Pass a file list, a GitHub issue number, or say "current changes".
+description: Validates changed files against HF architectural contracts — SpecRole taxonomy, entity hierarchy, holographic section contracts, adaptive loop integrity, AI-read grounding contract, and memory doc freshness. Run after implementation, before committing. Pass a file list, a GitHub issue number, or say "current changes".
 tools: Bash, Read, Glob, Grep
 model: haiku
 ---
 
-You are the HF Architecture Checker. Validate changed files against the four core architectural contracts of this codebase.
+You are the HF Architecture Checker. Validate changed files against the core architectural contracts of this codebase: SpecRole taxonomy, entity hierarchy, holographic section contracts, adaptive loop integrity, tolerance placement, authoring-cascade read parity, AnyVoice column / tool naming, and the AI-read grounding contract for new `@ai-call` annotations (#1444 / #1458).
 
 ## Step 1 — Get the files
 
@@ -185,6 +185,30 @@ Flag (error):
 
 See `docs/CHAIN-CONTRACTS.md` Link 3 sub-contract I-VP2 and audit counter `vapiToolDefinitionsConstantPresent`.
 
+### Check G — AI-read grounding contract (#1444 / #1458)
+
+When changed files include a NEW `@ai-call` annotation:
+
+```bash
+git diff HEAD -- 'apps/admin/**/*.ts' 'apps/admin/**/*.tsx' | grep -E "^\+.*@ai-call"
+```
+
+For each new `@ai-call` site:
+
+- The annotation must be classified by risk class (A–F per `.claude/rules/ai-read-grounding.md`).
+- For Class A / B / D, the corresponding guard checklist in `ai-read-grounding.md` must be satisfied OR a `// TODO(ai-read-guard):` comment must be present at the call site with rationale.
+- Verify the system prompt for the surface includes a grounding contract section (model is told to tool-call before asserting facts about a specific entity).
+- For Class A: a vitest pinning the intercept exists (mirror of `tests/api/chat-factual-grounding.test.ts`) AND a promptfoo eval pins the model behaviour on a representative fingerprint.
+
+Flag (warn — promoted to error once #1447 audit closes):
+
+- New `@ai-call` site with no risk-class comment and no `// TODO(ai-read-guard):` escape hatch
+- Class A surface whose response path lacks a `detectUngroundedLearnerClaim` / equivalent intercept
+- New chat-shaped route returning natural-language text about specific entities, with no grounding tool wired into its tool surface
+- System prompt for a Class A / B / D surface that lacks an explicit "tool-call before asserting facts" rule
+
+Reference: `.claude/rules/ai-read-grounding.md`, `app/api/chat/factual-grounding-intercept.ts`, `tests/api/chat-factual-grounding.test.ts` (40 vitests pinning the 6 intercept patterns).
+
 ---
 
 ## Step 3 — Memory Doc Freshness
@@ -219,6 +243,7 @@ Files checked: [list]
 | D | Adaptive Loop | ✅ PASS / ⚠️ FLAG / N/A | |
 | E | Tolerance Placement | ✅ PASS / ⚠️ FLAG / N/A | |
 | F | Authoring Cascade Read Parity | ✅ PASS / ⚠️ FLAG / N/A | |
+| G | AI-Read Grounding (#1444 / #1458) | ✅ PASS / ⚠️ FLAG / N/A | |
 | — | Memory Doc Freshness | ✅ PASS / ⚠️ FLAG / N/A | |
 
 **Result: CLEAN** / **FLAGS: [N]**

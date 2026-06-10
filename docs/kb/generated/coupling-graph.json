@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-10T11:02:03.414Z",
+  "generatedAt": "2026-06-10T17:09:09.904Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1630,
-  "edgeCount": 3738,
+  "fileCount": 1631,
+  "edgeCount": 3746,
   "skippedEdges": 1,
   "edges": [
     {
@@ -406,6 +406,10 @@
     {
       "from": "app/api/ai-models/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/ai/assistant/route.ts",
+      "to": "app/api/chat/factual-grounding-intercept.ts"
     },
     {
       "from": "app/api/ai/assistant/route.ts",
@@ -929,6 +933,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/route.ts",
+      "to": "lib/callers/serialize-call-for-detail.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/route.ts",
       "to": "lib/compose/bump-timestamp.ts"
     },
     {
@@ -1398,6 +1406,10 @@
     {
       "from": "app/api/chat/page-context.ts",
       "to": "lib/chat/ai-forbidden-fields.ts"
+    },
+    {
+      "from": "app/api/chat/route.ts",
+      "to": "app/api/chat/factual-grounding-intercept.ts"
     },
     {
       "from": "app/api/chat/route.ts",
@@ -6365,6 +6377,10 @@
     },
     {
       "from": "app/api/voice/calls/outbound-dial/route.ts",
+      "to": "lib/voice/diag.ts"
+    },
+    {
+      "from": "app/api/voice/calls/outbound-dial/route.ts",
       "to": "lib/voice/record-call-failure.ts"
     },
     {
@@ -6397,6 +6413,10 @@
     },
     {
       "from": "app/api/voice/calls/start/route.ts",
+      "to": "lib/voice/diag.ts"
+    },
+    {
+      "from": "app/api/voice/calls/start/route.ts",
       "to": "lib/voice/resolve-voice-provider.ts"
     },
     {
@@ -6424,8 +6444,16 @@
       "to": "lib/prisma.ts"
     },
     {
-      "from": "app/api/voice/llm-proxy/chat/completions/route.ts",
-      "to": "lib/config.ts"
+      "from": "app/api/voice/llm-proxy/auth/[secret]/chat/completions/route.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "app/api/voice/llm-proxy/auth/[secret]/chat/completions/route.ts",
+      "to": "lib/voice/llm-proxy/run-vapi-chat-completion.ts"
+    },
+    {
+      "from": "app/api/voice/llm-proxy/auth/[secret]/chat/completions/route.ts",
+      "to": "lib/voice/llm-proxy/verify-vapi-secret.ts"
     },
     {
       "from": "app/api/voice/llm-proxy/chat/completions/route.ts",
@@ -6433,23 +6461,11 @@
     },
     {
       "from": "app/api/voice/llm-proxy/chat/completions/route.ts",
-      "to": "lib/metering/usage-logger.ts"
-    },
-    {
-      "from": "app/api/voice/llm-proxy/chat/completions/route.ts",
-      "to": "lib/voice/llm-proxy/translate-request.ts"
-    },
-    {
-      "from": "app/api/voice/llm-proxy/chat/completions/route.ts",
-      "to": "lib/voice/llm-proxy/translate-stream.ts"
+      "to": "lib/voice/llm-proxy/run-vapi-chat-completion.ts"
     },
     {
       "from": "app/api/voice/llm-proxy/chat/completions/route.ts",
       "to": "lib/voice/llm-proxy/verify-vapi-secret.ts"
-    },
-    {
-      "from": "app/api/voice/llm-proxy/chat/completions/route.ts",
-      "to": "lib/voice/telemetry.ts"
     },
     {
       "from": "app/api/voice/poll-stale-calls/route.ts",
@@ -9609,35 +9625,15 @@
     },
     {
       "from": "app/x/sim/[callerId]/page.tsx",
+      "to": "components/callers/CallerVoiceSurface.tsx"
+    },
+    {
+      "from": "app/x/sim/[callerId]/page.tsx",
       "to": "components/identity/FirstCallPinGate.tsx"
     },
     {
       "from": "app/x/sim/[callerId]/page.tsx",
-      "to": "components/sim/ModulePickerBanners.tsx"
-    },
-    {
-      "from": "app/x/sim/[callerId]/page.tsx",
-      "to": "components/sim/ModuleQuickSwitcher.tsx"
-    },
-    {
-      "from": "app/x/sim/[callerId]/page.tsx",
-      "to": "components/sim/qualification/QualificationContextStrip.tsx"
-    },
-    {
-      "from": "app/x/sim/[callerId]/page.tsx",
-      "to": "components/sim/SimChat.tsx"
-    },
-    {
-      "from": "app/x/sim/[callerId]/page.tsx",
-      "to": "components/sim/SimStateBreadcrumb.tsx"
-    },
-    {
-      "from": "app/x/sim/[callerId]/page.tsx",
       "to": "components/sim/WhatsAppHeader.tsx"
-    },
-    {
-      "from": "app/x/sim/[callerId]/page.tsx",
-      "to": "hooks/useJourneyChat.ts"
     },
     {
       "from": "app/x/sim/[callerId]/page.tsx",
@@ -14020,6 +14016,10 @@
       "to": "lib/voice/session-rules.ts"
     },
     {
+      "from": "lib/voice/diag.ts",
+      "to": "lib/logger.ts"
+    },
+    {
       "from": "lib/voice/end-session.ts",
       "to": "lib/config.ts"
     },
@@ -14030,6 +14030,30 @@
     {
       "from": "lib/voice/end-session.ts",
       "to": "lib/voice/session-rules.ts"
+    },
+    {
+      "from": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
+      "to": "lib/metering/usage-logger.ts"
+    },
+    {
+      "from": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
+      "to": "lib/voice/llm-proxy/translate-request.ts"
+    },
+    {
+      "from": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
+      "to": "lib/voice/llm-proxy/translate-stream.ts"
+    },
+    {
+      "from": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
+      "to": "lib/voice/telemetry.ts"
     },
     {
       "from": "lib/voice/llm-proxy/verify-vapi-secret.ts",
@@ -14102,6 +14126,10 @@
     {
       "from": "lib/voice/providers/retell/index.ts",
       "to": "lib/voice/types.ts"
+    },
+    {
+      "from": "lib/voice/providers/vapi/index.ts",
+      "to": "lib/logger.ts"
     },
     {
       "from": "lib/voice/providers/vapi/index.ts",
@@ -14198,6 +14226,10 @@
     {
       "from": "lib/voice/route-handlers.ts",
       "to": "lib/voice/create-session.ts"
+    },
+    {
+      "from": "lib/voice/route-handlers.ts",
+      "to": "lib/voice/diag.ts"
     },
     {
       "from": "lib/voice/route-handlers.ts",
@@ -15169,7 +15201,7 @@
     {
       "path": "app/api/ai/assistant/route.ts",
       "inDegree": 0,
-      "outDegree": 7
+      "outDegree": 8
     },
     {
       "path": "app/api/ai/assistant/search/route.ts",
@@ -15379,7 +15411,7 @@
     {
       "path": "app/api/callers/[callerId]/route.ts",
       "inDegree": 0,
-      "outDegree": 9
+      "outDegree": 10
     },
     {
       "path": "app/api/callers/[callerId]/session-flow-progress/route.ts",
@@ -15492,6 +15524,11 @@
       "outDegree": 1
     },
     {
+      "path": "app/api/chat/factual-grounding-intercept.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
       "path": "app/api/chat/page-context.ts",
       "inDegree": 2,
       "outDegree": 1
@@ -15499,7 +15536,7 @@
     {
       "path": "app/api/chat/route.ts",
       "inDegree": 0,
-      "outDegree": 29
+      "outDegree": 30
     },
     {
       "path": "app/api/chat/system-prompts.ts",
@@ -17409,12 +17446,12 @@
     {
       "path": "app/api/voice/calls/outbound-dial/route.ts",
       "inDegree": 0,
-      "outDegree": 9
+      "outDegree": 10
     },
     {
       "path": "app/api/voice/calls/start/route.ts",
       "inDegree": 0,
-      "outDegree": 7
+      "outDegree": 8
     },
     {
       "path": "app/api/voice/costs/route.ts",
@@ -17427,9 +17464,14 @@
       "outDegree": 3
     },
     {
+      "path": "app/api/voice/llm-proxy/auth/[secret]/chat/completions/route.ts",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
       "path": "app/api/voice/llm-proxy/chat/completions/route.ts",
       "inDegree": 0,
-      "outDegree": 7
+      "outDegree": 3
     },
     {
       "path": "app/api/voice/poll-stale-calls/route.ts",
@@ -18854,7 +18896,7 @@
     {
       "path": "app/x/sim/[callerId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 11
+      "outDegree": 6
     },
     {
       "path": "app/x/sim/feedback/page.tsx",
@@ -19133,6 +19175,11 @@
     },
     {
       "path": "components/callers/CallerDetailPage.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/callers/CallerVoiceSurface.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
@@ -19697,37 +19744,12 @@
       "outDegree": 0
     },
     {
-      "path": "components/sim/ModulePickerBanners.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "components/sim/ModuleQuickSwitcher.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "components/sim/SimChat.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
       "path": "components/sim/SimNavBar.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
     {
-      "path": "components/sim/SimStateBreadcrumb.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
       "path": "components/sim/WhatsAppHeader.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "components/sim/qualification/QualificationContextStrip.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
@@ -19899,11 +19921,6 @@
     {
       "path": "hooks/useCourseSetupStatus.ts",
       "inDegree": 2,
-      "outDegree": 0
-    },
-    {
-      "path": "hooks/useJourneyChat.ts",
-      "inDegree": 1,
       "outDegree": 0
     },
     {
@@ -20225,6 +20242,11 @@
       "path": "lib/caller/resolve-active-playbook.ts",
       "inDegree": 2,
       "outDegree": 1
+    },
+    {
+      "path": "lib/callers/serialize-call-for-detail.ts",
+      "inDegree": 1,
+      "outDegree": 0
     },
     {
       "path": "lib/cascade/voice-explain.ts",
@@ -21418,7 +21440,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 18,
+      "inDegree": 22,
       "outDegree": 3
     },
     {
@@ -22237,6 +22259,11 @@
       "outDegree": 7
     },
     {
+      "path": "lib/voice/diag.ts",
+      "inDegree": 3,
+      "outDegree": 1
+    },
+    {
       "path": "lib/voice/end-session.ts",
       "inDegree": 1,
       "outDegree": 3
@@ -22252,6 +22279,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
+      "inDegree": 2,
+      "outDegree": 6
+    },
+    {
       "path": "lib/voice/llm-proxy/translate-request.ts",
       "inDegree": 1,
       "outDegree": 0
@@ -22263,7 +22295,7 @@
     },
     {
       "path": "lib/voice/llm-proxy/verify-vapi-secret.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 2
     },
     {
@@ -22309,7 +22341,7 @@
     {
       "path": "lib/voice/providers/vapi/index.ts",
       "inDegree": 2,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/voice/reconcile-missing-bootstrap.ts",
@@ -22344,7 +22376,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 25
+      "outDegree": 26
     },
     {
       "path": "lib/voice/runtime-features.ts",
@@ -22897,6 +22929,11 @@
       "outDegree": 0
     },
     {
+      "path": "scripts/migrate-vapi-background-sound.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
       "path": "scripts/migrate-vapi-tts-default.ts",
       "inDegree": 0,
       "outDegree": 0
@@ -23176,12 +23213,12 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 25
+      "outDegree": 26
     },
     {
       "path": "app/api/chat/route.ts",
       "inDegree": 0,
-      "outDegree": 29
+      "outDegree": 30
     },
     {
       "path": "app/api/content-sources/[sourceId]/extract/route.ts",

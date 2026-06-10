@@ -370,6 +370,12 @@ See `.claude/rules/rbac.md` + `.claude/rules/api-conventions.md` (auto-loaded fo
 
 ---
 
+## AI Guards (read-side + write-side)
+
+See `.claude/rules/ai-to-db-guard.md` (validate-then-write — AI output driving DB mutations) + `.claude/rules/ai-read-grounding.md` (verify-then-claim — AI text asserting facts about specific entities; #1444 contract + `factual-grounding-intercept.ts`).
+
+---
+
 ## Seed Data & Docker
 
 Spec JSONs in `docs-archive/bdd-specs/` are seed data only. After seeding, DB owns the data.

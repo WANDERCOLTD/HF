@@ -1,10 +1,10 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-10T11:02:02.428Z",
+  "generatedAt": "2026-06-10T17:09:09.144Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 505,
+    "routeCount": 506,
     "byAuthLevel": {
       "VIEWER": 112,
       "ADMIN": 81,
@@ -15,7 +15,7 @@
       "VIEWER+OPERATOR": 56,
       "auth-gate(non-role)": 54,
       "VIEWER+OPERATOR+ADMIN": 3,
-      "<none>": 28,
+      "<none>": 29,
       "OPERATOR+ADMIN": 5,
       "VIEWER+STUDENT": 1,
       "TESTER": 1,
@@ -24,7 +24,7 @@
       "ADMIN+OPERATOR": 1,
       "VIEWER+TESTER": 3
     },
-    "noAuthGate": 27,
+    "noAuthGate": 28,
     "possiblyUnscoped": 131,
     "internalSecret": 8
   },
@@ -889,7 +889,7 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": false,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": false,
         "possiblyUnscoped": false,
@@ -9913,6 +9913,24 @@
         "rawPrisma": true,
         "possiblyUnscoped": false,
         "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/voice/llm-proxy/auth/[secret]/chat/completions",
+      "file": "apps/admin/app/api/voice/llm-proxy/auth/[secret]/chat/completions/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [],
+      "hasAuthGate": false,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": true
       },
       "reviewed": false
     },

@@ -856,7 +856,7 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "get_voice_config",
     description:
-      "Read the voice configuration for a Playbook — provider, model, end-state behaviour, polling. Does NOT expose model.secret (operator-only material, surfaced via settings page only).",
+      "Read the voice configuration for a Playbook — provider, model, voiceId, end-state behaviour, polling. `voiceId` is the TTS voice catalogue id (e.g. \"aura-asteria-en\", \"arcas\") — what the LEARNER HEARS. Do NOT confuse it with `model` (the LLM behind the voice agent, e.g. \"claude-haiku-4-5\"), which has no effect on the heard voice. Does NOT expose model.secret (operator-only material, surfaced via settings page only).",
     input_schema: {
       type: "object",
       properties: {
@@ -882,7 +882,7 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "update_voice_config",
     description:
-      "Adjust voice configuration for a Playbook by merging into Playbook.config.voice. The ALLOWED key set is driven by the system-enabled VoiceProvider's getConfigSchema() PLUS cross-cutting HF keys (autoPipeline, silenceTimeoutSeconds, maxDurationSeconds, voicemailDetectionEnabled, endCallPhrases, maxCostPerCallUsd, pollIntervalMs, endedReasonOverride) AND `prosodyMode` (`\"ielts\" | \"general\" | \"auto\"`) which controls how the voice provider scores the call audio — IELTS mode writes the 4-band CallScores (Fluency & Coherence, Pronunciation, Lexical Resource, Grammatical Range & Accuracy); General mode writes CONV_PACE and pace_indicators only; `auto` falls back to the legacy tierPresetId heuristic. #1270 — `provider` and `model` are LOCKED at system level and are NOT accepted (system picks the enabled VP; model is pinned per VP); `modelSecret` / `secret` / `apiKey` are DELIBERATELY not accepted — secret rotation is an operator-only flow. Bumps Playbook.composeInputsUpdatedAt.",
+      "Adjust voice configuration for a Playbook by merging into Playbook.config.voice. The ALLOWED key set is driven by the system-enabled VoiceProvider's getConfigSchema() PLUS cross-cutting HF keys (autoPipeline, silenceTimeoutSeconds, maxDurationSeconds, voicemailDetectionEnabled, endCallPhrases, maxCostPerCallUsd, pollIntervalMs, endedReasonOverride) AND `prosodyMode` (`\"ielts\" | \"general\" | \"auto\"`) which controls how the voice provider scores the call audio — IELTS mode writes the 4-band CallScores (Fluency & Coherence, Pronunciation, Lexical Resource, Grammatical Range & Accuracy); General mode writes CONV_PACE and pace_indicators only; `auto` falls back to the legacy tierPresetId heuristic. #1270 — `provider` and `model` are LOCKED at system level and are NOT accepted (system picks the enabled VP; `model` is the LLM behind the voice agent and is pinned per VP; it is NOT the TTS voice the learner hears — that is `voiceId`); `modelSecret` / `secret` / `apiKey` are DELIBERATELY not accepted — secret rotation is an operator-only flow. Bumps Playbook.composeInputsUpdatedAt.",
     input_schema: {
       type: "object",
       properties: {
