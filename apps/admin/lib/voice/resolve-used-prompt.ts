@@ -2,7 +2,17 @@
  * I-CT2 prompt-resolution cascade (epic #1338 / story #1342).
  *
  * Resolves which `ComposedPrompt.id` the new Session ran with. Walked
- * in order — first non-null wins:
+ * in order — first non-null wins.
+ *
+ * #1420 NOTE — kind-independence: this resolver intentionally takes only
+ * `callerId` and does NOT filter by the asking Session's `kind`. The
+ * cascade is enrollment-keyed, not kind-keyed: a brand-new SIM_CALL,
+ * TEXT_CHAT, or ASSESSMENT Session is just as entitled to land on the
+ * ENROLLMENT bootstrap (step 3) as a VOICE_CALL. This means the #1420
+ * post-tx auto-compose fix (which writes the bootstrap ComposedPrompt
+ * per-playbook for ACTIVE enrollments) benefits every session kind —
+ * not just voice. SIM_CALL alignment is locked in
+ * `tests/lib/voice/sim-cascade-alignment.test.ts`.
  *
  *   Step 1 — previous Session's produced prompt
  *     `Session(callerId, sequenceNumber = current-1).producedComposedPromptId`
