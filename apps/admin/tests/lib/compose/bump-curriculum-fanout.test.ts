@@ -21,6 +21,18 @@ vi.mock("@/lib/curriculum/resolve-playbook-for-curriculum", () => ({
   resolvePlaybookIdForCurriculumModule: mockResolvePlaybookIdForCurriculumModule,
 }));
 
+// #1429 — bump-curriculum-fanout now fires the eager-reprompt helper
+// once per sibling Playbook after the bump loop completes. Mock it so
+// the existing tests don't pull in prisma.
+const mockTriggerEagerRepromptForDemoCallers = vi.fn().mockResolvedValue({
+  callerIds: [],
+  attempted: 0,
+  failures: [],
+});
+vi.mock("@/lib/compose/eager-reprompt-on-bump", () => ({
+  triggerEagerRepromptForDemoCallers: mockTriggerEagerRepromptForDemoCallers,
+}));
+
 describe("bumpCurriculumComposeFanout — CC-B (#1034)", () => {
   let mod: typeof import("@/lib/compose/bump-curriculum-fanout");
 
@@ -58,6 +70,28 @@ describe("bumpCurriculumComposeFanout — CC-B (#1034)", () => {
     expect(result.count).toBe(1);
     expect(result.representativePlaybookId).toBe("pb-only");
     expect(mockBumpPlaybookComposeTimestamp).toHaveBeenCalledExactlyOnceWith("pb-only");
+  });
+
+  // #1429 — TL revision #1 AC: a multi-playbook curriculum edit fires
+  // the eager reprompt fan-out EXACTLY ONCE PER PLAYBOOK, not once per
+  // `bumpPlaybookComposeTimestamp` call (which would be the same N today
+  // but is the architectural invariant we're locking).
+  it("fires eager reprompt fan-out once per sibling Playbook (TL rev #1)", async () => {
+    mockResolvePlaybookIdForCurriculum.mockResolvedValue([
+      "pb-primary",
+      "pb-popquiz",
+      "pb-exam",
+    ]);
+    await mod.bumpCurriculumComposeFanout("c-shared");
+    // The bump helper is called once per playbook (existing behaviour).
+    expect(mockBumpPlaybookComposeTimestamp).toHaveBeenCalledTimes(3);
+    // The eager reprompt helper is ALSO called once per playbook —
+    // not once per bump call (which is the same N today but the
+    // separation is the architectural lock).
+    expect(mockTriggerEagerRepromptForDemoCallers).toHaveBeenCalledTimes(3);
+    expect(mockTriggerEagerRepromptForDemoCallers).toHaveBeenNthCalledWith(1, "pb-primary");
+    expect(mockTriggerEagerRepromptForDemoCallers).toHaveBeenNthCalledWith(2, "pb-popquiz");
+    expect(mockTriggerEagerRepromptForDemoCallers).toHaveBeenNthCalledWith(3, "pb-exam");
   });
 });
 

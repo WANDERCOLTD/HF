@@ -23,6 +23,18 @@ const mockPrisma = {
 };
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
+// #1429 — updatePlaybookConfig fires the eager-reprompt fan-out after
+// a compose-affecting bump. Stub it so this test stays focused on the
+// stamp-on-write mechanism. Production behaviour is covered by
+// `tests/lib/compose/eager-reprompt-on-bump.test.ts`.
+vi.mock("@/lib/compose/eager-reprompt-on-bump", () => ({
+  triggerEagerRepromptForDemoCallers: vi.fn().mockResolvedValue({
+    callerIds: [],
+    attempted: 0,
+    failures: [],
+  }),
+}));
+
 describe("updatePlaybookConfig — #826 stamp-on-write helper", () => {
   let updatePlaybookConfig: typeof import("@/lib/playbook/update-playbook-config").updatePlaybookConfig;
 
