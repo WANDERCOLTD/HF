@@ -4,7 +4,7 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-06-10T11:35:09.335Z
+> Last generated: 2026-06-10T16:44:38.808Z
 > Surfaces: 4
 > Total tools: 67 (61 live, 6 roadmap stubs)
 
@@ -40,7 +40,7 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 | `get_domain_info` | OPERATOR | — | `domain_id`, `domain_name` | Get detailed info about a domain: description, playbook, specs in the playbook, caller count, and identity/content spec configs. |
 | `get_playbook_config` | OPERATOR | `playbook_id` | — | Read the full Playbook (course) config + top-level metadata. |
 | `get_spec_config` | OPERATOR | `spec_id` | — | Get the full config JSON for a specific spec by ID. |
-| `get_voice_config` | OPERATOR | `playbook_id` | — | Read the voice configuration for a Playbook — provider, model, end-state behaviour, polling. |
+| `get_voice_config` | OPERATOR | `playbook_id` | — | Read the voice configuration for a Playbook — provider, model, voiceId, end-state behaviour, polling. |
 | `link_subject_to_domain` | OPERATOR | `subject_id`, `domain_id` | — | Link a subject to a domain so callers in that domain can access this curriculum. |
 | `list_behavior_targets` | OPERATOR | — | `playbook_id`, `caller_id` | List active BehaviorTargets. |
 | `list_curriculum_modules` | OPERATOR | — | `curriculum_id`, `playbook_id` | List CurriculumModule rows. |
