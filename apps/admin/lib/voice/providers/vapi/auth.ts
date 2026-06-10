@@ -1,28 +1,38 @@
 /**
- * VAPI Webhook Authentication (AnyVoice #1031).
+ * VAPI Webhook Authentication (AnyVoice #1031, extended #TBD-webhook-secret).
  *
- * Verifies VAPI webhook signatures using HMAC-SHA256. The secret comes
- * from the `VoiceProvider.credentials.webhookSecret` field (DB) via the
- * factory + adapter constructor — NOT from env vars after #1031.
+ * VAPI has TWO independent webhook auth schemes; this verifier accepts
+ * EITHER:
  *
- * Pure function: pass the secret in. The VapiProvider class is the only
- * caller and it resolves the secret at construction time from its
- * `credentials` constructor arg. A transient env-var fallback exists in
- * VapiProvider itself for the deploy-window before the seed has run.
+ *   1. `x-vapi-secret: <plain-value>` — sent when the assistant config
+ *      includes `serverUrlSecret`. Plain shared-secret comparison;
+ *      no HMAC. **This is what HF's dynamic inline assistants use** —
+ *      `lib/voice/providers/vapi/index.ts::buildAssistantConfig` sets
+ *      `assistant.serverUrlSecret = credentials.webhookSecret` so VAPI
+ *      knows to add this header to every webhook for this call.
+ *
+ *   2. `x-vapi-signature: <HMAC-SHA256(rawBody, secret)>` — sent when
+ *      the operator configures HMAC at the org level via the VAPI
+ *      dashboard. Cryptographically stronger, harder to set up.
+ *
+ * Both compare against the SAME stored value
+ * (`VoiceProvider.credentials.webhookSecret`). The verifier returns
+ * null on the FIRST matching path; defence in depth.
+ *
+ * Live evidence on hf-dev 2026-06-10: 20+ webhook 401s logged as
+ * "Missing x-vapi-signature header" — VAPI never sent that header
+ * because (a) it wasn't configured at the org level, and (b) HF
+ * wasn't telling VAPI to use `serverUrlSecret` either. Fix: set
+ * `assistant.serverUrlSecret` in the per-call payload AND accept
+ * `x-vapi-secret` plain header here.
+ *
+ * Pass-through when `secret` is empty/undefined preserves local-dev
+ * ergonomics.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 
-/**
- * Verify a VAPI webhook request signature.
- * Returns null if valid, or a 401 NextResponse if invalid.
- *
- * When the secret is unset (empty string or undefined), requests pass
- * through — preserves local-dev ergonomics. Production safety is the
- * caller's responsibility (the VapiProvider constructor will warn when
- * the secret is missing during the deploy-window cutover).
- */
 export function verifyVapiRequest(
   request: NextRequest,
   rawBody: string,
@@ -30,10 +40,35 @@ export function verifyVapiRequest(
 ): NextResponse | null {
   if (!secret) return null;
 
+  // Path 1 — plain `x-vapi-secret` header (HF's dynamic-assistant path).
+  // When VAPI sends this header, it WILL NOT also send x-vapi-signature
+  // (the two schemes are mutually exclusive in VAPI's outbound webhook
+  // implementation). So a present-but-mismatched x-vapi-secret means
+  // "fail" — don't fall through to the HMAC path.
+  const plainHeader = request.headers.get("x-vapi-secret");
+  if (plainHeader !== null) {
+    const secretBuf = Buffer.from(secret);
+    const plainBuf = Buffer.from(plainHeader);
+    if (
+      plainBuf.length === secretBuf.length &&
+      crypto.timingSafeEqual(secretBuf, plainBuf)
+    ) {
+      return null;
+    }
+    console.warn("[vapi/auth] Invalid x-vapi-secret header (value mismatch)");
+    return NextResponse.json({ error: "Invalid x-vapi-secret" }, { status: 401 });
+  }
+
+  // Path 2 — HMAC `x-vapi-signature` (VAPI dashboard-configured HMAC).
   const signature = request.headers.get("x-vapi-signature");
   if (!signature) {
-    console.warn("[vapi/auth] Missing x-vapi-signature header");
-    return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+    console.warn(
+      "[vapi/auth] Missing both x-vapi-secret and x-vapi-signature headers",
+    );
+    return NextResponse.json(
+      { error: "Missing signature or secret" },
+      { status: 401 },
+    );
   }
 
   const expected = crypto
