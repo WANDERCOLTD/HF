@@ -573,6 +573,47 @@ export const ADMIN_TOOLS: AITool[] = [
     },
   },
 
+  // ── Demo / cohort recompose fan-out (#1429) ──────────────────────
+  // These tools are the chat equivalent of the <StalePromptPillForCourse />
+  // [Reprompt all] button. They fan out per-caller recomposes server-side.
+  //
+  // `reprompt_demo_set` is OPERATOR+ — bounded to demo callers, so the
+  // blast radius is the test set.
+  // `reprompt_playbook` is ADMIN+ — fans out across ALL active callers,
+  // including real learners. Surfaces in the tray as `fanoutScope: 'all'`
+  // per epic #854. The ADMIN+ role gate is the cohort-fan-out human gate
+  // (the no-ai-fanout-all ESLint rule does NOT cover this handler
+  // because it calls `autoComposeForCaller` directly, not the three
+  // watched config helpers — the role gate is the substitute control).
+
+  {
+    name: "reprompt_demo_set",
+    description:
+      "Force a fresh compose RIGHT NOW for every demo caller on a course (CallerPlaybook.policyMode='demo', status='ACTIVE'). Use after a config tweak when you want the test set to reflect the new prompt on their next call — no waiting for next-call-but-one. Fans out POST /api/callers/[id]/compose-prompt server-side. Returns the number triggered and any failures. Demo callers are typically `test-admin-*@hf-admin.local` rows created via the V2 intake admin escape hatch.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["playbook_id", "reason"],
+    },
+  },
+
+  {
+    name: "reprompt_playbook",
+    description:
+      "Force a fresh compose RIGHT NOW for EVERY active caller on the course — including production learners. ADMIN+ only (OPERATOR is refused with a 403). Use sparingly. The pending-changes tray surfaces this as a `fanoutScope: 'all'` action per epic #854. Returns the number triggered and any failures.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["playbook_id", "reason"],
+    },
+  },
+
   // ── Curriculum-side direct edits (single LO + curriculum meta) ──
 
   {

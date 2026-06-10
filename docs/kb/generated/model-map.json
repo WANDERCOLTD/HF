@@ -1,6 +1,6 @@
 {
   "$schema": "model-map/v1",
-  "generatedAt": "2026-06-10T10:40:34.729Z",
+  "generatedAt": "2026-06-10T11:02:01.664Z",
   "generator": "scripts/capture/model-map.ts",
   "schemaPath": "apps/admin/prisma/schema.prisma",
   "note": "Tier-2 generated KB. proposedClass is a HEURISTIC unless reviewed:true. Human ratifications live in docs/kb/model-map-overrides.json and are reapplied by the generator on each run. Do not hand-edit this JSON — edit the overrides file.",
@@ -1440,9 +1440,9 @@
     },
     {
       "name": "CallerPlaybook",
-      "fieldCount": 14,
+      "fieldCount": 15,
       "relationCount": 2,
-      "meaningfulScalarCount": 7,
+      "meaningfulScalarCount": 8,
       "scalarFields": [
         "id",
         "callerId",
@@ -1454,6 +1454,7 @@
         "droppedAt",
         "enrolledBy",
         "isDefault",
+        "policyMode",
         "createdAt",
         "updatedAt"
       ],
@@ -1469,6 +1470,7 @@
       ],
       "blockAttrs": [
         "@@unique",
+        "@@index",
         "@@index",
         "@@index"
       ],

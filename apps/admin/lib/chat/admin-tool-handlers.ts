@@ -17,6 +17,7 @@ import { updateAnalysisSpecConfig } from "@/lib/analysis-spec/update-analysis-sp
 import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import { buildPendingChangePayload } from "@/lib/chat/pending-change-payload";
 import { bumpCallerComposeTimestamp, bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { triggerEagerRepromptForDemoCallers } from "@/lib/compose/eager-reprompt-on-bump";
 import {
   resolvePlaybookIdForCurriculum,
   resolvePlaybookIdsForContentSource,
@@ -79,6 +80,10 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   list_goals_for_caller: "OPERATOR",
   // State recovery / direct edits
   recompose_caller_prompt: "OPERATOR",
+  // #1429 — demo-set fan-out is OPERATOR+; cohort-wide fan-out is
+  // ADMIN+ (cohort fan-out remains a human-only switch per epic #854).
+  reprompt_demo_set: "OPERATOR",
+  reprompt_playbook: "ADMIN",
   update_learning_objective: "OPERATOR",
   update_curriculum_metadata: "OPERATOR",
   // Roadmap stubs (NOT YET AVAILABLE — handleNotYetAvailable). Gating
@@ -244,6 +249,13 @@ export async function executeAdminTool(
       // State recovery + direct edits
       case "recompose_caller_prompt":
         result = await handleRecomposeCallerPrompt(input);
+        break;
+      // #1429 — demo / cohort fan-out reprompt
+      case "reprompt_demo_set":
+        result = await handleRepromptDemoSet(input);
+        break;
+      case "reprompt_playbook":
+        result = await handleRepromptPlaybook(input);
         break;
       case "update_learning_objective":
         result = await handleUpdateLearningObjective(input);
@@ -911,6 +923,13 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
     return {
       error: `Parameter "${parameterId}" is not an adjustable BEHAVIOR parameter. Pick one from the catalogue in your system prompt — do not invent IDs.`,
     };
+  }
+  // #1429 — eager reprompt for demo callers on the playbook. Only
+  // applies when the write actually mutated state ("noop" is the case
+  // where no override existed and none was added). Production
+  // callers are unaffected — helper filters on `policyMode='demo'`.
+  if (result.action !== "noop") {
+    void triggerEagerRepromptForDemoCallers(playbookId);
   }
   // #873 follow-up — emit pendingChange. PLAYBOOK-scope writes affect
   // every active learner on this course; the tray's preview will fetch
@@ -1955,6 +1974,120 @@ async function handleRecomposeCallerPrompt(input: Record<string, any>) {
     message: cp
       ? `Recomposed. New ComposedPrompt id=${cp.id} at ${cp.composedAt.toISOString()}.`
       : "Recompose ran but persistence was skipped.",
+  };
+}
+
+/**
+ * #1429 — fan out an eager recompose to every demo caller on the
+ * playbook. Wraps `triggerEagerRepromptForDemoCallers` for the chat
+ * surface. OPERATOR+ — bounded to `policyMode='demo'` rows so the
+ * blast radius is the synthetic test set.
+ */
+async function handleRepromptDemoSet(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) return { error: "playbook_id is required" };
+
+  const playbook = await prisma.playbook
+    .findUnique({ where: { id: playbookId }, select: { id: true, name: true } })
+    .catch(() => null);
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+
+  console.log(
+    `[admin-tools] reprompt_demo_set playbookId=${playbookId} (${playbook.name}) reason="${input.reason || "(not given)"}"`,
+  );
+  const result = await triggerEagerRepromptForDemoCallers(playbookId);
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    triggered: result.attempted,
+    failures: result.failures,
+    message:
+      result.attempted === 0
+        ? `No demo callers enrolled on "${playbook.name}". Use /api/intake/v2/admin-test-enrol to create one.`
+        : result.failures.length === 0
+          ? `Recomposed the prompt for ${result.attempted} demo caller${result.attempted === 1 ? "" : "s"} on "${playbook.name}".`
+          : `Recomposed for ${result.attempted - result.failures.length} of ${result.attempted} demo callers on "${playbook.name}". ${result.failures.length} failed (see logs).`,
+  };
+}
+
+/**
+ * #1429 — fan out an eager recompose to every ACTIVE caller on the
+ * playbook (demo AND production). ADMIN+ only — handler enforces it
+ * via TOOL_MIN_ROLE in the dispatcher; this body is a defence-in-depth
+ * check so a misconfigured RBAC table can't slip a cohort-wide fan-out
+ * past the safety property of epic #854.
+ *
+ * NOTE on ESLint coverage: the `no-ai-fanout-all` rule watches the
+ * three config helpers (`updatePlaybookConfig`, `updateDomainConfig`,
+ * `updateAnalysisSpecConfig`). This handler calls `autoComposeForCaller`
+ * directly so it does NOT trip the rule. The ADMIN+ role gate plus
+ * the tray-confirm step on the client side are the substitute
+ * controls.
+ */
+async function handleRepromptPlaybook(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) return { error: "playbook_id is required" };
+
+  const playbook = await prisma.playbook
+    .findUnique({ where: { id: playbookId }, select: { id: true, name: true } })
+    .catch(() => null);
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+
+  const enrollments = await prisma.callerPlaybook.findMany({
+    where: { playbookId, status: "ACTIVE" },
+    select: { callerId: true },
+  });
+  const callerIds = enrollments.map((e) => e.callerId);
+
+  if (callerIds.length === 0) {
+    return {
+      ok: true,
+      playbook_id: playbookId,
+      triggered: 0,
+      failures: [],
+      message: `No active enrolments on "${playbook.name}". Nothing to recompose.`,
+    };
+  }
+
+  console.warn(
+    `[admin-tools] reprompt_playbook playbookId=${playbookId} (${playbook.name}) callerCount=${callerIds.length} reason="${input.reason || "(not given)"}" — cohort-wide fan-out, ADMIN+ gated`,
+  );
+
+  // Lazy import keeps the handler module cheap on cold-boot.
+  const { autoComposeForCaller } = await import("@/lib/enrollment/auto-compose");
+  // Bounded concurrency — same pattern as `triggerEagerRepromptForDemoCallers`.
+  const pLimitMod = await import("p-limit");
+  const limit = pLimitMod.default(3);
+  const failures: string[] = [];
+  await Promise.all(
+    callerIds.map((callerId) =>
+      limit(async () => {
+        try {
+          await autoComposeForCaller(callerId, playbookId);
+          console.log(
+            `[admin-tools:reprompt_playbook] callerId=${callerId} playbookId=${playbookId} success=true`,
+          );
+        } catch (err: unknown) {
+          failures.push(callerId);
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn(
+            `[admin-tools:reprompt_playbook] callerId=${callerId} playbookId=${playbookId} success=false error=${message}`,
+          );
+        }
+      }),
+    ),
+  );
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    triggered: callerIds.length,
+    failures,
+    message:
+      failures.length === 0
+        ? `Recomposed the prompt for all ${callerIds.length} active caller${callerIds.length === 1 ? "" : "s"} on "${playbook.name}".`
+        : `Recomposed for ${callerIds.length - failures.length} of ${callerIds.length} active callers on "${playbook.name}". ${failures.length} failed (see logs).`,
   };
 }
 

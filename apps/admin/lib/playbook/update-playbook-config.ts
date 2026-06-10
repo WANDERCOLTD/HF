@@ -41,6 +41,7 @@ import {
   composeAffectingChanged,
   COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS,
 } from "@/lib/compose/affecting-keys";
+import { triggerEagerRepromptForDemoCallers } from "@/lib/compose/eager-reprompt-on-bump";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 export interface UpdatePlaybookConfigOptions {
@@ -149,6 +150,12 @@ export async function updatePlaybookConfig(
     console.log(
       `[updatePlaybookConfig] composeInputsUpdatedAt bumped for ${playbookId}${options.reason ? ` (reason: ${options.reason})` : ""}`,
     );
+    // #1429 — eager reprompt for demo callers. Fire-and-forget; runs
+    // after the playbook UPDATE commits so the demo callers'
+    // `autoComposeForCaller` re-reads the fresh
+    // `composeInputsUpdatedAt`. Production callers are untouched —
+    // the helper filters on `policyMode='demo'`.
+    void triggerEagerRepromptForDemoCallers(playbookId);
   }
 
   return {

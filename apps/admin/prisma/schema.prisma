@@ -1596,12 +1596,21 @@ model CallerPlaybook {
   // Default course — used when no explicit playbookId is provided (e.g. phone-in callers)
   isDefault Boolean @default(false)
 
+  // #1429 — Eager reprompt for demo callers. Literal string union
+  // ("demo" | "production") kept off Prisma enum so the next value
+  // (e.g. "evaluation") is a one-line schema change, not a migration
+  // followed by a code release. `bumpPlaybookComposeTimestamp` is
+  // wired into educator-facing config writes; eager fan-out only
+  // touches callers where policyMode='demo'.
+  policyMode String @default("production")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([callerId, playbookId])
   @@index([callerId, status])
   @@index([playbookId])
+  @@index([playbookId, policyMode, status])
 }
 
 // CohortPlaybook — Links a classroom (CohortGroup) to specific playbooks (courses).

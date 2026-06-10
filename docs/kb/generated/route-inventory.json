@@ -1,16 +1,16 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-10T10:40:37.904Z",
+  "generatedAt": "2026-06-10T11:02:02.428Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 504,
+    "routeCount": 505,
     "byAuthLevel": {
       "VIEWER": 112,
       "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
-      "OPERATOR": 135,
+      "OPERATOR": 136,
       "OPERATOR+VIEWER": 8,
       "VIEWER+OPERATOR": 56,
       "auth-gate(non-role)": 54,
@@ -25,7 +25,7 @@
       "VIEWER+TESTER": 3
     },
     "noAuthGate": 27,
-    "possiblyUnscoped": 130,
+    "possiblyUnscoped": 131,
     "internalSecret": 8
   },
   "routes": [
@@ -3915,6 +3915,26 @@
         "handlesInternalSecret": false,
         "rawPrisma": true,
         "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/staleness-aggregate",
+      "file": "apps/admin/app/api/courses/[courseId]/staleness-aggregate/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": true,
         "noAuthGate": false
       },
       "reviewed": false

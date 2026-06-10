@@ -9,18 +9,34 @@ import { db, type TxClient } from "@/lib/prisma";
 import type { Prisma, CallerPlaybook, CohortPlaybook } from "@prisma/client";
 
 /**
+ * Allowed values for `CallerPlaybook.policyMode` (#1429).
+ *
+ * Literal-string union kept off Prisma enum so the next value
+ * (e.g. "evaluation") is a one-line schema change, not a fresh enum migration.
+ */
+export type CallerPlaybookPolicyMode = "demo" | "production";
+
+/**
  * Enroll a caller in a specific playbook. Upserts — safe to call multiple times.
  * If the caller was previously DROPPED/PAUSED, re-activates the enrollment.
  *
  * Auto-composes a bootstrap prompt (prompt 0) for the enrollment when not in a
  * transaction. Fire-and-forget — failures are logged but don't block enrollment.
+ *
+ * `opts.policyMode` (#1429) — set to `"demo"` for synthetic test callers
+ * created via `/api/intake/v2/admin-test-enrol`. Drives the eager-reprompt
+ * fan-out triggered by educator-driven config writes (see
+ * `lib/compose/eager-reprompt-on-bump.ts`). Default `"production"` — net
+ * zero on every existing call site. The upsert's `update` branch
+ * intentionally does NOT overwrite `policyMode`; once a caller is enrolled
+ * as `"demo"`, repeat enrollment / re-activation preserves that classification.
  */
 export async function enrollCaller(
   callerId: string,
   playbookId: string,
   source: string,
   tx?: TxClient,
-  opts?: { skipAutoCompose?: boolean }
+  opts?: { skipAutoCompose?: boolean; policyMode?: CallerPlaybookPolicyMode }
 ): Promise<CallerPlaybook> {
   const p = db(tx);
   const enrollment = await p.callerPlaybook.upsert({
@@ -30,12 +46,18 @@ export async function enrollCaller(
       playbookId,
       status: "ACTIVE",
       enrolledBy: source,
+      // #1429 — only set on initial create. The update branch leaves
+      // policyMode untouched so a re-enrolled demo caller stays "demo".
+      ...(opts?.policyMode ? { policyMode: opts.policyMode } : {}),
     },
     update: {
       status: "ACTIVE",
       enrolledBy: source,
       pausedAt: null,
       droppedAt: null,
+      // NOTE: policyMode INTENTIONALLY OMITTED here (#1429). Promotion
+      // between "demo" and "production" must be an explicit operation,
+      // never a side effect of re-enrolment.
     },
   });
 
@@ -81,7 +103,7 @@ export async function resolveAndEnrollSingle(
   source: string,
   explicitPlaybookId?: string | null,
   tx?: TxClient,
-  opts?: { skipAutoCompose?: boolean }
+  opts?: { skipAutoCompose?: boolean; policyMode?: CallerPlaybookPolicyMode }
 ): Promise<CallerPlaybook | null> {
   // 1. Explicit takes priority
   if (explicitPlaybookId) {
@@ -275,7 +297,7 @@ export async function enrollCallerInCohortPlaybooks(
   domainId: string,
   source: string,
   tx?: TxClient,
-  opts?: { skipAutoCompose?: boolean }
+  opts?: { skipAutoCompose?: boolean; policyMode?: CallerPlaybookPolicyMode }
 ): Promise<CallerPlaybook[]> {
   const cohortIds = Array.isArray(cohortGroupId) ? cohortGroupId : [cohortGroupId];
 
