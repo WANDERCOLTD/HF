@@ -4,9 +4,9 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-06-09T13:45:51.668Z
+> Last generated: 2026-06-10T11:35:09.335Z
 > Surfaces: 4
-> Total tools: 65 (59 live, 6 roadmap stubs)
+> Total tools: 67 (61 live, 6 roadmap stubs)
 
 ## Contract
 
@@ -22,7 +22,7 @@ Per `docs/CHAIN-CONTRACTS.md` §3 Link 3:
 
 Source: `apps/admin/lib/chat/admin-tools.ts`
 
-34 live, 6 stubs.
+36 live, 6 stubs.
 
 ### Live tools
 
@@ -48,6 +48,8 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 | `query_callers` | OPERATOR | — | `name`, `domain_id`, `domain_name`, `limit` | Search callers by name or domain. |
 | `query_specs` | OPERATOR | — | `name`, `spec_role`, `slug`, `is_active`, `limit` | Search and list analysis specs. |
 | `recompose_caller_prompt` | OPERATOR | `caller_id`, `reason` | — | Force a fresh compose of a caller's prompt RIGHT NOW (rather than waiting for their next call). |
+| `reprompt_demo_set` | OPERATOR | `playbook_id`, `reason` | — | Force a fresh compose RIGHT NOW for every demo caller on a course (CallerPlaybook. |
+| `reprompt_playbook` | ADMIN | `playbook_id`, `reason` | — | Force a fresh compose RIGHT NOW for EVERY active caller on the course — including production learners. |
 | `swap_primary_curriculum` | OPERATOR | `playbook_id`, `curriculum_id`, `reason` | — | Promote a Curriculum to be the PRIMARY for a Playbook (course). |
 | `system_ini_check` | SUPERADMIN | — | — | Run a full system initialization check. |
 | `update_assertion_lo_link` | OPERATOR | `assertion_id`, `reason` | `learning_objective_id` | Link (or clear) the LearningObjective FK on a ContentAssertion. |
