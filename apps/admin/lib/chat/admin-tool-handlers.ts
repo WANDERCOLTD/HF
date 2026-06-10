@@ -17,6 +17,7 @@ import { updateAnalysisSpecConfig } from "@/lib/analysis-spec/update-analysis-sp
 import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import { buildPendingChangePayload } from "@/lib/chat/pending-change-payload";
 import { bumpCallerComposeTimestamp, bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { triggerEagerRepromptForDemoCallers } from "@/lib/compose/eager-reprompt-on-bump";
 import {
   resolvePlaybookIdForCurriculum,
   resolvePlaybookIdsForContentSource,
@@ -911,6 +912,13 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
     return {
       error: `Parameter "${parameterId}" is not an adjustable BEHAVIOR parameter. Pick one from the catalogue in your system prompt — do not invent IDs.`,
     };
+  }
+  // #1429 — eager reprompt for demo callers on the playbook. Only
+  // applies when the write actually mutated state ("noop" is the case
+  // where no override existed and none was added). Production
+  // callers are unaffected — helper filters on `policyMode='demo'`.
+  if (result.action !== "noop") {
+    void triggerEagerRepromptForDemoCallers(playbookId);
   }
   // #873 follow-up — emit pendingChange. PLAYBOOK-scope writes affect
   // every active learner on this course; the tray's preview will fetch

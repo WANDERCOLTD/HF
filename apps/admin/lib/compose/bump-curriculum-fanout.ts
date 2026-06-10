@@ -29,6 +29,7 @@ import {
   resolvePlaybookIdForCurriculumModule,
 } from "@/lib/curriculum/resolve-playbook-for-curriculum";
 import { bumpPlaybookComposeTimestamp } from "./bump-timestamp";
+import { triggerEagerRepromptForDemoCallers } from "./eager-reprompt-on-bump";
 
 export interface FanoutResult {
   /** Number of sibling Playbooks whose composeInputsUpdatedAt was bumped. */
@@ -47,6 +48,14 @@ export async function bumpCurriculumComposeFanout(
 ): Promise<FanoutResult> {
   const ids = await resolvePlaybookIdForCurriculum(curriculumId);
   for (const id of ids) await bumpPlaybookComposeTimestamp(id);
+  // #1429 — eager reprompt for demo callers ONCE per sibling Playbook
+  // AFTER the bump loop completes. Doing it inside the loop would
+  // serialise the recomposes per playbook; running here lets each
+  // sibling's `triggerEagerRepromptForDemoCallers` run concurrently
+  // (with `p-limit(3)` inside the helper bounding per-playbook caller
+  // count). Fire-and-forget — the upstream curriculum write has
+  // already committed and lazy recompose still covers any miss.
+  for (const id of ids) void triggerEagerRepromptForDemoCallers(id);
   return {
     count: ids.length,
     representativePlaybookId: ids[0] ?? null,
@@ -63,6 +72,8 @@ export async function bumpCurriculumModuleComposeFanout(
 ): Promise<FanoutResult> {
   const ids = await resolvePlaybookIdForCurriculumModule(moduleId);
   for (const id of ids) await bumpPlaybookComposeTimestamp(id);
+  // #1429 — see sibling helper above for rationale.
+  for (const id of ids) void triggerEagerRepromptForDemoCallers(id);
   return {
     count: ids.length,
     representativePlaybookId: ids[0] ?? null,
