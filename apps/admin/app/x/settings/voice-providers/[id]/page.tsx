@@ -213,22 +213,18 @@ export default function VoiceProviderEditPage() {
     setErr(null);
     setSaveMessage(null);
     try {
-      const credentials: Record<string, unknown> = {
-        ...row.credentials,
-      };
-      const config: Record<string, unknown> = { ...row.config };
-      // Drop masked sentinels so we don't write "***" back to DB
-      for (const k of Object.keys(credentials)) {
-        if (credentials[k] === "***" || credentials[k] === "[not set]") {
-          delete credentials[k];
-        }
-      }
-
+      // #1433 — patch contains ONLY keys the operator changed.
+      // Pre-fix the UI spread `row.credentials` (masked `***`), deleted
+      // sentinels, and sent `{}` — which the PATCH route treated as a
+      // full replace, wiping every sensitive field. Route is now
+      // merge-safe AND the UI sends a minimal patch (defence in depth).
+      const credentials: Record<string, unknown> = {};
+      const config: Record<string, unknown> = {};
       const changedFields: string[] = [];
 
       for (const f of configSchema) {
         const raw = fieldValues[f.key];
-        // Sensitive empty string = keep current value
+        // Sensitive empty string = keep current value (omit from patch).
         if (f.sensitive && raw === "") continue;
         let value: unknown;
         if (f.type === "number") {
@@ -258,17 +254,19 @@ export default function VoiceProviderEditPage() {
             (row.credentials as Record<string, unknown>)[f.key];
           if (currentValue !== value) {
             changedFields.push(f.label);
+            config[f.key] = value;
           }
-          config[f.key] = value;
         }
       }
 
       const patch: Record<string, unknown> = {
         displayName,
         enabled,
-        credentials,
-        config,
       };
+      // #1433 — only include the JSON columns when at least one field
+      // changed. Merge-safe route preserves untouched keys.
+      if (Object.keys(credentials).length > 0) patch.credentials = credentials;
+      if (Object.keys(config).length > 0) patch.config = config;
       const res = await fetch(`/api/voice-providers/${id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
