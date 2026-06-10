@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-10T10:40:43.262Z",
+  "generatedAt": "2026-06-10T11:02:03.414Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1626,
-  "edgeCount": 3729,
+  "fileCount": 1630,
+  "edgeCount": 3738,
   "skippedEdges": 1,
   "edges": [
     {
@@ -2869,6 +2869,18 @@
     },
     {
       "from": "app/api/courses/[courseId]/setup-status/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/staleness-aggregate/route.ts",
+      "to": "lib/compose/staleness.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/staleness-aggregate/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/staleness-aggregate/route.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -7753,6 +7765,10 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
+      "to": "components/callers/caller-detail/StalePromptPillForCourse.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
       "to": "components/course-design/FeltProgressSettings.tsx"
     },
     {
@@ -10581,6 +10597,10 @@
     },
     {
       "from": "lib/chat/admin-tool-handlers.ts",
+      "to": "lib/compose/eager-reprompt-on-bump.ts"
+    },
+    {
+      "from": "lib/chat/admin-tool-handlers.ts",
       "to": "lib/curriculum/ensure-primary-playbook-link.ts"
     },
     {
@@ -10769,10 +10789,18 @@
     },
     {
       "from": "lib/compose/bump-curriculum-fanout.ts",
+      "to": "lib/compose/eager-reprompt-on-bump.ts"
+    },
+    {
+      "from": "lib/compose/bump-curriculum-fanout.ts",
       "to": "lib/curriculum/resolve-playbook-for-curriculum.ts"
     },
     {
       "from": "lib/compose/bump-timestamp.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/compose/eager-reprompt-on-bump.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -12765,6 +12793,10 @@
     },
     {
       "from": "lib/playbook/update-playbook-config.ts",
+      "to": "lib/compose/eager-reprompt-on-bump.ts"
+    },
+    {
+      "from": "lib/playbook/update-playbook-config.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -14560,6 +14592,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "scripts/backfill-demo-policy-mode.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "scripts/backfill-embeddings.ts",
       "to": "lib/embeddings/index.ts"
     },
@@ -15909,6 +15945,11 @@
       "path": "app/api/courses/[courseId]/setup-status/types.ts",
       "inDegree": 1,
       "outDegree": 0
+    },
+    {
+      "path": "app/api/courses/[courseId]/staleness-aggregate/route.ts",
+      "inDegree": 0,
+      "outDegree": 3
     },
     {
       "path": "app/api/courses/[courseId]/students/route.ts",
@@ -18003,7 +18044,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
       "inDegree": 1,
-      "outDegree": 8
+      "outDegree": 9
     },
     {
       "path": "app/x/courses/[courseId]/_components/ImportModulesDialog.tsx",
@@ -19092,6 +19133,11 @@
     },
     {
       "path": "components/callers/CallerDetailPage.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/callers/caller-detail/StalePromptPillForCourse.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
@@ -20233,7 +20279,7 @@
     {
       "path": "lib/chat/admin-tool-handlers.ts",
       "inDegree": 1,
-      "outDegree": 18
+      "outDegree": 19
     },
     {
       "path": "lib/chat/admin-tools.ts",
@@ -20338,7 +20384,7 @@
     {
       "path": "lib/compose/bump-curriculum-fanout.ts",
       "inDegree": 1,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/compose/bump-timestamp.ts",
@@ -20346,8 +20392,13 @@
       "outDegree": 1
     },
     {
+      "path": "lib/compose/eager-reprompt-on-bump.ts",
+      "inDegree": 3,
+      "outDegree": 1
+    },
+    {
       "path": "lib/compose/staleness.ts",
-      "inDegree": 4,
+      "inDegree": 5,
       "outDegree": 1
     },
     {
@@ -21492,7 +21543,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 435,
+      "inDegree": 436,
       "outDegree": 3
     },
     {
@@ -21603,7 +21654,7 @@
     {
       "path": "lib/playbook/update-playbook-config.ts",
       "inDegree": 16,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "lib/playbooks/create-variant.ts",
@@ -21612,7 +21663,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 604,
+      "inDegree": 607,
       "outDegree": 0
     },
     {
@@ -22606,6 +22657,11 @@
       "outDegree": 1
     },
     {
+      "path": "scripts/backfill-demo-policy-mode.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "scripts/backfill-embeddings.ts",
       "inDegree": 0,
       "outDegree": 2
@@ -23059,12 +23115,12 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 604,
+      "inDegree": 607,
       "outDegree": 0
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 435,
+      "inDegree": 436,
       "outDegree": 3
     },
     {
