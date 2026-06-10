@@ -14,10 +14,15 @@
  *      a key (VAPI's own default is `true`).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { VapiProvider } from "@/lib/voice/providers/vapi";
 import type { AssistantRequestContext } from "@/lib/voice/types";
+import { log } from "@/lib/logger";
+
+vi.mock("@/lib/logger", () => ({
+  log: vi.fn(),
+}));
 
 function baseCtx(
   overrides: Partial<AssistantRequestContext> = {},
@@ -65,11 +70,13 @@ describe("VapiProvider.getConfigSchema — per-VP knobs (#1271 Slice B)", () => 
     expect(byKey.transcriber.default).toBe("deepgram");
   });
 
-  it("declares backgroundSound as enum with 'off' default", () => {
+  it("declares backgroundSound as enum with 'off' default and exactly two values (#1438 — drops phone-line)", () => {
     expect(byKey.backgroundSound).toBeDefined();
     expect(byKey.backgroundSound.type).toBe("enum");
     expect(byKey.backgroundSound.default).toBe("off");
-    expect(byKey.backgroundSound.enumValues).toContain("off");
+    // Pinned exactly: VAPI rejects any other enum literal. The earlier
+    // "phone-line" value triggered a silent 502 chain (#1438).
+    expect(byKey.backgroundSound.enumValues).toEqual(["off", "office"]);
   });
 
   it("declares recordingEnabled as boolean with true default", () => {
@@ -146,6 +153,60 @@ describe("VapiProvider.buildAssistantConfig — voiceConfig wire-up (#1271 Slice
       baseCtx({ voiceConfig: { backgroundSound: "off" } }),
     ) as { assistant: Record<string, unknown> };
     expect(config.assistant.backgroundSound).toBeUndefined();
+  });
+
+  // #1438 — allowlist guard regression pins. Pre-fix any non-"off" string
+  // reached VAPI and a stale stored "phone-line" caused a silent 502.
+  describe("backgroundSound allowlist guard (#1438)", () => {
+    beforeEach(() => {
+      vi.mocked(log).mockClear();
+    });
+
+    it("omits 'phone-line' (regression pin for the incident value)", () => {
+      const p = new VapiProvider({}, {});
+      const config = p.buildAssistantConfig(
+        baseCtx({ voiceConfig: { backgroundSound: "phone-line" } }),
+      ) as { assistant: Record<string, unknown> };
+      expect(config.assistant.backgroundSound).toBeUndefined();
+      expect(log).toHaveBeenCalledWith(
+        "system",
+        "voice.vapi.background_sound_invalid",
+        expect.objectContaining({ level: "warn", value: "phone-line" }),
+      );
+    });
+
+    it("writes an https URL value through (VAPI accepts custom audio URL)", () => {
+      const p = new VapiProvider({}, {});
+      const url = "https://cdn.example.com/ambient.mp3";
+      const config = p.buildAssistantConfig(
+        baseCtx({ voiceConfig: { backgroundSound: url } }),
+      ) as { assistant: Record<string, unknown> };
+      expect(config.assistant.backgroundSound).toBe(url);
+      expect(log).not.toHaveBeenCalled();
+    });
+
+    it("writes an http URL value through (VAPI accepts both schemes)", () => {
+      const p = new VapiProvider({}, {});
+      const url = "http://files.local/ambient.wav";
+      const config = p.buildAssistantConfig(
+        baseCtx({ voiceConfig: { backgroundSound: url } }),
+      ) as { assistant: Record<string, unknown> };
+      expect(config.assistant.backgroundSound).toBe(url);
+      expect(log).not.toHaveBeenCalled();
+    });
+
+    it("omits arbitrary garbage string + emits warn log", () => {
+      const p = new VapiProvider({}, {});
+      const config = p.buildAssistantConfig(
+        baseCtx({ voiceConfig: { backgroundSound: "music" } }),
+      ) as { assistant: Record<string, unknown> };
+      expect(config.assistant.backgroundSound).toBeUndefined();
+      expect(log).toHaveBeenCalledWith(
+        "system",
+        "voice.vapi.background_sound_invalid",
+        expect.objectContaining({ level: "warn", value: "music" }),
+      );
+    });
   });
 
   it("writes recordingEnabled: false explicitly when override set", () => {

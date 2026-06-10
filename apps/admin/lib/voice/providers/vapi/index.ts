@@ -36,6 +36,27 @@ import type {
   VoiceProviderCapabilities,
 } from "../../types";
 import { verifyVapiRequest } from "./auth";
+import { log } from "@/lib/logger";
+
+/**
+ * Valid `assistant.backgroundSound` values accepted by the VAPI API.
+ *
+ * VAPI's API contract: `"off"` (silent default — we omit the key when
+ * this is the resolved value), `"office"` (ambient), OR a URL to a
+ * custom audio file. Any other string is rejected with HTTP 400
+ * "assistant.backgroundSound must be a valid URL or one of the
+ * following: off, office".
+ *
+ * Module-scope so the regex is compiled once. Do NOT inline these in
+ * `buildAssistantConfig()` — re-creating the regex per call would burn
+ * cycles in the hot path.
+ *
+ * Live evidence the allowlist matters: #1438 / hf_sandbox 2026-06-10 —
+ * stored `"phone-line"` (pre-fix our schema advertised it as a valid
+ * enum) reached VAPI and produced a silent 502 for every outbound dial.
+ */
+const VALID_BACKGROUND_SOUNDS: readonly string[] = ["office"];
+const BACKGROUND_SOUND_URL_RE = /^https?:\/\/.+/;
 
 interface VapiCredentials {
   apiKey?: string;
@@ -214,9 +235,24 @@ export class VapiProvider implements VoiceProvider {
         }
         assistant.transcriber = transcriberBlock;
       }
+      // #1438 — allowlist guard. Pre-fix this passed any non-"off" string
+      // straight to VAPI, which 400s for anything outside {"off","office",URL}.
+      // Stored bad values (e.g. "phone-line" via stale dropdown) caused a
+      // silent 502 chain. Omit + warn so the dial still completes when only
+      // this knob is bad.
       const backgroundSound = vc.backgroundSound;
       if (typeof backgroundSound === "string" && backgroundSound !== "off") {
-        assistant.backgroundSound = backgroundSound;
+        if (
+          VALID_BACKGROUND_SOUNDS.includes(backgroundSound) ||
+          BACKGROUND_SOUND_URL_RE.test(backgroundSound)
+        ) {
+          assistant.backgroundSound = backgroundSound;
+        } else {
+          log("system", "voice.vapi.background_sound_invalid", {
+            level: "warn",
+            value: backgroundSound,
+          });
+        }
       }
       if (vc.recordingEnabled === false) {
         assistant.recordingEnabled = false;
@@ -496,9 +532,16 @@ export class VapiProvider implements VoiceProvider {
           key: "backgroundSound",
           label: "Background sound",
           type: "enum",
-          enumValues: ["off", "office", "phone-line"],
+          // #1438 — VAPI only accepts "off", "office", or a URL. The
+          // earlier `"phone-line"` enum value was rejected at the API
+          // boundary with HTTP 400 and produced a silent 502 chain in
+          // the outbound-dial route. URL inputs are accepted by the
+          // adapter guard (lib/voice/providers/vapi/index.ts BACKGROUND_SOUND_URL_RE)
+          // but not surfaced as enum values — operators who need a
+          // custom audio URL paste it into Course/Domain overrides.
+          enumValues: ["off", "office"],
           default: "off",
-          help: "Optional ambient sound played behind the AI's voice. \"office\" / \"phone-line\" can mask silence but cost extra audio bandwidth.",
+          help: "Optional ambient sound played behind the AI's voice. \"office\" can mask silence but costs extra audio bandwidth.",
           sensitive: false,
           required: false,
         },
