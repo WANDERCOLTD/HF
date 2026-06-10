@@ -15313,7 +15313,7 @@ PSTN outbound dial — VAPI rings `Caller.phone` and the
 
 **Response** `502`
 ```json
-{ ok: false, error: "VAPI returned …" }
+{ ok: false, error: "VAPI returned …", vapiDetails: string[] }
 ```
 
 **Response** `503`

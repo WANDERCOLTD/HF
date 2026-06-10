@@ -94,13 +94,24 @@ export function useOutboundDial(options: UseOutboundDialOptions): DialApi {
         body: JSON.stringify({ callerId: options.callerId }),
       });
       const body = (await res.json()) as
-        | { ok?: boolean; error?: string; callId?: string; vapiCallId?: string }
+        | {
+            ok?: boolean;
+            error?: string;
+            callId?: string;
+            vapiCallId?: string;
+            /** #1438 — structured detail from VAPI validation errors,
+             *  e.g. ["assistant.backgroundSound must be a valid URL or…"].
+             *  Surfaced inline so the operator sees the actionable string
+             *  instead of just the coarse "Bad Request". */
+            vapiDetails?: string[];
+          }
         | null;
       if (!res.ok || !body?.ok) {
-        throw new Error(
+        const base =
           body?.error ??
-            `Dial failed (HTTP ${res.status}). Try again or check provider settings.`,
-        );
+          `Dial failed (HTTP ${res.status}). Try again or check provider settings.`;
+        const detail = body?.vapiDetails?.[0];
+        throw new Error(detail ? `${base} — ${detail}` : base);
       }
       // #1368 — expose HF placeholder Call.id so SimChat can open SSE
       // on /api/voice/calls/<id>/stream for live transcript bubbles.

@@ -493,3 +493,79 @@ describe("#1340 — outbound-dial VAPI 502 → FailureLog + Session(FAILED)", ()
     expect(stores.callStore.size).toBe(1);
   });
 });
+
+describe("#1438 — vapiDetails surfaced in 502 response body", () => {
+  it("array-shaped vapi message: response.vapiDetails carries each element verbatim", async () => {
+    seedState();
+    // Mirrors the live incident — VAPI returns `message` as an array of
+    // validation strings (one per failed field).
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: "Bad Request",
+        message: [
+          "assistant.backgroundSound must be a valid URL or one of the following: off, office",
+          "assistant.voice.voiceId must be a valid voiceId",
+        ],
+        statusCode: 400,
+      }),
+    } as Response);
+
+    const { POST } = await import("@/app/api/voice/calls/outbound-dial/route");
+    const res = await POST(makeRequest());
+    const body = (await res.json()) as {
+      ok: boolean;
+      error: string;
+      vapiDetails: string[];
+    };
+
+    expect(res.status).toBe(502);
+    expect(body.ok).toBe(false);
+    // First detail line is the actionable validation string — not flattened
+    // into nested arrays.
+    expect(body.vapiDetails).toEqual([
+      "assistant.backgroundSound must be a valid URL or one of the following: off, office",
+      "assistant.voice.voiceId must be a valid voiceId",
+    ]);
+  });
+
+  it("string-shaped vapi message: vapiDetails is single-element array", async () => {
+    seedState();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => ({
+        error: "Bad Gateway",
+        message: "upstream voice provider unavailable",
+      }),
+    } as Response);
+
+    const { POST } = await import("@/app/api/voice/calls/outbound-dial/route");
+    const res = await POST(makeRequest());
+    const body = (await res.json()) as {
+      ok: boolean;
+      vapiDetails: string[];
+    };
+
+    expect(body.vapiDetails).toEqual(["upstream voice provider unavailable"]);
+  });
+
+  it("missing vapi message: vapiDetails is empty array (never null/undefined)", async () => {
+    seedState();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: "Server Error" }),
+    } as Response);
+
+    const { POST } = await import("@/app/api/voice/calls/outbound-dial/route");
+    const res = await POST(makeRequest());
+    const body = (await res.json()) as {
+      ok: boolean;
+      vapiDetails: string[];
+    };
+
+    expect(body.vapiDetails).toEqual([]);
+  });
+});
