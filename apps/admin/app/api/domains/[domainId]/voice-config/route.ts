@@ -53,15 +53,24 @@ export async function GET(
   });
 
   const sys = await getVoiceSystemSettings();
-  const adapter = await getVoiceProvider(sys.defaultProviderSlug || "vapi");
+  const slug = sys.defaultProviderSlug || "vapi";
+  const adapter = await getVoiceProvider(slug);
   const schema = adapter.getConfigSchema();
   const allowedKeys = cascadeableKeys(schema);
+
+  // #1421 — surface the VoiceProvider row's id so VoiceSampleButton can
+  // POST /api/voice-providers/[id]/sample.
+  const enabledProviderRow = await prisma.voiceProvider.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
 
   return NextResponse.json({
     ok: true,
     domainId,
     domainName: domain.name,
-    enabledProviderSlug: sys.defaultProviderSlug || "vapi",
+    enabledProviderSlug: slug,
+    enabledProviderId: enabledProviderRow?.id ?? null,
     resolved,
     allowedKeys,
     schemaFields: schema.fields

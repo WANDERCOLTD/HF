@@ -14,6 +14,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { VoiceSampleButton } from "./VoiceSampleButton";
 
 type Source = "system" | "provider" | "domain" | "course";
 type ResolvedField<T = unknown> = { value: T; source: Source };
@@ -26,9 +27,18 @@ type SchemaField = {
   default?: unknown;
 };
 
+interface VoiceCatalogEntry {
+  voiceProvider: string;
+  voiceId: string;
+  label: string;
+  description?: string;
+}
+
 interface VoicePayload {
   ok: boolean;
   enabledProviderSlug: string;
+  /** VoiceProvider row id (#1421 — drives VoiceSampleButton's POST target). */
+  enabledProviderId?: string | null;
   resolved: {
     provider: ResolvedField<string>;
     model: ResolvedField<string | null>;
@@ -157,9 +167,31 @@ interface RowProps {
   savedFlash: string | null;
   onSave: (key: string, value: unknown) => Promise<void> | void;
   onReset: (key: string) => Promise<void> | void;
+  /** #1421 — when the row is for `voiceId`, this catalog (filtered to
+   *  the currently-resolved `voiceProvider`) drives a `<select>`
+   *  instead of free-text. Empty array means "custom-ID hatch" (e.g.
+   *  ElevenLabs account-specific IDs). */
+  voiceCatalog?: VoiceCatalogEntry[] | null;
+  /** Current `voiceProvider` value at the resolved layer — drives both
+   *  the catalog filter AND the sample button. */
+  currentVoiceProvider?: string | null;
+  /** VoiceProvider row id for sample-button POST. */
+  enabledProviderId?: string | null;
 }
 
-function FieldRow({ meta, resolved, scope, isThisLayer, busyKey, savedFlash, onSave, onReset }: RowProps) {
+function FieldRow({
+  meta,
+  resolved,
+  scope,
+  isThisLayer,
+  busyKey,
+  savedFlash,
+  onSave,
+  onReset,
+  voiceCatalog,
+  currentVoiceProvider,
+  enabledProviderId,
+}: RowProps) {
   const [draft, setDraft] = useState(inputValueFor(resolved.value, meta.type));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -240,6 +272,43 @@ function FieldRow({ meta, resolved, scope, isThisLayer, busyKey, savedFlash, onS
         </select>
       );
     }
+    // #1421 — vendor-validated voiceId dropdown. When a catalog is
+    // supplied AND has entries for the current voiceProvider, swap the
+    // free-text input for a `<select>`. Empty catalog falls back to
+    // free-text (custom-ID hatch for account-specific providers).
+    if (
+      meta.key === "voiceId" &&
+      voiceCatalog !== undefined &&
+      voiceCatalog !== null &&
+      voiceCatalog.length > 0
+    ) {
+      const knownIds = new Set(voiceCatalog.map((v) => v.voiceId));
+      const showCustomOption = draft.length > 0 && !knownIds.has(draft);
+      return (
+        <select
+          className="hf-input"
+          value={draft}
+          disabled={isBusy}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            commit(e.target.value);
+          }}
+          style={{ minWidth: 280 }}
+        >
+          <option value="">(falls back to cascade)</option>
+          {voiceCatalog.map((v) => (
+            <option key={v.voiceId} value={v.voiceId}>
+              {v.label}
+            </option>
+          ))}
+          {showCustomOption && (
+            <option value={draft}>
+              {draft} (custom — not in {currentVoiceProvider} catalog)
+            </option>
+          )}
+        </select>
+      );
+    }
     return (
       <input
         className="hf-input"
@@ -283,6 +352,17 @@ function FieldRow({ meta, resolved, scope, isThisLayer, busyKey, savedFlash, onS
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {renderInput()}
+          {/* #1421 — sample button next to the voiceId field. Always
+              visible regardless of which layer holds the resolved value
+              — sampling reads from the enabled VoiceProvider's
+              credentials at the row level, not per-layer. */}
+          {meta.key === "voiceId" && enabledProviderId && (
+            <VoiceSampleButton
+              voiceProviderId={enabledProviderId}
+              voiceProvider={currentVoiceProvider ?? null}
+              voiceId={draft || (resolved.value as string | null) || null}
+            />
+          )}
           {isThisLayer && (
             <button
               type="button"
@@ -306,6 +386,9 @@ export function VoiceConfigSection({ scope, scopeId }: VoiceConfigSectionProps) 
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // #1421 — catalog cache, keyed by (slug, voiceProvider). Re-fetched
+  // whenever the resolved voiceProvider flips.
+  const [voiceCatalog, setVoiceCatalog] = useState<VoiceCatalogEntry[] | null>(null);
 
   const apiBase = scope === "course" ? `/api/playbooks/${scopeId}/voice-config` : `/api/domains/${scopeId}/voice-config`;
 
@@ -324,6 +407,41 @@ export function VoiceConfigSection({ scope, scopeId }: VoiceConfigSectionProps) 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // #1421 — fetch the voiceId catalog filtered to the resolved
+  // voiceProvider so the dropdown is always vendor-validated. Re-runs
+  // when the provider slug or the resolved voiceProvider changes.
+  const slug = data?.enabledProviderSlug;
+  const resolvedVp =
+    (data?.resolved.fields.voiceProvider?.value as string | undefined) ?? null;
+  useEffect(() => {
+    if (!slug || !resolvedVp) {
+      setVoiceCatalog(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/voice/${encodeURIComponent(slug)}/catalog?voiceProvider=${encodeURIComponent(resolvedVp)}`,
+        );
+        if (!res.ok) {
+          if (!cancelled) setVoiceCatalog([]);
+          return;
+        }
+        const json = (await res.json()) as {
+          ok: boolean;
+          voices: VoiceCatalogEntry[];
+        };
+        if (!cancelled) setVoiceCatalog(json.voices ?? []);
+      } catch {
+        if (!cancelled) setVoiceCatalog([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, resolvedVp]);
 
   const persist = useCallback(
     async (key: string, value: unknown) => {
@@ -372,6 +490,13 @@ export function VoiceConfigSection({ scope, scopeId }: VoiceConfigSectionProps) 
 
   const overridesAtThisLayer = scope === "course" ? data.courseOverrides ?? {} : data.domainOverrides ?? {};
 
+  // Resolved voiceProvider drives the catalog filter for the voiceId dropdown.
+  const resolvedVoiceProvider =
+    (data.resolved.fields.voiceProvider?.value as string | undefined) ?? null;
+
+  // Resolve a known catalog from a small static fallback — the API
+  // route `/api/voice/[slug]/catalog` is the authoritative source. For
+  // now the section renders the dropdown from a per-key fetch (below).
   // Order keys via FIELD_GROUPS; any keys not in a group go in "Other".
   const grouped: { title: string; keys: string[] }[] = FIELD_GROUPS.map((g) => ({
     title: g.title,
@@ -419,6 +544,9 @@ export function VoiceConfigSection({ scope, scopeId }: VoiceConfigSectionProps) 
                   savedFlash={savedFlash}
                   onSave={persist}
                   onReset={reset}
+                  voiceCatalog={key === "voiceId" ? voiceCatalog : undefined}
+                  currentVoiceProvider={resolvedVoiceProvider}
+                  enabledProviderId={data.enabledProviderId ?? null}
                 />
               );
             })}

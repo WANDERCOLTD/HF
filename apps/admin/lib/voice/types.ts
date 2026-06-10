@@ -285,6 +285,40 @@ export interface ProviderConfigSchema {
 }
 
 /**
+ * One entry in a TTS-voice catalog (#1421 Slice A).
+ *
+ * Pre-fix, `voiceId` was a free-text input in `VoiceConfigSection` and on
+ * the per-VoiceProvider edit page. An educator typing a voiceId not
+ * recognised by the configured `voiceProvider` ("aster" instead of
+ * "asteria", "neutral-en" for a Deepgram voice slot) silently broke the
+ * runtime — VAPI saw an unknown voiceId and either fell back to a default
+ * or errored at call-start.
+ *
+ * The fix is a vendor-validated dropdown. Each adapter implements
+ * `getVoiceCatalog()` returning the set of legal voiceIds per supported
+ * TTS provider. The UI replaces the free-text input with a `<select>`
+ * populated from this catalog, filtered by the current `voiceProvider`.
+ *
+ * For ElevenLabs (account-specific voices), the catalog can return an
+ * empty array for the eleven labels enum entry and the UI keeps a
+ * "Custom voice ID…" hatch — flagged as future scope.
+ */
+export interface VoiceCatalogEntry {
+  /** TTS provider this voice belongs to. Mirrors the `voiceProvider`
+   *  enum on the adapter's config schema (e.g. "deepgram", "openai",
+   *  "11labs", "azure", "playht"). */
+  voiceProvider: string;
+  /** The exact voiceId string the provider expects ("asteria", "nova"). */
+  voiceId: string;
+  /** Display label rendered in the dropdown. Include gender/style hints
+   *  so educators can pick without trial-and-error
+   *  ("Asteria — Female, conversational"). */
+  label: string;
+  /** Optional sub-label or one-line description. */
+  description?: string;
+}
+
+/**
  * Capability declaration (AnyVoice #1044, consumed by #1079 + #1080).
  *
  * Tells the route layer which HTTP/WSS surfaces this provider exposes
@@ -456,4 +490,24 @@ export interface VoiceProvider {
    * subscribes to.
    */
   parseTranscriptUpdate?(body: unknown): ParsedTranscriptUpdate | null;
+
+  /**
+   * Return the catalog of legal voiceIds for every TTS provider this
+   * adapter routes through (#1421 Slice A).
+   *
+   * The admin UI calls this to populate the voiceId dropdown — it
+   * filters by the currently-selected `voiceProvider` enum value. For
+   * providers with account-specific catalogs (ElevenLabs), return an
+   * empty list for that voiceProvider entry and the UI shows a
+   * "Custom voice ID…" hatch.
+   *
+   * Static lists are fine for v1 — the small enums (Deepgram Aura: 12,
+   * OpenAI TTS: 6) don't justify a runtime fetch. ElevenLabs / Azure /
+   * PlayHT catalogs change frequently and warrant a future API-backed
+   * fetch path (out of scope for #1421).
+   *
+   * Optional — adapters without TTS dispatch (self-hosted or
+   * STT-only) can omit; UI hides the voiceId field when absent.
+   */
+  getVoiceCatalog?(): VoiceCatalogEntry[];
 }

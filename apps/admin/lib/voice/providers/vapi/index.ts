@@ -31,6 +31,7 @@ import type {
   ParsedTranscriptUpdate,
   ProviderAssistantConfig,
   ProviderConfigSchema,
+  VoiceCatalogEntry,
   VoiceProvider,
   VoiceProviderCapabilities,
 } from "../../types";
@@ -444,6 +445,21 @@ export class VapiProvider implements VoiceProvider {
           sensitive: false,
           required: false,
         },
+        {
+          // #1421 Slice B — HF's own Deepgram API key for the sample-voice
+          // button. When set + voiceProvider="deepgram", the sample route
+          // hits Deepgram TTS directly so the preview voice matches the
+          // live VAPI-Deepgram voice exactly. When unset, sample falls back
+          // to OpenAI TTS with a clear "Preview voice ≠ live voice" label.
+          // Independent from VAPI's own Deepgram billing — live calls
+          // continue through VAPI's backend Deepgram integration.
+          key: "deepgramApiKey",
+          label: "Deepgram API key (HF-direct, for voice sampling)",
+          type: "string",
+          help: "Optional. Deepgram dashboard → API Keys → \"Create Key\" with Speak permission. Used ONLY by the [▶ Test] voice sample button so the preview matches the live voice exactly. Live calls bill through VAPI as usual. Leave blank to fall back to OpenAI TTS for the preview (preview won't match live voice).",
+          sensitive: true,
+          required: false,
+        },
         // #1271 — Per-VP voice knobs. Non-sensitive → land in VoiceProvider.config.
         // Reads cascade through `resolveVoiceConfig`: Domain or Course can
         // override these per-course. Adapter weaves them into the inline
@@ -565,6 +581,49 @@ export class VapiProvider implements VoiceProvider {
       // providers would declare "self-hosted-agent" here.
       orchestrationMode: "vendor-cloud",
     };
+  }
+
+  /**
+   * Catalog of legal voiceIds per TTS engine routed via this VAPI
+   * adapter (#1421 Slice A). Static lists — covers v1's 5 voiceProvider
+   * enum values. ElevenLabs returns an empty list because its catalog is
+   * account-specific; the UI keeps a "Custom voice ID…" hatch for that
+   * case.
+   */
+  getVoiceCatalog(): VoiceCatalogEntry[] {
+    return [
+      // Deepgram Aura 1 — the canonical 12 voices. Matches the VAPI →
+      // Deepgram integration HF uses for live calls.
+      { voiceProvider: "deepgram", voiceId: "asteria",  label: "Asteria — Female, conversational (default)", description: "Warm, natural, US English. The hf-default voice." },
+      { voiceProvider: "deepgram", voiceId: "luna",     label: "Luna — Female, friendly",                    description: "Clear, casual, US English." },
+      { voiceProvider: "deepgram", voiceId: "stella",   label: "Stella — Female, narrator",                  description: "Calm, measured, US English." },
+      { voiceProvider: "deepgram", voiceId: "athena",   label: "Athena — Female, mature",                    description: "Authoritative, UK English." },
+      { voiceProvider: "deepgram", voiceId: "hera",     label: "Hera — Female, formal",                      description: "Polished, US English." },
+      { voiceProvider: "deepgram", voiceId: "orion",    label: "Orion — Male, approachable",                 description: "Friendly, US English." },
+      { voiceProvider: "deepgram", voiceId: "arcas",    label: "Arcas — Male, conversational",               description: "Casual, US English." },
+      { voiceProvider: "deepgram", voiceId: "perseus",  label: "Perseus — Male, confident",                  description: "Assertive, US English." },
+      { voiceProvider: "deepgram", voiceId: "angus",    label: "Angus — Male, narrator",                     description: "Steady, Irish English." },
+      { voiceProvider: "deepgram", voiceId: "orpheus",  label: "Orpheus — Male, smooth",                     description: "Warm, US English." },
+      { voiceProvider: "deepgram", voiceId: "helios",   label: "Helios — Male, energetic",                   description: "Upbeat, UK English." },
+      { voiceProvider: "deepgram", voiceId: "zeus",     label: "Zeus — Male, deep",                          description: "Resonant, US English." },
+
+      // OpenAI TTS — 6 voices (the standard catalog).
+      { voiceProvider: "openai", voiceId: "alloy",   label: "Alloy — Neutral, balanced" },
+      { voiceProvider: "openai", voiceId: "echo",    label: "Echo — Male, conversational" },
+      { voiceProvider: "openai", voiceId: "fable",   label: "Fable — Male, narrator (UK)" },
+      { voiceProvider: "openai", voiceId: "onyx",    label: "Onyx — Male, deep" },
+      { voiceProvider: "openai", voiceId: "nova",    label: "Nova — Female, warm" },
+      { voiceProvider: "openai", voiceId: "shimmer", label: "Shimmer — Female, gentle" },
+
+      // ElevenLabs — empty catalog (account-specific). The UI exposes a
+      // "Custom voice ID…" text input when an empty array is returned
+      // for the currently-selected voiceProvider. Future: fetch via
+      // ElevenLabs `/v1/voices` API when an HF-level key is added.
+
+      // Azure / PlayHT — sensible defaults the operator can override via
+      // the custom-ID hatch. Listing nothing means the UI defaults to
+      // the hatch immediately, avoiding fake completeness.
+    ];
   }
 
   /**
