@@ -41,6 +41,9 @@ const COURSE_MANAGE_TOOL_NAMES = new Set([
   "add_curriculum_module",
   "replace_lesson_plan",
   "recompose_caller_prompt",
+  // #1429 — demo / cohort fan-out reprompt
+  "reprompt_demo_set",
+  "reprompt_playbook",
   // Readers — current course state + per-learner queries operators often run
   // while looking at a course (e.g. "how is Brynn doing on module 3?")
   "get_playbook_config",
