@@ -59,7 +59,21 @@ export async function resolveWelcomeMessage(
     select: { id: true, name: true, onboardingWelcome: true },
   });
 
+  // Build `layers` in SYSTEM→CALL order (per `LAYER_ORDER` in
+  // `layer-types.ts`) — DOMAIN before PLAYBOOK — so the inspector tray
+  // can iterate top-to-bottom without re-sorting.
   const layers: LayerHit<string | null>[] = [];
+
+  if (domain?.onboardingWelcome) {
+    layers.push({
+      layer: "DOMAIN",
+      scopeId: domain.id,
+      scopeLabel: domain.name,
+      value: domain.onboardingWelcome,
+      setAt: null, // TODO(cascade-provenance)
+      setBy: null,
+    });
+  }
 
   const pbConfig = (playbook.config ?? {}) as { welcomeMessage?: string | null };
   const pbMsg = pbConfig.welcomeMessage ?? null;
@@ -74,18 +88,8 @@ export async function resolveWelcomeMessage(
     });
   }
 
-  if (domain?.onboardingWelcome) {
-    layers.push({
-      layer: "DOMAIN",
-      scopeId: domain.id,
-      scopeLabel: domain.name,
-      value: domain.onboardingWelcome,
-      setAt: null, // TODO(cascade-provenance)
-      setBy: null,
-    });
-  }
-
-  const winner = layers[0] ?? null;
+  // Deepest (innermost) layer wins — the last entry in SYSTEM→CALL order.
+  const winner = layers.length > 0 ? layers[layers.length - 1] : null;
 
   if (!winner) {
     return {

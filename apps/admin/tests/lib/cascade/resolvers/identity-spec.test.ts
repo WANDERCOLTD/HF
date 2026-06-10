@@ -77,12 +77,13 @@ describe("resolveIdentitySpec", () => {
     const r = await resolveIdentitySpec({ playbookId: "pb1" });
 
     expect(r.layers.map((h) => h.layer)).toEqual([
-      "PLAYBOOK",
-      "DOMAIN",
       "SYSTEM",
+      "DOMAIN",
+      "PLAYBOOK",
     ]);
     // PLAYBOOK hit value is null until the PlaybookItem walk lands.
-    expect(r.layers[0].value).toBeNull();
+    const playbookHit = r.layers.find((h) => h.layer === "PLAYBOOK")!;
+    expect(playbookHit.value).toBeNull();
     // DOMAIN wins because PLAYBOOK is null and DOMAIN has the override.
     expect(r.value).toBe("spec-edu-001");
     expect(r.source).toBe("DOMAIN");

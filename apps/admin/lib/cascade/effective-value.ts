@@ -169,6 +169,13 @@ function cacheSet(
  * Drop every cache entry for the given `knobKey` (across all scope
  * chains). Called from `setKnobAtLayer` (Slice 2) after a successful
  * write so the next read returns the fresh winner.
+ *
+ * TODO(slice-2-invalidation-coverage): existing mutators
+ * (`updatePlaybookConfig`, `updateDomainConfig`, direct `BehaviorTarget`
+ * writes via `/api/playbooks/[id]/behavior-targets`) do NOT call
+ * `invalidateKnob` today — same-session reads can race a same-session
+ * write within the 30s window. Slice 2 wires `invalidateKnob` into the
+ * shared write helpers so non-cascade write paths also self-invalidate.
  */
 export function invalidateKnob(knobKey: string): void {
   const prefix = `${knobKey}|`;

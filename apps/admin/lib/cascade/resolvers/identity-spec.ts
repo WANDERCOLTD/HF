@@ -87,13 +87,16 @@ export async function resolveIdentitySpec(
         })
       : null;
 
+  // SYSTEM→CALL order per `LAYER_ORDER` in `layer-types.ts`. The
+  // inspector tray iterates this array top-to-bottom; the deepest
+  // (innermost) layer with a non-null value wins the cascade.
   const layers: LayerHit<string | null>[] = [
     {
-      layer: "PLAYBOOK",
-      scopeId: playbook.id,
-      scopeLabel: playbook.name,
-      value: null, // TODO(playbook-identity-cascade): walk PlaybookItem IDENTITY rows
-      setAt: null,
+      layer: "SYSTEM",
+      scopeId: null,
+      scopeLabel: "System default",
+      value: defaultSpec?.id ?? defaultSlug ?? null,
+      setAt: defaultSpec?.updatedAt ?? null,
       setBy: null, // TODO(cascade-provenance)
     },
     {
@@ -105,11 +108,11 @@ export async function resolveIdentitySpec(
       setBy: null, // TODO(cascade-provenance)
     },
     {
-      layer: "SYSTEM",
-      scopeId: null,
-      scopeLabel: "System default",
-      value: defaultSpec?.id ?? defaultSlug ?? null,
-      setAt: defaultSpec?.updatedAt ?? null,
+      layer: "PLAYBOOK",
+      scopeId: playbook.id,
+      scopeLabel: playbook.name,
+      value: null, // TODO(playbook-identity-cascade): walk PlaybookItem IDENTITY rows
+      setAt: null,
       setBy: null, // TODO(cascade-provenance)
     },
   ];

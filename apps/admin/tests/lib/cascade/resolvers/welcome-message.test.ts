@@ -42,8 +42,10 @@ describe("resolveWelcomeMessage", () => {
     const r = await resolveWelcomeMessage({ playbookId: "pb1" });
 
     expect(r.layers).toHaveLength(2);
-    expect(r.layers[0].layer).toBe("PLAYBOOK");
-    expect(r.layers[1].layer).toBe("DOMAIN");
+    // SYSTEM→CALL order: DOMAIN first, then PLAYBOOK.
+    expect(r.layers[0].layer).toBe("DOMAIN");
+    expect(r.layers[1].layer).toBe("PLAYBOOK");
+    // PLAYBOOK wins (deepest layer).
     expect(r.value).toBe("Welcome to OCEAN");
     expect(r.source).toBe("PLAYBOOK");
     expect(r.isInherited).toBe(false);
