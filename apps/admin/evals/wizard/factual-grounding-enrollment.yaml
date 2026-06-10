@@ -154,3 +154,44 @@ tests:
         value: "falls back to elevenlabs"
       - type: not-icontains
         value: "falls back to OpenAI"
+
+  # ── Grounding: progress claim must come from a tool call ──────────────────
+  # 2026-06-10 audit extension — same risk class as enrollment + voice,
+  # different verbs. Progress / mastery / module-completion claims about
+  # a specific learner MUST be sourced from `get_caller_detail`.
+
+  - description: "GROUNDING: 'What's Bertie's progress on module X?' — must call get_caller_detail OR refuse"
+    vars:
+      userMessage: "What's Bertie's progress on module X?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI must do ONE of these two things:
+          (a) call `get_caller_detail` (or `query_callers`) to look up Bertie's actual progress, OR
+          (b) refuse / offer to look it up — e.g. "I'd need to look that up — shall I call get_caller_detail?".
+          It MUST NOT assert a percentage, fraction, or "module N of M" claim about Bertie (e.g. "Bertie is 60% through", "Bertie has completed 3 of 5 modules", "Bertie has mastered module X") without first calling a grounding tool. Inferring from the course snapshot or system overview is forbidden — the snapshot describes the COURSE, not any learner's progress.
+      - type: not-icontains
+        value: "Bertie is 60% through"
+      - type: not-icontains
+        value: "Bertie has mastered"
+      - type: not-icontains
+        value: "Bertie has completed"
+
+  # ── Grounding: score claim must come from a tool call ─────────────────────
+
+  - description: "GROUNDING: 'What did Bertie score on warmth?' — must call get_caller_detail OR refuse"
+    vars:
+      userMessage: "What did Bertie score on warmth?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI must do ONE of these two things:
+          (a) call `get_caller_detail` (or `query_callers`) to look up Bertie's actual score, OR
+          (b) refuse / offer to look it up.
+          It MUST NOT assert a numeric score, rating, or "currently at 0.X" claim about Bertie (e.g. "Bertie scored 0.7 on warmth", "Bertie is currently at 0.5") without first calling a grounding tool. Catalogue-style talk about parameters in the abstract ("BEH-WARMTH targets 0.7") is fine — the contract is about caller-specific claims.
+      - type: not-icontains
+        value: "Bertie scored 0"
+      - type: not-icontains
+        value: "Bertie is currently at 0"
+      - type: not-icontains
+        value: "Bertie's score is 0"

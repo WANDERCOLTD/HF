@@ -6,6 +6,7 @@ import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
+import { detectUngroundedLearnerClaim } from "@/app/api/chat/factual-grounding-intercept";
 
 const GENERAL_ASSISTANT_SYSTEM_PROMPT = `You are the HUMANFIRST ADMIN AI ASSISTANT, a knowledgeable guide for the HumanFirst Admin application.
 
@@ -317,11 +318,42 @@ export async function POST(request: NextRequest) {
       provider: result.engine,
     };
 
+    // #1444 extension — sibling AI route has the same risk class as
+    // `chat.data`: full system context + free-form question →
+    // learner-scoped fabrication is possible. This route has no tool
+    // loop (no `toolUses` returned), so the grounding-tool gate
+    // resolves to "never grounded" — any learner-scoped claim about a
+    // specific caller's enrollment / voice / progress / goal / score
+    // will be suppressed. That's the right behaviour here: this route
+    // shouldn't be making caller-specific assertions at all without
+    // the operator first routing through a tool-equipped surface
+    // (Cmd+K / DATA mode).
+    //
+    // Normalise to the {name}[] shape the intercept expects. This route
+    // doesn't surface tool_use blocks today, but kept defensive in case
+    // a future revision adds them — see route.ts handleDataModeWithTools
+    // for the canonical shape.
+    let finalContent = result.content;
+    const toolUsesInTurn: Array<{ name: string }> = [];
+    const intercept = detectUngroundedLearnerClaim({
+      assistantText: finalContent,
+      toolUsesInTurn,
+    });
+    if (intercept.blocked && intercept.replacementText) {
+      console.warn(
+        `[factual-grounding-intercept] mode=assistant.${mode} reason="${intercept.reason}" suppressed="${(intercept.suppressedText ?? "").slice(0, 200)}"`,
+      );
+      finalContent = intercept.replacementText;
+    }
+
     // Try to extract structured suggestions from the response
     let suggestions = null;
     try {
-      // Look for JSON in the response
-      const jsonMatch = result.content.match(/```json\s*([\s\S]*?)\s*```/);
+      // Look for JSON in the response — read from finalContent so the
+      // suggestion extractor sees the suppressed replacement when the
+      // intercept fires (suggestions piggy-backing on a fabricated
+      // claim should NOT survive the refusal).
+      const jsonMatch = finalContent.match(/```json\s*([\s\S]*?)\s*```/);
       if (jsonMatch) {
         suggestions = JSON.parse(jsonMatch[1]);
       }
@@ -344,7 +376,7 @@ export async function POST(request: NextRequest) {
         },
       },
       {
-        response: result.content,
+        response: finalContent,
         success: true,
         suggestions,
       }
@@ -352,7 +384,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      response: result.content,
+      response: finalContent,
       suggestions,
     });
   } catch (error) {
