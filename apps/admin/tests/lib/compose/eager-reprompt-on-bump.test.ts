@@ -14,6 +14,16 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+// Read source synchronously at module load — BEFORE any vi.mock would
+// shadow node:fs/promises in this worker. Used by the architectural
+// lock test below.
+const BUMP_TIMESTAMP_SOURCE = readFileSync(
+  resolve(process.cwd(), "lib/compose/bump-timestamp.ts"),
+  "utf-8",
+);
 
 const mockPrisma = vi.hoisted(() => ({
   callerPlaybook: {
@@ -140,20 +150,9 @@ describe("bumpPlaybookComposeTimestamp does NOT fire the fan-out (architectural 
     // for-loop calling bumpPlaybookComposeTimestamp per sibling playbook;
     // wiring there would multiply the fan-out by playbook count. Static
     // assertion: source of bump-timestamp.ts must not reference
-    // `triggerEagerRepromptForDemoCallers`.
-    //
-    // Synchronous fs read via `node:fs` (NOT `node:fs/promises`) avoids
-    // collisions with global `vi.mock("node:fs/promises")` set up by
-    // sibling tests in the same worker.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { readFileSync } = require("node:fs") as typeof import("node:fs");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { resolve } = require("node:path") as typeof import("node:path");
-    const source = readFileSync(
-      resolve(process.cwd(), "lib/compose/bump-timestamp.ts"),
-      "utf-8",
-    );
-    expect(source).not.toContain("triggerEagerRepromptForDemoCallers");
-    expect(source).not.toContain("eager-reprompt-on-bump");
+    // `triggerEagerRepromptForDemoCallers`. Source is read at module
+    // load (above) to avoid vi.mock collisions.
+    expect(BUMP_TIMESTAMP_SOURCE).not.toContain("triggerEagerRepromptForDemoCallers");
+    expect(BUMP_TIMESTAMP_SOURCE).not.toContain("eager-reprompt-on-bump");
   });
 });
