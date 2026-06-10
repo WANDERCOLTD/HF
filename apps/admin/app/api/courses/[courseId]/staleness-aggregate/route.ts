@@ -159,10 +159,11 @@ export async function GET(
     });
 
     return NextResponse.json(response);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[staleness-aggregate] error:", err);
+    const message = err instanceof Error ? err.message : "Failed to compute staleness aggregate";
     return NextResponse.json(
-      { ok: false, error: err?.message ?? "Failed to compute staleness aggregate" },
+      { ok: false, error: message },
       { status: 500 },
     );
   }

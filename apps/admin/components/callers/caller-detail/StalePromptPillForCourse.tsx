@@ -77,7 +77,11 @@ export function StalePromptPillForCourse({
 
   useEffect(() => {
     mountedRef.current = true;
-    fetchAggregate(false);
+    // Defer the fetch to the next microtask so we don't call setState
+    // synchronously inside the effect body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      if (mountedRef.current) void fetchAggregate(false);
+    });
     return () => {
       mountedRef.current = false;
     };
