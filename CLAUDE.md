@@ -34,7 +34,7 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 ```
 1. Detect building intent (patterns above)
 2. Say: "Before we start coding — let me run a quick check."
-3. Spawn BA agent (parallel) → searches codebase, writes/finds GitHub issue
+3. Spawn **reuse-finder** + **BA** in parallel → reuse-finder maps existing code; BA waits for the brief, then drafts/finds the GitHub issue with **Already exists** pre-populated
 4. Spawn Tech Lead agent (parallel) → validates, flags risks
 5. Present findings: what exists, what needs building, acceptance criteria, effort
 6. Ask: "Ready to build?" — wait for confirmation
