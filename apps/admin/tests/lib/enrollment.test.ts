@@ -87,6 +87,70 @@ describe("enrollCaller", () => {
     expect(txMock.callerPlaybook.upsert).toHaveBeenCalled();
     expect(mockPrisma.callerPlaybook.upsert).not.toHaveBeenCalled();
   });
+
+  // ── #1429 — policyMode plumbing ───────────────────────────────────
+
+  it("does NOT set policyMode in the create branch when opts.policyMode is omitted (defaults handled by Prisma)", async () => {
+    mockPrisma.callerPlaybook.upsert.mockResolvedValue({
+      id: "enr-1",
+      callerId: "caller-1",
+      playbookId: "pb-1",
+    });
+    mockPrisma.callerPlaybook.count.mockResolvedValue(0);
+
+    await enrollCaller("caller-1", "pb-1", "auto");
+
+    const call = mockPrisma.callerPlaybook.upsert.mock.calls[0][0];
+    // Schema default is "production"; helper should not pass an
+    // explicit field so the schema controls the default.
+    expect(call.create.policyMode).toBeUndefined();
+    // The update branch must NEVER carry policyMode — re-enrolment
+    // preserves the existing classification (#1429 TL revision #2).
+    expect(call.update.policyMode).toBeUndefined();
+  });
+
+  it("threads policyMode='demo' into the create branch ONLY when opts.policyMode='demo'", async () => {
+    mockPrisma.callerPlaybook.upsert.mockResolvedValue({
+      id: "enr-1",
+      callerId: "caller-1",
+      playbookId: "pb-1",
+    });
+    mockPrisma.callerPlaybook.count.mockResolvedValue(0);
+
+    await enrollCaller("caller-1", "pb-1", "admin-test-enrol", undefined, {
+      policyMode: "demo",
+    });
+
+    const call = mockPrisma.callerPlaybook.upsert.mock.calls[0][0];
+    expect(call.create.policyMode).toBe("demo");
+    // CRITICAL: the update branch still does NOT include policyMode.
+    // Re-enrolment must preserve the existing value, never overwrite it.
+    expect(call.update.policyMode).toBeUndefined();
+  });
+
+  it("update branch never mentions policyMode (#1429 TL rev #2 — preserves demo classification on re-enrolment)", async () => {
+    mockPrisma.callerPlaybook.upsert.mockResolvedValue({
+      id: "enr-1",
+      callerId: "caller-1",
+      playbookId: "pb-1",
+    });
+    mockPrisma.callerPlaybook.count.mockResolvedValue(1);
+
+    await enrollCaller("caller-1", "pb-1", "auto", undefined, {
+      policyMode: "production",
+    });
+
+    const call = mockPrisma.callerPlaybook.upsert.mock.calls[0][0];
+    // Even when the create branch sets production, the update branch
+    // must omit policyMode — a row already marked demo stays demo.
+    expect(call.update.policyMode).toBeUndefined();
+    expect(call.update).toEqual({
+      status: "ACTIVE",
+      enrolledBy: "auto",
+      pausedAt: null,
+      droppedAt: null,
+    });
+  });
 });
 
 describe("enrollCallerInDomainPlaybooks", () => {
