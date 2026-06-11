@@ -10,11 +10,17 @@ import type { CourseSnapshot } from "./page";
  * #1225 — bridges the server-rendered course snapshot into the global
  * Cmd+K assistant.
  *
+ * #1504 Slice 3 — after the 4-tab → 2-tab collapse the standalone
+ * "Course" mode is gone. Course pages now drop the operator into the
+ * ASSISTANT tab; the route handler's unified-Assistant builder consumes
+ * `pageContext.courseSnapshot` (set below) + the playbook breadcrumb to
+ * narrow intent toward course-edit tools. No behavioural regression: the
+ * snapshot still flows through the same EntityContext channel.
+ *
  * On mount:
- *   1. Set ChatContext mode = "COURSE_MANAGE" — the server dispatcher
- *      narrows tools to COURSE_MANAGE_TOOLS and the system prompt
- *      switch-case routes through the DATA-mode template (page-context
- *      builder picks up the snapshot).
+ *   1. Set ChatContext mode = "ASSISTANT" — the route handler's unified
+ *      Assistant builder reads `pageContext` + breadcrumbs to bias toward
+ *      course-edit tools (`update_playbook_config`, etc.).
  *   2. Set EntityContext.pageContext = { page: "course", params: {
  *      courseSnapshot } } — every /api/chat POST from this page carries
  *      the snapshot.
@@ -24,8 +30,7 @@ import type { CourseSnapshot } from "./page";
  *      Cmd+K — they came here to chat.
  *
  * On unmount: leave mode/pageContext alone — the user is navigating away,
- * and Cmd+K elsewhere will reset to DATA via the existing route-change
- * effects in EntityContext.
+ * and the global ASSISTANT tab is the right default for everywhere else.
  */
 interface ChatLauncherProps {
   readonly courseId: string;
@@ -39,8 +44,8 @@ export function ChatLauncher({ courseId, courseName, snapshot }: ChatLauncherPro
   const assistant = useGlobalAssistant();
 
   useEffect(() => {
-    if (mode !== "COURSE_MANAGE") {
-      setMode("COURSE_MANAGE");
+    if (mode !== "ASSISTANT") {
+      setMode("ASSISTANT");
     }
     setPageContext("course", { courseSnapshot: snapshot });
     pushEntity({

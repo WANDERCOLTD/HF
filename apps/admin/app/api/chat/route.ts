@@ -75,12 +75,37 @@ import {
 
 export const runtime = "nodejs";
 
-// #1504 Slice 2 — TUNING / COURSE_MANAGE remain in the union because
-// `ChatContext.tsx` still surfaces them as visual tab aliases. The API
-// folds DATA / TUNING / COURSE_MANAGE into the unified Assistant runner
-// (see the dispatch below). CALL / BUG / WIZARD / COURSE_REF are
-// runtime-only modes (not user-facing tabs) and keep their own branches.
-type ChatMode = "DATA" | "CALL" | "BUG" | "WIZARD" | "COURSE_REF" | "TUNING" | "COURSE_MANAGE" | "DEMO";
+// #1504 Slice 3 — public chat tabs are ASSISTANT + DEMO. The legacy
+// DATA / TUNING / COURSE_MANAGE labels remain in the union because:
+//   1. Older clients still in a long-lived tab will continue to POST
+//      `mode: "DATA"` (or TUNING / COURSE_MANAGE) until they refresh.
+//   2. Persisted `hf.chat.settings` entries written pre-Slice-3 carry
+//      the legacy mode label; the ChatContext normalises on load but a
+//      stale tab between the deploy and the page reload still ships
+//      legacy values.
+// All three legacy labels resolve to the unified Assistant runner (same
+// path ASSISTANT takes). CALL / BUG / WIZARD / COURSE_REF are runtime-
+// only modes (not user-facing tabs) and keep their own branches.
+type ChatMode =
+  | "ASSISTANT"
+  | "DATA"
+  | "CALL"
+  | "BUG"
+  | "WIZARD"
+  | "COURSE_REF"
+  | "TUNING"
+  | "COURSE_MANAGE"
+  | "DEMO";
+
+/**
+ * Pre-Slice-3 mode aliases that the route handler accepts but routes through
+ * the unified Assistant path (same as ASSISTANT). Centralised so the dispatch
+ * branch + the slash-command cast stay in sync.
+ */
+const ASSISTANT_MODE_ALIASES = new Set<ChatMode>(["ASSISTANT", "DATA", "TUNING", "COURSE_MANAGE"]);
+function isAssistantMode(mode: ChatMode): boolean {
+  return ASSISTANT_MODE_ALIASES.has(mode);
+}
 
 interface EntityBreadcrumb {
   type: string;
@@ -366,29 +391,35 @@ export async function POST(request: NextRequest) {
     // Check for slash command
     const parsed = parseCommand(message);
     if (parsed) {
+      // #1504 Slice 3 — narrow the wide route-level union onto the
+      // commands.ts public union. ASSISTANT / DATA / TUNING / COURSE_MANAGE
+      // all funnel into "ASSISTANT" (commands.ts treats them identically).
+      const commandsMode: "ASSISTANT" | "CALL" | "BUG" | "DEMO" = isAssistantMode(mode)
+        ? "ASSISTANT"
+        : (mode as "CALL" | "BUG" | "DEMO");
       const result = await executeCommand(
         message,
         entityContext,
-        mode as "DATA" | "CALL" | "BUG" | "TUNING",
+        commandsMode,
         tuningScope,
       );
       return NextResponse.json(result);
     }
 
-    // #1504 Slice 2 — DATA / TUNING / COURSE_MANAGE flip to the unified
-    // Assistant path by default (was flag-gated as a Slice 1 spike).
+    // #1504 Slice 3 — ASSISTANT + the three legacy aliases (DATA / TUNING /
+    // COURSE_MANAGE) all route through the unified Assistant path.
     //
-    // One builder, one tool palette (full `ADMIN_TOOLS`), one runner. The
-    // 4 visible tabs in ChatPanel.tsx still render — Assistant / Tuning /
-    // Course are visual aliases for this path; only Demo (below) and the
-    // route-level modes (CALL / BUG / WIZARD / COURSE_REF) stay distinct.
+    // One builder, one tool palette (full `ADMIN_TOOLS`), one runner.
+    // ChatPanel now renders two visible tabs (Assistant + Demo); the
+    // legacy mode strings are only received from clients that haven't
+    // refreshed past the deploy boundary.
     //
     // The factual-grounding intercept in `handleDataModeWithTools` fires
     // structurally on `toolUsesInTurn` regardless of which prompt builder
     // produced the system prompt, so the 40 grounding tests still guard
     // every assistant claim about a specific learner.
     const userInstitutionId = authResult.session.user.institutionId;
-    if (mode === "DATA" || mode === "TUNING" || mode === "COURSE_MANAGE") {
+    if (isAssistantMode(mode)) {
       const { prompt: unifiedPrompt } = await buildUnifiedAssistantPrompt({
         entityContext,
         tuningScope,
