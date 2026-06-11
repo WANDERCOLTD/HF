@@ -19,6 +19,33 @@
   background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-primary));
   border: 1px solid var(--border-default);
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 8px);
+}
+
+.hf-voice-flow-intro-platform {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 8px);
+}
+
+.hf-voice-flow-platform-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hf-voice-flow-platform-chip {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+  letter-spacing: 0.04em;
 }
 
 /* ── Node list ────────────────────────────────────────── */

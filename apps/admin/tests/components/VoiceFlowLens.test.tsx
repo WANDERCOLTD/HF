@@ -132,11 +132,11 @@ describe("VoiceFlowLens — Slice 1 read-only diagram", () => {
 
     render(<VoiceFlowLens courseId={COURSE_ID} />);
 
-    await waitFor(() => expect(screen.getByText("Pickup")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Call starts")).toBeInTheDocument());
 
     const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     expect(headings).toEqual([
-      "Pickup",
+      "Call starts",
       "Voice Provider",
       "Selected Voice",
       "Transcriber",
@@ -243,7 +243,13 @@ describe("VoiceFlowLens — Slice 1 read-only diagram", () => {
     });
 
     await waitFor(() => expect(screen.getByText("Voice Provider")).toBeInTheDocument());
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // The lens makes TWO classes of fetches: the cascade GET on the
+    // playbook route, and (once data lands) the voice catalog on the
+    // /api/voice/[slug]/catalog route. Count only the voice-config calls.
+    const voiceConfigCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/voice-config"),
+    );
+    expect(voiceConfigCalls.length).toBe(2);
   });
 
   it("wraps the node list in an ordered list with the call-lifecycle aria-label", async () => {
@@ -369,12 +375,19 @@ describe("VoiceFlowLens — Slice 2 edit drawer + Amendment A + Amendment C", ()
     });
 
     await waitFor(() => {
-      // Three calls: initial GET + PATCH + re-fetch
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      // Three voice-config calls: initial GET + PATCH + re-fetch. The
+      // catalog GET (/api/voice/[slug]/catalog) fires once when data
+      // first lands; ignore it.
+      const voiceConfigCalls = fetchMock.mock.calls.filter((c) =>
+        String(c[0]).includes("/voice-config"),
+      );
+      expect(voiceConfigCalls.length).toBe(3);
     });
 
-    // PATCH call body
-    const patchCall = fetchMock.mock.calls[1]!;
+    // PATCH is the only voice-config call with a body.
+    const patchCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "PATCH",
+    )!;
     expect(patchCall[0]).toBe(`/api/playbooks/${COURSE_ID}/voice-config`);
     expect(patchCall[1]).toMatchObject({
       method: "PATCH",
@@ -420,10 +433,15 @@ describe("VoiceFlowLens — Slice 2 edit drawer + Amendment A + Amendment C", ()
     });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const voiceConfigCalls = fetchMock.mock.calls.filter((c) =>
+        String(c[0]).includes("/voice-config"),
+      );
+      expect(voiceConfigCalls.length).toBe(3);
     });
 
-    const patchCall = fetchMock.mock.calls[1]!;
+    const patchCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "PATCH",
+    )!;
     const patchBody = JSON.parse((patchCall[1] as { body: string }).body);
     expect(patchBody).toEqual({ key: "voiceId", value: null });
   });
