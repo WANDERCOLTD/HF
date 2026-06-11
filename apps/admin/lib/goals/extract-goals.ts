@@ -9,6 +9,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { config } from "@/lib/config";
 import { GoalType, GoalStatus, Goal } from "@prisma/client";
 import { AIEngine } from "@/lib/ai/client";
 import { getConfiguredMeteredAICompletion, logMockAIUsage } from "@/lib/metering";
@@ -535,7 +536,7 @@ If no signals, return: {"signals":[]}`;
             },
             booleanValue: null, // null = pending, true = confirmed, false = dismissed
             confidence: signal.confidence,
-            sourceSpecSlug: "GOAL-001",
+            sourceSpecSlug: config.specs.goal,
           },
         });
 

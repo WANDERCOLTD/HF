@@ -17,6 +17,7 @@ import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-w
 import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
+import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -192,6 +193,14 @@ const eslintConfig = defineConfig([
           "no-secrets-in-client": noSecretsInClient,
         },
       },
+      // Audit HF-I (2026-06-11) — block hardcoded spec-slug literals in runtime
+      // code; slugs are env-overridable config (config.specs.*). Lands as `warn`
+      // (residual low-severity literals); promote to `error` once swept.
+      "hf-config": {
+        rules: {
+          "no-hardcoded-spec-slug": noHardcodedSpecSlug,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -240,6 +249,15 @@ const eslintConfig = defineConfig([
       // a documented eslint-disable; any NEW secret literal in a client file
       // fails CI.
       "hf-security/no-secrets-in-client": "error",
+
+      // Audit HF-I (2026-06-11) — built, tested, and registered but DORMANT (off)
+      // at landing. The two live bugs are fixed in the same PR (GOAL-001 write →
+      // config.specs.goal; TUT-001 match → config.specs.defaultArchetype). The rule
+      // surfaces 29 residual low-severity slug literals across 11 files (10 in the
+      // demo catalogue, 3 in the sector-config client mirror) — activating at `warn`
+      // would breach the lint_warnings ratchet. Promote to `warn` then `error` once
+      // those are swept / allow-listed. See docs/kb/guard-registry.md#guard-no-hardcoded-spec-slug.
+      "hf-config/no-hardcoded-spec-slug": "off",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

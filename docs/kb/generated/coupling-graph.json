@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T20:49:47.775Z",
+  "generatedAt": "2026-06-11T21:03:39.237Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1666,
-  "edgeCount": 3826,
+  "edgeCount": 3827,
   "skippedEdges": 1,
   "edges": [
     {
@@ -12221,6 +12221,10 @@
     },
     {
       "from": "lib/goals/extract-goals.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/goals/extract-goals.ts",
       "to": "lib/metering/index.ts"
     },
     {
@@ -20880,7 +20884,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 87,
+      "inDegree": 88,
       "outDegree": 0
     },
     {
@@ -21511,7 +21515,7 @@
     {
       "path": "lib/goals/extract-goals.ts",
       "inDegree": 1,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/goals/goal-constants.ts",
@@ -23662,7 +23666,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 87,
+      "inDegree": 88,
       "outDegree": 0
     },
     {

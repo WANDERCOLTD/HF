@@ -371,6 +371,18 @@ export const config = {
     },
 
     /**
+     * Goal Spec (default: GOAL-001)
+     * Drives goal extraction + completion-signal detection in
+     * `lib/goals/extract-goals.ts`. Recorded as `CallerAttribute.sourceSpecSlug`
+     * provenance on every detected goal-completion signal. Previously the only
+     * spec slug written to the DB with no config backing (audit HF-I/HF-J).
+     * Can be overridden via GOAL_SPEC_SLUG env var.
+     */
+    get goal(): string {
+      return optional("GOAL_SPEC_SLUG", "GOAL-001");
+    },
+
+    /**
      * Default Archetype Spec (default: TUT-001)
      * The base archetype used when scaffolding new domain overlays.
      * Can be overridden via DEFAULT_ARCHETYPE_SLUG env var.

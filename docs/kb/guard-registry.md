@@ -56,6 +56,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`hf-voice/no-vapi-tool-definitions-const`](#guard-no-vapi-tool-definitions-const) | Disallow the `VAPI_TOOL_DEFINITIONS` TS const; load via TOOLS-001 spec (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP2) | #1019/#1024 | **a** |
 | [`no-bespoke-async-polling`](#guard-no-bespoke-async-polling) | Bespoke `setInterval`/`setTimeout` retry loops outside an allow-list; use `lib/async/wait-until-ready.ts` | G7 / 2026-06-11 | **meta** |
 | [`hf-security/no-secrets-in-client`](#guard-no-secrets-in-client) | Plaintext credentials / secret-shaped literals in `"use client"` files (they ship in the browser bundle) | HF-J / 2026-06-11 | **a** |
+| [`hf-config/no-hardcoded-spec-slug`](#guard-no-hardcoded-spec-slug) | Hardcoded spec-slug literals (`TUT-001`, `GOAL-001`, …) in `lib/`+`app/` runtime; use `config.specs.*`. **Dormant (off)** pending a 29-site sweep | HF-I / 2026-06-11 | **b** |
 
 ### Guard detail
 
@@ -239,6 +240,25 @@ JWT, Google `AIza`). Server files, `process.env.*` / identifier values, and empt
 pass. The one known offence (the build-stripped demo creds) carries a documented
 `eslint-disable` with rationale. Severity `error` from day 1. **Survives hardening:** "no
 secret in browser-shipped code" is an architecture-independent data-safety invariant.
+
+<a id="guard-no-hardcoded-spec-slug"></a>
+**`hf-config/no-hardcoded-spec-slug`** · class **b** · born HF-I / 2026-06-11 · **status: dormant (off)** ·
+[rule source](../../apps/admin/eslint-rules/no-hardcoded-spec-slug.mjs) ·
+test → [`tests/eslint-rules/no-hardcoded-spec-slug.test.ts`](../../apps/admin/tests/eslint-rules/no-hardcoded-spec-slug.test.ts)
+
+Spec slugs are env-overridable config (`config.specs.*`, `lib/config.ts`). A literal slug in
+runtime code silently stops matching once the corresponding `*_SPEC_SLUG` env var is
+overridden. The audit (HF-I) found two live bugs — `extract-goals.ts` wrote
+`sourceSpecSlug: "GOAL-001"` to the DB with no config backing (fixed by adding
+`config.specs.goal`), and `pedagogy.ts` matched `slug.includes("TUT-001")` (fixed to
+`config.specs.defaultArchetype`). The rule fires on a string literal matching
+`^[A-Z]{2,}(-[A-Z]+)*-\d{3}$` inside `lib/`+`app/`, allow-listing `lib/config.ts`, tests,
+scripts, `prisma/`, and `docs-archive/`. **Dormant at landing:** the rule surfaces 29
+residual low-severity literals (10 in `lib/demo/registry.ts`, 3 in the `sector-config`
+client mirror, the rest scattered) — activating at `warn` would breach the `lint_warnings`
+ratchet, so the rule ships built + tested + registered but `off`. **Activation gate:** sweep
+or allow-list the 29, then flip to `warn` → `error`. **Survives hardening as scaffold (b):**
+it protects today's `config.specs.*` indirection; retire if the slug-config mechanism changes.
 
 ## CI check scripts — `apps/admin/scripts/`
 
