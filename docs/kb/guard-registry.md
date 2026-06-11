@@ -54,6 +54,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-module-read-without-course-style-guard`](#guard-no-module-read-without-course-style-guard) | `CallerModuleProgress` reads/writes outside a `courseStyle === 'structured'` guard (default-deny) | #1252 | **b** |
 | [`hf-voice/no-vapi-column-ref`](#guard-no-vapi-column-ref) | Disallow the 6 pre-#1020 `vapi`-prefixed Call columns; use `voice*` names (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP3) | #1020/#1024 | **a** |
 | [`hf-voice/no-vapi-tool-definitions-const`](#guard-no-vapi-tool-definitions-const) | Disallow the `VAPI_TOOL_DEFINITIONS` TS const; load via TOOLS-001 spec (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP2) | #1019/#1024 | **a** |
+| [`no-bespoke-async-polling`](#guard-no-bespoke-async-polling) | Bespoke `setInterval`/`setTimeout` retry loops outside an allow-list; use `lib/async/wait-until-ready.ts` | G7 / 2026-06-11 | **meta** |
 
 ### Guard detail
 
@@ -202,6 +203,24 @@ rule keeps it at 0 by failing CI on any future re-introduction of a hardcoded TS
 constant named `VAPI_TOOL_DEFINITIONS`. **Survives hardening:** the
 "specs-as-source-of-truth-for-AI-tooling" pattern is architecture-independent —
 parallel rules will be needed if/when other tool-loading constants are migrated.
+
+<a id="guard-no-bespoke-async-polling"></a>
+**`no-bespoke-async-polling`** · class **meta** · born G7 / 2026-06-11 ·
+[rule source](../../apps/admin/eslint-rules/no-bespoke-async-polling.mjs) ·
+helper → [`lib/async/wait-until-ready.ts`](../../apps/admin/lib/async/wait-until-ready.ts) ·
+ADR → [chase-prevention methodology](../decisions/2026-06-11-chase-prevention-methodology.md)
+
+Bespoke `setInterval` / `setTimeout` retry loops are the AP-3 chase pattern: every author
+re-derives deadline math, abort signalling, structured timeout logging, and the
+exception-vs-timeout split — usually subtly wrong. The 2026-06-09 hardening drill shipped
+FIVE "wait for X" fixes before the structural cleanup eliminated them. This rule fires on
+`while`/`for`/`do-while` blocks containing `setTimeout`/`setInterval`, **outside an
+allow-list** of grandfathered call sites (12 today — track to zero in
+`lib/rate-limit.ts`, `lib/pipeline/prosody-runner.ts`, `lib/content-trust/extract-*`, etc.).
+Severity is `warn` until the migration follow-up; new sites are caught now. The canonical
+replacement is `waitUntilReady({ predicate, ready, timeout, interval, label, onTimeout?,
+signal? })` from `lib/async/wait-until-ready.ts`. **Survives hardening:** "single async
+chokepoint" is a methodology fitness function, architecture-independent.
 
 ## CI check scripts — `apps/admin/scripts/`
 

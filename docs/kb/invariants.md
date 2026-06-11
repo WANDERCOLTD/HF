@@ -48,6 +48,26 @@
   a client-supplied `disclosureId` is observed but never routed to the store. — #1048 →
   `deriveDisclosureId`.
 
+## Process / methodology (chase-prevention)
+
+> Born from the 6-week pattern of fix-loops on the same topic. Catalogued as
+> AP-1..AP-5 in `memory/feedback_chase_loop_anti_patterns.md`;
+> ADR at [`docs/decisions/2026-06-11-chase-prevention-methodology.md`](../decisions/2026-06-11-chase-prevention-methodology.md).
+
+- **All async-readiness waiting goes through `lib/async/wait-until-ready.ts`** —
+  bespoke `setInterval` / `setTimeout` retry loops are the AP-3 pattern. The 12
+  existing call sites are grandfathered via allow-list; new code MUST use the
+  helper. — G7 → `no-bespoke-async-polling`.
+- **A `## Verified by` section is required on every PR body** citing concrete
+  evidence (SQL, vitest, Playwright trace, log subject, curl). Don't trust
+  screenshot OCR. — G4 → `scripts/gh-pr-create.sh`.
+- **No reciprocal edit pushed without explicit intent.** Commit N+1 undoing
+  ≥50% of commit N must either be squashed or bypass-tagged. — G3 →
+  `scripts/check-reciprocal-edit.sh`.
+- **Same-issue fix chains ratchet down.** Three+ `fix:` commits on a single
+  `#NNNN` in 30 days triggers the root-cause agent before the next fix. — G2 →
+  `scripts/check-fix-chain.sh` + `same_issue_fix_chain_max` ratchet.
+
 ## Hardening-era invariants (to establish)
 
 > New truths this program will add. Each becomes a class-**a** guard.
