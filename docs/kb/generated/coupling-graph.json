@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T14:58:36.595Z",
+  "generatedAt": "2026-06-11T15:23:48.738Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1660,
-  "edgeCount": 3811,
+  "fileCount": 1662,
+  "edgeCount": 3815,
   "skippedEdges": 1,
   "edges": [
     {
@@ -7841,6 +7841,10 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
+      "to": "components/course-design/ModuleVisibilitySettings.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
       "to": "components/course-design/TolerancesSettings.tsx"
     },
     {
@@ -7902,6 +7906,10 @@
     {
       "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "to": "components/cascade/LayerBadge.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
+      "to": "components/course-design/ModuleVisibilitySettings.tsx"
     },
     {
       "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
@@ -13573,6 +13581,10 @@
     },
     {
       "from": "lib/prompt/composition/transforms/pedagogy.ts",
+      "to": "lib/prompt/composition/transforms/module-visibility-gate.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/pedagogy.ts",
       "to": "lib/prompt/composition/transforms/quickstart.ts"
     },
     {
@@ -13686,6 +13698,10 @@
     {
       "from": "lib/prompt/composition/transforms/quickstart.ts",
       "to": "lib/prompt/composition/transforms/audience.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/quickstart.ts",
+      "to": "lib/prompt/composition/transforms/module-visibility-gate.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/quickstart.ts",
@@ -18361,7 +18377,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
       "inDegree": 1,
-      "outDegree": 11
+      "outDegree": 12
     },
     {
       "path": "app/x/courses/[courseId]/_components/ImportModulesDialog.tsx",
@@ -18386,7 +18402,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "inDegree": 1,
-      "outDegree": 8
+      "outDegree": 9
     },
     {
       "path": "app/x/courses/[courseId]/_components/VoiceFlowLens.tsx",
@@ -19531,6 +19547,11 @@
     {
       "path": "components/course-design/FirstSessionSettings.tsx",
       "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/course-design/ModuleVisibilitySettings.tsx",
+      "inDegree": 2,
       "outDegree": 0
     },
     {
@@ -22234,6 +22255,11 @@
       "outDegree": 3
     },
     {
+      "path": "lib/prompt/composition/transforms/module-visibility-gate.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
       "path": "lib/prompt/composition/transforms/modules.ts",
       "inDegree": 4,
       "outDegree": 8
@@ -22251,7 +22277,7 @@
     {
       "path": "lib/prompt/composition/transforms/pedagogy.ts",
       "inDegree": 1,
-      "outDegree": 6
+      "outDegree": 7
     },
     {
       "path": "lib/prompt/composition/transforms/personality.ts",
@@ -22281,7 +22307,7 @@
     {
       "path": "lib/prompt/composition/transforms/quickstart.ts",
       "inDegree": 2,
-      "outDegree": 11
+      "outDegree": 12
     },
     {
       "path": "lib/prompt/composition/transforms/retrieval-practice.ts",

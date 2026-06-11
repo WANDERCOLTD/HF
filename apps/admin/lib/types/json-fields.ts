@@ -609,6 +609,37 @@ export interface PlaybookConfig {
   firstCall?: {
     durationMinsOverride?: number;
     introducePedagogy?: boolean;
+    /**
+     * #1405 — Controls whether module names surface in the AI's call-1
+     * framing (this_session, plan.newMaterial.module, flow steps). When
+     * absent, behaviour is byte-identical to `mention_from_call_1` (the
+     * pre-#1405 default — module names appear normally on every call).
+     *
+     * - `mention_from_call_1` (default) — module names appear in
+     *   `[SESSION PLAN]`, first_line locked-module greeting, and
+     *   `this_session` from call 1.
+     * - `hide_until_call_2` — suppresses module-name mentions in
+     *   orientation/framing sections on call 1 only. Module TEACHING
+     *   CONTENT still loads normally. Resets at call 2 regardless of
+     *   learner action.
+     * - `hide_until_learner_picks` — same as hide_until_call_2 but
+     *   persists until `Caller.lastSelectedModuleId` is set (learner
+     *   used Module Picker).
+     *
+     * Override rule: when the learner has explicitly picked a module
+     * (`lockedModule` resolves), the gate ALWAYS allows module names
+     * — the learner's explicit choice wins.
+     *
+     * @bucket 1 — Course-level only. Per-learner override would defeat
+     * the operator's "don't confuse brand-new learners" intent. The
+     * `lastSelectedModuleId` override IS the per-learner escape hatch.
+     *
+     * @see lib/prompt/composition/transforms/module-visibility-gate.ts
+     */
+    firstCallModuleVisibility?:
+      | "mention_from_call_1"
+      | "hide_until_call_2"
+      | "hide_until_learner_picks";
   };
   /**
    * #599 Slice 1 — AI-synthesized prior-call recap (`priorCallFeedback` v2).

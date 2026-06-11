@@ -116,6 +116,10 @@ export async function GET(
       ok: true,
       rows,
       firstCallMode: cfg.firstCallMode ?? null,
+      // #1405 — surface the new gate so the ModuleVisibilitySettings panel
+      // can hydrate without a second round-trip. `null` means "use default".
+      firstCallModuleVisibility:
+        cfg.firstCall?.firstCallModuleVisibility ?? null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -154,6 +158,17 @@ export async function PUT(
       // #790 (S8) — first-call mode override. String writes; null clears
       // (falls back to default 'onboarding' behaviour).
       firstCallMode?: PlaybookConfig["firstCallMode"] | null;
+      // #1405 — first-call module-visibility gate. Writes/clears
+      // `Playbook.config.firstCall.firstCallModuleVisibility` inside the
+      // shared `firstCall` namespace (partial-merge — does NOT blow away
+      // sibling firstCall.* fields). `null` clears just this key.
+      firstCall?: {
+        firstCallModuleVisibility?:
+          | "mention_from_call_1"
+          | "hide_until_call_2"
+          | "hide_until_learner_picks"
+          | null;
+      };
       // Course-level tolerance overrides (split from caller Tune,
       // post-#849). Partial-merge semantics: each subfield is patched
       // independently. masteryThreshold is NOT accepted here — its
@@ -236,6 +251,40 @@ export async function PUT(
               delete pbConfig.firstCallMode;
             } else {
               pbConfig.firstCallMode = body.firstCallMode;
+            }
+          }
+
+          // #1405 — first-call module-visibility gate. Partial-merge: only
+          // touches `firstCall.firstCallModuleVisibility`; sibling fields
+          // (durationMinsOverride, introducePedagogy) are untouched. Unknown
+          // enum values are rejected; `null` clears just this key, leaving
+          // the rest of `firstCall.*` intact.
+          if (body.firstCall !== undefined && body.firstCall !== null) {
+            const incomingFc = body.firstCall;
+            if ("firstCallModuleVisibility" in incomingFc) {
+              const v = incomingFc.firstCallModuleVisibility;
+              const VALID = new Set([
+                "mention_from_call_1",
+                "hide_until_call_2",
+                "hide_until_learner_picks",
+              ]);
+              if (v !== null && v !== undefined && !VALID.has(v as string)) {
+                throw new Error(
+                  `Invalid firstCall.firstCallModuleVisibility: ${String(v)}`,
+                );
+              }
+              const currentFc = pbConfig.firstCall ?? {};
+              const nextFc = { ...currentFc };
+              if (v === null || v === undefined) {
+                delete nextFc.firstCallModuleVisibility;
+              } else {
+                nextFc.firstCallModuleVisibility = v;
+              }
+              if (Object.keys(nextFc).length === 0) {
+                delete pbConfig.firstCall;
+              } else {
+                pbConfig.firstCall = nextFc;
+              }
             }
           }
 

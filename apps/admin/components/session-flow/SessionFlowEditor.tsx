@@ -109,7 +109,12 @@ export type SessionFlowLens =
   | "onboarding"
   | "stops"
   | "offboarding"
-  | "welcome";
+  | "welcome"
+  // #1405 — module-visibility section. Doesn't map to a row in the
+  // BEFORE/DURING/AFTER timeline; instead the Preview sidetray host
+  // detects it and mounts <ModuleVisibilitySettings> in lieu of the
+  // timeline rows. See PreviewLens.tsx.
+  | "moduleVisibility";
 
 const ROW_TO_LENS: Record<string, SessionFlowLens> = {
   goals: "intake",

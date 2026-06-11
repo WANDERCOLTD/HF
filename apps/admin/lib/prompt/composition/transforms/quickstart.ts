@@ -22,6 +22,10 @@ import {
   rewriteReturningUserPhrasing,
 } from "@/lib/prompt/composition/defaults/first-call-openings";
 import { substituteGreetingTokens } from "@/lib/prompt/composition/defaults/substitute-greeting-tokens";
+import {
+  shouldSuppressModuleNames,
+  SUPPRESSED_THIS_SESSION_COPY,
+} from "./module-visibility-gate";
 
 /** Keys whose presence (scope PRE) signals the learner already submitted onboarding data */
 const PRE_LOADED_KEYS: readonly string[] = [
@@ -338,9 +342,23 @@ registerTransform("computeQuickStart", (
       if (lockedModule) {
         return `Locked focus — ${lockedModule.name}${lockedModule.description ? ` (${lockedModule.description})` : ""}`;
       }
+      // #1405 — module-visibility gate. When the educator chose to hide
+      // module names on call 1, suppress the "introduce <module name>"
+      // framing in favour of a subject-level placeholder. TEACHING
+      // CONTENT still loads — this only touches the orientation copy.
+      // Note: this branch only runs when lockedModule is null (the
+      // locked-focus return above already short-circuited otherwise).
+      const suppressModuleNames = shouldSuppressModuleNames({
+        firstCallModuleVisibility: pbConfig.firstCall?.firstCallModuleVisibility,
+        isFirstCall,
+        callNumber,
+        lastSelectedModuleId: null,
+      });
       let session: string;
       if (isFirstCall && modules[0]) {
-        session = `First session - introduce ${modules[0].name}`;
+        session = suppressModuleNames
+          ? SUPPRESSED_THIS_SESSION_COPY
+          : `First session - introduce ${modules[0].name}`;
       } else if (moduleToReview && nextModule && moduleToReview.slug !== nextModule.slug) {
         session = `Review ${moduleToReview.name} → Introduce ${nextModule.name}`;
       } else if (nextModule) {

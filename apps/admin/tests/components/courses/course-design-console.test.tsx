@@ -95,11 +95,13 @@ beforeEach(() => {
 });
 
 describe("CourseDesignConsole — nav", () => {
-  it("renders 13 lenses in the nav (5 Journey + 7 Behaviour + 1 Preview)", () => {
+  it("renders 14 lenses in the nav (5 Journey + 7 Behaviour + 1 Preview + 1 Voice Flow)", () => {
+    // 7 Behaviour: call1Mode + moduleVisibility (#1405) + firstCallTargets +
+    // tolerances + skillBanding + progressSignals + agentTunerNlp.
     mockSessionFlowFetch(makeResolvedResponse());
     const { container } = render(<CourseDesignConsole courseId="course-1" />);
     const items = container.querySelectorAll(".hf-console-shell-nav-item");
-    expect(items.length).toBe(13);
+    expect(items.length).toBe(14);
   });
 
   it("renders a 'soon' badge only on agentTunerNlp (1 — Slices 2+3 absorbed the rest)", () => {
@@ -164,8 +166,10 @@ describe("CourseDesignConsole — lens-scoped SessionFlowEditor", () => {
     mockSessionFlowFetch(makeResolvedResponse());
     const { findByRole, queryByText } = render(<CourseDesignConsole courseId="course-1" />);
     const panel = (await findByRole("tabpanel")) as HTMLElement;
-    // Inline Welcome message form (the drawer title becomes the inline card heading)
-    await within(panel).findByRole("heading", { name: "Welcome message" });
+    // Inline Greeting form — #1403/#1495 renamed the drawer heading
+    // ("Welcome message" → "Greeting — first call opener"). The drawer title
+    // becomes the inline card heading.
+    await within(panel).findByRole("heading", { name: "Greeting — first call opener" });
     // Inline form textarea is present
     expect(panel.querySelector("textarea")).not.toBeNull();
     // Intake rows must NOT appear in the Welcome lens panel
