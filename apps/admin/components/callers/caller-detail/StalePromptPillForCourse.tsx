@@ -37,6 +37,11 @@ interface AggregateResponse {
 
 interface StalePromptPillForCourseProps {
   courseId: string;
+  /** Bump to trigger a forced cache-bypassing re-fetch. Used by the
+   *  Voice Flow lens (#1478 Amendment A) to refresh the banner after
+   *  an educator edits a cascade key — the banner otherwise only fetches
+   *  on mount or after the local Reprompt-all fan-out. */
+  refreshKey?: number;
 }
 
 function relativeTime(iso: string | null): string {
@@ -52,6 +57,7 @@ function relativeTime(iso: string | null): string {
 
 export function StalePromptPillForCourse({
   courseId,
+  refreshKey = 0,
 }: StalePromptPillForCourseProps) {
   const [data, setData] = useState<AggregateResponse | null>(null);
   const [reprompting, setReprompting] = useState(false);
@@ -79,13 +85,16 @@ export function StalePromptPillForCourse({
     mountedRef.current = true;
     // Defer the fetch to the next microtask so we don't call setState
     // synchronously inside the effect body (react-hooks/set-state-in-effect).
+    // When `refreshKey` bumps (e.g. after the Voice Flow lens saves), force
+    // a cache-bypassing re-fetch so the banner doesn't show a stale snapshot.
+    const bypassCache = refreshKey > 0;
     queueMicrotask(() => {
-      if (mountedRef.current) void fetchAggregate(false);
+      if (mountedRef.current) void fetchAggregate(bypassCache);
     });
     return () => {
       mountedRef.current = false;
     };
-  }, [fetchAggregate]);
+  }, [fetchAggregate, refreshKey]);
 
   const onRepromptAll = useCallback(async () => {
     const callers = data?.staleCallers ?? [];

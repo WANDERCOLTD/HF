@@ -224,12 +224,25 @@
   100% { background-position: -200% 0; }
 }
 
-/* ── Save flash (used in Slice 2) ─────────────────────── */
+/* ── Save flash (Slice 2) ─────────────────────────────── */
 
 .hf-voice-flow-row.hf-glow-active {
   outline: 2px solid color-mix(in srgb, var(--status-success-text) 60%, transparent);
   outline-offset: 1px;
-  transition: outline-color 1s ease-out;
+  animation: hf-voice-flow-glow-fade 1.6s ease-out;
+}
+
+@keyframes hf-voice-flow-glow-fade {
+  0% { outline-color: color-mix(in srgb, var(--status-success-text) 60%, transparent); }
+  100% { outline-color: transparent; }
+}
+
+/* ── Drawer body (Slice 2) ────────────────────────────── */
+
+.hf-voice-flow-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md, 12px);
 }
 
 /* ── Mobile ───────────────────────────────────────────── */

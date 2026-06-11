@@ -98,6 +98,11 @@ const DESIGN_LENS_ORDER: DesignLensId[] = [
 interface LensProps {
   courseId: string;
   playbookConfig?: PlaybookConfig | Record<string, unknown> | null;
+  /** Called by lenses after a successful cascade write that may have
+   *  marked demo callers stale (e.g. Voice Flow lens edits voice
+   *  config). Bumps `staleRefreshTick` so `StalePromptPillForCourse`
+   *  re-fetches without a page reload (#1478 Amendment A). */
+  onComposeInputChange?: () => void;
 }
 
 const ICON_SIZE = 14;
@@ -151,8 +156,8 @@ const PreviewLensWrap: React.FC<LensProps> = ({ courseId }) => (
 );
 PreviewLensWrap.displayName = "PreviewLensWrap";
 
-const VoiceFlowLensWrap: React.FC<LensProps> = ({ courseId }) => (
-  <VoiceFlowLens courseId={courseId} />
+const VoiceFlowLensWrap: React.FC<LensProps> = ({ courseId, onComposeInputChange }) => (
+  <VoiceFlowLens courseId={courseId} onComposeInputChange={onComposeInputChange} />
 );
 VoiceFlowLensWrap.displayName = "VoiceFlowLensWrap";
 
@@ -282,12 +287,20 @@ export function CourseDesignConsole({
     consoleId: "course-design",
   });
 
+  // #1478 Amendment A — when a lens reports a compose-input change
+  // (e.g. Voice Flow lens saves voice config), bump this tick so the
+  // header staleness banner re-fetches without a page reload.
+  const [staleRefreshTick, setStaleRefreshTick] = React.useState(0);
+  const onComposeInputChange = React.useCallback(() => {
+    setStaleRefreshTick((n) => n + 1);
+  }, []);
+
   return (
     <>
       <ConsoleShell<DesignLensId, LensProps>
         lensOrder={DESIGN_LENS_ORDER}
         lenses={DESIGN_LENSES}
-        lensProps={{ courseId, playbookConfig }}
+        lensProps={{ courseId, playbookConfig, onComposeInputChange }}
         activeLensId={view}
         onLensChange={setView}
         ariaNavLabel="Course design lenses"
@@ -295,7 +308,12 @@ export function CourseDesignConsole({
         comingSoonHelpText={COMING_SOON_HELP}
         // #1429 — staleness aggregate above the lens nav. Self-hides
         // when no demo callers on this course have a stale prompt.
-        headerBanner={<StalePromptPillForCourse courseId={courseId} />}
+        headerBanner={
+          <StalePromptPillForCourse
+            courseId={courseId}
+            refreshKey={staleRefreshTick}
+          />
+        }
       />
     </>
   );

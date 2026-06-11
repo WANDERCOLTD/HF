@@ -158,7 +158,7 @@ function parseValueFromInput(raw: string, type: SchemaField["type"]): unknown {
   return raw;
 }
 
-interface RowProps {
+export interface RowProps {
   meta: SchemaField;
   resolved: ResolvedField;
   scope: "course" | "domain";
@@ -179,7 +179,7 @@ interface RowProps {
   enabledProviderId?: string | null;
 }
 
-function FieldRow({
+export function FieldRow({
   meta,
   resolved,
   scope,

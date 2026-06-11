@@ -23,14 +23,17 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { Pencil, Phone, BarChart3 } from "lucide-react";
 import {
   sourceBadge,
   fieldMeta,
+  FieldRow,
   type ResolvedField,
   type SchemaField,
 } from "@/components/voice/VoiceConfigSection";
+import { HFDrawer } from "@/components/shared/HFDrawer";
 
 /* ── Hardcoded exclusion ─────────────────────────────────
    `fillerInjectionEnabled` is declared in the VAPI provider schema at
@@ -186,12 +189,36 @@ interface VoiceFlowLensProps {
   /** Course id from the Console — equal to the Playbook id used by
    *  the cascade routes. Identity asserted at fetch boundary. */
   courseId: string;
+  /** Called after a successful save / reset so the Course Design
+   *  Console's staleness banner can re-fetch (#1478 Amendment A). */
+  onComposeInputChange?: () => void;
 }
 
-export function VoiceFlowLens({ courseId }: VoiceFlowLensProps): React.ReactElement {
+/* Roles that may PATCH /api/playbooks/[id]/voice-config (the route
+   enforces OPERATOR at route.ts:97). Mirrored client-side so the ✏️
+   button is visibly disabled for under-privileged sessions instead of
+   firing a silent 403 (#1478 Amendment C). */
+const OPERATOR_ROLES: ReadonlySet<string> = new Set([
+  "OPERATOR",
+  "EDUCATOR",
+  "ADMIN",
+  "SUPERADMIN",
+]);
+
+export function VoiceFlowLens({
+  courseId,
+  onComposeInputChange,
+}: VoiceFlowLensProps): React.ReactElement {
   const [data, setData] = useState<VoicePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [drawerKey, setDrawerKey] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [savedFlash, setSavedFlash] = useState<string | null>(null);
+
+  const session = useSession();
+  const role = (session.data?.user as { role?: string } | undefined)?.role ?? "";
+  const canEdit = useMemo(() => OPERATOR_ROLES.has(role), [role]);
 
   // `courseId` is the Playbook id at the route level — same identity
   // the Tolerances lens uses (CourseDesignConsole.tsx:127).
@@ -217,6 +244,43 @@ export function VoiceFlowLens({ courseId }: VoiceFlowLensProps): React.ReactElem
   useEffect(() => {
     void load();
   }, [load]);
+
+  const persist = useCallback(
+    async (key: string, value: unknown): Promise<void> => {
+      if (!canEdit) return;
+      setBusyKey(key);
+      setError(null);
+      try {
+        const res = await fetch(`/api/playbooks/${playbookId}/voice-config`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, value }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        await load();
+        setSavedFlash(key);
+        setTimeout(() => {
+          setSavedFlash((cur) => (cur === key ? null : cur));
+        }, 1500);
+        // #1478 Amendment A — tell the console the cascade changed so
+        // the staleness banner can re-fetch.
+        onComposeInputChange?.();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [canEdit, playbookId, load, onComposeInputChange],
+  );
+
+  const reset = useCallback(
+    (key: string): Promise<void> => persist(key, null),
+    [persist],
+  );
 
   if (loading && !data) {
     return <VoiceFlowSkeleton />;
@@ -314,6 +378,9 @@ export function VoiceFlowLens({ courseId }: VoiceFlowLensProps): React.ReactElem
                         row={row}
                         resolved={data.resolved.fields[row.key]!}
                         schemaFields={data.schemaFields}
+                        canEdit={canEdit}
+                        justSaved={savedFlash === row.key}
+                        onEdit={() => setDrawerKey(row.key)}
                       />
                     ))}
                   </div>
@@ -333,7 +400,78 @@ export function VoiceFlowLens({ courseId }: VoiceFlowLensProps): React.ReactElem
           );
         })}
       </ol>
+
+      <VoiceFlowEditDrawer
+        drawerKey={drawerKey}
+        data={data}
+        busyKey={busyKey}
+        savedFlash={savedFlash}
+        onClose={() => setDrawerKey(null)}
+        onSave={persist}
+        onReset={reset}
+      />
     </div>
+  );
+}
+
+interface VoiceFlowEditDrawerProps {
+  drawerKey: string | null;
+  data: VoicePayload;
+  busyKey: string | null;
+  savedFlash: string | null;
+  onClose: () => void;
+  onSave: (key: string, value: unknown) => Promise<void>;
+  onReset: (key: string) => Promise<void>;
+}
+
+function VoiceFlowEditDrawer({
+  drawerKey,
+  data,
+  busyKey,
+  savedFlash,
+  onClose,
+  onSave,
+  onReset,
+}: VoiceFlowEditDrawerProps): React.ReactElement {
+  const key = drawerKey ?? "";
+  const resolved = key ? data.resolved.fields[key] : undefined;
+  const meta = key ? fieldMeta(key, data.schemaFields) : null;
+  const courseOverrides = data.courseOverrides ?? {};
+  const isThisLayer = key !== "" && Object.prototype.hasOwnProperty.call(courseOverrides, key);
+  const open = drawerKey !== null && resolved !== undefined && meta !== null;
+
+  return (
+    <HFDrawer
+      open={open}
+      onClose={onClose}
+      title={meta?.label ?? "Edit cascade key"}
+      description="Edit one cascade-bound voice setting. Save persists at the course layer; Reset clears the override and falls back through System → Provider → Domain → Course."
+      width={520}
+    >
+      {open && resolved && meta && (
+        <div className="hf-voice-flow-drawer-body">
+          <FieldRow
+            meta={meta}
+            resolved={resolved}
+            scope="course"
+            isThisLayer={isThisLayer}
+            busyKey={busyKey}
+            savedFlash={savedFlash}
+            onSave={async (k, v) => {
+              await onSave(k, v);
+            }}
+            onReset={async (k) => {
+              await onReset(k);
+            }}
+            voiceCatalog={undefined}
+            currentVoiceProvider={
+              (data.resolved.fields.voiceProvider?.value as string | undefined) ?? null
+            }
+            enabledProviderId={data.enabledProviderId ?? null}
+          />
+        </div>
+      )}
+    </HFDrawer>
   );
 }
 
@@ -341,19 +479,28 @@ interface VoiceFlowRowProps {
   row: NodeRowDef;
   resolved: ResolvedField;
   schemaFields: SchemaField[];
+  canEdit: boolean;
+  justSaved: boolean;
+  onEdit: () => void;
 }
 
 function VoiceFlowRow({
   row,
   resolved,
   schemaFields,
+  canEdit,
+  justSaved,
+  onEdit,
 }: VoiceFlowRowProps): React.ReactElement {
   const meta = fieldMeta(row.key, schemaFields);
   const label = row.labelOverride ?? meta.label;
   const value = formatValue(resolved.value, meta.type);
 
   return (
-    <div className="hf-voice-flow-row">
+    <div
+      className={`hf-voice-flow-row${justSaved ? " hf-glow-active" : ""}`}
+      data-key={row.key}
+    >
       <div className="hf-voice-flow-row-label">
         <span className="hf-voice-flow-row-name">{label}</span>
         {row.subtitle && (
@@ -369,8 +516,9 @@ function VoiceFlowRow({
           type="button"
           className="hf-btn hf-btn-secondary hf-voice-flow-edit"
           aria-label={`Edit ${label}`}
-          title="Edit drawer — Slice 2"
-          disabled
+          title={canEdit ? "Edit this setting" : "Operator access required"}
+          disabled={!canEdit}
+          onClick={onEdit}
         >
           <Pencil size={12} aria-hidden="true" />
         </button>
