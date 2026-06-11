@@ -1,0 +1,168 @@
+{
+  "$schema": "demo-knobs/v1",
+  "generatedAt": "2026-06-11T13:49:49.238Z",
+  "knobs": [
+    {
+      "knobKey": "BEH-RESPONSE-LEN",
+      "family": "behavior-target",
+      "label": "Response length",
+      "description": "0.0 (terse) → 1.0 (verbose). Demo preset uses 0.2.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": true,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "BEH-WARMTH",
+      "family": "behavior-target",
+      "label": "Warmth",
+      "description": "Conversational warmth and emotional attunement.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": true,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "BEH-FORMALITY",
+      "family": "behavior-target",
+      "label": "Formality",
+      "description": "Register: casual ↔ professional.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "BEH-CONVERSATIONAL-TONE",
+      "family": "behavior-target",
+      "label": "Conversational tone",
+      "description": "Dry / playful / neutral.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "BEH-TURN-LENGTH",
+      "family": "behavior-target",
+      "label": "Turn length",
+      "description": "How much the AI says per turn before yielding.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "BEH-PAUSE-TOLERANCE",
+      "family": "behavior-target",
+      "label": "Pause tolerance",
+      "description": "How long the AI waits before re-prompting.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "welcomeMessage",
+      "family": "welcome-message",
+      "label": "Welcome message",
+      "description": "First-line greeting the AI uses on the learner's first call. Demo preset sets a tuned welcome.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": true,
+      "composeAffecting": true
+    },
+    {
+      "knobKey": "onboarding",
+      "family": "session-flow",
+      "label": "Onboarding phases",
+      "description": "Pre-call survey + AI Intro Call structure.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "intake",
+      "family": "session-flow",
+      "label": "Intake toggles",
+      "description": "Goals / About You / Knowledge Check / AI Intro Call gates. Demo preset turns all off.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": true,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "stops",
+      "family": "session-flow",
+      "label": "Auto-include stops",
+      "description": "Pre-test / mid-test / post-test / NPS stops between teaching sessions.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "offboarding",
+      "family": "session-flow",
+      "label": "Offboarding phases",
+      "description": "Post-course wrap-up flow.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "voiceProvider",
+      "family": "voice-config",
+      "label": "Voice provider",
+      "description": "TTS vendor: Deepgram / OpenAI / ElevenLabs.",
+      "recommendedLayer": "DOMAIN",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "voiceId",
+      "family": "voice-config",
+      "label": "Voice ID",
+      "description": "Specific voice from the provider (vendor-validated catalogue).",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "model",
+      "family": "voice-config",
+      "label": "LLM model",
+      "description": "AI model identifier.",
+      "recommendedLayer": "DOMAIN",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "modelTemp",
+      "family": "voice-config",
+      "label": "Model temperature",
+      "description": "Sampling temperature for the LLM.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "modelTopP",
+      "family": "voice-config",
+      "label": "Model top-p",
+      "description": "Top-p nucleus sampling for the LLM.",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "language",
+      "family": "voice-config",
+      "label": "Language",
+      "description": "Spoken language code (e.g., en-GB).",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    },
+    {
+      "knobKey": "identitySpecId",
+      "family": "identity-spec",
+      "label": "Identity spec",
+      "description": "AI persona (tutor / coach / companion / conversational guide).",
+      "recommendedLayer": "PLAYBOOK",
+      "demoKnob": false,
+      "composeAffecting": false
+    }
+  ]
+}
