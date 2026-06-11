@@ -4,7 +4,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSession } from "next-auth/react";
-import { useChatContext, MODE_CONFIG, type ChatMode, type TuningScope } from "@/contexts/ChatContext";
+import { useChatContext, MODE_CONFIG, getMergedBannerKey, type ChatMode, type TuningScope } from "@/contexts/ChatContext";
 import { useEntityContext, ENTITY_COLORS, EntityBreadcrumb } from "@/contexts/EntityContext";
 import { useEntityDetection } from "@/hooks/useEntityDetection";
 import { AIModelBadge } from "@/components/shared/AIModelBadge";
@@ -165,6 +165,60 @@ function TuningScopeToggle() {
         onClick={() => handlePick("PLAYBOOK")}
       >
         Course{playbook ? `: ${playbook.label}` : ""}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * #1504 Slice 2 — one-time information banner shown after the
+ * `loadPersistedMessages` migration collapsed legacy TUNING + COURSE_MANAGE
+ * histories into the DATA stream. Rendered only when localStorage carries
+ * the "pending" sentinel; dismissing flips the sentinel to "shown" so the
+ * banner never reappears for this user.
+ *
+ * Uses `hf-banner hf-banner-info` design-system tokens — no inline colours.
+ */
+function HistoryMergedBanner() {
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const state = window.localStorage.getItem(getMergedBannerKey(userId));
+      setVisible(state === "pending");
+    } catch {
+      // ignore — banner is non-essential
+    }
+  }, [userId]);
+
+  if (!visible) return null;
+
+  const dismiss = () => {
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(getMergedBannerKey(userId), "shown");
+      }
+    } catch {
+      // ignore
+    }
+    setVisible(false);
+  };
+
+  return (
+    <div className="hf-banner hf-banner-info chat-merge-banner" role="status">
+      <span>
+        Chat history merged across modes — let us know if anything looks off.
+      </span>
+      <button
+        type="button"
+        className="chat-merge-banner-dismiss"
+        onClick={dismiss}
+        aria-label="Dismiss merge notice"
+      >
+        Got it
       </button>
     </div>
   );
@@ -467,6 +521,9 @@ export function ChatPanel() {
 
         {/* AI Chat Interface */}
         <>
+          {/* #1504 Slice 2 — one-time history-merged banner */}
+          <HistoryMergedBanner />
+
           {/* Mode tabs (Assistant / Tuning) */}
           <ChatModeTabs />
 

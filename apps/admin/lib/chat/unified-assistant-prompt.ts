@@ -1,15 +1,16 @@
 /**
- * #1504 Slice 1 — Unified Assistant system-prompt builder (spike).
+ * #1504 — Unified Assistant system-prompt builder.
  *
  * Merges the DATA + TUNING + COURSE_MANAGE prompt cascades into ONE builder
  * so a single chat surface can answer course-tuning, learner-tuning,
  * content-query, sim-prep, doc-lookup, and error-recovery questions
  * without three separate `mode` branches in `app/api/chat/route.ts`.
  *
- * THIS FILE IS FLAG-GATED (`HF_FLAG_UNIFIED_ASSISTANT=true`)
- * The legacy three-mode cascade in `system-prompts.ts::buildSystemPrompt`
- * remains the default. The spike runs side-by-side so the 40 factual-
- * grounding tests + 6 promptfoo scenarios can compare BEFORE / AFTER.
+ * Slice 1 (#1505) shipped this builder behind `HF_FLAG_UNIFIED_ASSISTANT`.
+ * Slice 2 (this commit) flips it to the default for the three collapsing
+ * modes and drops the flag — the legacy cases in `system-prompts.ts` are
+ * also retired. CALL + BUG remain on `buildSystemPrompt`; DEMO / WIZARD /
+ * COURSE_REF keep their own dedicated builders.
  *
  * ## Composition
  *
@@ -60,14 +61,14 @@
  * - Does NOT change the factual-grounding intercept. The intercept fires
  *   structurally on tool_use names in the turn — same code path, regardless
  *   of which builder produced the system prompt.
- * - Does NOT change the per-mode message history (deferred to Slice 2 with
- *   the localStorage migration).
- * - Does NOT change the UI (tabs still render; Slice 3).
+ * - Does NOT change the UI (tabs still render in this slice — Assistant /
+ *   Tuning / Course / Demo are now visual aliases for two backend paths;
+ *   tab consolidation lands in Slice 3).
  * - Does NOT touch DEMO / CALL / BUG / WIZARD / COURSE_REF modes — those
  *   keep their own builders unchanged.
  *
- * @see `app/api/chat/system-prompts.ts` — the legacy builder this replaces
- *      when the flag is on
+ * @see `app/api/chat/system-prompts.ts` — now CALL + BUG only after the
+ *      Slice 2 collapse
  * @see `app/api/chat/factual-grounding-intercept.ts` — paired structural
  *      backstop (unchanged)
  * @see `docs/decisions/2026-06-11-chat-mode-collapse-spike.md` — ADR
@@ -248,11 +249,11 @@ export function buildIntentRoutingBlock(signals: IntentSignals): string {
 }
 
 /**
- * Compose the unified Assistant system prompt. Wired into `route.ts` only
- * when `process.env.HF_FLAG_UNIFIED_ASSISTANT === "true"`.
+ * Compose the unified Assistant system prompt. Wired into `route.ts` as
+ * the default for DATA / TUNING / COURSE_MANAGE since #1504 Slice 2.
  *
- * The shape mirrors `system-prompts.ts::case "DATA"` so the differences
- * are isolated to:
+ * The shape mirrors the legacy DATA branch so the differences are
+ * isolated to:
  *   - The DATA prompt is unconditionally fetched (no mode gate)
  *   - The tuning catalogue is unconditionally injected (was only when
  *     mode in {DATA, TUNING})
@@ -420,15 +421,7 @@ async function buildFeedbackListHintBlock(input: BuildUnifiedAssistantPromptInpu
   return `\n\n${block}`;
 }
 
-/**
- * Read-side feature-flag check. Centralised here so the route handler's
- * branch is a single boolean test. Comparison is string-strict so a typo
- * (`HF_FLAG_UNIFIED_ASSISTANT=1`) won't accidentally flip the flag on.
- *
- * The flag is OFF by default everywhere. CI runs flag-off so the legacy
- * factual-grounding tests keep guarding the existing path. hf-dev VM
- * runs flag-on for live spike testing.
- */
-export function isUnifiedAssistantEnabled(): boolean {
-  return process.env.HF_FLAG_UNIFIED_ASSISTANT === "true";
-}
+// #1504 Slice 2 — `isUnifiedAssistantEnabled()` removed (the unified path is
+// now the default for DATA / TUNING / COURSE_MANAGE). The Slice 1 spike
+// kept it as `process.env.HF_FLAG_UNIFIED_ASSISTANT === "true"`; with the
+// route handler no longer reading the flag, the helper is dead code.

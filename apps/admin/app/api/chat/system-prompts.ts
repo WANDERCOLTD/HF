@@ -3,16 +3,17 @@ import { renderProviderPrompt } from "@/lib/prompt/composition/renderPromptSumma
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { resolveSourceFiles, getClaudeMdContext, type BugContext } from "@/lib/chat/bug-context";
 import { resolveTerminology, TECHNICAL_TERMS, type TermMap } from "@/lib/terminology";
-import { buildTuningSystemPrompt, type TuningScope } from "@/lib/chat/tuning-system-prompt";
-import { loadTicketContext, loadRecentTicketsDigest } from "@/lib/chat/ticket-context";
+import type { TuningScope } from "@/lib/chat/tuning-system-prompt";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
-import { buildPageContextBlock, type PageContextHint } from "./page-context";
-import { buildPageFeatureCatalogue } from "@/lib/chat/page-feature-catalogue";
+import type { PageContextHint } from "./page-context";
 
 export type { PageContextHint };
 
-type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING" | "COURSE_MANAGE";
+// #1504 Slice 2 — DATA / TUNING / COURSE_MANAGE collapsed into the unified
+// Assistant path (see `lib/chat/unified-assistant-prompt.ts`). `buildSystemPrompt`
+// now only handles CALL (voice-sim roleplay) and BUG (diagnosis).
+type ChatMode = "CALL" | "BUG";
 
 interface EntityBreadcrumb {
   type: string;
@@ -110,7 +111,11 @@ export async function buildSystemPrompt(
   bugContext?: BugContext,
   userRole?: string,
   institutionId?: string | null,
-  tuningScope?: TuningScope,
+  // #1504 Slice 2 — `tuningScope` is no longer consumed here (the unified
+  // Assistant builder owns it). Parameter retained on the signature for
+  // backward compatibility with the route handler's call site; intentionally
+  // unused. Drop in Slice 3 once the route handler no longer threads it.
+  _tuningScope?: TuningScope,
   options?: BuildSystemPromptOptions,
 ): Promise<SystemPromptResult> {
   // Resolve terminology for this user
@@ -120,197 +125,17 @@ export async function buildSystemPrompt(
   );
   const termBlock = buildTerminologyBlock(terms);
 
-  const baseContext = await buildEntityContext(entityContext);
   // #754: runtime context (version / env / dbTarget / route / role) — injected
   // for non-CALL modes. CALL would break voice roleplay if it knew the env.
   const runtimeBlock = buildRuntimeContextBlock(userRole, options?.pageHintRoute);
 
   switch (mode) {
-    case "COURSE_MANAGE":
-    case "DATA": {
-      // DATA mode shares the TUNING catalogue + truthfulness rules so the
-      // model can call update_behavior_target from the Assistant tab — but
-      // it MUST get the active entityContext so the Active Context block
-      // contains the real playbook UUID. Without this, the model would
-      // invent a UUID when asked to change a behaviour value, the tool
-      // would reject it, and the user would see "playbook not found"
-      // errors. See #603 follow-up (the chat panel only exposes DATA mode
-      // — MODE_CONFIG in ChatContext.tsx has no TUNING tab — so this is
-      // the path every Cmd+K message takes).
-      const [dataPrompt, tuningContext, ticketBlock, listHintBlock] = await Promise.all([
-        getPromptSpec(config.specs.chatDataHelper, DATA_SYSTEM_PROMPT),
-        // Pass tuningScope so DATA mode's shared tuning catalogue knows the
-        // active scope picked from the Assistant tab's Scope toggle. Without
-        // this the model had to infer scope from the chip stack, which
-        // failed whenever the stack contained multiple caller/playbook ids.
-        buildTuningSystemPrompt({ entityContext, tuningScope }),
-        buildTicketDiscussionBlock(options, userRole, institutionId),
-        buildFeedbackListHintBlock(options, userRole, institutionId),
-      ]);
-      const pageBlock = buildPageContextBlock(options?.pageContext);
-      const featureCatalogueBlock = buildPageFeatureCatalogue(options?.pageHintRoute);
-      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + runtimeBlock + pageBlock + featureCatalogueBlock + `\n\n${baseContext}` + ticketBlock + listHintBlock };
-    }
-    case "TUNING": {
-      // TUNING mode: catalogue + truthfulness rules + scope-aware write tools.
-      // Deliberately not bundled with DATA_SYSTEM_PROMPT so the model does
-      // not see advertised tools it cannot reach in this mode. The
-      // `tuningScope` (LEARNER | PLAYBOOK) comes from the Tuning tab toggle.
-      const tuningPrompt = await buildTuningSystemPrompt({ entityContext, tuningScope });
-      return { prompt: tuningPrompt + termBlock + runtimeBlock + `\n\n${baseContext}` };
-    }
     case "CALL":
       return await buildCallSimPrompt(entityContext, terms, termBlock);
     case "BUG":
       return { prompt: await buildBugDiagnosisPrompt(entityContext, bugContext, termBlock, runtimeBlock) };
   }
 }
-
-/**
- * #733 — when the user is on `/x/feedback` without a selected ticket, inject
- * a short digest of recent OPEN/IN_PROGRESS tickets so the assistant can ask
- * "which one?" instead of guessing. Only fires when no discussionTicketId is
- * set (otherwise the Active Ticket block already gives full context).
- */
-async function buildFeedbackListHintBlock(
-  options: BuildSystemPromptOptions | undefined,
-  userRole: string | undefined,
-  institutionId: string | null | undefined,
-): Promise<string> {
-  if (!options?.pageHintRoute || options.pageHintRoute !== "/x/feedback") return "";
-  if (options.discussionTicketId) return ""; // active ticket → no need for the digest
-  const block = await loadRecentTicketsDigest(
-    institutionId ?? null,
-    userRole === "SUPERADMIN",
-    5,
-  );
-  return `\n\n${block}`;
-}
-
-/**
- * #727 v1 — load the active feedback ticket (if requested) for DATA-mode
- * Assistant. Returns "" when no discussionTicketId is set or when the scope
- * guard refuses. The DATA case appends the result to the system prompt.
- */
-async function buildTicketDiscussionBlock(
-  options: BuildSystemPromptOptions | undefined,
-  userRole: string | undefined,
-  institutionId: string | null | undefined,
-): Promise<string> {
-  if (!options?.discussionTicketId || !options.sessionUserId) return "";
-  const result = await loadTicketContext({
-    ticketId: options.discussionTicketId,
-    sessionUserId: options.sessionUserId,
-    sessionInstitutionId: institutionId ?? null,
-    isSuperadmin: userRole === "SUPERADMIN",
-    // Internal comments visible to OPERATOR+; mirrors GET /api/tickets/[id] filter
-    canSeeInternalComments: userRole === "OPERATOR" || userRole === "ADMIN" || userRole === "SUPERADMIN",
-  });
-  if (!result.ok) return "";
-  return `\n\n${result.block}`;
-}
-
-const DATA_SYSTEM_PROMPT = `You are a DATA HELPER for the HumanFirst Admin application.
-
-CRITICAL: You have DIRECT ACCESS to the application database AND tools to query and modify it! The "Current Context" section below contains REAL, LIVE DATA. This is NOT simulated.
-
-DO NOT say things like:
-- "I don't have access to your data"
-- "I can't check external systems"
-- "Please consult your administrator"
-
-INSTEAD, use the data below AND your tools to:
-- Answer questions about callers, calls, memories, scores, playbooks, specs
-- Explain what the data means and how entities relate
-- Diagnose issues with spec configs (e.g. "the tutor sounds too formal")
-- Make changes to specs when the user asks
-
-When answering, reference the specific data from Current Context or from tool results.
-If data is not in the current context, use your tools to look it up — don't ask the user to navigate.
-
-## Available Tools
-
-You have tools to **query and modify** the database:
-
-- **query_specs** — Search specs by name, role, slug
-- **get_spec_config** — Get the full config JSON for a spec
-- **update_spec_config** — Merge updates into a spec's config
-- **query_callers** — Search callers by name or domain
-- **get_domain_info** — Get domain details with playbook and specs
-- **create_subject_with_source** — Create a subject + content source (curriculum building)
-- **add_content_assertions** — Add teaching points to a source (AI generates from knowledge)
-- **link_subject_to_domain** — Connect a subject to a domain
-- **generate_curriculum** — Trigger AI curriculum generation from assertions
-- **system_ini_check** — Run a full system initialization check (SUPERADMIN only). Returns pass/fail/warn for 10 checks covering env vars, database, specs, domains, contracts, admin users, parameters, AI services, voice provider, and storage.
-
-Use tools proactively. If the user asks about a spec or domain, look it up yourself.
-
-### Write Actions (update_spec_config)
-
-For ANY changes to the database:
-1. First use get_spec_config or get_domain_info to see the current state
-2. Propose your changes clearly — show what will change and why
-3. Ask the user: "Shall I apply these changes?"
-4. ONLY call update_spec_config AFTER the user explicitly confirms
-
-NEVER modify data without showing the user what will change first.
-
-### Curriculum Building
-
-You can build a complete curriculum from scratch using these tools in sequence:
-
-1. **create_subject_with_source** — Create the subject and its content source
-2. **add_content_assertions** — Generate 15-30 teaching points from your knowledge of the topic
-3. **link_subject_to_domain** — Connect the subject to a domain (use get_domain_info to find the domain ID)
-4. **generate_curriculum** — Trigger AI curriculum generation (runs in background)
-
-**When asked to "build a curriculum" or "create a curriculum":**
-1. Ask what domain/topic they want (if not clear)
-2. Create the subject and source in one step
-3. Generate comprehensive teaching points covering key facts, definitions, processes, and rules
-4. Link to the appropriate domain
-5. Trigger curriculum generation
-6. Summarise what was created and tell the user to check the subject page for results
-
-**Guidelines for generating assertions:**
-- Each assertion must be a single, atomic, verifiable teaching point
-- Use categories: 'fact' (data points), 'definition' (what things are), 'process' (how things work), 'rule' (constraints/requirements), 'example' (illustrations), 'threshold' (numerical limits)
-- Group assertions by chapter/topic area
-- Aim for 15-30 assertions for a basic curriculum, more for comprehensive topics
-- Set exam_relevance (0.0-1.0) for assessment-focused curricula
-- Tag assertions with topic keywords
-
-**Important:** AI-generated content is automatically tagged as trust level "AI_ASSISTED" (L1). An operator should later review and promote the trust level if verified against authoritative sources.
-
-### System Diagnostics (system_ini_check)
-
-When the user asks about system health, readiness, or setup status:
-1. Call system_ini_check (no parameters needed)
-2. Present results as a table: check name | status (pass/warn/fail) | message
-3. For "fail" items, explain the problem and the remediation step
-4. For "warn" items, explain why it matters and when to fix it
-5. Summarise overall status (green/amber/red) at the top
-
-This tool requires SUPERADMIN role. If a lower-role user asks, explain they need SUPERADMIN access.
-
-## Learner-scoped facts grounding contract
-
-Any claim about a specific learner's enrollment, active course, voice configuration, progress, or goal state MUST be sourced from a tool call (\`get_caller_detail\`, \`get_voice_config\`, or another grounding tool) made in the CURRENT turn.
-
-Inferring from \`courseSnapshot\`, the system overview block, or conversation history is **not permitted**. The course snapshot describes only the COURSE the operator is viewing — never a specific learner's enrollment. The system overview lists the full course catalogue — never any caller's actual enrollment.
-
-If you have not yet called a grounding tool this turn:
-- For "what course is <caller> on?" / "what voice does <caller> hear?" / "what's <caller>'s progress?" — call \`get_caller_detail\` first.
-- If you can't or won't call the tool — say "I'd need to look that up — shall I call get_caller_detail?" Do not assert the fact.
-
-## Response Format
-
-Use markdown for clear, readable responses:
-- **Bold** for key terms and field names
-- \`code\` for slugs, IDs, and config keys
-- Code blocks for JSON configs
-- Tables for comparing values
-- Bullet lists for multiple items`;
 
 /**
  * Build context string from entity breadcrumbs.

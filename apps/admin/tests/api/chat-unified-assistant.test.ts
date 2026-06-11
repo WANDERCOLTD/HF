@@ -77,13 +77,12 @@ import {
   buildUnifiedAssistantPrompt,
   deriveIntentSignals,
   buildIntentRoutingBlock,
-  isUnifiedAssistantEnabled,
 } from "@/lib/chat/unified-assistant-prompt";
 
 beforeEach(() => {
-  // Reset the feature flag env var between tests so isUnifiedAssistantEnabled
-  // behaviour is deterministic.
-  delete process.env.HF_FLAG_UNIFIED_ASSISTANT;
+  // #1504 Slice 2 — flag-gated path removed; the builder is now the default.
+  // Leave any prior env var set by a sibling test untouched to avoid leaking
+  // cross-suite state.
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -275,26 +274,37 @@ describe("Unified Assistant — Scenario 6: Error recovery (broken course)", () 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Feature flag — must default OFF so CI runs the legacy path
+// Scenario 7 — Cohort fan-out (added in Slice 2)
+//
+// Operator is viewing a learner page and says "fix this for her" while the
+// tuningScope toggle is set to PLAYBOOK. The intent-routing block must warn
+// that course-edit tools affect the whole cohort so the model asks before
+// fanning out instead of silently rewriting the cohort's behaviour target.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("isUnifiedAssistantEnabled — feature flag default", () => {
-  it("returns false when the env var is unset", () => {
-    expect(isUnifiedAssistantEnabled()).toBe(false);
-  });
+describe("Unified Assistant — Scenario 7: Cohort fan-out warning", () => {
+  it("emits the 'WILL affect this learner's whole cohort' warning when on a learner page with PLAYBOOK scope", async () => {
+    const result = await buildUnifiedAssistantPrompt({
+      entityContext: [DOMAIN_CRUMB, PLAYBOOK_CRUMB, CALLER_CRUMB],
+      tuningScope: "PLAYBOOK",
+      userRole: "OPERATOR",
+      institutionId: "inst_test",
+      pageContext: { page: "caller", params: {} },
+      pageHintRoute: "/x/callers/caller_test_001",
+    });
 
-  it("returns false for any value other than the literal string 'true'", () => {
-    process.env.HF_FLAG_UNIFIED_ASSISTANT = "1";
-    expect(isUnifiedAssistantEnabled()).toBe(false);
-    process.env.HF_FLAG_UNIFIED_ASSISTANT = "yes";
-    expect(isUnifiedAssistantEnabled()).toBe(false);
-    process.env.HF_FLAG_UNIFIED_ASSISTANT = "TRUE";
-    expect(isUnifiedAssistantEnabled()).toBe(false);
-  });
+    // Course-tuning scope warning surfaced even though the operator is on
+    // the learner page — the toggle is the explicit signal.
+    expect(result.prompt).toContain("Course-tuning");
+    expect(result.prompt).toContain('scope: "PLAYBOOK"');
 
-  it("returns true only when the env var is exactly 'true'", () => {
-    process.env.HF_FLAG_UNIFIED_ASSISTANT = "true";
-    expect(isUnifiedAssistantEnabled()).toBe(true);
+    // Learner context warning that course-edit tools fan out across the
+    // whole cohort — the operator must confirm before that lands.
+    expect(result.prompt).toContain("WILL affect this learner's whole cohort");
+
+    // The "HINTS — not gates" disclaimer also surfaces so an explicit
+    // cross-scope request still works.
+    expect(result.prompt).toContain("HINTS — not gates");
   });
 });
 

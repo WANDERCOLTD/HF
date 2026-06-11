@@ -4,10 +4,7 @@ import { getAIConfig } from "@/lib/ai/config-loader";
 import { classifyAIError, userMessageForError } from "@/lib/ai/error-utils";
 import { getConfiguredMeteredAICompletionStream, getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { buildSystemPrompt } from "./system-prompts";
-import {
-  buildUnifiedAssistantPrompt,
-  isUnifiedAssistantEnabled,
-} from "@/lib/chat/unified-assistant-prompt";
+import { buildUnifiedAssistantPrompt } from "@/lib/chat/unified-assistant-prompt";
 import { parsePageContext, type PageContextHint } from "./page-context";
 import { parseTrayReflections, buildReflectionMessages } from "./tray-reflection";
 import { executeCommand, parseCommand } from "@/lib/chat/commands";
@@ -22,54 +19,18 @@ import { detectUngroundedLearnerClaim, detectFabricatedFilePaths } from "./factu
 import path from "node:path";
 import { existsSync as fsExistsSync } from "node:fs";
 
-// TUNING mode gets a narrow tool surface — behaviour-target writer + playbook
-// config writer. Broader admin tools stay in DATA mode where they belong.
-// `update_behavior_target` is scope-aware (LEARNER or PLAYBOOK); the model
-// reads the active scope from the system prompt and passes it as a tool arg.
-// `update_playbook_config` is always course-scoped (config keys live on
-// Playbook.config — no per-learner variant).
-const TUNING_TOOL_NAMES = new Set(["update_behavior_target", "update_playbook_config"]);
-const TUNING_TOOLS = ADMIN_TOOLS.filter((t) => TUNING_TOOL_NAMES.has(t.name));
-
-// #1225 — COURSE_MANAGE mode: operator is looking at a specific course (Playbook);
-// system prompt carries a full snapshot of that course's editable surface; the
-// AI sees only course-relevant tools (not domain, system, or cross-tenant ones).
-// Subset of ADMIN_TOOLS so the existing forbidden-fields + pending-change
-// meta-tests apply automatically — no parallel allowlist to maintain.
-const COURSE_MANAGE_TOOL_NAMES = new Set([
-  // Writers — course config + curriculum + LO + lesson plan
-  "update_playbook_config",
-  "update_playbook_meta",
-  "update_behavior_target",
-  "update_curriculum_module",
-  "update_curriculum_metadata",
-  "update_learning_objective",
-  "update_assertion_lo_link",
-  "add_curriculum_module",
-  "replace_lesson_plan",
-  "recompose_caller_prompt",
-  // #1429 — demo / cohort fan-out reprompt
-  "reprompt_demo_set",
-  "reprompt_playbook",
-  // Readers — current course state + per-learner queries operators often run
-  // while looking at a course (e.g. "how is Brynn doing on module 3?")
-  "get_playbook_config",
-  "list_behavior_targets",
-  "list_curriculum_modules",
-  "get_caller_detail",
-  "list_goals_for_caller",
-  "list_caller_memories",
-  // #1225 Slice B — last-7-days landings
-  "swap_primary_curriculum",
-  "attach_linked_curriculum",
-  "detach_linked_curriculum",
-  "update_intake_spec_draft",
-  "get_voice_config",
-  "update_voice_config",
-  // #1348 Cascade Lens v1 — read-only voice provenance explainer
-  "explain_voice_cascade",
-]);
-const COURSE_MANAGE_TOOLS = ADMIN_TOOLS.filter((t) => COURSE_MANAGE_TOOL_NAMES.has(t.name));
+// #1504 Slice 2 — DATA / TUNING / COURSE_MANAGE collapsed into the unified
+// Assistant path. The legacy per-mode tool whitelists (`TUNING_TOOLS`,
+// `COURSE_MANAGE_TOOLS`) are gone — the unified Assistant sees the full
+// `ADMIN_TOOLS` palette and self-narrows by intent (see the intent-routing
+// block in `lib/chat/unified-assistant-prompt.ts`).
+//
+// The 4 visible tabs in `ChatPanel.tsx` (Assistant / Tuning / Course / Demo)
+// are now visual aliases for two backend paths:
+//   - tabs Assistant/Tuning/Course → unified Assistant path (this file, below)
+//   - tab Demo → DEMO branch (separate prompt + 5-tool palette, untouched)
+// Tab consolidation is deferred to Slice 3 of the epic; this slice only
+// flips the API default to the unified path.
 
 // #1485 — DEMO mode: narrow action palette for operators driving a live
 // product demo. The 5 tools below cover the "make a tweak and see it in the
@@ -114,6 +75,11 @@ import {
 
 export const runtime = "nodejs";
 
+// #1504 Slice 2 — TUNING / COURSE_MANAGE remain in the union because
+// `ChatContext.tsx` still surfaces them as visual tab aliases. The API
+// folds DATA / TUNING / COURSE_MANAGE into the unified Assistant runner
+// (see the dispatch below). CALL / BUG / WIZARD / COURSE_REF are
+// runtime-only modes (not user-facing tabs) and keep their own branches.
 type ChatMode = "DATA" | "CALL" | "BUG" | "WIZARD" | "COURSE_REF" | "TUNING" | "COURSE_MANAGE" | "DEMO";
 
 interface EntityBreadcrumb {
@@ -409,23 +375,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // #1504 Slice 1 — Unified Assistant spike (flag-gated).
+    // #1504 Slice 2 — DATA / TUNING / COURSE_MANAGE flip to the unified
+    // Assistant path by default (was flag-gated as a Slice 1 spike).
     //
-    // When `HF_FLAG_UNIFIED_ASSISTANT=true` AND mode is one of the three
-    // collapsing modes (DATA / TUNING / COURSE_MANAGE), route through the
-    // single unified-prompt builder + full ADMIN_TOOLS palette + the
-    // existing tool loop. DEMO / CALL / BUG / WIZARD / COURSE_REF stay
-    // untouched. The intercept (`detectUngroundedLearnerClaim`) fires
-    // structurally on `toolUsesInTurn`, so it works unchanged here.
+    // One builder, one tool palette (full `ADMIN_TOOLS`), one runner. The
+    // 4 visible tabs in ChatPanel.tsx still render — Assistant / Tuning /
+    // Course are visual aliases for this path; only Demo (below) and the
+    // route-level modes (CALL / BUG / WIZARD / COURSE_REF) stay distinct.
     //
-    // CI runs flag-off so the 40 factual-grounding tests + page-context
-    // tests + tuning-update-target tests keep guarding the existing path.
-    // hf-dev VM runs flag-on for live testing.
+    // The factual-grounding intercept in `handleDataModeWithTools` fires
+    // structurally on `toolUsesInTurn` regardless of which prompt builder
+    // produced the system prompt, so the 40 grounding tests still guard
+    // every assistant claim about a specific learner.
     const userInstitutionId = authResult.session.user.institutionId;
-    if (
-      isUnifiedAssistantEnabled() &&
-      (mode === "DATA" || mode === "TUNING" || mode === "COURSE_MANAGE")
-    ) {
+    if (mode === "DATA" || mode === "TUNING" || mode === "COURSE_MANAGE") {
       const { prompt: unifiedPrompt } = await buildUnifiedAssistantPrompt({
         entityContext,
         tuningScope,
@@ -469,9 +432,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build mode-specific system prompt with terminology
+    // Build mode-specific system prompt with terminology. After the
+    // Slice 2 collapse this only covers CALL + BUG; DATA / TUNING /
+    // COURSE_MANAGE took the unified branch above.
     const { prompt: systemPrompt, llmPrompt } = await buildSystemPrompt(
-      mode as "DATA" | "CALL" | "BUG" | "TUNING",
+      mode as "CALL" | "BUG",
       entityContext,
       bugContext,
       userRole,
@@ -493,29 +458,10 @@ export async function POST(request: NextRequest) {
       ...(isUserMessageInHistory ? [] : [{ role: "user" as const, content: message.trim() }]),
     ];
 
-    // @ai-call chat.{data|call} — Chat per mode (DATA with tools, CALL with voice sim) | config: /x/ai-config
+    // @ai-call chat.{call|bug} — runtime-only modes after the #1504 Slice 2 collapse
     const callPoint = `chat.${mode.toLowerCase()}`;
     const aiConfig = await getAIConfig(callPoint);
     const selectedEngine = engine || aiConfig.provider;
-
-    // DATA mode: use tool calling with non-streaming loop
-    if (mode === "DATA") {
-      const userId = authResult.session.user.id;
-      return await handleDataModeWithTools(messages, callPoint, engine, selectedEngine, mode, message, entityContext, conversationHistory, userRole, userId);
-    }
-
-    // #1225 — COURSE_MANAGE mode: same tool loop as DATA, but the AI sees only
-    // course-relevant tools (COURSE_MANAGE_TOOLS) and the system prompt carries
-    // a full snapshot of the active course (via pageContext.params.courseSnapshot,
-    // injected by page-context.ts::buildPageContextBlock).
-    if (mode === "COURSE_MANAGE") {
-      const userId = authResult.session.user.id;
-      return await handleDataModeWithTools(
-        messages, callPoint, engine, selectedEngine, mode, message,
-        entityContext, conversationHistory, userRole, userId,
-        COURSE_MANAGE_TOOLS,
-      );
-    }
 
     // CALL mode: per-turn knowledge retrieval (matches what the voice provider does live)
     if (mode === "CALL") {
@@ -616,18 +562,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // TUNING mode: tool loop — assistant may persist behaviour-target changes
-    // via update_behavior_target. Validation is centralised in
-    // lib/agent-tuner/write-target.ts so this path and the panel cannot drift.
-    if (mode === "TUNING") {
-      const userId = authResult.session.user.id;
-      return await handleTuningModeWithTools(
-        messages, "chat.tuning", engine, selectedEngine, mode,
-        message, entityContext, conversationHistory, userRole, userId,
-      );
-    }
-
-    // Should not reach here
+    // #1504 Slice 2 — TUNING is intercepted by the unified-Assistant branch
+    // above. Any request reaching here with an unhandled mode is a bug.
     return NextResponse.json({ ok: false, error: "Invalid chat mode" }, { status: 400 });
   } catch (error) {
     console.error("Chat API error:", error);
@@ -654,9 +590,11 @@ async function handleDataModeWithTools(
   conversationHistory: { role: string; content: string }[],
   userRole: string,
   userId: string,
-  // #1225 — tool surface defaults to the full ADMIN_TOOLS for DATA mode;
-  // COURSE_MANAGE passes COURSE_MANAGE_TOOLS to narrow the AI's surface to
-  // course-relevant mutators only.
+  // Tool surface defaults to the full ADMIN_TOOLS palette. #1504 Slice 2
+  // collapsed the previous per-mode COURSE_MANAGE_TOOLS / TUNING_TOOLS
+  // whitelists into one — the unified Assistant self-narrows by intent
+  // (see `lib/chat/unified-assistant-prompt.ts`). DEMO mode passes its
+  // narrower `DEMO_TOOLS` palette in explicitly.
   tools: typeof ADMIN_TOOLS = ADMIN_TOOLS,
 ): Promise<Response> {
   const loopMessages: AIMessage[] = [...messages];
@@ -756,106 +694,6 @@ async function handleDataModeWithTools(
   logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext, toolCallCount);
 
   // Return as streaming-style response for consistency with other modes
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      controller.enqueue(encoder.encode(finalContent));
-      controller.close();
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Transfer-Encoding": "chunked",
-      "X-Chat-Mode": mode,
-      "X-AI-Engine": selectedEngine,
-      "X-Tool-Calls": toolCallCount.toString(),
-      ...(pendingChanges.length > 0
-        ? { "X-Pending-Changes": encodeURIComponent(JSON.stringify(pendingChanges)) }
-        : {}),
-    },
-  });
-}
-
-/**
- * TUNING mode with tool calling.
- * Same structure as DATA mode but restricted to update_behavior_target.
- * The assistant may persist behaviour-target changes; the system prompt
- * instructs it to call the tool when intent is clear and quote the
- * DB-confirmed value back.
- */
-async function handleTuningModeWithTools(
-  messages: AIMessage[],
-  callPoint: string,
-  engine: AIEngine | undefined,
-  selectedEngine: string,
-  mode: ChatMode,
-  message: string,
-  entityContext: EntityBreadcrumb[],
-  conversationHistory: { role: string; content: string }[],
-  userRole: string,
-  userId: string,
-): Promise<Response> {
-  const loopMessages: AIMessage[] = [...messages];
-  let toolCallCount = 0;
-  let finalContent = "";
-  // #873 — accumulate pendingChange payloads from tool results.
-  const pendingChanges: PendingChangePayload[] = [];
-
-  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    // @ai-call chat.tuning — Tuning assistant tool loop | config: /x/ai-config
-    const response = await getConfiguredMeteredAICompletion(
-      {
-        callPoint,
-        engineOverride: engine,
-        messages: loopMessages,
-        tools: TUNING_TOOLS,
-      },
-      { sourceOp: `${callPoint}.tools` }
-    );
-
-    if (!response.toolUses || response.toolUses.length === 0) {
-      finalContent = response.content;
-      break;
-    }
-
-    toolCallCount += response.toolUses.length;
-
-    loopMessages.push({
-      role: "assistant",
-      content: response.rawContentBlocks || [{ type: "text", text: response.content }],
-    });
-
-    const toolResultBlocks: ContentBlock[] = [];
-    for (const toolUse of response.toolUses) {
-      console.log(`[chat-tools:tuning] Executing: ${toolUse.name}`, JSON.stringify(toolUse.input).slice(0, 200));
-      const result = await executeAdminTool(toolUse.name, toolUse.input, userRole as any, { userId });
-      toolResultBlocks.push({
-        type: "tool_result",
-        tool_use_id: toolUse.id,
-        content: result,
-      });
-      // #873 — surface pendingChange to the client via response header.
-      // `result` is a JSON-stringified blob — must parse before extraction.
-      const pendingChange = extractPendingChangeFromToolResult(result);
-      if (pendingChange) {
-        pendingChanges.push(pendingChange);
-      }
-    }
-
-    loopMessages.push({
-      role: "user",
-      content: toolResultBlocks,
-    });
-  }
-
-  if (!finalContent) {
-    finalContent = "I tried to apply your change but ran out of tool steps. Please try again with a more specific request.";
-  }
-
-  logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext, toolCallCount);
-
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {

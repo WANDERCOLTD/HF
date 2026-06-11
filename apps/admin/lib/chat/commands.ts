@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { MemoryCategory } from "@prisma/client";
 
-// Reconciled with the live ChatContext.tsx type ("DATA" | "TUNING" | "COURSE_MANAGE" | "DEMO").
-// BUG and CALL are legacy API modes still routed through this command pipeline;
-// keep them in the union so the cast in app/api/chat/route.ts stays type-safe.
+// #1504 Slice 2 — DATA / TUNING / COURSE_MANAGE still appear as visible UI
+// tabs in `ChatContext.tsx` so the union keeps them. The API folds those
+// three into the unified Assistant runner; CALL and BUG are runtime-only
+// modes (not user-facing tabs) but stay in the union because the
+// command pipeline can still receive them via the route's mode cast.
 type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING" | "COURSE_MANAGE" | "DEMO";
 
 interface EntityBreadcrumb {
