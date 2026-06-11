@@ -251,7 +251,24 @@ secret in browser-shipped code" is an architecture-independent data-safety invar
 | `check-doc-citations.ts` | Canonical-doc `file::symbol` citation drift | — | **meta** (KB integrity) |
 | `check-knowledge-map.ts` | `KNOWLEDGE-MAP.md` ratchet — repo translation layer stays in step | — | **meta** (KB integrity) |
 | `check-uplift-visual.ts` | Caller Insights visual regression | — | **meta** (test) |
+| [`check-webhook-signature.ts`](#guard-check-webhook-signature) | Voice-provider `verifyInboundRequest` may not be a no-op `return null` stub — every webhook verifier must do real work | HF-C/HF-K / 2026-06-11 | **a** |
 | `cleanup-agent-worktrees.sh` | GC of agent-spawned worktrees whose PR is MERGED or CLOSED. Operator script; nudge surfaced in SessionStart hook when count > 6. | — | **meta** (process hygiene) |
+
+<a id="guard-check-webhook-signature"></a>
+**`check-webhook-signature.ts`** · class **a** · born HF-C/HF-K / 2026-06-11 ·
+[script source](../../apps/admin/scripts/capture/check-webhook-signature.ts) · wired into `npm run kb:check`
+
+The Retell provider shipped a `verifyInboundRequest` that returned `null` unconditionally
+(#1079 follow-up debt) — every inbound Retell webhook was trusted WITHOUT signature
+verification, a spoofable end-of-call / transcript injection surface. HF-C implemented the
+real `x-retell-signature` HMAC check (`lib/voice/providers/retell/auth.ts`); this guard
+makes the regression structurally impossible. It brace-matches each
+`lib/voice/providers/*/index.ts` `verifyInboundRequest` body, strips comments + `void x;`
+no-ops, and fails if what remains is an empty body or a bare `return null`. A compliant impl
+delegates to a `verify*` helper or computes an HMAC inline; the "pass-through when no secret
+is configured" early return lives INSIDE that helper (dev ergonomics), not in the provider
+method. **Survives hardening:** "no unverified webhook ingress" is an architecture-independent
+data-safety invariant.
 
 ## Runtime guards & contracts
 

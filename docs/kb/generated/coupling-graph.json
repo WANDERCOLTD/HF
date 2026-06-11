@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T15:32:58.628Z",
+  "generatedAt": "2026-06-11T20:49:47.775Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1664,
-  "edgeCount": 3825,
+  "fileCount": 1666,
+  "edgeCount": 3826,
   "skippedEdges": 1,
   "edges": [
     {
@@ -9216,14 +9216,6 @@
       "to": "components/shared/FancySelect.tsx"
     },
     {
-      "from": "app/x/help/_admin/telemetry/page.tsx",
-      "to": "lib/auth.ts"
-    },
-    {
-      "from": "app/x/help/_admin/telemetry/page.tsx",
-      "to": "lib/prisma.ts"
-    },
-    {
       "from": "app/x/help/demos/HelpDemosTelemetry.tsx",
       "to": "lib/help/track-help-event.ts"
     },
@@ -9238,6 +9230,14 @@
     {
       "from": "app/x/help/demos/page.tsx",
       "to": "lib/auth.ts"
+    },
+    {
+      "from": "app/x/help/telemetry/page.tsx",
+      "to": "lib/auth.ts"
+    },
+    {
+      "from": "app/x/help/telemetry/page.tsx",
+      "to": "lib/prisma.ts"
     },
     {
       "from": "app/x/holographic/page.tsx",
@@ -14425,6 +14425,10 @@
     },
     {
       "from": "lib/voice/providers/retell/index.ts",
+      "to": "lib/voice/providers/retell/auth.ts"
+    },
+    {
+      "from": "lib/voice/providers/retell/index.ts",
       "to": "lib/voice/types.ts"
     },
     {
@@ -18930,11 +18934,6 @@
       "outDegree": 3
     },
     {
-      "path": "app/x/help/_admin/telemetry/page.tsx",
-      "inDegree": 0,
-      "outDegree": 2
-    },
-    {
       "path": "app/x/help/demos/HelpDemosTelemetry.tsx",
       "inDegree": 1,
       "outDegree": 1
@@ -18948,6 +18947,11 @@
       "path": "app/x/help/demos/page.tsx",
       "inDegree": 0,
       "outDegree": 3
+    },
+    {
+      "path": "app/x/help/telemetry/page.tsx",
+      "inDegree": 0,
+      "outDegree": 2
     },
     {
       "path": "app/x/holographic/page.tsx",
@@ -22795,9 +22799,14 @@
       "outDegree": 3
     },
     {
+      "path": "lib/voice/providers/retell/auth.ts",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "lib/voice/providers/retell/index.ts",
       "inDegree": 1,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/voice/providers/vapi/auth.ts",
@@ -23246,6 +23255,11 @@
     },
     {
       "path": "scripts/capture/check-incident-guard-ritual.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/check-webhook-signature.ts",
       "inDegree": 0,
       "outDegree": 0
     },

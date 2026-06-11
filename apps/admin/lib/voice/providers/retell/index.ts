@@ -37,6 +37,7 @@ import type {
   VoiceProvider,
   VoiceProviderCapabilities,
 } from "../../types";
+import { verifyRetellRequest } from "./auth";
 
 interface RetellCredentials {
   apiKey?: string;
@@ -63,20 +64,16 @@ export class RetellProvider implements VoiceProvider {
   }
 
   /**
-   * Stub: Retell uses `x-retell-signature` header (SHA256 HMAC of body
-   * with the API key). Real verification ships in the follow-up story.
-   * Returning null preserves the contract: routes can mount this adapter
-   * and exercise the dispatch path even before signature checking lands.
+   * Verify the inbound Retell webhook via the `x-retell-signature` HMAC.
+   * Prefers a dedicated `webhookSecret`, falling back to the API key
+   * (Retell's default signing key). Pass-through when neither is set, to
+   * preserve local-dev ergonomics — same posture as the VAPI verifier.
    */
   verifyInboundRequest(
-    _req: NextRequest,
-    _rawBody: string,
+    req: NextRequest,
+    rawBody: string,
   ): NextResponse | null {
-    void _req;
-    void _rawBody;
-    // TODO(#1079-follow-up): verify x-retell-signature against
-    // crypto.createHmac("sha256", this._apiKey).update(rawBody).
-    return null;
+    return verifyRetellRequest(req, rawBody, this._webhookSecret ?? this._apiKey);
   }
 
   /**
