@@ -58,6 +58,13 @@ interface VoicePayload {
   courseOverrides?: Record<string, unknown>;
 }
 
+interface VoiceCatalogEntry {
+  voiceProvider: string;
+  voiceId: string;
+  label: string;
+  description?: string;
+}
+
 interface NodeRowDef {
   /** Cascade key this row reads from. */
   key: string;
@@ -89,8 +96,7 @@ const NODES: NodeDef[] = [
   {
     id: "pickup",
     marker: <Phone size={18} aria-hidden="true" />,
-    title: "Pickup",
-    subtitle: "The learner answers the call.",
+    title: "Call starts",
     rows: [],
   },
   {
@@ -215,6 +221,10 @@ export function VoiceFlowLens({
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
+  // Vendor-validated voice catalog for the voiceId drawer dropdown
+  // (#1421 Slice A pattern, mirrored from VoiceConfigSection.tsx:417–444).
+  // Empty array = custom-ID hatch (e.g. ElevenLabs account-specific IDs).
+  const [voiceCatalog, setVoiceCatalog] = useState<VoiceCatalogEntry[] | null>(null);
 
   const session = useSession();
   const role = (session.data?.user as { role?: string } | undefined)?.role ?? "";
@@ -244,6 +254,37 @@ export function VoiceFlowLens({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Re-fetch the catalog whenever the orchestrator slug + resolved
+  // voiceProvider change. Mirrors VoiceConfigSection.tsx:417–444.
+  const orchestratorSlug = data?.enabledProviderSlug;
+  const resolvedVoiceProvider =
+    (data?.resolved.fields.voiceProvider?.value as string | undefined) ?? null;
+  useEffect(() => {
+    if (!orchestratorSlug || !resolvedVoiceProvider) {
+      setVoiceCatalog(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/voice/${encodeURIComponent(orchestratorSlug)}/catalog?voiceProvider=${encodeURIComponent(resolvedVoiceProvider)}`,
+        );
+        if (!res.ok) {
+          if (!cancelled) setVoiceCatalog([]);
+          return;
+        }
+        const json = (await res.json()) as { ok: boolean; voices: VoiceCatalogEntry[] };
+        if (!cancelled) setVoiceCatalog(json.voices ?? []);
+      } catch {
+        if (!cancelled) setVoiceCatalog([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orchestratorSlug, resolvedVoiceProvider]);
 
   const persist = useCallback(
     async (key: string, value: unknown): Promise<void> => {
@@ -313,6 +354,12 @@ export function VoiceFlowLens({
   return (
     <div className="hf-voice-flow">
       <header className="hf-voice-flow-intro">
+        <div className="hf-voice-flow-intro-platform">
+          <span className="hf-voice-flow-platform-label">Voice platform</span>
+          <span className="hf-voice-flow-platform-chip">
+            {data.enabledProviderSlug.toUpperCase()}
+          </span>
+        </div>
         <div className="hf-text-muted hf-text-sm">
           Settings inherit from the system default unless overridden here.
           Edit any field to set a course-specific value. Clear it (↺ Reset)
@@ -407,6 +454,7 @@ export function VoiceFlowLens({
         data={data}
         busyKey={busyKey}
         savedFlash={savedFlash}
+        voiceCatalog={voiceCatalog}
         onClose={() => setDrawerKey(null)}
         onSave={persist}
         onReset={reset}
@@ -420,6 +468,9 @@ interface VoiceFlowEditDrawerProps {
   data: VoicePayload;
   busyKey: string | null;
   savedFlash: string | null;
+  /** Vendor-validated voice list for the voiceId dropdown. null until
+   *  fetched; empty array = custom-ID hatch (use free-text input). */
+  voiceCatalog: VoiceCatalogEntry[] | null;
   onClose: () => void;
   onSave: (key: string, value: unknown) => Promise<void>;
   onReset: (key: string) => Promise<void>;
@@ -430,6 +481,7 @@ function VoiceFlowEditDrawer({
   data,
   busyKey,
   savedFlash,
+  voiceCatalog,
   onClose,
   onSave,
   onReset,
@@ -464,7 +516,7 @@ function VoiceFlowEditDrawer({
             onReset={async (k) => {
               await onReset(k);
             }}
-            voiceCatalog={undefined}
+            voiceCatalog={key === "voiceId" ? voiceCatalog : undefined}
             currentVoiceProvider={
               (data.resolved.fields.voiceProvider?.value as string | undefined) ?? null
             }
