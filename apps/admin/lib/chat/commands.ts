@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { MemoryCategory } from "@prisma/client";
 
-// Reconciled with the live ChatContext.tsx type ("DATA" | "TUNING").
+// Reconciled with the live ChatContext.tsx type ("DATA" | "TUNING" | "COURSE_MANAGE" | "DEMO").
 // BUG and CALL are legacy API modes still routed through this command pipeline;
 // keep them in the union so the cast in app/api/chat/route.ts stays type-safe.
-type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING";
+type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING" | "COURSE_MANAGE" | "DEMO";
 
 interface EntityBreadcrumb {
   type: string;
@@ -105,7 +105,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["?", "commands"],
     description: "Show available commands",
     usage: "/help [command]",
-    modes: ["DATA", "CALL", "TUNING"],
+    modes: ["DATA", "CALL", "TUNING", "COURSE_MANAGE", "DEMO"],
     execute: async (args, ctx) => {
       const specificCommand = args[0];
       if (specificCommand) {
