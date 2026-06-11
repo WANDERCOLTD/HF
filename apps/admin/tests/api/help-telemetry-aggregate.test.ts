@@ -1,7 +1,7 @@
 /**
  * Tests for the admin telemetry aggregate query — #1484.
  *
- * The admin telemetry page (`/x/help/_admin/telemetry`) runs
+ * The admin telemetry page (`/x/help/telemetry`) runs
  * `prisma.helpEvent.groupBy` over the last-7d window. This file pins:
  *   - groupBy is called with the (type, target) tuple
  *   - `where.createdAt.gte` is roughly 7d ago
