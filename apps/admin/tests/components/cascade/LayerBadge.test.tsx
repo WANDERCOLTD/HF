@@ -61,35 +61,48 @@ const CAL_HIT: LayerHit<unknown> = {
 };
 
 describe("LayerBadge — 5 states", () => {
-  it("renders [PB] when source is PLAYBOOK", () => {
+  it("renders Course icon when source is PLAYBOOK", () => {
     render(<LayerBadge envelope={envelope("PLAYBOOK", [PB_HIT])} />);
     const btn = screen.getByRole("button");
-    expect(btn.textContent).toBe("PB");
     expect(btn.className).toContain("hf-cascade-badge--pb");
+    expect(btn.getAttribute("data-layer")).toBe("playbook");
+    expect(btn.getAttribute("aria-label")).toContain("Course");
+    expect(btn.querySelector("svg")).toBeTruthy();
     expect(screen.getByText("set on this Course")).toBeTruthy();
   });
 
-  it("renders [DOM] when source is DOMAIN", () => {
+  it("renders Domain icon when source is DOMAIN", () => {
     render(<LayerBadge envelope={envelope("DOMAIN", [DOM_HIT])} />);
-    expect(screen.getByRole("button").textContent).toBe("DOM");
+    const btn = screen.getByRole("button");
+    expect(btn.className).toContain("hf-cascade-badge--dom");
+    expect(btn.getAttribute("aria-label")).toContain("Domain");
+    expect(btn.querySelector("svg")).toBeTruthy();
     expect(screen.getByText(/inherited from Education/)).toBeTruthy();
   });
 
-  it("renders [SYS] when source is SYSTEM and explicit hit exists", () => {
+  it("renders Settings icon when source is SYSTEM and explicit hit exists", () => {
     render(<LayerBadge envelope={envelope("SYSTEM", [SYS_HIT])} />);
-    expect(screen.getByRole("button").textContent).toBe("SYS");
+    const btn = screen.getByRole("button");
+    expect(btn.className).toContain("hf-cascade-badge--sys");
+    expect(btn.getAttribute("aria-label")).toContain("System default");
+    expect(btn.querySelector("svg")).toBeTruthy();
   });
 
-  it("renders [CAL] when source is CALLER", () => {
+  it("renders Caller icon when source is CALLER", () => {
     render(<LayerBadge envelope={envelope("CALLER", [CAL_HIT])} />);
-    expect(screen.getByRole("button").textContent).toBe("CAL");
+    const btn = screen.getByRole("button");
+    expect(btn.className).toContain("hf-cascade-badge--cal");
+    expect(btn.getAttribute("aria-label")).toContain("Caller");
+    expect(btn.querySelector("svg")).toBeTruthy();
   });
 
-  it("renders [—] when no layers have a value (under-disclosure guard)", () => {
+  it("renders dash glyph (no icon) when no layers have a value (under-disclosure guard)", () => {
     render(<LayerBadge envelope={envelope("SYSTEM", [])} />);
     const btn = screen.getByRole("button");
     expect(btn.textContent).toBe("—");
     expect(btn.className).toContain("hf-cascade-badge--none");
+    // No sidebar icon — the dash glyph is intentional for the "no override" state.
+    expect(btn.querySelector("svg")).toBeNull();
     expect(
       screen.getByText("(no override — using System default)"),
     ).toBeTruthy();

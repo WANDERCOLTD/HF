@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ROLE_LEVEL } from "@/lib/roles";
 import type { UserRole } from "@prisma/client";
+import { BookOpen, Building2, Mic, Settings } from "lucide-react";
 import "./cascade-lens-panel.css";
 
 type Layer = "system" | "provider" | "domain" | "course";
@@ -53,11 +54,35 @@ interface VoiceCascadeExplanation {
 }
 
 const LAYER_LABELS: Record<Layer, string> = {
-  system: "Sys",
-  provider: "Prov",
-  domain: "Dom",
-  course: "Crs",
+  system: "System default",
+  provider: "Voice provider",
+  domain: "Domain",
+  course: "Course",
 };
+
+/**
+ * Sidebar-aligned icons for the voice cascade (harmonised with
+ * `<LayerBadge>` from #1454). The operator already learns these glyphs
+ * in the global nav: BookOpen=Courses, Building2=Institution,
+ * Settings=Settings. Mic=Voice provider (vendor config, not in sidebar
+ * but visually grouped with voice surfaces).
+ *
+ * Returns JSX directly (not a component reference) to satisfy the
+ * `react-hooks/static-components` lint rule.
+ */
+function iconFor(layer: Layer): React.ReactNode {
+  const props = { size: 12, "aria-hidden": true, focusable: "false" as const };
+  switch (layer) {
+    case "system":
+      return <Settings {...props} />;
+    case "provider":
+      return <Mic {...props} />;
+    case "domain":
+      return <Building2 {...props} />;
+    case "course":
+      return <BookOpen {...props} />;
+  }
+}
 
 const LAYER_ORDER: Layer[] = ["system", "provider", "domain", "course"];
 
@@ -117,26 +142,35 @@ function LayerPill({ layer, entry, isWinner, href }: PillProps) {
         : "hf-cascade-pill--empty",
   ].join(" ");
 
+  const labelText = LAYER_LABELS[layer];
   const title = isWinner
-    ? `Winning: ${formatValue(entry.value)} — click to edit at this scope`
+    ? `${labelText} (winner): ${formatValue(entry.value)} — click to edit at this scope`
     : entry.present
-      ? `${LAYER_LABELS[layer]}: ${formatValue(entry.value)} (overridden by higher layer)`
-      : `${LAYER_LABELS[layer]}: not set`;
+      ? `${labelText}: ${formatValue(entry.value)} (overridden by higher layer)`
+      : `${labelText}: not set`;
 
-  const label = isWinner
-    ? LAYER_LABELS[layer].toUpperCase()
-    : LAYER_LABELS[layer].toLowerCase();
+  const content = (
+    <>
+      {iconFor(layer)}
+      <span className="hf-sr-only">{labelText}</span>
+    </>
+  );
 
   if (isWinner && href) {
     return (
-      <a className={className} href={href} title={title}>
-        {label}
+      <a
+        className={className}
+        href={href}
+        title={title}
+        aria-label={`${labelText} (winner) — edit`}
+      >
+        {content}
       </a>
     );
   }
   return (
-    <span className={className} title={title}>
-      {label}
+    <span className={className} title={title} aria-label={labelText}>
+      {content}
     </span>
   );
 }
