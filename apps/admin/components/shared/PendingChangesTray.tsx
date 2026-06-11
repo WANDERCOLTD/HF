@@ -330,6 +330,42 @@ export function PendingChangesTray(): React.ReactElement | null {
             </p>
           )}
 
+          {/* Dead-end-state reassurance (#1442 Layer 4 follow-on).
+             When both recompose buttons are disabled, the operator could
+             think nothing applied. In fact the underlying config write
+             already happened inline (e.g. apply_demo_preset called
+             updatePlaybookConfig directly) — the tray's recompose buttons
+             only proactively rebuild prompts for *existing* learners. The
+             next call from any learner picks up the new config via the
+             stale-check. Surface that explicitly. */}
+          {hasAiSuggested && learnerButtonDisabled && cohortButtonDisabled && (
+            <div
+              className="hf-pending-tray-config-saved"
+              data-testid="hf-pending-tray-config-saved"
+            >
+              <p>
+                ✓ Course config is already saved. The next call from any
+                learner will use the new settings.
+              </p>
+              {!callerInContext && (
+                <p className="hf-pending-tray-config-saved-cta">
+                  To rebuild a specific learner&apos;s prompt now, open them
+                  in <code>/x/sim/&lt;callerId&gt;</code> or
+                  <code>/x/callers/&lt;callerId&gt;</code> and click
+                  &ldquo;Recompose this learner&rdquo;.
+                </p>
+              )}
+              <button
+                type="button"
+                className="hf-pending-tray-config-saved-dismiss"
+                onClick={() => clear()}
+                disabled={applying}
+              >
+                Got it — dismiss
+              </button>
+            </div>
+          )}
+
           {applyError && (
             <p className="hf-pending-tray-ai-warning" role="alert">
               ⚠ {applyError}
