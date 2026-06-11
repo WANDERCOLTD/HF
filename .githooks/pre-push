@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# pre-push (HF)
+# Runs check-reciprocal-edit on each commit being pushed. Blocks the push if
+# the most recent commit on the push range is undoing its predecessor (the
+# AP-1 Loop 1 chase-pattern). Bypass with ALLOW_RECIPROCAL_EDIT=1.
+#
+# Anchor: docs/kb/guard-registry.md#guard-reciprocal-edit
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -z "$REPO_ROOT" ] && exit 0
+[ -x "$REPO_ROOT/scripts/check-reciprocal-edit.sh" ] || exit 0
+
+# The push protocol writes "<local-ref> <local-sha> <remote-ref> <remote-sha>"
+# to stdin, one line per ref being pushed. We only inspect the most recent
+# commit on each push (cheap and covers the common case).
+FAILED=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Skip deletes (local_sha=000000…) and empty pushes.
+  case "$local_sha" in
+    ''|0000000000000000000000000000000000000000) continue ;;
+  esac
+
+  # If remote_sha is zero, this is a new branch — only check the tip pair
+  # (cheap; full history walk for new branches is overkill at the gate).
+  case "$remote_sha" in
+    ''|0000000000000000000000000000000000000000)
+      "$REPO_ROOT/scripts/check-reciprocal-edit.sh" "${local_sha}~1" "$local_sha" >&2 || FAILED=1
+      ;;
+    *)
+      # Walk the range and check each consecutive pair.
+      "$REPO_ROOT/scripts/check-reciprocal-edit.sh" --range "${remote_sha}..${local_sha}" >&2 || FAILED=1
+      ;;
+  esac
+done
+
+if [ "$FAILED" -ne 0 ]; then
+  echo ""
+  echo "[pre-push] Reciprocal edit gate failed. See above for guidance."
+  echo "[pre-push] Bypass (with intent): ALLOW_RECIPROCAL_EDIT=1 git push ..."
+  exit 1
+fi
+
+exit 0
