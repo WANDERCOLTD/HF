@@ -17,8 +17,8 @@ const findMany = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     curriculumModule: {
-      findFirst: (...a: any[]) => findFirst(...a),
-      findMany: (...a: any[]) => findMany(...a),
+      findFirst: (...a: unknown[]) => findFirst(...a),
+      findMany: (...a: unknown[]) => findMany(...a),
     },
   },
 }));

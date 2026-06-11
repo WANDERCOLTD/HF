@@ -39,9 +39,10 @@ function main() {
   let rawTsc = "";
   try {
     rawTsc = execSync("npx tsc --noEmit", { cwd: APP_DIR, encoding: "utf8" });
-  } catch (e: any) {
+  } catch (e) {
     // tsc exits non-zero when there are errors — that's expected; capture stdout.
-    rawTsc = (e.stdout ?? "") + (e.stderr ?? "");
+    const err = e as { stdout?: string; stderr?: string };
+    rawTsc = (err.stdout ?? "") + (err.stderr ?? "");
   }
 
   // Lines like: lib/foo/bar.ts(123,4): error TS2339: ...

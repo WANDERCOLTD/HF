@@ -59,7 +59,7 @@ const messages = {
     "See `.claude/rules/pipeline-and-prompt.md` + audit HF-I.",
 };
 
-export default {
+const rule = {
   meta: {
     type: "problem",
     docs: {
@@ -83,3 +83,5 @@ export default {
     };
   },
 };
+
+export default rule;

@@ -27,9 +27,9 @@ function measureKnip(): number {
   let raw = "";
   try {
     raw = execSync("npx knip --reporter=json", { cwd: APP_DIR, encoding: "utf8" });
-  } catch (e: any) {
+  } catch (e) {
     // knip exits non-zero when it finds issues — that's expected; capture stdout.
-    raw = e.stdout ?? "";
+    raw = (e as { stdout?: string }).stdout ?? "";
   }
   if (!raw.trim()) {
     console.error("[knip-ratchet] knip produced no output — treating as a hard failure.");

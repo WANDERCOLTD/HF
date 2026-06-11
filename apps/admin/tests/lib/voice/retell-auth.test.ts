@@ -11,6 +11,7 @@
 
 import { describe, it, expect } from "vitest";
 import crypto from "node:crypto";
+import type { NextRequest } from "next/server";
 import { verifyRetellRequest } from "@/lib/voice/providers/retell/auth";
 
 const SECRET = "retell-test-secret";
@@ -20,13 +21,13 @@ function sign(body: string, secret: string): string {
   return crypto.createHmac("sha256", secret).update(body).digest("hex");
 }
 
-function reqWith(sig: string | null): any {
+function reqWith(sig: string | null): NextRequest {
   return {
     headers: {
       get: (name: string) =>
         name.toLowerCase() === "x-retell-signature" ? sig : null,
     },
-  };
+  } as unknown as NextRequest;
 }
 
 describe("verifyRetellRequest", () => {
