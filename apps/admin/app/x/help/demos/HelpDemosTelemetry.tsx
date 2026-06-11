@@ -14,7 +14,6 @@ import { trackHelpEvent } from "@/lib/help/track-help-event";
 export function HelpDemosTelemetry() {
   useEffect(() => {
     trackHelpEvent({ type: "doc-section-view", target: "demos" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;
 }
