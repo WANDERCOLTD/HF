@@ -272,6 +272,12 @@ export interface ProviderConfigField {
   help?: string;
   /** Allowed values for type === "enum". */
   enumValues?: string[];
+  /** Display label per enum value — falls back to the raw value when
+   *  absent. Used to communicate HF-side capability hints (e.g. which
+   *  TTS engines have a vendor-validated voice catalog vs. fall back
+   *  to free-text). The submitted value is always the raw enum value;
+   *  only the rendered label is decorated. */
+  enumLabels?: Record<string, string>;
   /** Pre-fill when creating a new provider row. */
   default?: unknown;
   /** Mask + route to credentials. */

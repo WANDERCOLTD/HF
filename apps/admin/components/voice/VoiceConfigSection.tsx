@@ -24,6 +24,10 @@ export type SchemaField = {
   type: "string" | "number" | "boolean" | "enum";
   help?: string;
   enumValues?: string[];
+  /** Display label per enum value — falls back to the raw value when
+   *  absent. Decorates the dropdown options without altering the
+   *  submitted value. */
+  enumLabels?: Record<string, string>;
   default?: unknown;
 };
 
@@ -266,7 +270,7 @@ export function FieldRow({
         >
           {meta.enumValues.map((v) => (
             <option key={v} value={v}>
-              {v}
+              {meta.enumLabels?.[v] ?? v}
             </option>
           ))}
         </select>
