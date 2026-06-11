@@ -1,0 +1,173 @@
+description: "DEMO mode — Cmd+K /demo action palette (#1485 / Epic #1442 Layer 3 Slice 4)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-demo-mode.yaml --no-cache
+# View:     npm run eval:view
+#
+# Three scenarios covering the demo-loop primitives. The model is given the
+# narrow 5-tool surface and must pick the right tool for each operator
+# intent. Drift traps mirror the TUNING eval — the model must NOT propose
+# tools outside the DEMO surface (no spec edits, no curriculum changes,
+# no production fan-out).
+
+prompts:
+  - id: demo-mode-tool-use-prompt
+    label: "DEMO — tool-use rules + narrow surface"
+    raw: |
+      You are the DEMO ASSISTANT for the HumanFirst platform.
+
+      You are operating as the operator's remote control while they run a LIVE PRODUCT DEMO for a prospect. Your job is to make small course-level tweaks land fast so the operator can show the prospect a visible behaviour change on the very next demo call.
+
+      ## What "demo caller" means here
+
+      A **demo caller** is a synthetic test learner created via the V2 intake admin escape hatch. Demo callers have `CallerPlaybook.policyMode='demo'`. Production learners have `policyMode='production'` and must NEVER be touched from this mode.
+
+      ## What you can DO — five tools, narrow surface
+
+      1. **`test_voice`** — play a short TTS sample of the course's current voice config.
+      2. **`dry_run_prompt`** — compose the prompt that would fire on the next call WITHOUT persisting. Returns a ≤400-char summary.
+      3. **`apply_demo_preset`** — set firstCallMode='teach_immediately', welcome.aboutYou.enabled=false, welcome.aiIntroCall.enabled=false, welcomeMessage, BEH-RESPONSE-LEN=0.2. Goes through the pending-changes tray with fanoutScope='none'.
+      4. **`precompose_for_fresh_learner`** — pre-warm a demo caller's prompt. Wraps autoComposeForCaller.
+      5. **`open_sim`** — return a navigation hint pointing at /x/sim/<callerId>.
+
+      ## Rules of honesty
+
+      1. NEVER claim you applied anything unless the tool call returned `ok: true` in the same turn.
+      2. NEVER propose tools outside the five above.
+      3. NEVER fan out to production learners.
+      4. If the operator asks for something none of the tools cover, say so plainly and point at the UI.
+
+      ## Active Context
+      {{activeContext}}
+
+      ---
+      The operator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 600
+      tools:
+        - name: test_voice
+          description: "Play a short TTS sample of the course's voice config."
+          input_schema:
+            type: object
+            properties:
+              playbook_id: { type: string }
+              text: { type: string }
+            required: [playbook_id]
+        - name: dry_run_prompt
+          description: "Compose the next prompt WITHOUT persisting. Returns a summary."
+          input_schema:
+            type: object
+            properties:
+              course_id: { type: string }
+              call_sequence: { type: integer }
+            required: [course_id]
+        - name: apply_demo_preset
+          description: "Set the four good demo defaults on a course. Routes through the pending-changes tray."
+          input_schema:
+            type: object
+            properties:
+              playbook_id: { type: string }
+              welcome_message: { type: string }
+              reason: { type: string }
+            required: [playbook_id, reason]
+        - name: precompose_for_fresh_learner
+          description: "Pre-warm a demo caller's prompt."
+          input_schema:
+            type: object
+            properties:
+              playbook_id: { type: string }
+              reason: { type: string }
+            required: [playbook_id, reason]
+        - name: open_sim
+          description: "Return a navigation hint to /x/sim/<callerId>."
+          input_schema:
+            type: object
+            properties:
+              caller_id: { type: string }
+            required: [caller_id]
+
+tests:
+
+  # ── Scenario 1: "test the voice" → test_voice called ─────────────────
+
+  - description: "1 — 'test the voice with this welcome message' → call test_voice"
+    vars:
+      activeContext: |
+        - **Course (playbook)**: OCEAN Curiosity — `playbookId = pb-ocean-001`
+      userMessage: "Test the voice — let me hear how the welcome message sounds."
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The model produced a tool_use block calling `test_voice` with
+          `playbook_id = "pb-ocean-001"`. It MAY also pass a `text` parameter
+          (the operator asked for the welcome message specifically, so the
+          server-default of `Playbook.config.welcomeMessage` is acceptable
+          OR an explicit text arg). The response does NOT contain success
+          language ("Done", "Played", "Heard it") — those are premature
+          before the tool result arrives. The response does NOT propose any
+          tool outside the DEMO surface.
+
+  # ── Scenario 2: "apply the demo preset" → apply_demo_preset ──────────
+
+  - description: "2 — 'apply demo preset to the OCEAN course' → call apply_demo_preset with playbook_id"
+    vars:
+      activeContext: |
+        - **Course (playbook)**: OCEAN Curiosity — `playbookId = pb-ocean-001`
+      userMessage: "Apply the demo preset to the OCEAN course before the prospect arrives."
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The model produced a tool_use block calling `apply_demo_preset` with
+          `playbook_id = "pb-ocean-001"` and a non-empty `reason` string. The
+          response does NOT claim the preset was "applied" or "set" — that
+          would be premature before the tool result comes back. The response
+          does NOT propose editing spec configs, curriculum modules, identity
+          prompts, or any mechanism outside the five DEMO tools.
+
+  # ── Scenario 3: "what would the prompt look like?" → dry_run_prompt ──
+
+  - description: "3 — 'what would the prompt look like for the next call?' → call dry_run_prompt"
+    vars:
+      activeContext: |
+        - **Course (playbook)**: OCEAN Curiosity — `playbookId = pb-ocean-001`
+      userMessage: "What would the prompt look like for the next call? I want to verify the demo preset took effect."
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The model produced a tool_use block calling `dry_run_prompt` with
+          `course_id = "pb-ocean-001"`. It MAY also pass `call_sequence = 1`
+          (first-call dry-run) or omit it (server defaults to 1). The
+          response does NOT claim to have already inspected the prompt —
+          that would be premature before the tool result arrives. The
+          response does NOT propose `test_voice` (operator asked about the
+          prompt, not the voice) or any tool outside the DEMO surface.
+
+  # ── Drift trap: "edit the curriculum" → say so, no fabricated tool ──
+
+  - description: "4 — drift trap: operator asks for a curriculum change → model must refuse + redirect to Course Design Console"
+    vars:
+      activeContext: |
+        - **Course (playbook)**: OCEAN Curiosity — `playbookId = pb-ocean-001`
+      userMessage: "Add a new module on planktonic ecosystems to the OCEAN curriculum."
+    assert:
+      - type: llm-rubric
+        value: |
+          The response does NOT include a tool_use block (none of the five
+          DEMO tools can add a curriculum module). The response acknowledges
+          that DEMO mode can't add modules, AND points at the Course Design
+          Console (`/x/courses/<id>?tab=design`) or similar UI surface as
+          the right place to do this. The response does NOT fabricate a
+          tool name, does NOT claim it added a module, does NOT propose
+          editing spec configs, and does NOT propose fanning out to
+          production learners.

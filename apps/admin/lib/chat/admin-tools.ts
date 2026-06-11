@@ -879,6 +879,117 @@ export const ADMIN_TOOLS: AITool[] = [
     },
   },
 
+  // ── #1485 / Epic #1442 Layer 3 Slice 4 — DEMO mode action palette ─────
+  //
+  // Five narrow tools exposed only via DEMO chat mode (`DEMO_TOOLS` filter
+  // in `app/api/chat/route.ts`). Each delegates to existing infrastructure
+  // — no TTS synthesis, no prompt composition, no Call creation is
+  // re-implemented. Same registry → same forbidden-fields / RBAC / pending-
+  // change meta-tests apply automatically.
+
+  {
+    name: "test_voice",
+    description:
+      "Play a short TTS sample of the course's current voice config so the operator can hear how the voice will sound. Wraps the existing `POST /api/voice-providers/[id]/sample` (#1421 Slice B) — does NOT re-implement TTS synthesis. Server resolves the VoiceProvider row id from the system-enabled provider slug. Defaults `text` to the playbook's `welcomeMessage` when not provided (capped at 200 chars).",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: {
+          type: "string",
+          description: "Playbook UUID (course the operator is demoing).",
+        },
+        text: {
+          type: "string",
+          description:
+            "Text to synthesise. Hard-capped at 200 chars server-side. Defaults to Playbook.config.welcomeMessage when omitted.",
+        },
+      },
+      required: ["playbook_id"],
+    },
+  },
+
+  {
+    name: "dry_run_prompt",
+    description:
+      "Compose the prompt that would fire if a learner started a call on this course right now, WITHOUT persisting a Call or ComposedPrompt row. Wraps the existing `POST /api/courses/[courseId]/dry-run-prompt` route — does NOT re-implement composition. Returns a ≤400-char summary of the opening + tone sections so the operator can sanity-check the change before showing the prospect. Use after `apply_demo_preset` to verify the change landed in the next-call prompt.",
+    input_schema: {
+      type: "object",
+      properties: {
+        course_id: {
+          type: "string",
+          description: "Course (Playbook) UUID.",
+        },
+        call_sequence: {
+          type: "integer",
+          description:
+            "Override call count. Default 1 (force first-call composition). Use 2+ to dry-run a continuing-learner prompt.",
+        },
+      },
+      required: ["course_id"],
+    },
+  },
+
+  {
+    name: "apply_demo_preset",
+    description:
+      "Set the four 'good demo defaults' on a course in one batch: `firstCallMode='teach_immediately'`, `welcome.aboutYou.enabled=false`, `welcome.aiIntroCall.enabled=false`, `welcomeMessage` (optional), and behaviour target `BEH-RESPONSE-LEN=0.2` (short, punchy responses). Every write goes through the pending-changes tray with `aiSuggested: true` and `fanoutScope: 'none'` — the operator clicks Save & apply to confirm. You DO NOT bypass the tray. Use when the operator says 'apply the demo preset' or similar.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: {
+          type: "string",
+          description: "Course (Playbook) UUID.",
+        },
+        welcome_message: {
+          type: "string",
+          description:
+            "Optional new welcome message. When omitted, the existing welcomeMessage is preserved.",
+        },
+        reason: {
+          type: "string",
+          description: "Short justification (audit trail).",
+        },
+      },
+      required: ["playbook_id", "reason"],
+    },
+  },
+
+  {
+    name: "precompose_for_fresh_learner",
+    description:
+      "Pre-warm a demo caller's prompt so the next live call on this course starts instantly. Resolves the most-recently-created `policyMode='demo'` caller on the playbook (you do NOT create one — operators mint them via the V2 intake admin escape hatch). Wraps `autoComposeForCaller` from `lib/enrollment/auto-compose.ts` — does NOT re-implement composition or create Call rows. Returns `{ callerId, composedAt }`.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: {
+          type: "string",
+          description: "Course (Playbook) UUID.",
+        },
+        reason: {
+          type: "string",
+          description: "Short justification (audit trail).",
+        },
+      },
+      required: ["playbook_id", "reason"],
+    },
+  },
+
+  {
+    name: "open_sim",
+    description:
+      "Return a navigation hint pointing at `/x/sim/<callerId>` so the operator can jump straight into the chat surface with a specific caller. Read-only — no DB write, no compose, no Call creation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        caller_id: {
+          type: "string",
+          description: "Caller UUID.",
+        },
+      },
+      required: ["caller_id"],
+    },
+  },
+
   {
     name: "update_voice_config",
     description:
