@@ -235,6 +235,66 @@ parallel rules will be needed if/when other tool-loading constants are migrated.
 | `seed-checker` | spec JSON ↔ schema consistency | **meta** |
 | `standards-checker` | tests/UI/CSS/auth/quality scorecard | **meta** |
 
+## Process guards — `.githooks/` + `scripts/check-*` (chase-prevention)
+
+> Class **meta** — fitness functions that catch *process* anti-patterns at the
+> commit / push boundary. See [methodology ADR](../decisions/2026-06-11-chase-prevention-methodology.md)
+> for the AP-1..AP-5 framework these enforce.
+
+| Hook / Script | Catches anti-pattern | Bypass |
+|---|---|---|
+| [`scripts/check-fix-chain.sh`](../../scripts/check-fix-chain.sh) (post-commit + ratchet) | **AP-2 fix-chain** — ≥3 `fix:` commits on same `#issue`. Ratchet metric: `same_issue_fix_chain_max`. | (warn-only; ratchet enforces) |
+| [`scripts/check-reciprocal-edit.sh`](../../scripts/check-reciprocal-edit.sh) (pre-push) | **AP-1 reciprocal-edit** — commit N+1 undoes ≥50% of commit N. | `ALLOW_RECIPROCAL_EDIT=1 git push` (document intent in body) |
+| [`scripts/gh-pr-create.sh`](../../scripts/gh-pr-create.sh) (wrapper around `gh pr create`) | **AP-4 verify-before-fix** — PR body without `## Verified by` section + DB query / test name / log / Playwright trace evidence. | `--no-verify-section` flag (warn-only) |
+| [`scripts/check-fix-refactor-inversion.ts`](../../scripts/check-fix-refactor-inversion.ts) (PR comment, warn-only) | **AP-5 fix-before-refactor** — `fix:` commit on a file later cleanly refactored on the same branch. | none — report only |
+
+<a id="guard-fix-chain"></a>
+**`check-fix-chain.sh`** · class **meta** · born 2026-06-11 ·
+[script source](../../scripts/check-fix-chain.sh) ·
+ADR → [chase-prevention methodology](../decisions/2026-06-11-chase-prevention-methodology.md)
+
+Scans the last 30 days of commits on the current branch; for each `fix:` /
+`fix(scope):` commit, extracts the `#NNNN` token(s) from subject + body and
+groups by issue. Issues with ≥3 commits print a warning urging the
+`root-cause` agent before the next fix on the topic. Max-chain-length is also
+emitted as a ratchet metric (`same_issue_fix_chain_max`) so the count only
+ever ratchets down. **Survives hardening:** AP-2 is a methodology fitness
+function — architecture-independent.
+
+<a id="guard-reciprocal-edit"></a>
+**`check-reciprocal-edit.sh`** · class **meta** · born 2026-06-11 ·
+[script source](../../scripts/check-reciprocal-edit.sh) ·
+ADR → [chase-prevention methodology](../decisions/2026-06-11-chase-prevention-methodology.md)
+
+For commit N+1 vs commit N: compares added vs removed lines (and vice versa);
+if ≥50% identical, flags reciprocal edit and exits 1. Wired as `pre-push`.
+Bypass requires `ALLOW_RECIPROCAL_EDIT=1` *and* a documented intent in the
+commit body (signed off as a deliberate revert). Verified live against the
+#1365 → #1366 transcript-parser revert (`vapi-provider.parse-transcript.test.ts`
+re-introduces 25/34 removed lines, 73%). **Survives hardening:** AP-1 is a
+methodology fitness function — architecture-independent.
+
+<a id="guard-verify-before-fix"></a>
+**`gh-pr-create.sh`** · class **meta** · born 2026-06-11 ·
+[script source](../../scripts/gh-pr-create.sh) ·
+memory → [feedback_verify_before_fix_misread_2026_06_09.md](../../../.claude/projects/-Users-paulwander-projects-HF/memory/feedback_verify_before_fix_misread_2026_06_09.md)
+
+Wraps `gh pr create`; requires a `## Verified by` section in the PR body
+containing at least one concrete evidence form (SQL query result, vitest
+name, Playwright trace path, or log subject line). Enforces the #1406 lesson
+(don't trust screenshot OCR — cite an underlying check). **Survives
+hardening:** AP-4 is a methodology fitness function — architecture-independent.
+
+<a id="guard-fix-refactor-inversion"></a>
+**`check-fix-refactor-inversion.ts`** · class **meta** · born 2026-06-11 ·
+[script source](../../scripts/check-fix-refactor-inversion.ts)
+
+Warn-only. Scans the current branch's commit history; for each `fix:` commit,
+checks whether a later `feat:`/`refactor:` commit on the same branch
+substantially overlaps the same files. If yes, the `fix:` was a band-aid the
+structural cleanup would have eliminated. Reports as a PR comment, never
+blocks. **Survives hardening:** AP-5 fitness function — architecture-independent.
+
 ## Drain guards (class c — terminal state, delete when zero)
 
 | Script | Drains | Born |
