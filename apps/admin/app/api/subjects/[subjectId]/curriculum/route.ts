@@ -1,3 +1,9 @@
+/**
+ * @operator-surface yes
+ *
+ * @description Generate or fetch a Subject's Curriculum — the "build a
+ * course from this Subject" path operators kick off during demo setup.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";

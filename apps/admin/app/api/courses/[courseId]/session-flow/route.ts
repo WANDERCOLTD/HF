@@ -1,4 +1,6 @@
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/courses/[courseId]/session-flow
  * @visibility internal
  * @scope course:read

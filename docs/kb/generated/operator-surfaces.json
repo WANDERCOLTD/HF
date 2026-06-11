@@ -1,0 +1,277 @@
+{
+  "$schema": "operator-surfaces/v1",
+  "generatedAt": "2026-06-11T14:12:09.179Z",
+  "generator": "scripts/capture/operator-surfaces.ts",
+  "note": "Tier-2 generated KB. Only routes tagged @operator-surface yes. Do not hand-edit — re-run the generator (npm run kb:operator-surfaces).",
+  "surfaces": [
+    {
+      "route": "/api/callers/[callerId]/calls",
+      "file": "apps/admin/app/api/callers/[callerId]/calls/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "authLevels": [
+        "VIEWER",
+        "STUDENT"
+      ],
+      "description": "Get the most recent active sim call for a caller (endedAt is null, source is sim, within last 2 hours).",
+      "category": "callers"
+    },
+    {
+      "route": "/api/callers/[callerId]/cascade/voice",
+      "file": "apps/admin/app/api/callers/[callerId]/cascade/voice/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Returns the full voice-config cascade explanation for one",
+      "category": "callers"
+    },
+    {
+      "route": "/api/callers/[callerId]/last-selected-module",
+      "file": "apps/admin/app/api/callers/[callerId]/last-selected-module/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "description": "* @method POST",
+      "category": "callers"
+    },
+    {
+      "route": "/api/callers/[callerId]/learning-trajectory",
+      "file": "apps/admin/app/api/callers/[callerId]/learning-trajectory/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "description": "Returns learning trajectory for a caller. The shape adapts to",
+      "category": "callers"
+    },
+    {
+      "route": "/api/courses/[courseId]/cascade/welcome-message",
+      "file": "apps/admin/app/api/courses/[courseId]/cascade/welcome-message/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Returns the `Effective<string | null>` envelope for the",
+      "category": "courses"
+    },
+    {
+      "route": "/api/courses/[courseId]/course-reference",
+      "file": "apps/admin/app/api/courses/[courseId]/course-reference/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "authLevels": [
+        "VIEWER",
+        "OPERATOR"
+      ],
+      "description": "Returns the most recent COURSE_REFERENCE markdown document",
+      "category": "courses"
+    },
+    {
+      "route": "/api/courses/[courseId]/dry-run-prompt",
+      "file": "apps/admin/app/api/courses/[courseId]/dry-run-prompt/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Compose a dry-run prompt for a course — used during demos",
+      "category": "courses"
+    },
+    {
+      "route": "/api/courses/[courseId]/import-modules",
+      "file": "apps/admin/app/api/courses/[courseId]/import-modules/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "authLevels": [
+        "VIEWER",
+        "OPERATOR"
+      ],
+      "description": "Read the current modules catalogue for a course. Prefers",
+      "category": "courses"
+    },
+    {
+      "route": "/api/courses/[courseId]/regenerate-curriculum",
+      "file": "apps/admin/app/api/courses/[courseId]/regenerate-curriculum/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Regenerates the curriculum structure (modules + learning objectives)",
+      "category": "courses"
+    },
+    {
+      "route": "/api/courses/[courseId]/session-flow",
+      "file": "apps/admin/app/api/courses/[courseId]/session-flow/route.ts",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Returns the resolved Session Flow shape for a course — the",
+      "category": "courses"
+    },
+    {
+      "route": "/api/curricula",
+      "file": "apps/admin/app/api/curricula/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "authLevels": [
+        "VIEWER",
+        "OPERATOR"
+      ],
+      "description": "List curricula, optionally filtered by subjectId.",
+      "category": "playbooks"
+    },
+    {
+      "route": "/api/goals",
+      "file": "apps/admin/app/api/goals/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "authLevels": [
+        "VIEWER",
+        "OPERATOR"
+      ],
+      "description": "Fetch all goals across all callers with filtering options. Includes related caller, playbook, and content spec data. Returns aggregate counts grouped by status and type.",
+      "category": "settings"
+    },
+    {
+      "route": "/api/identity/challenge-skip",
+      "file": "apps/admin/app/api/identity/challenge-skip/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Admin escape hatch: mark a caller's most-recent",
+      "category": "other"
+    },
+    {
+      "route": "/api/intake/v2/admin-test-enrol",
+      "file": "apps/admin/app/api/intake/v2/admin-test-enrol/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Admin escape hatch on the V2 intake entry screen",
+      "category": "other"
+    },
+    {
+      "route": "/api/playbooks/[playbookId]/subjects",
+      "file": "apps/admin/app/api/playbooks/[playbookId]/subjects/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "authLevels": [
+        "VIEWER",
+        "OPERATOR"
+      ],
+      "description": "Get subjects linked to a playbook via PlaybookSubject.",
+      "category": "playbooks"
+    },
+    {
+      "route": "/api/playbooks/[playbookId]/voice-config",
+      "file": "apps/admin/app/api/playbooks/[playbookId]/voice-config/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "/api/playbooks/:playbookId/voice-config",
+      "category": "playbooks"
+    },
+    {
+      "route": "/api/recompose/apply",
+      "file": "apps/admin/app/api/recompose/apply/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Acts on the toggle decisions from the PendingChangesTray's",
+      "category": "settings"
+    },
+    {
+      "route": "/api/subjects/[subjectId]/curriculum",
+      "file": "apps/admin/app/api/subjects/[subjectId]/curriculum/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authLevels": [
+        "VIEWER",
+        "OPERATOR"
+      ],
+      "description": "Generate or fetch a Subject's Curriculum — the \"build a",
+      "category": "playbooks"
+    },
+    {
+      "route": "/api/voice-providers/[id]/sample",
+      "file": "apps/admin/app/api/voice-providers/[id]/sample/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Generate a short TTS audio clip for the voice sample",
+      "category": "voice"
+    },
+    {
+      "route": "/api/voice/[slug]/catalog",
+      "file": "apps/admin/app/api/voice/[slug]/catalog/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Returns the catalog of legal voiceIds per TTS engine routed",
+      "category": "voice"
+    },
+    {
+      "route": "/api/voice/calls/outbound-dial",
+      "file": "apps/admin/app/api/voice/calls/outbound-dial/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "description": "Place an outbound PSTN call to a caller via VAPI — the",
+      "category": "voice"
+    }
+  ]
+}

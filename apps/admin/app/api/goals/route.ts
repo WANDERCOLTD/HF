@@ -5,6 +5,8 @@ import { resolveCallerScopeForReading, isScopeError } from "@/lib/learner-scope"
 import { GoalType } from "@prisma/client";
 
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/goals
  * @visibility public
  * @scope goals:read

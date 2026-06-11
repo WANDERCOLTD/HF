@@ -10,6 +10,8 @@ const bodySchema = z
   .strict();
 
 /**
+ * @operator-surface yes
+ *
  * @api POST /api/identity/challenge-skip
  * @visibility internal (OPERATOR+)
  * @auth session (OPERATOR / ADMIN / SUPERADMIN)

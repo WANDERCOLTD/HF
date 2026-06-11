@@ -1,4 +1,6 @@
 /**
+ * @operator-surface yes
+ *
  * POST /api/callers/[callerId]/last-selected-module
  *
  * Persist a Caller's most-recent module pick so the sim landing can

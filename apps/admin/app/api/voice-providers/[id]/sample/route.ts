@@ -9,6 +9,8 @@ import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
 /**
+ * @operator-surface yes
+ *
  * #1421 Slice B — voice sample button server route.
  *
  * Hard limits to protect cost + abuse:

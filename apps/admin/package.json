@@ -59,6 +59,7 @@
     "kb:routes": "tsx scripts/capture/route-inventory.ts",
     "kb:coupling": "tsx scripts/capture/coupling-graph.ts",
     "kb:demo-knobs": "tsx scripts/capture/demo-knobs.ts",
+    "kb:operator-surfaces": "tsx scripts/capture/operator-surfaces.ts",
     "kb:guard-links": "tsx scripts/capture/check-guard-kb-links.ts",
     "kb:rule-tests": "tsx scripts/capture/check-eslint-rule-tests.ts",
     "kb:fresh": "bash scripts/capture/check-kb-fresh.sh",

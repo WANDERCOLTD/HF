@@ -11,6 +11,8 @@ import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
 import { createSession } from "@/lib/voice/create-session";
 
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/callers/:callerId/calls
  * @visibility internal
  * @scope callers:read

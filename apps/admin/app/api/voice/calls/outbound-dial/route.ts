@@ -1,3 +1,10 @@
+/**
+ * @operator-surface yes
+ *
+ * @description Place an outbound PSTN call to a caller via VAPI — the
+ * "Call now" button operators trigger during a live demo to dial a
+ * learner directly.
+ */
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";

@@ -12,6 +12,8 @@ const bodySchema = z
   .strict();
 
 /**
+ * @operator-surface yes
+ *
  * @api POST /api/intake/v2/admin-test-enrol
  * @visibility internal (OPERATOR+)
  * @auth session (OPERATOR / EDUCATOR / ADMIN / SUPERADMIN)
