@@ -6004,6 +6004,38 @@ Create a fresh test learner enrolled in this course. Random
 
 ---
 
+### `GET` /api/courses/[courseId]/cascade/welcome-message
+
+Returns the `Effective<string | null>` envelope for the
+
+**Auth**: Session · **Scope**: `cascade:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | The course (Playbook) ID |
+
+**Response** `200`
+```json
+{ data: Effective<string | null> }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" }
+```
+
+**Response** `403`
+```json
+{ error: "Forbidden" } - role below OPERATOR
+```
+
+**Response** `500`
+```json
+{ data: null, error: string }
+```
+
+---
+
 ### `GET` /api/courses/[courseId]/media
 
 List media assets (extracted images, uploaded files) across all subjects
@@ -15881,8 +15913,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 507 |
-| Files with annotations | 497 |
+| Route files found | 508 |
+| Files with annotations | 498 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 

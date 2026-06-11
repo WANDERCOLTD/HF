@@ -245,10 +245,26 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+/* Welcome-message cascade badge (#1471): label hosts text + LayerBadge inline. */
+.sfe-field-label:has(.hf-cascade-badge-wrap) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.sfe-field-label-text {
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
 .sfe-field-hint {
   font-size: 11px;
   color: var(--text-muted);
   align-self: flex-end;
+}
+.sfe-field-hint[data-testid="hf-welcome-cascade-caption"] {
+  align-self: flex-start;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
 }
 .sfe-fieldset {
   border: 1px solid var(--border-default);

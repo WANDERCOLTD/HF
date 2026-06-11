@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T11:47:57.653Z",
+  "generatedAt": "2026-06-11T11:48:42.798Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1642,
-  "edgeCount": 3784,
+  "fileCount": 1643,
+  "edgeCount": 3786,
   "skippedEdges": 1,
   "edges": [
     {
@@ -2482,6 +2482,14 @@
     {
       "from": "app/api/courses/[courseId]/call1-override-preview/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/cascade/welcome-message/route.ts",
+      "to": "lib/cascade/resolvers/welcome-message.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/cascade/welcome-message/route.ts",
+      "to": "lib/permissions.ts"
     },
     {
       "from": "app/api/courses/[courseId]/classrooms/route.ts",
@@ -15996,6 +16004,11 @@
       "outDegree": 3
     },
     {
+      "path": "app/api/courses/[courseId]/cascade/welcome-message/route.ts",
+      "inDegree": 0,
+      "outDegree": 2
+    },
+    {
       "path": "app/api/courses/[courseId]/classrooms/route.ts",
       "inDegree": 0,
       "outDegree": 2
@@ -20447,7 +20460,7 @@
     },
     {
       "path": "lib/cascade/resolvers/welcome-message.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 3
     },
     {
@@ -21772,7 +21785,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 437,
+      "inDegree": 438,
       "outDegree": 3
     },
     {
@@ -23364,7 +23377,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 437,
+      "inDegree": 438,
       "outDegree": 3
     },
     {
