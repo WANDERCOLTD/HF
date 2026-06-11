@@ -1,0 +1,69 @@
+/* Demo Knob Reference page (#1482 / Epic #1442 Layer 3 Slice 1). */
+
+.hf-help-demos {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.hf-help-demos-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-help-demos-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-help-demos-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.hf-help-demos-table thead th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
+  padding: 8px 12px;
+}
+.hf-help-demos-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-default));
+  vertical-align: top;
+}
+.hf-help-demos-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.hf-help-demos-table code {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.hf-help-demos-family {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  padding: 8px 12px;
+}
+.hf-help-demos-family > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.hf-help-demos-family[open] {
+  padding-bottom: 16px;
+}
+.hf-help-demos-family-name {
+  font-family: ui-monospace, monospace;
+}

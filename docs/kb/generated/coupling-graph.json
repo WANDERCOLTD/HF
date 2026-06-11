@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T12:01:47.338Z",
+  "generatedAt": "2026-06-11T13:49:48.665Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1645,
-  "edgeCount": 3791,
+  "fileCount": 1650,
+  "edgeCount": 3798,
   "skippedEdges": 1,
   "edges": [
     {
@@ -6376,6 +6376,10 @@
       "to": "lib/voice/telemetry.ts"
     },
     {
+      "from": "app/api/voice/calls/[callId]/stream/route.ts",
+      "to": "lib/voice/transcript-stream-gate.ts"
+    },
+    {
       "from": "app/api/voice/calls/outbound-dial/route.ts",
       "to": "lib/learner-scope.ts"
     },
@@ -9130,6 +9134,14 @@
     {
       "from": "app/x/get-started-v5/V5WizardWithSelector.tsx",
       "to": "components/shared/FancySelect.tsx"
+    },
+    {
+      "from": "app/x/help/demos/page.tsx",
+      "to": "app/x/help/demos/help-demos.css"
+    },
+    {
+      "from": "app/x/help/demos/page.tsx",
+      "to": "lib/auth.ts"
     },
     {
       "from": "app/x/holographic/page.tsx",
@@ -14457,6 +14469,10 @@
     },
     {
       "from": "lib/voice/route-handlers.ts",
+      "to": "lib/voice/transcript-stream-gate.ts"
+    },
+    {
+      "from": "lib/voice/route-handlers.ts",
       "to": "lib/voice/types.ts"
     },
     {
@@ -14490,6 +14506,10 @@
     {
       "from": "lib/voice/tool-router.ts",
       "to": "lib/voice/types.ts"
+    },
+    {
+      "from": "lib/voice/transcript-stream-gate.ts",
+      "to": "lib/voice/load-voice-config.ts"
     },
     {
       "from": "lib/wizard-hints.ts",
@@ -14894,6 +14914,14 @@
     {
       "from": "scripts/backfill-teach-methods.ts",
       "to": "lib/content-trust/teaching-profiles.ts"
+    },
+    {
+      "from": "scripts/capture/demo-knobs.ts",
+      "to": "lib/cascade/knob-keys.ts"
+    },
+    {
+      "from": "scripts/capture/demo-knobs.ts",
+      "to": "lib/compose/affecting-keys.ts"
     },
     {
       "from": "scripts/check-fk-consistency.ts",
@@ -17631,7 +17659,7 @@
     {
       "path": "app/api/voice/calls/[callId]/stream/route.ts",
       "inDegree": 0,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "app/api/voice/calls/outbound-dial/route.ts",
@@ -18767,6 +18795,16 @@
       "path": "app/x/get-started-v5/page.tsx",
       "inDegree": 0,
       "outDegree": 3
+    },
+    {
+      "path": "app/x/help/demos/help-demos.css",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "app/x/help/demos/page.tsx",
+      "inDegree": 0,
+      "outDegree": 2
     },
     {
       "path": "app/x/holographic/page.tsx",
@@ -20360,7 +20398,7 @@
     },
     {
       "path": "lib/auth.ts",
-      "inDegree": 7,
+      "inDegree": 8,
       "outDegree": 3
     },
     {
@@ -20462,6 +20500,11 @@
       "path": "lib/cascade/effective-value.ts",
       "inDegree": 10,
       "outDegree": 6
+    },
+    {
+      "path": "lib/cascade/knob-keys.ts",
+      "inDegree": 1,
+      "outDegree": 0
     },
     {
       "path": "lib/cascade/layer-types.ts",
@@ -20650,7 +20693,7 @@
     },
     {
       "path": "lib/compose/affecting-keys.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 0
     },
     {
@@ -22555,7 +22598,7 @@
     },
     {
       "path": "lib/voice/load-voice-config.ts",
-      "inDegree": 5,
+      "inDegree": 6,
       "outDegree": 5
     },
     {
@@ -22626,7 +22669,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 26
+      "outDegree": 27
     },
     {
       "path": "lib/voice/runtime-features.ts",
@@ -22667,6 +22710,11 @@
       "path": "lib/voice/tool-router.ts",
       "inDegree": 2,
       "outDegree": 3
+    },
+    {
+      "path": "lib/voice/transcript-stream-gate.ts",
+      "inDegree": 2,
+      "outDegree": 1
     },
     {
       "path": "lib/voice/types.ts",
@@ -23032,6 +23080,11 @@
       "path": "scripts/capture/coupling-graph.ts",
       "inDegree": 0,
       "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/demo-knobs.ts",
+      "inDegree": 0,
+      "outDegree": 2
     },
     {
       "path": "scripts/capture/model-map.ts",
@@ -23456,14 +23509,14 @@
       "outDegree": 36
     },
     {
+      "path": "lib/voice/route-handlers.ts",
+      "inDegree": 5,
+      "outDegree": 27
+    },
+    {
       "path": "lib/prompt/composition/TransformRegistry.ts",
       "inDegree": 30,
       "outDegree": 1
-    },
-    {
-      "path": "lib/voice/route-handlers.ts",
-      "inDegree": 5,
-      "outDegree": 26
     },
     {
       "path": "app/api/chat/route.ts",
