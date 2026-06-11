@@ -188,6 +188,11 @@ export function SimChat({
   // without an extra round-trip. The DB stamp (also `endSource`) is the
   // source of truth across surfaces — this is the live in-page mirror.
   const [callEndSource, setCallEndSource] = useState<string | null>(null);
+  // Cascade-resolved live-bubbles mode (#1373). Populated from the
+  // `call-started` SSE event the moment the stream opens; resets to
+  // null on new call. Surfaces as a header pill so silence during a
+  // call is unambiguous (config off vs transport drop vs nobody speaking).
+  const [liveBubblesMode, setLiveBubblesMode] = useState<'on' | 'off' | null>(null);
   const [newPromptId, setNewPromptId] = useState<string | null>(null);
   const [quickStart, setQuickStart] = useState<Record<string, unknown> | null>(null);
   const [showContentPicker, setShowContentPicker] = useState(false);
@@ -227,6 +232,13 @@ export function SimChat({
   // into useProviderCall.onSseEvent, PSTN plugs it into a useEffect-
   // managed EventSource keyed on outboundDial.callId below.
   const handleVoiceSseEvent = useCallback((event: import('@/lib/voice/sse-registry').VoiceCallSseEvent) => {
+    if (event.type === 'call-started') {
+      // #1373 — server resolved the cascade at SSE-open. Surface the
+      // resolved value via the header pill so silence during the call
+      // doesn't read as "broken".
+      setLiveBubblesMode(event.transcriptStreamEnabled ? 'on' : 'off');
+      return;
+    }
     if (event.type === 'transcript-partial') {
       const id = `voice-${event.timestampMs}-${event.role}`;
       const isLearner = event.role === 'learner';
@@ -1137,6 +1149,7 @@ export function SimChat({
     setNewPromptId(null);
     setCallEndedAt(null);
     setCallEndSource(null);
+    setLiveBubblesMode(null);
     setCallId(null);
     callIdRef.current = null;
     durationBudgetRef.current = null;
@@ -1234,6 +1247,7 @@ export function SimChat({
         progressPanelActive={showProgressPanel}
         onAdminPanel={isOperator ? () => { setShowAdminPanel(prev => !prev); setShowProgressPanel(false); } : undefined}
         adminPanelActive={showAdminPanel}
+        liveBubblesMode={liveBubblesMode}
       />
 
       {/* Messages */}

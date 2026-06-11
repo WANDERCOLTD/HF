@@ -63,6 +63,10 @@ import { createSession } from "@/lib/voice/create-session";
 import { endSession } from "@/lib/voice/end-session";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
 import {
+  resolveTranscriptStreamEnabled,
+  _resetTranscriptGateCache,
+} from "@/lib/voice/transcript-stream-gate";
+import {
   UNKNOWN_CALLER_FIRST_LINE,
   noActivePromptFirstLine,
 } from "@/lib/prompt/composition/defaults/fallback-first-lines";
@@ -471,45 +475,11 @@ async function processTranscriptUpdate(
   });
 }
 
-// #1373 — Per-call in-process cache for the resolved transcriptStreamEnabled
-// bool. TTL aligned with provider-factory's 5-min cache (entries get reaped
-// on call-ended via SSE registry cleanup paths in a follow-up; for now,
-// reasonable bounds on a single call's lifetime). Map size is the count of
-// active calls; trivial memory.
-const transcriptGateCache = new Map<string, { value: boolean; expiresAt: number }>();
-const TRANSCRIPT_GATE_TTL_MS = 5 * 60 * 1000;
-
-async function resolveTranscriptStreamEnabled(args: {
-  callId: string;
-  callerId: string | null;
-}): Promise<boolean> {
-  const now = Date.now();
-  const cached = transcriptGateCache.get(args.callId);
-  if (cached && cached.expiresAt > now) return cached.value;
-
-  // Default = true (preserves pre-#1373 behaviour). Only flip when the
-  // cascade resolves to an explicit false.
-  let value = true;
-  try {
-    if (args.callerId) {
-      const resolved = await loadResolvedVoiceConfig({ callerId: args.callerId });
-      const flat = resolved.fields["transcriptStreamEnabled"];
-      if (flat?.value === false) value = false;
-    }
-  } catch (err) {
-    console.warn(
-      `[voice/transcript-gate] cascade resolve failed for callId=${args.callId} — defaulting to enabled:`,
-      err instanceof Error ? err.message : String(err),
-    );
-  }
-  transcriptGateCache.set(args.callId, { value, expiresAt: now + TRANSCRIPT_GATE_TTL_MS });
-  return value;
-}
-
-/** Test/observability — clears the in-process gate cache. */
-export function _resetTranscriptGateCache(): void {
-  transcriptGateCache.clear();
-}
+// #1373 — Per-call in-process cache + resolver moved to
+// `lib/voice/transcript-stream-gate.ts` so the SSE route + webhook
+// share one source of truth. Re-exported for callers that expect the
+// test helper here.
+export { _resetTranscriptGateCache };
 
 /** Structured result of `persistEndOfCall` — wraps the older NextResponse
  *  shape. Webhook caller re-wraps via `NextResponse.json(result)`; poll

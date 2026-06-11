@@ -36,6 +36,15 @@ export type VoiceCallSseEvent =
       type: "call-started";
       callId: string;
       durationLimitMs: number | null;
+      /**
+       * Cascade-resolved `transcriptStreamEnabled` (#1373). When false,
+       * the SSE channel still serves `call-started` + `call-ended` but
+       * `transcript-partial` broadcasts are suppressed server-side. The
+       * client uses this to render a header pill ("Live bubbles on" /
+       * "Bubbles off — appears after the call") so the absence of
+       * partials is unambiguous.
+       */
+      transcriptStreamEnabled: boolean;
       timestampMs: number;
     }
   | {
