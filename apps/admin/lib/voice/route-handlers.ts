@@ -399,17 +399,17 @@ async function processTranscriptUpdate(
   // #1361 — Prefer hfCallId lookup (WebRTC path round-trips our placeholder
   // id via assistant.metadata.hfCallId). Fall back to externalId for PSTN
   // and any legacy rows. Same single indexed findFirst — no perf cost.
-  let callRow: { id: string; callerId: string | null; externalId: string | null } | null = null;
+  let callRow: { id: string; callerId: string | null; playbookId: string | null; externalId: string | null } | null = null;
   if (parsed.hfCallId) {
     callRow = await prisma.call.findFirst({
       where: { id: parsed.hfCallId, source: slug },
-      select: { id: true, callerId: true, externalId: true },
+      select: { id: true, callerId: true, playbookId: true, externalId: true },
     });
   }
   if (!callRow) {
     callRow = await prisma.call.findFirst({
       where: { externalId: parsed.externalCallId, source: slug },
-      select: { id: true, callerId: true, externalId: true },
+      select: { id: true, callerId: true, playbookId: true, externalId: true },
     });
   }
   if (!callRow) return;
@@ -440,6 +440,7 @@ async function processTranscriptUpdate(
   const streamEnabled = await resolveTranscriptStreamEnabled({
     callId: callRow.id,
     callerId: callRow.callerId,
+    playbookId: callRow.playbookId,
   });
   if (!streamEnabled) {
     logVoiceEvent({

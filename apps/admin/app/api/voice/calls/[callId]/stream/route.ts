@@ -49,7 +49,7 @@ export async function GET(
   const { callId } = await params;
   const call = await prisma.call.findUnique({
     where: { id: callId },
-    select: { id: true, callerId: true, voiceProvider: true },
+    select: { id: true, callerId: true, playbookId: true, voiceProvider: true },
   });
   if (!call) {
     return NextResponse.json(
@@ -91,6 +91,7 @@ export async function GET(
   const transcriptStreamEnabled = await resolveTranscriptStreamEnabled({
     callId: call.id,
     callerId: call.callerId,
+    playbookId: call.playbookId,
   });
 
   const encoder = new TextEncoder();
