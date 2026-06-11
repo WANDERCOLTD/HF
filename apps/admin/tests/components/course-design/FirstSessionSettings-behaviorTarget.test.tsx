@@ -150,4 +150,110 @@ describe("FirstSessionSettings — #1417 BehaviorTarget row visibility", () => {
     const sliders = document.querySelectorAll('input[type="range"]');
     expect(sliders.length).toBe(1); // firstSessionTargets row only; behaviorTarget is read-only
   });
+
+  it("LayerBadge renders next to every row (wire-up of Slice 3 components)", async () => {
+    mockDesignResponse({
+      ok: true,
+      rows: [
+        {
+          parameterId: "BEH-RESPONSE-LEN",
+          value: 0.2,
+          origin: "behaviorTarget",
+          source: "MANUAL",
+          updatedAt: "2026-06-09T00:00:00.000Z",
+        },
+      ],
+      firstCallMode: null,
+    });
+
+    render(
+      <FirstSessionSettings
+        courseId="c1"
+        playbookConfig={{
+          firstSessionTargets: { "BEH-WARMTH": { value: 0.7 } },
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Managed via AgentTuner")).toBeTruthy();
+    });
+    // One [PB] chip per row — behaviorTarget row + firstSessionTargets row.
+    const chips = document.querySelectorAll('.hf-cascade-badge--pb');
+    expect(chips.length).toBe(2);
+  });
+
+  it("clicking the LayerBadge opens the CascadeInspectorTray", async () => {
+    mockDesignResponse({
+      ok: true,
+      rows: [
+        {
+          parameterId: "BEH-RESPONSE-LEN",
+          value: 0.2,
+          origin: "behaviorTarget",
+          source: "MANUAL",
+          updatedAt: "2026-06-09T00:00:00.000Z",
+        },
+      ],
+      firstCallMode: null,
+    });
+    // Tray opens then fetches the cascade — first fetch wins, rest fall back.
+    let trayFetches = 0;
+    fetchMock.mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/api/cascade/resolve")) {
+        trayFetches++;
+        return Promise.resolve(
+          jsonRes({
+            value: 0.2,
+            source: "PLAYBOOK",
+            layers: [
+              {
+                layer: "PLAYBOOK",
+                scopeId: "c1",
+                scopeLabel: "Test Course",
+                value: 0.2,
+                setAt: null,
+                setBy: null,
+              },
+            ],
+            isInherited: false,
+            recommendedLayerForEdit: "PLAYBOOK",
+          }),
+        );
+      }
+      if (typeof url === "string" && url.includes("/call1-override-preview")) {
+        return Promise.resolve(jsonRes({ ok: true, count: 0, samples: [], rangeFormCount: 0 }));
+      }
+      return Promise.resolve(
+        jsonRes({
+          ok: true,
+          rows: [
+            {
+              parameterId: "BEH-RESPONSE-LEN",
+              value: 0.2,
+              origin: "behaviorTarget",
+              source: "MANUAL",
+              updatedAt: "2026-06-09T00:00:00.000Z",
+            },
+          ],
+          firstCallMode: null,
+        }),
+      );
+    });
+
+    const { fireEvent } = await import("@testing-library/react");
+    render(<FirstSessionSettings courseId="c1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Managed via AgentTuner")).toBeTruthy();
+    });
+
+    const chip = document.querySelector('.hf-cascade-badge--pb');
+    expect(chip).toBeTruthy();
+    fireEvent.click(chip!);
+
+    await waitFor(() => {
+      expect(trayFetches).toBeGreaterThan(0);
+    });
+  });
 });
