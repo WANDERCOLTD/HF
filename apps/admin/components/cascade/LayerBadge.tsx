@@ -139,6 +139,12 @@ export interface LayerBadgeProps {
  * + (optional) inline subtitle. Clicking the chip fires `onInspect` —
  * typically opens `<CascadeInspectorTray>` with the same envelope.
  *
+ * When `onInspect` is provided, a discoverable "⋯" kebab affordance renders
+ * next to the chip — visually hidden at rest, revealed on hover or
+ * focus-within. This is the canonical entry point for opening the full
+ * cascade inspector; the chip itself remains clickable as a quick path so
+ * existing consumer wiring continues to work (#1469).
+ *
  * Renders on every cascade-eligible field, even when there is no override
  * anywhere (`NONE` state — muted dash glyph, not a sidebar icon). This
  * matches the ADR §5 research finding that under-disclosure causes the
@@ -157,6 +163,7 @@ export function LayerBadge({
   const label = srLabel(state);
   const computedSubtitle = subtitle ?? defaultSubtitle(envelope);
   const tooltip = tooltipText(envelope);
+  const chipAriaLabel = ariaLabel ?? `Cascade layer: ${label}`;
 
   return (
     <span
@@ -164,17 +171,35 @@ export function LayerBadge({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <button
-        type="button"
-        className={badgeClassName(state)}
-        onClick={onInspect}
-        aria-label={ariaLabel ?? `Cascade layer: ${label}`}
-        title={hovered ? tooltip : undefined}
-        data-layer={layerForData(envelope.source)}
-        data-state={state}
-      >
-        {iconNode ?? <span aria-hidden>—</span>}
-      </button>
+      <span className="hf-cascade-badge-row">
+        <button
+          type="button"
+          className={badgeClassName(state)}
+          onClick={onInspect}
+          aria-label={chipAriaLabel}
+          aria-haspopup={onInspect ? "dialog" : undefined}
+          title={hovered ? tooltip : undefined}
+          data-layer={layerForData(envelope.source)}
+          data-state={state}
+        >
+          {iconNode ?? <span aria-hidden>—</span>}
+        </button>
+        {onInspect ? (
+          <button
+            type="button"
+            className="hf-cascade-badge-kebab"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInspect();
+            }}
+            aria-label={`Inspect cascade chain — ${chipAriaLabel}`}
+            aria-haspopup="dialog"
+            data-testid="hf-cascade-badge-kebab"
+          >
+            <span aria-hidden="true">⋯</span>
+          </button>
+        ) : null}
+      </span>
       {!hideSubtitle && computedSubtitle ? (
         <div className="hf-cascade-subtitle">{computedSubtitle}</div>
       ) : null}
