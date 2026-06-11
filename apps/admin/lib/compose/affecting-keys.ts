@@ -26,6 +26,11 @@ export const COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS = [
   "sessionFlow",
   "welcomeMessage",
   "onboardingFlowPhases",
+  // #1403 Greeting lens — read by transforms/quickstart.ts::first_line +
+  // greeting_ack_gate. Educator-tuned course intro + ack-gate mode flow
+  // into the composed prompt body.
+  "firstCallCourseIntro",
+  "firstCallWaitForAck",
   // Audience + teaching shape — read by targets.ts + pedagogy.ts
   "audience",
   "teachingMode",

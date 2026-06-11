@@ -65,6 +65,8 @@ export function resolveSessionFlow(input: ResolveSessionFlowInput): SessionFlowR
   const stops = resolveStops(sf, pbConfig, intake.value);
   const offboarding = resolveOffboarding(sf, pbConfig);
   const welcomeMessage = resolveWelcomeMessage(input.playbook, input.domain);
+  const firstCallCourseIntro = resolveFirstCallCourseIntro(pbConfig);
+  const firstCallWaitForAck = resolveFirstCallWaitForAck(pbConfig);
 
   return {
     intake: intake.value,
@@ -72,12 +74,16 @@ export function resolveSessionFlow(input: ResolveSessionFlowInput): SessionFlowR
     stops: stops.value,
     offboarding: offboarding.value,
     welcomeMessage: welcomeMessage.value,
+    firstCallCourseIntro: firstCallCourseIntro.value,
+    firstCallWaitForAck: firstCallWaitForAck.value,
     source: {
       intake: intake.source,
       onboarding: onboarding.source,
       stops: stops.source,
       offboarding: offboarding.source,
       welcomeMessage: welcomeMessage.source,
+      firstCallCourseIntro: firstCallCourseIntro.source,
+      firstCallWaitForAck: firstCallWaitForAck.source,
     },
   };
 }
@@ -294,6 +300,42 @@ function resolveWelcomeMessage(
   if (pbMsg) return { value: pbMsg, source: "playbook" };
   if (domain?.onboardingWelcome) return { value: domain.onboardingWelcome, source: "domain" };
   return { value: null, source: "generic" };
+}
+
+// ---------------------------------------------------------------------------
+// #1403 — Greeting lens extensions
+//   - firstCallCourseIntro: optional one-line course intro spoken after the
+//     welcome + acknowledgement gate. Null when unset.
+//   - firstCallWaitForAck: how long to pause after the welcome. Defaults to
+//     "greeting_words" (wait for hi/hello/yes/yeah/...).
+// ---------------------------------------------------------------------------
+
+/** Default ack-gate mode applied when the educator has not set one. */
+export const DEFAULT_FIRST_CALL_WAIT_FOR_ACK: "none" | "any_response" | "greeting_words" =
+  "greeting_words";
+
+function resolveFirstCallCourseIntro(
+  pbConfig: PlaybookConfig,
+): {
+  value: string | null;
+  source: SessionFlowResolved["source"]["firstCallCourseIntro"];
+} {
+  const v = pbConfig.firstCallCourseIntro?.trim();
+  if (v && v.length > 0) return { value: v, source: "playbook" };
+  return { value: null, source: "none" };
+}
+
+function resolveFirstCallWaitForAck(
+  pbConfig: PlaybookConfig,
+): {
+  value: "none" | "any_response" | "greeting_words";
+  source: SessionFlowResolved["source"]["firstCallWaitForAck"];
+} {
+  const v = pbConfig.firstCallWaitForAck;
+  if (v === "none" || v === "any_response" || v === "greeting_words") {
+    return { value: v, source: "playbook" };
+  }
+  return { value: DEFAULT_FIRST_CALL_WAIT_FOR_ACK, source: "default" };
 }
 
 // ---------------------------------------------------------------------------

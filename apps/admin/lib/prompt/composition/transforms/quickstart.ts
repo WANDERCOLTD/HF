@@ -21,6 +21,7 @@ import {
   renderFirstCallOpening,
   rewriteReturningUserPhrasing,
 } from "@/lib/prompt/composition/defaults/first-call-openings";
+import { substituteGreetingTokens } from "@/lib/prompt/composition/defaults/substitute-greeting-tokens";
 
 /** Keys whose presence (scope PRE) signals the learner already submitted onboarding data */
 const PRE_LOADED_KEYS: readonly string[] = [
@@ -555,6 +556,54 @@ registerTransform("computeQuickStart", (
       const identityOpening = (identitySpec?.config as SpecConfig)?.sessionStructure?.opening?.instruction;
       if (identityOpening) return injectSubject(identityOpening);
 
+      // 1.5 #1403 — `welcomeMessage` literal override. Educator-authored
+      // greeting wins over phase-derived (1b) when set AND isFirstCall.
+      // Pre-#1403 this branch was branch 2 (after phase-derived). The
+      // OCEAN-course incident (Beckett, 2026-06-09) showed phase-derived
+      // ALWAYS firing for courses with onboarding phases configured —
+      // educators' welcomeMessage was being silently shadowed.
+      //
+      // Token substitution: {firstName} + {courseName} resolved via
+      // `substituteGreetingTokens` (allow-listed home under defaults/).
+      // Returning-user phrasing guard (#1195) re-applied at this position.
+      if (isFirstCall) {
+        let welcomeMsgRaw: string | null = null;
+        if (config.features.sessionFlowResolverEnabled) {
+          welcomeMsgRaw = resolveSessionFlow({
+            playbook,
+            domain: callerDomain,
+            onboardingSpec: loadedData.onboardingSpec,
+          }).welcomeMessage;
+        } else {
+          welcomeMsgRaw = pbConfig.welcomeMessage ?? callerDomain?.onboardingWelcome ?? null;
+        }
+        if (welcomeMsgRaw) {
+          if (hasReturningUserPhrasing(welcomeMsgRaw)) {
+            console.log(
+              "[first-line/rewrite] welcomeMessage rewritten — returning-user phrasing on first call",
+              {
+                playbookId: playbook?.id ?? null,
+                playbookName: playbook?.name ?? null,
+                original: welcomeMsgRaw,
+              },
+            );
+            return rewriteReturningUserPhrasing({
+              callerName: caller?.name ?? null,
+              subjectRef,
+            });
+          }
+          // Substitute tokens FIRST so the sanitiser sees the resolved
+          // text (its strip-name-question pass needs the real name in
+          // place to know whether to fire).
+          const substituted = substituteGreetingTokens({
+            template: welcomeMsgRaw,
+            firstName: caller?.name ?? null,
+            courseName: playbook?.name ?? null,
+          });
+          return injectSubject(substituted);
+        }
+      }
+
       // 1b. #1195 — Phase-derived first-call opening. When isFirstCall and
       // onboarding phases are configured at any layer of the cascade
       // (playbook, domain, or INIT-001), synthesise the opening from
@@ -596,43 +645,8 @@ registerTransform("computeQuickStart", (
         }
       }
 
-      // 2. Course-scoped welcome (playbook.config) > Domain welcome (institution default).
-      // When SESSION_FLOW_RESOLVER_ENABLED, delegate to resolveSessionFlow().
-      // Both paths must produce byte-equal output (epic #221, story #217).
-      if (isFirstCall) {
-        let welcomeMsg: string | null = null;
-        if (config.features.sessionFlowResolverEnabled) {
-          welcomeMsg = resolveSessionFlow({
-            playbook,
-            domain: callerDomain,
-            onboardingSpec: loadedData.onboardingSpec,
-          }).welcomeMessage;
-        } else {
-          welcomeMsg = pbConfig.welcomeMessage ?? callerDomain?.onboardingWelcome ?? null;
-        }
-        if (welcomeMsg) {
-          // #1195 — Returning-user phrasing guard. The CIO/CTO incident
-          // saw a brand-new caller hear "Welcome back. Let's revise what
-          // you've covered." because the educator's welcomeMessage assumed
-          // a returning user. Rewrite when narrow phrasing patterns match;
-          // log so educators can find and fix the source playbook config.
-          if (hasReturningUserPhrasing(welcomeMsg)) {
-            console.log(
-              "[first-line/rewrite] welcomeMessage rewritten — returning-user phrasing on first call",
-              {
-                playbookId: playbook?.id ?? null,
-                playbookName: playbook?.name ?? null,
-                original: welcomeMsg,
-              },
-            );
-            return rewriteReturningUserPhrasing({
-              callerName: caller?.name ?? null,
-              subjectRef,
-            });
-          }
-          return injectSubject(welcomeMsg);
-        }
-      }
+      // 2. (former) Course-scoped welcome — moved to branch 1.5 above
+      //    in #1403 so educator's welcomeMessage wins over phase-derived.
       // 3. Generic fallback
       if (isFirstCall) {
         return subjectRef
@@ -642,6 +656,53 @@ registerTransform("computeQuickStart", (
       return subjectRef
         ? `Good to reconnect. Ready to pick up where we left off with ${subjectRef}?`
         : "Good to reconnect. Let's pick up where we left off.";
+    })(),
+
+    /**
+     * #1403 — Greeting ack-gate instruction. Tells the AI whether to
+     * PAUSE after the welcomeMessage and wait for a learner response
+     * before continuing. Emitted only on isFirstCall — calls 2+ don't
+     * have a literal welcomeMessage, so the gate is moot.
+     *
+     * Rendered into the prompt body between `[OPENING]` and `[RULES]`
+     * by `renderPromptSummary.ts`. When mode is "none", the key is
+     * intentionally null so renderPromptSummary skips the block.
+     */
+    greeting_ack_gate: (() => {
+      if (!isFirstCall) return null;
+      const mode = pbConfig.firstCallWaitForAck ?? "greeting_words";
+      switch (mode) {
+        case "none":
+          return null;
+        case "any_response":
+          return "After your welcome message, PAUSE. Do not continue until the learner sends any response — wait for them to acknowledge you.";
+        case "greeting_words":
+          return "After your welcome message, PAUSE. Do not continue until the learner says hello, hi, yes, yeah, or an equivalent greeting word.";
+        default:
+          return null;
+      }
+    })(),
+
+    /**
+     * #1403 — Course-intro turn spoken after the ack gate. Substitutes
+     * `{courseName}` via `substituteGreetingTokens` so the AI receives
+     * the resolved literal — never a raw `{...}` marker.
+     *
+     * Emitted only on isFirstCall AND when the educator has authored
+     * a non-empty `firstCallCourseIntro`. Calls 2+ fall through to the
+     * phase-derived session plan.
+     */
+    greeting_course_intro: (() => {
+      if (!isFirstCall) return null;
+      const raw = pbConfig.firstCallCourseIntro?.trim();
+      if (!raw) return null;
+      const resolved = substituteGreetingTokens({
+        template: raw,
+        firstName: caller?.name ?? null,
+        courseName: playbook?.name ?? null,
+      });
+      if (resolved.length === 0) return null;
+      return resolved;
     })(),
 
     discovery_guidance: (() => {
