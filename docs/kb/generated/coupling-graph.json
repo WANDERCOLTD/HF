@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T14:57:20.682Z",
+  "generatedAt": "2026-06-11T15:23:48.738Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1661,
-  "edgeCount": 3813,
+  "fileCount": 1662,
+  "edgeCount": 3815,
   "skippedEdges": 1,
   "edges": [
     {
@@ -7924,6 +7924,10 @@
       "to": "lib/domain/generate-identity.ts"
     },
     {
+      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
+      "to": "lib/prompt/composition/defaults/substitute-greeting-tokens.ts"
+    },
+    {
       "from": "app/x/courses/[courseId]/_components/VoiceFlowLens.tsx",
       "to": "components/shared/HFDrawer.tsx"
     },
@@ -13685,6 +13689,10 @@
     },
     {
       "from": "lib/prompt/composition/transforms/quickstart.ts",
+      "to": "lib/prompt/composition/defaults/substitute-greeting-tokens.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/quickstart.ts",
       "to": "lib/prompt/composition/TransformRegistry.ts"
     },
     {
@@ -18394,7 +18402,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "inDegree": 1,
-      "outDegree": 8
+      "outDegree": 9
     },
     {
       "path": "app/x/courses/[courseId]/_components/VoiceFlowLens.tsx",
@@ -22142,6 +22150,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/prompt/composition/defaults/substitute-greeting-tokens.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
       "path": "lib/prompt/composition/index.ts",
       "inDegree": 10,
       "outDegree": 0
@@ -22294,7 +22307,7 @@
     {
       "path": "lib/prompt/composition/transforms/quickstart.ts",
       "inDegree": 2,
-      "outDegree": 11
+      "outDegree": 12
     },
     {
       "path": "lib/prompt/composition/transforms/retrieval-practice.ts",
