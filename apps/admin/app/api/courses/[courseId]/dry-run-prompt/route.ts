@@ -3,6 +3,7 @@ import { executeComposition, loadComposeConfig } from "@/lib/prompt/composition"
 import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { resolveIdentitySpec } from "@/lib/cascade/resolvers/identity-spec";
 
 export const runtime = "nodejs";
 
@@ -118,6 +119,27 @@ export async function POST(
     const composition = await executeComposition(callerId, sections, fullSpecConfig, "dry-run");
     const { loadedData, resolvedSpecs, metadata } = composition;
 
+    // #1472 — surface the identity-spec cascade source so Preview lens can
+    // render a LayerBadge ("Persona: tutor from System default"). Read-only
+    // resolution off the same primitive `/api/cascade/resolve` uses; falls
+    // back to null on resolver throw so dry-run continues working.
+    let identitySpecSource: "SYSTEM" | "DOMAIN" | "PLAYBOOK" | null = null;
+    try {
+      const idEnv = await resolveIdentitySpec({ playbookId: courseId });
+      if (
+        idEnv.source === "SYSTEM" ||
+        idEnv.source === "DOMAIN" ||
+        idEnv.source === "PLAYBOOK"
+      ) {
+        identitySpecSource = idEnv.source;
+      }
+    } catch (err) {
+      console.warn(
+        `[dry-run-prompt] identity-spec cascade lookup failed for course=${courseId}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+
     const promptSummary = renderPromptSummary(composition.llmPrompt);
 
     console.log(
@@ -143,6 +165,12 @@ export async function POST(
         loadTimeMs: metadata.loadTimeMs,
         transformTimeMs: metadata.transformTimeMs,
         identitySpec: resolvedSpecs.identitySpec?.name ?? null,
+        // #1472 — additive fields; existing consumers reading `identitySpec`
+        // are unaffected. `identitySpecExtendsAgent` is the base archetype
+        // slug ("TUT-001" / "COACH-001"); Preview lens maps it to a label
+        // via `getArchetypeLabel()`.
+        identitySpecSource,
+        identitySpecExtendsAgent: resolvedSpecs.identitySpec?.extendsAgent ?? null,
         playbooksUsed: loadedData.playbooks.map((p: any) => p.name),
         memoriesCount: loadedData.memories.length,
         behaviorTargetsCount: metadata.mergedTargetCount,

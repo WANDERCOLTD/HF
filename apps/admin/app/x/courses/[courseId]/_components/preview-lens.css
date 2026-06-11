@@ -312,6 +312,22 @@
   background: var(--surface-secondary);
 }
 
+/* Identity header (#1472) — cascade-honest persona row above transcript. */
+.hf-preview-lens-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-secondary);
+}
+.hf-preview-lens-identity-caption {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .hf-preview-lens-stat-value {
   font-size: 16px;
   font-weight: 700;
