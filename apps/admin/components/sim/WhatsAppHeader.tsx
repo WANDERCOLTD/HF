@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, PhoneOff, FolderOpen, Mic, Settings, TrendingUp } from 'lucide-react';
+import { ArrowLeft, PhoneOff, FolderOpen, Mic, Settings, TrendingUp, MessageSquare, MessageSquareOff } from 'lucide-react';
 import { EditableTitle } from '@/components/shared/EditableTitle';
 
 interface WhatsAppHeaderProps {
@@ -27,9 +27,17 @@ interface WhatsAppHeaderProps {
   adminPanelActive?: boolean;
   progressPanelActive?: boolean;
   avatarColor?: string;
+  /**
+   * Cascade-resolved live-transcript-bubbles mode for the active call
+   * (#1373). `null` = no live call → nothing rendered. `'on'` = bubbles
+   * will arrive in real-time. `'off'` = config suppresses bubbles; full
+   * transcript appears post-call. Shown as a small pill so silence
+   * during a call is unambiguous (config vs transport vs nobody-speaking).
+   */
+  liveBubblesMode?: 'on' | 'off' | null;
 }
 
-export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onTitleEdit, titleEditDisabled, onVoiceToggle, onAdminPanel, onProgressPanel, mediaLibraryActive, voiceActive, callActive, adminPanelActive, progressPanelActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
+export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onTitleEdit, titleEditDisabled, onVoiceToggle, onAdminPanel, onProgressPanel, mediaLibraryActive, voiceActive, callActive, adminPanelActive, progressPanelActive, avatarColor = 'var(--text-muted)', liveBubblesMode = null }: WhatsAppHeaderProps) {
   const initials = title.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
@@ -79,6 +87,28 @@ export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibr
           </div>
         )}
       </div>
+      {liveBubblesMode && (
+        <span
+          className={`wa-bubbles-pill${liveBubblesMode === 'off' ? ' wa-bubbles-pill--off' : ''}`}
+          aria-label={
+            liveBubblesMode === 'on'
+              ? 'Live transcript bubbles are enabled for this call'
+              : 'Live transcript bubbles are disabled for this course — the conversation will appear after the call ends'
+          }
+          title={
+            liveBubblesMode === 'on'
+              ? 'Live transcript bubbles enabled'
+              : 'Live bubbles off — full transcript appears after the call'
+          }
+        >
+          {liveBubblesMode === 'on' ? (
+            <MessageSquare size={11} aria-hidden="true" />
+          ) : (
+            <MessageSquareOff size={11} aria-hidden="true" />
+          )}
+          {liveBubblesMode === 'on' ? 'Live' : 'Post-call'}
+        </span>
+      )}
       {onMediaLibrary && (
         <button
           className="wa-back-btn"

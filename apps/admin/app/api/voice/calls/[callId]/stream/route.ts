@@ -9,6 +9,7 @@ import {
   registerSubscriber,
   type VoiceCallSseEvent,
 } from "@/lib/voice/sse-registry";
+import { resolveTranscriptStreamEnabled } from "@/lib/voice/transcript-stream-gate";
 import { logVoiceEvent } from "@/lib/voice/telemetry";
 
 export const runtime = "nodejs";
@@ -83,6 +84,15 @@ export async function GET(
     callerId: call.callerId,
   });
 
+  // #1373 — Resolve the cascade once at connection-open so the initial
+  // `call-started` event carries the gate state. Browser uses it to
+  // render a "Bubbles on/off" pill, distinguishing "config says off"
+  // from silent VAPI / multi-instance transport drop.
+  const transcriptStreamEnabled = await resolveTranscriptStreamEnabled({
+    callId: call.id,
+    callerId: call.callerId,
+  });
+
   const encoder = new TextEncoder();
   let closed = false;
 
@@ -103,6 +113,7 @@ export async function GET(
         type: "call-started",
         callId: call.id,
         durationLimitMs: null,
+        transcriptStreamEnabled,
         timestampMs: Date.now(),
       });
 
