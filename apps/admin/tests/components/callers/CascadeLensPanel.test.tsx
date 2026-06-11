@@ -155,16 +155,19 @@ describe("CascadeLensPanel (#1348)", () => {
 
     const rows = Array.from(container!.querySelectorAll(".hf-cascade-row"));
     // autoPipeline → system wins
+    // Post-#1470 the panel renders full sidebar-aligned labels
+    // ("System default" / "Voice provider" / "Domain" / "Course") instead
+    // of the prior 3-char tokens (sys/prov/dom/crs).
     const autoRow = rows[0];
     const autoActive = autoRow.querySelectorAll(".hf-cascade-pill--active");
     expect(autoActive.length).toBe(1);
-    expect(autoActive[0].textContent?.trim().toLowerCase()).toBe("sys");
+    expect(autoActive[0].textContent?.trim().toLowerCase()).toBe("system default");
 
     // voiceId → provider wins
     const voiceRow = rows[1];
     const voiceActive = voiceRow.querySelectorAll(".hf-cascade-pill--active");
     expect(voiceActive.length).toBe(1);
-    expect(voiceActive[0].textContent?.trim().toLowerCase()).toBe("prov");
+    expect(voiceActive[0].textContent?.trim().toLowerCase()).toBe("voice provider");
 
     // silenceTimeoutSeconds → course wins
     const silenceRow = rows[2];
@@ -172,7 +175,7 @@ describe("CascadeLensPanel (#1348)", () => {
       ".hf-cascade-pill--active",
     );
     expect(silenceActive.length).toBe(1);
-    expect(silenceActive[0].textContent?.trim().toLowerCase()).toBe("crs");
+    expect(silenceActive[0].textContent?.trim().toLowerCase()).toBe("course");
   });
 
   it("deep-link href is correct for each winning-layer scope", async () => {
