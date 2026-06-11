@@ -27,7 +27,105 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+import { prisma } from "@/lib/prisma";
 import type { WelcomeConfig, NpsConfig, PlaybookConfig } from "@/lib/types/json-fields";
+
+/**
+ * @api GET /api/courses/[courseId]/design
+ * @visibility internal
+ * @scope course:read
+ * @auth session (OPERATOR+)
+ * @tags course, design, first-session-targets
+ * @description Returns the merged "first-call behaviour targets" payload
+ *   that the FirstSessionSettings panel renders. Merges TWO sources at
+ *   PLAYBOOK scope — `Playbook.config.firstSessionTargets` (educator-
+ *   owned via this panel's Save) AND `BehaviorTarget(scope=PLAYBOOK)`
+ *   rows (written by AgentTuner / Cmd+K). Each merged row carries an
+ *   `origin` so the panel can render `behaviorTarget` rows read-only
+ *   (#1417). Identical `parameterId` in both sources produces TWO rows
+ *   (no silent dedup) so the educator can resolve the conflict.
+ * @response 200 { ok: true, rows: Array<{ parameterId, value, origin: "firstSessionTargets" | "behaviorTarget" }>, firstCallMode? }
+ * @response 404 { ok: false, error: "Course not found" }
+ */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ courseId: string }> },
+): Promise<NextResponse> {
+  const auth = await requireAuth("OPERATOR");
+  if (isAuthError(auth)) return auth.error;
+
+  try {
+    const { courseId } = await params;
+
+    const playbook = await prisma.playbook.findUnique({
+      where: { id: courseId },
+      select: { id: true, config: true },
+    });
+    if (!playbook) {
+      return NextResponse.json(
+        { ok: false, error: "Course not found" },
+        { status: 404 },
+      );
+    }
+
+    const cfg = (playbook.config ?? {}) as PlaybookConfig;
+    const fst = cfg.firstSessionTargets ?? {};
+
+    const behaviorRows = await prisma.behaviorTarget.findMany({
+      where: {
+        playbookId: courseId,
+        scope: "PLAYBOOK",
+        effectiveUntil: null,
+      },
+      select: {
+        parameterId: true,
+        targetValue: true,
+        source: true,
+        updatedAt: true,
+      },
+      orderBy: { parameterId: "asc" },
+    });
+
+    type MergedRow = {
+      parameterId: string;
+      value: number;
+      origin: "firstSessionTargets" | "behaviorTarget";
+      source?: string;
+      updatedAt?: string;
+    };
+
+    const rows: MergedRow[] = [];
+    for (const [parameterId, v] of Object.entries(fst)) {
+      rows.push({
+        parameterId,
+        value: typeof v.value === "number" ? v.value : 0,
+        origin: "firstSessionTargets",
+      });
+    }
+    for (const r of behaviorRows) {
+      rows.push({
+        parameterId: r.parameterId,
+        value: r.targetValue,
+        origin: "behaviorTarget",
+        source: r.source,
+        updatedAt: r.updatedAt.toISOString(),
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      rows,
+      firstCallMode: cfg.firstCallMode ?? null,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[api/courses/:courseId/design GET] error", err);
+    return NextResponse.json(
+      { ok: false, error: message },
+      { status: 500 },
+    );
+  }
+}
 
 export async function PUT(
   req: NextRequest,
