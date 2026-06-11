@@ -55,6 +55,7 @@
   - [Educator](#educator)
   - [Goals](#goals)
   - [Groups](#groups)
+  - [Help](#help)
   - [Institutions](#institutions)
   - [Invites](#invites)
   - [Lab](#lab)
@@ -8110,6 +8111,41 @@ List available group templates, optionally filtered by institution type.
 
 ---
 
+## Help
+
+### `POST` /api/help/events
+
+Records a lightweight operator help-surface telemetry event
+
+**Auth**: OPERATOR · **Scope**: `help:telemetry`
+
+**Response** `202`
+```json
+{ ok: true }
+```
+
+**Response** `401`
+```json
+{ error: "Unauthorized" }
+```
+
+**Response** `403`
+```json
+{ error: "Forbidden" }
+```
+
+**Response** `422`
+```json
+{ error: "Invalid body", details: ... }
+```
+
+**Response** `429`
+```json
+{ error: "Too many attempts..." }
+```
+
+---
+
 ## Institutions
 
 ### `POST` /api/institutions/launch
@@ -15913,8 +15949,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 508 |
-| Files with annotations | 498 |
+| Route files found | 509 |
+| Files with annotations | 499 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 

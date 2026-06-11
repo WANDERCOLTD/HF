@@ -3732,6 +3732,38 @@ model UsageEvent {
   @@index([sourceOp])
 }
 
+/// #1442 Layer 3 Slice 3 (#1484) — operator help-surface telemetry.
+///
+/// Lightweight curation feedback loop: which demo knobs, help docs, and
+/// cascade-inspector surfaces are operators actually using? Drives Slice 4
+/// favourites + Cmd+K `/demo` prioritisation.
+///
+/// Open-ended `type` + `target` strings (NO enum) so new event classes
+/// land without a migration — mirrors `IntakeEvent.kind` precedent.
+///
+/// Documented values (extend without migration):
+///   type: "doc-section-view" | "cascade-inspector-open" | "cascade-inspector-close" | "cmdk-tool-fire"
+///   target: section id ("demos"), knob key ("BEH-WARMTH"), tool slug ("/demo")
+///
+/// FK-free by design — telemetry rows must survive User/Caller deletions
+/// without cascade. `userId` / `callerId` are correlation hints only;
+/// the admin telemetry view MUST NOT JOIN on them. `role` stored as
+/// `String?` (not the `UserRole` enum) to decouple from future role renames.
+model HelpEvent {
+  id         String   @id @default(uuid())
+  type       String // event class — see model docstring for documented values
+  target     String // section id, knob key, tool slug
+  role       String? // UserRole string at event time (nullable; not an enum)
+  userId     String? // null when unauthenticated; NO FK (survives user deletion)
+  callerId   String? // optional caller correlation; NO FK (survives caller deletion)
+  success    Boolean?
+  durationMs Int?
+  createdAt  DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+}
+
 // Pre-aggregated rollups for dashboard performance
 model UsageRollup {
   id String @id @default(uuid())

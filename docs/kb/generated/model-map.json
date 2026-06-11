@@ -1,13 +1,13 @@
 {
   "$schema": "model-map/v1",
-  "generatedAt": "2026-06-11T13:49:47.140Z",
+  "generatedAt": "2026-06-11T14:29:47.289Z",
   "generator": "scripts/capture/model-map.ts",
   "schemaPath": "apps/admin/prisma/schema.prisma",
   "note": "Tier-2 generated KB. proposedClass is a HEURISTIC unless reviewed:true. Human ratifications live in docs/kb/model-map-overrides.json and are reapplied by the generator on each run. Do not hand-edit this JSON — edit the overrides file.",
-  "modelCount": 109,
+  "modelCount": 110,
   "ratifiedCount": 8,
   "summary": {
-    "tenant-scoped": 97,
+    "tenant-scoped": 98,
     "global": 4,
     "join": 8,
     "alreadyTenantAware": 1,
@@ -2630,6 +2630,33 @@
         "@@index",
         "@@index",
         "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "HelpEvent",
+      "fieldCount": 9,
+      "relationCount": 0,
+      "meaningfulScalarCount": 5,
+      "scalarFields": [
+        "id",
+        "type",
+        "target",
+        "role",
+        "userId",
+        "callerId",
+        "success",
+        "durationMs",
+        "createdAt"
+      ],
+      "relations": [],
+      "blockAttrs": [
         "@@index",
         "@@index"
       ],
