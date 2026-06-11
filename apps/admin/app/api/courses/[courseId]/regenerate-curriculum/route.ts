@@ -1,3 +1,10 @@
+/**
+ * @operator-surface yes
+ *
+ * The "regenerate this course's curriculum" button on Course Design — used
+ * during demos to recover from a garbled or stale Curriculum without
+ * deleting the course. See per-function JSDoc below for full contract.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";

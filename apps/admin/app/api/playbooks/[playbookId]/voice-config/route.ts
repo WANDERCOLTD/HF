@@ -1,4 +1,6 @@
 /**
+ * @operator-surface yes
+ *
  * Course (Playbook) voice-config GET + PATCH (#1271 Slice C).
  *
  * GET returns the resolved 4-layer cascade for the playbook so the

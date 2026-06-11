@@ -5,6 +5,8 @@ import { explainVoiceCascade } from "@/lib/cascade/voice-explain";
 export const runtime = "nodejs";
 
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/callers/[callerId]/cascade/voice
  * @visibility internal
  * @scope cascade:read

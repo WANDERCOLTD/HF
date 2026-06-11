@@ -67,3 +67,9 @@
 .hf-help-demos-family-name {
   font-family: ui-monospace, monospace;
 }
+
+/* Operator-surfaces table (Slice 2, #1483) — slight spacing between
+   stacked method badges in the Method column. */
+.hf-help-demos-table tbody td .hf-category-label + .hf-category-label {
+  margin-left: 4px;
+}

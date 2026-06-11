@@ -59,8 +59,9 @@ npm run kb:model-map     # → docs/kb/generated/model-map.json   (109 models cl
 npm run kb:routes        # → docs/kb/generated/route-inventory.json (501 routes)
 npm run kb:coupling      # → docs/kb/generated/coupling-graph.json (~1600 files, ~3700 edges)
 npm run kb:demo-knobs    # → docs/kb/generated/demo-knobs.json (cascade-knob catalogue for /x/help/demos)
+npm run kb:operator-surfaces  # → docs/kb/generated/operator-surfaces.json (@operator-surface routes for /x/help/demos)
 npm run kb:rule-tests    # meta-ratchet: every custom ESLint rule has a sibling test
-npm run kb:check         # all four generators + meta-ratchets + generated-fact freshness
+npm run kb:check         # all five generators + meta-ratchets + generated-fact freshness
 ```
 
 ### Ratifying a model classification

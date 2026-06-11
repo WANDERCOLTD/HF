@@ -1,3 +1,10 @@
+/**
+ * @operator-surface yes
+ *
+ * @description Compose a dry-run prompt for a course — used during demos
+ * to preview what the next call's system prompt would look like without
+ * actually placing a call.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { executeComposition, loadComposeConfig } from "@/lib/prompt/composition";
 import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";

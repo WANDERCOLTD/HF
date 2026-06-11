@@ -1,4 +1,6 @@
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/callers/:callerId/learning-trajectory
  * @visibility public
  * @scope callers:read

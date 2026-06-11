@@ -6,6 +6,8 @@ import { resolveWelcomeMessage } from "@/lib/cascade/resolvers/welcome-message";
 export const runtime = "nodejs";
 
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/courses/[courseId]/cascade/welcome-message
  * @visibility internal
  * @scope cascade:read

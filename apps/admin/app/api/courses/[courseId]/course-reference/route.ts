@@ -7,6 +7,8 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/courses/:courseId/course-reference
  * @visibility public
  * @scope courses:read

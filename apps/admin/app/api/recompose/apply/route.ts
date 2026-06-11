@@ -1,4 +1,6 @@
 /**
+ * @operator-surface yes
+ *
  * Apply pending changes from the PendingChangesTray (epic #854 / Story #857).
  *
  * The tray accumulates compose-affecting settings edits across surfaces.

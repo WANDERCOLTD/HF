@@ -1,4 +1,6 @@
 /**
+ * @operator-surface yes
+ *
  * POST /api/courses/[courseId]/import-modules
  *
  * Parses a Course Reference markdown body for an author-declared Module

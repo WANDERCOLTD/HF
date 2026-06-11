@@ -7,13 +7,14 @@ import { redirect } from "next/navigation";
 import "./help-demos.css";
 
 /**
- * Demo Knob Reference — Epic #1442 Layer 3 Slice 1 (#1482).
+ * Demo Knob Reference — Epic #1442 Layer 3 Slice 1 (#1482) + Slice 2 (#1483).
  *
- * Operator-facing schema-driven catalogue of cascade-resolvable knobs.
- * Reads `docs/kb/generated/demo-knobs.json` at request time (a tiny
- * file, ~3KB) so the page is automatically current when CI regenerates
- * the JSON. Subsequent slices add live cascade-effective-value reads
- * per course, role-filtering, and Cmd+K shortcuts.
+ * Operator-facing schema-driven catalogue of cascade-resolvable knobs
+ * (Slice 1) plus the curated list of API surfaces operators touch during
+ * demo prep / debugging (Slice 2). Both sections read generated JSON at
+ * request time so the page is automatically current when CI regenerates.
+ * Subsequent slices add live cascade-effective-value reads per course,
+ * role-filtering, and Cmd+K shortcuts.
  *
  * Auth: OPERATOR+ only. STUDENT / VIEWER bounce back to /x.
  */
@@ -34,12 +35,46 @@ type DemoKnobsManifest = {
   knobs: KnobRow[];
 };
 
+type SurfaceCategory =
+  | "courses"
+  | "callers"
+  | "voice"
+  | "playbooks"
+  | "settings"
+  | "other";
+
+type OperatorSurface = {
+  route: string;
+  file: string;
+  methods: string[];
+  authLevels: string[];
+  description: string;
+  category: SurfaceCategory;
+};
+
+type OperatorSurfacesManifest = {
+  $schema: string;
+  generatedAt: string;
+  surfaces: OperatorSurface[];
+};
+
 function loadKnobs(): DemoKnobsManifest {
   // The generated JSON lives at repo root; this page lives in apps/admin.
   // Resolve from `process.cwd()` (apps/admin) up to the repo root.
   const path = resolve(process.cwd(), "..", "..", "docs/kb/generated/demo-knobs.json");
   const raw = readFileSync(path, "utf8");
   return JSON.parse(raw) as DemoKnobsManifest;
+}
+
+function loadSurfaces(): OperatorSurfacesManifest {
+  const path = resolve(
+    process.cwd(),
+    "..",
+    "..",
+    "docs/kb/generated/operator-surfaces.json",
+  );
+  const raw = readFileSync(path, "utf8");
+  return JSON.parse(raw) as OperatorSurfacesManifest;
 }
 
 const OPERATOR_PLUS = new Set(["OPERATOR", "ADMIN", "SUPERADMIN"]);
@@ -54,6 +89,9 @@ export default async function HelpDemosPage() {
   const demoKnobs = manifest.knobs.filter((k) => k.demoKnob);
   const otherKnobs = manifest.knobs.filter((k) => !k.demoKnob);
   const familyGroups = groupByFamily(otherKnobs);
+
+  const surfaces = loadSurfaces();
+  const surfaceGroups = groupByCategory(surfaces.surfaces);
 
   return (
     <main className="hf-help-demos">
@@ -98,6 +136,42 @@ export default async function HelpDemosPage() {
             <KnobTable rows={rows} />
           </details>
         ))}
+      </section>
+
+      <section className="hf-card hf-help-demos-section">
+        <h2 className="hf-section-title">
+          Surfaces operators touch ({surfaces.surfaces.length})
+        </h2>
+        <p className="hf-section-desc">
+          The API routes you&apos;ll hit in the admin UI during demo prep or
+          debugging. Curated, not exhaustive — annotate more routes with{" "}
+          <code>@operator-surface yes</code> as the demo workflow widens.
+          Grouped by URL prefix.
+        </p>
+        <p className="hf-text-xs hf-text-muted">
+          Generated from <code>scripts/capture/operator-surfaces.ts</code> on{" "}
+          {new Date(surfaces.generatedAt).toISOString().slice(0, 10)}.
+        </p>
+        {SURFACE_CATEGORY_ORDER.filter((cat) => surfaceGroups[cat]?.length).map(
+          (category) => {
+            const rows = surfaceGroups[category] ?? [];
+            return (
+              <details
+                key={category}
+                className="hf-help-demos-family"
+                open
+              >
+                <summary>
+                  <span className="hf-help-demos-family-name">{category}</span>{" "}
+                  <span className="hf-text-xs hf-text-muted">
+                    ({rows.length})
+                  </span>
+                </summary>
+                <SurfaceTable rows={rows} />
+              </details>
+            );
+          },
+        )}
       </section>
     </main>
   );
@@ -158,4 +232,68 @@ function groupByFamily(knobs: KnobRow[]): Record<string, KnobRow[]> {
     (out[knob.family] ??= []).push(knob);
   }
   return out;
+}
+
+const SURFACE_CATEGORY_ORDER: SurfaceCategory[] = [
+  "courses",
+  "callers",
+  "voice",
+  "playbooks",
+  "settings",
+  "other",
+];
+
+function groupByCategory(
+  surfaces: OperatorSurface[],
+): Partial<Record<SurfaceCategory, OperatorSurface[]>> {
+  const out: Partial<Record<SurfaceCategory, OperatorSurface[]>> = {};
+  for (const surface of surfaces) {
+    (out[surface.category] ??= []).push(surface);
+  }
+  return out;
+}
+
+function SurfaceTable({ rows }: { rows: OperatorSurface[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className="hf-text-xs hf-text-muted">No surfaces in this group.</p>
+    );
+  }
+  return (
+    <table className="hf-help-demos-table">
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Route</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.route}>
+            <td>
+              {row.methods.map((method) => (
+                <span
+                  key={method}
+                  className="hf-category-label"
+                  data-tone="info"
+                >
+                  {method}
+                </span>
+              ))}
+            </td>
+            <td>
+              <code>{row.route}</code>
+              {row.authLevels.length > 0 ? (
+                <div className="hf-text-xs hf-text-muted">
+                  auth: {row.authLevels.join(" / ")}
+                </div>
+              ) : null}
+            </td>
+            <td>{row.description || <span className="hf-text-muted">—</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }

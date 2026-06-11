@@ -4,6 +4,8 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { ensurePrimaryPlaybookLink } from "@/lib/curriculum/ensure-primary-playbook-link";
 
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/curricula
  * @visibility internal
  * @scope curricula:read

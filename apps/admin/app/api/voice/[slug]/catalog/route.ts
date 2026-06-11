@@ -5,6 +5,8 @@ import { getVoiceProvider } from "@/lib/voice/provider-factory";
 export const runtime = "nodejs";
 
 /**
+ * @operator-surface yes
+ *
  * @api GET /api/voice/[slug]/catalog
  * @visibility internal
  * @scope voice:catalog:read
