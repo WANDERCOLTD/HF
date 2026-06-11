@@ -54,6 +54,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-module-read-without-course-style-guard`](#guard-no-module-read-without-course-style-guard) | `CallerModuleProgress` reads/writes outside a `courseStyle === 'structured'` guard (default-deny) | #1252 | **b** |
 | [`hf-voice/no-vapi-column-ref`](#guard-no-vapi-column-ref) | Disallow the 6 pre-#1020 `vapi`-prefixed Call columns; use `voice*` names (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP3) | #1020/#1024 | **a** |
 | [`hf-voice/no-vapi-tool-definitions-const`](#guard-no-vapi-tool-definitions-const) | Disallow the `VAPI_TOOL_DEFINITIONS` TS const; load via TOOLS-001 spec (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP2) | #1019/#1024 | **a** |
+| [`no-bespoke-async-polling`](#guard-no-bespoke-async-polling) | Bespoke `setInterval`/`setTimeout` retry loops outside an allow-list; use `lib/async/wait-until-ready.ts` | G7 / 2026-06-11 | **meta** |
 
 ### Guard detail
 
@@ -203,6 +204,24 @@ constant named `VAPI_TOOL_DEFINITIONS`. **Survives hardening:** the
 "specs-as-source-of-truth-for-AI-tooling" pattern is architecture-independent —
 parallel rules will be needed if/when other tool-loading constants are migrated.
 
+<a id="guard-no-bespoke-async-polling"></a>
+**`no-bespoke-async-polling`** · class **meta** · born G7 / 2026-06-11 ·
+[rule source](../../apps/admin/eslint-rules/no-bespoke-async-polling.mjs) ·
+helper → [`lib/async/wait-until-ready.ts`](../../apps/admin/lib/async/wait-until-ready.ts) ·
+ADR → [chase-prevention methodology](../decisions/2026-06-11-chase-prevention-methodology.md)
+
+Bespoke `setInterval` / `setTimeout` retry loops are the AP-3 chase pattern: every author
+re-derives deadline math, abort signalling, structured timeout logging, and the
+exception-vs-timeout split — usually subtly wrong. The 2026-06-09 hardening drill shipped
+FIVE "wait for X" fixes before the structural cleanup eliminated them. This rule fires on
+`while`/`for`/`do-while` blocks containing `setTimeout`/`setInterval`, **outside an
+allow-list** of grandfathered call sites (12 today — track to zero in
+`lib/rate-limit.ts`, `lib/pipeline/prosody-runner.ts`, `lib/content-trust/extract-*`, etc.).
+Severity is `warn` until the migration follow-up; new sites are caught now. The canonical
+replacement is `waitUntilReady({ predicate, ready, timeout, interval, label, onTimeout?,
+signal? })` from `lib/async/wait-until-ready.ts`. **Survives hardening:** "single async
+chokepoint" is a methodology fitness function, architecture-independent.
+
 ## CI check scripts — `apps/admin/scripts/`
 
 | Script | Prevents / asserts | Born | Class |
@@ -234,6 +253,66 @@ parallel rules will be needed if/when other tool-loading constants are migrated.
 | `migration-checker` | destructive-migration / data-migration review before `migrate dev` | **meta** |
 | `seed-checker` | spec JSON ↔ schema consistency | **meta** |
 | `standards-checker` | tests/UI/CSS/auth/quality scorecard | **meta** |
+
+## Process guards — `.githooks/` + `scripts/check-*` (chase-prevention)
+
+> Class **meta** — fitness functions that catch *process* anti-patterns at the
+> commit / push boundary. See [methodology ADR](../decisions/2026-06-11-chase-prevention-methodology.md)
+> for the AP-1..AP-5 framework these enforce.
+
+| Hook / Script | Catches anti-pattern | Bypass |
+|---|---|---|
+| [`scripts/check-fix-chain.sh`](../../scripts/check-fix-chain.sh) (post-commit + ratchet) | **AP-2 fix-chain** — ≥3 `fix:` commits on same `#issue`. Ratchet metric: `same_issue_fix_chain_max`. | (warn-only; ratchet enforces) |
+| [`scripts/check-reciprocal-edit.sh`](../../scripts/check-reciprocal-edit.sh) (pre-push) | **AP-1 reciprocal-edit** — commit N+1 undoes ≥50% of commit N. | `ALLOW_RECIPROCAL_EDIT=1 git push` (document intent in body) |
+| [`scripts/gh-pr-create.sh`](../../scripts/gh-pr-create.sh) (wrapper around `gh pr create`) | **AP-4 verify-before-fix** — PR body without `## Verified by` section + DB query / test name / log / Playwright trace evidence. | `--no-verify-section` flag (warn-only) |
+| [`scripts/check-fix-refactor-inversion.ts`](../../scripts/check-fix-refactor-inversion.ts) (PR comment, warn-only) | **AP-5 fix-before-refactor** — `fix:` commit on a file later cleanly refactored on the same branch. | none — report only |
+
+<a id="guard-fix-chain"></a>
+**`check-fix-chain.sh`** · class **meta** · born 2026-06-11 ·
+[script source](../../scripts/check-fix-chain.sh) ·
+ADR → [chase-prevention methodology](../decisions/2026-06-11-chase-prevention-methodology.md)
+
+Scans the last 30 days of commits on the current branch; for each `fix:` /
+`fix(scope):` commit, extracts the `#NNNN` token(s) from subject + body and
+groups by issue. Issues with ≥3 commits print a warning urging the
+`root-cause` agent before the next fix on the topic. Max-chain-length is also
+emitted as a ratchet metric (`same_issue_fix_chain_max`) so the count only
+ever ratchets down. **Survives hardening:** AP-2 is a methodology fitness
+function — architecture-independent.
+
+<a id="guard-reciprocal-edit"></a>
+**`check-reciprocal-edit.sh`** · class **meta** · born 2026-06-11 ·
+[script source](../../scripts/check-reciprocal-edit.sh) ·
+ADR → [chase-prevention methodology](../decisions/2026-06-11-chase-prevention-methodology.md)
+
+For commit N+1 vs commit N: compares added vs removed lines (and vice versa);
+if ≥50% identical, flags reciprocal edit and exits 1. Wired as `pre-push`.
+Bypass requires `ALLOW_RECIPROCAL_EDIT=1` *and* a documented intent in the
+commit body (signed off as a deliberate revert). Verified live against the
+#1365 → #1366 transcript-parser revert (`vapi-provider.parse-transcript.test.ts`
+re-introduces 25/34 removed lines, 73%). **Survives hardening:** AP-1 is a
+methodology fitness function — architecture-independent.
+
+<a id="guard-verify-before-fix"></a>
+**`gh-pr-create.sh`** · class **meta** · born 2026-06-11 ·
+[script source](../../scripts/gh-pr-create.sh) ·
+memory → [feedback_verify_before_fix_misread_2026_06_09.md](../../../.claude/projects/-Users-paulwander-projects-HF/memory/feedback_verify_before_fix_misread_2026_06_09.md)
+
+Wraps `gh pr create`; requires a `## Verified by` section in the PR body
+containing at least one concrete evidence form (SQL query result, vitest
+name, Playwright trace path, or log subject line). Enforces the #1406 lesson
+(don't trust screenshot OCR — cite an underlying check). **Survives
+hardening:** AP-4 is a methodology fitness function — architecture-independent.
+
+<a id="guard-fix-refactor-inversion"></a>
+**`check-fix-refactor-inversion.ts`** · class **meta** · born 2026-06-11 ·
+[script source](../../scripts/check-fix-refactor-inversion.ts)
+
+Warn-only. Scans the current branch's commit history; for each `fix:` commit,
+checks whether a later `feat:`/`refactor:` commit on the same branch
+substantially overlaps the same files. If yes, the `fix:` was a band-aid the
+structural cleanup would have eliminated. Reports as a PR comment, never
+blocks. **Survives hardening:** AP-5 fitness function — architecture-independent.
 
 ## Drain guards (class c — terminal state, delete when zero)
 

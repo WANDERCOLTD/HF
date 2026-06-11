@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-10T17:09:09.904Z",
+  "generatedAt": "2026-06-11T09:53:16.206Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1631,
-  "edgeCount": 3746,
+  "fileCount": 1642,
+  "edgeCount": 3783,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1401,6 +1401,14 @@
     },
     {
       "from": "app/api/calls/scores/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/cascade/resolve/route.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "app/api/cascade/resolve/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -7841,6 +7849,10 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
+      "to": "app/x/courses/[courseId]/_components/empty-onboarding-bubble.ts"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "to": "app/x/courses/[courseId]/_components/preview-lens.css"
     },
     {
@@ -10261,6 +10273,10 @@
     },
     {
       "from": "lib/agent-tuner/write-target.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/agent-tuner/write-target.ts",
       "to": "lib/compose/bump-timestamp.ts"
     },
     {
@@ -10506,6 +10522,130 @@
     {
       "from": "lib/caller/resolve-active-playbook.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/cascade/effective-value.ts",
+      "to": "lib/cascade/layer-types.ts"
+    },
+    {
+      "from": "lib/cascade/effective-value.ts",
+      "to": "lib/cascade/resolvers/behavior-target.ts"
+    },
+    {
+      "from": "lib/cascade/effective-value.ts",
+      "to": "lib/cascade/resolvers/identity-spec.ts"
+    },
+    {
+      "from": "lib/cascade/effective-value.ts",
+      "to": "lib/cascade/resolvers/session-flow.ts"
+    },
+    {
+      "from": "lib/cascade/effective-value.ts",
+      "to": "lib/cascade/resolvers/voice-config.ts"
+    },
+    {
+      "from": "lib/cascade/effective-value.ts",
+      "to": "lib/cascade/resolvers/welcome-message.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/behavior-target.ts",
+      "to": "lib/agent-tuner/write-target.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/behavior-target.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/behavior-target.ts",
+      "to": "lib/cascade/layer-types.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/behavior-target.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/behavior-target.ts",
+      "to": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/identity-spec.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/identity-spec.ts",
+      "to": "lib/cascade/layer-types.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/identity-spec.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/identity-spec.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/session-flow.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/session-flow.ts",
+      "to": "lib/cascade/layer-types.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/session-flow.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/session-flow.ts",
+      "to": "lib/session-flow/resolver.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/session-flow.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/voice-config.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/voice-config.ts",
+      "to": "lib/cascade/layer-types.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/voice-config.ts",
+      "to": "lib/cascade/voice-explain.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/welcome-message.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/welcome-message.ts",
+      "to": "lib/cascade/layer-types.ts"
+    },
+    {
+      "from": "lib/cascade/resolvers/welcome-message.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/cascade/set-at-layer.ts",
+      "to": "lib/agent-tuner/write-target.ts"
+    },
+    {
+      "from": "lib/cascade/set-at-layer.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/cascade/set-at-layer.ts",
+      "to": "lib/cascade/layer-types.ts"
+    },
+    {
+      "from": "lib/cascade/set-at-layer.ts",
+      "to": "lib/domain/update-domain-config.ts"
+    },
+    {
+      "from": "lib/cascade/set-at-layer.ts",
+      "to": "lib/playbook/update-playbook-config.ts"
     },
     {
       "from": "lib/cascade/voice-explain.ts",
@@ -11777,6 +11917,10 @@
     },
     {
       "from": "lib/domain/update-domain-config.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/domain/update-domain-config.ts",
       "to": "lib/compose/affecting-keys-domain.ts"
     },
     {
@@ -12782,6 +12926,10 @@
     {
       "from": "lib/pipeline/validate-dependencies.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/playbook/update-playbook-config.ts",
+      "to": "lib/cascade/effective-value.ts"
     },
     {
       "from": "lib/playbook/update-playbook-config.ts",
@@ -15524,6 +15672,11 @@
       "outDegree": 1
     },
     {
+      "path": "app/api/cascade/resolve/route.ts",
+      "inDegree": 0,
+      "outDegree": 2
+    },
+    {
       "path": "app/api/chat/factual-grounding-intercept.ts",
       "inDegree": 2,
       "outDegree": 0
@@ -18111,11 +18264,16 @@
     {
       "path": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "inDegree": 1,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/x/courses/[courseId]/_components/authored-modules-panel.css",
       "inDegree": 3,
+      "outDegree": 0
+    },
+    {
+      "path": "app/x/courses/[courseId]/_components/empty-onboarding-bubble.ts",
+      "inDegree": 1,
       "outDegree": 0
     },
     {
@@ -20020,8 +20178,8 @@
     },
     {
       "path": "lib/agent-tuner/write-target.ts",
-      "inDegree": 4,
-      "outDegree": 2
+      "inDegree": 6,
+      "outDegree": 3
     },
     {
       "path": "lib/ai/analyst-system-prompts.ts",
@@ -20139,6 +20297,11 @@
       "outDegree": 3
     },
     {
+      "path": "lib/async/wait-until-ready.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
       "path": "lib/audit.ts",
       "inDegree": 13,
       "outDegree": 1
@@ -20249,8 +20412,48 @@
       "outDegree": 0
     },
     {
+      "path": "lib/cascade/effective-value.ts",
+      "inDegree": 10,
+      "outDegree": 6
+    },
+    {
+      "path": "lib/cascade/layer-types.ts",
+      "inDegree": 7,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/cascade/resolvers/behavior-target.ts",
+      "inDegree": 1,
+      "outDegree": 5
+    },
+    {
+      "path": "lib/cascade/resolvers/identity-spec.ts",
+      "inDegree": 1,
+      "outDegree": 4
+    },
+    {
+      "path": "lib/cascade/resolvers/session-flow.ts",
+      "inDegree": 1,
+      "outDegree": 5
+    },
+    {
+      "path": "lib/cascade/resolvers/voice-config.ts",
+      "inDegree": 1,
+      "outDegree": 3
+    },
+    {
+      "path": "lib/cascade/resolvers/welcome-message.ts",
+      "inDegree": 1,
+      "outDegree": 3
+    },
+    {
+      "path": "lib/cascade/set-at-layer.ts",
+      "inDegree": 0,
+      "outDegree": 5
+    },
+    {
       "path": "lib/cascade/voice-explain.ts",
-      "inDegree": 2,
+      "inDegree": 3,
       "outDegree": 5
     },
     {
@@ -20425,7 +20628,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 86,
+      "inDegree": 87,
       "outDegree": 0
     },
     {
@@ -20955,8 +21158,8 @@
     },
     {
       "path": "lib/domain/update-domain-config.ts",
-      "inDegree": 4,
-      "outDegree": 2
+      "inDegree": 5,
+      "outDegree": 3
     },
     {
       "path": "lib/domain/validate-learning-outcome.ts",
@@ -21565,7 +21768,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 436,
+      "inDegree": 437,
       "outDegree": 3
     },
     {
@@ -21675,8 +21878,8 @@
     },
     {
       "path": "lib/playbook/update-playbook-config.ts",
-      "inDegree": 16,
-      "outDegree": 4
+      "inDegree": 17,
+      "outDegree": 5
     },
     {
       "path": "lib/playbooks/create-variant.ts",
@@ -21685,7 +21888,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 607,
+      "inDegree": 611,
       "outDegree": 0
     },
     {
@@ -22010,7 +22213,7 @@
     },
     {
       "path": "lib/session-flow/resolver.ts",
-      "inDegree": 7,
+      "inDegree": 8,
       "outDegree": 3
     },
     {
@@ -22180,7 +22383,7 @@
     },
     {
       "path": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 2
     },
     {
@@ -22210,7 +22413,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 102,
+      "inDegree": 103,
       "outDegree": 0
     },
     {
@@ -23152,22 +23355,22 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 607,
+      "inDegree": 611,
       "outDegree": 0
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 436,
+      "inDegree": 437,
       "outDegree": 3
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 102,
+      "inDegree": 103,
       "outDegree": 0
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 86,
+      "inDegree": 87,
       "outDegree": 0
     },
     {
