@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T11:48:42.798Z",
+  "generatedAt": "2026-06-11T12:01:47.338Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1643,
-  "edgeCount": 3786,
+  "fileCount": 1645,
+  "edgeCount": 3791,
   "skippedEdges": 1,
   "edges": [
     {
@@ -2602,6 +2602,10 @@
     {
       "from": "app/api/courses/[courseId]/distribution-advisory/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/dry-run-prompt/route.ts",
+      "to": "lib/cascade/resolvers/identity-spec.ts"
     },
     {
       "from": "app/api/courses/[courseId]/dry-run-prompt/route.ts",
@@ -7869,7 +7873,23 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
+      "to": "components/cascade/CascadeInspectorTray.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
+      "to": "components/cascade/LayerBadge.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "to": "components/session-flow/SessionFlowEditor.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
+      "to": "lib/cascade/layer-types.ts"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
+      "to": "lib/domain/generate-identity.ts"
     },
     {
       "from": "app/x/courses/[courseId]/chat/ChatLauncher.tsx",
@@ -16056,7 +16076,7 @@
     {
       "path": "app/api/courses/[courseId]/dry-run-prompt/route.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/api/courses/[courseId]/genome/route.ts",
@@ -18281,7 +18301,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "inDegree": 1,
-      "outDegree": 3
+      "outDegree": 7
     },
     {
       "path": "app/x/courses/[courseId]/_components/authored-modules-panel.css",
@@ -19369,6 +19389,16 @@
       "outDegree": 0
     },
     {
+      "path": "components/cascade/CascadeInspectorTray.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/cascade/LayerBadge.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "components/cockpit/AIEngineSettingsCard.tsx",
       "inDegree": 1,
       "outDegree": 0
@@ -20435,7 +20465,7 @@
     },
     {
       "path": "lib/cascade/layer-types.ts",
-      "inDegree": 7,
+      "inDegree": 8,
       "outDegree": 0
     },
     {
@@ -20445,7 +20475,7 @@
     },
     {
       "path": "lib/cascade/resolvers/identity-spec.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 4
     },
     {
@@ -21145,7 +21175,7 @@
     },
     {
       "path": "lib/domain/generate-identity.ts",
-      "inDegree": 0,
+      "inDegree": 1,
       "outDegree": 5
     },
     {

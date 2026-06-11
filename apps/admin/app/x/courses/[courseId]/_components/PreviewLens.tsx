@@ -34,6 +34,10 @@ import {
 } from "@/components/session-flow/SessionFlowEditor";
 import "./preview-lens.css";
 import { emptyOnboardingBubble } from "./empty-onboarding-bubble";
+import { LayerBadge } from "@/components/cascade/LayerBadge";
+import { CascadeInspectorTray } from "@/components/cascade/CascadeInspectorTray";
+import { getArchetypeLabel } from "@/lib/domain/generate-identity";
+import type { Effective, Layer } from "@/lib/cascade/layer-types";
 
 interface PreviewLensProps {
   courseId: string;
@@ -77,6 +81,10 @@ interface DryRunResp {
     loadTimeMs: number;
     transformTimeMs: number;
     identitySpec: string | null;
+    /** #1472 — which cascade layer sourced the identity-spec (SYSTEM/DOMAIN/PLAYBOOK). */
+    identitySpecSource?: "SYSTEM" | "DOMAIN" | "PLAYBOOK" | null;
+    /** #1472 — base archetype slug ("TUT-001"); map to a label via `getArchetypeLabel`. */
+    identitySpecExtendsAgent?: string | null;
     playbooksUsed: string[];
     memoriesCount: number;
     behaviorTargetsCount: number;
@@ -217,7 +225,10 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
       )}
 
       {!loading && flow && mode === "educator" && (
-        <EducatorView transcript={transcript} courseId={courseId} onOpenSidetray={openSidetray} />
+        <>
+          <IdentityHeader meta={dryRun?.metadata} courseId={courseId} />
+          <EducatorView transcript={transcript} courseId={courseId} onOpenSidetray={openSidetray} />
+        </>
       )}
 
       {!loading && dryRun && mode === "engineer" && (
@@ -660,12 +671,17 @@ function PreviewEditSidetray({
 function EngineerView({ data }: { data: DryRunResp }): React.ReactElement {
   const meta = data.metadata;
   if (!meta) return <p className="hf-text-muted">No metadata returned.</p>;
+  // #1472 — append the cascade source layer so the Engineer view exposes
+  // provenance without expanding into a separate badge surface.
+  const identityWithSource = meta.identitySpec
+    ? `${meta.identitySpec}${meta.identitySpecSource ? ` (${meta.identitySpecSource})` : ""}`
+    : "—";
   return (
     <div className="hf-preview-lens-engineer">
       <div className="hf-preview-lens-engineer-stats">
         <Stat label="Activated" value={meta.sectionsActivated.length} />
         <Stat label="Skipped" value={meta.sectionsSkipped.length} />
-        <Stat label="Identity" value={meta.identitySpec ?? "—"} />
+        <Stat label="Identity" value={identityWithSource} />
         <Stat label="Memories" value={meta.memoriesCount} />
         <Stat label="Targets" value={meta.behaviorTargetsCount} />
       </div>
@@ -721,6 +737,140 @@ function Stat({ label, value }: { label: string; value: string | number }): Reac
     <div className="hf-preview-lens-stat">
       <div className="hf-preview-lens-stat-value">{value}</div>
       <div className="hf-preview-lens-stat-label">{label}</div>
+    </div>
+  );
+}
+
+// ── Identity header (#1472) ─────────────────────────────────────────────
+// Cascade-honest persona row shown above the Educator transcript. Reads
+// `identitySpec` (name) + `identitySpecSource` + `identitySpecExtendsAgent`
+// from the dry-run metadata, synthesizes an `Effective<string>` envelope
+// so `<LayerBadge>` can render the source layer, and opens
+// `<CascadeInspectorTray>` on inspect.
+
+/**
+ * Synthesizes a single-layer envelope for the identity cascade so the
+ * badge renders honestly without re-querying `/api/cascade/resolve` on
+ * mount. The tray fetches the full 6-layer chain itself when opened.
+ */
+export function identitySpecEnvelope(
+  source: Layer | null | undefined,
+  name: string | null,
+): Effective<string | null> {
+  if (!source || !name) {
+    return {
+      value: null,
+      source: "SYSTEM",
+      layers: [],
+      isInherited: false,
+      recommendedLayerForEdit: "PLAYBOOK",
+    };
+  }
+  return {
+    value: name,
+    source,
+    layers: [
+      {
+        layer: source,
+        scopeId: null,
+        scopeLabel: scopeLabelForLayer(source),
+        value: name,
+        setAt: null,
+        setBy: null,
+      },
+    ],
+    isInherited: source !== "PLAYBOOK",
+    recommendedLayerForEdit: "PLAYBOOK",
+  };
+}
+
+function scopeLabelForLayer(layer: Layer): string {
+  switch (layer) {
+    case "PLAYBOOK":
+      return "Course";
+    case "DOMAIN":
+      return "Domain";
+    case "SYSTEM":
+      return "System default";
+    case "CALLER":
+      return "Caller";
+    case "SEGMENT":
+      return "Segment";
+    case "CALL":
+      return "Call";
+  }
+}
+
+export function identityCaption(
+  source: "SYSTEM" | "DOMAIN" | "PLAYBOOK" | null | undefined,
+  archetypeSlug: string | null | undefined,
+): string {
+  const label = getArchetypeLabel(archetypeSlug);
+  if (!source) return `Persona: ${label}`;
+  const layer = source === "PLAYBOOK"
+    ? "Course"
+    : source === "DOMAIN"
+      ? "Domain"
+      : "System default";
+  const base = `Persona: ${label} from ${layer}`;
+  if (source === "SYSTEM") return `${base} (no override at Course/Domain)`;
+  return base;
+}
+
+function IdentityHeader({
+  meta,
+  courseId,
+}: {
+  meta: DryRunResp["metadata"];
+  courseId: string;
+}): React.ReactElement | null {
+  const [inspecting, setInspecting] = useState(false);
+  if (!meta) return null;
+
+  const envelope = identitySpecEnvelope(
+    meta.identitySpecSource ?? null,
+    meta.identitySpec,
+  );
+  const caption = identityCaption(meta.identitySpecSource ?? null, meta.identitySpecExtendsAgent);
+
+  // Ghosted fallback row when there's no identity at all.
+  if (!meta.identitySpec) {
+    return (
+      <div
+        className="hf-preview-lens-identity"
+        data-testid="hf-preview-identity-empty"
+      >
+        <span className="hf-text-muted">No persona configured — system default will be used.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="hf-preview-lens-identity"
+      data-testid="hf-preview-identity-row"
+    >
+      <LayerBadge
+        envelope={envelope}
+        hideSubtitle
+        onInspect={() => setInspecting(true)}
+        ariaLabel={`Identity spec source: ${meta.identitySpecSource ?? "unknown"}`}
+      />
+      <span
+        className="hf-preview-lens-identity-caption"
+        data-testid="hf-preview-identity-caption"
+      >
+        {caption}
+      </span>
+      {inspecting ? (
+        <CascadeInspectorTray
+          knobKey="identitySpecId"
+          knobLabel="Identity spec"
+          scopeChain={{ playbookId: courseId }}
+          currentEditScope="PLAYBOOK"
+          onClose={() => setInspecting(false)}
+        />
+      ) : null}
     </div>
   );
 }

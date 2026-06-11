@@ -141,6 +141,17 @@ const DEFAULT_DESCRIPTOR = {
 - General conversational patterns`,
 };
 
+/**
+ * Public archetype-slug → display label mapping. Used by Preview lens and
+ * other surfaces that need to render "tutor"/"coach"/"companion" instead
+ * of raw spec slugs ("TUT-001"). Falls back to `"agent"` when the slug
+ * is unknown.
+ */
+export function getArchetypeLabel(archetypeSlug: string | null | undefined): string {
+  if (!archetypeSlug) return DEFAULT_DESCRIPTOR.label;
+  return ARCHETYPE_DESCRIPTORS[archetypeSlug]?.label ?? DEFAULT_DESCRIPTOR.label;
+}
+
 async function buildIdentitySystemPrompt(archetypeSlug?: string): Promise<string> {
   const desc = (archetypeSlug && ARCHETYPE_DESCRIPTORS[archetypeSlug]) || DEFAULT_DESCRIPTOR;
   const template = await getPromptTemplate("identity-generation");
