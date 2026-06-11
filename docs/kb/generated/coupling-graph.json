@@ -1,9 +1,9 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T21:09:49.967Z",
+  "generatedAt": "2026-06-11T21:14:32.323Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1667,
+  "fileCount": 1669,
   "edgeCount": 3827,
   "skippedEdges": 1,
   "edges": [
@@ -23264,6 +23264,16 @@
     },
     {
       "path": "scripts/capture/check-incident-guard-ritual.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/check-knip-ratchet.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/check-tsc-protected-files.ts",
       "inDegree": 0,
       "outDegree": 0
     },

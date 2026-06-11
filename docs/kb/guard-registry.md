@@ -264,7 +264,7 @@ it protects today's `config.specs.*` indirection; retire if the slug-config mech
 
 | Script | Prevents / asserts | Born | Class |
 |---|---|---|---|
-| `check-ratchet.sh` | Count-cap ratchet — `tsc_errors` (212), `lint_errors` (0), `lint_warnings` (4423), `quarantined_tests` (37) can only **drop**, never rise. Reads `.ratchet.json`. | #227 | **meta** (master fitness function) |
+| `check-ratchet.sh` | Count-cap ratchet — `tsc_errors` (190), `lint_errors` (0), `lint_warnings` (4426), `quarantined_tests` (36), `knip_unused` (161) can only **drop**, never rise. Reads `.ratchet.json`. | #227 | **meta** (master fitness function) |
 | `check-fk-consistency.ts` | Cross-playbook leak, orphan-LO, dangling soft-FK | #415/#615 | **a** |
 | `check-schema-health.ts` | Schema health invariants | — | **a** |
 | `check-anchor-divergence.ts` | `qualificationAnchor` slug-set divergence | #1081 | **b** |
@@ -273,7 +273,36 @@ it protects today's `config.specs.*` indirection; retire if the slug-config mech
 | `check-uplift-visual.ts` | Caller Insights visual regression | — | **meta** (test) |
 | [`check-webhook-signature.ts`](#guard-check-webhook-signature) | Voice-provider `verifyInboundRequest` may not be a no-op `return null` stub — every webhook verifier must do real work | HF-C/HF-K / 2026-06-11 | **a** |
 | [`check-guard-tests-not-quarantined.ts`](#guard-check-guard-tests-not-quarantined) | A named registry of security / data-integrity guard tests may never be quarantined in `vitest.config.ts` or deleted | HF-E / 2026-06-11 | **meta** |
+| [`check-tsc-protected-files.ts`](#guard-check-tsc-protected-files) | A hand-picked set of guard-bearing files must have ZERO tsc errors, independent of the global `tsc_errors` ratchet baseline | HF-G / 2026-06-11 | **meta** |
+| [`check-knip-ratchet.ts`](#guard-check-knip-ratchet) | Dead-code ratchet — unused exports+types (`knip`) may only drop, never rise. Turns the informational `knip:ci` step into a blocking gate via `kb:check` | HF-H / 2026-06-11 | **meta** |
 | `cleanup-agent-worktrees.sh` | GC of agent-spawned worktrees whose PR is MERGED or CLOSED. Operator script; nudge surfaced in SessionStart hook when count > 6. | — | **meta** (process hygiene) |
+
+<a id="guard-check-knip-ratchet"></a>
+**`check-knip-ratchet.ts`** · class **meta** · born HF-H / 2026-06-11 ·
+[script source](../../apps/admin/scripts/capture/check-knip-ratchet.ts) · baseline `knip_unused` in `.ratchet.json` · wired into `npm run kb:check`
+
+`knip` (dead-code detector) was configured and ran in CI, but only as `continue-on-error:
+true` — so dead code accumulated unchecked (audit HF-H found 161 unused exports+types). This
+turns it into a monotonic ratchet: the count of unused EXPORTS + TYPES (the source-only
+dead-code signal; dependency/unlisted findings excluded as env-noisy) may only DROP. Baseline
+161 at landing. Because `kb:check` is a blocking CI step, this is now a real gate — delete dead
+code to lower it, lock the win. **Survives hardening:** "dead code only shrinks" is a
+methodology fitness function (legibility ← the whole point of the KB program).
+
+<a id="guard-check-tsc-protected-files"></a>
+**`check-tsc-protected-files.ts`** · class **meta** · born HF-G / 2026-06-11 ·
+[script source](../../apps/admin/scripts/capture/check-tsc-protected-files.ts) · wired into `npm run kb:check`
+
+The global `tsc_errors` ratchet (`.ratchet.json`, 190) only stops the count *rising* — it
+carries a large baseline, and a real bug hid inside it: `ContractRegistry.get(...)` (a
+nonexistent method → TS2339) was swallowed by a try/catch so tuned `SKILL_MEASURE_V1` config
+silently never loaded (audit HF-A). This guard adds a tighter ring: a hand-picked set of
+guard-bearing files (`lib/contracts/registry.ts`, `lib/goals/track-progress.ts`,
+`lib/pipeline/aggregate-runner.ts`, `lib/curriculum/resolve-module.ts`,
+`lib/voice/{create,end}-session.ts`, `lib/learner-scope.ts`, the two webhook verifiers) MUST
+have ZERO tsc errors regardless of the global baseline. A new type error in any of them fails
+CI immediately. As the 190 burns down, migrate more files in — the list only grows.
+**Survives hardening:** "guard code must type-check" is a methodology fitness function.
 
 <a id="guard-check-guard-tests-not-quarantined"></a>
 **`check-guard-tests-not-quarantined.ts`** · class **meta** · born HF-E / 2026-06-11 ·
