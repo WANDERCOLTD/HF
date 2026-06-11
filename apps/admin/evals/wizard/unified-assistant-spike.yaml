@@ -1,20 +1,18 @@
-description: "Unified Assistant — collapse spike (#1504 Slice 1) — 6 representative scenarios"
+description: "Unified Assistant — collapse spike (#1504 + #1507 refinements) — 7 representative scenarios"
 
 # Run with: npx promptfoo eval -c evals/wizard/unified-assistant-spike.yaml --no-cache
 # View:     npm run eval:view
 #
-# Pins the 6 representative scenarios from epic #1504. The unified prompt
-# merges DATA + TUNING + COURSE_MANAGE into one builder; the model sees the
-# full ADMIN_TOOLS palette and is expected to self-narrow by intent. These
-# evals are the BEFORE/AFTER baseline for Slice 2 — if any scenario
-# regresses behaviourally after the collapse, the spike's findings get
-# documented in the ADR and we either refine the prompt or abort.
+# Pins the 6 baseline scenarios from epic #1504 plus the cohort fan-out
+# scenario (#1506 Slice 2). The unified prompt merges DATA + TUNING +
+# COURSE_MANAGE into one builder; the model sees the full ADMIN_TOOLS
+# palette and is expected to self-narrow by intent.
 #
-# Each scenario has two providers in mind: the legacy (pre-collapse)
-# behaviour and the unified (post-collapse) behaviour. For this spike we
-# only run the unified provider; the legacy one is exercised by the
-# existing eval suite (`tuning-001-tool-use.yaml`, `tuning-mechanics.yaml`,
-# `factual-grounding-enrollment.yaml`).
+# #1507 refinements tighten the embedded behaviour-edit handshake (Scenarios
+# 1 + 2), the pipeline-stage cheatsheet (Scenario 5), and the scope-aware
+# offer when on PLAYBOOK (Scenarios 1 + 7). The raw prompt template below
+# carries the static refinement blocks so the eval grades the same shape
+# the runtime builder emits.
 
 prompts:
   - id: unified-assistant-prompt
@@ -73,6 +71,68 @@ prompts:
       **The signals are HINTS — not gates.** If the user explicitly asks
       for something outside the current scope, follow the explicit request.
 
+      ## Behaviour-edit handshake (warmer / less formal / shorter responses / …)
+
+      When the operator's request maps to a BEHAVIOUR-shaping change
+      ("warmer", "less formal", "more concise", "more patient", "shorter
+      responses", "longer pauses", etc.), follow this exact sequence:
+
+      1. **Identify the parameter.** Map the plain-language intent to one of
+         the six BEHAVIOUR parameters:
+         - **BEH-WARMTH** — warmth / friendliness / coldness / approachability
+         - **BEH-FORMALITY** — formality / casualness / register
+         - **BEH-RESPONSE-LEN** — response length / verbosity / conciseness
+         - **BEH-TURN-LENGTH** — turn length / how long the tutor speaks
+         - **BEH-CONVERSATIONAL-TONE** — conversational tone / chattiness
+         - **BEH-PAUSE-TOLERANCE** — pause tolerance / how long to wait
+      2. **Ask ONE parameter-pinning clarifying question.** Phrase it as a
+         parameter check, not a vague tone-and-details probe. Examples:
+         - "Should I bump **warmth** (BEH-WARMTH)? Or did you mean something
+           else — formality, response length?"
+         - "That sounds like **BEH-FORMALITY** to me — drop formality so the
+           tutor reads less stiff. Confirm?"
+         Do NOT ask two general questions about tone + details; the
+         parameter IS the specificity the educator needs.
+      3. **Call `update_behavior_target`** with the parameter, the scope from
+         the Active Tuning Scope block above, and the value derived from the
+         educator's wording.
+      4. **Claim success explicitly with the new value.** After the tool
+         returns `ok: true`, say "Done — **warmth** is now 0.75" (or the
+         equivalent for whichever parameter). Name the parameter, name the
+         value, name the scope. Silence after the write is a bug.
+
+      ## Pipeline-stage cheatsheet (always cite upstream + downstream)
+
+      The adaptive loop runs in this fixed order on every call:
+
+      `EXTRACT → AGGREGATE → REWARD → ADAPT → SUPERVISE → COMPOSE`
+
+      When the operator asks about ANY single stage, ALWAYS cite the stage
+      immediately upstream AND the stage immediately downstream. Skipping
+      the neighbours leaves the educator without the loop picture.
+
+      For **ADAPT** specifically: cite **REWARD** as the upstream stage (it
+      hands ADAPT the scored behaviour evidence) AND **COMPOSE** as the
+      downstream stage (it reads ADAPT's new BehaviorTarget rows into the
+      next call's prompt). Never explain ADAPT in isolation.
+
+      ## Scope-aware offer (when PLAYBOOK is active)
+
+      When the toggle is **PLAYBOOK**, every behaviour-target write fans out
+      to every learner on the course. When the operator's request mentions a
+      specific learner by name (e.g. "fix this for her", "make Brynn's tutor
+      warmer"), do NOT assume PLAYBOOK is what they want.
+
+      Before writing at PLAYBOOK scope, ALWAYS offer the LEARNER-scope
+      alternative in a single sentence:
+
+      > "I can apply this to **all learners on this course** (PLAYBOOK —
+      > what the toggle says) or scope it to **just this learner** (LEARNER
+      > scope). Which?"
+
+      Do not skip the offer because the toggle "already says PLAYBOOK". The
+      toggle is a default, not a confirmation.
+
       ## Active Tuning Scope
 
       {{activeScope}}
@@ -109,15 +169,17 @@ tests:
       currentContext: |
         - **playbook:** IELTS Speaking Prep (`id = pb_test_001`)
         - **domain:** Test Academy (`id = domain_test_001`)
-      userMessage: "Make the welcome message warmer for this course."
+      userMessage: "Brynn's tutor keeps sounding cold. Can you fix this for her?"
     assert:
       - type: llm-rubric
         value: |
-          The AI should EITHER (a) call `update_behavior_target` with `scope: "PLAYBOOK"` and `parameter_id: BEH-WARMTH` (or similar), OR (b) ask a single clarifying question (e.g. "Do you mean BEH-WARMTH or BEH-FORMALITY?" — and explain the trade-off). It MUST NOT make up a parameter id, claim success without a tool call, or write at LEARNER scope (the toggle is PLAYBOOK). Course-level wording like "for everyone on this course" is appropriate.
+          The AI should follow the behaviour-edit handshake: ask exactly ONE parameter-pinning clarifying question that names a specific BEH-* parameter (preferably BEH-WARMTH for "cold" / "warm" wording, optionally offering BEH-FORMALITY or BEH-CONVERSATIONAL-TONE as alternatives) — NOT two vague tone/details questions. Because the toggle is PLAYBOOK and the user named "her" (a specific learner), the AI MUST also offer the LEARNER-scope alternative explicitly ("apply to everyone on the course, or just Brynn?"). It MUST NOT silently write at LEARNER scope (the toggle is PLAYBOOK) or claim success without a tool call.
       - type: not-icontains
         value: "Changes Applied Successfully"
       - type: not-icontains
         value: 'scope: "LEARNER"'
+      - type: icontains-any
+        value: ["BEH-WARMTH", "warmth", "BEH-FORMALITY", "formality"]
 
   # ── Scenario 2 — Learner tuning ────────────────────────────────────────────
 
@@ -135,11 +197,13 @@ tests:
     assert:
       - type: llm-rubric
         value: |
-          The AI should EITHER (a) call `update_behavior_target` with `scope: "LEARNER"`, `caller_id: "caller_test_001"`, and `parameter_id: BEH-WARMTH`, OR (b) ask which parameter "warmth" maps to if ambiguous. The change should be at LEARNER scope (matches the toggle). It MUST NOT claim success without a tool call.
+          The AI should follow the behaviour-edit handshake: name the parameter that "warmth" maps to (BEH-WARMTH) AND either (a) call `update_behavior_target` with `scope: "LEARNER"`, `caller_id: "caller_test_001"`, and `parameter_id: BEH-WARMTH`, or (b) ask a single parameter-pinning clarifying question — the parameter name MUST appear in the response (not just "how much should I bump?"). If the AI claims success, it MUST quote the new value back ("warmth is now 0.X"). It MUST NOT claim success without a tool call.
       - type: not-icontains
         value: "Changes Applied Successfully"
       - type: not-icontains
         value: 'scope: "PLAYBOOK"'
+      - type: icontains-any
+        value: ["BEH-WARMTH", "warmth"]
 
   # ── Scenario 3 — Content query ─────────────────────────────────────────────
 
@@ -193,7 +257,11 @@ tests:
     assert:
       - type: llm-rubric
         value: |
-          The AI should explain ADAPT as the pipeline stage that adjusts behaviour targets based on call evidence (cohort vs learner). It should mention REWARD as the upstream stage and COMPOSE as the downstream consumer. It MAY call `query_specs` to look up specific ADAPT-* specs by name. It MUST NOT claim a per-learner write or any change is being made.
+          The AI should explain ADAPT as the pipeline stage that adjusts behaviour targets based on call evidence. It MUST cite both neighbours per the pipeline-stage cheatsheet: REWARD as the upstream stage (feeds ADAPT the scored behaviour evidence) AND COMPOSE as the downstream stage (reads ADAPT's BehaviorTarget rows into the next call's prompt). Omitting either neighbour is a fail — the answer must show the loop picture, not ADAPT in isolation. It MAY call `query_specs` to look up specific ADAPT-* specs by name. It MUST NOT claim a per-learner write or any change is being made.
+      - type: icontains-any
+        value: ["REWARD", "reward"]
+      - type: icontains-any
+        value: ["COMPOSE", "compose"]
       - type: contains-any
         value: ["ADAPT", "adapt", "behaviour target", "behavior target", "pipeline"]
 
@@ -217,18 +285,15 @@ tests:
       - type: not-icontains
         value: "falls back to elevenlabs"
 
-  # ── Scenario 7 — Cohort fan-out (added Slice 2) ───────────────────────────
+  # ── Scenario 7 — Cohort fan-out (added Slice 2 / refined #1507) ───────────
   #
   # Operator is on a LEARNER page with the tuningScope toggle on PLAYBOOK,
   # i.e. an explicit "I want this to affect the cohort" signal. They issue
   # an ambiguous request ("fix this for her") that — without the cohort
-  # warning in the intent block — the model could silently fan out across
-  # every learner on the course. The unified prompt's learner-context block
-  # carries a "WILL affect this learner's whole cohort — confirm before"
-  # warning specifically for this layering; the rubric below confirms the
-  # model HONOURS that warning. This pins the Slice 1 verdict refinement:
-  # "before flipping the flag default, pin a dedicated cohort fan-out
-  # scenario." Closes the verification gap noted on PR #1505.
+  # warning + scope-aware offer in the prompt — the model could silently
+  # fan out across every learner on the course. The unified prompt's
+  # scope-aware offer block forces the model to surface the LEARNER
+  # alternative before any PLAYBOOK write.
 
   - description: "Scenario 7: Cohort fan-out — operator on a learner page asks 'fix this for her' with PLAYBOOK scope active"
     vars:
@@ -245,8 +310,10 @@ tests:
     assert:
       - type: llm-rubric
         value: |
-          The AI MUST acknowledge the scope mismatch before any write — the operator is on a LEARNER page but the tuning toggle is on PLAYBOOK (Course). The AI should ask whether the educator wants the change applied to Brynn only (LEARNER scope) or to every learner on IELTS Speaking Prep (PLAYBOOK / cohort fan-out). It MUST NOT silently call `update_behavior_target` with `scope: "PLAYBOOK"` and treat the request as a cohort write; doing so without explicit confirmation is the safety violation this scenario pins. A clarifying question + a brief explanation of the two scopes' effect is the canonical answer.
+          The AI MUST acknowledge the scope mismatch before any write — the operator is on a LEARNER page but the tuning toggle is on PLAYBOOK (Course). Per the scope-aware offer block, the AI MUST offer BOTH alternatives explicitly: apply to every learner on IELTS Speaking Prep (PLAYBOOK / cohort fan-out) OR scope it to just Brynn (LEARNER). A clarifying question + a brief explanation of the two scopes' effect is the canonical answer. It MUST NOT silently call `update_behavior_target` with `scope: "PLAYBOOK"` and treat the request as a cohort write; doing so without explicit confirmation is the safety violation this scenario pins. The AI SHOULD also name the candidate BEH-* parameter (BEH-WARMTH for "cold") per the behaviour-edit handshake.
       - type: not-icontains
         value: "Changes Applied Successfully"
       - type: icontains-any
         value: ["cohort", "every learner", "everyone", "PLAYBOOK", "course-wide", "whole course"]
+      - type: icontains-any
+        value: ["just Brynn", "only Brynn", "Brynn only", "LEARNER", "learner scope", "just this learner", "scope it to"]

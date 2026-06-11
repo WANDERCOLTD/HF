@@ -249,6 +249,106 @@ export function buildIntentRoutingBlock(signals: IntentSignals): string {
 }
 
 /**
+ * #1507 — Behaviour-edit handshake template. Fixes Scenario 1 + 2 failures
+ * where the model asked vague "tone/details" questions instead of pinning
+ * the parameter, and didn't claim the new value back after the write.
+ *
+ * The four-step sequence forces the model to:
+ *   (a) identify the candidate BEH-* parameter from plain-language intent
+ *   (b) ask exactly ONE clarifying question pinning the parameter
+ *   (c) call `update_behavior_target` with the toggle-supplied scope
+ *   (d) explicitly claim success with the DB-confirmed new value
+ *
+ * Block is static — same words on every turn — so the prompt-diff stays
+ * one-block-wide stable across requests and the eval rubric can grade
+ * against fixed phrasing.
+ */
+export function buildBehaviourEditHandshakeBlock(): string {
+  return `\n\n## Behaviour-edit handshake (warmer / less formal / shorter responses / …)
+
+When the operator's request maps to a BEHAVIOUR-shaping change ("warmer", "less formal", "more concise", "more patient", "shorter responses", "longer pauses", etc.), follow this exact sequence:
+
+1. **Identify the parameter.** Map the plain-language intent to one of the six BEHAVIOUR parameters:
+   - **BEH-WARMTH** — warmth / friendliness / coldness / approachability
+   - **BEH-FORMALITY** — formality / casualness / register
+   - **BEH-RESPONSE-LEN** — response length / verbosity / conciseness
+   - **BEH-TURN-LENGTH** — turn length / how long the tutor speaks before handing back
+   - **BEH-CONVERSATIONAL-TONE** — conversational tone / chattiness / playfulness
+   - **BEH-PAUSE-TOLERANCE** — pause tolerance / how long the tutor waits before nudging
+2. **Ask ONE parameter-pinning clarifying question.** Phrase it as a parameter check, not a vague tone-and-details probe. Examples:
+   - "Should I bump **warmth** (BEH-WARMTH)? Or did you mean something else — formality, response length?"
+   - "That sounds like **BEH-FORMALITY** to me — drop formality so the tutor reads less stiff. Confirm?"
+   - "I read that as **BEH-RESPONSE-LEN** (shorter answers). Right parameter?"
+   Do NOT ask two general questions about tone + details; the parameter IS the specificity the educator needs.
+3. **Call \`update_behavior_target\`** with the parameter, the scope from the Active Tuning Scope block above, and the value derived from the educator's wording (use the mapping rules in the embedded tuning prompt).
+4. **Claim success explicitly with the new value.** After the tool returns \`ok: true\`, say "Done — **warmth** is now 0.75" (or the equivalent for whichever parameter). Name the parameter, name the value, name the scope. Silence after the write is a bug.`;
+}
+
+/**
+ * #1507 — Pipeline-stage cheatsheet. Fixes Scenario 5 failure where the
+ * model explained ADAPT correctly but omitted the upstream (REWARD) and
+ * downstream (COMPOSE) stages, leaving the educator without the loop
+ * picture.
+ *
+ * Rule: whenever the operator asks about ANY adaptive-loop stage, always
+ * cite the upstream and downstream stages in the same answer.
+ *
+ * Block is static and short so it lands without bloating the prompt.
+ */
+export function buildPipelineStageCheatsheetBlock(): string {
+  return `\n\n## Pipeline-stage cheatsheet (always cite upstream + downstream)
+
+The adaptive loop runs in this fixed order on every call:
+
+\`EXTRACT → AGGREGATE → REWARD → ADAPT → SUPERVISE → COMPOSE\`
+
+When the operator asks about ANY single stage, ALWAYS cite the stage immediately upstream AND the stage immediately downstream so they see how it plugs in. Skipping the neighbours leaves the educator without the loop picture.
+
+| Stage | Upstream feeds it | It feeds downstream |
+|-------|-------------------|---------------------|
+| EXTRACT | (the raw transcript) | AGGREGATE |
+| AGGREGATE | EXTRACT | REWARD |
+| REWARD | AGGREGATE | ADAPT |
+| **ADAPT** | **REWARD** (scored behaviour evidence) | **COMPOSE** (the next prompt) |
+| SUPERVISE | ADAPT | COMPOSE |
+| COMPOSE | SUPERVISE + ADAPT | (the next call's system prompt) |
+
+Example: "ADAPT takes the scored behaviour evidence from REWARD upstream and writes new BehaviorTarget rows; COMPOSE downstream reads those targets into the next call's prompt." Never explain ADAPT in isolation.`;
+}
+
+/**
+ * #1507 — Scope-aware offer block. Fixes Scenario 1 + 7 failures where the
+ * model on PLAYBOOK scope acknowledged the cohort effect but never offered
+ * the LEARNER alternative explicitly. When on PLAYBOOK, the model must
+ * surface the LEARNER override as a real option, not a footnote.
+ *
+ * Only emitted when the toggle is explicitly PLAYBOOK — the LEARNER side
+ * doesn't need a "would you like to fan out?" prompt (cohort fan-out is
+ * the explicitly-confirmed dangerous direction).
+ */
+export function buildScopeAwareOfferBlock(
+  tuningScope: TuningScope | null | undefined,
+  entityContext: EntityBreadcrumb[] | undefined,
+): string {
+  if (tuningScope !== "PLAYBOOK") return "";
+  const caller = entityContext?.find((e) => e.type === "caller");
+  const callerLabel = caller?.label;
+  const learnerPhrasing = callerLabel
+    ? `just **${callerLabel}** (LEARNER scope — only this learner gets the change)`
+    : "just this learner (LEARNER scope — set the scope toggle to Learner and name the caller)";
+
+  return `\n\n## Scope-aware offer (PLAYBOOK is active — always offer the LEARNER alternative)
+
+The educator's current toggle is **PLAYBOOK** — every behaviour-target write fans out to every learner on the course. When the request mentions a specific learner by name (e.g. "fix this for her", "make Brynn's tutor warmer"), do NOT assume PLAYBOOK is what they want. The cohort effect is the dangerous direction.
+
+Before writing at PLAYBOOK scope, ALWAYS offer the LEARNER-scope alternative in a single sentence:
+
+> "I can apply this to **all learners on this course** (PLAYBOOK — what the toggle says) or scope it to ${learnerPhrasing}. Which?"
+
+Do not skip the offer because the toggle "already says PLAYBOOK". The toggle is a default, not a confirmation. The educator's wording trumps the toggle when the wording names a specific learner — and even when it doesn't, the explicit offer is the safety affordance.`;
+}
+
+/**
  * Compose the unified Assistant system prompt. Wired into `route.ts` as
  * the default for DATA / TUNING / COURSE_MANAGE since #1504 Slice 2.
  *
@@ -291,6 +391,16 @@ export async function buildUnifiedAssistantPrompt(
   const signals = deriveIntentSignals(input);
   const intentBlock = buildIntentRoutingBlock(signals);
 
+  // Layer 3b — #1507 prompt refinements (handshake + pipeline + scope offer).
+  // Always-on blocks (handshake + pipeline) carry static guidance; scope-aware
+  // offer only fires when the toggle is explicitly PLAYBOOK.
+  const handshakeBlock = buildBehaviourEditHandshakeBlock();
+  const pipelineCheatsheetBlock = buildPipelineStageCheatsheetBlock();
+  const scopeOfferBlock = buildScopeAwareOfferBlock(
+    input.tuningScope ?? null,
+    input.entityContext,
+  );
+
   // Layer 4 — Page context preamble (same as DATA branch).
   const pageBlock = buildPageContextBlock(input.pageContext);
 
@@ -314,6 +424,9 @@ export async function buildUnifiedAssistantPrompt(
     "\n\n" +
     tuningContext +
     intentBlock +
+    handshakeBlock +
+    pipelineCheatsheetBlock +
+    scopeOfferBlock +
     termBlock +
     runtimeBlock +
     pageBlock +

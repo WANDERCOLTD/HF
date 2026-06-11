@@ -77,6 +77,9 @@ import {
   buildUnifiedAssistantPrompt,
   deriveIntentSignals,
   buildIntentRoutingBlock,
+  buildBehaviourEditHandshakeBlock,
+  buildPipelineStageCheatsheetBlock,
+  buildScopeAwareOfferBlock,
 } from "@/lib/chat/unified-assistant-prompt";
 
 beforeEach(() => {
@@ -417,5 +420,178 @@ describe("buildIntentRoutingBlock", () => {
       onLearnerPage: false,
     });
     expect(block).toContain("HINTS — not gates");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #1507 — Behaviour-edit handshake block (Scenarios 1 + 2 refinement)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("buildBehaviourEditHandshakeBlock — #1507", () => {
+  it("emits all six BEHAVIOUR parameters by canonical id", () => {
+    const block = buildBehaviourEditHandshakeBlock();
+    expect(block).toContain("BEH-WARMTH");
+    expect(block).toContain("BEH-FORMALITY");
+    expect(block).toContain("BEH-RESPONSE-LEN");
+    expect(block).toContain("BEH-TURN-LENGTH");
+    expect(block).toContain("BEH-CONVERSATIONAL-TONE");
+    expect(block).toContain("BEH-PAUSE-TOLERANCE");
+  });
+
+  it("encodes the four-step sequence (identify → ask ONE → call → claim)", () => {
+    const block = buildBehaviourEditHandshakeBlock();
+    expect(block).toContain("Identify the parameter");
+    expect(block).toContain("Ask ONE parameter-pinning clarifying question");
+    expect(block).toContain("`update_behavior_target`");
+    expect(block).toContain("Claim success explicitly");
+  });
+
+  it("warns against the 'two vague tone/details questions' anti-pattern", () => {
+    const block = buildBehaviourEditHandshakeBlock();
+    expect(block).toContain("Do NOT ask two general questions about tone + details");
+  });
+
+  it("requires the post-write success claim to name parameter + value", () => {
+    const block = buildBehaviourEditHandshakeBlock();
+    expect(block).toContain("**warmth** is now 0.75");
+    expect(block).toContain("Silence after the write is a bug");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #1507 — Pipeline-stage cheatsheet block (Scenario 5 refinement)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("buildPipelineStageCheatsheetBlock — #1507", () => {
+  it("emits the full canonical stage order", () => {
+    const block = buildPipelineStageCheatsheetBlock();
+    expect(block).toContain("EXTRACT → AGGREGATE → REWARD → ADAPT → SUPERVISE → COMPOSE");
+  });
+
+  it("pins ADAPT's upstream (REWARD) and downstream (COMPOSE) neighbours", () => {
+    const block = buildPipelineStageCheatsheetBlock();
+    expect(block).toContain("**ADAPT**");
+    expect(block).toContain("**REWARD**");
+    expect(block).toContain("**COMPOSE**");
+  });
+
+  it("forbids explaining a stage in isolation", () => {
+    const block = buildPipelineStageCheatsheetBlock();
+    expect(block).toContain("Never explain ADAPT in isolation");
+  });
+
+  it("appears in the assembled prompt every turn (no gating)", async () => {
+    const result = await buildUnifiedAssistantPrompt({
+      entityContext: [],
+      tuningScope: undefined,
+      userRole: "OPERATOR",
+      institutionId: "inst_test",
+      pageHintRoute: "/x/specs",
+    });
+    expect(result.prompt).toContain("Pipeline-stage cheatsheet");
+    expect(result.prompt).toContain("EXTRACT → AGGREGATE → REWARD → ADAPT → SUPERVISE → COMPOSE");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #1507 — Scope-aware offer block (Scenarios 1 + 7 refinement)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("buildScopeAwareOfferBlock — #1507", () => {
+  it("returns empty string when tuningScope is undefined", () => {
+    expect(buildScopeAwareOfferBlock(undefined, [])).toBe("");
+  });
+
+  it("returns empty string when tuningScope is null", () => {
+    expect(buildScopeAwareOfferBlock(null, [])).toBe("");
+  });
+
+  it("returns empty string when tuningScope is LEARNER (no fan-out risk)", () => {
+    expect(buildScopeAwareOfferBlock("LEARNER", [CALLER_CRUMB])).toBe("");
+  });
+
+  it("emits the offer when tuningScope is PLAYBOOK with no caller in context", () => {
+    const block = buildScopeAwareOfferBlock("PLAYBOOK", [PLAYBOOK_CRUMB]);
+    expect(block).toContain("Scope-aware offer");
+    expect(block).toContain("PLAYBOOK is active");
+    expect(block).toContain("all learners on this course");
+    expect(block).toContain("just this learner");
+  });
+
+  it("names the caller explicitly when one is in context", () => {
+    const block = buildScopeAwareOfferBlock("PLAYBOOK", [PLAYBOOK_CRUMB, CALLER_CRUMB]);
+    expect(block).toContain("Brynn Sandoval");
+    expect(block).toContain("LEARNER scope");
+  });
+
+  it("warns against skipping the offer because the toggle 'already says PLAYBOOK'", () => {
+    const block = buildScopeAwareOfferBlock("PLAYBOOK", [PLAYBOOK_CRUMB]);
+    expect(block).toContain("toggle is a default, not a confirmation");
+  });
+
+  it("appears in the assembled prompt when tuningScope=PLAYBOOK", async () => {
+    const result = await buildUnifiedAssistantPrompt({
+      entityContext: [PLAYBOOK_CRUMB, CALLER_CRUMB],
+      tuningScope: "PLAYBOOK",
+      userRole: "OPERATOR",
+      institutionId: "inst_test",
+      pageContext: { page: "caller", params: {} },
+      pageHintRoute: "/x/callers/caller_test_001",
+    });
+    expect(result.prompt).toContain("Scope-aware offer");
+    expect(result.prompt).toContain("Brynn Sandoval");
+  });
+
+  it("does NOT appear in the assembled prompt when tuningScope=LEARNER", async () => {
+    const result = await buildUnifiedAssistantPrompt({
+      entityContext: [PLAYBOOK_CRUMB, CALLER_CRUMB],
+      tuningScope: "LEARNER",
+      userRole: "OPERATOR",
+      institutionId: "inst_test",
+      pageContext: { page: "caller", params: {} },
+      pageHintRoute: "/x/callers/caller_test_001",
+    });
+    expect(result.prompt).not.toContain("Scope-aware offer");
+  });
+
+  it("does NOT appear in the assembled prompt when tuningScope is unset", async () => {
+    const result = await buildUnifiedAssistantPrompt({
+      entityContext: [PLAYBOOK_CRUMB],
+      tuningScope: undefined,
+      userRole: "OPERATOR",
+      institutionId: "inst_test",
+      pageContext: { page: "course", params: {} },
+      pageHintRoute: "/x/courses/pb_test_001",
+    });
+    expect(result.prompt).not.toContain("Scope-aware offer");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #1507 — Composed prompt smoke test: refinement blocks land in correct order
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Composed prompt order — #1507 refinements", () => {
+  it("places handshake + pipeline + scope-offer after intent routing, before runtime context", async () => {
+    const result = await buildUnifiedAssistantPrompt({
+      entityContext: [PLAYBOOK_CRUMB, CALLER_CRUMB],
+      tuningScope: "PLAYBOOK",
+      userRole: "OPERATOR",
+      institutionId: "inst_test",
+      pageContext: { page: "caller", params: {} },
+      pageHintRoute: "/x/callers/caller_test_001",
+    });
+
+    const intentIdx = result.prompt.indexOf("Intent routing");
+    const handshakeIdx = result.prompt.indexOf("Behaviour-edit handshake");
+    const pipelineIdx = result.prompt.indexOf("Pipeline-stage cheatsheet");
+    const offerIdx = result.prompt.indexOf("Scope-aware offer");
+    const runtimeIdx = result.prompt.indexOf("Runtime context");
+
+    expect(intentIdx).toBeGreaterThan(-1);
+    expect(handshakeIdx).toBeGreaterThan(intentIdx);
+    expect(pipelineIdx).toBeGreaterThan(handshakeIdx);
+    expect(offerIdx).toBeGreaterThan(pipelineIdx);
+    expect(runtimeIdx).toBeGreaterThan(offerIdx);
   });
 });
