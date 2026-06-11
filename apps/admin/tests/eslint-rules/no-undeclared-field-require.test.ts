@@ -6,8 +6,16 @@
  * a spec is ignored. Both destructured and method-call shapes match.
  */
 
+import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import rule from "../../eslint-rules/no-undeclared-field-require.mjs";
+import { smokeRule } from "./_helpers.js";
+
+describe("no-undeclared-field-require", () => {
+  it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
+    smokeRule("no-undeclared-field-require", rule as never);
+  });
+});
 
 const tester = new RuleTester({
   languageOptions: { ecmaVersion: 2022, sourceType: "module" },

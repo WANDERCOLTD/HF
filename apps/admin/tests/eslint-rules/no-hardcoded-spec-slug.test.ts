@@ -1,9 +1,7 @@
 /**
- * Behavioral tests for `eslint-rules/no-hardcoded-spec-slug.mjs` (audit HF-I).
+ * Behavioral + structural tests for `eslint-rules/no-hardcoded-spec-slug.mjs` (audit HF-I).
  *
- * (Repo-root tests/eslint-rules/no-hardcoded-spec-slug.test.ts carries the smokeRule
- * structural check the ratchet enforces; this file carries the RuleTester behavioral
- * cases that execute under the apps/admin vitest.)
+ * smokeRule (HF-F: one location per rule, both checks here) + RuleTester behavioural cases.
  *
  * Pins:
  *   - fires on a spec-slug literal in lib/ runtime code (GOAL-001, PIPELINE-001,
@@ -13,8 +11,16 @@
  *   - does NOT fire on non-slug-shaped strings or config.specs.* identifiers
  */
 
+import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import rule from "../../eslint-rules/no-hardcoded-spec-slug.mjs";
+import { smokeRule } from "./_helpers.js";
+
+describe("no-hardcoded-spec-slug", () => {
+  it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
+    smokeRule("no-hardcoded-spec-slug", rule as never);
+  });
+});
 
 const tester = new RuleTester({
   languageOptions: { ecmaVersion: 2022, sourceType: "module" },

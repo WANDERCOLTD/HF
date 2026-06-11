@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import rule from "../../apps/admin/eslint-rules/no-unscoped-slug-lookup.mjs";
+import rule from "../../eslint-rules/no-unscoped-slug-lookup.mjs";
 import { smokeRule } from "./_helpers.js";
 
 describe("no-unscoped-slug-lookup", () => {

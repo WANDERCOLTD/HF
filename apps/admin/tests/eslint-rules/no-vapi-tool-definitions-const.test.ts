@@ -5,8 +5,16 @@
  * (loadToolDefinitions) do NOT.
  */
 
+import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import rule from "../../eslint-rules/hf-voice/no-vapi-tool-definitions-const.mjs";
+import { smokeRule } from "./_helpers.js";
+
+describe("no-vapi-tool-definitions-const", () => {
+  it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
+    smokeRule("no-vapi-tool-definitions-const", rule as never);
+  });
+});
 
 // See sibling no-vapi-column-ref.test.ts for why RuleTester.run sits at
 // module top level and why the rule object is cast.

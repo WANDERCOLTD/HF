@@ -31,6 +31,18 @@ invariant → understands the incident → doesn't bypass it*:
 counts ESLint rules missing a KB link and fails if the count rises above its baseline —
 a guard that guards the guards. Baseline only ever drops as rules are wired (currently 1/10 wired).
 
+**Meta-ratchet:** [`scripts/capture/check-eslint-rule-tests.ts`](../../apps/admin/scripts/capture/check-eslint-rule-tests.ts)
+fails if any rule is missing a sibling test file at `apps/admin/tests/eslint-rules/<rule>.test.ts`.
+Each test file runs the [`smokeRule`](../../apps/admin/tests/eslint-rules/_helpers.ts) structural
+check (meta.type, KB back-link, messages, at-least-one-visitor on a guarded probe path) plus —
+for rules with non-trivial logic — RuleTester behavioural cases. **HF-F (2026-06-11):** rule
+tests previously had a 2-location split (smoke at repo-root `tests/eslint-rules/`, behavioural
+at `apps/admin/tests/eslint-rules/`); the repo-root files weren't picked up by the
+apps/admin-rooted vitest runner, so smoke checks existed for the ratchet but never RAN. HF-F
+collapsed the split: 18 rules, 1 file each, both checks in the same file, both actually
+execute. Surfaced 5 latent rule defects (the path-scoped rules whose `create()` returned `{}`
+for `/dev/null` probe — fixed by extending `smokeRule`'s `PROBE_FILENAMES`).
+
 ## ESLint rules — `apps/admin/eslint-rules/`
 
 ✅ = KB-linked (`meta.docs.url` set).

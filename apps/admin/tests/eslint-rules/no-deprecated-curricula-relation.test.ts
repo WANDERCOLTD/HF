@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import rule from "../../apps/admin/eslint-rules/no-deprecated-curricula-relation.mjs";
+import rule from "../../eslint-rules/no-deprecated-curricula-relation.mjs";
 import { smokeRule } from "./_helpers.js";
 
 describe("no-deprecated-curricula-relation", () => {

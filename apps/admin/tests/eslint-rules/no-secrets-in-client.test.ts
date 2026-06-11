@@ -1,10 +1,7 @@
 /**
- * Behavioral tests for `eslint-rules/no-secrets-in-client.mjs` (audit HF-J).
+ * Behavioral + structural tests for `eslint-rules/no-secrets-in-client.mjs` (audit HF-J).
  *
- * Convention (see no-hardcoded-greeting-in-composition): the repo-root
- * `tests/eslint-rules/<rule>.test.ts` carries the smokeRule structural check the
- * `check-eslint-rule-tests` ratchet enforces; THIS apps/admin file carries the
- * RuleTester behavioral cases that actually execute under the apps/admin vitest.
+ * smokeRule (HF-F: one location per rule, both checks here) + RuleTester behavioural cases.
  *
  * Pins:
  *   - fires on a credential-shaped key (`password`, `apiKey`, …) assigned a
@@ -15,8 +12,16 @@
  *   - does NOT fire on env-derived / identifier / empty values
  */
 
+import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import rule from "../../eslint-rules/no-secrets-in-client.mjs";
+import { smokeRule } from "./_helpers.js";
+
+describe("no-secrets-in-client", () => {
+  it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
+    smokeRule("no-secrets-in-client", rule as never);
+  });
+});
 
 const tester = new RuleTester({
   languageOptions: { ecmaVersion: 2022, sourceType: "module" },

@@ -3,12 +3,22 @@
  *
  * Asserts that every custom ESLint rule under `apps/admin/eslint-rules/`
  * (including `hf-voice/*`) has a sibling test file at
- * `tests/eslint-rules/<rule>.test.ts`. Same spirit as
+ * `apps/admin/tests/eslint-rules/<rule>.test.ts`. Same spirit as
  * `check-guard-kb-links.ts` — make the guard system load-bearing by ensuring
  * its components are verified, not just present.
  *
- * Pairs with `tests/eslint-rules/_helpers.ts::smokeRule()`, which asserts the
- * structural pieces every rule must have (KB back-link, messages, create).
+ * Pairs with `apps/admin/tests/eslint-rules/_helpers.ts::smokeRule()`, which
+ * asserts the structural pieces every rule must have (KB back-link, messages,
+ * create).
+ *
+ * HF-F (2026-06-11): rule tests previously had a 2-location split — the
+ * smokeRule structural check lived at REPO-ROOT `tests/eslint-rules/` (where
+ * this script looked) and the RuleTester behavioural cases lived at
+ * apps/admin. The apps/admin vitest config is rooted at apps/admin and
+ * couldn't reach the repo-root files, so the smoke checks shipped but never
+ * RAN. HF-F collapsed the split: every test now lives under
+ * `apps/admin/tests/eslint-rules/<rule>.test.ts` and BOTH the smoke + the
+ * behavioural cases live in the same file, so existence-check === actually-run.
  *
  * Ratchet semantics:
  *   - Counts rules MISSING a sibling test file.
@@ -23,7 +33,7 @@ import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const RULES_DIR = resolve(SCRIPT_DIR, "../../eslint-rules");
-const TESTS_DIR = resolve(SCRIPT_DIR, "../../../../tests/eslint-rules");
+const TESTS_DIR = resolve(SCRIPT_DIR, "../../tests/eslint-rules");
 
 // 14 rules currently in play. New rule → must land with a test → keep baseline 0.
 const MAX_MISSING = 0;

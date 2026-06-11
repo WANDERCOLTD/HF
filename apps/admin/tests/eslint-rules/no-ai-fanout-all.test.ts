@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import rule from "../../apps/admin/eslint-rules/no-ai-fanout-all.mjs";
+import rule from "../../eslint-rules/no-ai-fanout-all.mjs";
 import { smokeRule } from "./_helpers.js";
 
 describe("no-ai-fanout-all", () => {

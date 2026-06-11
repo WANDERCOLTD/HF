@@ -1,9 +1,9 @@
 import { describe, it } from "vitest";
-import rule from "../../apps/admin/eslint-rules/no-secrets-in-client.mjs";
+import rule from "../../eslint-rules/no-bare-call-create.mjs";
 import { smokeRule } from "./_helpers.js";
 
-describe("no-secrets-in-client", () => {
+describe("no-bare-call-create", () => {
   it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
-    smokeRule("no-secrets-in-client", rule as never);
+    smokeRule("no-bare-call-create", rule as never);
   });
 });

@@ -7,8 +7,16 @@
  * migrations + _archived honoured.
  */
 
+import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import rule from "../../eslint-rules/hf-voice/no-vapi-column-ref.mjs";
+import { smokeRule } from "./_helpers.js";
+
+describe("no-vapi-column-ref", () => {
+  it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
+    smokeRule("no-vapi-column-ref", rule as never);
+  });
+});
 
 // RuleTester.run drives the test runner's describe/it directly — must
 // live at module top level, not nested inside vitest's describe/it.

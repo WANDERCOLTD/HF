@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import rule from "../../apps/admin/eslint-rules/no-ops-import-from-api.mjs";
+import rule from "../../eslint-rules/no-ops-import-from-api.mjs";
 import { smokeRule } from "./_helpers.js";
 
 describe("no-ops-import-from-api", () => {
