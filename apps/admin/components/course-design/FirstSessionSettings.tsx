@@ -29,6 +29,7 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { LayerBadge } from "@/components/cascade/LayerBadge";
 import { CascadeInspectorTray } from "@/components/cascade/CascadeInspectorTray";
 import type { Effective } from "@/lib/cascade/layer-types";
+import { isResolvableKnob } from "@/lib/cascade/effective-value";
 
 interface Call1OverrideSample {
   id: string;
@@ -398,20 +399,22 @@ export function FirstSessionSettings({
                   >
                     {row.value.toFixed(2)}
                   </span>
-                  <LayerBadge
-                    envelope={envelopeFor(
-                      row.parameterId,
-                      row.value,
-                      row.updatedAt,
-                    )}
-                    hideSubtitle
-                    onInspect={() =>
-                      setInspecting({
-                        parameterId: row.parameterId,
-                        label: param?.label ?? row.parameterId,
-                      })
-                    }
-                  />
+                  {isResolvableKnob(row.parameterId) ? (
+                    <LayerBadge
+                      envelope={envelopeFor(
+                        row.parameterId,
+                        row.value,
+                        row.updatedAt,
+                      )}
+                      hideSubtitle
+                      onInspect={() =>
+                        setInspecting({
+                          parameterId: row.parameterId,
+                          label: param?.label ?? row.parameterId,
+                        })
+                      }
+                    />
+                  ) : null}
                   <span className="hf-category-label" data-tone="info">
                     Managed via AgentTuner
                   </span>
@@ -460,19 +463,21 @@ export function FirstSessionSettings({
                   className="hf-input"
                 />
                 <span className="hf-text-xs hf-text-muted">{row.value.toFixed(2)}</span>
-                <LayerBadge
-                  envelope={envelopeFor(row.parameterId, row.value, null)}
-                  hideSubtitle
-                  onInspect={() => {
-                    const param = COMMON_BEHAVIOR_PARAMS.find(
-                      (p) => p.id === row.parameterId,
-                    );
-                    setInspecting({
-                      parameterId: row.parameterId,
-                      label: param?.label ?? row.parameterId,
-                    });
-                  }}
-                />
+                {isResolvableKnob(row.parameterId) ? (
+                  <LayerBadge
+                    envelope={envelopeFor(row.parameterId, row.value, null)}
+                    hideSubtitle
+                    onInspect={() => {
+                      const param = COMMON_BEHAVIOR_PARAMS.find(
+                        (p) => p.id === row.parameterId,
+                      );
+                      setInspecting({
+                        parameterId: row.parameterId,
+                        label: param?.label ?? row.parameterId,
+                      });
+                    }}
+                  />
+                ) : null}
                 <button
                   type="button"
                   className="hf-btn hf-btn-sm hf-btn-destructive"

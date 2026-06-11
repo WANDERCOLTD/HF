@@ -114,6 +114,17 @@ function pickResolver(knobKey: string): AnyResolver {
   );
 }
 
+/**
+ * True when `knobKey` matches a registered cascade family. UI consumers
+ * use this to gate `<LayerBadge>` rendering — rows for parameters that
+ * aren't cascade-resolvable (e.g., `skill_*` capture fields) should not
+ * surface the badge / kebab affordance, because clicking them would
+ * surface "Unknown cascade knob key" instead of useful provenance.
+ */
+export function isResolvableKnob(knobKey: string): boolean {
+  return FAMILIES.some((fam) => fam.match(knobKey));
+}
+
 // ── Cache ──────────────────────────────────────────────────────────────
 
 const CACHE_TTL_MS = 30_000;
