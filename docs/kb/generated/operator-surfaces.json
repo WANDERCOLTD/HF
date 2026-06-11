@@ -1,6 +1,6 @@
 {
   "$schema": "operator-surfaces/v1",
-  "generatedAt": "2026-06-11T15:23:50.192Z",
+  "generatedAt": "2026-06-11T15:11:55.802Z",
   "generator": "scripts/capture/operator-surfaces.ts",
   "note": "Tier-2 generated KB. Only routes tagged @operator-surface yes. Do not hand-edit — re-run the generator (npm run kb:operator-surfaces).",
   "surfaces": [
@@ -78,6 +78,31 @@
         "OPERATOR"
       ],
       "description": "Returns the most recent COURSE_REFERENCE markdown document",
+      "category": "courses"
+    },
+    {
+      "route": "/api/courses/[courseId]/demo-script",
+      "file": "apps/admin/app/api/courses/[courseId]/demo-script/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Returns the operator-only demo script for a course. This",
+      "category": "courses"
+    },
+    {
+      "route": "/api/courses/[courseId]/demo-script/[bubbleRef]",
+      "file": "apps/admin/app/api/courses/[courseId]/demo-script/[bubbleRef]/route.ts",
+      "methods": [
+        "DELETE"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "description": "Remove a single annotation by `bubbleRef` (URL-encoded).",
       "category": "courses"
     },
     {

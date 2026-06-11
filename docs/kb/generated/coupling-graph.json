@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T15:23:48.738Z",
+  "generatedAt": "2026-06-11T15:11:53.955Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1662,
-  "edgeCount": 3815,
+  "fileCount": 1661,
+  "edgeCount": 3819,
   "skippedEdges": 1,
   "edges": [
     {
@@ -2566,6 +2566,42 @@
     {
       "from": "app/api/courses/[courseId]/curriculum-scorecard/route.ts",
       "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/[bubbleRef]/route.ts",
+      "to": "lib/compose/bump-timestamp.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/[bubbleRef]/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/[bubbleRef]/route.ts",
+      "to": "lib/playbook/update-playbook-config.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/[bubbleRef]/route.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/route.ts",
+      "to": "lib/compose/bump-timestamp.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/route.ts",
+      "to": "lib/playbook/update-playbook-config.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/demo-script/route.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "app/api/courses/[courseId]/design/route.ts",
@@ -7841,10 +7877,6 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/course-design/ModuleVisibilitySettings.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
       "to": "components/course-design/TolerancesSettings.tsx"
     },
     {
@@ -7909,10 +7941,6 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
-      "to": "components/course-design/ModuleVisibilitySettings.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "to": "components/session-flow/SessionFlowEditor.tsx"
     },
     {
@@ -7925,7 +7953,7 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
-      "to": "lib/prompt/composition/defaults/substitute-greeting-tokens.ts"
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "app/x/courses/[courseId]/_components/VoiceFlowLens.tsx",
@@ -13581,10 +13609,6 @@
     },
     {
       "from": "lib/prompt/composition/transforms/pedagogy.ts",
-      "to": "lib/prompt/composition/transforms/module-visibility-gate.ts"
-    },
-    {
-      "from": "lib/prompt/composition/transforms/pedagogy.ts",
       "to": "lib/prompt/composition/transforms/quickstart.ts"
     },
     {
@@ -13689,19 +13713,11 @@
     },
     {
       "from": "lib/prompt/composition/transforms/quickstart.ts",
-      "to": "lib/prompt/composition/defaults/substitute-greeting-tokens.ts"
-    },
-    {
-      "from": "lib/prompt/composition/transforms/quickstart.ts",
       "to": "lib/prompt/composition/TransformRegistry.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/quickstart.ts",
       "to": "lib/prompt/composition/transforms/audience.ts"
-    },
-    {
-      "from": "lib/prompt/composition/transforms/quickstart.ts",
-      "to": "lib/prompt/composition/transforms/module-visibility-gate.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/quickstart.ts",
@@ -16160,6 +16176,16 @@
       "outDegree": 2
     },
     {
+      "path": "app/api/courses/[courseId]/demo-script/[bubbleRef]/route.ts",
+      "inDegree": 0,
+      "outDegree": 4
+    },
+    {
+      "path": "app/api/courses/[courseId]/demo-script/route.ts",
+      "inDegree": 0,
+      "outDegree": 5
+    },
+    {
       "path": "app/api/courses/[courseId]/design/route.ts",
       "inDegree": 0,
       "outDegree": 4
@@ -18377,7 +18403,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
       "inDegree": 1,
-      "outDegree": 12
+      "outDegree": 11
     },
     {
       "path": "app/x/courses/[courseId]/_components/ImportModulesDialog.tsx",
@@ -18402,7 +18428,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "inDegree": 1,
-      "outDegree": 9
+      "outDegree": 8
     },
     {
       "path": "app/x/courses/[courseId]/_components/VoiceFlowLens.tsx",
@@ -19547,11 +19573,6 @@
     {
       "path": "components/course-design/FirstSessionSettings.tsx",
       "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "components/course-design/ModuleVisibilitySettings.tsx",
-      "inDegree": 2,
       "outDegree": 0
     },
     {
@@ -20811,7 +20832,7 @@
     },
     {
       "path": "lib/compose/bump-timestamp.ts",
-      "inDegree": 16,
+      "inDegree": 18,
       "outDegree": 1
     },
     {
@@ -21971,7 +21992,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 439,
+      "inDegree": 441,
       "outDegree": 3
     },
     {
@@ -22081,7 +22102,7 @@
     },
     {
       "path": "lib/playbook/update-playbook-config.ts",
-      "inDegree": 17,
+      "inDegree": 19,
       "outDegree": 5
     },
     {
@@ -22091,7 +22112,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 614,
+      "inDegree": 615,
       "outDegree": 0
     },
     {
@@ -22147,11 +22168,6 @@
     {
       "path": "lib/prompt/composition/defaults/first-call-openings.ts",
       "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "lib/prompt/composition/defaults/substitute-greeting-tokens.ts",
-      "inDegree": 2,
       "outDegree": 0
     },
     {
@@ -22255,11 +22271,6 @@
       "outDegree": 3
     },
     {
-      "path": "lib/prompt/composition/transforms/module-visibility-gate.ts",
-      "inDegree": 2,
-      "outDegree": 0
-    },
-    {
       "path": "lib/prompt/composition/transforms/modules.ts",
       "inDegree": 4,
       "outDegree": 8
@@ -22277,7 +22288,7 @@
     {
       "path": "lib/prompt/composition/transforms/pedagogy.ts",
       "inDegree": 1,
-      "outDegree": 7
+      "outDegree": 6
     },
     {
       "path": "lib/prompt/composition/transforms/personality.ts",
@@ -22307,7 +22318,7 @@
     {
       "path": "lib/prompt/composition/transforms/quickstart.ts",
       "inDegree": 2,
-      "outDegree": 12
+      "outDegree": 10
     },
     {
       "path": "lib/prompt/composition/transforms/retrieval-practice.ts",
@@ -22626,7 +22637,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 103,
+      "inDegree": 106,
       "outDegree": 0
     },
     {
@@ -23583,17 +23594,17 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 614,
+      "inDegree": 615,
       "outDegree": 0
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 439,
+      "inDegree": 441,
       "outDegree": 3
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 103,
+      "inDegree": 106,
       "outDegree": 0
     },
     {
