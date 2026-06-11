@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T14:13:05.537Z",
+  "generatedAt": "2026-06-11T14:12:21.948Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1651,
-  "edgeCount": 3798,
+  "fileCount": 1654,
+  "edgeCount": 3805,
   "skippedEdges": 1,
   "edges": [
     {
@@ -3782,6 +3782,18 @@
     {
       "from": "app/api/goals/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/help/events/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/help/events/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/help/events/route.ts",
+      "to": "lib/rate-limit.ts"
     },
     {
       "from": "app/api/identity/challenge-skip/route.ts",
@@ -9136,8 +9148,24 @@
       "to": "components/shared/FancySelect.tsx"
     },
     {
+      "from": "app/x/help/_admin/telemetry/page.tsx",
+      "to": "lib/auth.ts"
+    },
+    {
+      "from": "app/x/help/_admin/telemetry/page.tsx",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/x/help/demos/HelpDemosTelemetry.tsx",
+      "to": "lib/help/track-help-event.ts"
+    },
+    {
       "from": "app/x/help/demos/page.tsx",
       "to": "app/x/help/demos/help-demos.css"
+    },
+    {
+      "from": "app/x/help/demos/page.tsx",
+      "to": "app/x/help/demos/HelpDemosTelemetry.tsx"
     },
     {
       "from": "app/x/help/demos/page.tsx",
@@ -16577,6 +16605,11 @@
       "outDegree": 0
     },
     {
+      "path": "app/api/help/events/route.ts",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
       "path": "app/api/identity/challenge-skip/route.ts",
       "inDegree": 0,
       "outDegree": 2
@@ -18797,6 +18830,16 @@
       "outDegree": 3
     },
     {
+      "path": "app/x/help/_admin/telemetry/page.tsx",
+      "inDegree": 0,
+      "outDegree": 2
+    },
+    {
+      "path": "app/x/help/demos/HelpDemosTelemetry.tsx",
+      "inDegree": 1,
+      "outDegree": 1
+    },
+    {
       "path": "app/x/help/demos/help-demos.css",
       "inDegree": 1,
       "outDegree": 0
@@ -18804,7 +18847,7 @@
     {
       "path": "app/x/help/demos/page.tsx",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/x/holographic/page.tsx",
@@ -20398,7 +20441,7 @@
     },
     {
       "path": "lib/auth.ts",
-      "inDegree": 8,
+      "inDegree": 9,
       "outDegree": 3
     },
     {
@@ -21437,6 +21480,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/help/track-help-event.ts",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "lib/holographic/permissions.ts",
       "inDegree": 1,
       "outDegree": 1
@@ -21858,7 +21906,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 438,
+      "inDegree": 439,
       "outDegree": 3
     },
     {
@@ -21978,7 +22026,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 612,
+      "inDegree": 614,
       "outDegree": 0
     },
     {
@@ -22258,7 +22306,7 @@
     },
     {
       "path": "lib/rate-limit.ts",
-      "inDegree": 6,
+      "inDegree": 7,
       "outDegree": 0
     },
     {
@@ -23092,11 +23140,6 @@
       "outDegree": 0
     },
     {
-      "path": "scripts/capture/operator-surfaces.ts",
-      "inDegree": 0,
-      "outDegree": 0
-    },
-    {
       "path": "scripts/capture/route-inventory.ts",
       "inDegree": 0,
       "outDegree": 0
@@ -23460,12 +23503,12 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 612,
+      "inDegree": 614,
       "outDegree": 0
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 438,
+      "inDegree": 439,
       "outDegree": 3
     },
     {

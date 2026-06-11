@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
+import { HelpDemosTelemetry } from "./HelpDemosTelemetry";
+
 import "./help-demos.css";
 
 /**
@@ -95,6 +97,7 @@ export default async function HelpDemosPage() {
 
   return (
     <main className="hf-help-demos">
+      <HelpDemosTelemetry />
       <header className="hf-help-demos-header">
         <h1 className="hf-page-title">Demo Knob Reference</h1>
         <p className="hf-page-subtitle">

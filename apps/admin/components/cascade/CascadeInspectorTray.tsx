@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import "./cascade.css";
 
 import type { Effective, Layer, LayerHit } from "@/lib/cascade/layer-types";
+import { trackHelpEvent } from "@/lib/help/track-help-event";
 
 const LAYER_ORDER: readonly Layer[] = [
   "SYSTEM",
@@ -163,6 +164,31 @@ export function CascadeInspectorTray({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // #1484 — capture the mount instant so the matching `cascade-inspector-close`
+  // event can report the duration the operator spent inside the tray. Lives
+  // in a ref so it isn't re-stamped on every state change. Stamped inside
+  // a mount-only useEffect to satisfy the react-hooks/purity rule
+  // (Date.now() at render time is impure).
+  const openedAtRef = useRef<number>(0);
+  useEffect(() => {
+    openedAtRef.current = Date.now();
+    // Mount-only — empty deps. The cascade-inspector-open event already
+    // fires from LayerBadge, so we deliberately do NOT fire it here.
+  }, []);
+
+  // #1484 — wrap the consumer-provided onClose so the close-event fires
+  // exactly once even if the consumer re-uses the same callback. Uses the
+  // existing onClose contract (no signature change).
+  const handleClose = () => {
+    const durationMs = Date.now() - openedAtRef.current;
+    trackHelpEvent({
+      type: "cascade-inspector-close",
+      target: knobKey,
+      durationMs,
+    });
+    onClose();
+  };
+
   useEffect(() => {
     let cancelled = false;
     // Resetting the load + error state at the top of the effect IS the
@@ -213,7 +239,7 @@ export function CascadeInspectorTray({
     <>
       <div
         className="hf-preview-sidetray-backdrop"
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden
       />
       <aside
@@ -226,7 +252,7 @@ export function CascadeInspectorTray({
           <button
             type="button"
             className="hf-preview-sidetray-close"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close inspector"
           >
             ✕

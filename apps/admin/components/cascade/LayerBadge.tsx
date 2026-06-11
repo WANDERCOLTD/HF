@@ -13,6 +13,7 @@ import {
 import "./cascade.css";
 
 import type { Effective, Layer } from "@/lib/cascade/layer-types";
+import { trackHelpEvent } from "@/lib/help/track-help-event";
 
 type BadgeState = "PB" | "DOM" | "SYS" | "CAL" | "SEG" | "CALLLAYER" | "NONE";
 
@@ -132,6 +133,12 @@ export interface LayerBadgeProps {
   hideSubtitle?: boolean;
   /** Optional aria-label override; defaults to "Cascade layer: <state>". */
   ariaLabel?: string;
+  /**
+   * Knob key for telemetry (#1484). When omitted, the `cascade-inspector-open`
+   * event still fires but with `target: "unknown"` — consumers SHOULD pass
+   * the knob key so the admin telemetry view can group correctly.
+   */
+  knobKey?: string;
 }
 
 /**
@@ -156,6 +163,7 @@ export function LayerBadge({
   subtitle,
   hideSubtitle,
   ariaLabel,
+  knobKey,
 }: LayerBadgeProps) {
   const [hovered, setHovered] = useState(false);
   const state = stateFromEffective(envelope);
@@ -164,6 +172,23 @@ export function LayerBadge({
   const computedSubtitle = subtitle ?? defaultSubtitle(envelope);
   const tooltip = tooltipText(envelope);
   const chipAriaLabel = ariaLabel ?? `Cascade layer: ${label}`;
+
+  // #1484 — fire `cascade-inspector-open` when the operator engages either
+  // the chip or the kebab. Lives inside the badge (not the parent) so every
+  // consumer is instrumented for free. Wrapped so the existing onInspect
+  // call signature is unchanged.
+  const fireInspectorOpenTelemetry = () => {
+    trackHelpEvent({
+      type: "cascade-inspector-open",
+      target: knobKey ?? "unknown",
+    });
+  };
+  const inspectWithTelemetry = onInspect
+    ? () => {
+        fireInspectorOpenTelemetry();
+        onInspect();
+      }
+    : undefined;
 
   return (
     <span
@@ -175,7 +200,7 @@ export function LayerBadge({
         <button
           type="button"
           className={badgeClassName(state)}
-          onClick={onInspect}
+          onClick={inspectWithTelemetry}
           aria-label={chipAriaLabel}
           aria-haspopup={onInspect ? "dialog" : undefined}
           title={hovered ? tooltip : undefined}
@@ -190,6 +215,7 @@ export function LayerBadge({
             className="hf-cascade-badge-kebab"
             onClick={(e) => {
               e.stopPropagation();
+              fireInspectorOpenTelemetry();
               onInspect();
             }}
             aria-label={`Inspect cascade chain — ${chipAriaLabel}`}
