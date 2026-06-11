@@ -200,3 +200,35 @@ describe("isLayerHit", () => {
     expect(isLayerHit(envelope, "DOMAIN")).toBe(false);
   });
 });
+
+describe("isResolvableKnob", () => {
+  it("BEH-* keys are resolvable (behavior-target family)", async () => {
+    const { isResolvableKnob } = await import("@/lib/cascade/effective-value");
+    expect(isResolvableKnob("BEH-RESPONSE-LEN")).toBe(true);
+    expect(isResolvableKnob("BEH-CONVERSATIONAL-TONE")).toBe(true);
+    expect(isResolvableKnob("BEH-WARMTH")).toBe(true);
+  });
+
+  it("known single-key families resolve", async () => {
+    const { isResolvableKnob } = await import("@/lib/cascade/effective-value");
+    expect(isResolvableKnob("welcomeMessage")).toBe(true);
+    expect(isResolvableKnob("identitySpecId")).toBe(true);
+    expect(isResolvableKnob("voiceProvider")).toBe(true);
+    expect(isResolvableKnob("voiceId")).toBe(true);
+    expect(isResolvableKnob("model")).toBe(true);
+    expect(isResolvableKnob("language")).toBe(true);
+    expect(isResolvableKnob("onboarding")).toBe(true);
+    expect(isResolvableKnob("intake")).toBe(true);
+    expect(isResolvableKnob("stops")).toBe(true);
+    expect(isResolvableKnob("offboarding")).toBe(true);
+  });
+
+  it("returns false for skill_* and other non-cascade parameter ids", async () => {
+    const { isResolvableKnob } = await import("@/lib/cascade/effective-value");
+    expect(isResolvableKnob("skill_self_locate")).toBe(false);
+    expect(isResolvableKnob("skill_catch_the_misconception")).toBe(false);
+    expect(isResolvableKnob("skill_name_the_trade")).toBe(false);
+    expect(isResolvableKnob("")).toBe(false);
+    expect(isResolvableKnob("random_unknown_key")).toBe(false);
+  });
+});
