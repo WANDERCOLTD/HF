@@ -30,9 +30,24 @@
 // Matches INIT-001, TUT-001, GOAL-001, PIPELINE-001, CONTENT-EXTRACT-001.
 const SLUG_RE = /^[A-Z]{2,}(?:-[A-Z]+)*-\d{3}$/;
 
-// Path fragments where slug literals are legitimate (config defaults + non-runtime).
+// Path fragments where slug literals are legitimate (config defaults + non-runtime
+// registries + documented client mirrors).
+//
+// Note on the "registries" in this list:
+//   - lib/demo/registry.ts maps DEMO-* spec slugs → JSON imports. Same pattern as
+//     lib/config.ts itself — the slugs LIVE here.
+//   - lib/registry/index.ts is the Parameter ID registry. The rule's regex is
+//     intentionally shape-only and would catch Parameter IDs (CP-004, B5-A) as well;
+//     they are NOT AnalysisSpec slugs. The registry is the source of truth for them.
+//   - lib/institution-types/sector-config.ts is an explicit client-side mirror of
+//     config.specs.*Archetype (the file header documents this). Server code
+//     consumes config.specs.*; the client mirror is necessary because lib/config.ts
+//     reads process.env and cannot ship to the browser.
 const ALLOWLIST_PATH_FRAGMENTS = [
   "/lib/config.ts",
+  "/lib/demo/registry.ts",
+  "/lib/registry/index.ts",
+  "/lib/institution-types/sector-config.ts",
   "/prisma/",
   "/scripts/",
   "/tests/",

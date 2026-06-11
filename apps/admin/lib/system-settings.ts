@@ -1131,7 +1131,7 @@ export const SETTINGS_REGISTRY: SettingGroup[] = [
     icon: "Target",
     description: "Default values used when creating new entities (domains, overlays, courses)",
     settings: [
-      { key: "defaults.archetype", label: "Default archetype", description: "Base archetype slug used when scaffolding new domain overlays (e.g. TUT-001, COACH-001)", type: "text" as const, default: "TUT-001", placeholder: "e.g. TUT-001" },
+      { key: "defaults.archetype", label: "Default archetype", description: `Base archetype slug used when scaffolding new domain overlays (e.g. ${config.specs.defaultArchetype}, ${config.specs.coachArchetype})`, type: "text" as const, default: config.specs.defaultArchetype, placeholder: `e.g. ${config.specs.defaultArchetype}` },
       // ── Lesson plan defaults ──
       { key: "lesson_plan.session_count", label: "Default session count", description: "Number of sessions when creating a new course", type: "int" as const, default: 12, min: 1, max: 50 },
       { key: "lesson_plan.duration_mins", label: "Default session duration (min)", description: "Minutes per session for new courses", type: "int" as const, default: 30, min: 15, max: 60, step: 5 },

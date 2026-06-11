@@ -383,6 +383,46 @@ export const config = {
     },
 
     /**
+     * Goal Progress Spec (default: GOAL-PROGRESS-001)
+     * Drives `goal_progress_strategies` resolution in
+     * `lib/goals/strategies/resolve-strategy.ts`. Loaded via `findFirst` with
+     * a tolerant `slug IN (canonical, lowercase)` clause. Can be overridden
+     * via GOAL_PROGRESS_SPEC_SLUG env var (audit HF-I sweep).
+     */
+    get goalProgress(): string {
+      return optional("GOAL_PROGRESS_SPEC_SLUG", "GOAL-PROGRESS-001");
+    },
+
+    /**
+     * Comprehension-skills aggregation spec (default: COMP-AGG-001)
+     * `AGGREGATE` stage spec that writes `CallerAttribute(scope='COMP-AGG-001')`
+     * rows. Read by `quickstart.ts` _learning_guidance + the
+     * learning-trajectory + cohort-learning API routes to surface aggregated
+     * competency. Can be overridden via COMP_AGG_SPEC_SLUG env var (audit HF-I sweep).
+     */
+    get aggComprehension(): string {
+      return optional("COMP_AGG_SPEC_SLUG", "COMP-AGG-001");
+    },
+
+    /**
+     * Discussion-skills aggregation spec (default: DISC-AGG-001)
+     * Sibling of `aggComprehension` for discussion-led teaching profiles.
+     * Can be overridden via DISC_AGG_SPEC_SLUG env var.
+     */
+    get aggDiscussion(): string {
+      return optional("DISC_AGG_SPEC_SLUG", "DISC-AGG-001");
+    },
+
+    /**
+     * Coaching-progress aggregation spec (default: COACH-AGG-001)
+     * Sibling of `aggComprehension` for coaching-led teaching profiles.
+     * Can be overridden via COACH_AGG_SPEC_SLUG env var.
+     */
+    get aggCoaching(): string {
+      return optional("COACH_AGG_SPEC_SLUG", "COACH-AGG-001");
+    },
+
+    /**
      * Default Archetype Spec (default: TUT-001)
      * The base archetype used when scaffolding new domain overlays.
      * Can be overridden via DEFAULT_ARCHETYPE_SLUG env var.

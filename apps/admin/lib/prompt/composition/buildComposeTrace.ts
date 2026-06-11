@@ -13,6 +13,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { config } from "@/lib/config";
 import type { ComposeTrace, LoadedDataContext, ResolvedSpecs } from "./types";
 
 interface BuildTraceInput {
@@ -101,7 +102,7 @@ export async function buildComposeTrace(
   } else if (domainFlow) {
     onboardingFlowSource = `Domain ${(loadedData.caller as any)?.domain?.slug ?? "(unknown)"}`;
   } else if (loadedData.onboardingSpec) {
-    onboardingFlowSource = `Spec ${(loadedData.onboardingSpec as any)?.slug ?? "INIT-001"}`;
+    onboardingFlowSource = `Spec ${(loadedData.onboardingSpec as any)?.slug ?? config.specs.onboarding}`;
   } else {
     onboardingFlowSource = null;
   }

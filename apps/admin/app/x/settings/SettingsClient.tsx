@@ -79,6 +79,12 @@ const CUSTOM_PANELS: SettingsPanel[] = [
     "voice_tools", "Voice Tools", "Wrench",
     "Enable or disable individual tools (lookup_teaching_point, check_mastery, …) available to voice callers",
     "communications", VoiceToolsPanelAdapter,
+    // The "TOOLS-001" entry is a search keyword that lets admins jump to this
+    // panel by typing the spec slug — UX, not a runtime spec resolver. SettingsClient
+    // is "use client" and cannot import lib/config.ts (process.env), so it stays as a
+    // literal here. If VOICE_TOOLS_SPEC_SLUG is ever overridden, both the canonical
+    // slug and this keyword help admins land on the right panel.
+    // eslint-disable-next-line hf-config/no-hardcoded-spec-slug
     ["voice", "tools", "enable", "disable", "lookup", "mastery", "TOOLS-001"],
   ),
   registerCustomPanel(

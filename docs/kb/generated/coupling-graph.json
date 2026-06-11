@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T21:14:32.323Z",
+  "generatedAt": "2026-06-11T22:45:20.603Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1669,
-  "edgeCount": 3827,
+  "edgeCount": 3831,
   "skippedEdges": 1,
   "edges": [
     {
@@ -850,6 +850,10 @@
     {
       "from": "app/api/callers/[callerId]/last-selected-module/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/learning-trajectory/route.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "app/api/callers/[callerId]/learning-trajectory/route.ts",
@@ -2498,6 +2502,10 @@
     {
       "from": "app/api/courses/[courseId]/classrooms/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/cohort-learning/route.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "app/api/courses/[courseId]/cohort-learning/route.ts",
@@ -12309,6 +12317,10 @@
     },
     {
       "from": "lib/goals/strategies/resolve-strategy.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/goals/strategies/resolve-strategy.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -13126,6 +13138,10 @@
     {
       "from": "lib/prompt/compose-content-section.ts",
       "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/prompt/composition/buildComposeTrace.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "lib/prompt/composition/buildComposeTrace.ts",
@@ -15700,7 +15716,7 @@
     {
       "path": "app/api/callers/[callerId]/learning-trajectory/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/lo-progress/route.ts",
@@ -16180,7 +16196,7 @@
     {
       "path": "app/api/courses/[courseId]/cohort-learning/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/courses/[courseId]/content-breakdown/route.ts",
@@ -20884,7 +20900,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 88,
+      "inDegree": 92,
       "outDegree": 0
     },
     {
@@ -21555,7 +21571,7 @@
     {
       "path": "lib/goals/strategies/resolve-strategy.ts",
       "inDegree": 0,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/goals/strategies/skill_ema.ts",
@@ -22185,7 +22201,7 @@
     {
       "path": "lib/prompt/composition/buildComposeTrace.ts",
       "inDegree": 1,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/prompt/composition/compose-invariants.ts",
@@ -23681,7 +23697,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 88,
+      "inDegree": 92,
       "outDegree": 0
     },
     {

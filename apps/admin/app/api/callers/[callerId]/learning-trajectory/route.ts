@@ -27,6 +27,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { config } from "@/lib/config";
 
 const PROFILE_LABELS: Record<string, string> = {
   "comprehension-led": "Comprehension Skills",
@@ -40,11 +41,15 @@ const PROFILE_PREFIXES: Record<string, string> = {
   "coaching-led": "COACH_",
 };
 
-const AGG_SCOPES: Record<string, string> = {
-  "comprehension-led": "COMP-AGG-001",
-  "discussion-led": "DISC-AGG-001",
-  "coaching-led": "COACH-AGG-001",
-};
+// Built fresh per request so an env-var override (COMP_AGG_SPEC_SLUG etc.) is
+// honoured — a module-scope literal would freeze the slug at first import.
+function getAggScopes(): Record<string, string> {
+  return {
+    "comprehension-led": config.specs.aggComprehension,
+    "discussion-led": config.specs.aggDiscussion,
+    "coaching-led": config.specs.aggCoaching,
+  };
+}
 
 // Shape of the per-LO mastery attribute key. The slug between
 // `lo_mastery:` and the LO ref is the module slug — used by the module-
@@ -95,7 +100,7 @@ export async function GET(
   // parameter prefix + aggregator spec.
   if (profile && PROFILE_PREFIXES[profile]) {
     const prefix = PROFILE_PREFIXES[profile];
-    const aggScope = AGG_SCOPES[profile];
+    const aggScope = getAggScopes()[profile];
 
     const scores = await prisma.callScore.findMany({
       where: {

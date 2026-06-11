@@ -250,14 +250,17 @@ const eslintConfig = defineConfig([
       // fails CI.
       "hf-security/no-secrets-in-client": "error",
 
-      // Audit HF-I (2026-06-11) — built, tested, and registered but DORMANT (off)
-      // at landing. The two live bugs are fixed in the same PR (GOAL-001 write →
-      // config.specs.goal; TUT-001 match → config.specs.defaultArchetype). The rule
-      // surfaces 29 residual low-severity slug literals across 11 files (10 in the
-      // demo catalogue, 3 in the sector-config client mirror) — activating at `warn`
-      // would breach the lint_warnings ratchet. Promote to `warn` then `error` once
-      // those are swept / allow-listed. See docs/kb/guard-registry.md#guard-no-hardcoded-spec-slug.
-      "hf-config/no-hardcoded-spec-slug": "off",
+      // Audit HF-I sweep (2026-06-11) — landed as DORMANT in 843bcf3a after the two
+      // live bugs (GOAL-001 write → config.specs.goal; TUT-001 match →
+      // config.specs.defaultArchetype) were fixed. Sweep promoted to ERROR after the
+      // residual 29 sites were cleared: 16 false-positive sites moved to the
+      // ALLOWLIST_PATH_FRAGMENTS in the rule (lib/demo/registry.ts, lib/registry/index.ts
+      // (parameter ID registry — CP-004 is a Param, not a Spec), and the documented
+      // sector-config.ts client mirror), 1 SettingsClient search keyword carries an
+      // inline disable + rationale, and 13 runtime consumers across 7 files were
+      // routed through 4 new config.specs.* getters (aggComprehension/Discussion/
+      // Coaching/goalProgress). See docs/kb/guard-registry.md#guard-no-hardcoded-spec-slug.
+      "hf-config/no-hardcoded-spec-slug": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
