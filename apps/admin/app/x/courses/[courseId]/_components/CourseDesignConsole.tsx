@@ -40,6 +40,7 @@ import {
   Sliders,
   Compass,
   Eye,
+  Workflow,
 } from "lucide-react";
 import {
   ConsoleShell,
@@ -55,6 +56,14 @@ import { FeltProgressSettings } from "@/components/course-design/FeltProgressSet
 import { TolerancesSettings } from "@/components/course-design/TolerancesSettings";
 import { BandingPicker } from "@/components/shared/BandingPicker";
 import { PreviewLens } from "./PreviewLens";
+// Voice Flow lens is the heaviest of the 13 — it imports HFDrawer
+// (Radix Dialog), FieldRow + VoiceSampleButton (with blob playback),
+// and useSession. Lazy-loaded to keep it out of the Design tab's
+// initial bundle (#1478 non-functional AC).
+const VoiceFlowLensLazy = React.lazy(() =>
+  import("./VoiceFlowLens").then((m) => ({ default: m.VoiceFlowLens })),
+);
+import "./voice-flow-lens.css";
 import { StalePromptPillForCourse } from "@/components/callers/caller-detail/StalePromptPillForCourse";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
@@ -70,7 +79,8 @@ type DesignLensId =
   | "tolerances"
   | "skillBanding"
   | "progressSignals"
-  | "agentTunerNlp";
+  | "agentTunerNlp"
+  | "voiceFlow";
 
 /** Preview moved to the top of the nav (2026-06-07) — it's now the
  *  canonical landing surface: educator sees the full call walkthrough,
@@ -88,11 +98,17 @@ const DESIGN_LENS_ORDER: DesignLensId[] = [
   "skillBanding",
   "progressSignals",
   "agentTunerNlp",
+  "voiceFlow",
 ];
 
 interface LensProps {
   courseId: string;
   playbookConfig?: PlaybookConfig | Record<string, unknown> | null;
+  /** Called by lenses after a successful cascade write that may have
+   *  marked demo callers stale (e.g. Voice Flow lens edits voice
+   *  config). Bumps `staleRefreshTick` so `StalePromptPillForCourse`
+   *  re-fetches without a page reload (#1478 Amendment A). */
+  onComposeInputChange?: () => void;
 }
 
 const ICON_SIZE = 14;
@@ -145,6 +161,22 @@ const PreviewLensWrap: React.FC<LensProps> = ({ courseId }) => (
   <PreviewLens courseId={courseId} />
 );
 PreviewLensWrap.displayName = "PreviewLensWrap";
+
+const VoiceFlowLensWrap: React.FC<LensProps> = ({ courseId, onComposeInputChange }) => (
+  <React.Suspense
+    fallback={
+      <div className="hf-card">
+        <div className="hf-text-muted hf-text-sm">Loading voice flow…</div>
+      </div>
+    }
+  >
+    <VoiceFlowLensLazy
+      courseId={courseId}
+      onComposeInputChange={onComposeInputChange}
+    />
+  </React.Suspense>
+);
+VoiceFlowLensWrap.displayName = "VoiceFlowLensWrap";
 
 const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
   // #1316 — Number the JOURNEY lenses ① ② ③ ④ ⑤ so the operator sees the
@@ -236,6 +268,13 @@ const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
     blurb: "Educator view + Engineer view of what Call 1 will look like.",
     Component: PreviewLensWrap,
   },
+  voiceFlow: {
+    id: "voiceFlow",
+    label: "Voice Flow",
+    iconNode: <Workflow size={ICON_SIZE} />,
+    blurb: "Flowchart of cascade-bound voice settings — provider, voice, transcriber, during-the-call behaviours.",
+    Component: VoiceFlowLensWrap,
+  },
 };
 
 const DEFAULT_LENS: DesignLensId = "preview";
@@ -265,12 +304,20 @@ export function CourseDesignConsole({
     consoleId: "course-design",
   });
 
+  // #1478 Amendment A — when a lens reports a compose-input change
+  // (e.g. Voice Flow lens saves voice config), bump this tick so the
+  // header staleness banner re-fetches without a page reload.
+  const [staleRefreshTick, setStaleRefreshTick] = React.useState(0);
+  const onComposeInputChange = React.useCallback(() => {
+    setStaleRefreshTick((n) => n + 1);
+  }, []);
+
   return (
     <>
       <ConsoleShell<DesignLensId, LensProps>
         lensOrder={DESIGN_LENS_ORDER}
         lenses={DESIGN_LENSES}
-        lensProps={{ courseId, playbookConfig }}
+        lensProps={{ courseId, playbookConfig, onComposeInputChange }}
         activeLensId={view}
         onLensChange={setView}
         ariaNavLabel="Course design lenses"
@@ -278,7 +325,12 @@ export function CourseDesignConsole({
         comingSoonHelpText={COMING_SOON_HELP}
         // #1429 — staleness aggregate above the lens nav. Self-hides
         // when no demo callers on this course have a stale prompt.
-        headerBanner={<StalePromptPillForCourse courseId={courseId} />}
+        headerBanner={
+          <StalePromptPillForCourse
+            courseId={courseId}
+            refreshKey={staleRefreshTick}
+          />
+        }
       />
     </>
   );
