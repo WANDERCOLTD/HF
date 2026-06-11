@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T12:01:47.338Z",
+  "generatedAt": "2026-06-11T13:24:15.109Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1645,
-  "edgeCount": 3791,
+  "fileCount": 1646,
+  "edgeCount": 3794,
   "skippedEdges": 1,
   "edges": [
     {
@@ -6374,6 +6374,10 @@
     {
       "from": "app/api/voice/calls/[callId]/stream/route.ts",
       "to": "lib/voice/telemetry.ts"
+    },
+    {
+      "from": "app/api/voice/calls/[callId]/stream/route.ts",
+      "to": "lib/voice/transcript-stream-gate.ts"
     },
     {
       "from": "app/api/voice/calls/outbound-dial/route.ts",
@@ -14457,6 +14461,10 @@
     },
     {
       "from": "lib/voice/route-handlers.ts",
+      "to": "lib/voice/transcript-stream-gate.ts"
+    },
+    {
+      "from": "lib/voice/route-handlers.ts",
       "to": "lib/voice/types.ts"
     },
     {
@@ -14490,6 +14498,10 @@
     {
       "from": "lib/voice/tool-router.ts",
       "to": "lib/voice/types.ts"
+    },
+    {
+      "from": "lib/voice/transcript-stream-gate.ts",
+      "to": "lib/voice/load-voice-config.ts"
     },
     {
       "from": "lib/wizard-hints.ts",
@@ -17631,7 +17643,7 @@
     {
       "path": "app/api/voice/calls/[callId]/stream/route.ts",
       "inDegree": 0,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "app/api/voice/calls/outbound-dial/route.ts",
@@ -22555,7 +22567,7 @@
     },
     {
       "path": "lib/voice/load-voice-config.ts",
-      "inDegree": 5,
+      "inDegree": 6,
       "outDegree": 5
     },
     {
@@ -22626,7 +22638,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 26
+      "outDegree": 27
     },
     {
       "path": "lib/voice/runtime-features.ts",
@@ -22667,6 +22679,11 @@
       "path": "lib/voice/tool-router.ts",
       "inDegree": 2,
       "outDegree": 3
+    },
+    {
+      "path": "lib/voice/transcript-stream-gate.ts",
+      "inDegree": 2,
+      "outDegree": 1
     },
     {
       "path": "lib/voice/types.ts",
@@ -23456,14 +23473,14 @@
       "outDegree": 36
     },
     {
+      "path": "lib/voice/route-handlers.ts",
+      "inDegree": 5,
+      "outDegree": 27
+    },
+    {
       "path": "lib/prompt/composition/TransformRegistry.ts",
       "inDegree": 30,
       "outDegree": 1
-    },
-    {
-      "path": "lib/voice/route-handlers.ts",
-      "inDegree": 5,
-      "outDegree": 26
     },
     {
       "path": "app/api/chat/route.ts",
