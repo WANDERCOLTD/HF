@@ -932,7 +932,7 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "apply_demo_preset",
     description:
-      "Set the four 'good demo defaults' on a course in one batch: `firstCallMode='teach_immediately'`, `welcome.aboutYou.enabled=false`, `welcome.aiIntroCall.enabled=false`, `welcomeMessage` (optional), and behaviour target `BEH-RESPONSE-LEN=0.2` (short, punchy responses). Every write goes through the pending-changes tray with `aiSuggested: true` and `fanoutScope: 'none'` — the operator clicks Save & apply to confirm. You DO NOT bypass the tray. Use when the operator says 'apply the demo preset' or similar.",
+      "Set the four 'good demo defaults' on a course in one batch: `firstCallMode='teach_immediately'`, `welcome.aboutYou.enabled=false`, `welcome.aiIntroCall.enabled=false`, `welcomeMessage` (optional), and behaviour target `BEH-RESPONSE-LEN=0.2` (short, punchy responses). The config writes happen INLINE via updatePlaybookConfig with `fanoutScope: 'none'` — the config is saved by the time you respond. The pending-changes tray surfaces the change with `aiSuggested: true`; the operator can click 'Recompose this learner' to rebuild a specific learner's prompt now, or dismiss the tray (the next call from any learner will pick up the change automatically). You DO NOT bypass the tray. Use when the operator says 'apply the demo preset' or similar.",
     input_schema: {
       type: "object",
       properties: {
