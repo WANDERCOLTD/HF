@@ -166,8 +166,10 @@ describe("CourseDesignConsole — lens-scoped SessionFlowEditor", () => {
     mockSessionFlowFetch(makeResolvedResponse());
     const { findByRole, queryByText } = render(<CourseDesignConsole courseId="course-1" />);
     const panel = (await findByRole("tabpanel")) as HTMLElement;
-    // Inline Welcome message form (the drawer title becomes the inline card heading)
-    await within(panel).findByRole("heading", { name: "Welcome message" });
+    // Inline Greeting form — #1403/#1495 renamed the drawer heading
+    // ("Welcome message" → "Greeting — first call opener"). The drawer title
+    // becomes the inline card heading.
+    await within(panel).findByRole("heading", { name: "Greeting — first call opener" });
     // Inline form textarea is present
     expect(panel.querySelector("textarea")).not.toBeNull();
     // Intake rows must NOT appear in the Welcome lens panel
