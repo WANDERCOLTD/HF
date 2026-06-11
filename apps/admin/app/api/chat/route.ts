@@ -4,6 +4,10 @@ import { getAIConfig } from "@/lib/ai/config-loader";
 import { classifyAIError, userMessageForError } from "@/lib/ai/error-utils";
 import { getConfiguredMeteredAICompletionStream, getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { buildSystemPrompt } from "./system-prompts";
+import {
+  buildUnifiedAssistantPrompt,
+  isUnifiedAssistantEnabled,
+} from "@/lib/chat/unified-assistant-prompt";
 import { parsePageContext, type PageContextHint } from "./page-context";
 import { parseTrayReflections, buildReflectionMessages } from "./tray-reflection";
 import { executeCommand, parseCommand } from "@/lib/chat/commands";
@@ -405,8 +409,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // Build mode-specific system prompt with terminology
+    // #1504 Slice 1 — Unified Assistant spike (flag-gated).
+    //
+    // When `HF_FLAG_UNIFIED_ASSISTANT=true` AND mode is one of the three
+    // collapsing modes (DATA / TUNING / COURSE_MANAGE), route through the
+    // single unified-prompt builder + full ADMIN_TOOLS palette + the
+    // existing tool loop. DEMO / CALL / BUG / WIZARD / COURSE_REF stay
+    // untouched. The intercept (`detectUngroundedLearnerClaim`) fires
+    // structurally on `toolUsesInTurn`, so it works unchanged here.
+    //
+    // CI runs flag-off so the 40 factual-grounding tests + page-context
+    // tests + tuning-update-target tests keep guarding the existing path.
+    // hf-dev VM runs flag-on for live testing.
     const userInstitutionId = authResult.session.user.institutionId;
+    if (
+      isUnifiedAssistantEnabled() &&
+      (mode === "DATA" || mode === "TUNING" || mode === "COURSE_MANAGE")
+    ) {
+      const { prompt: unifiedPrompt } = await buildUnifiedAssistantPrompt({
+        entityContext,
+        tuningScope,
+        userRole,
+        institutionId: userInstitutionId,
+        pageContext,
+        pageHintRoute,
+        discussionTicketId,
+        sessionUserId: authResult.session.user.id,
+      });
+
+      const lastUnifiedHist = conversationHistory[conversationHistory.length - 1];
+      const unifiedMsgInHistory =
+        lastUnifiedHist?.role === "user" && lastUnifiedHist?.content === message.trim();
+      const unifiedMessages: AIMessage[] = [
+        { role: "system", content: unifiedPrompt },
+        ...conversationHistory.slice(-10).map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        ...(unifiedMsgInHistory ? [] : [{ role: "user" as const, content: message.trim() }]),
+      ];
+
+      const unifiedCallPoint = "chat.unified_assistant";
+      const unifiedAIConfig = await getAIConfig(unifiedCallPoint);
+      const unifiedSelectedEngine = engine || unifiedAIConfig.provider;
+      const unifiedUserId = authResult.session.user.id;
+
+      return await handleDataModeWithTools(
+        unifiedMessages,
+        unifiedCallPoint,
+        engine,
+        unifiedSelectedEngine,
+        mode,
+        message,
+        entityContext,
+        conversationHistory,
+        userRole,
+        unifiedUserId,
+        ADMIN_TOOLS,
+      );
+    }
+
+    // Build mode-specific system prompt with terminology
     const { prompt: systemPrompt, llmPrompt } = await buildSystemPrompt(
       mode as "DATA" | "CALL" | "BUG" | "TUNING",
       entityContext,

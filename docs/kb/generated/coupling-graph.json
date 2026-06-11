@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T15:32:58.628Z",
+  "generatedAt": "2026-06-11T20:38:36.783Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1664,
-  "edgeCount": 3825,
+  "fileCount": 1665,
+  "edgeCount": 3833,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1482,6 +1482,10 @@
     {
       "from": "app/api/chat/route.ts",
       "to": "lib/chat/pending-change-payload.ts"
+    },
+    {
+      "from": "app/api/chat/route.ts",
+      "to": "lib/chat/unified-assistant-prompt.ts"
     },
     {
       "from": "app/api/chat/route.ts",
@@ -9216,14 +9220,6 @@
       "to": "components/shared/FancySelect.tsx"
     },
     {
-      "from": "app/x/help/_admin/telemetry/page.tsx",
-      "to": "lib/auth.ts"
-    },
-    {
-      "from": "app/x/help/_admin/telemetry/page.tsx",
-      "to": "lib/prisma.ts"
-    },
-    {
       "from": "app/x/help/demos/HelpDemosTelemetry.tsx",
       "to": "lib/help/track-help-event.ts"
     },
@@ -9238,6 +9234,14 @@
     {
       "from": "app/x/help/demos/page.tsx",
       "to": "lib/auth.ts"
+    },
+    {
+      "from": "app/x/help/telemetry/page.tsx",
+      "to": "lib/auth.ts"
+    },
+    {
+      "from": "app/x/help/telemetry/page.tsx",
+      "to": "lib/prisma.ts"
     },
     {
       "from": "app/x/holographic/page.tsx",
@@ -11006,6 +11010,34 @@
     {
       "from": "lib/chat/tuning-system-prompt.ts",
       "to": "lib/prompts/spec-prompts.ts"
+    },
+    {
+      "from": "lib/chat/unified-assistant-prompt.ts",
+      "to": "app/api/chat/page-context.ts"
+    },
+    {
+      "from": "lib/chat/unified-assistant-prompt.ts",
+      "to": "lib/chat/page-feature-catalogue.ts"
+    },
+    {
+      "from": "lib/chat/unified-assistant-prompt.ts",
+      "to": "lib/chat/ticket-context.ts"
+    },
+    {
+      "from": "lib/chat/unified-assistant-prompt.ts",
+      "to": "lib/chat/tuning-system-prompt.ts"
+    },
+    {
+      "from": "lib/chat/unified-assistant-prompt.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/chat/unified-assistant-prompt.ts",
+      "to": "lib/prompts/spec-prompts.ts"
+    },
+    {
+      "from": "lib/chat/unified-assistant-prompt.ts",
+      "to": "lib/terminology.ts"
     },
     {
       "from": "lib/chat/v5-system-prompt.ts",
@@ -15851,13 +15883,13 @@
     },
     {
       "path": "app/api/chat/page-context.ts",
-      "inDegree": 2,
+      "inDegree": 3,
       "outDegree": 1
     },
     {
       "path": "app/api/chat/route.ts",
       "inDegree": 0,
-      "outDegree": 30
+      "outDegree": 31
     },
     {
       "path": "app/api/chat/system-prompts.ts",
@@ -18930,11 +18962,6 @@
       "outDegree": 3
     },
     {
-      "path": "app/x/help/_admin/telemetry/page.tsx",
-      "inDegree": 0,
-      "outDegree": 2
-    },
-    {
       "path": "app/x/help/demos/HelpDemosTelemetry.tsx",
       "inDegree": 1,
       "outDegree": 1
@@ -18948,6 +18975,11 @@
       "path": "app/x/help/demos/page.tsx",
       "inDegree": 0,
       "outDegree": 3
+    },
+    {
+      "path": "app/x/help/telemetry/page.tsx",
+      "inDegree": 0,
+      "outDegree": 2
     },
     {
       "path": "app/x/holographic/page.tsx",
@@ -20796,7 +20828,7 @@
     },
     {
       "path": "lib/chat/page-feature-catalogue.ts",
-      "inDegree": 2,
+      "inDegree": 3,
       "outDegree": 1
     },
     {
@@ -20811,13 +20843,18 @@
     },
     {
       "path": "lib/chat/ticket-context.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 1
     },
     {
       "path": "lib/chat/tuning-system-prompt.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 6
+    },
+    {
+      "path": "lib/chat/unified-assistant-prompt.ts",
+      "inDegree": 1,
+      "outDegree": 7
     },
     {
       "path": "lib/chat/v5-system-prompt.ts",
@@ -20876,7 +20913,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 87,
+      "inDegree": 88,
       "outDegree": 0
     },
     {
@@ -22426,7 +22463,7 @@
     },
     {
       "path": "lib/prompts/spec-prompts.ts",
-      "inDegree": 8,
+      "inDegree": 9,
       "outDegree": 1
     },
     {
@@ -22626,7 +22663,7 @@
     },
     {
       "path": "lib/terminology.ts",
-      "inDegree": 4,
+      "inDegree": 5,
       "outDegree": 3
     },
     {
@@ -23648,7 +23685,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 87,
+      "inDegree": 88,
       "outDegree": 0
     },
     {
@@ -23692,14 +23729,14 @@
       "outDegree": 27
     },
     {
+      "path": "app/api/chat/route.ts",
+      "inDegree": 0,
+      "outDegree": 31
+    },
+    {
       "path": "lib/prompt/composition/TransformRegistry.ts",
       "inDegree": 30,
       "outDegree": 1
-    },
-    {
-      "path": "app/api/chat/route.ts",
-      "inDegree": 0,
-      "outDegree": 30
     },
     {
       "path": "app/api/content-sources/[sourceId]/extract/route.ts",
