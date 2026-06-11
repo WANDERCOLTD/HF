@@ -41,6 +41,10 @@ import type {
   NpsConfig,
 } from "@/lib/types/json-fields";
 import {
+  substituteGreetingTokens,
+  templateContainsSupportedToken,
+} from "@/lib/prompt/composition/defaults/substitute-greeting-tokens";
+import {
   sourceLabel,
   kcSummary,
   isPreTest,
@@ -289,18 +293,23 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
     {
       id: "welcome-message",
       icon: <MessageSquare size={16} />,
-      // #1316 — Renamed to "Course opening line" to disambiguate from
-      // the Domain-level Domain.onboardingWelcome (also surfaced as
-      // "Welcome message" on the Domain editor). Source badge is now
-      // inline in the summary so the operator sees at a glance whether
-      // the value comes from Course / Domain / generic without expanding
-      // the row details. Matches the onboarding row pattern at :276.
-      label: "Course opening line",
+      // #1403 — Renamed to "Greeting" (was "Course opening line" #1316,
+      // before that "Welcome message"). The Greeting lens consolidates
+      // three fields: welcomeMessage, firstCallCourseIntro, and
+      // firstCallWaitForAck — all controlling the AI's first-call opener.
+      label: "Greeting",
       summary: (() => {
         const text = sessionFlow.welcomeMessage
           ? truncate(sessionFlow.welcomeMessage, 60)
           : "Generic fallback";
-        return `${text} · source: ${sourceLabel(sessionFlow.source.welcomeMessage)}`;
+        const ack = sessionFlow.firstCallWaitForAck;
+        const ackLabel =
+          ack === "none"
+            ? "no pause"
+            : ack === "any_response"
+              ? "wait for any response"
+              : "wait for greeting";
+        return `${text} · ${ackLabel} · source: ${sourceLabel(sessionFlow.source.welcomeMessage)}`;
       })(),
       status: sessionFlow.welcomeMessage ? "enabled" : "default",
       details: welcomeMessageDetails(sessionFlow),
@@ -524,9 +533,12 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
           />
         )}
         {isLensMode && activeSection === "welcome" && (
-          <WelcomeMessageDrawer
+          <GreetingDrawer
             courseId={courseId}
-            current={sessionFlow.welcomeMessage ?? ""}
+            courseName={data.courseName}
+            currentWelcome={sessionFlow.welcomeMessage ?? ""}
+            currentCourseIntro={sessionFlow.firstCallCourseIntro ?? ""}
+            currentWaitForAck={sessionFlow.firstCallWaitForAck}
             onSaved={onUpdated}
           />
         )}
@@ -987,25 +999,50 @@ function NpsDrawer({
   );
 }
 
-// ── Welcome message drawer ──────────────────────────────────────────────
+// ── Greeting drawer (#1403) ──────────────────────────────────────────────
+//
+// Replaces the prior single-field `WelcomeMessageDrawer`. The Greeting
+// lens now holds three knobs that together shape the AI's first-call
+// opener:
+//
+//   A. Welcome message (text + {firstName} token) — literal opener
+//   B. Course intro (text + {courseName} token) — second-turn line
+//   C. Wait for acknowledgement (radio: none / any_response / greeting_words)
+//
+// All three save in a single PUT so optimistic updates stay coherent.
+// Token previews use `substituteGreetingTokens` so educator + AI see
+// the same resolved text — this is the canonical home for the helper.
 
-function WelcomeMessageDrawer({
-  courseId, current, onSaved,
+type WaitForAckMode = "none" | "any_response" | "greeting_words";
+
+function GreetingDrawer({
+  courseId,
+  courseName,
+  currentWelcome,
+  currentCourseIntro,
+  currentWaitForAck,
+  onSaved,
 }: {
   courseId: string;
-  current: string;
+  courseName: string;
+  currentWelcome: string;
+  currentCourseIntro: string;
+  currentWaitForAck: WaitForAckMode;
   onSaved: (next: ApiResponse) => void;
 }) {
-  const [text, setText] = useState(current);
+  const [welcome, setWelcome] = useState(currentWelcome);
+  const [courseIntro, setCourseIntro] = useState(currentCourseIntro);
+  const [waitForAck, setWaitForAck] = useState<WaitForAckMode>(currentWaitForAck);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [effective, setEffective] = useState<Effective<string | null> | null>(null);
   const [effectiveError, setEffectiveError] = useState<string | null>(null);
   const [inspecting, setInspecting] = useState(false);
 
-  // Fetch the cascade envelope on mount so the badge + caption render the
-  // honest source (PLAYBOOK / DOMAIN / SYSTEM). Falls back silently if
-  // the route 4xx/5xx — the textarea still reads from `current`.
+  // Fetch the cascade envelope on mount so the welcomeMessage badge +
+  // caption render the honest source (PLAYBOOK / DOMAIN / SYSTEM). Falls
+  // back silently if the route 4xx/5xx — the textarea still reads from
+  // `currentWelcome`.
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/courses/${courseId}/cascade/welcome-message`)
@@ -1023,8 +1060,13 @@ function WelcomeMessageDrawer({
     };
   }, [courseId]);
 
-  const dirty = text !== current;
-  const trimmed = text.trim();
+  const trimmedWelcome = welcome.trim();
+  const trimmedIntro = courseIntro.trim();
+
+  const dirty =
+    welcome !== currentWelcome
+    || courseIntro !== currentCourseIntro
+    || waitForAck !== currentWaitForAck;
 
   const save = async () => {
     setSaving(true); setErr(null);
@@ -1032,7 +1074,11 @@ function WelcomeMessageDrawer({
       const res = await fetch(`/api/courses/${courseId}/session-flow`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ welcomeMessage: trimmed.length > 0 ? trimmed : null }),
+        body: JSON.stringify({
+          welcomeMessage: trimmedWelcome.length > 0 ? trimmedWelcome : null,
+          firstCallCourseIntro: trimmedIntro.length > 0 ? trimmedIntro : null,
+          firstCallWaitForAck: waitForAck,
+        }),
       });
       const json = (await res.json()) as ApiResponse;
       if (!json.ok) setErr(json.error);
@@ -1045,16 +1091,39 @@ function WelcomeMessageDrawer({
   };
 
   const inheritedCaption = inheritedCaptionFor(effective);
-  const placeholder = placeholderFor(effective);
+  const placeholderWelcome = placeholderFor(effective);
+
+  // Token-preview seed values. Use a real-looking sample for {firstName}
+  // and the actual courseName so the educator sees exactly what the AI
+  // will say. Matches the resolution done server-side in
+  // `transforms/quickstart.ts::first_line` + `greeting_course_intro`.
+  const previewFirstName = "Alex";
+  const previewWelcome = trimmedWelcome.length > 0
+    ? substituteGreetingTokens({
+        template: trimmedWelcome,
+        firstName: previewFirstName,
+        courseName,
+      })
+    : null;
+  const previewIntro = trimmedIntro.length > 0
+    ? substituteGreetingTokens({
+        template: trimmedIntro,
+        firstName: previewFirstName,
+        courseName,
+      })
+    : null;
 
   return (
-    <Drawer title="Welcome message">
+    <Drawer title="Greeting — first call opener">
       <p className="sfe-drawer-desc">
-        First-line greeting the AI uses on the learner&rsquo;s first call. Leave blank to fall back to the domain default or a generic greeting.
+        Three knobs control the first words the AI says to a new learner.
+        All take effect on call 1 only; calls 2+ use the regular session plan.
       </p>
+
+      {/* ── A. Welcome message ───────────────────────────────────── */}
       <label className="sfe-field">
         <span className="sfe-field-label">
-          <span className="sfe-field-label-text">Message</span>
+          <span className="sfe-field-label-text">A. Welcome message</span>
           {effective ? (
             <LayerBadge
               envelope={effective}
@@ -1071,23 +1140,96 @@ function WelcomeMessageDrawer({
         ) : null}
         <textarea
           className="sfe-textarea"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={4}
+          value={welcome}
+          onChange={(e) => setWelcome(e.target.value)}
+          rows={3}
           maxLength={500}
-          placeholder={placeholder}
+          placeholder={placeholderWelcome || "Hi {firstName}, welcome to your AI Tutoring Experience"}
+          data-testid="hf-greeting-welcome-textarea"
         />
-        <span className="sfe-field-hint">{text.length} / 500 characters</span>
+        <span className="sfe-field-hint">
+          Supports <code>{"{firstName}"}</code>. The AI speaks this verbatim as its opening line. {welcome.length} / 500 characters
+        </span>
+        {previewWelcome && templateContainsSupportedToken(trimmedWelcome) ? (
+          <span className="sfe-field-hint" data-testid="hf-greeting-welcome-preview">
+            Preview: &ldquo;{previewWelcome}&rdquo;
+          </span>
+        ) : null}
         {effectiveError ? (
           <span className="sfe-field-hint" data-testid="hf-welcome-cascade-error">
             Cascade lookup failed: {effectiveError}
           </span>
         ) : null}
       </label>
+
+      {/* ── B. Course intro ──────────────────────────────────────── */}
+      <label className="sfe-field">
+        <span className="sfe-field-label">
+          <span className="sfe-field-label-text">B. Course intro (optional)</span>
+        </span>
+        <textarea
+          className="sfe-textarea"
+          value={courseIntro}
+          onChange={(e) => setCourseIntro(e.target.value)}
+          rows={3}
+          maxLength={400}
+          placeholder="Today, we are going to learn about {courseName}. Ready to start?"
+          data-testid="hf-greeting-intro-textarea"
+        />
+        <span className="sfe-field-hint">
+          Supports <code>{"{courseName}"}</code>. AI says this verbatim after the learner acknowledges. Leave blank to skip. {courseIntro.length} / 400 characters
+        </span>
+        {previewIntro && templateContainsSupportedToken(trimmedIntro) ? (
+          <span className="sfe-field-hint" data-testid="hf-greeting-intro-preview">
+            Preview: &ldquo;{previewIntro}&rdquo;
+          </span>
+        ) : null}
+      </label>
+
+      {/* ── C. Wait for acknowledgement ──────────────────────────── */}
+      <fieldset className="sfe-fieldset">
+        <legend className="sfe-field-label">C. Wait for acknowledgement</legend>
+        <span className="sfe-field-hint">
+          Controls whether the AI pauses after the welcome line and waits for the learner to respond.
+        </span>
+        <div className="sfe-radio-group" data-testid="hf-greeting-ack-group">
+          <ModeOption
+            value="none"
+            checked={waitForAck === "none"}
+            onSelect={() => setWaitForAck("none")}
+            title="No pause"
+            subtitle="Continue speaking immediately after the welcome line."
+            hint="Best for: very short demos where pacing matters more than rapport."
+          />
+          <ModeOption
+            value="any_response"
+            checked={waitForAck === "any_response"}
+            onSelect={() => setWaitForAck("any_response")}
+            title="Wait for any response"
+            subtitle="Pause until the learner sends any input."
+            hint="Best for: text chats and slow speakers — accepts any reply."
+          />
+          <ModeOption
+            value="greeting_words"
+            checked={waitForAck === "greeting_words"}
+            onSelect={() => setWaitForAck("greeting_words")}
+            title="Wait for a greeting word (default)"
+            subtitle="Pause until the learner says hello, hi, yes, yeah, or similar."
+            hint="Best for: voice calls — feels natural and confirms the line is open."
+          />
+        </div>
+      </fieldset>
+
       {err && <div className="sfe-error">Save failed: {err}</div>}
       <footer className="sfe-drawer-footer">
-        <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
-          {saving ? "Saving…" : (trimmed.length === 0 && current.length > 0 ? "Clear message" : "Save message")}
+        <button
+          type="button"
+          className="sfe-btn-primary"
+          onClick={save}
+          disabled={!dirty || saving}
+          data-testid="hf-greeting-save"
+        >
+          {saving ? "Saving…" : "Save greeting"}
         </button>
       </footer>
       {inspecting && effective ? (

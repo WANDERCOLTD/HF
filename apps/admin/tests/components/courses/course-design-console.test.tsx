@@ -95,11 +95,11 @@ beforeEach(() => {
 });
 
 describe("CourseDesignConsole — nav", () => {
-  it("renders 12 lenses in the nav (5 Journey + 6 Behaviour + 1 Preview)", () => {
+  it("renders 13 lenses in the nav (5 Journey + 7 Behaviour + 1 Preview)", () => {
     mockSessionFlowFetch(makeResolvedResponse());
     const { container } = render(<CourseDesignConsole courseId="course-1" />);
     const items = container.querySelectorAll(".hf-console-shell-nav-item");
-    expect(items.length).toBe(12);
+    expect(items.length).toBe(13);
   });
 
   it("renders a 'soon' badge only on agentTunerNlp (1 — Slices 2+3 absorbed the rest)", () => {

@@ -132,11 +132,11 @@ describe("VoiceFlowLens — Slice 1 read-only diagram", () => {
 
     render(<VoiceFlowLens courseId={COURSE_ID} />);
 
-    await waitFor(() => expect(screen.getByText("Pickup")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Call starts")).toBeInTheDocument());
 
     const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     expect(headings).toEqual([
-      "Pickup",
+      "Call starts",
       "Voice Provider",
       "Selected Voice",
       "Transcriber",
@@ -243,7 +243,13 @@ describe("VoiceFlowLens — Slice 1 read-only diagram", () => {
     });
 
     await waitFor(() => expect(screen.getByText("Voice Provider")).toBeInTheDocument());
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // The lens makes TWO classes of fetches: the cascade GET on the
+    // playbook route, and (once data lands) the voice catalog on the
+    // /api/voice/[slug]/catalog route. Count only the voice-config calls.
+    const voiceConfigCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/voice-config"),
+    );
+    expect(voiceConfigCalls.length).toBe(2);
   });
 
   it("wraps the node list in an ordered list with the call-lifecycle aria-label", async () => {
@@ -369,12 +375,19 @@ describe("VoiceFlowLens — Slice 2 edit drawer + Amendment A + Amendment C", ()
     });
 
     await waitFor(() => {
-      // Three calls: initial GET + PATCH + re-fetch
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      // Three voice-config calls: initial GET + PATCH + re-fetch. The
+      // catalog GET (/api/voice/[slug]/catalog) fires once when data
+      // first lands; ignore it.
+      const voiceConfigCalls = fetchMock.mock.calls.filter((c) =>
+        String(c[0]).includes("/voice-config"),
+      );
+      expect(voiceConfigCalls.length).toBe(3);
     });
 
-    // PATCH call body
-    const patchCall = fetchMock.mock.calls[1]!;
+    // PATCH is the only voice-config call with a body.
+    const patchCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "PATCH",
+    )!;
     expect(patchCall[0]).toBe(`/api/playbooks/${COURSE_ID}/voice-config`);
     expect(patchCall[1]).toMatchObject({
       method: "PATCH",
@@ -420,11 +433,62 @@ describe("VoiceFlowLens — Slice 2 edit drawer + Amendment A + Amendment C", ()
     });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const voiceConfigCalls = fetchMock.mock.calls.filter((c) =>
+        String(c[0]).includes("/voice-config"),
+      );
+      expect(voiceConfigCalls.length).toBe(3);
     });
 
-    const patchCall = fetchMock.mock.calls[1]!;
+    const patchCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "PATCH",
+    )!;
     const patchBody = JSON.parse((patchCall[1] as { body: string }).body);
     expect(patchBody).toEqual({ key: "voiceId", value: null });
+  });
+
+  it("enum dropdown decorates options via enumLabels but keeps the raw value as the submitted enum", async () => {
+    const payload = makeVapiPayload();
+    // Decorate the voiceProvider schema field — the VAPI adapter ships
+    // this in production (#1478 enum-hints). Only "deepgram" gets a
+    // label here so we can also assert the fallback (the raw enum)
+    // path in the same test.
+    payload.schemaFields = payload.schemaFields.map((f) =>
+      f.key === "voiceProvider"
+        ? {
+            ...f,
+            enumValues: ["deepgram", "openai", "azure"],
+            enumLabels: {
+              deepgram: "deepgram (recommended)",
+            },
+          }
+        : f,
+    );
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => payload,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceFlowLens courseId={COURSE_ID} />);
+
+    await waitFor(() => expect(screen.getByText("Voice Provider")).toBeInTheDocument());
+
+    const editEngine = screen.getByRole("button", { name: "Edit Voice engine" });
+    await act(async () => {
+      fireEvent.click(editEngine);
+    });
+
+    // Decorated label.
+    const deepgramOption = await screen.findByRole("option", {
+      name: /deepgram \(recommended\)/i,
+    });
+    expect(deepgramOption).toHaveAttribute("value", "deepgram");
+
+    // Undecorated values still render the raw enum as their own label.
+    const openaiOption = screen.getByRole("option", { name: "openai" });
+    expect(openaiOption).toHaveAttribute("value", "openai");
+    const azureOption = screen.getByRole("option", { name: "azure" });
+    expect(azureOption).toHaveAttribute("value", "azure");
   });
 });

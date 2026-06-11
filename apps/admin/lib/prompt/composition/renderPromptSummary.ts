@@ -56,6 +56,10 @@ interface LLMPrompt {
     offboarding_guidance?: string | null;
     /** #212: instructions to AI on whether/how to discover learner via welcome questions. */
     discovery_guidance?: string | null;
+    /** #1403: ack-gate instruction injected after [OPENING] on isFirstCall. */
+    greeting_ack_gate?: string | null;
+    /** #1403: course-intro turn spoken after the ack gate on isFirstCall. */
+    greeting_course_intro?: string | null;
   };
   caller?: {
     id?: string;
@@ -186,6 +190,8 @@ export const DEFAULT_RENDER_CAPABILITIES: VoiceProviderCapabilities = {
   hasKnowledgeCallback: true,
   toolCallsOverWebSocket: false,
   supportsRequestEndCall: true,
+  // #1337 — Mirrors VAPI (vendor-cloud) which is the only live provider.
+  orchestrationMode: "vendor-cloud",
 };
 
 /**
@@ -586,6 +592,27 @@ export function renderProviderPrompt(
   if (qs?.first_line) {
     parts.push("[OPENING]");
     parts.push(qs.first_line);
+    parts.push("");
+  }
+
+  // --- #1403 Greeting ack-gate + course intro ---
+  // Rendered between [OPENING] and [RULES]. Both are first-call-only and
+  // null-guarded inside `quickstart.ts` (greeting_ack_gate is null when
+  // the educator picked `firstCallWaitForAck: "none"`; greeting_course_intro
+  // is null when no `firstCallCourseIntro` is set). When both fire the
+  // block reads:
+  //   [GREETING FLOW]
+  //   After your welcome message, PAUSE. ...
+  //   After the learner acknowledges, say: "Today, we are going to learn
+  //   about <courseName>. Ready to start?" verbatim. Then begin teaching.
+  if (qs?.greeting_ack_gate || qs?.greeting_course_intro) {
+    parts.push("[GREETING FLOW]");
+    if (qs.greeting_ack_gate) parts.push(qs.greeting_ack_gate);
+    if (qs.greeting_course_intro) {
+      parts.push(
+        `After the learner acknowledges, say: "${qs.greeting_course_intro}" verbatim. Then begin teaching.`,
+      );
+    }
     parts.push("");
   }
 

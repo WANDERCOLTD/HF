@@ -547,6 +547,20 @@ export class VapiProvider implements VoiceProvider {
           label: "Voice provider (TTS engine)",
           type: "enum",
           enumValues: ["11labs", "openai", "azure", "playht", "deepgram"],
+          // #1478 — capability hints so educators see HF-side asymmetry
+          // up front. Deepgram + OpenAI have vendor-validated voice
+          // catalogs (#1421 Slice A); 11labs/azure/playht fall back to
+          // free-text "custom ID" entry. Only Deepgram supports the
+          // exact ▶ Test voice preview (others use OpenAI TTS fallback
+          // labelled "Preview ≠ live voice"). Submitted enum value is
+          // unchanged — only the rendered label is decorated.
+          enumLabels: {
+            "deepgram": "deepgram (recommended — Aura catalog + exact preview)",
+            "openai": "openai (catalog available)",
+            "11labs": "11labs (no catalog — paste a custom voice ID)",
+            "azure": "azure (no catalog — paste a custom voice ID)",
+            "playht": "playht (no catalog — paste a custom voice ID)",
+          },
           default: "deepgram",
           help: "Which TTS engine the voice ID belongs to. Default \"deepgram\" (Aura — ~$0.015/min, conversational-AI tuned, same datacentre as default STT for lowest latency). Use \"11labs\" for premium voice quality at ~12× the cost. \"openai\" is a viable middle ground. \"azure\"/\"playht\" require extra API-key linkage in the VAPI dashboard. See ADR docs/decisions/2026-06-08-pilot-cheaper-tts.md.",
           sensitive: false,
@@ -557,6 +571,12 @@ export class VapiProvider implements VoiceProvider {
           label: "Transcriber (STT engine)",
           type: "enum",
           enumValues: ["deepgram", "talkscriber", "gladia", "assembly-ai"],
+          // #1478 — all four are first-class through VAPI (auth is
+          // VAPI-side); no HF asymmetry. The hint just signposts the
+          // safe default so educators don't pick at random.
+          enumLabels: {
+            "deepgram": "deepgram (default — recommended)",
+          },
           default: "deepgram",
           help: "Speech-to-text engine VAPI uses to transcribe the learner. Deepgram default. Switch only if you observe transcription errors that persist after adjusting the prompt.",
           sensitive: false,
