@@ -16,9 +16,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { VoiceSampleButton } from "./VoiceSampleButton";
 
-type Source = "system" | "provider" | "domain" | "course";
-type ResolvedField<T = unknown> = { value: T; source: Source };
-type SchemaField = {
+export type Source = "system" | "provider" | "domain" | "course";
+export type ResolvedField<T = unknown> = { value: T; source: Source };
+export type SchemaField = {
   key: string;
   label: string;
   type: "string" | "number" | "boolean" | "enum";
@@ -105,7 +105,7 @@ const FIELD_GROUPS: { title: string; keys: string[] }[] = [
   { title: "Advanced", keys: ["pollIntervalMs", "publicKey", "phoneNumberId"] },
 ];
 
-function sourceBadge(source: Source, scope: "course" | "domain") {
+export function sourceBadge(source: Source, scope: "course" | "domain") {
   const isThis =
     (scope === "course" && source === "course") || (scope === "domain" && source === "domain");
   const map: Record<Source, { label: string; bg: string; fg: string }> = {
@@ -133,7 +133,7 @@ function sourceBadge(source: Source, scope: "course" | "domain") {
   );
 }
 
-function fieldMeta(key: string, schemaFields: SchemaField[]): SchemaField {
+export function fieldMeta(key: string, schemaFields: SchemaField[]): SchemaField {
   const fromSchema = schemaFields.find((f) => f.key === key);
   if (fromSchema) return fromSchema;
   const xc = CROSS_CUTTING_LABELS[key];

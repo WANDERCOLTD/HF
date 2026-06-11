@@ -40,6 +40,7 @@ import {
   Sliders,
   Compass,
   Eye,
+  Workflow,
 } from "lucide-react";
 import {
   ConsoleShell,
@@ -55,6 +56,8 @@ import { FeltProgressSettings } from "@/components/course-design/FeltProgressSet
 import { TolerancesSettings } from "@/components/course-design/TolerancesSettings";
 import { BandingPicker } from "@/components/shared/BandingPicker";
 import { PreviewLens } from "./PreviewLens";
+import { VoiceFlowLens } from "./VoiceFlowLens";
+import "./voice-flow-lens.css";
 import { StalePromptPillForCourse } from "@/components/callers/caller-detail/StalePromptPillForCourse";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
@@ -70,7 +73,8 @@ type DesignLensId =
   | "tolerances"
   | "skillBanding"
   | "progressSignals"
-  | "agentTunerNlp";
+  | "agentTunerNlp"
+  | "voiceFlow";
 
 /** Preview moved to the top of the nav (2026-06-07) — it's now the
  *  canonical landing surface: educator sees the full call walkthrough,
@@ -88,6 +92,7 @@ const DESIGN_LENS_ORDER: DesignLensId[] = [
   "skillBanding",
   "progressSignals",
   "agentTunerNlp",
+  "voiceFlow",
 ];
 
 interface LensProps {
@@ -145,6 +150,11 @@ const PreviewLensWrap: React.FC<LensProps> = ({ courseId }) => (
   <PreviewLens courseId={courseId} />
 );
 PreviewLensWrap.displayName = "PreviewLensWrap";
+
+const VoiceFlowLensWrap: React.FC<LensProps> = ({ courseId }) => (
+  <VoiceFlowLens courseId={courseId} />
+);
+VoiceFlowLensWrap.displayName = "VoiceFlowLensWrap";
 
 const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
   // #1316 — Number the JOURNEY lenses ① ② ③ ④ ⑤ so the operator sees the
@@ -235,6 +245,13 @@ const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
     iconNode: <Eye size={ICON_SIZE} />,
     blurb: "Educator view + Engineer view of what Call 1 will look like.",
     Component: PreviewLensWrap,
+  },
+  voiceFlow: {
+    id: "voiceFlow",
+    label: "Voice Flow",
+    iconNode: <Workflow size={ICON_SIZE} />,
+    blurb: "Flowchart of cascade-bound voice settings — provider, voice, transcriber, during-the-call behaviours.",
+    Component: VoiceFlowLensWrap,
   },
 };
 
