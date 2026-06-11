@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# post-commit (HF)
+# Non-blocking. Warns if the just-landed commit pushes a #issue's fix-chain
+# above the ratchet baseline (`same_issue_fix_chain_max` in .ratchet.json).
+#
+# Why post-commit, not pre-commit: the warning should appear AFTER the fix
+# lands so it doesn't block legitimate work — but BEFORE the next push so
+# the developer notices and runs root-cause on the topic.
+#
+# Anchor: docs/kb/guard-registry.md#guard-fix-chain
+#         docs/decisions/2026-06-11-chase-prevention-methodology.md
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -z "$REPO_ROOT" ] && exit 0
+cd "$REPO_ROOT"
+
+# Cheap exit if the script isn't present (older checkout).
+[ -x "$REPO_ROOT/scripts/check-fix-chain.sh" ] || exit 0
+
+# Only run on `fix(` / `fix:` commits — the cost of running on every commit
+# would add noise. The detector itself only ever flags fix chains so a non-fix
+# subject can't introduce a regression.
+LAST_SUBJ="$(git log -1 --pretty=format:'%s' 2>/dev/null)"
+case "$LAST_SUBJ" in
+  fix\(*|fix:*) ;;
+  *) exit 0 ;;
+esac
+
+# Run the detector. Output is warning-only — no exit code propagation.
+OUT="$("$REPO_ROOT/scripts/check-fix-chain.sh" 2>/dev/null || true)"
+
+# Only print the warnings block if a chain was detected. The "max-chain-length"
+# tail line is the structured signal; the human-readable block above it is
+# what the developer needs to act on.
+if printf '%s' "$OUT" | grep -q "^🔁 Fix chain"; then
+  echo "[post-commit] Fix-chain ratchet:"
+  printf '%s\n' "$OUT"
+fi
+
+exit 0

@@ -119,6 +119,35 @@ measure_quarantined() {
   echo "${count:-0}"
 }
 
+measure_fix_chain() {
+  # Max length of any single-issue fix: chain in the last 30 days on the
+  # current branch. See scripts/check-fix-chain.sh + the methodology ADR
+  # at docs/decisions/2026-06-11-chase-prevention-methodology.md.
+  local out
+  if [ ! -x "$REPO_ROOT/scripts/check-fix-chain.sh" ]; then
+    echo "0"
+    return
+  fi
+  out=$("$REPO_ROOT/scripts/check-fix-chain.sh" --max-only 2>/dev/null || echo 0)
+  # Strip any whitespace; default to 0 on parse failure.
+  out=$(printf '%s' "$out" | tr -d ' \n')
+  case "$out" in
+    ''|*[!0-9]*) echo "0" ;;
+    *) echo "$out" ;;
+  esac
+}
+
+measure_memory_md() {
+  # Size of operator memory file in bytes. Index entries should be <200 chars
+  # under the rolling-7-day rule (see G9 / methodology ADR).
+  local f="$HOME/.claude/projects/-Users-paulwander-projects-HF/memory/MEMORY.md"
+  if [ ! -f "$f" ]; then
+    echo "0"
+    return
+  fi
+  wc -c < "$f" | tr -d ' \n'
+}
+
 # ─── Baseline I/O ──────────────────────────────────────────────
 
 read_baseline() {
@@ -134,13 +163,16 @@ read_baseline() {
 }
 
 write_baseline() {
-  # Args: tsc lint_e lint_w quarantined  (use "null" string to write JSON null)
+  # Args: tsc lint_e lint_w quarantined fix_chain memory_md
+  # (use "null" string to write JSON null)
   cat > "$BASELINE_FILE" <<JSON
 {
   "tsc_errors": $1,
   "lint_errors": $2,
   "lint_warnings": $3,
-  "quarantined_tests": $4
+  "quarantined_tests": $4,
+  "same_issue_fix_chain_max": $5,
+  "memory_md_bytes": $6
 }
 JSON
 }
@@ -159,6 +191,8 @@ measure_all() {
     LINT_W="${lint##* }"
   fi
   QUAR=$(measure_quarantined)
+  FIX_CHAIN=$(measure_fix_chain)
+  MEMORY_MD=$(measure_memory_md)
 }
 
 case "$MODE" in
@@ -173,12 +207,14 @@ case "$MODE" in
       echo "ratchet:init failed — at least one metric crashed (see warnings above)" >&2
       exit 2
     fi
-    write_baseline "$TSC" "$LINT_E" "$LINT_W" "$QUAR"
+    write_baseline "$TSC" "$LINT_E" "$LINT_W" "$QUAR" "$FIX_CHAIN" "$MEMORY_MD"
     echo "wrote $BASELINE_FILE"
-    echo "  tsc_errors        = $TSC"
-    echo "  lint_errors       = $LINT_E"
-    echo "  lint_warnings     = $LINT_W"
-    echo "  quarantined_tests = $QUAR"
+    echo "  tsc_errors               = $TSC"
+    echo "  lint_errors              = $LINT_E"
+    echo "  lint_warnings            = $LINT_W"
+    echo "  quarantined_tests        = $QUAR"
+    echo "  same_issue_fix_chain_max = $FIX_CHAIN"
+    echo "  memory_md_bytes          = $MEMORY_MD"
     exit 0
     ;;
 
@@ -192,18 +228,24 @@ case "$MODE" in
     prev_le=""
     prev_lw=""
     prev_q=""
+    prev_fc=""
+    prev_mm=""
     if [ -f "$BASELINE_FILE" ]; then
       prev_tsc=$(read_baseline tsc_errors)
       prev_le=$(read_baseline lint_errors)
       prev_lw=$(read_baseline lint_warnings)
       prev_q=$(read_baseline quarantined_tests)
+      prev_fc=$(read_baseline same_issue_fix_chain_max)
+      prev_mm=$(read_baseline memory_md_bytes)
     fi
-    write_baseline "$TSC" "$LINT_E" "$LINT_W" "$QUAR"
+    write_baseline "$TSC" "$LINT_E" "$LINT_W" "$QUAR" "$FIX_CHAIN" "$MEMORY_MD"
     echo "updated $BASELINE_FILE"
-    echo "  tsc_errors        : ${prev_tsc:-(none)} → $TSC"
-    echo "  lint_errors       : ${prev_le:-(none)} → $LINT_E"
-    echo "  lint_warnings     : ${prev_lw:-(none)} → $LINT_W"
-    echo "  quarantined_tests : ${prev_q:-(none)} → $QUAR"
+    echo "  tsc_errors               : ${prev_tsc:-(none)} → $TSC"
+    echo "  lint_errors              : ${prev_le:-(none)} → $LINT_E"
+    echo "  lint_warnings            : ${prev_lw:-(none)} → $LINT_W"
+    echo "  quarantined_tests        : ${prev_q:-(none)} → $QUAR"
+    echo "  same_issue_fix_chain_max : ${prev_fc:-(none)} → $FIX_CHAIN"
+    echo "  memory_md_bytes          : ${prev_mm:-(none)} → $MEMORY_MD"
     exit 0
     ;;
 
@@ -235,10 +277,12 @@ case "$MODE" in
         echo "  ✅ $name: $cur (== baseline)"
       fi
     }
-    compare tsc_errors        "$(read_baseline tsc_errors)"        "$TSC"
-    compare lint_errors       "$(read_baseline lint_errors)"       "$LINT_E"
-    compare lint_warnings     "$(read_baseline lint_warnings)"     "$LINT_W"
-    compare quarantined_tests "$(read_baseline quarantined_tests)" "$QUAR"
+    compare tsc_errors               "$(read_baseline tsc_errors)"               "$TSC"
+    compare lint_errors              "$(read_baseline lint_errors)"              "$LINT_E"
+    compare lint_warnings            "$(read_baseline lint_warnings)"            "$LINT_W"
+    compare quarantined_tests        "$(read_baseline quarantined_tests)"        "$QUAR"
+    compare same_issue_fix_chain_max "$(read_baseline same_issue_fix_chain_max)" "$FIX_CHAIN"
+    compare memory_md_bytes          "$(read_baseline memory_md_bytes)"          "$MEMORY_MD"
     [ "$failed" -eq 0 ]
     ;;
 
