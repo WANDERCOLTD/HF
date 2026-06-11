@@ -373,4 +373,36 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     effect: "Adjusts warmth, directiveness, pace, and encouragement — changes take effect on the next call.",
     examples: ["Warmer + less directive for anxious students", "More structured for exam prep"],
   },
+
+  // ── #1405 Module-visibility (Behaviour lens) ──────────────────────────
+
+  "moduleVisibility.mention_from_call_1": {
+    why: "Best for free-flow or domain exploration courses where the module map is part of the orientation.",
+    effect:
+      "The AI mentions modules by name from the very first session — in the session plan, framing, and welcome.",
+    examples: [
+      "Continuous-learning courses",
+      "Drill / practice programmes",
+      "Single-module courses",
+    ],
+  },
+  "moduleVisibility.hide_until_call_2": {
+    why: "Best for authored multi-module courses where module titles only make sense after the learner has context.",
+    effect:
+      "Call 1 focuses on the subject topic and rapport — the AI talks about 'today's topic' rather than naming the module. Module names enter the conversation from call 2.",
+    examples: [
+      "Big Five (OCEAN) Personality Model",
+      "Curriculum-led courses with abstract module titles",
+      "Cohorts where the learner hasn't seen the syllabus",
+    ],
+  },
+  "moduleVisibility.hide_until_learner_picks": {
+    why: "Use for self-paced courses where the learner's choice of module is itself part of the experience.",
+    effect:
+      "Modules stay unnamed until the learner selects one via the Module Picker. The AI doesn't reveal the curriculum map until the learner has expressed an interest.",
+    examples: [
+      "Choose-your-own-adventure tutoring",
+      "Open exploration of a discipline",
+    ],
+  },
 };

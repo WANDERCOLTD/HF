@@ -40,6 +40,7 @@ import {
   Sliders,
   Compass,
   Eye,
+  EyeOff,
   Workflow,
 } from "lucide-react";
 import {
@@ -52,6 +53,7 @@ import {
   type SessionFlowLens,
 } from "@/components/session-flow/SessionFlowEditor";
 import { FirstSessionSettings } from "@/components/course-design/FirstSessionSettings";
+import { ModuleVisibilitySettings } from "@/components/course-design/ModuleVisibilitySettings";
 import { FeltProgressSettings } from "@/components/course-design/FeltProgressSettings";
 import { TolerancesSettings } from "@/components/course-design/TolerancesSettings";
 import { BandingPicker } from "@/components/shared/BandingPicker";
@@ -75,6 +77,7 @@ type DesignLensId =
   | "offboarding"
   | "welcome"
   | "call1Mode"
+  | "moduleVisibility"
   | "firstCallTargets"
   | "tolerances"
   | "skillBanding"
@@ -93,6 +96,7 @@ const DESIGN_LENS_ORDER: DesignLensId[] = [
   "offboarding",
   "welcome",
   "call1Mode",
+  "moduleVisibility",
   "firstCallTargets",
   "tolerances",
   "skillBanding",
@@ -131,6 +135,17 @@ const Call1ModeLens: React.FC<LensProps> = ({ courseId, playbookConfig }) => (
   <FirstSessionSettings courseId={courseId} playbookConfig={playbookConfig} />
 );
 Call1ModeLens.displayName = "Call1ModeLens";
+
+const ModuleVisibilityLens: React.FC<LensProps> = ({
+  courseId,
+  playbookConfig,
+}) => (
+  <ModuleVisibilitySettings
+    courseId={courseId}
+    playbookConfig={playbookConfig}
+  />
+);
+ModuleVisibilityLens.displayName = "ModuleVisibilityLens";
 
 const FirstCallTargetsLens: React.FC<LensProps> = ({ courseId, playbookConfig }) => (
   <FirstSessionSettings courseId={courseId} playbookConfig={playbookConfig} />
@@ -226,6 +241,13 @@ const DESIGN_LENSES: Record<DesignLensId, ConsoleLensDef<LensProps>> = {
     iconNode: <Settings2 size={ICON_SIZE} />,
     blurb: "Onboarding / Teach Immediately / Baseline Assessment — the overall shape of Call 1.",
     Component: Call1ModeLens,
+  },
+  moduleVisibility: {
+    id: "moduleVisibility",
+    label: "Module visibility",
+    iconNode: <EyeOff size={ICON_SIZE} />,
+    blurb: "When the AI starts naming modules in framing — call 1, call 2, or after the learner picks.",
+    Component: ModuleVisibilityLens,
   },
   firstCallTargets: {
     id: "firstCallTargets",

@@ -32,6 +32,7 @@ import {
   SessionFlowEditor,
   type SessionFlowLens,
 } from "@/components/session-flow/SessionFlowEditor";
+import { ModuleVisibilitySettings } from "@/components/course-design/ModuleVisibilitySettings";
 import "./preview-lens.css";
 import { emptyOnboardingBubble } from "./empty-onboarding-bubble";
 import { LayerBadge } from "@/components/cascade/LayerBadge";
@@ -109,6 +110,10 @@ const SIDETRAY_LENS_MAP: Record<string, SessionFlowLens> = {
   stops: "stops",
   offboarding: "offboarding",
   welcome: "welcome",
+  // #1405 — clicking the "First teaching turn" bubble opens the
+  // module-visibility editor sidetray (instead of dead-linking to the
+  // Engineer view).
+  moduleVisibility: "moduleVisibility",
 };
 
 const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
@@ -119,6 +124,7 @@ const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
   // #1403 — was "Welcome message"; lens now consolidates welcome +
   // course intro + ack-gate, so the title carries the full surface name.
   welcome: "Greeting — first call opener",
+  moduleVisibility: "Module visibility — when modules get named",
 };
 
 export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement {
@@ -490,8 +496,11 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
     });
   }
 
+  // #1405 — the "First teaching turn" bubble is the module-naming surface
+  // operators care about. Route it to the moduleVisibility sidetray so a
+  // click lands directly on the radio group.
   items.push({
-    kind: "bubble", side: "bot", lens: "preview", lensLabel: "See full prompt (Engineer)",
+    kind: "bubble", side: "bot", lens: "moduleVisibility", lensLabel: "Edit module visibility",
     caption: "First teaching turn",
     text: "(the first module's opening — see the Engineer view for the composed prompt)",
   });
@@ -703,7 +712,13 @@ function PreviewEditSidetray({
           </button>
         </header>
         <div className="hf-preview-sidetray-body">
-          <SessionFlowEditor courseId={courseId} activeSection={lens} />
+          {lens === "moduleVisibility" ? (
+            // #1405 — module-visibility lens is config-only; no journey
+            // rows to render. Mount its dedicated component directly.
+            <ModuleVisibilitySettings courseId={courseId} />
+          ) : (
+            <SessionFlowEditor courseId={courseId} activeSection={lens} />
+          )}
         </div>
         <footer className="hf-preview-sidetray-footer">
           <button

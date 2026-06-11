@@ -13,6 +13,11 @@ import { config } from "@/lib/config";
 import { detectPersonalisationMode } from "./quickstart";
 import { resolveSessionFlow } from "@/lib/session-flow/resolver";
 import type { OnboardingPhase } from "@/lib/types/json-fields";
+import {
+  shouldSuppressModuleNames,
+  SUPPRESSED_NEW_MATERIAL_MODULE,
+  SUPPRESSED_INTRODUCE_STEP,
+} from "./module-visibility-gate";
 
 /**
  * Match a session range string (e.g., "1", "1-3", "2+", "final") against a
@@ -139,6 +144,29 @@ registerTransform("computeSessionPedagogy", (
     ((primaryPlaybook as { config?: { firstCall?: { introducePedagogy?: boolean } } })?.config?.firstCall?.introducePedagogy) ?? true;
   const isOnboardingFirstCall =
     isFirstCallAny && firstCallMode === "onboarding" && introducePedagogy;
+  // #1405 — module-visibility gate. Decided once, applied in the
+  // onboarding-first-call branch below to redact module names from
+  // `plan.newMaterial.module` and "Introduce <module>" flow steps.
+  const moduleVisibility = (
+    (primaryPlaybook as {
+      config?: {
+        firstCall?: {
+          firstCallModuleVisibility?:
+            | "mention_from_call_1"
+            | "hide_until_call_2"
+            | "hide_until_learner_picks";
+        };
+      };
+    })?.config?.firstCall?.firstCallModuleVisibility
+  );
+  const suppressModuleNames = shouldSuppressModuleNames({
+    firstCallModuleVisibility: moduleVisibility,
+    isFirstCall: Boolean(isFirstCallAny),
+    callNumber: callNumber ?? 0,
+    lastSelectedModuleId: lockedModule
+      ? (lockedModule.id ?? lockedModule.slug ?? null)
+      : null,
+  });
   const isBaselineFirstCall = isFirstCallAny && firstCallMode === "baseline_assessment";
   if (isFirstCallAny && firstCallMode === "onboarding" && !introducePedagogy) {
     console.log(
@@ -358,11 +386,21 @@ registerTransform("computeSessionPedagogy", (
       // #1008 (I-C4) — drop the "Introduce foundation" step when there is no
       // first module to anchor it to. Generic noun "first concept" is a
       // fabrication invitation.
+      // #1405 — when module-visibility gate is active, the "Introduce
+      // foundation: <module>" step swaps to "introduce the subject area".
+      // The teaching-content block still loads — only the framing copy
+      // is redacted.
+      const introduceStep = (n: number): string => {
+        if (!firstModule) return "";
+        return suppressModuleNames
+          ? `${n}. Introduce foundation — ${SUPPRESSED_INTRODUCE_STEP}`
+          : `${n}. Introduce foundation: ${firstModule.name}`;
+      };
       if (!fbAskKnowledge) {
         plan.flow = [
           "1. Welcome & set expectations",
           ...(firstModule
-            ? [`2. Introduce foundation: ${firstModule.name}`]
+            ? [introduceStep(2)]
             : []),
           `${firstModule ? 3 : 2}. Check understanding with application question`,
           `${firstModule ? 4 : 3}. Summarize & preview next session`,
@@ -372,7 +410,7 @@ registerTransform("computeSessionPedagogy", (
           "1. Welcome & set expectations",
           "2. Probe existing knowledge with open questions",
           ...(firstModule
-            ? [`3. Introduce foundation: ${firstModule.name}`]
+            ? [introduceStep(3)]
             : []),
           `${firstModule ? 4 : 3}. Check understanding with application question`,
           `${firstModule ? 5 : 4}. Summarize & preview next session`,
@@ -381,13 +419,20 @@ registerTransform("computeSessionPedagogy", (
     }
 
     if (firstModule) {
+      // #1405 — module-visibility gate. When suppressed, swap the module
+      // name out of the framing field; keep the `approach` generic enough
+      // that the AI doesn't immediately name the module via the description.
       plan.newMaterial = {
-        module: firstModule.name,
+        module: suppressModuleNames
+          ? SUPPRESSED_NEW_MATERIAL_MODULE
+          : firstModule.name,
         // #1008 (I-C4) — anchor on the module name when description is null;
         // never emit the generic "foundational concepts" placeholder.
-        approach: firstModule.description
-          ? `Start with ${firstModule.description}. Use concrete examples before abstractions.`
-          : `Start with ${firstModule.name}. Use concrete examples before abstractions.`,
+        approach: suppressModuleNames
+          ? "Start with broad subject framing. Use concrete examples before abstractions; let the learner's interests surface what to cover first."
+          : firstModule.description
+            ? `Start with ${firstModule.description}. Use concrete examples before abstractions.`
+            : `Start with ${firstModule.name}. Use concrete examples before abstractions.`,
       };
     }
   } else if (schedulerDecision && hasCurriculum) {
