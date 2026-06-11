@@ -55,6 +55,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`hf-voice/no-vapi-column-ref`](#guard-no-vapi-column-ref) | Disallow the 6 pre-#1020 `vapi`-prefixed Call columns; use `voice*` names (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP3) | #1020/#1024 | **a** |
 | [`hf-voice/no-vapi-tool-definitions-const`](#guard-no-vapi-tool-definitions-const) | Disallow the `VAPI_TOOL_DEFINITIONS` TS const; load via TOOLS-001 spec (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP2) | #1019/#1024 | **a** |
 | [`no-bespoke-async-polling`](#guard-no-bespoke-async-polling) | Bespoke `setInterval`/`setTimeout` retry loops outside an allow-list; use `lib/async/wait-until-ready.ts` | G7 / 2026-06-11 | **meta** |
+| [`hf-security/no-secrets-in-client`](#guard-no-secrets-in-client) | Plaintext credentials / secret-shaped literals in `"use client"` files (they ship in the browser bundle) | HF-J / 2026-06-11 | **a** |
 
 ### Guard detail
 
@@ -221,6 +222,23 @@ Severity is `warn` until the migration follow-up; new sites are caught now. The 
 replacement is `waitUntilReady({ predicate, ready, timeout, interval, label, onTimeout?,
 signal? })` from `lib/async/wait-until-ready.ts`. **Survives hardening:** "single async
 chokepoint" is a methodology fitness function, architecture-independent.
+
+<a id="guard-no-secrets-in-client"></a>
+**`hf-security/no-secrets-in-client`** · class **a** · born HF-J / 2026-06-11 ·
+[rule source](../../apps/admin/eslint-rules/no-secrets-in-client.mjs) ·
+test → [`tests/eslint-rules/no-secrets-in-client.test.ts`](../../apps/admin/tests/eslint-rules/no-secrets-in-client.test.ts)
+
+Anything a `"use client"` component holds as a string literal ships to the browser. The
+2026-06-11 audit (HF-B) found `app/login/page.tsx` declaring a module-scope `DEMO_ACCOUNTS`
+array with plaintext passwords — present in the PROD bundle regardless of the runtime
+`isNonProd` render gate. This rule fires, **only in files carrying the `"use client"`
+directive**, when (1) a credential-shaped key (`password`, `secret`, `apiKey`, `privateKey`,
+`clientSecret`, `accessToken`, …) is assigned a non-empty string literal, or (2) any literal
+matches a high-confidence secret shape (OpenAI `sk-`, Anthropic, AWS `AKIA`, GitHub `ghp_`,
+JWT, Google `AIza`). Server files, `process.env.*` / identifier values, and empty strings
+pass. The one known offence (the build-stripped demo creds) carries a documented
+`eslint-disable` with rationale. Severity `error` from day 1. **Survives hardening:** "no
+secret in browser-shipped code" is an architecture-independent data-safety invariant.
 
 ## CI check scripts — `apps/admin/scripts/`
 

@@ -16,6 +16,7 @@ import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require
 import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
 import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
+import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -183,6 +184,14 @@ const eslintConfig = defineConfig([
           "no-ops-import-from-api": noOpsImportFromApi,
         },
       },
+      // Audit HF-J (2026-06-11) — block plaintext credentials / secret-shaped
+      // literals in `"use client"` files. They ship in the browser bundle
+      // regardless of any runtime render gate (the HF-B login/page.tsx finding).
+      "hf-security": {
+        rules: {
+          "no-secrets-in-client": noSecretsInClient,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -225,6 +234,12 @@ const eslintConfig = defineConfig([
       // files that instantiate their own PrismaClient (bypass the singleton).
       // Carves out app/api/ops/route.ts (the legitimate ops surface).
       "hf-ops/no-ops-import-from-api": "error",
+
+      // Audit HF-J (2026-06-11) — error from day 1. The one known offence
+      // (login/page.tsx DEMO_ACCOUNTS) is build-stripped from PROD and carries
+      // a documented eslint-disable; any NEW secret literal in a client file
+      // fails CI.
+      "hf-security/no-secrets-in-client": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

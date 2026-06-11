@@ -391,11 +391,13 @@ export default function LoginPage() {
 const DEMO_ACCOUNTS =
   process.env.NEXT_PUBLIC_APP_ENV === "PROD"
     ? []
-    : [
+    : /* eslint-disable hf-security/no-secrets-in-client -- demo creds, build-stripped from the PROD bundle by the NEXT_PUBLIC_APP_ENV gate above; rotate if ever seeded in a prod DB */
+      [
         { email: "teach@abacus.com", label: "School", role: "Educator", password: "hff" },
         { email: "corporate@hff.com", label: "Corporate", role: "Educator", password: "hff2026" },
         { email: "training@hff.com", label: "Training", role: "Educator", password: "hff2026" },
       ];
+/* eslint-enable hf-security/no-secrets-in-client */
 
 // Shared password hint shown under the account list — derived from the accounts above
 // (the modal password), never a separate literal, so it strips with them in PROD.
