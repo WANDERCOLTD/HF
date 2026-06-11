@@ -15,6 +15,28 @@ const LAYER_ORDER: readonly Layer[] = [
   "CALL",
 ];
 
+/**
+ * Operator-facing layer labels. The schema uses `Playbook` for the model
+ * name; operators think and read in courses. Map the cascade Layer enum
+ * onto the words educators see elsewhere in the app.
+ */
+function layerLabel(layer: Layer): string {
+  switch (layer) {
+    case "SYSTEM":
+      return "System default";
+    case "DOMAIN":
+      return "Domain";
+    case "PLAYBOOK":
+      return "Course";
+    case "SEGMENT":
+      return "Segment";
+    case "CALLER":
+      return "Caller";
+    case "CALL":
+      return "Call";
+  }
+}
+
 interface ScopeChainArg {
   playbookId?: string;
   callerId?: string;
@@ -90,7 +112,7 @@ function ChainRow({
               ✓{" "}
             </span>
           ) : null}
-          {hit.layer}
+          {layerLabel(hit.layer)}
         </div>
         <div className="hf-cascade-tray-row-meta">
           {hit.scopeLabel}
@@ -107,7 +129,7 @@ function EmptyRow({ layer }: { layer: Layer }) {
   return (
     <div className="hf-cascade-tray-chain-row" data-layer={layer.toLowerCase()}>
       <div className="hf-cascade-tray-row-label">
-        <div className="hf-cascade-tray-row-scope">{layer}</div>
+        <div className="hf-cascade-tray-row-scope">{layerLabel(layer)}</div>
         <div className="hf-cascade-tray-row-meta">(no value at this layer)</div>
       </div>
       <div />
@@ -288,8 +310,8 @@ export function CascadeInspectorTray({
 }
 
 function scopeForLabel(layer: Layer, envelope: Effective<unknown> | null): string {
-  if (!envelope) return layer;
+  if (!envelope) return layerLabel(layer);
   const hit = envelope.layers.find((h) => h.layer === layer);
   if (hit) return hit.scopeLabel;
-  return layer;
+  return layerLabel(layer);
 }

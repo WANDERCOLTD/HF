@@ -51,7 +51,7 @@ function defaultSubtitle(envelope: Effective<unknown>): string {
   }
   switch (envelope.source) {
     case "PLAYBOOK":
-      return "set on this Playbook";
+      return "set on this Course";
     case "DOMAIN": {
       const dom = envelope.layers.find((h) => h.layer === "DOMAIN");
       return dom ? `inherited from ${dom.scopeLabel}` : "inherited from Domain";

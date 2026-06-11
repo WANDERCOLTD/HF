@@ -66,7 +66,7 @@ describe("LayerBadge — 5 states", () => {
     const btn = screen.getByRole("button");
     expect(btn.textContent).toBe("PB");
     expect(btn.className).toContain("hf-cascade-badge--pb");
-    expect(screen.getByText("set on this Playbook")).toBeTruthy();
+    expect(screen.getByText("set on this Course")).toBeTruthy();
   });
 
   it("renders [DOM] when source is DOMAIN", () => {
@@ -116,7 +116,7 @@ describe("LayerBadge — interactions", () => {
         hideSubtitle
       />,
     );
-    expect(screen.queryByText("set on this Playbook")).toBeNull();
+    expect(screen.queryByText("set on this Course")).toBeNull();
   });
 
   it("overrides subtitle when prop provided", () => {

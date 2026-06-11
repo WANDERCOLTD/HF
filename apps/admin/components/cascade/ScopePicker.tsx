@@ -131,7 +131,7 @@ export function ScopePicker({
                     disabled={disabled}
                   />
                   <span>
-                    {opt.layer === "PLAYBOOK" && "Playbook"}
+                    {opt.layer === "PLAYBOOK" && "Course"}
                     {opt.layer === "DOMAIN" && "Domain"}
                     {opt.layer === "SEGMENT" && "Segment"}
                     {opt.layer === "CALLER" && "Caller"} — {opt.scopeLabel}

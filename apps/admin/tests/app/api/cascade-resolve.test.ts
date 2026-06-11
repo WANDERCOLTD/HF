@@ -134,4 +134,36 @@ describe("GET /api/cascade/resolve", () => {
       scopeChain: { playbookId: "pb1", callerId: "c1", domainId: "dom1" },
     });
   });
+
+  it("accepts courseId as an operator-facing alias for playbookId", async () => {
+    resolveEffective.mockResolvedValueOnce({
+      value: null,
+      source: "SYSTEM",
+      layers: [],
+      isInherited: false,
+      recommendedLayerForEdit: "PLAYBOOK",
+    });
+    const { GET } = await import("@/app/api/cascade/resolve/route");
+    await GET(makeRequest("knobKey=welcomeMessage&courseId=pb1"));
+    expect(resolveEffective).toHaveBeenCalledWith({
+      knobKey: "welcomeMessage",
+      scopeChain: { playbookId: "pb1" },
+    });
+  });
+
+  it("prefers courseId over playbookId when both supplied", async () => {
+    resolveEffective.mockResolvedValueOnce({
+      value: null,
+      source: "SYSTEM",
+      layers: [],
+      isInherited: false,
+      recommendedLayerForEdit: "PLAYBOOK",
+    });
+    const { GET } = await import("@/app/api/cascade/resolve/route");
+    await GET(makeRequest("knobKey=welcomeMessage&courseId=course1&playbookId=legacy1"));
+    expect(resolveEffective).toHaveBeenCalledWith({
+      knobKey: "welcomeMessage",
+      scopeChain: { playbookId: "course1" },
+    });
+  });
 });

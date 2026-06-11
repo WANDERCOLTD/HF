@@ -108,8 +108,9 @@ describe("CascadeInspectorTray — load + render", () => {
     );
 
     await waitFor(() => {
-      // Match the primary CTA, not the "Override for a specific caller…" link.
-      expect(screen.getByText(/^Override for PLAYBOOK$/)).toBeTruthy();
+      // Match the primary CTA — fallback label is "Course" (operator-facing)
+      // when there's no PLAYBOOK hit to surface a scopeLabel.
+      expect(screen.getByText(/^Override for Course$/)).toBeTruthy();
     });
   });
 
