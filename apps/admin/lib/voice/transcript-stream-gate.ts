@@ -28,6 +28,13 @@ const TRANSCRIPT_GATE_TTL_MS = 5 * 60 * 1000;
 export async function resolveTranscriptStreamEnabled(args: {
   callId: string;
   callerId: string | null;
+  /**
+   * #1457 — Course (Playbook) layer of the cascade. Without this, an
+   * operator's "Live transcript stream = On / Set at Course" override
+   * is invisible to the gate because `loadResolvedVoiceConfig` only
+   * loads the Playbook layer when `playbookId` is explicitly passed.
+   */
+  playbookId?: string | null;
 }): Promise<boolean> {
   const now = Date.now();
   const cached = transcriptGateCache.get(args.callId);
@@ -35,9 +42,10 @@ export async function resolveTranscriptStreamEnabled(args: {
 
   let value = true;
   try {
-    if (args.callerId) {
+    if (args.callerId || args.playbookId) {
       const resolved = await loadResolvedVoiceConfig({
-        callerId: args.callerId,
+        callerId: args.callerId ?? undefined,
+        playbookId: args.playbookId ?? undefined,
       });
       const flat = resolved.fields["transcriptStreamEnabled"];
       if (flat?.value === false) value = false;
