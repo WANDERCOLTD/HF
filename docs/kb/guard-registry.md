@@ -272,7 +272,22 @@ it protects today's `config.specs.*` indirection; retire if the slug-config mech
 | `check-knowledge-map.ts` | `KNOWLEDGE-MAP.md` ratchet — repo translation layer stays in step | — | **meta** (KB integrity) |
 | `check-uplift-visual.ts` | Caller Insights visual regression | — | **meta** (test) |
 | [`check-webhook-signature.ts`](#guard-check-webhook-signature) | Voice-provider `verifyInboundRequest` may not be a no-op `return null` stub — every webhook verifier must do real work | HF-C/HF-K / 2026-06-11 | **a** |
+| [`check-guard-tests-not-quarantined.ts`](#guard-check-guard-tests-not-quarantined) | A named registry of security / data-integrity guard tests may never be quarantined in `vitest.config.ts` or deleted | HF-E / 2026-06-11 | **meta** |
 | `cleanup-agent-worktrees.sh` | GC of agent-spawned worktrees whose PR is MERGED or CLOSED. Operator script; nudge surfaced in SessionStart hook when count > 6. | — | **meta** (process hygiene) |
+
+<a id="guard-check-guard-tests-not-quarantined"></a>
+**`check-guard-tests-not-quarantined.ts`** · class **meta** · born HF-E / 2026-06-11 ·
+[script source](../../apps/admin/scripts/capture/check-guard-tests-not-quarantined.ts) · wired into `npm run kb:check`
+
+The audit's central finding: `tests/lib/route-auth-coverage.test.ts` — a security gate — was
+quarantined in `vitest.config.ts` alongside ~30 ordinary flaky tests, and the
+`quarantined_tests` ratchet counted it identically, so nothing signalled that an auth gate had
+gone dark. This sentinel holds a named registry of GUARD tests (auth-coverage, page-auth,
+factual-grounding, learner-scope, validate-manifest, create/end-session, resolve-module,
+disclosure-store, retell-auth, skill-tier-mapping) and fails CI if any of them is (a) absent
+from disk or (b) present in the vitest exclude block. Retiring a guard test becomes an explicit,
+reviewable edit here — never a silent line in the exclude list. **Survives hardening:** "the
+guards that guard the system must themselves always run" is a methodology fitness function.
 
 <a id="guard-check-webhook-signature"></a>
 **`check-webhook-signature.ts`** · class **a** · born HF-C/HF-K / 2026-06-11 ·

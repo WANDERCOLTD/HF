@@ -2,7 +2,7 @@
   "tsc_errors": 190,
   "lint_errors": 0,
   "lint_warnings": 4426,
-  "quarantined_tests": 37,
+  "quarantined_tests": 36,
   "same_issue_fix_chain_max": 10,
   "memory_md_bytes": 29073
 }

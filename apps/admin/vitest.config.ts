@@ -52,7 +52,9 @@ export default defineConfig({
       'tests/lib/domain/course-setup.test.ts',
       'tests/lib/extraction-retry.test.ts',
       'tests/lib/issue-140-entity-hierarchy-consistency.test.ts',
-      'tests/lib/route-auth-coverage.test.ts',
+      // route-auth-coverage RE-ENABLED 2026-06-11 (audit HF-D) — PUBLIC_ROUTES
+      // reconciled with the 12 reviewed intake/machine exemptions + 2 ad-hoc
+      // ALLOWED_EXCEPTIONS. The security gate is live again.
       'tests/ops/pipeline-manifest.test.ts',
       // Added 2026-04-15 — readiness-evaluator test debt surfaced by
       // /deploy-gate after the #162/#163 merges. Pre-existing failures in

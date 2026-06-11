@@ -1,9 +1,9 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T21:03:39.237Z",
+  "generatedAt": "2026-06-11T21:09:49.967Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1666,
+  "fileCount": 1667,
   "edgeCount": 3827,
   "skippedEdges": 1,
   "edges": [
@@ -23254,6 +23254,11 @@
     },
     {
       "path": "scripts/capture/check-guard-kb-links.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/check-guard-tests-not-quarantined.ts",
       "inDegree": 0,
       "outDegree": 0
     },
