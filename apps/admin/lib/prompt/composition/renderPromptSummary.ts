@@ -190,6 +190,8 @@ export const DEFAULT_RENDER_CAPABILITIES: VoiceProviderCapabilities = {
   hasKnowledgeCallback: true,
   toolCallsOverWebSocket: false,
   supportsRequestEndCall: true,
+  // #1337 — Mirrors VAPI (vendor-cloud) which is the only live provider.
+  orchestrationMode: "vendor-cloud",
 };
 
 /**
