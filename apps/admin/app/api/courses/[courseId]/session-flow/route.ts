@@ -36,6 +36,14 @@ interface PutBody {
   welcomeMessage?: string | null;
   /** NPS configuration — kept top-level for back-compat with continuous-mode delivery path. */
   nps?: NpsConfig;
+  /**
+   * #1403 — Greeting lens additions. Both are top-level Playbook.config
+   * fields (siblings to `welcomeMessage`), NOT nested under `firstCall`
+   * (which is reserved for the #598 Slice 1 `durationMinsOverride` /
+   * `introducePedagogy` knobs).
+   */
+  firstCallCourseIntro?: string | null;
+  firstCallWaitForAck?: "none" | "any_response" | "greeting_words" | null;
 }
 
 export async function GET(
@@ -139,6 +147,40 @@ export async function PUT(
       );
     }
 
+    // #1403 — validate greeting-lens fields.
+    if (
+      body.firstCallWaitForAck !== undefined
+      && body.firstCallWaitForAck !== null
+      && body.firstCallWaitForAck !== "none"
+      && body.firstCallWaitForAck !== "any_response"
+      && body.firstCallWaitForAck !== "greeting_words"
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid firstCallWaitForAck" },
+        { status: 400 },
+      );
+    }
+    if (
+      body.firstCallCourseIntro !== undefined
+      && body.firstCallCourseIntro !== null
+      && (typeof body.firstCallCourseIntro !== "string" || body.firstCallCourseIntro.length > 400)
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid firstCallCourseIntro (max 400 chars)" },
+        { status: 400 },
+      );
+    }
+    if (
+      body.welcomeMessage !== undefined
+      && body.welcomeMessage !== null
+      && (typeof body.welcomeMessage !== "string" || body.welcomeMessage.length > 500)
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid welcomeMessage (max 500 chars)" },
+        { status: 400 },
+      );
+    }
+
     // #826 — central helper bumps composeInputsUpdatedAt when sessionFlow /
     // welcomeMessage / lessonPlanMode (all COMPOSE_AFFECTING) change.
     try {
@@ -188,6 +230,14 @@ export async function PUT(
             ...existing,
             ...(body.lessonPlanMode !== undefined ? { lessonPlanMode: body.lessonPlanMode } : {}),
             ...(body.welcomeMessage !== undefined ? { welcomeMessage: body.welcomeMessage ?? undefined } : {}),
+            // #1403 — Greeting lens additions. `null` from the client
+            // clears the value (educator dropped it back to default).
+            ...(body.firstCallCourseIntro !== undefined
+              ? { firstCallCourseIntro: body.firstCallCourseIntro ?? undefined }
+              : {}),
+            ...(body.firstCallWaitForAck !== undefined
+              ? { firstCallWaitForAck: body.firstCallWaitForAck ?? undefined }
+              : {}),
             ...(body.nps !== undefined
               ? { nps: body.nps, ...(mirroredSurveys !== existing.surveys ? { surveys: mirroredSurveys } : {}) }
               : {}),

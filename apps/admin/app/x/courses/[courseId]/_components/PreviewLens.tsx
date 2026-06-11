@@ -38,6 +38,7 @@ import { LayerBadge } from "@/components/cascade/LayerBadge";
 import { CascadeInspectorTray } from "@/components/cascade/CascadeInspectorTray";
 import { getArchetypeLabel } from "@/lib/domain/generate-identity";
 import type { Effective, Layer } from "@/lib/cascade/layer-types";
+import { substituteGreetingTokens } from "@/lib/prompt/composition/defaults/substitute-greeting-tokens";
 
 interface PreviewLensProps {
   courseId: string;
@@ -54,6 +55,9 @@ interface SessionFlowResp {
     };
     onboarding: { phases: Array<{ phase: string; duration?: string; goals?: string[] }> };
     welcomeMessage: string | null;
+    /** #1403 — Greeting lens additions surfaced to the preview transcript. */
+    firstCallCourseIntro: string | null;
+    firstCallWaitForAck: "none" | "any_response" | "greeting_words";
     offboarding: { phases: Array<{ phase: string }>; triggerAfterCalls?: number };
     stops: Array<{ id: string; kind: string; trigger?: { type: string; threshold?: number; count?: number } }>;
     /** Provenance — which layer of the cascade supplied each section's
@@ -65,6 +69,8 @@ interface SessionFlowResp {
       stops?: "new-shape" | "synthesized-from-legacy";
       offboarding?: "new-shape" | "playbook-legacy" | "defaults";
       welcomeMessage?: "playbook" | "domain" | "generic";
+      firstCallCourseIntro?: "playbook" | "none";
+      firstCallWaitForAck?: "playbook" | "default";
     };
   };
   courseName?: string;
@@ -110,7 +116,9 @@ const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
   onboarding: "Onboarding — first-call phases",
   stops: "Session Stops — pre/mid/post-test, NPS",
   offboarding: "Offboarding — end-of-course phases",
-  welcome: "Welcome message",
+  // #1403 — was "Welcome message"; lens now consolidates welcome +
+  // course intro + ack-gate, so the title carries the full surface name.
+  welcome: "Greeting — first call opener",
 };
 
 export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement {
@@ -385,17 +393,60 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
 
   items.push({ kind: "divider", label: "Call 1 begins" });
 
+  // #1403 — Greeting flow. Three bubbles cohere into one editable lens
+  // (`welcome` SIDETRAY_LENS_MAP target). All bubbles route through the
+  // Greeting sidetray so the educator can edit the three fields together.
+  //
+  // Token-preview seed values for {firstName} ("Alex") + {courseName}
+  // (flow.courseName) mirror the GreetingDrawer preview so the educator
+  // sees identical text in both surfaces.
+  const previewFirstName = "Alex";
+  const previewCourseName = flow.courseName ?? null;
   if (sf.welcomeMessage) {
+    const resolved = substituteGreetingTokens({
+      template: sf.welcomeMessage,
+      firstName: previewFirstName,
+      courseName: previewCourseName,
+    });
     items.push({
-      kind: "bubble", side: "bot", lens: "welcome", lensLabel: "Edit Welcome",
-      caption: "Welcome message",
-      text: sf.welcomeMessage,
+      kind: "bubble", side: "bot", lens: "welcome", lensLabel: "Edit Greeting",
+      caption: "Welcome — literal opener",
+      text: resolved,
     });
   } else {
     items.push({
-      kind: "bubble", side: "bot", lens: "welcome", lensLabel: "Edit Welcome", ghost: true,
+      kind: "bubble", side: "bot", lens: "welcome", lensLabel: "Edit Greeting", ghost: true,
       caption: "Welcome message — using generic fallback",
       text: "(domain-level or generic greeting — set a course-specific welcome to personalise the opener)",
+    });
+  }
+
+  // Ack-gate ghost bubble — shows where the AI pauses for the learner.
+  if (sf.firstCallWaitForAck === "any_response") {
+    items.push({
+      kind: "bubble", side: "user", lens: "welcome", lensLabel: "Edit Greeting", ghost: true,
+      caption: "Learner acknowledges (any response)",
+      text: "(AI waits for any reply before continuing)",
+    });
+  } else if (sf.firstCallWaitForAck === "greeting_words") {
+    items.push({
+      kind: "bubble", side: "user", lens: "welcome", lensLabel: "Edit Greeting", ghost: true,
+      caption: "Learner acknowledges (greeting word)",
+      text: "(AI waits for hi / hello / yes / yeah / ...)",
+    });
+  }
+
+  // Course-intro bubble — shown only when the educator authored one.
+  if (sf.firstCallCourseIntro) {
+    const resolvedIntro = substituteGreetingTokens({
+      template: sf.firstCallCourseIntro,
+      firstName: previewFirstName,
+      courseName: previewCourseName,
+    });
+    items.push({
+      kind: "bubble", side: "bot", lens: "welcome", lensLabel: "Edit Greeting",
+      caption: "Course intro — literal",
+      text: resolvedIntro,
     });
   }
 

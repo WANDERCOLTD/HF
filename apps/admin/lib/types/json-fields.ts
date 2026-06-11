@@ -280,6 +280,21 @@ export interface SessionFlowResolved {
   offboarding: OffboardingConfig;
   /** Greeting cascade winner: identity-spec / playbook / domain / generic */
   welcomeMessage: string | null;
+  /**
+   * #1403 — Course-level intro line spoken on first call after the
+   * welcomeMessage + acknowledgement gate. Supports `{courseName}` token,
+   * substituted server-side via `substituteGreetingTokens`. Null when
+   * unset — phase-derived session plan continues to drive the flow.
+   */
+  firstCallCourseIntro: string | null;
+  /**
+   * #1403 — How the AI handles the pause after the welcomeMessage on
+   * first call.
+   * - `"none"`: no pause; continue speaking immediately
+   * - `"any_response"`: wait for any learner response
+   * - `"greeting_words"`: wait for "hi/hello/yes/yeah/..." (default)
+   */
+  firstCallWaitForAck: "none" | "any_response" | "greeting_words";
   /** Provenance — for debug panel + tests */
   source: {
     intake: "new-shape" | "legacy-welcome" | "defaults";
@@ -287,6 +302,10 @@ export interface SessionFlowResolved {
     stops: "new-shape" | "synthesized-from-legacy";
     offboarding: "new-shape" | "playbook-legacy" | "defaults";
     welcomeMessage: "playbook" | "domain" | "generic";
+    /** #1403 — was the course-intro set explicitly on the playbook? */
+    firstCallCourseIntro: "playbook" | "none";
+    /** #1403 — was the wait-for-ack mode set explicitly, or default? */
+    firstCallWaitForAck: "playbook" | "default";
   };
 }
 
@@ -367,6 +386,22 @@ export interface PlaybookConfig {
   courseLearningOutcomes?: string[];
   // Course-scoped welcome (overrides Domain.onboardingWelcome)
   welcomeMessage?: string;
+  /**
+   * #1403 — First-call course intro spoken AFTER the welcomeMessage +
+   * acknowledgement gate. Supports `{courseName}` token.
+   *
+   * @bucket Course parameter — educator-tunable on the Greeting lens.
+   */
+  firstCallCourseIntro?: string;
+  /**
+   * #1403 — Controls how long the AI pauses after the welcomeMessage.
+   * - `"none"`: speak + continue without pause
+   * - `"any_response"`: speak + wait for any learner input
+   * - `"greeting_words"`: speak + wait for hi/hello/yes/yeah (default)
+   *
+   * @bucket Course parameter — educator-tunable on the Greeting lens.
+   */
+  firstCallWaitForAck?: "none" | "any_response" | "greeting_words";
   courseContext?: string;
   offboarding?: OffboardingConfig;
   /** Student welcome flow configuration — controls which phases show before first session */
