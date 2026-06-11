@@ -100,8 +100,8 @@ describe("POST /api/courses/[courseId]/demo-script — #1493", () => {
     // The transformer must have produced a NEVER-COMPOSE structure.
     expect(nextConfig).not.toBeNull();
     expect(
-      (nextConfig as { demoScript: { annotations: unknown[] } }).demoScript
-        .annotations,
+      (nextConfig as unknown as { demoScript: { annotations: unknown[] } })
+        .demoScript.annotations,
     ).toHaveLength(1);
     // composeInputsUpdatedAt bumped as the operator-touch signal.
     expect(bumpPlaybookComposeTimestampMock).toHaveBeenCalledWith("c1");
