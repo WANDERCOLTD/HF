@@ -66,6 +66,21 @@ const COURSE_MANAGE_TOOL_NAMES = new Set([
   "explain_voice_cascade",
 ]);
 const COURSE_MANAGE_TOOLS = ADMIN_TOOLS.filter((t) => COURSE_MANAGE_TOOL_NAMES.has(t.name));
+
+// #1485 — DEMO mode: narrow action palette for operators driving a live
+// product demo. The 5 tools below cover the "make a tweak and see it in the
+// next demo call in <30 seconds" loop — test voice, dry-run the prompt,
+// apply the demo preset, pre-compose for a fresh learner, jump to sim.
+// Same filtering pattern as COURSE_MANAGE so the meta-tests
+// (forbidden-fields, RBAC, pending-change) apply automatically.
+const DEMO_TOOL_NAMES = new Set([
+  "test_voice",
+  "dry_run_prompt",
+  "apply_demo_preset",
+  "precompose_for_fresh_learner",
+  "open_sim",
+]);
+const DEMO_TOOLS = ADMIN_TOOLS.filter((t) => DEMO_TOOL_NAMES.has(t.name));
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
 import { executeWizardTool } from "@/lib/chat/wizard-tool-executor";
 import { buildV5SystemPrompt } from "@/lib/chat/v5-system-prompt";
@@ -89,7 +104,7 @@ import {
 
 export const runtime = "nodejs";
 
-type ChatMode = "DATA" | "CALL" | "BUG" | "WIZARD" | "COURSE_REF" | "TUNING" | "COURSE_MANAGE";
+type ChatMode = "DATA" | "CALL" | "BUG" | "WIZARD" | "COURSE_REF" | "TUNING" | "COURSE_MANAGE" | "DEMO";
 
 interface EntityBreadcrumb {
   type: string;
@@ -327,6 +342,48 @@ export async function POST(request: NextRequest) {
       return await handleWizardModeWithTools(
         courseRefMessages, "wizard.course-ref", engine, selectedEngine, mode,
         message, entityContext, conversationHistory, userId, setupData, COURSE_REF_TOOLS,
+      );
+    }
+
+    // #1485 — DEMO mode: narrow action palette. Handle BEFORE the generic
+    // buildSystemPrompt path so we don't have to thread DEMO through the
+    // DATA prompt cascade. Same tool-loop shape as DATA/COURSE_MANAGE (the
+    // intercept + pendingChange plumbing in handleDataModeWithTools applies
+    // unchanged), but the system prompt is action-oriented and the tool
+    // surface is narrowed to DEMO_TOOLS (5 tools).
+    if (mode === "DEMO") {
+      const { buildDemoSystemPrompt } = await import("@/lib/chat/demo-system-prompt");
+      const demoPrompt = await buildDemoSystemPrompt({ entityContext });
+      const callPoint = "chat.demo";
+      const aiConfig = await getAIConfig(callPoint);
+      const selectedEngine = engine || aiConfig.provider;
+
+      const lastHist = conversationHistory[conversationHistory.length - 1];
+      const msgInHistory =
+        lastHist?.role === "user" && lastHist?.content === message.trim();
+
+      const demoMessages: AIMessage[] = [
+        { role: "system", content: demoPrompt },
+        ...conversationHistory.slice(-10).map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        ...(msgInHistory ? [] : [{ role: "user" as const, content: message.trim() }]),
+      ];
+
+      const userId = authResult.session.user.id;
+      return await handleDataModeWithTools(
+        demoMessages,
+        callPoint,
+        engine,
+        selectedEngine,
+        mode,
+        message,
+        entityContext,
+        conversationHistory,
+        userRole,
+        userId,
+        DEMO_TOOLS,
       );
     }
 

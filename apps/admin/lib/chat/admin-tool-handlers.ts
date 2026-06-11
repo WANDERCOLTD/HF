@@ -107,6 +107,12 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   update_voice_config: "OPERATOR",
   // #1348 Cascade Lens v1 — read-only voice provenance explainer
   explain_voice_cascade: "OPERATOR",
+  // #1485 / Epic #1442 Layer 3 Slice 4 — DEMO mode action palette
+  test_voice: "SUPER_TESTER",
+  dry_run_prompt: "SUPER_TESTER",
+  apply_demo_preset: "OPERATOR",
+  precompose_for_fresh_learner: "OPERATOR",
+  open_sim: "VIEWER",
 };
 
 /** Names of every roadmap-stub tool — kept centralised so the
@@ -289,6 +295,22 @@ export async function executeAdminTool(
       // #1348 Cascade Lens v1 — read-only
       case "explain_voice_cascade":
         result = await handleExplainVoiceCascade(input);
+        break;
+      // #1485 / Epic #1442 Layer 3 Slice 4 — DEMO mode action palette
+      case "test_voice":
+        result = await handleTestVoice(input);
+        break;
+      case "dry_run_prompt":
+        result = await handleDryRunPrompt(input);
+        break;
+      case "apply_demo_preset":
+        result = await handleApplyDemoPreset(input);
+        break;
+      case "precompose_for_fresh_learner":
+        result = await handlePrecomposeForFreshLearner(input);
+        break;
+      case "open_sim":
+        result = await handleOpenSim(input);
         break;
       default:
         if (NOT_YET_AVAILABLE_TOOLS.has(name)) {
@@ -2644,5 +2666,427 @@ async function handleExplainVoiceCascade(input: Record<string, any>) {
   return {
     ok: true,
     explanation,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// #1485 / Epic #1442 Layer 3 Slice 4 — DEMO mode action palette handlers
+//
+// Five tools. Each delegates to existing infrastructure — no TTS, no
+// composition, no Call creation is re-implemented. The `apply_demo_preset`
+// handler is the only writer; it routes through `buildPendingChangePayload`
+// + `updatePlaybookConfig({ fanoutScope: 'none' })` + `writeBehaviorTarget`
+// so the pending-changes tray is the human gate per epic #854.
+// ─────────────────────────────────────────────────────────────────────
+
+const TEST_VOICE_TEXT_MAX = 200;
+const DEFAULT_TEST_VOICE_TEXT = "Hello — this is a quick voice check.";
+
+/**
+ * `test_voice` — wrap the existing `POST /api/voice-providers/[id]/sample`
+ * dispatch. We import its `dispatchSample` helper directly so the demo
+ * tool runs in-process (no HTTP round-trip from server → server). Returns
+ * a base64-encoded audio clip the client can hydrate into an Audio object.
+ *
+ * VoiceProvider row id is resolved from the system-enabled provider slug
+ * (same pattern as `handleUpdateVoiceConfig`). The text defaults to the
+ * playbook's `welcomeMessage` when not supplied; if no welcomeMessage is
+ * set, a static fallback string is used.
+ */
+async function handleTestVoice(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) return { error: "playbook_id is required" };
+
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { id: true, name: true, config: true },
+  });
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+
+  const cfg = (playbook.config as PlaybookConfig | null) ?? {};
+  const welcomeMessage =
+    typeof (cfg as Record<string, unknown>).welcomeMessage === "string"
+      ? ((cfg as Record<string, unknown>).welcomeMessage as string)
+      : "";
+
+  const rawText =
+    typeof input.text === "string" && input.text.trim().length > 0
+      ? input.text.trim()
+      : welcomeMessage.trim().length > 0
+        ? welcomeMessage.trim()
+        : DEFAULT_TEST_VOICE_TEXT;
+  const text = rawText.slice(0, TEST_VOICE_TEXT_MAX);
+
+  // Resolve the system-enabled VoiceProvider row + the configured voiceId
+  // from the playbook's voice config (cascade winner). The sample dispatch
+  // accepts `voiceProvider` (the TTS engine slug, e.g. "deepgram") and
+  // `voiceId` (the catalogue id, e.g. "aura-asteria-en").
+  const sys = await getVoiceSystemSettings();
+  const enabledSlug = sys.defaultProviderSlug || "vapi";
+  const vpRow = await prisma.voiceProvider.findUnique({
+    where: { slug: enabledSlug },
+    select: { id: true, slug: true, credentials: true, config: true },
+  });
+  if (!vpRow) {
+    return {
+      error: `VoiceProvider slug="${enabledSlug}" not found. Seed VoiceProvider table or visit /x/settings/voice-providers.`,
+    };
+  }
+
+  // Extract `voiceProvider` (TTS engine) and `voiceId` from the cascade.
+  // Playbook.config.voice wins; falls back to VoiceProvider.config defaults.
+  const voiceCfgRaw = (cfg as Record<string, unknown>).voice;
+  const playbookVoice =
+    voiceCfgRaw && typeof voiceCfgRaw === "object" && !Array.isArray(voiceCfgRaw)
+      ? (voiceCfgRaw as Record<string, unknown>)
+      : {};
+  const vpConfig = (vpRow.config ?? {}) as Record<string, unknown>;
+  const voiceProviderEngine =
+    (typeof playbookVoice.voiceProvider === "string" && playbookVoice.voiceProvider) ||
+    (typeof vpConfig.voiceProvider === "string" && vpConfig.voiceProvider) ||
+    "deepgram";
+  const voiceId =
+    (typeof playbookVoice.voiceId === "string" && playbookVoice.voiceId) ||
+    (typeof vpConfig.voiceId === "string" && vpConfig.voiceId) ||
+    "aura-asteria-en";
+
+  const creds = (vpRow.credentials ?? {}) as Record<string, unknown>;
+  const deepgramKey =
+    typeof creds.deepgramApiKey === "string" && creds.deepgramApiKey.length > 0
+      ? creds.deepgramApiKey
+      : null;
+
+  console.log(
+    `[admin-tools] test_voice playbook=${playbookId} engine=${voiceProviderEngine} voiceId=${voiceId} textLen=${text.length}`,
+  );
+
+  // Lazy import — `dispatchSample` carries the OpenAI / Deepgram fetch
+  // surface. Avoid pulling those into every chat request when the tool
+  // isn't called.
+  const { dispatchSample } = await import("@/app/api/voice-providers/[id]/sample/route");
+  let audioBytes: ArrayBuffer;
+  let engine: "deepgram" | "openai";
+  let isExactPreview: boolean;
+  try {
+    const sample = await dispatchSample({
+      text,
+      voiceProvider: voiceProviderEngine,
+      voiceId,
+      deepgramKey,
+    });
+    audioBytes = sample.audioBytes;
+    engine = sample.engine;
+    isExactPreview = sample.isExactPreview;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { error: `TTS sample failed: ${message}` };
+  }
+
+  // Truncate the audio metadata to keep the tool result well under
+  // MAX_RESULT_LENGTH. We return the byte count + a short note so the
+  // model can narrate "I generated a 32 kB preview clip"; the bytes
+  // themselves do not need to flow through the chat transcript.
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    voice_provider_engine: voiceProviderEngine,
+    voice_id: voiceId,
+    text_sampled: text,
+    audio_bytes: audioBytes.byteLength,
+    engine,
+    is_exact_preview: isExactPreview,
+    message: isExactPreview
+      ? `Generated a ${(audioBytes.byteLength / 1024).toFixed(1)} kB preview using ${engine} (${voiceId}) — matches the live call voice.`
+      : `Generated a ${(audioBytes.byteLength / 1024).toFixed(1)} kB preview using ${engine} (${voiceId}) — preview voice ≠ live voice. To hear the exact live voice, add a Deepgram API key at /x/settings/voice-providers/${vpRow.id}.`,
+  };
+}
+
+/**
+ * `dry_run_prompt` — call the existing dry-run-prompt route in-process so the
+ * demo tool reuses the same composition path the "Test First Call" button
+ * exercises. Surfaces a ≤400-char summary of the opening + tone of the
+ * composed prompt.
+ */
+const DRY_RUN_SUMMARY_MAX = 400;
+async function handleDryRunPrompt(input: Record<string, any>) {
+  const courseId = typeof input.course_id === "string" ? input.course_id : "";
+  if (!courseId) return { error: "course_id is required" };
+
+  const callSequence = Number.isFinite(input.call_sequence)
+    ? Math.max(1, Number(input.call_sequence))
+    : 1;
+
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: courseId },
+    select: { id: true, name: true, domainId: true },
+  });
+  if (!playbook) return { error: `Course ${courseId} not found.` };
+  if (!playbook.domainId) {
+    return { error: `Course "${playbook.name}" has no domain assigned — dry-run requires a domain.` };
+  }
+
+  // Same caller-resolution cascade as `app/api/courses/[courseId]/dry-run-prompt`:
+  // most-recent ACTIVE enrolment → any caller in the domain. We never mint a
+  // new caller from chat; the operator does that explicitly via the V2
+  // intake admin escape hatch.
+  let callerId: string | null = null;
+  const enrolled = await prisma.callerPlaybook.findFirst({
+    where: { playbookId: courseId, status: "ACTIVE" },
+    orderBy: { enrolledAt: "desc" },
+    select: { callerId: true },
+  });
+  if (enrolled) {
+    callerId = enrolled.callerId;
+  } else {
+    const anyCaller = await prisma.caller.findFirst({
+      where: { domainId: playbook.domainId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    if (anyCaller) callerId = anyCaller.id;
+  }
+  if (!callerId) {
+    return {
+      error:
+        "No caller available for dry-run. Mint a demo caller first via /x/intake/v2 admin escape hatch, then retry.",
+    };
+  }
+
+  // Lazy import — pulls in the full composition graph. We deliberately call
+  // the executor directly rather than going via HTTP so the demo tool runs
+  // in the same process and reuses the in-memory prisma client.
+  const { executeComposition, loadComposeConfig } = await import("@/lib/prompt/composition");
+  const { renderPromptSummary } = await import("@/lib/prompt/composition/renderPromptSummary");
+
+  const { fullSpecConfig, sections } = await loadComposeConfig({
+    playbookIds: [courseId],
+    forceFirstCall: callSequence === 1,
+  });
+  const composition = await executeComposition(callerId, sections, fullSpecConfig, "dry-run");
+  const promptSummary = renderPromptSummary(composition.llmPrompt);
+
+  const fullSummary =
+    typeof promptSummary === "string" ? promptSummary : JSON.stringify(promptSummary);
+  const truncated =
+    fullSummary.length > DRY_RUN_SUMMARY_MAX
+      ? fullSummary.slice(0, DRY_RUN_SUMMARY_MAX) + "…"
+      : fullSummary;
+
+  console.log(
+    `[admin-tools] dry_run_prompt course=${courseId} caller=${callerId} callSeq=${callSequence} summaryLen=${fullSummary.length}`,
+  );
+
+  return {
+    ok: true,
+    course_id: courseId,
+    course_name: playbook.name,
+    caller_id: callerId,
+    call_sequence: callSequence,
+    summary_truncated: truncated,
+    summary_full_length: fullSummary.length,
+    message: `Composed a Call #${callSequence} prompt for "${playbook.name}" without persisting. First ${truncated.length} chars: ${truncated}`,
+  };
+}
+
+/**
+ * `apply_demo_preset` — set four "good demo defaults" in one batch:
+ *   - firstCallMode = 'teach_immediately'
+ *   - welcome.aboutYou.enabled = false
+ *   - welcome.aiIntroCall.enabled = false
+ *   - welcomeMessage (optional, only when provided)
+ *   - BEH-RESPONSE-LEN = 0.2 (BehaviorTarget, PLAYBOOK scope)
+ *
+ * The playbook-config part goes through `updatePlaybookConfig` with
+ * `fanoutScope: 'none'` (the ESLint rule blocks 'all'; the pending-changes
+ * tray is the human gate). The behaviour target goes through
+ * `writeBehaviorTarget` (which itself bumps the playbook compose timestamp).
+ * Emits a single representative pendingChange payload so the tray surfaces
+ * the batch — the full multi-field diff lives in the chat transcript.
+ */
+async function handleApplyDemoPreset(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) return { error: "playbook_id is required" };
+
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { id: true, name: true, config: true },
+  });
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+
+  const welcomeMessageOverride =
+    typeof input.welcome_message === "string" && input.welcome_message.trim().length > 0
+      ? input.welcome_message.trim()
+      : null;
+  const reason = typeof input.reason === "string" ? input.reason : "(not given)";
+
+  const prevConfig = (playbook.config ?? {}) as Record<string, unknown>;
+  const prevWelcomeRaw = prevConfig.welcome;
+  const prevWelcome =
+    prevWelcomeRaw && typeof prevWelcomeRaw === "object" && !Array.isArray(prevWelcomeRaw)
+      ? (prevWelcomeRaw as Record<string, unknown>)
+      : {};
+  const prevAboutYou =
+    prevWelcome.aboutYou && typeof prevWelcome.aboutYou === "object"
+      ? (prevWelcome.aboutYou as Record<string, unknown>)
+      : {};
+  const prevAiIntroCall =
+    prevWelcome.aiIntroCall && typeof prevWelcome.aiIntroCall === "object"
+      ? (prevWelcome.aiIntroCall as Record<string, unknown>)
+      : {};
+
+  // Multi-field merge — preserves every other config key. Note: fanoutScope
+  // is NOT passed as an option here (`updatePlaybookConfig` accepts the
+  // option only via the third arg). The ESLint rule `no-ai-fanout-all`
+  // blocks `'all'`; we use the implicit/default behaviour which is
+  // single-caller scoped via the tray. See `lib/playbook/update-playbook-config.ts`.
+  await updatePlaybookConfig(
+    playbookId,
+    (cfg) => ({
+      ...(cfg as Record<string, unknown>),
+      firstCallMode: "teach_immediately",
+      welcome: {
+        ...prevWelcome,
+        aboutYou: { ...prevAboutYou, enabled: false },
+        aiIntroCall: { ...prevAiIntroCall, enabled: false },
+      },
+      ...(welcomeMessageOverride ? { welcomeMessage: welcomeMessageOverride } : {}),
+    }) as PlaybookConfig,
+    {
+      reason: `admin-tool apply_demo_preset: ${reason}`,
+      fanoutScope: "none",
+    },
+  );
+
+  // BEH-RESPONSE-LEN = 0.2 (PLAYBOOK scope). Writer bumps the compose
+  // timestamp on success.
+  const behaviorResult = await writeBehaviorTarget(playbookId, "BEH-RESPONSE-LEN", 0.2, {
+    source: "TUNING_CHAT",
+  });
+  const behaviorOk = behaviorResult.ok;
+
+  console.log(
+    `[admin-tools] apply_demo_preset playbook=${playbookId} (${playbook.name}) welcomeMessageOverride=${!!welcomeMessageOverride} behaviorOk=${behaviorOk} reason="${reason}"`,
+  );
+
+  // Representative pendingChange — surfaces the batch in the tray with
+  // `aiSuggested: true`. The chat transcript carries the full set of
+  // fields written; the tray is the recompose gate.
+  const pendingChange = buildPendingChangePayload({
+    scope: "playbook",
+    scopeId: playbookId,
+    scopeLabel: `Course ${playbook.name}`,
+    key: "firstCallMode",
+    label: "Demo preset (firstCallMode + welcome toggles + response length)",
+    beforeValue: prevConfig.firstCallMode,
+    afterValue: "teach_immediately",
+  });
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    playbook_name: playbook.name,
+    fields_written: [
+      "firstCallMode",
+      "welcome.aboutYou.enabled",
+      "welcome.aiIntroCall.enabled",
+      ...(welcomeMessageOverride ? ["welcomeMessage"] : []),
+      behaviorOk ? "BEH-RESPONSE-LEN" : null,
+    ].filter(Boolean),
+    behavior_target_action: behaviorOk
+      ? (behaviorResult as { action: string }).action
+      : "failed",
+    message: `Applied the demo preset to "${playbook.name}": teach immediately, skip survey + intro, response length 0.2${
+      welcomeMessageOverride ? ", custom welcome message" : ""
+    }. ${TRAY_PROPOSED_SUFFIX}`,
+    pendingChange,
+  };
+}
+
+/**
+ * `precompose_for_fresh_learner` — pre-warm a demo caller's prompt so the
+ * next live call starts instantly. Resolves the most-recently-created
+ * `policyMode='demo'` caller on the playbook (we do NOT create one — the
+ * operator mints demo callers via /api/intake/v2/admin-test-enrol).
+ *
+ * Wraps `autoComposeForCaller` — the ESLint rule `no-bare-call-create`
+ * passes because we never call `prisma.call.create`.
+ */
+async function handlePrecomposeForFreshLearner(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) return { error: "playbook_id is required" };
+
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { id: true, name: true },
+  });
+  if (!playbook) return { error: `Playbook ${playbookId} not found.` };
+
+  // Resolve a demo caller on this playbook. Most-recently enrolled wins.
+  const demoEnrolment = await prisma.callerPlaybook.findFirst({
+    where: { playbookId, policyMode: "demo", status: "ACTIVE" },
+    orderBy: { enrolledAt: "desc" },
+    select: { callerId: true },
+  });
+  if (!demoEnrolment) {
+    return {
+      error: `No demo callers enrolled on "${playbook.name}". Mint one via /x/intake/v2 admin escape hatch (test-admin-*@hf-admin.local), then retry.`,
+    };
+  }
+  const callerId = demoEnrolment.callerId;
+
+  const reason = typeof input.reason === "string" ? input.reason : "(not given)";
+  console.log(
+    `[admin-tools] precompose_for_fresh_learner playbook=${playbookId} (${playbook.name}) caller=${callerId} reason="${reason}"`,
+  );
+
+  // Lazy import — keeps the handler module cheap on cold-boot. Delegates
+  // entirely to the canonical helper; we do NOT touch prisma.call.create.
+  const { autoComposeForCaller } = await import("@/lib/enrollment/auto-compose");
+  try {
+    await autoComposeForCaller(callerId, playbookId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      error: `Pre-compose failed for caller ${callerId.slice(0, 8)}: ${message}`,
+    };
+  }
+
+  // Surface the composedAt timestamp from the freshly-persisted ComposedPrompt
+  // so the operator can verify the pre-warm took effect.
+  const cached = await prisma.composedPrompt.findFirst({
+    where: { callerId, playbookId, status: "active" },
+    orderBy: { composedAt: "desc" },
+    select: { composedAt: true },
+  });
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    caller_id: callerId,
+    composed_at: cached?.composedAt ?? null,
+    message: `Pre-composed the next prompt for demo caller ${callerId.slice(0, 8)} on "${playbook.name}". The next call will start instantly.`,
+  };
+}
+
+/**
+ * `open_sim` — return a navigation hint pointing at /x/sim/<callerId>.
+ * No DB write. The chat client uses the `url` field to render a link.
+ */
+async function handleOpenSim(input: Record<string, any>) {
+  const callerId = typeof input.caller_id === "string" ? input.caller_id : "";
+  if (!callerId) return { error: "caller_id is required" };
+
+  const caller = await prisma.caller
+    .findUnique({ where: { id: callerId }, select: { id: true, name: true } })
+    .catch(() => null);
+  if (!caller) return { error: `Caller ${callerId} not found.` };
+
+  const url = `/x/sim/${callerId}`;
+  return {
+    ok: true,
+    caller_id: callerId,
+    caller_name: caller.name ?? null,
+    url,
+    message: `Jump into the sim chat for ${caller.name ?? callerId.slice(0, 8)} at ${url}.`,
   };
 }
