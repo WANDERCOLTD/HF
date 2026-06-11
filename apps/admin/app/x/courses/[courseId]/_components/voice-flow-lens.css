@@ -200,6 +200,10 @@
   padding: 4px 10px;
 }
 
+.hf-voice-flow-error-detail {
+  font-style: italic;
+}
+
 /* ── Skeleton ─────────────────────────────────────────── */
 
 .hf-voice-flow-skeleton {

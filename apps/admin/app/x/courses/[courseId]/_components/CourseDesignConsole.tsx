@@ -56,7 +56,13 @@ import { FeltProgressSettings } from "@/components/course-design/FeltProgressSet
 import { TolerancesSettings } from "@/components/course-design/TolerancesSettings";
 import { BandingPicker } from "@/components/shared/BandingPicker";
 import { PreviewLens } from "./PreviewLens";
-import { VoiceFlowLens } from "./VoiceFlowLens";
+// Voice Flow lens is the heaviest of the 13 — it imports HFDrawer
+// (Radix Dialog), FieldRow + VoiceSampleButton (with blob playback),
+// and useSession. Lazy-loaded to keep it out of the Design tab's
+// initial bundle (#1478 non-functional AC).
+const VoiceFlowLensLazy = React.lazy(() =>
+  import("./VoiceFlowLens").then((m) => ({ default: m.VoiceFlowLens })),
+);
 import "./voice-flow-lens.css";
 import { StalePromptPillForCourse } from "@/components/callers/caller-detail/StalePromptPillForCourse";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
@@ -157,7 +163,18 @@ const PreviewLensWrap: React.FC<LensProps> = ({ courseId }) => (
 PreviewLensWrap.displayName = "PreviewLensWrap";
 
 const VoiceFlowLensWrap: React.FC<LensProps> = ({ courseId, onComposeInputChange }) => (
-  <VoiceFlowLens courseId={courseId} onComposeInputChange={onComposeInputChange} />
+  <React.Suspense
+    fallback={
+      <div className="hf-card">
+        <div className="hf-text-muted hf-text-sm">Loading voice flow…</div>
+      </div>
+    }
+  >
+    <VoiceFlowLensLazy
+      courseId={courseId}
+      onComposeInputChange={onComposeInputChange}
+    />
+  </React.Suspense>
 );
 VoiceFlowLensWrap.displayName = "VoiceFlowLensWrap";
 

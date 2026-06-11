@@ -115,7 +115,6 @@ const NODES: NodeDef[] = [
       {
         key: "voiceId",
         labelOverride: "Voice ID",
-        subtitle: "Sample with ▶ Test voice in the edit drawer.",
       },
     ],
   },
@@ -123,7 +122,8 @@ const NODES: NodeDef[] = [
     id: "transcriber",
     marker: "③",
     title: "Transcriber",
-    subtitle: "What converts the learner's speech into text the LLM sees.",
+    subtitle:
+      "Converts the learner's spoken words into text so the tutor can understand them.",
     rows: [
       {
         key: "transcriber",
@@ -153,7 +153,7 @@ const NODES: NodeDef[] = [
       {
         key: "voicemailDetectionEnabled",
         labelOverride: "Voicemail detection",
-        subtitle: "End the call early if VAPI detects an answering machine.",
+        subtitle: "End the call early if an answering machine is detected.",
       },
       {
         key: "maxCostPerCallUsd",
@@ -289,7 +289,10 @@ export function VoiceFlowLens({
   if (error) {
     return (
       <div className="hf-banner hf-banner-error">
-        <strong>Voice config:</strong> {error}{" "}
+        <strong>We couldn&rsquo;t load the voice settings for this course.</strong>
+        <span className="hf-text-muted hf-text-xs hf-voice-flow-error-detail">
+          {" "}({error})
+        </span>{" "}
         <button
           type="button"
           className="hf-btn hf-btn-secondary hf-voice-flow-retry"
@@ -311,11 +314,9 @@ export function VoiceFlowLens({
     <div className="hf-voice-flow">
       <header className="hf-voice-flow-intro">
         <div className="hf-text-muted hf-text-sm">
-          Provider: <strong>{data.enabledProviderSlug}</strong> (locked at
-          system level). Cascade is{" "}
-          <em>System → Provider → Domain → Course</em>. Edit a field to set
-          it at this layer; clear it (↺ Reset) to fall back through the
-          cascade.
+          Settings inherit from the system default unless overridden here.
+          Edit any field to set a course-specific value. Clear it (↺ Reset)
+          to go back to the inherited default.
         </div>
       </header>
 
@@ -516,7 +517,11 @@ function VoiceFlowRow({
           type="button"
           className="hf-btn hf-btn-secondary hf-voice-flow-edit"
           aria-label={`Edit ${label}`}
-          title={canEdit ? "Edit this setting" : "Operator access required"}
+          title={
+            canEdit
+              ? "Edit this setting"
+              : "Only admins can edit this — contact your administrator."
+          }
           disabled={!canEdit}
           onClick={onEdit}
         >

@@ -233,7 +233,9 @@ describe("VoiceFlowLens — Slice 1 read-only diagram", () => {
 
     render(<VoiceFlowLens courseId={COURSE_ID} />);
 
-    await waitFor(() => expect(screen.getByText(/Voice config:/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/We couldn.t load the voice settings/i)).toBeInTheDocument(),
+    );
 
     const retry = screen.getByRole("button", { name: /retry/i });
     await act(async () => {
