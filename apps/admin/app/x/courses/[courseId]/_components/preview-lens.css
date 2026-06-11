@@ -402,3 +402,173 @@
   max-height: 400px;
   overflow: auto;
 }
+
+/* ── Demo annotations (#1493, Epic #1442 Layer 4) ──────────────────
+   Sticky-note overlay rendered next to a Preview bubble when an
+   annotation exists in `Playbook.config.demoScript.annotations[]`.
+   `isWowMoment: true` flips the gold-border + star variant. All
+   styling is design-token only — no hardcoded hex. */
+
+.hf-preview-bubble-lens-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.hf-preview-bubble-row--user .hf-preview-bubble-lens-actions {
+  justify-content: flex-start;
+}
+
+.hf-preview-bubble-lens-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.hf-preview-bubble-lens-link:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.hf-preview-sticky-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--login-gold) 12%, var(--surface-primary));
+  border: 1px solid color-mix(in srgb, var(--login-gold) 40%, var(--border-default));
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  max-width: 80%;
+}
+
+.hf-preview-sticky-note:hover {
+  background: color-mix(in srgb, var(--login-gold) 18%, var(--surface-primary));
+}
+
+.hf-preview-sticky-note--wow-moment {
+  border: 2px solid var(--login-gold);
+  background: color-mix(in srgb, var(--login-gold) 18%, var(--surface-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--login-gold) 25%, transparent);
+}
+
+.hf-preview-sticky-note-star {
+  flex-shrink: 0;
+  color: var(--login-gold);
+}
+
+.hf-preview-sticky-note-text {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hf-preview-sticky-note-duration {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+}
+
+/* ── Annotation editor sidetray ────────────────────────────────────
+   Namespaced separately from `.hf-preview-sidetray*` so the two
+   slide-in panes never overlap visual responsibilities. The
+   session-flow sidetray edits lens config; this one edits demo
+   metadata only. */
+
+.hf-preview-annotation-sidetray-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #000 35%, transparent);
+  z-index: 210;
+}
+
+.hf-preview-annotation-sidetray {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 100vw;
+  background: var(--surface-primary);
+  border-left: 1px solid var(--border-default);
+  box-shadow: -8px 0 20px color-mix(in srgb, #000 12%, transparent);
+  z-index: 211;
+  display: flex;
+  flex-direction: column;
+  animation: hf-preview-sidetray-slide 0.18s ease-out;
+}
+
+.hf-preview-annotation-sidetray-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.hf-preview-annotation-sidetray-header h2 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hf-preview-annotation-sidetray-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-preview-annotation-help {
+  font-size: 12px;
+  margin: 0 0 4px 0;
+}
+
+.hf-preview-annotation-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.hf-preview-annotation-duration {
+  max-width: 140px;
+}
+
+.hf-preview-annotation-sidetray-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-default);
+}
+
+.hf-preview-annotation-sidetray-footer .hf-btn-destructive {
+  margin-right: auto;
+}

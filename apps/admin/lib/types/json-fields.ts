@@ -730,7 +730,59 @@ export interface PlaybookConfig {
   outcomes?: Record<string, string>;
   pickerLayout?: PickerLayout;
   validationWarnings?: ValidationWarning[];
+  /**
+   * NEVER-COMPOSE — operator-only demo script (#1493, Epic #1442 Layer 4).
+   *
+   * Presenter notes + "wow moment" markers attached to specific Preview
+   * lens bubbles. Set exclusively via the Preview annotation editor at
+   * `/x/courses/[courseId]?tab=design&design_view=preview` — there is no
+   * wizard path, AI tool, or runtime read.
+   *
+   * **This field MUST NOT be forwarded to prompt assembly.** Verified by a
+   * structural grep against `lib/prompt/composition/` in the route test
+   * (`tests/api/courses/demo-script.test.ts`). If a future composer wants
+   * to surface demo metadata to the learner, add a NEW field; do not
+   * teach composition to read `demoScript`.
+   *
+   * @see app/x/courses/[courseId]/_components/PreviewLens.tsx
+   * @see app/api/courses/[courseId]/demo-script/route.ts
+   */
+  demoScript?: DemoScript;
   [key: string]: any;
+}
+
+/**
+ * NEVER-COMPOSE — single sticky-note annotation on a Preview bubble (#1493).
+ *
+ * `bubbleRef` is the deterministic key derived from
+ * `lens + caption + side + positional-index` by
+ * `derivePreviewBubbleRef()` in `PreviewLens.tsx`. Strategy A from #1493 R1:
+ * cheaper than stamping an explicit id; fragile if session-flow config
+ * changes reorder bubbles — the Preview lens warns on load when a stored
+ * `bubbleRef` does not match any current bubble.
+ */
+export interface DemoAnnotation {
+  /** Deterministic key from `derivePreviewBubbleRef()`. */
+  bubbleRef: string;
+  /** Free-form note shown next to the bubble while presenting. */
+  presenterNote: string;
+  /** When true, the sticky note renders with a gold border + star icon. */
+  isWowMoment: boolean;
+  /** Optional pacing hint — seconds to dwell on this step. */
+  durationSecOnStep?: number;
+}
+
+/**
+ * NEVER-COMPOSE — operator-only demo script container (#1493).
+ *
+ * Stored on `PlaybookConfig.demoScript`. Persists across reloads via
+ * `POST /api/courses/[courseId]/demo-script` (upsert by bubbleRef) and
+ * `DELETE /api/courses/[courseId]/demo-script/[bubbleRef]` (remove).
+ *
+ * **Do not read this in any composer.**
+ */
+export interface DemoScript {
+  annotations: DemoAnnotation[];
 }
 
 // ---------------------------------------------------------------------------

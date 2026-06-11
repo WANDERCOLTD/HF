@@ -9959,6 +9959,65 @@ List all classrooms (cohort groups) assigned to a course (playbook).
 
 ---
 
+### `GET` /api/courses/[courseId]/demo-script
+
+Returns the operator-only demo script for a course. This
+
+**Auth**: session (OPERATOR+) · **Scope**: `course:read`
+
+**Response** `200`
+```json
+{ ok: true, demoScript: DemoScript }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
+### `POST` /api/courses/[courseId]/demo-script
+
+Upsert a single Preview-lens annotation by `bubbleRef`.
+
+**Auth**: session (OPERATOR+) · **Scope**: `course:write`
+
+**Response** `200`
+```json
+{ ok: true, annotation: DemoAnnotation, count: number }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "Invalid body", details?: unknown }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
+### `DELETE` /api/courses/[courseId]/demo-script/[bubbleRef]
+
+Remove a single annotation by `bubbleRef` (URL-encoded).
+
+**Auth**: session (OPERATOR+) · **Scope**: `course:write`
+
+**Response** `200`
+```json
+{ ok: true, removed: boolean, count: number }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
 ### `GET` /api/courses/[courseId]/import-modules
 
 Read the current modules catalogue for a course. Prefers
@@ -15949,8 +16008,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 509 |
-| Files with annotations | 499 |
+| Route files found | 511 |
+| Files with annotations | 501 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 

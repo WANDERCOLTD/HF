@@ -27,7 +27,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Eye, RefreshCw, FileSearch, AlertCircle, Edit3, X } from "lucide-react";
+import { Eye, RefreshCw, FileSearch, AlertCircle, Edit3, X, Star, StickyNote, Trash2 } from "lucide-react";
 import {
   SessionFlowEditor,
   type SessionFlowLens,
@@ -40,6 +40,7 @@ import { CascadeInspectorTray } from "@/components/cascade/CascadeInspectorTray"
 import { getArchetypeLabel } from "@/lib/domain/generate-identity";
 import type { Effective, Layer } from "@/lib/cascade/layer-types";
 import { substituteGreetingTokens } from "@/lib/prompt/composition/defaults/substitute-greeting-tokens";
+import type { DemoAnnotation, DemoScript } from "@/lib/types/json-fields";
 
 interface PreviewLensProps {
   courseId: string;
@@ -135,19 +136,28 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
   const [error, setError] = useState<string | null>(null);
   const [lastComposedAt, setLastComposedAt] = useState<number | null>(null);
   const [sidetrayLens, setSidetrayLens] = useState<SessionFlowLens | null>(null);
+  // #1493 — Preview annotations. `demoScript` is operator-only metadata,
+  // NEVER forwarded to prompt composition. Loaded alongside session-flow
+  // on first paint; opens the annotation editor sidetray on bubble click.
+  const [demoScript, setDemoScript] = useState<DemoScript>({ annotations: [] });
+  const [annotationEdit, setAnnotationEdit] = useState<{
+    bubbleRef: string;
+    existing: DemoAnnotation | null;
+  } | null>(null);
   const composedOnceRef = useRef(false);
 
   const compose = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [flowRes, dryRes] = await Promise.all([
+      const [flowRes, dryRes, demoRes] = await Promise.all([
         fetch(`/api/courses/${courseId}/session-flow`),
         fetch(`/api/courses/${courseId}/dry-run-prompt`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ callSequence: 1 }),
         }),
+        fetch(`/api/courses/${courseId}/demo-script`),
       ]);
       const flowJson = (await flowRes.json()) as SessionFlowResp;
       const dryJson = (await dryRes.json()) as DryRunResp;
@@ -156,6 +166,16 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
       setFlow(flowJson);
       setDryRun(dryJson);
       setLastComposedAt(Date.now());
+      // Best-effort — annotations are operator decoration, never block paint.
+      if (demoRes.ok) {
+        const demoJson = (await demoRes.json()) as {
+          ok: boolean;
+          demoScript?: DemoScript;
+        };
+        if (demoJson.ok && demoJson.demoScript) {
+          setDemoScript(demoJson.demoScript);
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -180,7 +200,70 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
     void compose();
   }, [compose]);
 
+  const openAnnotation = useCallback(
+    (bubbleRef: string) => {
+      const existing =
+        demoScript.annotations.find((a) => a.bubbleRef === bubbleRef) ?? null;
+      setAnnotationEdit({ bubbleRef, existing });
+    },
+    [demoScript],
+  );
+
+  const closeAnnotation = useCallback(() => {
+    setAnnotationEdit(null);
+  }, []);
+
+  const onAnnotationSaved = useCallback(
+    (next: DemoAnnotation) => {
+      setDemoScript((prev) => {
+        const existing = prev.annotations.findIndex(
+          (a) => a.bubbleRef === next.bubbleRef,
+        );
+        const annotations = [...prev.annotations];
+        if (existing === -1) annotations.push(next);
+        else annotations[existing] = next;
+        return { annotations };
+      });
+      setAnnotationEdit(null);
+    },
+    [],
+  );
+
+  const onAnnotationDeleted = useCallback((bubbleRef: string) => {
+    setDemoScript((prev) => ({
+      annotations: prev.annotations.filter((a) => a.bubbleRef !== bubbleRef),
+    }));
+    setAnnotationEdit(null);
+  }, []);
+
   const transcript = useMemo(() => buildTranscript(flow), [flow]);
+
+  // R1 mitigation — warn when stored bubbleRefs don't match any current
+  // bubble. The annotation isn't lost (it's still persisted) but the
+  // sticky note silently detaches; the warning surfaces the divergence.
+  const annotationsByRef = useMemo(() => {
+    const map = new Map<string, DemoAnnotation>();
+    for (const a of demoScript.annotations) map.set(a.bubbleRef, a);
+    return map;
+  }, [demoScript]);
+
+  const transcriptRefs = useMemo(() => {
+    const set = new Set<string>();
+    let bubbleIdx = 0;
+    for (const item of transcript) {
+      if (item.kind === "bubble") {
+        set.add(derivePreviewBubbleRef(item, bubbleIdx));
+        bubbleIdx += 1;
+      }
+    }
+    return set;
+  }, [transcript]);
+
+  const detachedRefs = useMemo(() => {
+    return demoScript.annotations
+      .filter((a) => !transcriptRefs.has(a.bubbleRef))
+      .map((a) => a.bubbleRef);
+  }, [demoScript, transcriptRefs]);
 
   return (
     <div className="hf-preview-lens">
@@ -238,10 +321,31 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
         </div>
       )}
 
+      {!loading && flow && mode === "educator" && detachedRefs.length > 0 && (
+        <div
+          className="hf-banner hf-banner-warning"
+          data-testid="hf-preview-annotation-detached-warning"
+        >
+          <AlertCircle size={14} />
+          <span>
+            {detachedRefs.length} demo annotation
+            {detachedRefs.length === 1 ? "" : "s"} no longer matches any bubble
+            (session-flow likely reordered). They are still saved but won&apos;t
+            render until you re-attach or delete them.
+          </span>
+        </div>
+      )}
+
       {!loading && flow && mode === "educator" && (
         <>
           <IdentityHeader meta={dryRun?.metadata} courseId={courseId} />
-          <EducatorView transcript={transcript} courseId={courseId} onOpenSidetray={openSidetray} />
+          <EducatorView
+            transcript={transcript}
+            courseId={courseId}
+            onOpenSidetray={openSidetray}
+            annotationsByRef={annotationsByRef}
+            onOpenAnnotation={openAnnotation}
+          />
         </>
       )}
 
@@ -254,6 +358,17 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
           courseId={courseId}
           lens={sidetrayLens}
           onClose={closeSidetray}
+        />
+      )}
+
+      {annotationEdit && (
+        <AnnotationEditSidetray
+          courseId={courseId}
+          bubbleRef={annotationEdit.bubbleRef}
+          existing={annotationEdit.existing}
+          onClose={closeAnnotation}
+          onSaved={onAnnotationSaved}
+          onDeleted={onAnnotationDeleted}
         />
       )}
     </div>
@@ -297,6 +412,29 @@ type PreviewItem =
   | ({ kind: "bubble" } & PreviewBubble)
   | PreviewDivider
   | PreviewStopNote;
+
+/**
+ * Strategy A from #1493 R1 — derive a stable per-bubble ref from
+ * `lens + caption + side + positional-index`. Cheap; reorders detach the
+ * annotation (we warn at load time when a stored bubbleRef does not match
+ * any current bubble).
+ *
+ * Exported so vitests can pin determinism. The slug treatment lowercases
+ * + ASCII-collapses non-alphanumeric runs into single `-` so a caption
+ * tweak like "Goals question" → "Goals question " does NOT detach the
+ * annotation. Truncated to 60 chars to keep DB keys readable.
+ */
+export function derivePreviewBubbleRef(
+  item: { kind: "bubble" } & PreviewBubble,
+  positionalIndex: number,
+): string {
+  const slugCaption = (item.caption ?? item.text ?? "no-caption")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+  return `${item.lens}__${item.side}__${slugCaption}__${positionalIndex}`;
+}
 
 function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
   if (!flow?.sessionFlow) return [];
@@ -525,14 +663,30 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
 // ── Views ──────────────────────────────────────────────────────
 
 function EducatorView({
-  transcript, courseId, onOpenSidetray,
+  transcript, courseId, onOpenSidetray, annotationsByRef, onOpenAnnotation,
 }: {
   transcript: PreviewItem[];
   courseId: string;
   onOpenSidetray: (lensId: string) => void;
+  annotationsByRef: Map<string, DemoAnnotation>;
+  onOpenAnnotation: (bubbleRef: string) => void;
 }): React.ReactElement {
   if (transcript.length === 0) {
     return <p className="hf-text-muted">Nothing configured yet — see Engineer view for raw compose state.</p>;
+  }
+  // Sticky-note refs are stamped over BUBBLE items only — positional
+  // index is the running count of bubbles seen so far, not the transcript
+  // map index (which includes dividers + stop-notes). Pre-compute the
+  // mapping so the render loop is reassignment-free.
+  const bubblePositionByMapIndex = new Map<number, number>();
+  {
+    let bubbleIdx = -1;
+    transcript.forEach((item, i) => {
+      if (item.kind === "bubble") {
+        bubbleIdx += 1;
+        bubblePositionByMapIndex.set(i, bubbleIdx);
+      }
+    });
   }
   return (
     <div className="hf-preview-chat">
@@ -608,12 +762,17 @@ function EducatorView({
             </Link>
           );
         }
+        const positionalIndex = bubblePositionByMapIndex.get(i) ?? 0;
+        const bubbleRef = derivePreviewBubbleRef(item, positionalIndex);
         return (
           <BubbleRow
             key={i}
             bubble={item}
             courseId={courseId}
             onOpenSidetray={onOpenSidetray}
+            bubbleRef={bubbleRef}
+            annotation={annotationsByRef.get(bubbleRef) ?? null}
+            onOpenAnnotation={onOpenAnnotation}
           />
         );
       })}
@@ -622,11 +781,14 @@ function EducatorView({
 }
 
 function BubbleRow({
-  bubble, courseId, onOpenSidetray,
+  bubble, courseId, onOpenSidetray, bubbleRef, annotation, onOpenAnnotation,
 }: {
   bubble: { kind: "bubble" } & PreviewBubble;
   courseId: string;
   onOpenSidetray: (lensId: string) => void;
+  bubbleRef: string;
+  annotation: DemoAnnotation | null;
+  onOpenAnnotation: (bubbleRef: string) => void;
 }): React.ReactElement {
   const wrapClasses = [
     "hf-preview-bubble-row",
@@ -640,41 +802,317 @@ function BubbleRow({
   ].filter(Boolean).join(" ");
 
   const inSidetray = SIDETRAY_LENS_MAP[bubble.lens];
-
-  const body = (
-    <>
-      <span className="hf-preview-bubble-text">{bubble.text}</span>
-      <span className="hf-preview-bubble-edit">
-        <Edit3 size={11} />
-        <span>{bubble.lensLabel}</span>
-      </span>
-    </>
-  );
+  const annotateLabel = annotation
+    ? "Edit demo annotation"
+    : "Add demo annotation";
 
   return (
-    <div className={wrapClasses}>
+    <div className={wrapClasses} data-bubble-ref={bubbleRef}>
       {bubble.caption && (
         <div className="hf-preview-bubble-caption">{bubble.caption}</div>
       )}
-      {inSidetray ? (
-        <button
-          type="button"
-          className={bubbleClasses}
-          title={bubble.lensLabel}
-          onClick={() => onOpenSidetray(bubble.lens)}
-        >
-          {body}
-        </button>
-      ) : (
-        <Link
-          href={`/x/courses/${courseId}?tab=design&design_view=${bubble.lens}`}
-          className={bubbleClasses}
-          title={bubble.lensLabel}
-        >
-          {body}
-        </Link>
+      {/* #1493 — primary click opens the demo annotation editor.
+          The lens-edit affordance lives below the bubble as a separate row. */}
+      <button
+        type="button"
+        className={bubbleClasses}
+        title={annotateLabel}
+        aria-label={annotateLabel}
+        onClick={() => onOpenAnnotation(bubbleRef)}
+      >
+        <span className="hf-preview-bubble-text">{bubble.text}</span>
+        <span className="hf-preview-bubble-edit">
+          <StickyNote size={11} />
+          <span>{annotation ? "Edit demo note" : "Add demo note"}</span>
+        </span>
+      </button>
+      <div className="hf-preview-bubble-lens-actions">
+        {inSidetray ? (
+          <button
+            type="button"
+            className="hf-preview-bubble-lens-link"
+            onClick={() => onOpenSidetray(bubble.lens)}
+            title={bubble.lensLabel}
+          >
+            <Edit3 size={11} />
+            <span>{bubble.lensLabel}</span>
+          </button>
+        ) : (
+          <Link
+            href={`/x/courses/${courseId}?tab=design&design_view=${bubble.lens}`}
+            className="hf-preview-bubble-lens-link"
+            title={bubble.lensLabel}
+          >
+            <Edit3 size={11} />
+            <span>{bubble.lensLabel}</span>
+          </Link>
+        )}
+      </div>
+      {annotation && (
+        <AnnotationStickyNote
+          annotation={annotation}
+          onClick={() => onOpenAnnotation(bubbleRef)}
+        />
       )}
     </div>
+  );
+}
+
+/**
+ * Rendered alongside a Preview bubble when an annotation exists. Click
+ * re-opens the annotation editor sidetray pre-filled with current values.
+ * `isWowMoment: true` flips the gold-border + star variant.
+ */
+function AnnotationStickyNote({
+  annotation, onClick,
+}: {
+  annotation: DemoAnnotation;
+  onClick: () => void;
+}): React.ReactElement {
+  const cls = [
+    "hf-preview-sticky-note",
+    annotation.isWowMoment ? "hf-preview-sticky-note--wow-moment" : "",
+  ].filter(Boolean).join(" ");
+  return (
+    <button
+      type="button"
+      className={cls}
+      onClick={onClick}
+      title={
+        annotation.isWowMoment
+          ? "Wow moment — edit demo annotation"
+          : "Edit demo annotation"
+      }
+      data-testid={
+        annotation.isWowMoment
+          ? "hf-preview-sticky-note--wow"
+          : "hf-preview-sticky-note"
+      }
+    >
+      {annotation.isWowMoment && (
+        <Star
+          size={12}
+          className="hf-preview-sticky-note-star"
+          fill="var(--login-gold)"
+        />
+      )}
+      <span className="hf-preview-sticky-note-text">
+        {annotation.presenterNote || (
+          <span className="hf-text-muted">(empty note)</span>
+        )}
+      </span>
+      {annotation.durationSecOnStep !== undefined && (
+        <span className="hf-preview-sticky-note-duration">
+          {annotation.durationSecOnStep}s
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * Slide-in annotation editor opened from a Preview bubble click (#1493).
+ * Distinct from `PreviewEditSidetray` above — that one mounts a
+ * `SessionFlowEditor` to tune lens configuration; this one only mutates
+ * `Playbook.config.demoScript.annotations[]` and never touches compose
+ * inputs.
+ */
+function AnnotationEditSidetray({
+  courseId, bubbleRef, existing, onClose, onSaved, onDeleted,
+}: {
+  courseId: string;
+  bubbleRef: string;
+  existing: DemoAnnotation | null;
+  onClose: () => void;
+  onSaved: (next: DemoAnnotation) => void;
+  onDeleted: (bubbleRef: string) => void;
+}): React.ReactElement {
+  const [presenterNote, setPresenterNote] = useState(existing?.presenterNote ?? "");
+  const [isWowMoment, setIsWowMoment] = useState(existing?.isWowMoment ?? false);
+  const [duration, setDuration] = useState<string>(
+    existing?.durationSecOnStep !== undefined
+      ? String(existing.durationSecOnStep)
+      : "",
+  );
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const save = useCallback(async () => {
+    setBusy(true);
+    setSaveError(null);
+    try {
+      const parsedDuration = duration.trim() === ""
+        ? undefined
+        : Number.parseInt(duration, 10);
+      if (parsedDuration !== undefined && (!Number.isFinite(parsedDuration) || parsedDuration <= 0)) {
+        throw new Error("Duration must be a positive whole number of seconds.");
+      }
+      const res = await fetch(`/api/courses/${courseId}/demo-script`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bubbleRef,
+          presenterNote,
+          isWowMoment,
+          ...(parsedDuration !== undefined
+            ? { durationSecOnStep: parsedDuration }
+            : {}),
+        }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        annotation?: DemoAnnotation;
+        error?: string;
+      };
+      if (!json.ok || !json.annotation) {
+        throw new Error(json.error || "Failed to save annotation");
+      }
+      onSaved(json.annotation);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [bubbleRef, courseId, duration, isWowMoment, onSaved, presenterNote]);
+
+  const remove = useCallback(async () => {
+    setBusy(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(
+        `/api/courses/${courseId}/demo-script/${encodeURIComponent(bubbleRef)}`,
+        { method: "DELETE" },
+      );
+      const json = (await res.json()) as { ok: boolean; error?: string };
+      if (!json.ok) throw new Error(json.error || "Failed to delete annotation");
+      onDeleted(bubbleRef);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [bubbleRef, courseId, onDeleted]);
+
+  return (
+    <>
+      <div
+        className="hf-preview-annotation-sidetray-backdrop"
+        onClick={onClose}
+      />
+      <aside
+        className="hf-preview-annotation-sidetray"
+        role="dialog"
+        aria-label="Demo annotation editor"
+        data-testid="hf-preview-annotation-sidetray"
+      >
+        <header className="hf-preview-annotation-sidetray-header">
+          <h2>
+            <StickyNote size={14} aria-hidden />
+            <span>{existing ? "Edit demo annotation" : "Add demo annotation"}</span>
+          </h2>
+          <button
+            type="button"
+            className="hf-preview-sidetray-close"
+            onClick={onClose}
+            title="Close (Esc)"
+          >
+            <X size={16} />
+          </button>
+        </header>
+        <div className="hf-preview-annotation-sidetray-body">
+          <p className="hf-text-muted hf-preview-annotation-help">
+            Demo annotations are operator-only metadata. They never reach the
+            learner, never appear in the composed prompt, and never affect
+            scoring.
+          </p>
+
+          <label className="hf-label" htmlFor="hf-preview-annotation-note">
+            Presenter note
+          </label>
+          <textarea
+            id="hf-preview-annotation-note"
+            className="hf-input"
+            rows={5}
+            value={presenterNote}
+            onChange={(e) => setPresenterNote(e.target.value)}
+            placeholder="What to say while this bubble is on screen…"
+            data-testid="hf-preview-annotation-note-input"
+          />
+
+          <label className="hf-preview-annotation-toggle">
+            <input
+              type="checkbox"
+              checked={isWowMoment}
+              onChange={(e) => setIsWowMoment(e.target.checked)}
+              data-testid="hf-preview-annotation-wow-toggle"
+            />
+            <Star size={14} aria-hidden />
+            <span>Mark as wow moment (highlights this step)</span>
+          </label>
+
+          <label className="hf-label" htmlFor="hf-preview-annotation-duration">
+            Dwell duration (seconds, optional)
+          </label>
+          <input
+            id="hf-preview-annotation-duration"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            className="hf-input hf-preview-annotation-duration"
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            placeholder="e.g. 30"
+            data-testid="hf-preview-annotation-duration-input"
+          />
+
+          {saveError && (
+            <div className="hf-banner hf-banner-error">
+              <AlertCircle size={14} />
+              <span>{saveError}</span>
+            </div>
+          )}
+        </div>
+        <footer className="hf-preview-annotation-sidetray-footer">
+          {existing && (
+            <button
+              type="button"
+              className="hf-btn hf-btn-destructive"
+              onClick={remove}
+              disabled={busy}
+              data-testid="hf-preview-annotation-delete"
+            >
+              <Trash2 size={14} />
+              <span>Delete</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="hf-btn"
+            onClick={onClose}
+            disabled={busy}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="hf-btn hf-btn-primary"
+            onClick={save}
+            disabled={busy}
+            data-testid="hf-preview-annotation-save"
+          >
+            {busy ? "Saving…" : "Save annotation"}
+          </button>
+        </footer>
+      </aside>
+    </>
   );
 }
 

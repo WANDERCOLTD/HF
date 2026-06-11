@@ -1,16 +1,16 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-11T15:23:47.892Z",
+  "generatedAt": "2026-06-11T15:32:56.049Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 509,
+    "routeCount": 511,
     "byAuthLevel": {
       "VIEWER": 112,
       "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
-      "OPERATOR": 139,
+      "OPERATOR": 141,
       "OPERATOR+VIEWER": 8,
       "VIEWER+OPERATOR": 56,
       "auth-gate(non-role)": 54,
@@ -3529,6 +3529,47 @@
         "usesScopeHelper": false,
         "handlesInternalSecret": false,
         "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/demo-script/[bubbleRef]",
+      "file": "apps/admin/app/api/courses/[courseId]/demo-script/[bubbleRef]/route.ts",
+      "methods": [
+        "DELETE"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/demo-script",
+      "file": "apps/admin/app/api/courses/[courseId]/demo-script/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
         "possiblyUnscoped": false,
         "noAuthGate": false
       },
