@@ -6,55 +6,73 @@
    header pattern is shared. Cascade-specific styling lives below under
    `.hf-cascade-*`. */
 
-/* ── LayerBadge ─────────────────────────────────────────────────── */
+/* ── LayerBadge — icon chip, sidebar-aligned glyphs ───────────────
+   The operator already learns these icons in the sidebar nav
+   (sidebar-manifest.json): BookOpen=Courses, User=Callers, School=Cohorts,
+   Settings=Settings, Building2=Institution, Phone=telephony. Reusing them
+   on cascade chips means "value lives where this glyph lives" — no extra
+   vocabulary tax. The no-override state is a muted dash (no sidebar
+   equivalent). */
 .hf-cascade-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 18px;
-  padding: 0 6px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 6px;
   border: 1px solid var(--border-default);
   background: var(--surface-secondary);
   color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
-  transition: background 80ms ease-out, color 80ms ease-out;
+  transition: background 80ms ease-out, color 80ms ease-out, border-color 80ms ease-out;
 }
 .hf-cascade-badge:hover {
   background: var(--surface-tertiary, var(--surface-secondary));
   color: var(--text-primary);
 }
+.hf-cascade-badge svg {
+  flex-shrink: 0;
+}
 
-/* `[PB]` — set at the current Playbook (winner). */
+/* Course (PLAYBOOK) — BookOpen. Winner-style tint. */
 .hf-cascade-badge--pb {
   background: color-mix(in srgb, var(--accent-primary, #4f46e5) 12%, var(--surface-secondary));
   border-color: color-mix(in srgb, var(--accent-primary, #4f46e5) 30%, var(--border-default));
   color: var(--accent-primary, #4f46e5);
 }
-/* `[DOM]` — inherited from Domain. */
+/* Domain — Building2. Quiet tint (inherited). */
 .hf-cascade-badge--dom {
   background: color-mix(in srgb, var(--text-secondary) 8%, var(--surface-secondary));
   color: var(--text-secondary);
 }
-/* `[SYS]` — explicit System override (rare). */
+/* System — Settings. Most-muted tint. */
 .hf-cascade-badge--sys {
   background: var(--surface-secondary);
   color: var(--text-tertiary, var(--text-secondary));
 }
-/* `[CAL]` — caller-scope override (rare; persistent). */
+/* Caller — User. Warning tint (persistent override semantics). */
 .hf-cascade-badge--cal {
   background: color-mix(in srgb, var(--warning, #f59e0b) 14%, var(--surface-secondary));
   border-color: color-mix(in srgb, var(--warning, #f59e0b) 35%, var(--border-default));
   color: var(--warning, #f59e0b);
 }
-/* `[—]` — no override anywhere, using SYSTEM default (muted). */
+/* Segment — School. Quiet tint (reserved). */
+.hf-cascade-badge--seg {
+  background: color-mix(in srgb, var(--text-secondary) 8%, var(--surface-secondary));
+  color: var(--text-secondary);
+}
+/* Call — Phone. Quiet tint (reserved). */
+.hf-cascade-badge--calllayer {
+  background: color-mix(in srgb, var(--text-secondary) 8%, var(--surface-secondary));
+  color: var(--text-secondary);
+}
+/* No override anywhere — muted dash glyph. */
 .hf-cascade-badge--none {
   opacity: 0.55;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .hf-cascade-subtitle {
