@@ -445,4 +445,50 @@ describe("VoiceFlowLens — Slice 2 edit drawer + Amendment A + Amendment C", ()
     const patchBody = JSON.parse((patchCall[1] as { body: string }).body);
     expect(patchBody).toEqual({ key: "voiceId", value: null });
   });
+
+  it("enum dropdown decorates options via enumLabels but keeps the raw value as the submitted enum", async () => {
+    const payload = makeVapiPayload();
+    // Decorate the voiceProvider schema field — the VAPI adapter ships
+    // this in production (#1478 enum-hints). Only "deepgram" gets a
+    // label here so we can also assert the fallback (the raw enum)
+    // path in the same test.
+    payload.schemaFields = payload.schemaFields.map((f) =>
+      f.key === "voiceProvider"
+        ? {
+            ...f,
+            enumValues: ["deepgram", "openai", "azure"],
+            enumLabels: {
+              deepgram: "deepgram (recommended)",
+            },
+          }
+        : f,
+    );
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => payload,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceFlowLens courseId={COURSE_ID} />);
+
+    await waitFor(() => expect(screen.getByText("Voice Provider")).toBeInTheDocument());
+
+    const editEngine = screen.getByRole("button", { name: "Edit Voice engine" });
+    await act(async () => {
+      fireEvent.click(editEngine);
+    });
+
+    // Decorated label.
+    const deepgramOption = await screen.findByRole("option", {
+      name: /deepgram \(recommended\)/i,
+    });
+    expect(deepgramOption).toHaveAttribute("value", "deepgram");
+
+    // Undecorated values still render the raw enum as their own label.
+    const openaiOption = screen.getByRole("option", { name: "openai" });
+    expect(openaiOption).toHaveAttribute("value", "openai");
+    const azureOption = screen.getByRole("option", { name: "azure" });
+    expect(azureOption).toHaveAttribute("value", "azure");
+  });
 });
