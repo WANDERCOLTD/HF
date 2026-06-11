@@ -1,16 +1,16 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-11T11:47:57.007Z",
+  "generatedAt": "2026-06-11T11:48:42.134Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 507,
+    "routeCount": 508,
     "byAuthLevel": {
       "VIEWER": 112,
       "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
-      "OPERATOR": 137,
+      "OPERATOR": 138,
       "OPERATOR+VIEWER": 8,
       "VIEWER+OPERATOR": 56,
       "auth-gate(non-role)": 54,
@@ -25,7 +25,7 @@
       "VIEWER+TESTER": 3
     },
     "noAuthGate": 28,
-    "possiblyUnscoped": 132,
+    "possiblyUnscoped": 133,
     "internalSecret": 8
   },
   "routes": [
@@ -3368,6 +3368,26 @@
         "handlesInternalSecret": false,
         "rawPrisma": true,
         "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/cascade/welcome-message",
+      "file": "apps/admin/app/api/courses/[courseId]/cascade/welcome-message/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": false,
+        "possiblyUnscoped": true,
         "noAuthGate": false
       },
       "reviewed": false
