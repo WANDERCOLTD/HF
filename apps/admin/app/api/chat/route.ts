@@ -74,6 +74,12 @@ const COURSE_MANAGE_TOOLS = ADMIN_TOOLS.filter((t) => COURSE_MANAGE_TOOL_NAMES.h
 // Same filtering pattern as COURSE_MANAGE so the meta-tests
 // (forbidden-fields, RBAC, pending-change) apply automatically.
 const DEMO_TOOL_NAMES = new Set([
+  // Read tools — so the AI can answer "what's the current welcomeMessage?"
+  // and "what's BEH-RESPONSE-LEN set to?" without telling the operator to
+  // leave DEMO mode. Both OPERATOR+ read-only; no AI-to-DB write risk.
+  "get_playbook_config",
+  "list_behavior_targets",
+  // Write/probe tools
   "test_voice",
   "dry_run_prompt",
   "apply_demo_preset",
