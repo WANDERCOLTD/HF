@@ -1,0 +1,215 @@
+/* ── Cascade-honesty UX (#1454 / Epic #1442 Layer 2) ──
+   LayerBadge chip + CascadeInspectorTray sidetray + ScopePicker modal.
+
+   Sidetray uses the same `.hf-preview-sidetray*` classes as the Course
+   Design Console (preview-lens.css) so the slide-in animation + width +
+   header pattern is shared. Cascade-specific styling lives below under
+   `.hf-cascade-*`. */
+
+/* ── LayerBadge ─────────────────────────────────────────────────── */
+.hf-cascade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background 80ms ease-out, color 80ms ease-out;
+}
+.hf-cascade-badge:hover {
+  background: var(--surface-tertiary, var(--surface-secondary));
+  color: var(--text-primary);
+}
+
+/* `[PB]` — set at the current Playbook (winner). */
+.hf-cascade-badge--pb {
+  background: color-mix(in srgb, var(--accent-primary, #4f46e5) 12%, var(--surface-secondary));
+  border-color: color-mix(in srgb, var(--accent-primary, #4f46e5) 30%, var(--border-default));
+  color: var(--accent-primary, #4f46e5);
+}
+/* `[DOM]` — inherited from Domain. */
+.hf-cascade-badge--dom {
+  background: color-mix(in srgb, var(--text-secondary) 8%, var(--surface-secondary));
+  color: var(--text-secondary);
+}
+/* `[SYS]` — explicit System override (rare). */
+.hf-cascade-badge--sys {
+  background: var(--surface-secondary);
+  color: var(--text-tertiary, var(--text-secondary));
+}
+/* `[CAL]` — caller-scope override (rare; persistent). */
+.hf-cascade-badge--cal {
+  background: color-mix(in srgb, var(--warning, #f59e0b) 14%, var(--surface-secondary));
+  border-color: color-mix(in srgb, var(--warning, #f59e0b) 35%, var(--border-default));
+  color: var(--warning, #f59e0b);
+}
+/* `[—]` — no override anywhere, using SYSTEM default (muted). */
+.hf-cascade-badge--none {
+  opacity: 0.55;
+}
+
+.hf-cascade-subtitle {
+  font-size: 11px;
+  color: var(--text-tertiary, var(--text-secondary));
+  margin-top: 2px;
+}
+
+/* ── CascadeInspectorTray (reuses .hf-preview-sidetray*) ─────────── */
+.hf-cascade-tray-effective {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.hf-cascade-tray-effective-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.hf-cascade-tray-effective-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.hf-cascade-tray-chain {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hf-cascade-tray-chain-row {
+  display: grid;
+  grid-template-columns: 50px 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-primary);
+}
+.hf-cascade-tray-chain-row--winner {
+  border-color: color-mix(in srgb, var(--accent-primary, #4f46e5) 40%, var(--border-default));
+  background: color-mix(in srgb, var(--accent-primary, #4f46e5) 4%, var(--surface-primary));
+}
+.hf-cascade-tray-chain-row--overridden .hf-cascade-tray-row-value {
+  text-decoration: line-through;
+  color: var(--text-tertiary, var(--text-secondary));
+}
+.hf-cascade-tray-row-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hf-cascade-tray-row-scope {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.hf-cascade-tray-row-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.hf-cascade-tray-row-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: right;
+  max-width: 200px;
+  word-break: break-word;
+}
+.hf-cascade-tray-row-winner-mark {
+  color: var(--accent-primary, #4f46e5);
+  font-weight: 600;
+}
+
+.hf-cascade-tray-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-default);
+}
+
+/* ── ScopePicker modal ───────────────────────────────────────────── */
+.hf-cascade-scopepicker-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #000 40%, transparent);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hf-cascade-scopepicker {
+  width: 480px;
+  max-width: 92vw;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: 0 16px 32px color-mix(in srgb, #000 24%, transparent);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.hf-cascade-scopepicker-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.hf-cascade-scopepicker-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.hf-cascade-scopepicker-option {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.hf-cascade-scopepicker-option--selected {
+  border-color: color-mix(in srgb, var(--accent-primary, #4f46e5) 50%, var(--border-default));
+  background: color-mix(in srgb, var(--accent-primary, #4f46e5) 5%, var(--surface-primary));
+}
+.hf-cascade-scopepicker-option--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.hf-cascade-scopepicker-option-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.hf-cascade-scopepicker-option-warn {
+  font-size: 11px;
+  color: var(--warning, #f59e0b);
+  padding-left: 22px;
+}
+.hf-cascade-scopepicker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

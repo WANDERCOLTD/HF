@@ -17,10 +17,12 @@ export const runtime = "nodejs";
  *   against the provided scope chain. Powers `<CascadeInspectorTray>`
  *   and the upcoming Cmd+K cascade tools. Read-only — see
  *   `lib/cascade/set-at-layer.ts` for the write counterpart.
- * @queryParam knobKey   e.g. "BEH-WARMTH" / "welcomeMessage" / "voiceId" (required)
- * @queryParam playbookId  scope chain id (optional)
- * @queryParam callerId    scope chain id (optional)
- * @queryParam domainId    scope chain id (optional)
+ * @queryParam knobKey    e.g. "BEH-WARMTH" / "welcomeMessage" / "voiceId" (required)
+ * @queryParam courseId   scope chain id (optional) — operator-facing alias
+ * @queryParam playbookId scope chain id (optional) — synonym of `courseId`
+ *                        accepted for back-compat; `courseId` is preferred
+ * @queryParam callerId   scope chain id (optional)
+ * @queryParam domainId   scope chain id (optional)
  * @response 200 Effective<unknown> envelope: { value, source, layers, isInherited, recommendedLayerForEdit }
  * @response 400 { ok: false, error: "Unknown knob key …" | "Missing required scope …" }
  * @response 403 (returned by requireAuth)
@@ -39,10 +41,13 @@ export async function GET(request: Request) {
   }
 
   const scopeChain: ScopeChain = {};
-  const playbookId = searchParams.get("playbookId");
+  // Operators think in courses; the schema layer underneath is Playbook.
+  // Accept both — `courseId` takes precedence if both supplied.
+  const courseId =
+    searchParams.get("courseId") ?? searchParams.get("playbookId");
   const callerId = searchParams.get("callerId");
   const domainId = searchParams.get("domainId");
-  if (playbookId) scopeChain.playbookId = playbookId;
+  if (courseId) scopeChain.playbookId = courseId;
   if (callerId) scopeChain.callerId = callerId;
   if (domainId) scopeChain.domainId = domainId;
 
