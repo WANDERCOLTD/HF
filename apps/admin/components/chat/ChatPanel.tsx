@@ -8,6 +8,7 @@ import { useChatContext, MODE_CONFIG, getMergedBannerKey, type ChatMode, type Tu
 import { useEntityContext, ENTITY_COLORS, EntityBreadcrumb } from "@/contexts/EntityContext";
 import { useEntityDetection } from "@/hooks/useEntityDetection";
 import { AIModelBadge } from "@/components/shared/AIModelBadge";
+import { CollapsedTabsBanner } from "./CollapsedTabsBanner";
 import "./chat-panel.css";
 
 // User-facing labels for entity types (internal names → educator language)
@@ -82,8 +83,14 @@ function ChatBreadcrumbStripe({
 function ChatModeTabs() {
   const { mode, setMode } = useChatContext();
   const modes = Object.keys(MODE_CONFIG) as ChatMode[];
+  // #1504 Slice 3 — explicit two-tab modifier so the CSS can give each tab
+  // a balanced share of the strip width (default flex layout left them
+  // bunched on the left of a 400px panel). If MODE_CONFIG ever grows back
+  // to 3+ tabs the modifier auto-disappears.
+  const tabsClass =
+    modes.length === 2 ? "chat-mode-tabs chat-mode-tabs--two-tab" : "chat-mode-tabs";
   return (
-    <div className="chat-mode-tabs" role="tablist">
+    <div className={tabsClass} role="tablist">
       {modes.map((m) => {
         const cfg = MODE_CONFIG[m];
         const isActive = m === mode;
@@ -334,7 +341,20 @@ function ChatMessages() {
               {msg.metadata?.command && (
                 <span className="chat-timestamp-command">{msg.metadata.command}</span>
               )}
-              {!isUser && <AIModelBadge callPoint={`chat.${mode.toLowerCase()}`} variant="text" size="sm" />}
+              {/* #1504 Slice 3 — ASSISTANT routes through the unified
+                  Assistant builder server-side, which registers under the
+                  `chat.unified_assistant` call-point. DEMO keeps its own
+                  call-point. The pre-Slice-3 mode→callpoint string
+                  (`chat.data` / `chat.tuning` / `chat.course_manage`) no
+                  longer matches any registered AI config because route.ts
+                  collapsed those branches in Slice 2. */}
+              {!isUser && (
+                <AIModelBadge
+                  callPoint={mode === "DEMO" ? "chat.demo" : "chat.unified_assistant"}
+                  variant="text"
+                  size="sm"
+                />
+              )}
             </div>
           </div>
         );
@@ -521,30 +541,39 @@ export function ChatPanel() {
 
         {/* AI Chat Interface */}
         <>
-          {/* #1504 Slice 2 — one-time history-merged banner */}
+          {/* #1504 Slice 2 — one-time history-merged banner (legacy bucket merge) */}
           <HistoryMergedBanner />
 
-          {/* Mode tabs (Assistant / Tuning) */}
+          {/* #1504 Slice 3 — one-time tabs-simplified banner. Independent of
+              the Slice 2 banner because the visible tab change is operator-
+              relevant for fresh installs too (the 4-tab world is gone). */}
+          <CollapsedTabsBanner />
+
+          {/* Mode tabs — post-Slice-3: Assistant + Demo only */}
           <ChatModeTabs />
 
-          {/* Tuning scope toggle — shown in both DATA (Assistant) and TUNING
-              modes so write operations always have unambiguous scope
-              regardless of which tab the user is in. DATA mode previously
-              relied on the chip stack alone, which the model couldn't
-              disambiguate when the stack accumulated multiple
-              callers/playbooks across navigation. */}
-          {(mode === "DATA" || mode === "TUNING") && <TuningScopeToggle />}
+          {/* #1504 Slice 3 — Scope toggle now lives inline inside the
+              Assistant tab at all times. Pre-Slice-3 it was gated on
+              `mode === DATA || mode === TUNING`; with the Tuning tab gone,
+              gating it on "DATA-or-TUNING" would hide it entirely and
+              strand the operator with no way to disambiguate LEARNER vs
+              PLAYBOOK scope before a behaviour-target write. Hidden on
+              the DEMO tab — DEMO has its own write-safety contract
+              (narrow palette, `fanoutScope:'none'`) and tuning scope is
+              not relevant there. */}
+          {mode === "ASSISTANT" && <TuningScopeToggle />}
 
-          {/* Active ticket stripe (only in DATA mode when a discussion is active) */}
-          {mode === "DATA" && <DiscussingTicketStripe />}
+          {/* Active ticket stripe (only in ASSISTANT mode when a discussion
+              is active — DEMO doesn't see the ticket block). */}
+          {mode === "ASSISTANT" && <DiscussingTicketStripe />}
 
-          {/* Context Breadcrumbs — in DATA/TUNING modes the Scope toggle
-              above already shows caller + playbook, so hide those types to
-              avoid duplicate display. Drill-down chips (Call, Memory,
-              Spec, etc.) still render here. */}
+          {/* Context Breadcrumbs — in ASSISTANT mode the Scope toggle above
+              already shows caller + playbook, so hide those types to avoid
+              duplicate display. Drill-down chips (Call, Memory, Spec, etc.)
+              still render here. */}
           <ChatBreadcrumbStripe
             breadcrumbs={breadcrumbs}
-            hideTypes={mode === "DATA" || mode === "TUNING" ? ["caller", "playbook"] : undefined}
+            hideTypes={mode === "ASSISTANT" ? ["caller", "playbook"] : undefined}
           />
 
           {/* Messages */}

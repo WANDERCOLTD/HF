@@ -108,7 +108,22 @@ const entityBreadcrumbSchema = z.object({
 /** POST /api/chat */
 export const chatRequestSchema = z.object({
   message: z.string().min(1, "Message is required").max(50_000),
-  mode: z.enum(["DATA", "CALL", "BUG", "WIZARD", "COURSE_REF"]),
+  // #1504 Slice 3 — ASSISTANT is the canonical user-tab mode (collapses
+  // legacy DATA / TUNING / COURSE_MANAGE). Legacy values stay accepted in
+  // the enum because clients that haven't refreshed past the deploy may
+  // still POST them; route.ts normalises any of {DATA, TUNING,
+  // COURSE_MANAGE} → unified Assistant path.
+  mode: z.enum([
+    "ASSISTANT",
+    "DATA",
+    "TUNING",
+    "COURSE_MANAGE",
+    "CALL",
+    "BUG",
+    "WIZARD",
+    "COURSE_REF",
+    "DEMO",
+  ]),
   entityContext: z.array(entityBreadcrumbSchema).default([]),
   conversationHistory: z.array(z.object({
     role: z.string(),
