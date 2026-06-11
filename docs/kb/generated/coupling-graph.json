@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T09:53:16.206Z",
+  "generatedAt": "2026-06-11T11:47:57.653Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1642,
-  "edgeCount": 3783,
+  "edgeCount": 3784,
   "skippedEdges": 1,
   "edges": [
     {
@@ -2566,6 +2566,10 @@
     {
       "from": "app/api/courses/[courseId]/design/route.ts",
       "to": "lib/playbook/update-playbook-config.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/design/route.ts",
+      "to": "lib/prisma.ts"
     },
     {
       "from": "app/api/courses/[courseId]/design/route.ts",
@@ -16029,7 +16033,7 @@
     {
       "path": "app/api/courses/[courseId]/design/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/courses/[courseId]/distribution-advisory/route.ts",
@@ -21888,7 +21892,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 611,
+      "inDegree": 612,
       "outDegree": 0
     },
     {
@@ -23355,7 +23359,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 611,
+      "inDegree": 612,
       "outDegree": 0
     },
     {

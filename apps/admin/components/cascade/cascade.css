@@ -13,6 +13,17 @@
    on cascade chips means "value lives where this glyph lives" — no extra
    vocabulary tax. The no-override state is a muted dash (no sidebar
    equivalent). */
+.hf-cascade-badge-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.hf-cascade-badge-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .hf-cascade-badge {
   display: inline-flex;
   align-items: center;
@@ -34,6 +45,46 @@
 }
 .hf-cascade-badge svg {
   flex-shrink: 0;
+}
+
+/* ── Kebab affordance (#1469) ────────────────────────────────────
+   Discoverable secondary entry to CascadeInspectorTray. Visually
+   hidden at rest, revealed on parent :hover / :focus-within and on
+   the kebab's own :focus-visible (so keyboard Tab can find it).
+   pointer-events: none at rest prevents accidental mouse hits on
+   invisible kebabs; flipping to auto when visible restores click. */
+.hf-cascade-badge-kebab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--text-tertiary, var(--text-secondary));
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 80ms ease-out;
+}
+.hf-cascade-badge-wrap:hover .hf-cascade-badge-kebab,
+.hf-cascade-badge-wrap:focus-within .hf-cascade-badge-kebab,
+.hf-cascade-badge-kebab:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.hf-cascade-badge-kebab:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+.hf-cascade-badge-kebab:focus-visible {
+  outline: 2px solid var(--accent-primary, #4f46e5);
+  outline-offset: 1px;
 }
 
 /* Course (PLAYBOOK) — BookOpen. Winner-style tint. */

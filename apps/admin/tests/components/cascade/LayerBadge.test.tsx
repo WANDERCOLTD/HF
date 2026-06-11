@@ -110,7 +110,7 @@ describe("LayerBadge — 5 states", () => {
 });
 
 describe("LayerBadge — interactions", () => {
-  it("click fires onInspect", () => {
+  it("click on chip fires onInspect (legacy quick path preserved)", () => {
     const onInspect = vi.fn();
     render(
       <LayerBadge
@@ -118,7 +118,9 @@ describe("LayerBadge — interactions", () => {
         onInspect={onInspect}
       />,
     );
-    fireEvent.click(screen.getByRole("button"));
+    // The chip is the first button (kebab is second when present).
+    const chip = screen.getByRole("button", { name: /^Cascade layer:/ });
+    fireEvent.click(chip);
     expect(onInspect).toHaveBeenCalledOnce();
   });
 
@@ -140,5 +142,85 @@ describe("LayerBadge — interactions", () => {
       />,
     );
     expect(screen.getByText("custom subtitle")).toBeTruthy();
+  });
+});
+
+describe("LayerBadge — kebab affordance (#1469)", () => {
+  it("does not render the kebab when onInspect is undefined", () => {
+    render(<LayerBadge envelope={envelope("PLAYBOOK", [PB_HIT])} />);
+    expect(screen.queryByTestId("hf-cascade-badge-kebab")).toBeNull();
+  });
+
+  it("renders the kebab when onInspect is provided", () => {
+    render(
+      <LayerBadge
+        envelope={envelope("PLAYBOOK", [PB_HIT])}
+        onInspect={() => undefined}
+      />,
+    );
+    const kebab = screen.getByTestId("hf-cascade-badge-kebab");
+    expect(kebab).toBeTruthy();
+    expect(kebab.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(kebab.getAttribute("aria-label")).toContain("Inspect cascade chain");
+  });
+
+  it("clicking the kebab fires onInspect once", () => {
+    const onInspect = vi.fn();
+    render(
+      <LayerBadge
+        envelope={envelope("PLAYBOOK", [PB_HIT])}
+        onInspect={onInspect}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("hf-cascade-badge-kebab"));
+    expect(onInspect).toHaveBeenCalledOnce();
+  });
+
+  it("kebab click stops propagation (no parent re-fire)", () => {
+    const onInspect = vi.fn();
+    const onParentClick = vi.fn();
+    render(
+      <div onClick={onParentClick}>
+        <LayerBadge
+          envelope={envelope("PLAYBOOK", [PB_HIT])}
+          onInspect={onInspect}
+        />
+      </div>,
+    );
+    fireEvent.click(screen.getByTestId("hf-cascade-badge-kebab"));
+    expect(onInspect).toHaveBeenCalledOnce();
+    expect(onParentClick).not.toHaveBeenCalled();
+  });
+
+  it("keyboard activation: Enter on kebab fires onInspect", () => {
+    const onInspect = vi.fn();
+    render(
+      <LayerBadge
+        envelope={envelope("PLAYBOOK", [PB_HIT])}
+        onInspect={onInspect}
+      />,
+    );
+    const kebab = screen.getByTestId("hf-cascade-badge-kebab") as HTMLButtonElement;
+    kebab.focus();
+    // <button> activates onClick from native Enter, but fireEvent.click is the canonical surrogate.
+    fireEvent.click(kebab);
+    expect(onInspect).toHaveBeenCalledOnce();
+  });
+
+  it("chip gains aria-haspopup=dialog when onInspect is provided", () => {
+    render(
+      <LayerBadge
+        envelope={envelope("PLAYBOOK", [PB_HIT])}
+        onInspect={() => undefined}
+      />,
+    );
+    const chip = screen.getByRole("button", { name: /^Cascade layer:/ });
+    expect(chip.getAttribute("aria-haspopup")).toBe("dialog");
+  });
+
+  it("chip has no aria-haspopup when onInspect is undefined (passive indicator)", () => {
+    render(<LayerBadge envelope={envelope("PLAYBOOK", [PB_HIT])} />);
+    const chip = screen.getByRole("button", { name: /^Cascade layer:/ });
+    expect(chip.getAttribute("aria-haspopup")).toBeNull();
   });
 });

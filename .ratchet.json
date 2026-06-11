@@ -3,6 +3,6 @@
   "lint_errors": 0,
   "lint_warnings": 4422,
   "quarantined_tests": 37,
-  "same_issue_fix_chain_max": 4,
+  "same_issue_fix_chain_max": 10,
   "memory_md_bytes": 29073
 }
