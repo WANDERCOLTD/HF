@@ -383,11 +383,28 @@ export default function LoginPage() {
 
 // ── Demo Accounts Panel ─────────────────────────────────
 
-const DEMO_ACCOUNTS = [
-  { email: "teach@abacus.com", label: "School", role: "Educator", password: "hff" },
-  { email: "corporate@hff.com", label: "Corporate", role: "Educator", password: "hff2026" },
-  { email: "training@hff.com", label: "Training", role: "Educator", password: "hff2026" },
-];
+// Demo credentials are STRIPPED from the production bundle. NEXT_PUBLIC_APP_ENV is
+// inlined at build time, so in a PROD build this whole array literal collapses to []
+// and the plaintext passwords never enter the shipped JS. In non-prod builds
+// (SANDBOX / STAGING / PILOT) the demo accounts work as before. The runtime
+// `isNonProd` gate on the panel is belt-and-braces; this is the structural strip.
+const DEMO_ACCOUNTS =
+  process.env.NEXT_PUBLIC_APP_ENV === "PROD"
+    ? []
+    : [
+        { email: "teach@abacus.com", label: "School", role: "Educator", password: "hff" },
+        { email: "corporate@hff.com", label: "Corporate", role: "Educator", password: "hff2026" },
+        { email: "training@hff.com", label: "Training", role: "Educator", password: "hff2026" },
+      ];
+
+// Shared password hint shown under the account list — derived from the accounts above
+// (the modal password), never a separate literal, so it strips with them in PROD.
+const DEMO_PASSWORD_HINT =
+  DEMO_ACCOUNTS.map((a) => a.password).sort(
+    (a, b) =>
+      DEMO_ACCOUNTS.filter((x) => x.password === b).length -
+      DEMO_ACCOUNTS.filter((x) => x.password === a).length,
+  )[0] ?? null;
 
 function DemoAccountsPanel({ onLogin }: { onLogin: (email: string, password: string) => void }) {
   const { copiedKey: copied, copy: copyToClipboard } = useCopyToClipboard(1500);
@@ -456,14 +473,15 @@ function DemoAccountsPanel({ onLogin }: { onLogin: (email: string, password: str
         ))}
       </div>
 
-      {/* Password row */}
+      {/* Password row — only when a demo password exists (stripped in PROD) */}
+      {DEMO_PASSWORD_HINT && (
       <div className="mt-3 flex items-center justify-center gap-2">
         <span className="login-text-muted text-[11px]">
-          Password: <code className="font-mono">hff2026</code>
+          Password: <code className="font-mono">{DEMO_PASSWORD_HINT}</code>
         </span>
         <button
           type="button"
-          onClick={() => copyToClipboard("hff2026", "password")}
+          onClick={() => copyToClipboard(DEMO_PASSWORD_HINT, "password")}
           title="Copy password"
           className="p-1 rounded transition-colors"
           style={{
@@ -477,6 +495,7 @@ function DemoAccountsPanel({ onLogin }: { onLogin: (email: string, password: str
           </svg>
         </button>
       </div>
+      )}
     </div>
   );
 }
