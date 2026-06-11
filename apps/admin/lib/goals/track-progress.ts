@@ -111,12 +111,14 @@ export async function getSkillTierMapping(
     }
   }
   try {
-    const contract = await ContractRegistry.get("SKILL_MEASURE_V1");
+    const contract = await ContractRegistry.getContract("SKILL_MEASURE_V1");
     const thresholds = (contract?.thresholds ?? null) as SkillTierMapping["thresholds"] | null;
     const tierBands = ((contract as any)?.tierBands ?? null) as SkillTierMapping["tierBands"] | null;
     if (thresholds && tierBands) return { thresholds, tierBands };
-  } catch {
-    // Contract not seeded yet — fall through to defaults.
+    // contract null (not seeded) → fall through to defaults below.
+  } catch (err) {
+    // Unexpected error reading the contract — log it; never silently swallow.
+    console.warn("[skill-tier] SKILL_MEASURE_V1 contract read failed — using defaults:", err);
   }
   return SKILL_TIER_DEFAULTS;
 }

@@ -165,12 +165,14 @@ export async function accumulateSkillScores(
   let halfLifeDays = SKILL_DEFAULTS.emaHalfLifeDays;
   let minCallsToFull = SKILL_DEFAULTS.minCallsToFull;
   try {
-    const contract = await ContractRegistry.get("SKILL_MEASURE_V1");
+    const contract = await ContractRegistry.getContract("SKILL_MEASURE_V1");
     const cfg = (contract?.config ?? {}) as Record<string, unknown>;
     if (typeof cfg.emaHalfLifeDays === "number") halfLifeDays = cfg.emaHalfLifeDays;
     if (typeof cfg.minCallsToFull === "number") minCallsToFull = cfg.minCallsToFull;
-  } catch {
-    // Contract not seeded yet — defaults are fine.
+    // contract null (not seeded) → defaults already assigned above.
+  } catch (err) {
+    // Unexpected error reading the contract — log it; never silently swallow.
+    console.warn("[skill-agg] SKILL_MEASURE_V1 contract read failed — using defaults:", err);
   }
   const playbookOverride = await prisma.callerPlaybook.findFirst({
     where: { callerId, status: "ACTIVE" },
