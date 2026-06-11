@@ -32,6 +32,7 @@
   - [Caller](#caller)
   - [Callers](#callers)
   - [Calls](#calls)
+  - [Cascade](#cascade)
   - [Chat](#chat)
   - [Classrooms](#classrooms)
   - [Cohorts](#cohorts)
@@ -3526,6 +3527,31 @@ List call scores across all calls, ordered by most recent. Includes parameter de
 **Response** `500`
 ```json
 { ok: false, error: "Failed to fetch call scores" }
+```
+
+---
+
+## Cascade
+
+### `GET` /api/cascade/resolve
+
+Resolves the effective value of a cascade-eligible knob
+
+**Auth**: session (OPERATOR) · **Scope**: `cascade:resolve:read`
+
+**Response** `200`
+```json
+Effective<unknown> envelope: { value, source, layers, isInherited, recommendedLayerForEdit }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "Unknown knob key …" | "Missing required scope …" }
+```
+
+**Response** `403`
+```json
+(returned by requireAuth)
 ```
 
 ---
@@ -15837,8 +15863,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 506 |
-| Files with annotations | 496 |
+| Route files found | 507 |
+| Files with annotations | 497 |
 | Files missing annotations | 10 |
 | Coverage | 98.0% |
 

@@ -17,6 +17,7 @@ import {
   bumpCallerComposeTimestamp,
   bumpPlaybookComposeTimestamp,
 } from "@/lib/compose/bump-timestamp";
+import { invalidateKnob } from "@/lib/cascade/effective-value";
 
 export type WriteTargetResult =
   | { ok: true; action: "created" | "updated" | "removed" | "noop"; parameterId: string; value: number | null }
@@ -83,6 +84,8 @@ export async function writeBehaviorTarget(
     // #830 — out-of-band PLAYBOOK-scope target removal: mark every
     // caller in this playbook stale on next call.
     await bumpPlaybookComposeTimestamp(playbookId);
+    // #1454 Slice 2 — drop cascade-cache for this BEH-* knob.
+    invalidateKnob(parameterId);
     return { ok: true, action: "removed", parameterId, value: null };
   }
 
@@ -98,6 +101,8 @@ export async function writeBehaviorTarget(
       },
     });
     await bumpPlaybookComposeTimestamp(playbookId);
+    // #1454 Slice 2 — drop cascade-cache for this BEH-* knob.
+    invalidateKnob(parameterId);
     return { ok: true, action: "updated", parameterId, value: clamped };
   }
 
@@ -112,6 +117,8 @@ export async function writeBehaviorTarget(
     },
   });
   await bumpPlaybookComposeTimestamp(playbookId);
+  // #1454 Slice 2 — drop cascade-cache for this BEH-* knob.
+  invalidateKnob(parameterId);
   return { ok: true, action: "created", parameterId, value: clamped };
 }
 
@@ -197,6 +204,8 @@ export async function writeCallerBehaviorTarget(
       // so the staleness check picks it up on next call. Noop deletions
       // don't change anything and don't need a bump.
       await bumpCallerComposeTimestamp(callerId);
+      // #1454 Slice 2 — drop cascade-cache for this BEH-* knob.
+      invalidateKnob(parameterId);
     }
     return {
       ok: true,
@@ -244,6 +253,9 @@ export async function writeCallerBehaviorTarget(
   // #830 — successful upsert across the caller's identities: stamp the
   // caller so the staleness check picks this up on next call.
   await bumpCallerComposeTimestamp(callerId);
+
+  // #1454 Slice 2 — drop cascade-cache for this BEH-* knob.
+  invalidateKnob(parameterId);
 
   return {
     ok: true,

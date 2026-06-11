@@ -43,7 +43,11 @@ const trayEntrySchema = z
     scopeLabel: z.string(),
     beforeValue: z.string(),
     afterValue: z.string(),
-    scope: z.enum(["playbook", "domain", "system"]),
+    // "caller" added with Epic #1442 Slice 2 (#1454) — ScopePicker writes
+    // at caller scope route through the tray collector to preserve the
+    // audit trail. The CALLER write itself bumps composeInputsUpdatedAt
+    // inside writeCallerBehaviorTarget, so no extra fanout needed here.
+    scope: z.enum(["playbook", "domain", "system", "caller"]),
     scopeId: z.string().nullable(),
     aiSuggested: z.boolean(),
     fanoutScope: z.enum(["none", "caller", "all"]),

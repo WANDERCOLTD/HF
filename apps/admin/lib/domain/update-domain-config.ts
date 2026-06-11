@@ -28,11 +28,12 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { Domain } from "@prisma/client";
+import type { Domain, Prisma } from "@prisma/client";
 import {
   composeAffectingDomainChanged,
   COMPOSE_AFFECTING_DOMAIN_FIELDS,
 } from "@/lib/compose/affecting-keys-domain";
+import { invalidateAll } from "@/lib/cascade/effective-value";
 
 /** Subset of Domain that this helper is allowed to mutate. */
 export type DomainUpdatable = Partial<Pick<
@@ -100,12 +101,16 @@ export async function updateDomainConfig(
   );
   const shouldBumpTimestamp = composeAffected && !options.skipTimestamp;
 
+  // Cast to satisfy Prisma's stricter `JsonValue` → `InputJsonValue` typing
+  // on the JSON columns (`onboardingFlowPhases`, `onboardingDefaultTargets`).
+  // The transformer-supplied values are already validated by upstream zod
+  // schemas at the route level.
   const domain = await prisma.domain.update({
     where: { id: domainId },
     data: {
       ...nextFields,
       ...(shouldBumpTimestamp && { composeInputsUpdatedAt: new Date() }),
-    },
+    } as Prisma.DomainUpdateInput,
   });
 
   if (shouldBumpTimestamp) {
@@ -113,6 +118,11 @@ export async function updateDomainConfig(
       `[updateDomainConfig] composeInputsUpdatedAt bumped for ${domainId}${options.reason ? ` (reason: ${options.reason})` : ""}`,
     );
   }
+
+  // #1454 Slice 2 — drop every cascade-cache entry so the next
+  // `resolveEffective` re-reads fresh. See `update-playbook-config.ts`
+  // for the same wiring rationale.
+  invalidateAll();
 
   return {
     domain,
