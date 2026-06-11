@@ -3,6 +3,9 @@
 // Returns the composed AuditBundle for an in-flight or completed
 // IntakeSession. Phase 1 in-memory session-store; Phase 1.5 wires
 // PrismaEventStore-backed retrieval.
+//
+// HF-D P0 hardening (2026-06-12): rate-limited per IP under the
+// "intake-pii-read" key. See docs/audit/HF-D-evidence-pii-intentid-bearer.md.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -11,10 +14,14 @@ import {
 } from "@/lib/intake/audit-bundle";
 import { canonicalJSON } from "@/lib/intake/tallyseal";
 import type { IntentId } from "@/lib/intake/tallyseal";
+import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(getClientIP(req), "intake-pii-read");
+  if (!rl.ok) return rl.error;
+
   const intentId = req.nextUrl.searchParams.get("intentId");
   if (!intentId) {
     return NextResponse.json({ error: "intentId required" }, { status: 400 });

@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T23:00:00.194Z",
+  "generatedAt": "2026-06-11T23:08:07.380Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1669,
-  "edgeCount": 3831,
+  "edgeCount": 3834,
   "skippedEdges": 1,
   "edges": [
     {
@@ -4020,6 +4020,10 @@
       "to": "lib/intake/tallyseal/index.ts"
     },
     {
+      "from": "app/api/intake/audit-bundle/[intentId]/route.ts",
+      "to": "lib/rate-limit.ts"
+    },
+    {
       "from": "app/api/intake/audit-bundle/route.ts",
       "to": "lib/intake/audit-bundle.ts"
     },
@@ -4030,6 +4034,10 @@
     {
       "from": "app/api/intake/audit-bundle/route.ts",
       "to": "lib/intake/tallyseal/index.ts"
+    },
+    {
+      "from": "app/api/intake/audit-bundle/route.ts",
+      "to": "lib/rate-limit.ts"
     },
     {
       "from": "app/api/intake/bootstrap/route.ts",
@@ -4106,6 +4114,10 @@
     {
       "from": "app/api/intake/session/[intentId]/route.ts",
       "to": "lib/intake/tallyseal/index.ts"
+    },
+    {
+      "from": "app/api/intake/session/[intentId]/route.ts",
+      "to": "lib/rate-limit.ts"
     },
     {
       "from": "app/api/intake/v2/admin-test-enrol/route.ts",
@@ -16806,12 +16818,12 @@
     {
       "path": "app/api/intake/audit-bundle/[intentId]/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/intake/audit-bundle/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/intake/bootstrap/route.ts",
@@ -16836,7 +16848,7 @@
     {
       "path": "app/api/intake/session/[intentId]/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/intake/v2/admin-test-enrol/route.ts",
@@ -22455,7 +22467,7 @@
     },
     {
       "path": "lib/rate-limit.ts",
-      "inDegree": 7,
+      "inDegree": 10,
       "outDegree": 0
     },
     {
