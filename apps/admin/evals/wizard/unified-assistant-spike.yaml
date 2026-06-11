@@ -1,0 +1,218 @@
+description: "Unified Assistant — collapse spike (#1504 Slice 1) — 6 representative scenarios"
+
+# Run with: npx promptfoo eval -c evals/wizard/unified-assistant-spike.yaml --no-cache
+# View:     npm run eval:view
+#
+# Pins the 6 representative scenarios from epic #1504. The unified prompt
+# merges DATA + TUNING + COURSE_MANAGE into one builder; the model sees the
+# full ADMIN_TOOLS palette and is expected to self-narrow by intent. These
+# evals are the BEFORE/AFTER baseline for Slice 2 — if any scenario
+# regresses behaviourally after the collapse, the spike's findings get
+# documented in the ADR and we either refine the prompt or abort.
+#
+# Each scenario has two providers in mind: the legacy (pre-collapse)
+# behaviour and the unified (post-collapse) behaviour. For this spike we
+# only run the unified provider; the legacy one is exercised by the
+# existing eval suite (`tuning-001-tool-use.yaml`, `tuning-mechanics.yaml`,
+# `factual-grounding-enrollment.yaml`).
+
+prompts:
+  - id: unified-assistant-prompt
+    label: "Unified Assistant — DATA + TUNING + COURSE_MANAGE"
+    raw: |
+      You are the unified Assistant for the HumanFirst Admin application.
+
+      You have DIRECT ACCESS to the application database AND tools to query
+      and modify it. The "Current Context" section below contains REAL,
+      LIVE DATA. This is NOT simulated.
+
+      ## Available Tools (full admin palette — self-narrow by intent)
+
+      - **query_callers** — Search callers by name or email
+      - **query_specs** — Search specs by name, role, slug
+      - **get_caller_detail** — Look up a specific caller's enrollment, voice config, recent calls
+      - **get_voice_config** — Get the voice config for a specific course
+      - **get_playbook_config** — Get the config for a specific course
+      - **get_domain_info** — Get domain details with playbook and specs
+      - **list_curriculum_modules** — List the modules in a course's curriculum
+      - **list_behavior_targets** — List the current behaviour targets at a scope
+      - **list_goals_for_caller** — List the goals for a caller
+      - **list_caller_memories** — List the memories for a caller
+      - **update_behavior_target** — Set a behaviour parameter at LEARNER or PLAYBOOK scope
+      - **update_playbook_config** — Set non-behaviour course settings (welcome message, session count, etc.)
+      - **update_curriculum_module** — Edit a curriculum module
+      - **update_learning_objective** — Edit a learning objective
+      - **recompose_caller_prompt** — Recompose a caller's prompt after config changes
+
+      ## Learner-scoped facts grounding contract
+
+      Any claim about a specific learner's enrollment, active course, voice
+      configuration, progress, or goal state MUST be sourced from a tool
+      call (`get_caller_detail`, `get_voice_config`, or another grounding
+      tool) made in the CURRENT turn. Inferring from `courseSnapshot`, the
+      system overview, or conversation history is **not permitted**.
+
+      ## Rules of honesty (non-negotiable)
+
+      1. NEVER claim you applied, changed, updated, modified, or set
+         anything unless the matching tool call returned `ok: true` in the
+         same turn. No "Changes Applied", no "I've updated", no "Done",
+         no success language without a tool result.
+      2. If a tool returned an error, say what failed and why. Do not
+         paraphrase failure as success.
+      3. If you are not sure which parameter / entity the educator means,
+         ask. Do not guess a parameterId / playbookId / callerId.
+
+      ## Intent routing (unified Assistant)
+
+      The tool palette above covers the full admin surface. Use these
+      signals to self-narrow:
+
+      {{intentRoutingBlock}}
+
+      **The signals are HINTS — not gates.** If the user explicitly asks
+      for something outside the current scope, follow the explicit request.
+
+      ## Active Tuning Scope
+
+      {{activeScope}}
+
+      ## Current Context
+
+      {{currentContext}}
+
+      ---
+      The user says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 800
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Six representative scenarios — pinned BEFORE the collapse so Slice 2 can
+# compare. Each test names its scenario in the description so a failure
+# breadcrumb reads "Scenario 1: Course tuning — voice rubric failed".
+# ─────────────────────────────────────────────────────────────────────────────
+
+tests:
+
+  # ── Scenario 1 — Course tuning ─────────────────────────────────────────────
+
+  - description: "Scenario 1: Course tuning — operator adjusts welcome tone for a course (PLAYBOOK scope)"
+    vars:
+      intentRoutingBlock: |
+        - The user is in a **course-scoped** context. Prefer course-edit tools (`update_playbook_config`, `update_curriculum_module`, …).
+        - The user has the **Course-tuning** scope active. Prefer `update_behavior_target` with `scope: "PLAYBOOK"` for behaviour-shaping requests.
+      activeScope: |
+        **PLAYBOOK (Course)** — every behaviour-target write affects every learner on **IELTS Speaking Prep** (`playbook_id = pb_test_001`).
+      currentContext: |
+        - **playbook:** IELTS Speaking Prep (`id = pb_test_001`)
+        - **domain:** Test Academy (`id = domain_test_001`)
+      userMessage: "Make the welcome message warmer for this course."
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI should EITHER (a) call `update_behavior_target` with `scope: "PLAYBOOK"` and `parameter_id: BEH-WARMTH` (or similar), OR (b) ask a single clarifying question (e.g. "Do you mean BEH-WARMTH or BEH-FORMALITY?" — and explain the trade-off). It MUST NOT make up a parameter id, claim success without a tool call, or write at LEARNER scope (the toggle is PLAYBOOK). Course-level wording like "for everyone on this course" is appropriate.
+      - type: not-icontains
+        value: "Changes Applied Successfully"
+      - type: not-icontains
+        value: 'scope: "LEARNER"'
+
+  # ── Scenario 2 — Learner tuning ────────────────────────────────────────────
+
+  - description: "Scenario 2: Learner tuning — operator adjusts a target for a specific learner (LEARNER scope)"
+    vars:
+      intentRoutingBlock: |
+        - The user is in a **learner-scoped** context. Prefer learner-read tools (`get_caller_detail`, `list_goals_for_caller`).
+        - The user has the **Learner-tuning** scope active. Prefer `update_behavior_target` with `scope: "LEARNER"`.
+      activeScope: |
+        **LEARNER** — every behaviour-target write affects only **Brynn Sandoval** (`caller_id = caller_test_001`).
+      currentContext: |
+        - **caller:** Brynn Sandoval (`id = caller_test_001`)
+        - **playbook:** IELTS Speaking Prep (`id = pb_test_001`)
+      userMessage: "Brynn needs more warmth — bump her up."
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI should EITHER (a) call `update_behavior_target` with `scope: "LEARNER"`, `caller_id: "caller_test_001"`, and `parameter_id: BEH-WARMTH`, OR (b) ask which parameter "warmth" maps to if ambiguous. The change should be at LEARNER scope (matches the toggle). It MUST NOT claim success without a tool call.
+      - type: not-icontains
+        value: "Changes Applied Successfully"
+      - type: not-icontains
+        value: 'scope: "PLAYBOOK"'
+
+  # ── Scenario 3 — Content query ─────────────────────────────────────────────
+
+  - description: "Scenario 3: Content query — operator asks what's in the course curriculum"
+    vars:
+      intentRoutingBlock: |
+        - The user is in a **course-scoped** context. Prefer course-edit tools (`list_curriculum_modules`, `update_curriculum_module`, …).
+      activeScope: |
+        _No scope picked yet._
+      currentContext: |
+        - **playbook:** IELTS Speaking Prep (`id = pb_test_001`)
+      userMessage: "What modules are in this course?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI should call `list_curriculum_modules` with the active playbook id (`pb_test_001`), OR ask whether to use the course in scope. It MUST NOT invent module names or claim a curriculum that doesn't come from a tool result. Asking to confirm the playbook id is acceptable.
+      - type: not-icontains
+        value: "I don't have access"
+      - type: not-icontains
+        value: "Please consult"
+
+  # ── Scenario 4 — Sim prep ──────────────────────────────────────────────────
+
+  - description: "Scenario 4: Sim prep — operator wants to set up a test call"
+    vars:
+      intentRoutingBlock: |
+        - No specific entity is in scope. Use `query_callers` / `query_specs` / `get_domain_info` to find what the user is asking about before making any changes.
+      activeScope: |
+        _No scope picked yet._
+      currentContext: |
+        _No specific entity selected._
+      userMessage: "I want to run a test call to see if the new welcome message lands. How do I do that?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI should explain how to navigate to the sim page (`/x/sim`) or describe the steps to start a sim/test call. It MAY call `query_callers` to suggest who to test as. It MUST NOT invent a caller id or claim a sim is already running.
+      - type: contains-any
+        value: ["sim", "Sim", "test call", "/x/sim"]
+
+  # ── Scenario 5 — Document / spec lookup ────────────────────────────────────
+
+  - description: "Scenario 5: Document lookup — operator asks about a spec or pipeline rule"
+    vars:
+      intentRoutingBlock: |
+        - No specific entity is in scope. Use `query_callers` / `query_specs` / `get_domain_info` to find what the user is asking about before making any changes.
+      activeScope: |
+        _No scope picked yet._
+      currentContext: |
+        _No specific entity selected._
+      userMessage: "What does the ADAPT pipeline stage do?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI should explain ADAPT as the pipeline stage that adjusts behaviour targets based on call evidence (cohort vs learner). It should mention REWARD as the upstream stage and COMPOSE as the downstream consumer. It MAY call `query_specs` to look up specific ADAPT-* specs by name. It MUST NOT claim a per-learner write or any change is being made.
+      - type: contains-any
+        value: ["ADAPT", "adapt", "behaviour target", "behavior target", "pipeline"]
+
+  # ── Scenario 6 — Error recovery (broken course) ───────────────────────────
+
+  - description: "Scenario 6: Error recovery — operator describes a broken course; AI must suggest a diagnosis path"
+    vars:
+      intentRoutingBlock: |
+        - The user is in a **course-scoped** context. Prefer course-edit tools (`get_playbook_config`, `list_curriculum_modules`, …).
+      activeScope: |
+        _No scope picked yet._
+      currentContext: |
+        - **playbook:** IELTS Speaking Prep (`id = pb_test_001`)
+      userMessage: "The voice on this course sounds wrong — like a robot. Can you check what's going on?"
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI should EITHER (a) call `get_voice_config` (or `get_playbook_config`) for this course to look up the active voice provider + voice id, OR (b) describe a diagnosis path (check Voice tab on the course, etc.) before claiming a cause. It MUST NOT name a specific voice provider as the culprit without calling a tool first (the voice-fallback fabrication shape from #1444).
+      - type: not-icontains
+        value: "falls back to HERA"
+      - type: not-icontains
+        value: "falls back to elevenlabs"
