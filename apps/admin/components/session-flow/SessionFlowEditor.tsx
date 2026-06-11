@@ -50,6 +50,14 @@ import {
   formatTrigger,
 } from "./timeline-helpers";
 import { OnboardingEditor } from "@/components/shared/OnboardingEditor";
+import { LayerBadge } from "@/components/cascade/LayerBadge";
+import { CascadeInspectorTray } from "@/components/cascade/CascadeInspectorTray";
+import type { Effective } from "@/lib/cascade/layer-types";
+import {
+  inheritedCaptionFor,
+  badgeAriaLabel,
+  placeholderFor,
+} from "./welcome-cascade";
 import "./session-flow-timeline.css";
 import "./session-flow-editor.css";
 
@@ -991,6 +999,29 @@ function WelcomeMessageDrawer({
   const [text, setText] = useState(current);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [effective, setEffective] = useState<Effective<string | null> | null>(null);
+  const [effectiveError, setEffectiveError] = useState<string | null>(null);
+  const [inspecting, setInspecting] = useState(false);
+
+  // Fetch the cascade envelope on mount so the badge + caption render the
+  // honest source (PLAYBOOK / DOMAIN / SYSTEM). Falls back silently if
+  // the route 4xx/5xx — the textarea still reads from `current`.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/cascade/welcome-message`)
+      .then((r) => r.json())
+      .then((json: { data?: Effective<string | null>; error?: string }) => {
+        if (cancelled) return;
+        if (json.data) setEffective(json.data);
+        else if (json.error) setEffectiveError(json.error);
+      })
+      .catch((e) => {
+        if (!cancelled) setEffectiveError((e as Error).message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
 
   const dirty = text !== current;
   const trimmed = text.trim();
@@ -1013,22 +1044,45 @@ function WelcomeMessageDrawer({
     }
   };
 
+  const inheritedCaption = inheritedCaptionFor(effective);
+  const placeholder = placeholderFor(effective);
+
   return (
     <Drawer title="Welcome message">
       <p className="sfe-drawer-desc">
         First-line greeting the AI uses on the learner&rsquo;s first call. Leave blank to fall back to the domain default or a generic greeting.
       </p>
       <label className="sfe-field">
-        <span className="sfe-field-label">Message</span>
+        <span className="sfe-field-label">
+          <span className="sfe-field-label-text">Message</span>
+          {effective ? (
+            <LayerBadge
+              envelope={effective}
+              hideSubtitle
+              onInspect={() => setInspecting(true)}
+              ariaLabel={`Welcome message source: ${badgeAriaLabel(effective.source)}`}
+            />
+          ) : null}
+        </span>
+        {inheritedCaption ? (
+          <span className="sfe-field-hint" data-testid="hf-welcome-cascade-caption">
+            {inheritedCaption}
+          </span>
+        ) : null}
         <textarea
           className="sfe-textarea"
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
           maxLength={500}
-          placeholder="Welcome to the course! Let's get started…"
+          placeholder={placeholder}
         />
         <span className="sfe-field-hint">{text.length} / 500 characters</span>
+        {effectiveError ? (
+          <span className="sfe-field-hint" data-testid="hf-welcome-cascade-error">
+            Cascade lookup failed: {effectiveError}
+          </span>
+        ) : null}
       </label>
       {err && <div className="sfe-error">Save failed: {err}</div>}
       <footer className="sfe-drawer-footer">
@@ -1036,9 +1090,19 @@ function WelcomeMessageDrawer({
           {saving ? "Saving…" : (trimmed.length === 0 && current.length > 0 ? "Clear message" : "Save message")}
         </button>
       </footer>
+      {inspecting && effective ? (
+        <CascadeInspectorTray
+          knobKey="welcomeMessage"
+          knobLabel="Welcome message"
+          scopeChain={{ playbookId: courseId }}
+          currentEditScope="PLAYBOOK"
+          onClose={() => setInspecting(false)}
+        />
+      ) : null}
     </Drawer>
   );
 }
+
 
 /**
  * Inline editor card. Was originally a fixed sidetray with backdrop and

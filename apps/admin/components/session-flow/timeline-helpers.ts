@@ -8,12 +8,25 @@
 
 import type { JourneyStop, JourneyStopTrigger, SessionFlowResolved } from "@/lib/types/json-fields";
 
-export function sourceLabel(src: SessionFlowResolved["source"]["onboarding"]): string {
+/**
+ * SessionFlowResolved.source uses different per-field vocabularies — the
+ * onboarding cascade lands on `new-shape | playbook-legacy | domain | init001`
+ * while welcomeMessage lands on `playbook | domain | generic`. We accept the
+ * union and label whichever shows up. (Distinct from the cascade-honesty
+ * Layer enum from `lib/cascade/layer-types.ts` — see #1471 risk note.)
+ */
+type SessionFlowSourceTag =
+  | SessionFlowResolved["source"]["onboarding"]
+  | SessionFlowResolved["source"]["welcomeMessage"];
+
+export function sourceLabel(src: SessionFlowSourceTag): string {
   switch (src) {
     case "new-shape": return "course (sessionFlow)";
     case "playbook-legacy": return "course (legacy)";
+    case "playbook": return "course";
     case "domain": return "domain default";
     case "init001": return "system default";
+    case "generic": return "generic fallback";
   }
 }
 
