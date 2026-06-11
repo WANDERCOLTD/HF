@@ -669,3 +669,36 @@
   border-color: var(--accent-primary);
   background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
 }
+
+/* #1504 Slice 2 — one-time history-merged banner.
+   Re-uses the global hf-banner + hf-banner-info tokens; this block only
+   tightens spacing for the chat panel's compact header area. */
+.chat-merge-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.chat-merge-banner-dismiss {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  border-radius: 10px;
+  background: var(--surface-primary);
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.chat-merge-banner-dismiss:hover {
+  color: var(--accent-primary-text);
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+}

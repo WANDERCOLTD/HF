@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T20:38:36.783Z",
+  "generatedAt": "2026-06-11T22:29:28.214Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1665,
-  "edgeCount": 3833,
+  "edgeCount": 3831,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1546,14 +1546,6 @@
     {
       "from": "app/api/chat/system-prompts.ts",
       "to": "lib/chat/bug-context.ts"
-    },
-    {
-      "from": "app/api/chat/system-prompts.ts",
-      "to": "lib/chat/page-feature-catalogue.ts"
-    },
-    {
-      "from": "app/api/chat/system-prompts.ts",
-      "to": "lib/chat/ticket-context.ts"
     },
     {
       "from": "app/api/chat/system-prompts.ts",
@@ -15894,7 +15886,7 @@
     {
       "path": "app/api/chat/system-prompts.ts",
       "inDegree": 1,
-      "outDegree": 11
+      "outDegree": 9
     },
     {
       "path": "app/api/chat/tools.ts",
@@ -20828,7 +20820,7 @@
     },
     {
       "path": "lib/chat/page-feature-catalogue.ts",
-      "inDegree": 3,
+      "inDegree": 2,
       "outDegree": 1
     },
     {
@@ -20843,7 +20835,7 @@
     },
     {
       "path": "lib/chat/ticket-context.ts",
-      "inDegree": 2,
+      "inDegree": 1,
       "outDegree": 1
     },
     {

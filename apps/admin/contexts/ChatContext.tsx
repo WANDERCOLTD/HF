@@ -84,6 +84,16 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 
 const STORAGE_KEY_PREFIX = "hf.chat.history";
 const SETTINGS_KEY_PREFIX = "hf.chat.settings";
+// #1504 Slice 2 — per-user marker that the DATA/TUNING/COURSE_MANAGE histories
+// have been merged into a single DATA stream (the runtime default tab).
+// Idempotent: once set, subsequent loads short-circuit the merge logic and
+// trust that the persisted shape is already collapsed.
+const MIGRATION_FLAG_KEY_PREFIX = "hf.chat.history-migrated.v1504";
+// #1504 Slice 2 — per-user marker that the one-time "history merged" banner
+// has been shown + dismissed. Values: undefined (not yet eligible) | "pending"
+// (set by the migration; ChatPanel renders the banner) | "shown" (user has
+// dismissed; never shows again for this user).
+const MERGED_BANNER_KEY_PREFIX = "hf.chat.history-merged-banner.v1504";
 // Rolling trim, not an expiry. No TTL on chat history — persists until the
 // user clears it explicitly (Clear button in header or /clear command).
 // Matches Slack / ChatGPT / Linear conventions; localStorage cap (~5MB) is
@@ -96,6 +106,14 @@ function getStorageKey(userId: string | undefined): string {
 
 function getSettingsKey(userId: string | undefined): string {
   return userId ? `${SETTINGS_KEY_PREFIX}.${userId}` : SETTINGS_KEY_PREFIX;
+}
+
+function getMigrationFlagKey(userId: string | undefined): string {
+  return userId ? `${MIGRATION_FLAG_KEY_PREFIX}.${userId}` : MIGRATION_FLAG_KEY_PREFIX;
+}
+
+export function getMergedBannerKey(userId: string | undefined): string {
+  return userId ? `${MERGED_BANNER_KEY_PREFIX}.${userId}` : MERGED_BANNER_KEY_PREFIX;
 }
 
 // Mode display configuration
@@ -146,30 +164,128 @@ function createEmptyMessages(): Record<ChatMode, ChatMessage[]> {
   };
 }
 
-function loadPersistedMessages(userId: string | undefined): Record<ChatMode, ChatMessage[]> {
+/**
+ * #1504 Slice 2 — exported for unit tests so the migration shape can be
+ * pinned without going through the full ChatProvider hydration cycle.
+ *
+ * Collapses any legacy per-mode `TUNING` / `COURSE_MANAGE` history arrays
+ * into the canonical `DATA` stream (which is the runtime default mode that
+ * the unified Assistant API path uses for all three collapsed tabs).
+ *
+ * Idempotency: writes a sentinel into `localStorage` under
+ * `getMigrationFlagKey(userId)` on the first successful merge. Subsequent
+ * loads see the sentinel + return the persisted shape unchanged.
+ *
+ * Banner: when the merge actually moves at least one message from a
+ * collapsed bucket into DATA, sets `getMergedBannerKey(userId)` to
+ * `"pending"` so the ChatPanel can render a one-time info banner. If no
+ * legacy messages exist (fresh install / empty buckets), no banner is
+ * triggered — there's nothing to notify the user about.
+ *
+ * Corrupt JSON / unparseable storage → returns empty state (graceful
+ * fallback; never throws). Pre-existing CALL-key migration kept.
+ */
+export function loadPersistedMessages(userId: string | undefined): Record<ChatMode, ChatMessage[]> {
   if (typeof window === "undefined") return createEmptyMessages();
+  // Helper — fired on any no-op return path (no storage / corrupt JSON / wrong
+  // shape) so the per-user migration sentinel is set exactly once and we never
+  // scan the same broken blob on every subsequent load.
+  const markMigratedBestEffort = () => {
+    try {
+      localStorage.setItem(getMigrationFlagKey(userId), "1");
+    } catch {
+      // ignore
+    }
+  };
   try {
     const stored = localStorage.getItem(getStorageKey(userId));
-    if (!stored) return createEmptyMessages();
+    if (!stored) {
+      markMigratedBestEffort();
+      return createEmptyMessages();
+    }
     const parsed = JSON.parse(stored);
-    // Convert timestamp strings back to Date objects
-    for (const mode of Object.keys(parsed) as ChatMode[]) {
-      if (parsed[mode]) {
-        parsed[mode] = parsed[mode].map((msg: ChatMessage) => ({
+    if (!parsed || typeof parsed !== "object") {
+      markMigratedBestEffort();
+      return createEmptyMessages();
+    }
+    // Convert timestamp strings back to Date objects (defensive on every key
+    // we know about, not just the canonical modes).
+    const knownKeys = ["DATA", "TUNING", "COURSE_MANAGE", "DEMO"] as const;
+    for (const key of knownKeys) {
+      const bucket = parsed[key];
+      if (Array.isArray(bucket)) {
+        parsed[key] = bucket.map((msg: ChatMessage) => ({
           ...msg,
           timestamp: new Date(msg.timestamp),
         }));
       }
     }
-    // Ensure all modes exist (handle migration from old storage with CALL)
+
+    const alreadyMigrated = localStorage.getItem(getMigrationFlagKey(userId)) === "1";
+
+    // Ensure all canonical modes exist (handle migration from old storage with CALL).
     const result = createEmptyMessages();
     for (const mode of Object.keys(result) as ChatMode[]) {
-      if (parsed[mode]) {
+      if (Array.isArray(parsed[mode])) {
         result[mode] = parsed[mode];
       }
     }
+
+    // #1504 Slice 2 — one-time collapse. Old shape persisted TUNING +
+    // COURSE_MANAGE as separate arrays; the unified Assistant API path now
+    // talks through DATA. We merge by timestamp so the educator sees one
+    // chronological stream, then mark the user as migrated.
+    if (!alreadyMigrated) {
+      const legacyTuning = Array.isArray(parsed.TUNING) ? (parsed.TUNING as ChatMessage[]) : [];
+      const legacyCourseManage = Array.isArray(parsed.COURSE_MANAGE)
+        ? (parsed.COURSE_MANAGE as ChatMessage[])
+        : [];
+      const hadLegacy = legacyTuning.length + legacyCourseManage.length > 0;
+
+      if (hadLegacy) {
+        // Re-tag the message mode so re-renders + future writes treat them
+        // as DATA-stream entries (avoids state mismatch when the reducer
+        // later filters by `message.mode`).
+        const retag = (m: ChatMessage): ChatMessage => ({ ...m, mode: "DATA" });
+        const merged = [
+          ...result.DATA.map(retag),
+          ...legacyTuning.map(retag),
+          ...legacyCourseManage.map(retag),
+        ].sort((a, b) => {
+          const ta = a.timestamp instanceof Date ? a.timestamp.getTime() : 0;
+          const tb = b.timestamp instanceof Date ? b.timestamp.getTime() : 0;
+          return ta - tb;
+        });
+        result.DATA = merged.slice(-MAX_MESSAGES_PER_MODE);
+        result.TUNING = [];
+        result.COURSE_MANAGE = [];
+
+        try {
+          localStorage.setItem(getMergedBannerKey(userId), "pending");
+        } catch {
+          // ignore — banner is a nice-to-have, not load-bearing
+        }
+      }
+
+      try {
+        localStorage.setItem(getMigrationFlagKey(userId), "1");
+      } catch {
+        // ignore — migration sentinel is best-effort; the merge already
+        // happened in memory and will be re-persisted on the next save.
+      }
+    }
+
     return result;
   } catch {
+    // Corrupt JSON / unparseable storage. Mark as migrated so we don't
+    // re-attempt the merge against the same broken blob on every load.
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(getMigrationFlagKey(userId), "1");
+      }
+    } catch {
+      // ignore
+    }
     return createEmptyMessages();
   }
 }
