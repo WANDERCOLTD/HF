@@ -235,6 +235,40 @@ describe("PendingChangesTray", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows config-saved reassurance when both recompose buttons are disabled (#1442 L4)", async () => {
+    const { findByTestId, findByRole, queryByTestId } = render(
+      <TestHarness
+        setupEntries={(push) => push(nonFanoutEntry({ aiSuggested: true }))}
+      />,
+    );
+    await waitForPreview();
+    // Reassurance block should render — caller is null AND aiSuggested.
+    const block = await findByTestId("hf-pending-tray-config-saved");
+    expect(block).toBeInTheDocument();
+    expect(block.textContent).toMatch(/Course config is already saved/i);
+    expect(block.textContent).toMatch(/next call/i);
+    // CTA pointing to /x/sim/<callerId> rendered when no caller in context.
+    expect(block.textContent).toMatch(/\/x\/sim\/<callerId>/);
+    // Dismiss button is rendered and enabled.
+    const dismiss = await findByRole("button", { name: /Got it/i });
+    expect(dismiss).toBeInTheDocument();
+    expect((dismiss as HTMLButtonElement).disabled).toBe(false);
+    // Reassurance should NOT render when there is a caller in context
+    // (the learner button isn't disabled) — sanity proof of the gate.
+    void queryByTestId; // suppress "unused" if upgraded later
+  });
+
+  it("does NOT show config-saved reassurance when caller-in-context (learner button enabled)", async () => {
+    const { queryByTestId } = render(
+      <TestHarness
+        setupCaller={{ id: "c-1", name: "Mary Smith" }}
+        setupEntries={(push) => push(nonFanoutEntry({ aiSuggested: true }))}
+      />,
+    );
+    await waitForPreview();
+    expect(queryByTestId("hf-pending-tray-config-saved")).toBeNull();
+  });
+
   it("'Recompose entire cohort' is enabled when all entries are non-AI and cohort > 0", async () => {
     const { findByRole } = render(
       <TestHarness
