@@ -26,6 +26,9 @@
 
 import { useEffect, useState } from "react";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { LayerBadge } from "@/components/cascade/LayerBadge";
+import { CascadeInspectorTray } from "@/components/cascade/CascadeInspectorTray";
+import type { Effective } from "@/lib/cascade/layer-types";
 
 interface Call1OverrideSample {
   id: string;
@@ -157,6 +160,13 @@ export function FirstSessionSettings({
   // from `GET /api/courses/[courseId]/design`. Fetched on mount so the
   // panel reflects what compose sees, not just what this panel writes.
   const [behaviorRows, setBehaviorRows] = useState<BehaviorTargetRow[]>([]);
+
+  // #1454 wire-up — knob currently open in the CascadeInspectorTray.
+  // The chip on each row sets this; closing the tray clears it.
+  const [inspecting, setInspecting] = useState<{
+    parameterId: string;
+    label: string;
+  } | null>(null);
   useEffect(() => {
     let alive = true;
     fetch(`/api/courses/${courseId}/design`)
@@ -216,6 +226,36 @@ export function FirstSessionSettings({
   }, [courseId]);
 
   const signpost = readSignpostState(cfg);
+
+  /**
+   * #1454 — Synthesize a chip-ready Effective<number> envelope from a
+   * row we already know is PLAYBOOK-scope. The chip only needs the
+   * winning layer; clicking opens the inspector tray which fetches the
+   * full chain (SYSTEM + DOMAIN + PLAYBOOK + ...) from
+   * `GET /api/cascade/resolve`.
+   */
+  function envelopeFor(
+    parameterId: string,
+    value: number,
+    setAt: string | null,
+  ): Effective<number> {
+    return {
+      value,
+      source: "PLAYBOOK",
+      layers: [
+        {
+          layer: "PLAYBOOK",
+          scopeId: courseId,
+          scopeLabel: "this Course",
+          value,
+          setAt: setAt ? new Date(setAt) : null,
+          setBy: null,
+        },
+      ],
+      isInherited: false,
+      recommendedLayerForEdit: "PLAYBOOK",
+    };
+  }
 
   function addOverride() {
     // Pick the first parameter not already present, or fall back to first option.
@@ -358,6 +398,20 @@ export function FirstSessionSettings({
                   >
                     {row.value.toFixed(2)}
                   </span>
+                  <LayerBadge
+                    envelope={envelopeFor(
+                      row.parameterId,
+                      row.value,
+                      row.updatedAt,
+                    )}
+                    hideSubtitle
+                    onInspect={() =>
+                      setInspecting({
+                        parameterId: row.parameterId,
+                        label: param?.label ?? row.parameterId,
+                      })
+                    }
+                  />
                   <span className="hf-category-label" data-tone="info">
                     Managed via AgentTuner
                   </span>
@@ -406,6 +460,19 @@ export function FirstSessionSettings({
                   className="hf-input"
                 />
                 <span className="hf-text-xs hf-text-muted">{row.value.toFixed(2)}</span>
+                <LayerBadge
+                  envelope={envelopeFor(row.parameterId, row.value, null)}
+                  hideSubtitle
+                  onInspect={() => {
+                    const param = COMMON_BEHAVIOR_PARAMS.find(
+                      (p) => p.id === row.parameterId,
+                    );
+                    setInspecting({
+                      parameterId: row.parameterId,
+                      label: param?.label ?? row.parameterId,
+                    });
+                  }}
+                />
                 <button
                   type="button"
                   className="hf-btn hf-btn-sm hf-btn-destructive"
@@ -492,6 +559,16 @@ export function FirstSessionSettings({
         {success && <span className="hf-text-xs hf-text-success">Saved.</span>}
         {error && <span className="hf-text-xs hf-text-error">{error}</span>}
       </div>
+
+      {inspecting ? (
+        <CascadeInspectorTray
+          knobKey={inspecting.parameterId}
+          knobLabel={inspecting.label}
+          scopeChain={{ playbookId: courseId }}
+          currentEditScope="PLAYBOOK"
+          onClose={() => setInspecting(null)}
+        />
+      ) : null}
     </div>
   );
 }
