@@ -400,10 +400,10 @@ describe("executeWizardTool / create_course (reuse path — #607 invariant)", ()
       "subj-1",
     );
     // Critical: updatePlaybookConfig fired with reason carrying reuse-path label.
-    expect(mockUpdatePlaybookConfig).toHaveBeenCalled();
-    const call = mockUpdatePlaybookConfig.mock.calls[0];
-    expect(call[0]).toBe(draftPbId);
-    const opts = call[2] as { reason: string };
-    expect(opts.reason).toMatch(/existing path/);
+    expect(mockUpdatePlaybookConfig).toHaveBeenCalledWith(
+      draftPbId,
+      expect.any(Function),
+      expect.objectContaining({ reason: expect.stringContaining("existing path") }),
+    );
   });
 });
