@@ -119,6 +119,14 @@ SH
 bash /tmp/mmm-cleanup.sh
 ```
 
+Then sweep agent worktrees (sub-agent zombies under `.claude/worktrees/agent-*`). These accumulate GB-fast because productive agents always leave their worktree behind, and the session-cleanup above intentionally skips them:
+
+```bash
+bash scripts/cleanup-agent-worktrees.sh
+```
+
+The script keeps `main`, OPEN PRs, and no-PR branches; only removes MERGED/CLOSED.
+
 If `gh` is offline, fall back to the old ancestry check and surface a note that the result may be incomplete. Do not skip the cleanup step silently.
 
 If the user previously denied worktree-remove permission, surface the worktree list with a one-line "remove these manually?" prompt and stop.
