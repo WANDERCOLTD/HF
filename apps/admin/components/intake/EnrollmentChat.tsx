@@ -186,8 +186,10 @@ export function EnrollmentChat({
       const res = await fetch("/api/intake/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        // HF-D P1 #3 (issue #1542): intentId travels as the
+        // `__hf_intake_sid` cookie set by /api/intake/bootstrap. The
+        // same-origin fetch sends it automatically.
         body: JSON.stringify({
-          intentId: boot.intentId,
           chatSessionId: boot.chatSessionId,
           message,
         }),
@@ -245,14 +247,12 @@ export function EnrollmentChat({
           noticeText={ART13_NOTICE_BODY}
           onReadSignal={(signal) => {
             // Fire-and-forget — SIGNAL not gate. Best-effort POST;
-            // failure does not block enrolment progress.
+            // failure does not block enrolment progress. HF-D P1 #3:
+            // intentId travels as the `__hf_intake_sid` cookie.
             void fetch("/api/intake/disclosure-signal", {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                intentId: boot.intentId,
-                signal,
-              }),
+              body: JSON.stringify({ signal }),
             }).catch(() => {});
           }}
         />
@@ -262,7 +262,6 @@ export function EnrollmentChat({
             event-chips only; the actual notice text must be surfaced
             here for the read-signal to mean anything. */}
         <DisclosureNoticeCard
-          intentId={boot.intentId}
           chatSessionId={boot.chatSessionId}
           requirementId={ART13_REQUIREMENT_ID}
           body={ART13_NOTICE_BODY}
@@ -270,8 +269,9 @@ export function EnrollmentChat({
           onAcknowledged={() => {
             // Optimistic refresh — re-fetch the snapshot via the next
             // chat turn or by re-bootstrapping the events. Cheapest:
-            // refetch session events directly.
-            void fetch(`/api/intake/session/${encodeURIComponent(boot.intentId)}`)
+            // refetch session events directly. HF-D P1 #3: bearer is
+            // the `__hf_intake_sid` cookie, no URL path param.
+            void fetch("/api/intake/session")
               .then((r) => r.json())
               .then((data) => {
                 setBoot((b) => (b ? { ...b, events: rehydrateEvents(data.events) } : b));
@@ -291,21 +291,17 @@ export function EnrollmentChat({
             void fetch("/api/intake/disclosure-signal", {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                intentId: boot.intentId,
-                signal,
-              }),
+              body: JSON.stringify({ signal }),
             }).catch(() => {});
           }}
         />
         <DisclosureNoticeCard
-          intentId={boot.intentId}
           chatSessionId={boot.chatSessionId}
           requirementId={ART50_REQUIREMENT_ID}
           body={ART50_NOTICE_BODY}
           acknowledged={hasAcknowledgement(boot.events, ART50_REQUIREMENT_ID)}
           onAcknowledged={() => {
-            void fetch(`/api/intake/session/${encodeURIComponent(boot.intentId)}`)
+            void fetch("/api/intake/session")
               .then((r) => r.json())
               .then((data) => {
                 setBoot((b) => (b ? { ...b, events: rehydrateEvents(data.events) } : b));
@@ -436,7 +432,6 @@ function ValuesPanel({ values }: { values: Readonly<Record<string, unknown>> }) 
 }
 
 interface DisclosureNoticeCardProps {
-  readonly intentId: string;
   readonly chatSessionId: string;
   readonly requirementId: string;
   readonly body: string;
@@ -445,7 +440,6 @@ interface DisclosureNoticeCardProps {
 }
 
 function DisclosureNoticeCard({
-  intentId,
   chatSessionId,
   requirementId,
   body,
@@ -463,7 +457,8 @@ function DisclosureNoticeCard({
       const res = await fetch("/api/intake/disclosure-acknowledge", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ intentId, chatSessionId, requirementId }),
+        // HF-D P1 #3: intentId travels as the `__hf_intake_sid` cookie.
+        body: JSON.stringify({ chatSessionId, requirementId }),
       });
       if (!res.ok) {
         const text = await res.text().catch(() => `${res.status}`);

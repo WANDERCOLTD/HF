@@ -40,22 +40,26 @@ const PUBLIC_ROUTES = new Set([
   "app/api/voice/[slug]/webhook/route.ts",           // Canonical voice route (webhook-secret auth, #1079)
   "app/api/join/[token]/route.ts",           // Public magic join link (token-based, no session)
 
-  // ── Intake surface (audit HF-D, 2026-06-11) — REVIEWED public exemptions ──
+  // ── Intake surface (audit HF-D P1 #3, 2026-06-12 — issue #1542) — REVIEWED public exemptions ──
   // The EnrollmentIntake surface is pre-auth by design: a learner has no session
-  // yet. Each route uses the random `intentId` as a bearer/capability token and
-  // 404s when the session isn't found. SECURITY NOTE: session + audit-bundle return
-  // PII keyed only by intentId — that intentId-as-bearer posture for PII is worth a
-  // dedicated security review (tracked as an HF-D follow-up), but it is an EXISTING,
-  // intentional posture, not a missing-auth regression — so it is exempted here so
-  // the coverage gate can be re-enabled.
-  "app/api/intake/bootstrap/route.ts",              // anonymous intake entry (resolveTenantCtx)
-  "app/api/intake/v2/start/route.ts",               // anonymous intake entry (v2)
-  "app/api/intake/chat/route.ts",                   // intentId-as-bearer
-  "app/api/intake/session/[intentId]/route.ts",     // intentId-as-bearer; 404 on miss
-  "app/api/intake/audit-bundle/route.ts",           // intentId-as-bearer
-  "app/api/intake/audit-bundle/[intentId]/route.ts", // intentId-as-bearer; 404 on miss
-  "app/api/intake/disclosure-acknowledge/route.ts", // intentId-as-bearer (#1048)
-  "app/api/intake/disclosure-signal/route.ts",      // server-derives disclosureId (#1048)
+  // yet. Each route uses the `__hf_intake_sid` httpOnly + SameSite=Strict + Secure
+  // cookie (`lib/intake/intake-session-cookie.ts`) as the bearer; routes return
+  // 401 when the cookie is missing and 410 when the cookie's intentId points at an
+  // evicted in-memory session. Bootstrap mints the cookie; the rest read it. The
+  // two `[intentId]` path-param routes are 410-tombstone stubs so stale bookmarks
+  // surface a clear removal message. SECURITY NOTE: this is the cookie-bearer
+  // structural fix for the HF-D audit's URL-as-bearer posture; rate-limit + filename
+  // redaction stay in place as defence-in-depth.
+  "app/api/intake/bootstrap/route.ts",                       // anonymous intake entry (resolveTenantCtx) — Sets __hf_intake_sid
+  "app/api/intake/v2/start/route.ts",                        // anonymous intake entry (v2) — mints NextAuth session, not intake-sid
+  "app/api/intake/chat/route.ts",                            // cookie-bearer (__hf_intake_sid)
+  "app/api/intake/session/route.ts",                         // cookie-bearer (__hf_intake_sid); 401 on miss, 410 on evicted
+  "app/api/intake/session/[intentId]/route.ts",              // 410 Gone tombstone (HF-D P1 #3 removal)
+  "app/api/intake/audit-bundle/route.ts",                    // cookie-bearer (__hf_intake_sid)
+  "app/api/intake/audit-bundle/download/route.ts",           // cookie-bearer (__hf_intake_sid) — JSONL stream replacement
+  "app/api/intake/audit-bundle/[intentId]/route.ts",         // 410 Gone tombstone (HF-D P1 #3 removal)
+  "app/api/intake/disclosure-acknowledge/route.ts",          // cookie-bearer (__hf_intake_sid) (#1048)
+  "app/api/intake/disclosure-signal/route.ts",               // cookie-bearer (__hf_intake_sid); server-derives disclosureId (#1048)
 
   // ── Alternate-auth machine routes (audit HF-D) — not session-based ──
   "app/api/media/[id]/public/route.ts",             // HMAC token, timing-safe compare

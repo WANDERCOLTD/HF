@@ -24,6 +24,7 @@ import {
   PURPOSE,
   type IntakeSession,
 } from "@/lib/intake/session-store";
+import { readIntakeSid } from "@/lib/intake/intake-session-cookie";
 import { getIntakeAIPort } from "@/lib/intake/hf-adapter/ai";
 import {
   applyUpdateSetup,
@@ -47,8 +48,10 @@ import type {
 
 export const dynamic = "force-dynamic";
 
+// HF-D P1 #3 (issue #1542): `intentId` removed from the body schema —
+// it now travels as the `__hf_intake_sid` cookie. The chat-session
+// identifier (browser-scoped, not a bearer) and message stay.
 const BodySchema = z.object({
-  intentId: z.string().min(1),
   chatSessionId: z.string().min(1).max(120),
   message: z.string().min(1).max(2000),
 });
@@ -90,14 +93,29 @@ interface CapturedField {
 }
 
 export async function POST(req: NextRequest) {
+  const intentId = readIntakeSid(req);
+  if (!intentId) {
+    return NextResponse.json(
+      { error: "no_intake_session", message: "No in-flight intake session." },
+      { status: 401 },
+    );
+  }
   let body: z.infer<typeof BodySchema>;
   try {
     body = BodySchema.parse(await req.json());
   } catch {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
-  const session = getSession(body.intentId as IntentId);
-  if (!session) return NextResponse.json({ error: "session not found" }, { status: 404 });
+  const session = getSession(intentId as IntentId);
+  if (!session) {
+    return NextResponse.json(
+      {
+        error: "session_expired",
+        message: "Your session has expired. Please restart the intake flow.",
+      },
+      { status: 410 },
+    );
+  }
 
   const subjectId = `intake-subject-${body.chatSessionId}` as SubjectId;
   const userMessage = body.message.trim();
@@ -201,10 +219,17 @@ export async function POST(req: NextRequest) {
     // captured fields on to /join/[token] when a token is present
     // (preserving the existing join flow); the platform-level demo
     // path (no token) stops at /intake/done with bundle download.
-    const doneParams = new URLSearchParams({ intentId: session.intentId });
+    //
+    // HF-D P1 #3 (issue #1542): the intentId no longer travels via
+    // the URL — the `__hf_intake_sid` cookie already carries it and
+    // the recap page reads it back via GET /api/intake/session. The
+    // optional `?token=` carries the classroom-link round-trip so the
+    // recap can render the Continue-to-course CTA.
+    const doneParams = new URLSearchParams();
     const classroomToken = session.values.classroomToken as string | undefined;
     if (classroomToken) doneParams.set("token", classroomToken);
-    redirectUrl = `/intake/done?${doneParams.toString()}`;
+    const qs = doneParams.toString();
+    redirectUrl = qs ? `/intake/done?${qs}` : "/intake/done";
   }
 
   return NextResponse.json({
