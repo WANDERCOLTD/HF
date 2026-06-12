@@ -32,6 +32,28 @@ Most acutely: composed-prompt regressions ("the recap renders garbage"),
 caller-state bugs ("Bertie's voice is wrong"), pipeline silent-skip bugs,
 and anything described as "sometimes happens".
 
+### Conditional story activation is also a fix trigger
+
+Conditional story activation — opening a story because a canary FAILed, an
+audit probe returned a finding, or an automated check flipped red — is a fix
+trigger and must satisfy the same evidence bar as a fix PR. The activation
+PR body MUST include a `## Verified by` section with a live citation (SQL
+query result, log subject line, curl probe, or DB row count) — not only a
+test output. A test output may reflect a timeout, fixture gap, mocking
+artifact, or environment skew, any of which are indistinguishable from a
+real failure at the issue-filing step.
+
+This is the lesson of #1515: PR #1525 declared G9 (CallerMemory zero-writes)
+a real failure based on a canary run under a 10s timeout — the pipeline
+never completed, so `learn.memories = 0` was a fixture artifact, not live
+data. Story #1515 was activated and required two follow-on docs-audit PRs
+(#1527 + #1528) to close by disproving the premise on live SQL that took
+under a minute to run.
+
+The rule: if you are about to file or activate a story from an automated
+verdict, run the live probe FIRST. If the probe contradicts the test output,
+close the activation with the evidence; do not open the story.
+
 ## Required Evidence Forms
 
 | Evidence type | When to use | Example |
@@ -61,8 +83,9 @@ const result = await prisma.composedPrompt.findFirst({
 | Location | Mechanism | What it prevents |
 |---|---|---|
 | `scripts/gh-pr-create.sh` | Wraps `gh pr create`; rejects PRs whose body lacks a `## Verified by` section with concrete evidence | Shipping a fix-story without a citation (the #1406 fingerprint) |
-| `docs/kb/guard-registry.md#guard-verify-before-fix` | Catalogue entry | Discoverability — every guard points back at its row |
+| `docs/kb/guard-registry.md#guard-verify-before-fix` | Catalogue entry — covers both fix PRs and conditional story activation | Discoverability — every guard points back at its row |
 | `memory/feedback_verify_before_fix_misread_2026_06_09.md` | Operator memory | The original incident + the rule it produced |
+| Convention (no code gate today) | Conditional story activation PR body MUST carry `## Verified by` with a live citation — see #1515 / #1525 / #1527 / #1528 chain | Opening a story from a timed-out canary or fixture-broken probe (the #1515 fingerprint) |
 
 ## When NOT to apply
 
