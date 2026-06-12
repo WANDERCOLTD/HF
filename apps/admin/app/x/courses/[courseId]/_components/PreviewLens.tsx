@@ -27,7 +27,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Eye, RefreshCw, FileSearch, AlertCircle, Edit3, X, Star, StickyNote, Trash2 } from "lucide-react";
+import { Eye, RefreshCw, FileSearch, AlertCircle, Edit3, X, Star, Clapperboard, Trash2 } from "lucide-react";
+import { useChatContext } from "@/contexts/ChatContext";
 import {
   SessionFlowEditor,
   type SessionFlowLens,
@@ -129,6 +130,7 @@ const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
 };
 
 export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement {
+  const { demoAnnotationsVisible } = useChatContext();
   const [mode, setMode] = useState<ViewMode>("educator");
   const [flow, setFlow] = useState<SessionFlowResp | null>(null);
   const [dryRun, setDryRun] = useState<DryRunResp | null>(null);
@@ -241,11 +243,17 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
   // R1 mitigation — warn when stored bubbleRefs don't match any current
   // bubble. The annotation isn't lost (it's still persisted) but the
   // sticky note silently detaches; the warning surfaces the divergence.
+  //
+  // Visibility honours the Demo-tab Eye/EyeOff toggle from ChatContext:
+  // when off, the map is empty so no sticky notes render and the
+  // bubble's "Add demo note" affordance stays available for editing
+  // (clicking it still opens the editor — operator can re-show after).
   const annotationsByRef = useMemo(() => {
     const map = new Map<string, DemoAnnotation>();
+    if (!demoAnnotationsVisible) return map;
     for (const a of demoScript.annotations) map.set(a.bubbleRef, a);
     return map;
-  }, [demoScript]);
+  }, [demoScript, demoAnnotationsVisible]);
 
   const transcriptRefs = useMemo(() => {
     const set = new Set<string>();
@@ -811,42 +819,46 @@ function BubbleRow({
       {bubble.caption && (
         <div className="hf-preview-bubble-caption">{bubble.caption}</div>
       )}
-      {/* #1493 — primary click opens the demo annotation editor.
-          The lens-edit affordance lives below the bubble as a separate row. */}
-      <button
-        type="button"
-        className={bubbleClasses}
-        title={annotateLabel}
-        aria-label={annotateLabel}
-        onClick={() => onOpenAnnotation(bubbleRef)}
-      >
-        <span className="hf-preview-bubble-text">{bubble.text}</span>
-        <span className="hf-preview-bubble-edit">
-          <StickyNote size={11} />
-          <span>{annotation ? "Edit demo note" : "Add demo note"}</span>
-        </span>
-      </button>
+      {/* Primary click = edit the lens (the educator's main job).
+          Secondary row below carries the demo-note affordance (presenter use). */}
+      {inSidetray ? (
+        <button
+          type="button"
+          className={bubbleClasses}
+          title={bubble.lensLabel}
+          aria-label={bubble.lensLabel}
+          onClick={() => onOpenSidetray(bubble.lens)}
+        >
+          <span className="hf-preview-bubble-text">{bubble.text}</span>
+          <span className="hf-preview-bubble-edit">
+            <Edit3 size={11} />
+            <span>{bubble.lensLabel}</span>
+          </span>
+        </button>
+      ) : (
+        <Link
+          href={`/x/courses/${courseId}?tab=design&design_view=${bubble.lens}`}
+          className={bubbleClasses}
+          title={bubble.lensLabel}
+          aria-label={bubble.lensLabel}
+        >
+          <span className="hf-preview-bubble-text">{bubble.text}</span>
+          <span className="hf-preview-bubble-edit">
+            <Edit3 size={11} />
+            <span>{bubble.lensLabel}</span>
+          </span>
+        </Link>
+      )}
       <div className="hf-preview-bubble-lens-actions">
-        {inSidetray ? (
-          <button
-            type="button"
-            className="hf-preview-bubble-lens-link"
-            onClick={() => onOpenSidetray(bubble.lens)}
-            title={bubble.lensLabel}
-          >
-            <Edit3 size={11} />
-            <span>{bubble.lensLabel}</span>
-          </button>
-        ) : (
-          <Link
-            href={`/x/courses/${courseId}?tab=design&design_view=${bubble.lens}`}
-            className="hf-preview-bubble-lens-link"
-            title={bubble.lensLabel}
-          >
-            <Edit3 size={11} />
-            <span>{bubble.lensLabel}</span>
-          </Link>
-        )}
+        <button
+          type="button"
+          className="hf-preview-bubble-lens-link"
+          onClick={() => onOpenAnnotation(bubbleRef)}
+          title={annotateLabel}
+        >
+          <Clapperboard size={11} />
+          <span>{annotation ? "Edit demo note" : "Add demo note"}</span>
+        </button>
       </div>
       {annotation && (
         <AnnotationStickyNote
@@ -1015,7 +1027,7 @@ function AnnotationEditSidetray({
       >
         <header className="hf-preview-annotation-sidetray-header">
           <h2>
-            <StickyNote size={14} aria-hidden />
+            <Clapperboard size={14} aria-hidden />
             <span>{existing ? "Edit demo annotation" : "Add demo annotation"}</span>
           </h2>
           <button
