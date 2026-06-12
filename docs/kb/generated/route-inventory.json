@@ -1,23 +1,23 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-12T09:26:35.519Z",
+  "generatedAt": "2026-06-12T12:25:52.479Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
     "routeCount": 511,
     "byAuthLevel": {
-      "VIEWER": 112,
+      "VIEWER": 113,
       "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
-      "OPERATOR": 141,
+      "OPERATOR": 130,
       "OPERATOR+VIEWER": 8,
-      "VIEWER+OPERATOR": 56,
-      "auth-gate(non-role)": 54,
-      "VIEWER+OPERATOR+ADMIN": 3,
+      "VIEWER+OPERATOR": 67,
+      "auth-gate(non-role)": 53,
+      "VIEWER+OPERATOR+ADMIN": 4,
       "<none>": 29,
-      "OPERATOR+ADMIN": 5,
       "VIEWER+STUDENT": 1,
+      "OPERATOR+ADMIN": 4,
       "TESTER": 1,
       "EDUCATOR": 1,
       "SUPERADMIN+ADMIN": 1,
@@ -1210,6 +1210,7 @@
         "DELETE"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR",
         "ADMIN"
       ],
@@ -1336,6 +1337,7 @@
         "PATCH"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1378,6 +1380,7 @@
         "GET"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1459,6 +1462,7 @@
         "DELETE"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1501,6 +1505,7 @@
         "POST"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1701,6 +1706,7 @@
         "GET"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1721,6 +1727,7 @@
         "POST"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1761,6 +1768,7 @@
         "GET"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1839,6 +1847,7 @@
         "GET"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1859,6 +1868,7 @@
         "POST"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -1879,6 +1889,7 @@
         "PATCH"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -2460,6 +2471,7 @@
         "DELETE"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "hasAuthGate": true,
@@ -5129,7 +5141,9 @@
       "methods": [
         "DELETE"
       ],
-      "authLevels": [],
+      "authLevels": [
+        "VIEWER"
+      ],
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,

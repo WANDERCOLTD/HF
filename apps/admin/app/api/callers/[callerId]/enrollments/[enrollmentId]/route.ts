@@ -1,3 +1,10 @@
+/* eslint-disable hf-security/no-unscoped-caller-id-route --
+ * HF-M.2 rule audit: handler is OPERATOR-only at the auth gate; STUDENT cannot
+ * reach. The studentAllowedToReadCaller guard would be a no-op here; the
+ * disable + this comment is the documented trust chain. If the auth gate
+ * ever loosens to admit STUDENT (e.g. requireAuth("VIEWER")), remove this
+ * disable AND add the guard call.
+ */
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";

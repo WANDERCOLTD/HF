@@ -1,6 +1,6 @@
 {
   "$schema": "operator-surfaces/v1",
-  "generatedAt": "2026-06-12T09:26:39.766Z",
+  "generatedAt": "2026-06-12T12:25:54.018Z",
   "generator": "scripts/capture/operator-surfaces.ts",
   "note": "Tier-2 generated KB. Only routes tagged @operator-surface yes. Do not hand-edit — re-run the generator (npm run kb:operator-surfaces).",
   "surfaces": [
@@ -25,6 +25,7 @@
         "GET"
       ],
       "authLevels": [
+        "VIEWER",
         "OPERATOR"
       ],
       "description": "Returns the full voice-config cascade explanation for one",

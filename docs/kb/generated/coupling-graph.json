@@ -1,9 +1,9 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-12T09:26:38.925Z",
+  "generatedAt": "2026-06-12T12:25:53.163Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1669,
+  "fileCount": 1670,
   "edgeCount": 3860,
   "skippedEdges": 1,
   "edges": [
@@ -23401,6 +23401,11 @@
     },
     {
       "path": "scripts/capture/check-knip-ratchet.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/check-npm-audit-ratchet.ts",
       "inDegree": 0,
       "outDegree": 0
     },

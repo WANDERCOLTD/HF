@@ -388,6 +388,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* Prevent flash of wrong theme on initial load */}
+        {/* SECURITY: themeInitScript is a static string literal assembled at
+            build time from THEME_COLORS constants — never user input. The
+            `dangerouslySetInnerHTML` is required so Next.js doesn't escape
+            the JS source. Audit HF-O/HF-P, "what other checks" sweep. */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {/* PWA manifest and mobile meta tags */}
         <link rel="manifest" href="/manifest.json" />

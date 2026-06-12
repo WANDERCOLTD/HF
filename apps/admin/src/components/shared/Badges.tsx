@@ -252,7 +252,8 @@ function MiniSpinner({ tone }: { tone: BadgeTone }) {
 export function BadgeGlobalStyles() {
   return (
     <style
-       
+      // SECURITY: inline <style> body is a static CSS keyframes string literal
+      // — no external input flows in. Audit HF-O/HF-P, "what other checks" sweep.
       dangerouslySetInnerHTML={{
         __html: `@keyframes hfDotPulse { 0% { box-shadow: 0 0 0 0 rgba(0,0,0,0); } 70% { box-shadow: 0 0 0 6px rgba(0,0,0,0); } 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); } }`,
       }}

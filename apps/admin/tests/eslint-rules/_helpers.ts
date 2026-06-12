@@ -54,6 +54,7 @@ const PROBE_FILENAMES = [
   "/repo/apps/admin/lib/chat/conversational-wizard-tools.ts",        // no-ai-fanout-all (alt)
   "/repo/apps/admin/lib/chat/admin-tool-handlers.ts",                // no-ai-fanout-all (alt)
   "/repo/apps/admin/app/api/chat/route.ts",                          // no-ai-fanout-all (alt)
+  "/repo/apps/admin/app/api/callers/[callerId]/snapshot/route.ts",   // no-unscoped-caller-id-route (HF-M.2)
   "/repo/apps/admin/lib/prompt/composition/transforms/quickstart.ts", // no-hardcoded-greeting / no-orphan-instruction-fallback
   "/repo/apps/admin/app/api/intake/bootstrap/route.ts",              // no-ops-import-from-api
   "/repo/apps/admin/lib/voice/route-handlers.ts",                    // no-hardcoded-greeting (alt)

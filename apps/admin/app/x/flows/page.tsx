@@ -329,6 +329,9 @@ function PipelineLiveView() {
                           gap: 10,
                         }}
                       >
+                        {/* SECURITY: stageIcon returns one of 7 hardcoded numeric HTML
+                            entities (e.g. `&#128269;`) — see L142-L153. `stage.name` is
+                            the lookup KEY, never the value. Audit HF-P. */}
                         <span style={{ fontSize: 18 }} dangerouslySetInnerHTML={{ __html: stageIcon(stage.name) }} />
                         <div style={{ flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

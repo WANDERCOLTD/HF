@@ -18,6 +18,8 @@ import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
+import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
+import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -191,6 +193,8 @@ const eslintConfig = defineConfig([
       "hf-security": {
         rules: {
           "no-secrets-in-client": noSecretsInClient,
+          "no-unscoped-caller-id-route": noUnscopedCallerIdRoute,
+          "require-html-safety-comment": requireHtmlSafetyComment,
         },
       },
       // Audit HF-I (2026-06-11) — block hardcoded spec-slug literals in runtime
@@ -249,6 +253,26 @@ const eslintConfig = defineConfig([
       // a documented eslint-disable; any NEW secret literal in a client file
       // fails CI.
       "hf-security/no-secrets-in-client": "error",
+
+      // Audit HF-M.2 (2026-06-12) — Block [callerId] route files that have an
+      // HTTP handler but don't call studentAllowedToReadCaller() or
+      // resolveCallerScopeForReading(). Locks in the HF-M IDOR sweep from
+      // commit 0de21b02 so the next [callerId] route can't land without the
+      // STUDENT-scope guard. Severity `error` from day 1 — all 26 existing
+      // routes were patched in the same commit, so 0 violations at activation.
+      // See docs/audit/HF-M-evidence-path-param-idor.md.
+      "hf-security/no-unscoped-caller-id-route": "error",
+
+      // Audit HF-O/HF-P (2026-06-12) — every `dangerouslySetInnerHTML` site
+      // must carry either a `// SECURITY:` annotation documenting why the
+      // input is trusted, OR import / call an in-scope sanitizer (DOMPurify,
+      // escapeHtml, sanitize, …). Severity `error` from day 1 — the 4 existing
+      // sites all satisfy the rule (HF-P stageIcon has the SECURITY comment;
+      // HF-O DemoStepRenderer uses escapeHtml; the theme script + the
+      // RunInspector inline style are server-built constants with the
+      // annotation pattern). The fix-it for new sites is documented in the
+      // rule's failure message. Prevents the next latent-XSS landing.
+      "hf-security/require-html-safety-comment": "error",
 
       // Audit HF-I sweep (2026-06-11) — landed as DORMANT in 843bcf3a after the two
       // live bugs (GOAL-001 write → config.specs.goal; TUT-001 match →
