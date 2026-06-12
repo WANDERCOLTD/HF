@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T23:14:03.723Z",
+  "generatedAt": "2026-06-12T09:57:38.801Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1665,
-  "edgeCount": 3831,
+  "fileCount": 1667,
+  "edgeCount": 3837,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1278,6 +1278,10 @@
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/pipeline/adapt-runner.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pipeline/route.ts",
+      "to": "lib/pipeline/adaptive-loop-invariants.ts"
     },
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
@@ -9228,6 +9232,18 @@
       "to": "lib/auth.ts"
     },
     {
+      "from": "app/x/help/pipeline-health/page.tsx",
+      "to": "lib/auth.ts"
+    },
+    {
+      "from": "app/x/help/pipeline-health/page.tsx",
+      "to": "lib/pipeline/adaptive-loop-invariants.ts"
+    },
+    {
+      "from": "app/x/help/pipeline-health/page.tsx",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "app/x/help/telemetry/page.tsx",
       "to": "lib/auth.ts"
     },
@@ -12952,6 +12968,14 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/pipeline/adaptive-loop-invariants.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/pipeline/adaptive-loop-invariants.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "lib/pipeline/aggregate-runner.ts",
       "to": "lib/contracts/registry.ts"
     },
@@ -15841,7 +15865,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 46
+      "outDegree": 47
     },
     {
       "path": "app/api/calls/[callId]/route.ts",
@@ -18969,6 +18993,11 @@
       "outDegree": 3
     },
     {
+      "path": "app/x/help/pipeline-health/page.tsx",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
       "path": "app/x/help/telemetry/page.tsx",
       "inDegree": 0,
       "outDegree": 2
@@ -20575,7 +20604,7 @@
     },
     {
       "path": "lib/auth.ts",
-      "inDegree": 9,
+      "inDegree": 10,
       "outDegree": 3
     },
     {
@@ -21925,7 +21954,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 22,
+      "inDegree": 23,
       "outDegree": 3
     },
     {
@@ -22059,6 +22088,11 @@
       "outDegree": 3
     },
     {
+      "path": "lib/pipeline/adaptive-loop-invariants.ts",
+      "inDegree": 2,
+      "outDegree": 2
+    },
+    {
       "path": "lib/pipeline/aggregate-runner.ts",
       "inDegree": 3,
       "outDegree": 4
@@ -22170,7 +22204,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 615,
+      "inDegree": 617,
       "outDegree": 0
     },
     {
@@ -23662,7 +23696,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 615,
+      "inDegree": 617,
       "outDegree": 0
     },
     {
@@ -23693,7 +23727,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 46
+      "outDegree": 47
     },
     {
       "path": "app/x/courses/[courseId]/page.tsx",
@@ -23751,14 +23785,14 @@
       "outDegree": 2
     },
     {
+      "path": "lib/logger.ts",
+      "inDegree": 23,
+      "outDegree": 3
+    },
+    {
       "path": "lib/access-control.ts",
       "inDegree": 23,
       "outDegree": 2
-    },
-    {
-      "path": "lib/ai/client.ts",
-      "inDegree": 22,
-      "outDegree": 3
     }
   ]
 }
