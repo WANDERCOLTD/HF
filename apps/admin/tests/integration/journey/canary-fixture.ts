@@ -188,6 +188,7 @@ export async function bootstrapCanaryFixture(
         title: "Canary Module — Part 1: Familiar Topics",
         sortOrder: 0,
         keyTerms: ["work", "study", "hometown", "hobbies"],
+        coversModules: [],
       },
     });
   }
@@ -310,6 +311,9 @@ export async function cleanupCanaryFixture(
     await prisma.callerModuleProgress.deleteMany({
       where: { callerId: caller.id },
     });
+    await prisma.personalityObservation.deleteMany({ where: { callerId: caller.id } });
+    await prisma.behaviorMeasurement.deleteMany({ where: { call: { callerId: caller.id } } });
+    await prisma.callTarget.deleteMany({ where: { call: { callerId: caller.id } } });
     await prisma.call.deleteMany({ where: { callerId: caller.id } });
     await prisma.caller.delete({ where: { id: caller.id } }).catch(() => {});
   }
