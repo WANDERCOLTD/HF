@@ -178,7 +178,7 @@ afterAll(async () => {
 });
 
 describe("#1514 Adaptive Loop canary — proves the chain closes", () => {
-  it("real-engine call: EXTRACT → MEMORIES → AGGREGATE → CallerTarget → COMPOSE", async () => {
+  it("real-engine call: EXTRACT → MEMORIES → AGGREGATE → CallerTarget → COMPOSE", { timeout: 180_000 }, async () => {
     if (!canRun || !fixture) {
       recordGate(
         "preflight",

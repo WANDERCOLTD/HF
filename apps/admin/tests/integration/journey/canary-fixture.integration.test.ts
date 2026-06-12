@@ -169,4 +169,141 @@ describe("#1514 canary fixture — self-tests", () => {
     // And a workplace hook that any reasonable extractor will catch.
     expect(CANARY_TRANSCRIPT).toMatch(/I work at/);
   });
+
+  // ── #1516 — per-playbook skill-measure spec seeding ──────────────────
+  describe("#1516 G2 — skill-measure spec wiring", () => {
+    it("seeds the skill-measure-<canary> AnalysisSpec with 4 MEASURE actions targeting skill_* parameters", async () => {
+      const fx = await bootstrapCanaryFixture(prisma);
+
+      const spec = await prisma.analysisSpec.findUnique({
+        where: { slug: `skill-measure-${CANARY_PREFIX}` },
+        select: {
+          id: true,
+          outputType: true,
+          specType: true,
+          isActive: true,
+          isDirty: true,
+          triggers: {
+            select: {
+              id: true,
+              actions: {
+                select: { parameterId: true, weight: true },
+              },
+            },
+          },
+        },
+      });
+
+      expect(spec).not.toBeNull();
+      expect(spec!.outputType).toBe("MEASURE");
+      expect(spec!.specType).toBe("DOMAIN");
+      expect(spec!.isActive).toBe(true);
+      // spec-loader at `lib/pipeline/specs-loader.ts` filters on
+      // `isDirty: false`. If this assertion ever flips, the spec stops
+      // loading and the canary's G2 gate regresses silently.
+      expect(spec!.isDirty).toBe(false);
+
+      // Exactly 1 trigger, 4 actions — one per canonical IELTS skill.
+      expect(spec!.triggers).toHaveLength(1);
+      const actionParams = spec!.triggers[0]!.actions
+        .map((a) => a.parameterId)
+        .sort();
+      expect(actionParams).toEqual(
+        [
+          "skill_fluency_and_coherence_fc",
+          "skill_grammatical_range_and_accuracy_gra",
+          "skill_lexical_resource_lr",
+          "skill_pronunciation_p",
+        ].sort(),
+      );
+
+      // PlaybookItem link is present + enabled — without it the spec-loader's
+      // playbook-scope filter excludes the spec from the canary playbook's
+      // EXTRACT pass even though the spec exists.
+      const link = await prisma.playbookItem.findFirst({
+        where: { playbookId: fx.playbookId, specId: spec!.id },
+        select: { isEnabled: true, itemType: true },
+      });
+      expect(link).not.toBeNull();
+      expect(link!.isEnabled).toBe(true);
+      expect(link!.itemType).toBe("SPEC");
+    });
+
+    it("seeds 4 PLAYBOOK-scope BehaviorTarget rows for skill_* params (closes the AGGREGATE → CallerTarget cascade root)", async () => {
+      const fx = await bootstrapCanaryFixture(prisma);
+
+      const targets = await prisma.behaviorTarget.findMany({
+        where: {
+          scope: "PLAYBOOK",
+          playbookId: fx.playbookId,
+          parameterId: { startsWith: "skill_" },
+        },
+        select: { parameterId: true, targetValue: true, source: true },
+      });
+
+      expect(targets).toHaveLength(4);
+      // All 4 skill parameters present.
+      expect(targets.map((t) => t.parameterId).sort()).toEqual(
+        [
+          "skill_fluency_and_coherence_fc",
+          "skill_grammatical_range_and_accuracy_gra",
+          "skill_lexical_resource_lr",
+          "skill_pronunciation_p",
+        ].sort(),
+      );
+      // targetValue defaults to 1.0 (Secure) — the canonical "where you
+      // want to be" for IELTS skill aggregation.
+      for (const t of targets) {
+        expect(t.targetValue).toBe(1.0);
+        expect(t.source).toBe("SEED");
+      }
+    });
+
+    it("skill-measure spec seeding is idempotent (re-bootstrap does not duplicate actions or targets)", async () => {
+      const fx = await bootstrapCanaryFixture(prisma);
+
+      // Re-bootstrap.
+      await bootstrapCanaryFixture(prisma);
+
+      const triggers = await prisma.analysisTrigger.count({
+        where: { spec: { slug: `skill-measure-${CANARY_PREFIX}` } },
+      });
+      const actions = await prisma.analysisAction.count({
+        where: { trigger: { spec: { slug: `skill-measure-${CANARY_PREFIX}` } } },
+      });
+      const targets = await prisma.behaviorTarget.count({
+        where: { scope: "PLAYBOOK", playbookId: fx.playbookId },
+      });
+      const links = await prisma.playbookItem.count({
+        where: {
+          playbookId: fx.playbookId,
+          spec: { slug: `skill-measure-${CANARY_PREFIX}` },
+        },
+      });
+
+      expect(triggers).toBe(1);
+      expect(actions).toBe(4);
+      expect(targets).toBe(4);
+      expect(links).toBe(1);
+    });
+
+    it("cleanup removes the skill-measure spec, its PlaybookItem link, and the PLAYBOOK-scope BehaviorTargets", async () => {
+      const fx = await bootstrapCanaryFixture(prisma);
+      await cleanupCanaryFixture(prisma);
+
+      const spec = await prisma.analysisSpec.findUnique({
+        where: { slug: `skill-measure-${CANARY_PREFIX}` },
+      });
+      expect(spec).toBeNull();
+
+      // BehaviorTargets PLAYBOOK-scoped to the canary playbook are gone.
+      // (Use the captured playbookId — the playbook row itself is also gone
+      // post-cleanup, but the FK ordering means BehaviorTargets are dropped
+      // first.)
+      const targets = await prisma.behaviorTarget.count({
+        where: { scope: "PLAYBOOK", playbookId: fx.playbookId },
+      });
+      expect(targets).toBe(0);
+    });
+  });
 });
