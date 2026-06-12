@@ -39,6 +39,7 @@ fi
 #
 # We only block when a peer is already live (PEER_COUNT > 1). A solo
 # session in the main tree is safe — nobody else can swap HEAD under it.
+echo "/standup"
 PEER_COUNT=$(pgrep -x claude 2>/dev/null | wc -l | tr -d ' ')
 if [ "$PEER_COUNT" -gt 1 ] && [ "$IS_WORKTREE" != "true" ] && [ -z "$HF_FORCE_SHARED_TREE" ]; then
   cat >&2 <<EOF
@@ -116,7 +117,7 @@ fi
 
 # Portable repo root: Claude Code sets $CLAUDE_PROJECT_DIR to the project
 # root on any machine; fall back to the git toplevel for manual runs.
-REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-/Users/paulwander/projects/HF}"
 cd "$REPO_ROOT" || exit 0
 
 # Per-machine Claude memory dir: derive the dashed project key from the
@@ -166,3 +167,4 @@ elif [ "$LOCK_ROLE" = "primary (reclaimed stale)" ]; then
 fi
 
 echo "$MSG"
+
