@@ -188,6 +188,8 @@ export async function bootstrapCanaryFixture(
         title: "Canary Module — Part 1: Familiar Topics",
         sortOrder: 0,
         keyTerms: ["work", "study", "hometown", "hobbies"],
+        // NOT-NULL on String[]; default to empty (self-contained module).
+        coversModules: [],
       },
     });
   }
