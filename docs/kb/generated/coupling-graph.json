@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-12T10:21:54.406Z",
+  "generatedAt": "2026-06-12T10:34:59.953Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1669,
-  "edgeCount": 3843,
+  "fileCount": 1670,
+  "edgeCount": 3844,
   "skippedEdges": 1,
   "edges": [
     {
@@ -13053,6 +13053,10 @@
     },
     {
       "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/pipeline/adaptive-loop-invariants.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
       "to": "lib/pipeline/prosody-types.ts"
     },
     {
@@ -22113,7 +22117,7 @@
     },
     {
       "path": "lib/pipeline/adaptive-loop-invariants.ts",
-      "inDegree": 4,
+      "inDegree": 5,
       "outDegree": 2
     },
     {
@@ -22179,7 +22183,7 @@
     {
       "path": "lib/pipeline/prosody-runner.ts",
       "inDegree": 3,
-      "outDegree": 7
+      "outDegree": 8
     },
     {
       "path": "lib/pipeline/prosody-types.ts",
@@ -23585,6 +23589,11 @@
       "path": "scripts/repair-lo-linkage.ts",
       "inDegree": 0,
       "outDegree": 3
+    },
+    {
+      "path": "scripts/seed-ielts-prosody.ts",
+      "inDegree": 0,
+      "outDegree": 0
     },
     {
       "path": "scripts/seed-intake-specs.ts",

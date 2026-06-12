@@ -42,6 +42,7 @@ import { logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { getSpeechAssessmentProvider } from "@/lib/speech-assessment/provider-factory";
 import { resolveSpeechAssessmentProviderForCall } from "@/lib/voice/resolve-speech-assessment-provider";
+import { recordIAL4ProsodySkip } from "@/lib/pipeline/adaptive-loop-invariants";
 import type {
   ScoringMode,
   NormalisedScoreResult,
@@ -102,6 +103,15 @@ export async function runProsodyStage(
 
   // 2. No-recording short-circuit
   if (!call.stereoRecordingUrl) {
+    // I-AL4 — emit observability before short-circuit so operators see WHY
+    // PROSODY didn't fire (e.g. sim calls hit this every time). Fire-and-forget;
+    // helper swallows its own errors and never blocks the pipeline.
+    // See docs/CHAIN-CONTRACTS.md §6 (I-AL4).
+    await recordIAL4ProsodySkip({
+      callId,
+      callerId: callerId ?? undefined,
+      reason: "no-stereoUrl",
+    });
     const envelope: VoiceProsodyFeatures = {
       mode: "unavailable",
       errorReason: "no_recording",
@@ -110,8 +120,23 @@ export async function runProsodyStage(
     return { envelope, vendorCalled: false };
   }
 
-  // 3. Mode detection — read PlaybookConfig.tierPresetId (Option A)
+  // 3. Mode detection — read PlaybookConfig.tierPresetId (Option A).
+  // When a Playbook is attached but tierPresetId is unset, emit I-AL4 with
+  // reason="no-tierPreset" so operators can SEE that the IELTS-specific path
+  // won't engage. The runner continues with general mode (no behavioural
+  // change) — the seed script `scripts/seed-ielts-prosody.ts` is the
+  // operator-facing remediation.
   const mode = await detectProsodyMode(call.playbookId);
+  if (mode === "general" && call.playbookId) {
+    const tierPresetSet = await playbookHasTierPreset(call.playbookId);
+    if (!tierPresetSet) {
+      await recordIAL4ProsodySkip({
+        callId,
+        callerId: callerId ?? undefined,
+        reason: "no-tierPreset",
+      });
+    }
+  }
 
   // 4. Provider resolution
   let providerSlug: string;
@@ -127,6 +152,15 @@ export async function runProsodyStage(
     adapter = await getSpeechAssessmentProvider(providerSlug);
     adapterKey = adapter.slug;
   } catch {
+    // I-AL4 — emit observability so operators see the cascade fell through
+    // to "no SpeechAssessmentProvider with isDefault=true AND enabled=true".
+    // The seed script `scripts/seed-ielts-prosody.ts` ensures one default
+    // exists; this WARN surfaces drift if it's ever lost.
+    await recordIAL4ProsodySkip({
+      callId,
+      callerId: callerId ?? undefined,
+      reason: "no-provider",
+    });
     const envelope: VoiceProsodyFeatures = {
       mode: "unavailable",
       errorReason: "no_provider_configured",
@@ -205,6 +239,34 @@ async function detectProsodyMode(
   });
   if (!pb?.config) return "general";
   return resolveProsodyMode(pb.config as Record<string, unknown>);
+}
+
+/**
+ * Returns true when Playbook.config.tierPresetId is a non-empty string.
+ * Used by the I-AL4 observability path to distinguish "operator hasn't picked
+ * a tier" (WARN-worthy) from "operator chose general explicitly via
+ * config.voice.prosodyMode" (NOT WARN-worthy — explicit choice).
+ *
+ * Defensive — swallows DB errors and returns true so we DON'T over-fire.
+ */
+async function playbookHasTierPreset(playbookId: string): Promise<boolean> {
+  try {
+    const pb = await prisma.playbook.findUnique({
+      where: { id: playbookId },
+      select: { config: true },
+    });
+    const config = (pb?.config ?? null) as Record<string, unknown> | null;
+    if (!config) return false;
+    // Explicit operator choice via voice.prosodyMode counts as a tier decision
+    // — surfaces "I want general scoring on this course" without nagging.
+    const voiceCfg = config.voice as Record<string, unknown> | null | undefined;
+    const explicit = voiceCfg?.prosodyMode;
+    if (explicit === "general" || explicit === "ielts") return true;
+    const tier = config.tierPresetId;
+    return typeof tier === "string" && tier.length > 0;
+  } catch {
+    return true;
+  }
 }
 
 /**
