@@ -11,7 +11,6 @@
 // See docs/audit/HF-M-evidence-path-param-idor.md.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextResponse } from "next/server";
 
 // Mock the auth layer — the guard fires BEFORE any DB hit, so a session
 // fixture is sufficient. We mock requireAuth to return STUDENT / OPERATOR
