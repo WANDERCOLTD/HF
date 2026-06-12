@@ -4,6 +4,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSession } from "next-auth/react";
+import { Eye, EyeOff } from "lucide-react";
 import { useChatContext, MODE_CONFIG, getMergedBannerKey, type ChatMode, type TuningScope } from "@/contexts/ChatContext";
 import { useEntityContext, ENTITY_COLORS, EntityBreadcrumb } from "@/contexts/EntityContext";
 import { useEntityDetection } from "@/hooks/useEntityDetection";
@@ -423,7 +424,7 @@ function ChatInput() {
 }
 
 export function ChatPanel() {
-  const { isOpen, closePanel, mode, chatLayout, setChatLayout, messages, clearHistory } = useChatContext();
+  const { isOpen, closePanel, mode, chatLayout, setChatLayout, messages, clearHistory, demoAnnotationsVisible, setDemoAnnotationsVisible } = useChatContext();
   const { breadcrumbs } = useEntityContext();
   const { data: session } = useSession();
 
@@ -513,6 +514,25 @@ export function ChatPanel() {
             </div>
           </div>
           <div className="chat-header-actions">
+            {mode === "DEMO" && (
+              <button
+                onClick={() => setDemoAnnotationsVisible(!demoAnnotationsVisible)}
+                className="chat-header-btn chat-header-btn--annotations-toggle"
+                title={
+                  demoAnnotationsVisible
+                    ? "Hide demo annotations on the Preview lens"
+                    : "Show demo annotations on the Preview lens"
+                }
+                aria-label={
+                  demoAnnotationsVisible
+                    ? "Hide demo annotations"
+                    : "Show demo annotations"
+                }
+                aria-pressed={demoAnnotationsVisible}
+              >
+                {demoAnnotationsVisible ? <Eye size={14} /> : <EyeOff size={14} />}
+              </button>
+            )}
             <button
               onClick={handleClearClick}
               className="chat-header-btn chat-header-btn--clear"
