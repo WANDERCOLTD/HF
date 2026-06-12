@@ -6,6 +6,7 @@
  * @invariant: I-AL3 — spec config sourcing observability (default-fallback signal)
  * @invariant: I-AL4 — PROSODY-skip observability
  * @invariant: I-AL5 — SCORE_AGENT zero-targets observability
+ * @invariant: I-AL6 — CallScore.analysisSpecId stamped post-EXTRACT (#1539)
  *
  * All invariants are NON-BLOCKING and WARN-only (I-AL3 is INFO; I-AL5 ERROR-escalates
  * when the cascade root is empty). Violations are written fire-and-forget to AppLog
@@ -24,7 +25,13 @@ import { log } from "@/lib/logger";
 
 // ── Public types ──────────────────────────────────────────
 
-export type InvariantId = "I-AL1" | "I-AL2" | "I-AL3" | "I-AL4" | "I-AL5";
+export type InvariantId =
+  | "I-AL1"
+  | "I-AL2"
+  | "I-AL3"
+  | "I-AL4"
+  | "I-AL5"
+  | "I-AL6";
 
 export type InvariantSeverity = "info" | "warn" | "error";
 
@@ -78,6 +85,10 @@ const DEFAULT_SEVERITY: Record<InvariantId, InvariantSeverity> = {
   "I-AL3": "info",
   "I-AL4": "warn",
   "I-AL5": "warn",
+  // #1539 — lands as `warn`. Will promote to `error` once the drain
+  // script reports `unresolvable = 0` and the column is migrated to
+  // NOT NULL (per ADR's migration plan).
+  "I-AL6": "warn",
 };
 
 export function defaultSeverityFor(invariant: InvariantId): InvariantSeverity {
@@ -175,6 +186,18 @@ export async function checkInvariantsAfterPipeline(
     for (const v of al2List) {
       violations.push(v);
       await recordInvariantViolation(v);
+    }
+
+    // I-AL6 — every CallScore row created/updated against this call
+    // must carry `analysisSpecId`. The structural fix #1539 lands the
+    // helper + ESLint rule that make NULL writes impossible going
+    // forward; this invariant is the runtime observer that catches
+    // (a) any allow-listed bypass that drifts past the helper and
+    // (b) historical NULL rows that survived the drain.
+    const al6 = await deriveIAL6Violation(call.id, observedAt);
+    if (al6) {
+      violations.push(al6);
+      await recordInvariantViolation(al6);
     }
   } catch {
     // Invariant runner never blocks. A genuine pipeline failure has already
@@ -352,6 +375,40 @@ async function deriveIAL2Violations(
   return violations;
 }
 
+// ── I-AL6 derivation ──────────────────────────────────────
+
+async function deriveIAL6Violation(
+  callId: string,
+  observedAt: Date,
+): Promise<InvariantViolation | null> {
+  // Count CallScore rows for this call that landed without an
+  // AnalysisSpec lineage. Pre-#1539 this was every row in the system;
+  // post-drain it should be zero. The invariant fires on the FIRST
+  // unspecced row — one signal per call is enough.
+  let unspeccedCount = 0;
+  try {
+    unspeccedCount = await prisma.callScore.count({
+      where: { callId, analysisSpecId: null },
+    });
+  } catch {
+    return null;
+  }
+
+  if (unspeccedCount === 0) return null;
+
+  return {
+    invariant: "I-AL6",
+    severity: DEFAULT_SEVERITY["I-AL6"],
+    callId,
+    context: {
+      unspeccedCallScoreCount: unspeccedCount,
+      reason:
+        "CallScore row(s) written without analysisSpecId — bypass of the writeCallScore chokepoint (#1539) or unfilled legacy row",
+    },
+    observedAt,
+  };
+}
+
 // ── Event tag helper ──────────────────────────────────────
 
 function invariantEventTag(invariant: InvariantId): string {
@@ -366,6 +423,8 @@ function invariantEventTag(invariant: InvariantId): string {
       return "prosody-skipped";
     case "I-AL5":
       return "zero-targets";
+    case "I-AL6":
+      return "unspecced-callscore";
   }
 }
 

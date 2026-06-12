@@ -248,7 +248,12 @@ describe("#1514 Adaptive Loop canary — proves the chain closes", () => {
     // ── Gate 1: EXTRACT — CallScore rows ─────────────────────
     const scores = await prisma.callScore.findMany({
       where: { callId: call.id },
-      select: { id: true, parameterId: true, scoredBy: true },
+      select: {
+        id: true,
+        parameterId: true,
+        scoredBy: true,
+        analysisSpecId: true,
+      },
     });
     const scoreCount = scores.length;
     const hardFail1 = scoreCount < EXTRACT_FLOOR;
@@ -262,6 +267,23 @@ describe("#1514 Adaptive Loop canary — proves the chain closes", () => {
       scoreCount,
       `EXTRACT wrote ${scoreCount} CallScore rows; expected >= ${EXTRACT_FLOOR}`,
     ).toBeGreaterThanOrEqual(EXTRACT_FLOOR);
+
+    // ── Gate 1b: #1539 — every CallScore stamps analysisSpecId ─
+    const unspecced = scores.filter((s) => !s.analysisSpecId);
+    recordGate(
+      "extract.spec-lineage",
+      unspecced.length === 0 ? "PASS" : "FAIL",
+      `unspecced=${unspecced.length}/${scoreCount} (#1539 contract: every CallScore carries analysisSpecId)`,
+    );
+    // HARD FAIL — if any CallScore row landed without lineage, the
+    // chokepoint helper was bypassed. ESLint rule + writeCallScore
+    // runtime guard SHOULD prevent this; the canary catches drift.
+    expect(
+      unspecced.length,
+      `#1539 — ${unspecced.length} CallScore row(s) lack analysisSpecId. ` +
+        `Every write must route through lib/measurement/write-call-score.ts. ` +
+        `Sample: ${unspecced.slice(0, 3).map((s) => `${s.parameterId} (scoredBy=${s.scoredBy})`).join(", ")}`,
+    ).toBe(0);
 
     // ── Gate 2 (WARN — G9 dependency): LEARN — CallerMemory ──
     const memories = await prisma.callerMemory.findMany({

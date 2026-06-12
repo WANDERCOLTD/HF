@@ -15,6 +15,7 @@ import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-def
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
 import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
 import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
+import noBareCallScoreWrite from "./eslint-rules/no-bare-call-score-write.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
@@ -182,6 +183,16 @@ const eslintConfig = defineConfig([
           "no-bare-call-create": noBareCallCreate,
         },
       },
+      // #1539 — spec-lineage contract for CallScore writes. Every row
+      // MUST carry `analysisSpecId` (the AnalysisSpec whose rubric
+      // produced the score). Helper at `lib/measurement/write-call-score.ts`
+      // requires the column in its TypeScript signature; the rule blocks
+      // bare `prisma.callScore.{create,update,upsert}` from drift.
+      "hf-measurement": {
+        rules: {
+          "no-bare-call-score-write": noBareCallScoreWrite,
+        },
+      },
       "hf-ops": {
         rules: {
           "no-ops-import-from-api": noOpsImportFromApi,
@@ -242,6 +253,13 @@ const eslintConfig = defineConfig([
       // inline Call insert when needed) or add to the allow-list with a
       // documented bypass justification.
       "hf-call/no-bare-call-create": "error",
+      // #1539 — error severity from day 1. Allow-list covers every
+      // pre-existing legitimate write site (the chokepoint helper itself,
+      // the drain script, the demo-reset / seed-transcripts admin
+      // routes, and the manual ops re-grade route). Any new write site
+      // must either route through `writeCallScore` or add to the
+      // allow-list with documented bypass justification.
+      "hf-measurement/no-bare-call-score-write": "error",
 
       // #1395 / #1423 — Block app/api routes from importing the 5 lib/ops/*
       // files that instantiate their own PrismaClient (bypass the singleton).
