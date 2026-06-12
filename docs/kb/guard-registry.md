@@ -410,15 +410,27 @@ re-introduces 25/34 removed lines, 73%). **Survives hardening:** AP-1 is a
 methodology fitness function — architecture-independent.
 
 <a id="guard-verify-before-fix"></a>
-**`gh-pr-create.sh`** · class **meta** · born 2026-06-11 ·
+**`gh-pr-create.sh`** · class **meta** · born 2026-06-11 (#1406) · extended 2026-06-12 (#1534) ·
 [script source](../../scripts/gh-pr-create.sh) ·
+rule → [.claude/rules/verify-before-fix.md](../../.claude/rules/verify-before-fix.md) ·
 memory → [feedback_verify_before_fix_misread_2026_06_09.md](../../../.claude/projects/-Users-paulwander-projects-HF/memory/feedback_verify_before_fix_misread_2026_06_09.md)
 
 Wraps `gh pr create`; requires a `## Verified by` section in the PR body
 containing at least one concrete evidence form (SQL query result, vitest
 name, Playwright trace path, or log subject line). Enforces the #1406 lesson
-(don't trust screenshot OCR — cite an underlying check). **Survives
-hardening:** AP-4 is a methodology fitness function — architecture-independent.
+(don't trust screenshot OCR — cite an underlying check).
+
+**Extended scope (#1534, 2026-06-12):** the rule covers BOTH fix PRs AND
+conditional story activation. A story opened because a canary FAILed, an
+audit probe returned a finding, or an automated check flipped red is a fix
+trigger — the activation PR body MUST carry a live citation (SQL query,
+log subject, curl probe), not only a test output. Test outputs may reflect
+timeouts, fixture gaps, or mocking artifacts (the #1515 / #1525 / #1527 /
+#1528 chain — G9 CallerMemory zero-writes was a 10s-timeout fixture
+artifact, not a real failure; live SQL closed the activation in under a
+minute). The script gate covers PR body content; the activation-side
+discipline is convention-only today. **Survives hardening:** AP-4 is a
+methodology fitness function — architecture-independent.
 
 <a id="guard-fix-refactor-inversion"></a>
 **`check-fix-refactor-inversion.ts`** · class **meta** · born 2026-06-11 ·
