@@ -38,6 +38,71 @@ import {
   buildSeedPlan,
   classifySeedPlan,
 } from "../../../scripts/seed-system-behavior-defaults";
+import { MEASUREMENT_SENTINEL_SPEC_IDS } from "../../../lib/measurement/write-call-score";
+
+/**
+ * #1539 — sentinel spec rows. Inlined from
+ * `prisma/seed-measurement-sentinels.ts` so the canary's single
+ * PrismaClient connection runs the upsert.
+ */
+async function seedMeasurementSentinelsInline(
+  prisma: PrismaClient,
+): Promise<void> {
+  const sentinels = [
+    {
+      id: MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY,
+      slug: "PROSODY-SCORE-V1",
+      name: "PROSODY adapter",
+      description: "Spec-lineage anchor for prosody-consumer writes (#1539).",
+      promptTemplate:
+        "PROSODY adapter scoring (deterministic, no LLM). Source: Call.voiceProsody.",
+    },
+    {
+      id: MEASUREMENT_SENTINEL_SPEC_IDS.MOCK,
+      slug: "MOCK-MEASURE-V1",
+      name: "Mock engine",
+      description: "Spec-lineage anchor for mock-engine CallScore writes (#1539).",
+      promptTemplate: "Mock engine: 0.4 + Math.random() * 0.4. No LLM.",
+    },
+    {
+      id: MEASUREMENT_SENTINEL_SPEC_IDS.ADAPT_DELTA,
+      slug: "ADAPT-DELTA-V1",
+      name: "ADAPT delta",
+      description: "Spec-lineage anchor for ADAPT-stage <param>-DELTA rows (#1539).",
+      promptTemplate:
+        "ADAPT delta: (current - previous + 1) / 2. Tracks change, not absolute mastery.",
+    },
+  ];
+  for (const sentinel of sentinels) {
+    await prisma.analysisSpec.upsert({
+      where: { id: sentinel.id },
+      update: {
+        slug: sentinel.slug,
+        name: sentinel.name,
+        description: sentinel.description,
+        promptTemplate: sentinel.promptTemplate,
+        scope: "SYSTEM",
+        outputType: "MEASURE",
+        specType: "SYSTEM",
+        specRole: "EXTRACT",
+        isActive: true,
+      },
+      create: {
+        id: sentinel.id,
+        slug: sentinel.slug,
+        name: sentinel.name,
+        description: sentinel.description,
+        promptTemplate: sentinel.promptTemplate,
+        scope: "SYSTEM",
+        outputType: "MEASURE",
+        specType: "SYSTEM",
+        specRole: "EXTRACT",
+        priority: 0,
+        isActive: true,
+      },
+    });
+  }
+}
 
 /**
  * Prefix every fixture entity slug / name with this so cleanup can be
@@ -130,6 +195,14 @@ const CANARY_SKILL_PARAMS: ReadonlyArray<{
 export async function bootstrapCanaryFixture(
   prisma: PrismaClient,
 ): Promise<CanaryFixture> {
+  // 0. #1539 — seed the measurement-sentinel AnalysisSpec rows so
+  //    `writeCallScore` always finds an FK target for the PROSODY /
+  //    MOCK / ADAPT_DELTA sentinel ids. Inlined here instead of
+  //    calling `seedMeasurementSentinels()` because the seed module
+  //    constructs its own PrismaClient; we use the canary's client to
+  //    keep the fixture single-connection.
+  await seedMeasurementSentinelsInline(prisma);
+
   // 1. Domain
   const domain = await prisma.domain.upsert({
     where: { slug: DOMAIN_SLUG },
@@ -416,6 +489,17 @@ async function seedCanarySkillMeasureSpec(
         "Adaptive-loop canary per-playbook MEASURE spec (#1516). Scores the " +
         "4 IELTS Speaking skill parameters from every call transcript so " +
         "SKILL-AGG-001 has source rows for the EMA aggregation pass.",
+      // #1539 — populate the rubric so the canary exercises the
+      // spec-driven prompt path end-to-end. Without a promptTemplate
+      // the prompt builder falls back to name+definition AND logs a
+      // warning; the canary is the place we want full coverage.
+      promptTemplate:
+        "Score the learner on the IELTS Speaking Band descriptors for this dimension.\n\n" +
+        "Band 9 (expert): Speaks fluently with rare hesitation; uses precise vocabulary and varied grammar.\n" +
+        "Band 7 (good): Speaks at length without noticeable effort; uses a range of vocabulary with some less common forms; produces complex sentences with some errors.\n" +
+        "Band 5 (modest): Usually maintains flow but uses repetition and self-correction; limited vocabulary; basic sentence forms with frequent errors.\n" +
+        "Band 3 (extremely limited): Speaks in short utterances with frequent breakdowns; minimal vocabulary; little or no grammatical control.\n\n" +
+        "Return a normalised 0-1 score. Use 0.4-0.5 for Band 5, 0.7-0.8 for Band 7, 0.85+ for Band 8-9.",
       scope: "DOMAIN",
       outputType: "MEASURE",
       specType: "DOMAIN",
@@ -430,6 +514,15 @@ async function seedCanarySkillMeasureSpec(
       isActive: true,
       isDirty: false,
       compiledAt: now,
+      // #1539 — keep the rubric in sync on re-runs of the fixture
+      // (the canary runs against a long-lived DB, not a fresh one).
+      promptTemplate:
+        "Score the learner on the IELTS Speaking Band descriptors for this dimension.\n\n" +
+        "Band 9 (expert): Speaks fluently with rare hesitation; uses precise vocabulary and varied grammar.\n" +
+        "Band 7 (good): Speaks at length without noticeable effort; uses a range of vocabulary with some less common forms; produces complex sentences with some errors.\n" +
+        "Band 5 (modest): Usually maintains flow but uses repetition and self-correction; limited vocabulary; basic sentence forms with frequent errors.\n" +
+        "Band 3 (extremely limited): Speaks in short utterances with frequent breakdowns; minimal vocabulary; little or no grammatical control.\n\n" +
+        "Return a normalised 0-1 score. Use 0.4-0.5 for Band 5, 0.7-0.8 for Band 7, 0.85+ for Band 8-9.",
     },
     select: { id: true },
   });

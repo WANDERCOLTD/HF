@@ -70,6 +70,9 @@ import { loadGuardrails, type GuardrailsConfig } from "@/lib/pipeline/guardrails
 import { shouldRunCallerAnalysis } from "@/lib/pipeline/event-gate";
 import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
 import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile } from "@/lib/pipeline/specs-loader";
+import { writeCallScore, MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
+import { buildParameterSpecMap, type ParameterWithSpec } from "@/lib/measurement/parameter-spec-map";
+import { buildBatchedMeasurePrompt } from "@/lib/measurement/build-batched-measure-prompt";
 import type { SpecConfig } from "@/lib/types/json-fields";
 
 /**
@@ -494,52 +497,11 @@ async function loadCurrentModuleContext(
   return null;
 }
 
-function buildBatchedCallerPrompt(
-  transcript: string,
-  measureParams: Array<{ parameterId: string; name: string; definition: string | null }>,
-  learnActions: Array<{ category: string; keyPrefix: string; keyHint: string; description: string }>,
-  transcriptLimit: number = 4000,
-  moduleContext?: { moduleId: string; moduleName: string; learningOutcomes: string[] } | null,
-  assessmentPromptInstructions?: string | null,
-): string {
-  const paramList = measureParams.map(p => `${p.parameterId}:${p.name}`).join("|");
-  const learnList = learnActions.map(a => {
-    const keys = a.keyHint || `${a.keyPrefix}item`;
-    return `- ${a.category}: ${a.description}. Use keys like: ${keys}`;
-  }).join("\n");
-
-  let learningSection = "";
-  let learningJsonHint = "";
-  if (moduleContext?.learningOutcomes?.length) {
-    // #403: emit the real LO refs (not positional placeholders) and ground the JSON
-    // example in the FIRST real ref. Previous "LO1:..." pattern + example baked into
-    // the prompt led the AI to return {"LO1": 0.6} regardless of curriculum content.
-    const loList = moduleContext.learningOutcomes.map((lo) => `- ${JSON.stringify(lo)}`).join("\n");
-    const exampleRef = moduleContext.learningOutcomes[0];
-    const exampleOutcomes = JSON.stringify({ [exampleRef]: 0.6 });
-    const instructions = assessmentPromptInstructions
-      || "Score caller's demonstrated understanding of each outcome 0-1 (0=no evidence, 0.5=partial, 1=full mastery).";
-    learningSection = `\n\nLEARNING OUTCOMES TO ASSESS (module "${moduleContext.moduleName}"):\n${loList}\n\nCRITICAL: Use the EXACT strings above as keys in "outcomes" — copy them verbatim. Do NOT invent placeholders like "LO1", "LO2".\n\n${instructions}`;
-    learningJsonHint = `,"learning":{"moduleId":"${moduleContext.moduleId}","outcomes":${exampleOutcomes},"overallMastery":0.7}`;
-  }
-
-  return `Analyze transcript. Score caller 0-1 on params, extract ALL personal facts.
-
-TRANSCRIPT (analyze this — read the ENTIRE transcript including the end):
-${transcript.slice(0, transcriptLimit)}
-
-PARAMS TO SCORE: ${paramList}
-
-FACTS TO EXTRACT (use the suggested keys, extract EVERY fact mentioned including names, pets, family, preferences):
-${learnList}${learningSection}
-
-For each param, also include EVIDENCE FIELDS:
-- "he" (hasLearnerEvidence): true if the LEARNER's own utterances contain scoreable evidence for this param. false if the score is inferred from the tutor's prose only.
-- "eq" (evidenceQuality): 0-1 confidence that the LEARNER produced enough material to score this param. 0 = nothing scoreable, 1 = abundant evidence.
-
-Return compact JSON:
-{"scores":{"PARAM-ID":{"s":0.75,"c":0.8,"he":true,"eq":0.7},...},"memories":[{"cat":"RELATIONSHIP","key":"family_pet","val":"dog called Fred","c":0.9,"e":"my dog is called Fred"},...]${learningJsonHint}}`;
-}
+// #1539 — `buildBatchedCallerPrompt` was extracted to
+// `lib/measurement/build-batched-measure-prompt.ts::buildBatchedMeasurePrompt`.
+// The old inline builder dropped each spec's `promptTemplate`; the new
+// builder interpolates it as a per-parameter rubric block. Do NOT
+// reintroduce a local copy here — the helper is the contract.
 
 /**
  * Build a BATCHED prompt for MEASURE specs
@@ -591,7 +553,7 @@ Return compact JSON:
 async function runPerSegmentScoring(
   call: { id: string; transcript: string | null; curriculumModuleId?: string | null },
   callerId: string,
-  measureParams: Array<{ parameterId: string; name: string; definition: string | null }>,
+  measureParams: ParameterWithSpec[],
   engine: AIEngine,
   transcriptLimit: number,
   log: PipelineLogger,
@@ -754,41 +716,27 @@ async function runPerSegmentScoring(
               ? Math.max(0, Math.min(1, scoreData.evidenceQuality))
               : null;
 
-        const existing = await prisma.callScore.findFirst({
-          where: { callId: call.id, parameterId, moduleId: segmentModuleId },
+        // #1539 — inherit the parent parameter's spec lineage. The
+        // per-segment scorer writes against the same AnalysisSpec that
+        // produced the bound-module score; the rubric chain stays
+        // intact even though the per-segment prompt is hardcoded
+        // IELTS (`buildPerSegmentMeasurePrompt`) rather than spec-driven.
+        const parentSpec = measureParams.find((p) => p.parameterId === parameterId);
+        const segmentResult = await writeCallScore({
+          callId: call.id,
+          callerId,
+          parameterId,
+          analysisSpecId: parentSpec?.analysisSpecId ?? MEASUREMENT_SENTINEL_SPEC_IDS.MOCK,
+          moduleId: segmentModuleId,
+          score,
+          confidence,
+          reasoning,
+          evidence: [`Segment: ${segment.slug}`],
+          scoredBy: `${engine}_segment_v1`,
+          hasLearnerEvidence,
+          evidenceQuality,
         });
-        if (existing) {
-          await prisma.callScore.update({
-            where: { id: existing.id },
-            data: {
-              score,
-              confidence,
-              reasoning,
-              evidence: [`Segment: ${segment.slug}`],
-              scoredBy: `${engine}_segment_v1`,
-              scoredAt: new Date(),
-              hasLearnerEvidence,
-              evidenceQuality,
-            },
-          });
-        } else {
-          await prisma.callScore.create({
-            data: {
-              callId: call.id,
-              callerId,
-              parameterId,
-              moduleId: segmentModuleId,
-              score,
-              confidence,
-              reasoning,
-              evidence: [`Segment: ${segment.slug}`],
-              scoredBy: `${engine}_segment_v1`,
-              hasLearnerEvidence,
-              evidenceQuality,
-            },
-          });
-          segmentScoresCreated++;
-        }
+        if (segmentResult.created) segmentScoresCreated++;
       }
     } catch (err: any) {
       log.warn("Per-part MEASURE failed for segment", {
@@ -906,19 +854,25 @@ async function runBatchedCallerAnalysis(
   //
   // When skipMeasure is true we still include "always" specs — only the
   // gated specs are zeroed out.
-  let paramMap: Map<string, { parameterId: string; name: string; definition: string | null }>;
+  // #1539 — preserve the parameter -> AnalysisSpec lineage so the prompt
+  // builder can inject the spec's `promptTemplate` rubric AND the write
+  // helper can stamp `CallScore.analysisSpecId`. Previously this path
+  // used `batchLoadParameters` which dropped the spec association.
+  let paramMap: Map<string, ParameterWithSpec>;
   if (skipMeasure) {
     const alwaysSpecs = measureSpecs.filter(
       (s) => (s.config as SpecConfig)?.scoringGate === "always",
     );
     paramMap = alwaysSpecs.length > 0
-      ? await batchLoadParameters(alwaysSpecs)
+      ? await buildParameterSpecMap(alwaysSpecs, { log: (m, meta) => log.info(m, meta) })
       : new Map();
     if (alwaysSpecs.length > 0) {
       log.info(`Event-gate: ${measureSpecs.length - alwaysSpecs.length} MEASURE specs gated, ${alwaysSpecs.length} always-on (${alwaysSpecs.map(s => s.slug).join(", ")})`);
     }
   } else {
-    paramMap = await batchLoadParameters(measureSpecs);
+    paramMap = await buildParameterSpecMap(measureSpecs, {
+      log: (m, meta) => log.info(m, meta),
+    });
   }
 
   // Collect LEARN actions
@@ -1037,45 +991,25 @@ async function runBatchedCallerAnalysis(
     const mockConfidence = mockGuardrails.confidenceBounds.defaultConfidence;
     for (const param of measureParams) {
       const score = 0.4 + Math.random() * 0.4;
-      // Check if score already exists for this call+parameter
-      const existing = await prisma.callScore.findFirst({
-        where: { callId: call.id, parameterId: param.parameterId },
+      // #1539 — mock engine inherits the spec lineage of the parameter
+      // it's scoring. Falls back to the MOCK sentinel only when the
+      // parameter has no resolved spec (should be impossible — the map
+      // omits parameters without a spec).
+      await writeCallScore({
+        callId: call.id,
+        callerId,
+        parameterId: param.parameterId,
+        analysisSpecId: param.analysisSpecId ?? MEASUREMENT_SENTINEL_SPEC_IDS.MOCK,
+        moduleId: call.curriculumModuleId ?? null,
+        score,
+        confidence: mockConfidence,
+        evidence: ["Mock batched scoring"],
+        scoredBy: "mock_batched_v1",
+        // #566 Step 1 — mock engine has no LLM reasoning; leave evidence
+        // fields null (legacy path semantics per schema comment).
+        hasLearnerEvidence: null,
+        evidenceQuality: null,
       });
-      if (existing) {
-        await prisma.callScore.update({
-          where: { id: existing.id },
-          data: {
-            score,
-            confidence: mockConfidence,
-            evidence: ["Mock batched scoring"],
-            scoredBy: "mock_batched_v1",
-            scoredAt: new Date(),
-            // #566 Step 1 — mock engine has no LLM reasoning; leave evidence
-            // fields null (legacy path semantics per schema comment).
-            hasLearnerEvidence: null,
-            evidenceQuality: null,
-          },
-        });
-      } else {
-        await prisma.callScore.create({
-          data: {
-            callId: call.id,
-            callerId,
-            parameterId: param.parameterId,
-            // #491 Slice 1.2 — attribute the score to the module this call covered.
-            // Null for non-attributed calls (legacy / no module pick); a partial
-            // unique index keeps one-score-per-(callId, parameterId) in that case.
-            ...(call.curriculumModuleId ? { moduleId: call.curriculumModuleId } : {}),
-            score,
-            confidence: mockConfidence,
-            evidence: ["Mock batched scoring"],
-            scoredBy: "mock_batched_v1",
-            // #566 Step 1 — null sentinels (see above).
-            hasLearnerEvidence: null,
-            evidenceQuality: null,
-          },
-        });
-      }
       scoresCreated++;
     }
     // Log mock usage for visibility in metering dashboard
@@ -1092,7 +1026,21 @@ async function runBatchedCallerAnalysis(
     const transcriptLimit = await getTranscriptLimit("pipeline.measure");
     const timeouts = await getAITimeoutSettings();
     const assessPromptInstructions = assessmentSpec ? (assessmentSpec.config as SpecConfig)?.promptInstructions : null;
-    const prompt = buildBatchedCallerPrompt(transcript, measureParams, learnActions, transcriptLimit, moduleContext, assessPromptInstructions);
+    // #1539 — switched from the inline `buildBatchedCallerPrompt` (which
+    // dropped each spec's `promptTemplate`) to the spec-aware builder.
+    // Each MEASURE parameter now gets its rubric block interpolated into
+    // the prompt body so the LLM scores against the IELTS band
+    // descriptors (or whichever rubric the spec carries) instead of its
+    // own internalised idea of the dimension.
+    const prompt = buildBatchedMeasurePrompt({
+      transcript,
+      measureParams,
+      learnActions,
+      transcriptLimit,
+      moduleContext,
+      assessmentPromptInstructions: assessPromptInstructions,
+      log: (m, meta) => log.warn(m, meta),
+    });
 
     // #UI-followup Gap 1 — load the playbook config ONCE up front so the
     // Boaz guard (per-parameter persistence skip below) can honour the
@@ -1230,42 +1178,28 @@ async function runBatchedCallerAnalysis(
             continue;
           }
 
-          // Check if score already exists for this call+parameter
-          const existing = await prisma.callScore.findFirst({
-            where: { callId: call.id, parameterId },
+          // #1539 — stamp the spec lineage. The batched prompt loaded
+          // this parameter via `buildParameterSpecMap`, which preserves
+          // the originating AnalysisSpec id; the writer reads it from
+          // paramMap. The fallback sentinel exists only as a structural
+          // backstop — it should never fire because paramMap omits
+          // parameters without a spec.
+          const sourceSpec = paramMap.get(parameterId);
+          await writeCallScore({
+            callId: call.id,
+            callerId,
+            parameterId,
+            analysisSpecId:
+              sourceSpec?.analysisSpecId ?? MEASUREMENT_SENTINEL_SPEC_IDS.MOCK,
+            moduleId: call.curriculumModuleId ?? null,
+            score,
+            confidence,
+            reasoning,
+            evidence: ["AI batched analysis"],
+            scoredBy: `${engine}_batched_v2`,
+            hasLearnerEvidence,
+            evidenceQuality,
           });
-          if (existing) {
-            await prisma.callScore.update({
-              where: { id: existing.id },
-              data: {
-                score,
-                confidence,
-                reasoning,
-                evidence: ["AI batched analysis"],
-                scoredBy: `${engine}_batched_v2`,
-                scoredAt: new Date(),
-                hasLearnerEvidence,
-                evidenceQuality,
-              },
-            });
-          } else {
-            await prisma.callScore.create({
-              data: {
-                callId: call.id,
-                callerId,
-                parameterId,
-                // #491 Slice 1.2 — module attribution (see note above).
-                ...(call.curriculumModuleId ? { moduleId: call.curriculumModuleId } : {}),
-                score,
-                confidence,
-                reasoning,
-                evidence: ["AI batched analysis"],
-                scoredBy: `${engine}_batched_v2`,
-                hasLearnerEvidence,
-                evidenceQuality,
-              },
-            });
-          }
           scoresCreated++;
         }
         // #566 Step 1 — shadow log of evidence-field coverage. Records what
@@ -2386,29 +2320,23 @@ async function computeAdapt(
       const deltaParam = await prisma.parameter.findUnique({ where: { parameterId: deltaParameterId } });
       if (deltaParam) {
         const deltaScore = (delta + 1) / 2; // Normalize -1..1 to 0..1
-        // Check if score already exists
-        const existing = await prisma.callScore.findFirst({
-          where: { callId, parameterId: deltaParameterId },
+        // #1539 — delta inherits the parent score's spec lineage when
+        // available (the parent CallScore now stamps analysisSpecId).
+        // Falls back to ADAPT-DELTA-V1 sentinel for first-run callers
+        // whose source score was written pre-#1539 (NULL spec id).
+        await writeCallScore({
+          callId,
+          callerId,
+          parameterId: deltaParameterId,
+          analysisSpecId:
+            currentScore.analysisSpecId ?? MEASUREMENT_SENTINEL_SPEC_IDS.ADAPT_DELTA,
+          // #491 Slice 1.2 — delta scores inherit the source call's module attribution.
+          moduleId: currentCall.curriculumModuleId ?? null,
+          score: deltaScore,
+          confidence: 0.9,
+          evidence: [`adapt:delta-from=${currentScore.id}`],
+          scoredBy: "adapt_v1",
         });
-        if (existing) {
-          await prisma.callScore.update({
-            where: { id: existing.id },
-            data: { score: deltaScore, scoredAt: new Date() },
-          });
-        } else {
-          await prisma.callScore.create({
-            data: {
-              callId,
-              callerId,
-              parameterId: deltaParameterId,
-              // #491 Slice 1.2 — delta scores inherit the source call's module attribution.
-              ...(currentCall.curriculumModuleId ? { moduleId: currentCall.curriculumModuleId } : {}),
-              score: deltaScore,
-              confidence: 0.9,
-              scoredBy: "adapt_v1",
-            },
-          });
-        }
         deltasComputed++;
       }
     }

@@ -26,6 +26,10 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import {
+  writeCallScore,
+  MEASUREMENT_SENTINEL_SPEC_IDS,
+} from "@/lib/measurement/write-call-score";
 
 import type {
   GeneralSignals,
@@ -116,29 +120,21 @@ async function writeIeltsCallScores(
   for (const row of rows) {
     if (!Number.isFinite(row.band)) continue;
     const normalisedScore = clamp01(row.band / 9);
-    await prisma.callScore.upsert({
-      where: {
-        callId_parameterId_moduleId: {
-          callId,
-          parameterId: row.parameterId,
-          moduleId: null as unknown as string,
-        },
-      },
-      update: {
-        score: normalisedScore,
-        confidence: 0.9,
-        evidence: [`prosody/ielts:band=${row.band.toFixed(1)}`],
-        reasoning: "PROSODY stage IELTS sub-band (0-9 normalised to 0-1)",
-      },
-      create: {
-        callId,
-        callerId,
-        parameterId: row.parameterId,
-        score: normalisedScore,
-        confidence: 0.9,
-        evidence: [`prosody/ielts:band=${row.band.toFixed(1)}`],
-        reasoning: "PROSODY stage IELTS sub-band (0-9 normalised to 0-1)",
-      },
+    // #1539 — stamp the PROSODY sentinel spec id. PROSODY is
+    // structurally spec-shaped (deterministic adapter output) but not
+    // backed by an AnalysisSpec.promptTemplate row. The sentinel
+    // surfaces "produced by PROSODY, not LLM" lineage honestly.
+    await writeCallScore({
+      callId,
+      callerId,
+      parameterId: row.parameterId,
+      analysisSpecId: MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY,
+      moduleId: null,
+      score: normalisedScore,
+      confidence: 0.9,
+      evidence: [`prosody/ielts:band=${row.band.toFixed(1)}`],
+      reasoning: "PROSODY stage IELTS sub-band (0-9 normalised to 0-1)",
+      scoredBy: "prosody_v1",
     });
     written++;
   }
@@ -183,29 +179,18 @@ async function writeGeneralCallScores(
 
   let written = 0;
   for (const w of writes) {
-    await prisma.callScore.upsert({
-      where: {
-        callId_parameterId_moduleId: {
-          callId,
-          parameterId: w.parameterId,
-          moduleId: null as unknown as string,
-        },
-      },
-      update: {
-        score: w.score,
-        confidence: 0.7,
-        evidence: [w.evidence],
-        reasoning: "PROSODY stage general voice signal",
-      },
-      create: {
-        callId,
-        callerId,
-        parameterId: w.parameterId,
-        score: w.score,
-        confidence: 0.7,
-        evidence: [w.evidence],
-        reasoning: "PROSODY stage general voice signal",
-      },
+    // #1539 — same PROSODY sentinel for the general-mode writes.
+    await writeCallScore({
+      callId,
+      callerId,
+      parameterId: w.parameterId,
+      analysisSpecId: MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY,
+      moduleId: null,
+      score: w.score,
+      confidence: 0.7,
+      evidence: [w.evidence],
+      reasoning: "PROSODY stage general voice signal",
+      scoredBy: "prosody_v1",
     });
     written++;
   }

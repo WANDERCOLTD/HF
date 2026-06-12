@@ -536,7 +536,7 @@ All invariants here are **WARN-only and non-blocking**. The pipeline always retu
 
 `AGGREGATE` writes `CallScore` + `CallerAttribute(lo_mastery:*)` from EXTRACT's measurements. Skill-scoped `CallScore` rows feed `aggregate-runner.ts`'s EMA cascade into `CallerTarget.currentScore`. `ADAPT` reads `CallerTarget` (+ `CallerAttribute` mastery) and chooses next-module / working set. `COMPOSE` reads everything to build the next prompt. If any link in this chain silently no-ops, the loop is broken but the operator sees nothing — Bertie's first-call recap looks perfect, the prompt looks valid, the call completes. The five invariants below make every silent skip emit a structured AppLog row.
 
-### Invariant inventory (5 invariants — I-AL1..I-AL5)
+### Invariant inventory (6 invariants — I-AL1..I-AL6)
 
 #### I-AL1 — Memory presence on real-engine EXTRACT
 
@@ -609,12 +609,32 @@ All invariants here are **WARN-only and non-blocking**. The pipeline always retu
 | **Audit counter** | `iAL5ZeroTargetsWarn` (target 0) + `iAL5ZeroTargetsError` (target 0 — ERROR severity for empty cascade root). |
 | **Underlying fix** | Slice 3 (#1513) — BehaviorTarget system-defaults seed + SCORE_AGENT cascade fallback. |
 
+#### I-AL6 — CallScore.analysisSpecId stamped post-EXTRACT (#1539)
+
+| Field | Value |
+|---|---|
+| **Producer** | Every CallScore writer in the production pipeline: the EXTRACT batched scorer, the per-segment IELTS scorer, the ADAPT delta-deriver, and the PROSODY consumer. All four MUST route through `lib/measurement/write-call-score.ts::writeCallScore`, which requires `analysisSpecId` in its TypeScript signature AND asserts non-empty at runtime. |
+| **Consumer** | AGGREGATE EMA cascade + cohort-learning analytics + the /x/scoring lineage tab. Every `CallScore` row carries the `AnalysisSpec.id` of the rubric that produced it; downstream readers can answer "which spec graded this score?" deterministically. |
+| **Data shape** | `CallScore.analysisSpecId` is a non-NULL string FK to `AnalysisSpec.id`. LLM writers stamp the originating MEASURE spec's id (looked up via `lib/measurement/parameter-spec-map.ts::buildParameterSpecMap`). Non-LLM writers stamp a sentinel id: `PROSODY-SCORE-V1`, `MOCK-MEASURE-V1`, or `ADAPT-DELTA-V1` (seeded by `prisma/seed-measurement-sentinels.ts`). Historical NULL rows are drained by `scripts/backfill-call-score-analysis-spec.ts` (1:1 attribution where possible; `LEGACY-UNSPECCED-PRE-1539` sentinel for the rest). |
+| **Severity** | WARN by default — promoted to ERROR once the drain script reports `unresolvable = 0` and the column is migrated to NOT NULL. |
+| **Detection rule** | `lib/pipeline/adaptive-loop-invariants.ts::deriveIAL6Violation` runs in `checkInvariantsAfterPipeline`. Counts `CallScore` rows for the call where `analysisSpecId IS NULL`; fires once per call if > 0. |
+| **Test** | `tests/lib/pipeline/adaptive-loop-invariants.test.ts` pins the AppLog shape + non-blocking behaviour. `tests/integration/journey/adaptive-loop-canary.integration.test.ts` Gate 1b asserts post-EXTRACT that every `CallScore.analysisSpecId` is non-NULL. ESLint rule `hf-measurement/no-bare-call-score-write` blocks bare `prisma.callScore.{create,update,upsert}` outside the helper allow-list. |
+| **Memory doc** | This row + `lib/measurement/write-call-score.ts` JSDoc + `docs/decisions/2026-06-12-spec-driven-batched-measurement.md` ADR. |
+| **Audit counter** | `iAL6UnspeccedCallScore` (target 0). |
+| **Underlying fix** | #1539 — helper chokepoint + ESLint rule + prompt-builder rubric injection + drain script + sentinel seeds. |
+
 ### Where the runner lives
 
 `apps/admin/lib/pipeline/adaptive-loop-invariants.ts` exports:
 
 ```ts
-export type InvariantId = "I-AL1" | "I-AL2" | "I-AL3" | "I-AL4" | "I-AL5";
+export type InvariantId =
+  | "I-AL1"
+  | "I-AL2"
+  | "I-AL3"
+  | "I-AL4"
+  | "I-AL5"
+  | "I-AL6";
 export interface InvariantViolation {
   invariant: InvariantId;
   callerId?: string;

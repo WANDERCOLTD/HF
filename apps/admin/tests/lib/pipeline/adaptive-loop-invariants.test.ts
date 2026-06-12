@@ -26,6 +26,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockCallFindUnique = vi.fn();
 const mockCallScoreFindMany = vi.fn();
+const mockCallScoreCount = vi.fn();
 const mockCallerMemoryCount = vi.fn();
 const mockCallerTargetFindUnique = vi.fn();
 const mockQueryRaw = vi.fn();
@@ -35,6 +36,7 @@ vi.mock("@/lib/prisma", () => ({
     call: { findUnique: (...args: unknown[]) => mockCallFindUnique(...args) },
     callScore: {
       findMany: (...args: unknown[]) => mockCallScoreFindMany(...args),
+      count: (...args: unknown[]) => mockCallScoreCount(...args),
     },
     callerMemory: {
       count: (...args: unknown[]) => mockCallerMemoryCount(...args),
@@ -67,6 +69,7 @@ beforeEach(() => {
   mockCallerMemoryCount.mockResolvedValue(0);
   mockCallerTargetFindUnique.mockResolvedValue(null);
   mockQueryRaw.mockResolvedValue([]);
+  mockCallScoreCount.mockResolvedValue(0);
 });
 
 // ── recordInvariantViolation ──────────────────────────────
@@ -369,6 +372,56 @@ describe("I-AL5 — SCORE_AGENT zero targets", () => {
     const [, , data] = mockLog.mock.calls[0];
     expect(data.level).toBe("error");
     expect(data.systemDefaultsEmpty).toBe(true);
+  });
+});
+
+// ── I-AL6 ─────────────────────────────────────────────────
+
+describe("I-AL6 — CallScore.analysisSpecId stamped post-EXTRACT (#1539)", () => {
+  beforeEach(() => {
+    mockCallFindUnique.mockResolvedValue({
+      id: "call-AL6",
+      callerId: "caller-AL6",
+      transcript: "x".repeat(50), // below I-AL1 threshold; isolates AL6
+      createdAt: new Date(),
+    });
+    // Default to no AL2 violations (no skill_* rows in fresh window).
+    mockQueryRaw.mockResolvedValue([]);
+  });
+
+  it("FIRES WARN when CallScore rows for this call lack analysisSpecId", async () => {
+    mockCallScoreCount.mockResolvedValueOnce(3); // 3 rows without lineage
+    const v = await checkInvariantsAfterPipeline("call-AL6");
+    const al6 = v.find((row) => row.invariant === "I-AL6");
+    expect(al6).toBeDefined();
+    expect(al6!.severity).toBe("warn");
+    expect(al6!.callId).toBe("call-AL6");
+    expect(al6!.context.unspeccedCallScoreCount).toBe(3);
+    const al6Log = mockLog.mock.calls.find(
+      (call: unknown[]) => call[1] === "pipeline.invariant.i-al6",
+    );
+    expect(al6Log).toBeDefined();
+    expect((al6Log![2] as { event: string }).event).toBe(
+      "I-AL6-unspecced-callscore",
+    );
+  });
+
+  it("does NOT fire when every CallScore row has analysisSpecId", async () => {
+    mockCallScoreCount.mockResolvedValueOnce(0);
+    const v = await checkInvariantsAfterPipeline("call-AL6");
+    const al6 = v.find((row) => row.invariant === "I-AL6");
+    expect(al6).toBeUndefined();
+  });
+
+  it("does NOT fire when count throws (durability — invariant is non-blocking)", async () => {
+    mockCallScoreCount.mockRejectedValueOnce(new Error("db gone"));
+    const v = await checkInvariantsAfterPipeline("call-AL6");
+    const al6 = v.find((row) => row.invariant === "I-AL6");
+    expect(al6).toBeUndefined();
+  });
+
+  it("defaultSeverityFor(I-AL6) is warn (will promote to error post-drain)", () => {
+    expect(defaultSeverityFor("I-AL6")).toBe("warn");
   });
 });
 
