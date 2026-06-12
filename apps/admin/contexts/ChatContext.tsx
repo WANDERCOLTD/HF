@@ -74,6 +74,14 @@ interface ChatState {
    */
   tuningScope: TuningScope | null;
   /**
+   * Whether demo annotations (operator presenter notes) render on the
+   * Course Design Preview lens. Toggled from the 🎬 Demo tab header in
+   * ChatPanel. Persisted in settings. Default ON so a fresh operator sees
+   * their notes; OFF hides every saved annotation + sticky note until
+   * flipped back. Does NOT delete anything — purely a visibility filter.
+   */
+  demoAnnotationsVisible: boolean;
+  /**
    * #727 v1 — when set, every Assistant-mode message includes this ticket's
    * UUID so the API can inject the ticket + comment thread into the system
    * prompt. Set by the Feedback view's "Discuss with AI" button. Not
@@ -95,6 +103,11 @@ interface ChatActions {
    * AI re-asks on the next turn (#911 — closes the stale-toggle hole).
    */
   setTuningScope: (scope: TuningScope | null) => void;
+  /**
+   * Show / hide demo annotations on the Preview lens. UI lives on the
+   * Demo tab header in ChatPanel; Preview reads via useChatContext.
+   */
+  setDemoAnnotationsVisible: (visible: boolean) => void;
   /**
    * Set / clear the active ticket the Assistant should be discussing.
    * Pass `null` to clear (e.g. when closing the ticket detail panel).
@@ -178,7 +191,7 @@ export const MODE_CONFIG: Record<ChatMode, { label: string; icon: string; color:
   // contracts (`fanoutScope:'none'`, `no-ai-fanout-all` ESLint).
   DEMO: {
     label: "Demo",
-    icon: "▶",
+    icon: "🎬",
     color: "var(--accent-primary)",
     description: "Remote control for live demos — narrow action palette (test voice, dry-run, apply preset)",
   },
@@ -351,8 +364,8 @@ function persistMessages(messages: Record<ChatMode, ChatMessage[]>, userId: stri
   }
 }
 
-function loadSettings(userId: string | undefined): { isOpen: boolean; mode: ChatMode; chatLayout: ChatLayout; tuningScope: TuningScope | null } {
-  const defaults = { isOpen: false, mode: "ASSISTANT" as ChatMode, chatLayout: "vertical" as ChatLayout, tuningScope: "PLAYBOOK" as TuningScope | null };
+function loadSettings(userId: string | undefined): { isOpen: boolean; mode: ChatMode; chatLayout: ChatLayout; tuningScope: TuningScope | null; demoAnnotationsVisible: boolean } {
+  const defaults = { isOpen: false, mode: "ASSISTANT" as ChatMode, chatLayout: "vertical" as ChatLayout, tuningScope: "PLAYBOOK" as TuningScope | null, demoAnnotationsVisible: true };
   if (typeof window === "undefined") return defaults;
   try {
     const stored = localStorage.getItem(getSettingsKey(userId));
@@ -370,16 +383,20 @@ function loadSettings(userId: string | undefined): { isOpen: boolean; mode: Chat
     // setting maps to ASSISTANT; anything unrecognised falls back the
     // same way (safer than stranding the user on a missing tab).
     const mode = normalizeChatMode(parsed.mode);
-    return { isOpen: false, mode, chatLayout: parsed.chatLayout || "vertical", tuningScope: scope };
+    const demoAnnotationsVisible =
+      typeof parsed.demoAnnotationsVisible === "boolean"
+        ? parsed.demoAnnotationsVisible
+        : true;
+    return { isOpen: false, mode, chatLayout: parsed.chatLayout || "vertical", tuningScope: scope, demoAnnotationsVisible };
   } catch {
     return defaults;
   }
 }
 
-function persistSettings(isOpen: boolean, mode: ChatMode, chatLayout: ChatLayout, tuningScope: TuningScope | null, userId: string | undefined): void {
+function persistSettings(isOpen: boolean, mode: ChatMode, chatLayout: ChatLayout, tuningScope: TuningScope | null, demoAnnotationsVisible: boolean, userId: string | undefined): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(getSettingsKey(userId), JSON.stringify({ isOpen, mode, chatLayout, tuningScope }));
+    localStorage.setItem(getSettingsKey(userId), JSON.stringify({ isOpen, mode, chatLayout, tuningScope, demoAnnotationsVisible }));
   } catch {
     // Ignore storage errors
   }
@@ -393,6 +410,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ChatMode>("ASSISTANT");
   const [chatLayout, setChatLayoutState] = useState<ChatLayout>("vertical");
   const [tuningScope, setTuningScopeState] = useState<TuningScope | null>("PLAYBOOK");
+  const [demoAnnotationsVisible, setDemoAnnotationsVisibleState] = useState<boolean>(true);
   const [messages, setMessages] = useState<Record<ChatMode, ChatMessage[]>>(createEmptyMessages);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
@@ -433,6 +451,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setModeState(settings.mode);
       setChatLayoutState(settings.chatLayout);
       setTuningScopeState(settings.tuningScope);
+      setDemoAnnotationsVisibleState(settings.demoAnnotationsVisible);
       setLastUserId(userId);
       setInitialized(true);
     }
@@ -448,9 +467,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // Persist settings when they change
   useEffect(() => {
     if (initialized) {
-      persistSettings(isOpen, mode, chatLayout, tuningScope, userId);
+      persistSettings(isOpen, mode, chatLayout, tuningScope, demoAnnotationsVisible, userId);
     }
-  }, [isOpen, mode, chatLayout, tuningScope, initialized, userId]);
+  }, [isOpen, mode, chatLayout, tuningScope, demoAnnotationsVisible, initialized, userId]);
 
   // #911 — reset the tuning scope toggle whenever the *type* of the active
   // entity changes (caller → playbook, playbook → caller, either → none, or
@@ -527,6 +546,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const setTuningScope = useCallback((scope: TuningScope | null) => {
     setTuningScopeState(scope);
+  }, []);
+
+  const setDemoAnnotationsVisible = useCallback((visible: boolean) => {
+    setDemoAnnotationsVisibleState(visible);
   }, []);
 
   const setDiscussionTicket = useCallback((id: string | null, ticketNumber: number | null = null) => {
@@ -815,6 +838,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     mode,
     chatLayout,
     tuningScope,
+    demoAnnotationsVisible,
     discussionTicketId,
     discussionTicketNumber,
     messages,
@@ -828,6 +852,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setMode,
     setChatLayout,
     setTuningScope,
+    setDemoAnnotationsVisible,
     setDiscussionTicket,
     sendMessage,
     addMessage,
