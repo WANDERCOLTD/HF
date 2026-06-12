@@ -17,18 +17,13 @@ import { resolveCourseByName } from "./wizard-tool-executor/resolvers/course-by-
 import { resolveSubjectByName } from "./wizard-tool-executor/resolvers/subject-by-name";
 import { resolveInstitutionByName } from "./wizard-tool-executor/resolvers/institution-by-name";
 import { ensureInstitutionAndDomain } from "./wizard-tool-executor/_shared/ensure-institution-and-domain";
+import { execute as executeShowOptions } from "./wizard-tool-executor/tools/show_options";
+import { execute as executeShowUpload } from "./wizard-tool-executor/tools/show_upload";
+import { execute as executeShowSuggestions } from "./wizard-tool-executor/tools/show_suggestions";
+import type { WizardToolResult } from "./wizard-tool-executor/_shared/types";
 
 export { applyStudentExperienceConfig };
-
-// ── Tool result type ────────────────────────────────────
-
-export interface WizardToolResult {
-  tool_use_id: string;
-  content: string;
-  is_error?: boolean;
-  /** Fields to auto-inject as a client-side update_setup call (e.g. resolved entity IDs). */
-  autoInjectFields?: Record<string, unknown>;
-}
+export type { WizardToolResult };
 
 /**
  * Execute a wizard tool call.
@@ -422,73 +417,14 @@ export async function executeWizardTool(
       return { ...base, content: withRejections(`Saved ${keys.length} field(s): ${keys.join(", ")}. Advance to the next graph priority. You MUST call show_suggestions or show_options — do NOT end with just a statement.`) };
     }
 
-    case "show_options": {
-      return { ...base, content: `Panel displayed to user. Wait for their response.` };
-    }
+    case "show_options":
+      return { ...base, ...(await executeShowOptions()) };
 
-    case "show_upload": {
-      // Safety net: auto-create institution if domainId is missing but we have enough data.
-      // This handles the case where the AI skips create_institution before the content phase.
-      const existingDomainId = (setupData?.existingDomainId || setupData?.draftDomainId) as string | undefined;
-      if (!existingDomainId && setupData?.institutionName) {
-        const result = await ensureInstitutionAndDomain(
-          setupData.institutionName as string,
-          userId,
-          setupData.typeSlug as string | undefined,
-        );
-        if (result) {
-          return {
-            ...base,
-            autoInjectFields: {
-              draftDomainId: result.domainId,
-              draftInstitutionId: result.institutionId,
-              defaultDomainKind: result.domainKind,
-            },
-            content: "Teaching Materials panel is visible in the right column. Guide the user to drop files there. Wait for their response.",
-          };
-        }
-        // ensureInstitutionAndDomain returned null — fall through, show upload anyway
-      }
-      return { ...base, content: `Teaching Materials panel is visible in the right column. Guide the user to drop files there. Wait for their response.` };
-    }
+    case "show_upload":
+      return { ...base, ...(await executeShowUpload(input, userId, setupData)) };
 
-    case "show_suggestions": {
-      // #398 — reject "Create my course" / "Ready to launch" chip text while
-      // progressionMode (a required graph field) is still missing. The AI has
-      // repeatedly ignored rule 9 (HARD GATE) + the BLOCKED directive in
-      // graph-evaluator and offered create-course chips with required fields
-      // unset. This is the last server-side gate.
-      const suggestions = input.suggestions as unknown;
-      if (Array.isArray(suggestions) && setupData) {
-        const progressionMissing =
-          setupData.progressionMode === undefined ||
-          setupData.progressionMode === null ||
-          setupData.progressionMode === "";
-        if (progressionMissing) {
-          const CREATE_LIKE = /\b(create|launch|build|ready to (proceed|create|launch|go))\b/i;
-          const offending = suggestions.filter(
-            (s): s is string => typeof s === "string" && CREATE_LIKE.test(s),
-          );
-          if (offending.length > 0) {
-            console.warn(
-              `[wizard-tools] show_suggestions REJECTED — ${offending.length} create-course-style chip(s) (${offending.join(" / ")}) offered while progressionMode is missing. Surface show_options with dataKey:"progressionMode" instead.`,
-            );
-            return {
-              ...base,
-              content: JSON.stringify({
-                ok: false,
-                error:
-                  `Cannot offer "Create my course" / "Ready to launch" chips while required field progressionMode is missing. ` +
-                  `Call show_options with dataKey:"progressionMode" first — the educator's chip click writes the field directly. Once setupData.progressionMode is set, the launch chips become valid.`,
-                rejectedSuggestions: offending,
-              }),
-              is_error: true,
-            };
-          }
-        }
-      }
-      return { ...base, content: `Suggestion chips displayed to user. Wait for their response.` };
-    }
+    case "show_suggestions":
+      return { ...base, ...(await executeShowSuggestions(input, userId, setupData)) };
 
     case "create_institution": {
       // Server-side: actually create the institution
