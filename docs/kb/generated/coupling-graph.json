@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-12T09:57:38.801Z",
+  "generatedAt": "2026-06-12T10:21:54.406Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1667,
-  "edgeCount": 3837,
+  "fileCount": 1669,
+  "edgeCount": 3843,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1330,6 +1330,10 @@
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/pipeline/prosody-runner.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pipeline/route.ts",
+      "to": "lib/pipeline/score-agent-cascade.ts"
     },
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
@@ -12985,6 +12989,10 @@
     },
     {
       "from": "lib/pipeline/aggregate-runner.ts",
+      "to": "lib/pipeline/adaptive-loop-invariants.ts"
+    },
+    {
+      "from": "lib/pipeline/aggregate-runner.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -13094,6 +13102,14 @@
     {
       "from": "lib/pipeline/scheduler.ts",
       "to": "lib/pipeline/scheduler-reasons.ts"
+    },
+    {
+      "from": "lib/pipeline/score-agent-cascade.ts",
+      "to": "lib/pipeline/adaptive-loop-invariants.ts"
+    },
+    {
+      "from": "lib/pipeline/score-agent-cascade.ts",
+      "to": "lib/prisma.ts"
     },
     {
       "from": "lib/pipeline/specs-loader.ts",
@@ -15228,6 +15244,14 @@
       "to": "lib/content-trust/validate-lo-linkage.ts"
     },
     {
+      "from": "scripts/seed-system-behavior-defaults.ts",
+      "to": "lib/cascade/knob-keys.ts"
+    },
+    {
+      "from": "scripts/seed-system-behavior-defaults.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "scripts/session-flow-drift.ts",
       "to": "lib/config.ts"
     },
@@ -15865,7 +15889,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 47
+      "outDegree": 48
     },
     {
       "path": "app/api/calls/[callId]/route.ts",
@@ -20709,7 +20733,7 @@
     },
     {
       "path": "lib/cascade/knob-keys.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 0
     },
     {
@@ -22089,13 +22113,13 @@
     },
     {
       "path": "lib/pipeline/adaptive-loop-invariants.ts",
-      "inDegree": 2,
+      "inDegree": 4,
       "outDegree": 2
     },
     {
       "path": "lib/pipeline/aggregate-runner.ts",
       "inDegree": 3,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "lib/pipeline/config.ts",
@@ -22183,6 +22207,11 @@
       "outDegree": 4
     },
     {
+      "path": "lib/pipeline/score-agent-cascade.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
       "path": "lib/pipeline/specs-loader.ts",
       "inDegree": 1,
       "outDegree": 4
@@ -22204,7 +22233,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 617,
+      "inDegree": 619,
       "outDegree": 0
     },
     {
@@ -23563,6 +23592,11 @@
       "outDegree": 0
     },
     {
+      "path": "scripts/seed-system-behavior-defaults.ts",
+      "inDegree": 0,
+      "outDegree": 2
+    },
+    {
       "path": "scripts/seed-tallyseal-intent-fixture.ts",
       "inDegree": 0,
       "outDegree": 0
@@ -23696,7 +23730,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 617,
+      "inDegree": 619,
       "outDegree": 0
     },
     {
@@ -23727,7 +23761,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 47
+      "outDegree": 48
     },
     {
       "path": "app/x/courses/[courseId]/page.tsx",
