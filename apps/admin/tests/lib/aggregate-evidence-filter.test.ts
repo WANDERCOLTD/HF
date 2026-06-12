@@ -31,9 +31,11 @@ vi.mock("@/lib/prisma", () => ({
     },
 }));
 
-// contracts / profile writes are not under test here
+// contracts / profile writes are not under test here. #1533 HF-A
+// renamed `ContractRegistry.get` → `getContract`; mock the canonical
+// method so the contract read returns null cleanly.
 vi.mock("@/lib/contracts/registry", () => ({
-  ContractRegistry: { get: vi.fn().mockResolvedValue(null) },
+  ContractRegistry: { getContract: vi.fn().mockResolvedValue(null) },
 }));
 vi.mock("@/lib/learner/profile", () => ({
   updateLearnerProfile: vi.fn().mockResolvedValue(undefined),

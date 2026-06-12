@@ -20,8 +20,6 @@
  * rather than this helper inventing a default.
  */
 
-export type InferredLayer = "PLAYBOOK" | "CALLER" | "DOMAIN";
-
 export type ScopeInferResult =
   | { ok: true; layer: "PLAYBOOK"; scopeIds: { playbookId: string } }
   | { ok: true; layer: "CALLER"; scopeIds: { callerId: string } }

@@ -53,7 +53,8 @@ describe("PlaybookSource isolation guards", () => {
       expect(targetsWithScope).toHaveLength(1);
 
       // Without playbookId → fan-out (legacy, only for backward compat)
-      const targetsWithoutScope = null ? [null] : allPlaybooks;
+      const noPlaybookId: string | null = null;
+      const targetsWithoutScope = noPlaybookId ? [noPlaybookId] : allPlaybooks;
       expect(targetsWithoutScope).toHaveLength(3);
     });
 
@@ -69,7 +70,7 @@ describe("PlaybookSource isolation guards", () => {
       const shouldSync = !uploadSourceIds?.length;
       expect(shouldSync).toBe(false);
 
-      const noSourceIds: string[] | undefined = undefined;
+      const noSourceIds = undefined as string[] | undefined;
       const shouldSyncLegacy = !noSourceIds?.length;
       expect(shouldSyncLegacy).toBe(true);
     });
@@ -81,11 +82,15 @@ describe("PlaybookSource isolation guards", () => {
       // upsertPlaybookSource. Without this, the projection (#338) sees no
       // COURSE_REFERENCE and the course is "degenerate".
       //
-      // Static check that the existing-path in wizard-tool-executor.ts
-      // contains the same upsertPlaybookSource loop the new-path has.
+      // Static check that the existing-path of create_course (split
+      // out of `wizard-tool-executor.ts` by #1547) contains the same
+      // upsertPlaybookSource loop the new-path has.
       const fs = await import("fs/promises");
       const path = await import("path");
-      const file = path.resolve(__dirname, "../../../lib/chat/wizard-tool-executor.ts");
+      const file = path.resolve(
+        __dirname,
+        "../../../lib/chat/wizard-tool-executor/tools/create_course.ts",
+      );
       const src = await fs.readFile(file, "utf8");
 
       // The fix block in the existing-path uses existingPlaybookId as the
