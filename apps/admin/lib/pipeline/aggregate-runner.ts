@@ -16,6 +16,7 @@
 import { prisma } from "@/lib/prisma";
 import { updateLearnerProfile } from "@/lib/learner/profile";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import { recordIAL3DefaultFallback } from "@/lib/pipeline/adaptive-loop-invariants";
 import type { SpecConfig } from "@/lib/types/json-fields";
 
 // ── #417 Phase C — per-skill EMA accumulation ──────────────────────────────
@@ -162,13 +163,34 @@ export async function accumulateSkillScores(
   }
 
   // Resolve config: rule-level override → playbook override → contract → fallback.
+  // #1513 Slice 3 — track WHICH layer supplied each value so we can emit
+  // I-AL3 when both fell through to SKILL_DEFAULTS (observability signal,
+  // not a fault). The cascade math itself is unchanged.
   let halfLifeDays = SKILL_DEFAULTS.emaHalfLifeDays;
   let minCallsToFull = SKILL_DEFAULTS.minCallsToFull;
+  let halfLifeSource: "rule" | "playbook" | "contract" | "default" = "default";
+  let minCallsSource: "rule" | "playbook" | "contract" | "default" = "default";
   try {
+    // HF-A (audit #1533, commit 602e3ad): ContractRegistry exposes
+    // `getContract(id)`, NOT `.get(id)`. Pre-merge, main carried a
+    // documented @ts-expect-error TODO leaving the typo in place; HF-A
+    // confirmed via DB query on hf_sandbox that SKILL_MEASURE_V1 IS
+    // seeded with tuned values, so the contract READ is the correct
+    // behaviour — defaults were silently winning over the educator's
+    // tuned thresholds on every call. Fix preserves main's source-
+    // tracking observability (halfLifeSource / minCallsSource) so
+    // #1513's I-AL3 emit still distinguishes contract-driven from
+    // default-driven cascades. See docs/audit/HF-A-evidence-skill-measure-v1.md.
     const contract = await ContractRegistry.getContract("SKILL_MEASURE_V1");
     const cfg = (contract?.config ?? {}) as Record<string, unknown>;
-    if (typeof cfg.emaHalfLifeDays === "number") halfLifeDays = cfg.emaHalfLifeDays;
-    if (typeof cfg.minCallsToFull === "number") minCallsToFull = cfg.minCallsToFull;
+    if (typeof cfg.emaHalfLifeDays === "number") {
+      halfLifeDays = cfg.emaHalfLifeDays;
+      halfLifeSource = "contract";
+    }
+    if (typeof cfg.minCallsToFull === "number") {
+      minCallsToFull = cfg.minCallsToFull;
+      minCallsSource = "contract";
+    }
     // contract null (not seeded) → defaults already assigned above.
   } catch (err) {
     // Unexpected error reading the contract — log it; never silently swallow.
@@ -181,13 +203,34 @@ export async function accumulateSkillScores(
   const pbCfg = (playbookOverride?.playbook?.config ?? {}) as Record<string, unknown>;
   if (typeof pbCfg.skillScoringEmaHalfLifeDays === "number") {
     halfLifeDays = pbCfg.skillScoringEmaHalfLifeDays as number;
+    halfLifeSource = "playbook";
   }
   if (typeof pbCfg.skillMinCallsToFull === "number") {
     minCallsToFull = pbCfg.skillMinCallsToFull as number;
+    minCallsSource = "playbook";
   }
   // Rule-level overrides (highest precedence; spec-driven config).
-  if (typeof options.halfLifeDays === "number") halfLifeDays = options.halfLifeDays;
-  if (typeof options.minCallsToFull === "number") minCallsToFull = options.minCallsToFull;
+  if (typeof options.halfLifeDays === "number") {
+    halfLifeDays = options.halfLifeDays;
+    halfLifeSource = "rule";
+  }
+  if (typeof options.minCallsToFull === "number") {
+    minCallsToFull = options.minCallsToFull;
+    minCallsSource = "rule";
+  }
+  // #1513 Slice 3 — emit I-AL3 once per accumulate call when BOTH knobs
+  // fell through to SKILL_DEFAULTS (no contract, no playbook override,
+  // no rule override). Observability only — NOT a violation. Routed
+  // through the chokepoint helper so the AppLog row shape stays
+  // consistent with the rest of the I-AL ladder.
+  // Fire-and-forget: helper swallows its own errors per Slice 1 contract.
+  const allDefaulted = halfLifeSource === "default" && minCallsSource === "default";
+  if (allDefaulted) {
+    void recordIAL3DefaultFallback({
+      callerId,
+      source: "SKILL_DEFAULTS",
+    });
+  }
 
   const now = new Date();
 

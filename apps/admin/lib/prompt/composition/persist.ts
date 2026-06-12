@@ -88,6 +88,33 @@ export async function persistComposedPrompt(
       }
     : undefined;
 
+  // #1514 Gate 4 / #1530 — surface the deduplicated `key_memories` list
+  // that the quickstart transform already computed (and that lives at
+  // `llmPrompt._quickStart.key_memories`) into `inputs.key_memories`
+  // alongside the sibling `memoriesCount` field. The canary at
+  // tests/integration/journey/adaptive-loop-canary.integration.test.ts
+  // reads `ComposedPrompt.inputs.key_memories` as the external
+  // observability surface for "did the tutor actually receive the key
+  // memory facts?". Pre-fix the value was never persisted under
+  // `inputs.*` — it only existed at `llmPrompt._quickStart.key_memories`,
+  // so the canary's Gate 4 tripped WARN even when CallerMemory writes
+  // were healthy (proven by #1515).
+  //
+  // Value semantics:
+  //   - non-empty string[]  → quickstart found memories and surfaced them
+  //   - []                  → no memories to surface (zero-memory caller, or
+  //                            quickstart returned null for any other reason)
+  // Never `undefined`/`null` — the canary uses `Array.isArray(...) ? x : []`
+  // and the dashboard widgets can rely on the field being defined.
+  //
+  // Purely additive — no existing reader of `inputs.*` consumes this name
+  // (sweep in docs/audit/compose-key-memories-empty-root-cause.md).
+  const quickStartFromPrompt = (llmPrompt as Record<string, unknown> | undefined)?._quickStart;
+  const keyMemoriesFromQuickStart = (quickStartFromPrompt as { key_memories?: unknown } | undefined)?.key_memories;
+  const keyMemories: string[] = Array.isArray(keyMemoriesFromQuickStart)
+    ? (keyMemoriesFromQuickStart.filter((m): m is string => typeof m === "string"))
+    : [];
+
   // A2 — the create-new-active + supersede-old-active pair MUST be atomic.
   // Pre-fix, two concurrent recomposes could both finish their create()
   // before either reached updateMany(), leaving two `status:"active"` rows
@@ -110,6 +137,7 @@ export async function persistComposedPrompt(
         inputs: {
           callerContext,
           memoriesCount: loadedData.memories.length,
+          key_memories: keyMemories,
           personalityAvailable: !!loadedData.personality,
           recentCallsCount: loadedData.recentCalls.length,
           behaviorTargetsCount: metadata.mergedTargetCount,

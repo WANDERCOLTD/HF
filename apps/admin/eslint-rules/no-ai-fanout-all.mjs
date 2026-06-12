@@ -31,11 +31,16 @@ const WATCHED_HELPER_NAMES = new Set([
  *
  * If a new AI tool surface lands (e.g. a new chat route, a new palette
  * command bundle), add its path here. The list is the contract.
+ *
+ * Fragments are directory-or-file-prefix substrings so the rule survives
+ * a monolith → per-tool-file split: `lib/chat/wizard-tool-executor`
+ * matches both `…/wizard-tool-executor.ts` AND
+ * `…/wizard-tool-executor/tools/create_course.ts` after the split lands.
  */
 const AI_TOOL_PATH_FRAGMENTS = [
-  "lib/chat/wizard-tool-executor.ts",
-  "lib/chat/conversational-wizard-tools.ts",
-  "lib/chat/admin-tool-handlers.ts",
+  "lib/chat/wizard-tool-executor",
+  "lib/chat/conversational-wizard-tools",
+  "lib/chat/admin-tool-handlers",
   "app/api/chat/route.ts",
 ];
 

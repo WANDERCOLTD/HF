@@ -36,6 +36,8 @@ import { extractFailureAdaptation } from "@/lib/pipeline/extract-failure-adaptat
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
 import { shouldSkipForEvidenceFirst, shouldSkipForZeroEvidence } from "@/lib/pipeline/evidence-gate";
 import { validateSpecDependencies } from "@/lib/pipeline/validate-dependencies";
+import { checkInvariantsAfterPipeline } from "@/lib/pipeline/adaptive-loop-invariants";
+import { loadBehaviorTargetsWithCascade } from "@/lib/pipeline/score-agent-cascade";
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
 import { extractGoals, extractGoalCompletionSignals } from "@/lib/goals/extract-goals";
@@ -3498,6 +3500,24 @@ const stageExecutors: Record<string, StageExecutor> = {
   SCORE_AGENT: async (ctx, stage) => {
     ctx.log.info(`Stage ${stage.name}: ${stage.description}`);
 
+    // #1513 Slice 3 — BehaviorTarget cascade observability. Loads the
+    // (playbookId, scope=PLAYBOOK) → (scope=SYSTEM) cascade for I-AL5
+    // surfacing. Runs BEFORE the idempotency short-circuit so the
+    // dashboard still sees the gap on a force-rerun. NON-BLOCKING:
+    // result is logged for visibility; downstream scoring uses MEASURE
+    // specs to derive parameters (cascade is observational only).
+    const targetCascade = await loadBehaviorTargetsWithCascade({
+      playbookId: ctx.call.playbookId,
+      callerId: ctx.callerId,
+      callId: ctx.callId,
+    });
+    ctx.log.info("SCORE_AGENT BehaviorTarget cascade resolved", {
+      playbookId: ctx.call.playbookId,
+      resolvedScope: targetCascade.resolvedScope,
+      targetCount: targetCascade.targets.length,
+      iAL5Emitted: targetCascade.emitted,
+    });
+
     // Idempotency: skip AI call if measurements already exist for this call
     if (!ctx.force) {
       const existingMeasurements = await prisma.behaviorMeasurement.count({ where: { callId: ctx.callId } });
@@ -4083,6 +4103,15 @@ async function runSpecDrivenPipeline(ctx: PipelineContext): Promise<{
   } catch (err: any) {
     log.warn(`CallerIdentity update failed (non-blocking): ${err.message}`);
   }
+
+  // #1511 — Adaptive Loop observability invariants (epic #1510 Slice 1).
+  // Derives I-AL1 (memory presence on real-engine) + I-AL2 (skill scores
+  // reach CallerTarget) and writes structured AppLog rows for the
+  // pipeline-health dashboard. WARN-only, NON-BLOCKING — fire-and-forget,
+  // never awaited, never throws (the runner swallows its own errors).
+  // I-AL3 / I-AL4 / I-AL5 emit at their stage runners via sibling slices
+  // (#1512 / #1513). See docs/CHAIN-CONTRACTS.md §6.
+  void checkInvariantsAfterPipeline(ctx.callId).catch(() => undefined);
 
   return {
     summary: ctx.results,

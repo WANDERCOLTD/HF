@@ -524,7 +524,136 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 
 ---
 
-## 6. Pre-change checklist
+## 6. Adaptive Loop — observability invariants (epic #1510 Slice 1, #1511)
+
+The links in §3 / §3a / §3c / §3d describe **structural** contracts at stage boundaries (producer → consumer data shape, FK, slug form, etc.). This section adds the complementary **observability** contract for the same loop: when a structural invariant silently fails — a scoring path skipped, a config default fired instead of an educator override, a memory write never happened — the failure must be visible in `/x/logs`, `AppLog`, and on `/x/help/pipeline-health`.
+
+All invariants here are **WARN-only and non-blocking**. The pipeline always returns. We surface silence, we never block on it. The structural fixes that drive these counters to zero live in the sibling slices of epic #1510 (#1512 PROSODY, #1513 SCORE_AGENT defaults, etc.); this slice is the observability foundation they hook into.
+
+> **Non-blocking semantics preserved.** Pipeline `stageErrors` semantics from `docs/PIPELINE.md` §3 are unchanged — invariant violations are fire-and-forget AppLog rows, not thrown errors, not added to `stageErrors`, not surfaced to the caller's HTTP response. The structural fix slices preserve the same property.
+
+### The chain in one paragraph
+
+`AGGREGATE` writes `CallScore` + `CallerAttribute(lo_mastery:*)` from EXTRACT's measurements. Skill-scoped `CallScore` rows feed `aggregate-runner.ts`'s EMA cascade into `CallerTarget.currentScore`. `ADAPT` reads `CallerTarget` (+ `CallerAttribute` mastery) and chooses next-module / working set. `COMPOSE` reads everything to build the next prompt. If any link in this chain silently no-ops, the loop is broken but the operator sees nothing — Bertie's first-call recap looks perfect, the prompt looks valid, the call completes. The five invariants below make every silent skip emit a structured AppLog row.
+
+### Invariant inventory (5 invariants — I-AL1..I-AL5)
+
+#### I-AL1 — Memory presence on real-engine EXTRACT
+
+| Field | Value |
+|---|---|
+| **Producer** | `runBatchedCallerAnalysis` (LEARN path) inside `app/api/calls/[callId]/pipeline/route.ts::stageExecutors.EXTRACT`. Writes `CallerMemory` rows during real-engine LLM extraction. |
+| **Consumer** | COMPOSE memory loaders (`SectionDataLoader.ts::registerLoader("memories")`) + downstream priorCallRecap transforms. |
+| **Data shape** | `CallerMemory.count > 0` post-EXTRACT for any Call where `engine === "claude"` AND `transcript.length >= 200`. |
+| **Mock-engine carve-out** | **Intentional.** `route.ts::stageExecutors.EXTRACT` short-circuits to the mock path at `route.ts:1029-1031` and suppresses `CallerMemory` writes by design — the mock has no LLM reasoning and cannot extract memories. The G9 audit (#1158) already added the WARN at that site. I-AL1 explicitly excludes mock-engine runs. |
+| **Severity** | WARN. Never blocks the pipeline. |
+| **Detection rule** | `engine === "claude"` AND `transcript.length >= 200` AND `CallerMemory.count(where: callerId, createdAt >= pipelineStartedAt) === 0` → emit `log.warn({ event: "I-AL1-violation", callId, callerId, transcriptLength, memoriesCreated: 0, engine: "claude" })` + AppLog row `subject: "pipeline.invariant.i-al1"`. |
+| **Test** | `tests/lib/pipeline/adaptive-loop-invariants.test.ts` — fires when real-engine + transcript >= 200 + zero memories; doesn't fire for mock; doesn't fire when transcript < 200. |
+| **Memory doc** | This row + `lib/pipeline/adaptive-loop-invariants.ts` JSDoc. |
+| **Audit counter** | `iAL1MemoryAbsentRealEngine` (target 0) — counts last-24h AppLog rows. |
+| **Underlying fix** | Out of scope for Slice 1. Epic #1510 Slice 5 (CONDITIONAL, #1515) activates only if canary fires on `memories` gate. |
+
+#### I-AL2 — Skill score aggregation reaches `CallerTarget.currentScore`
+
+| Field | Value |
+|---|---|
+| **Producer** | `aggregate-runner.ts` (EMA cascade) — reads `skill_*` `CallScore` rows from the last 24h, writes `CallerTarget.currentScore`. |
+| **Consumer** | ADAPT module selector + COMPOSE goals/skills transforms. |
+| **Data shape** | For any `(callerId, parameterId)` where `parameterId LIKE 'skill_%'` AND ≥ 1 `CallScore` row exists in last 24h, `CallerTarget.currentScore` MUST be non-null within 6h of the last `CallScore.scoredAt`. |
+| **Severity** | WARN. Never blocks the pipeline. |
+| **Detection rule** | After COMPOSE persists, scan distinct `(callerId, parameterId LIKE 'skill_%')` tuples in last 24h `CallScore`. For each tuple, look up `CallerTarget`. If `currentScore` is null AND `lastCallScoreAt > 6h ago` is false → emit `log.warn({ event: "I-AL2-violation", callerId, parameterId, callScoreCount, lastCallScoreAt, callerTargetScore: null })` + AppLog row `subject: "pipeline.invariant.i-al2"`. |
+| **Test** | `tests/lib/pipeline/adaptive-loop-invariants.test.ts` — fires when skill CallScore exists but `CallerTarget.currentScore` is null; doesn't fire when no CallScore rows; doesn't fire when CallScore exists but is older than 6h (drained / migration window). |
+| **Memory doc** | This row + `lib/pipeline/adaptive-loop-invariants.ts` JSDoc. |
+| **Audit counter** | `iAL2SkillTargetUnscored` (target 0) — counts last-24h AppLog rows. |
+| **Underlying fix** | Out of scope for Slice 1. Epic #1510 Slice 6 (CONDITIONAL, #1516) activates only if canary fires on `callerTargetCurrentScore` gate. |
+
+#### I-AL3 — Spec config sourcing observability (default-fallback signal)
+
+| Field | Value |
+|---|---|
+| **Producer** | AGGREGATE-stage runners (`aggregate-runner.ts`) — `SKILL_DEFAULTS` constants fire when no `rule.config.*` override AND no `playbook.config.skill*` override AND no `ContractRegistry.get("SKILL_MEASURE_V1")` config exists. |
+| **Consumer** | The EMA cascade itself — controls `halfLifeDays` + `minCallsToFull`. |
+| **Data shape** | NOT a violation per se — it is healthy that some specs override and some don't. The signal is the *visibility* of the default-fallback so we can spot when a teacher's expected override silently doesn't reach the runner. |
+| **Severity** | INFO. Never blocks. Production should show variance. |
+| **Detection rule** | When the runner falls through every override layer to `SKILL_DEFAULTS`, emit `log.info({ event: "I-AL3-default-fallback", callerId, parameterId, source: "SKILL_DEFAULTS" })` + AppLog row `subject: "pipeline.invariant.i-al3"`. Wired by Slice 3 (#1513) inside the cascade itself. |
+| **Test** | Sibling slice — Slice 3 wires the emit; Slice 1 only documents + tests the SHAPE of the AppLog row. |
+| **Memory doc** | This row + `lib/pipeline/aggregate-runner.ts` `SKILL_DEFAULTS` comment. |
+| **Audit counter** | `iAL3DefaultFallbackInfo` (kind: informational — never blocks). |
+| **Underlying fix** | Slice 3 (#1513). |
+
+#### I-AL4 — PROSODY-skip observability
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/pipeline/prosody-runner.ts`. Skips at three sites today (line numbers move, names stable): existing-envelope cache hit, `no_recording` (no `stereoRecordingUrl`), `no_provider_configured` (resolveSpeechAssessmentProviderForCall throws), plus the absence of a tierPreset which routes through `detectProsodyMode`. |
+| **Consumer** | REWARD/SCORE chains that condition on `voiceProsody`. |
+| **Data shape** | When PROSODY persists a skip envelope, MUST emit a structured AppLog row with `reason ∈ {"existing-envelope", "no-stereoUrl", "no-tierPreset", "no-provider"}`. |
+| **Severity** | WARN for `no-stereoUrl` / `no-tierPreset` / `no-provider` (silent operational gap). INFO for `existing-envelope` (normal cache hit — do NOT WARN). |
+| **Detection rule** | `lib/pipeline/prosody-runner.ts` already returns `skippedReason` for the existing-envelope branch; Slice 2 (#1512) wires the missing emits at the other three sites. Slice 1 only documents the contract + tests the shape. The Slice 1 runner does not scan PROSODY directly — it relies on the Slice 2 emits landing in AppLog and surfaces them on the dashboard. |
+| **Test** | `tests/lib/pipeline/adaptive-loop-invariants.test.ts` pins that `recordInvariantViolation` writes the right AppLog shape when called with `{ invariant: "I-AL4", reason: "no-stereoUrl" }` and that `existing-envelope` is INFO not WARN. |
+| **Memory doc** | This row + `lib/pipeline/prosody-runner.ts` skip-site comments (added in Slice 2). |
+| **Audit counter** | `iAL4ProsodySkipWarn` (target 0 — for actionable reasons) + `iAL4ProsodySkipInfo` (informational — existing-envelope cache hits). |
+| **Underlying fix** | Slice 2 (#1512) emits the structured rows + seeds IELTS data. |
+
+#### I-AL5 — SCORE_AGENT zero-targets observability
+
+| Field | Value |
+|---|---|
+| **Producer** | `app/api/calls/[callId]/pipeline/route.ts::stageExecutors.SCORE_AGENT`. Loads `BehaviorTarget(scope=PLAYBOOK)` rows for the call's `playbookId` and runs scoring. |
+| **Consumer** | AGGREGATE cascade + COMPOSE goals/skills sections. |
+| **Data shape** | When SCORE_AGENT loads zero `BehaviorTarget` rows for a `(playbookId, scope=PLAYBOOK)` tuple, MUST emit `log.warn({ event: "I-AL5-zero-targets", playbookId, callerId, scope: "PLAYBOOK" })` + AppLog row `subject: "pipeline.invariant.i-al5"`. If the SYSTEM-scope defaults are ALSO empty (no cascade root at all), escalate to `level: "error"`. |
+| **Severity** | WARN by default; ERROR when SYSTEM defaults are also empty (the cascade has no root). |
+| **Detection rule** | Slice 3 (#1513) wires the emit inside SCORE_AGENT once the SYSTEM-defaults seed lands. Slice 1's runner does not scan SCORE_AGENT input directly — same pattern as I-AL4. |
+| **Test** | `tests/lib/pipeline/adaptive-loop-invariants.test.ts` pins the AppLog shape for both severities. |
+| **Memory doc** | This row + `lib/pipeline/aggregate-runner.ts` + `SCORE_AGENT` executor comment. |
+| **Audit counter** | `iAL5ZeroTargetsWarn` (target 0) + `iAL5ZeroTargetsError` (target 0 — ERROR severity for empty cascade root). |
+| **Underlying fix** | Slice 3 (#1513) — BehaviorTarget system-defaults seed + SCORE_AGENT cascade fallback. |
+
+### Where the runner lives
+
+`apps/admin/lib/pipeline/adaptive-loop-invariants.ts` exports:
+
+```ts
+export type InvariantId = "I-AL1" | "I-AL2" | "I-AL3" | "I-AL4" | "I-AL5";
+export interface InvariantViolation {
+  invariant: InvariantId;
+  callerId?: string;
+  callId?: string;
+  playbookId?: string;
+  parameterId?: string;
+  severity: "info" | "warn" | "error";
+  context: Record<string, unknown>;
+  observedAt: Date;
+}
+export async function recordInvariantViolation(v: InvariantViolation): Promise<void>;
+export async function checkInvariantsAfterPipeline(callId: string): Promise<InvariantViolation[]>;
+```
+
+`checkInvariantsAfterPipeline(callId)` is called fire-and-forget at the END of every pipeline run, after the COMPOSE persist + `CallerIdentity` update. It performs the I-AL1 + I-AL2 derived checks (the ones that read post-state from `CallerMemory` / `CallScore` / `CallerTarget`); I-AL3, I-AL4, I-AL5 are emitted by their respective stage runners at the point the condition fires (those emits are wired by Slices 2 + 3). Both paths write through `recordInvariantViolation`, which is the single chokepoint that:
+
+1. Calls `log(...)` from `lib/logger.ts` so the row appears in `/x/logs`.
+2. Writes an `AppLog` row with `subject = "pipeline.invariant.i-al<N>"`.
+3. Swallows all errors (the runner cannot ever block the pipeline).
+
+### Where the dashboard lives
+
+`apps/admin/app/x/help/pipeline-health/page.tsx`. ADMIN+ only — mirrors `/x/help/telemetry`'s `auth() + redirect()` pattern. Reads last-7-day `AppLog` rows with `subject LIKE 'pipeline.invariant.%'`, groups by invariant id, shows count + first/last occurrence + a sample payload. Empty state when no violations.
+
+### Where the daily scanner lives
+
+`scripts/check-adaptive-loop-health.sh`. Warn-only — reads the same AppLog counts via psql, reports to stdout. Not wired into deploy gates today; cadence and gating decision belong to Slice 4 (#1514 canary E2E) once the structural fixes have landed.
+
+### Pipeline call site
+
+`runSpecDrivenPipeline` in `route.ts` — after the `CallerIdentity` update succeeds, calls `checkInvariantsAfterPipeline(ctx.callId).catch(() => {})`. Fire-and-forget — no `await` blocking the response.
+
+### Open contract — when ESLint enforcement lands
+
+The story body of #1511 forward-declares an `hf-pipeline/no-silent-stage-skip` ESLint rule that would reject new stage runners that lack an `// @invariant:` comment referencing one of I-AL1..I-AL5. That rule is **out of scope** for Slice 1 — the runners that fire today are pre-existing and the structural fixes (Slices 2 + 3) wire their emits explicitly. The rule lands in a follow-on epic once the post-canary state stabilises.
+
+---
+
+## 7. Pre-change checklist
 
 ### Adding a new producer
 - [ ] Identify which link this write crosses. Update the Producer cell in §3.
@@ -545,10 +674,11 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 
 ---
 
-## 7. Change log
+## 8. Change log
 
 | Date | Change |
 |---|---|
+| 2026-06-11 | **Section 6 added — Adaptive Loop observability invariants (epic #1510 Slice 1, #1511).** Five invariants I-AL1..I-AL5 over the AGGREGATE → ADAPT → COMPOSE chain. All WARN-only and NON-BLOCKING — they make silence visible, they never block the pipeline (`docs/PIPELINE.md` §3 `stageErrors` semantics preserved). I-AL1 fires when real-engine + transcript >= 200 produces zero CallerMemory rows (mock-engine excluded by `route.ts:1029-1031` design). I-AL2 fires when skill_* CallScore rows exist but `CallerTarget.currentScore` is null inside the 6h window. I-AL3 is informational — visibility on AGGREGATE-stage default-fallback when no rule.config / playbook.config / ContractRegistry override applied. I-AL4 fires for PROSODY skips at the no-stereoUrl / no-tierPreset / no-provider sites (existing-envelope cache hits emit INFO not WARN). I-AL5 fires for zero BehaviorTarget(scope=PLAYBOOK) load at SCORE_AGENT input; escalates to ERROR when SYSTEM defaults are also empty (the cascade has no root). Runner lives at `lib/pipeline/adaptive-loop-invariants.ts` — `checkInvariantsAfterPipeline(callId)` derives I-AL1 + I-AL2 post-state; I-AL3 / I-AL4 / I-AL5 are emitted at their stage runners by Slice 2 (#1512) + Slice 3 (#1513). All paths route through `recordInvariantViolation` → `lib/logger.ts::log()` + `AppLog(subject="pipeline.invariant.i-al<N>")`. Dashboard at `/x/help/pipeline-health` (ADMIN+ only, mirrors `/x/help/telemetry`). Daily scanner at `scripts/check-adaptive-loop-health.sh` (warn-only). Five new informational audit counters in `audit-epic-100.ts` (`iAL1MemoryAbsentRealEngine`, `iAL2SkillTargetUnscored`, `iAL3DefaultFallbackInfo`, `iAL4ProsodySkipWarn`, `iAL5ZeroTargetsWarn`) — baseline=0 pending re-snap on DEV after slices 2 + 3 deploy. The `hf-pipeline/no-silent-stage-skip` ESLint rule sketched in the story body is out of scope for Slice 1; it lands in a follow-on epic. |
 | 2026-06-04 | **Section 3d added — Course Variant product line (#1034).** Six new contracts (CC-A through CC-F) covering: PlaybookCurriculum join-table linkage; curriculum mutation fanout across siblings (`resolvePlaybookIdForCurriculum` signature changed from `string\|null` to `string[]`); Enrollment → Call.playbookId scoping (per-Course entry surfaces, no mid-call switching in v1 — Story A3 #1040 closes the learner-side UI); Call → COMPOSE Curriculum resolution (closes TL hard-block: pre-#1034 variants silently skipped module-aware composition because the resolver queried the deprecated `Curriculum.playbookId` column directly); AGGREGATE → cross-Playbook mastery scope (INTENTIONAL — slug-keyed `lo_mastery:*` and shared `CallerModuleProgress` rows are the funnel mechanism); SIM playbook-curriculum precondition (pre-flight in `sim-drive-call.ts`). Deprecated `Curriculum.playbookId` column stays for one release as a primary-owner pointer + transition fallback; dropped in #1038. Wizard write sites dual-write column + `PlaybookCurriculum{role:'primary'}` row in the same `prisma.$transaction` to prevent two-write divergence. Five preset config keys (`teachingProfile`, `welcomeMessage`, `maxCallDurationSeconds`, `modelTier`, `bloomLevelOverride`, `useFreshMastery`) on `Playbook.config` are forward-declared per the TL re-review — stored as JSON, no runtime effect today. Cost tiering (`modelTier`) and Bloom override ship in follow-up stories. Variant route NEVER writes `CurriculumModule` or `Curriculum` rows — the funnel depends on shared UUIDs (CC-A invariant pinned by `tests/lib/playbooks/create-variant.test.ts`). |
 | 2026-06-03 | **Link 3 sub-contract added — COMPOSE → LLM output invariants (#1008 / closes #1006).** Five output invariants enforced inside `executeComposition` before `persistComposedPrompt`: I-C1 module-lock honoured; I-C2 call-counter coherence; I-C3 no memory-less reminisce; I-C4 no generic-noun fallback in instructions (ESLint-enforced); I-C5 `estimatedProgress` heuristic is debug-only. Source: confirmed hallucination on caller `e1df05fa-9c85-4972-9bbe-b13e52784841` (Maya, IELTS Prep Lab) — `ComposedPrompt cd8e2995` simultaneously locked Part 2, asked the AI to spaced-retrieve Part 1, and supplied `key_memories: null`, so the model fabricated Part 2 progress specifics ("from one-minute panic to past 90 seconds") to maintain conversational coherence. Same anti-pattern class as #605 (categoryToTeachMethod fallback) and #608 (SYSTEM IDENTITY fallback) — silent code-side defaults masking missing data. **I-C1 + I-C2 land as `severity: "error"` from day 1** (binary invariants; Maya's vitest fixture is the reproducer). **I-C3 / I-C4 / I-C5 land as `"warn"`** and promote per-invariant to `"error"` after the matching audit counter reads 0 across dev/test/prod for ≥7 days. New ESLint rule `hf-compose/no-orphan-instruction-fallback` blocks the `${x?.name \|\| "previous concept"}` pattern class in `lib/prompt/composition/transforms/**` (rule-family pattern, sibling to `hf-curriculum/no-unscoped-slug-lookup`). **Co-landing spec-driven mutation hardcoding sweep:** replaces bare `masteryThreshold: 0.7` literals in `app/api/calls/[callId]/pipeline/route.ts` authored-module paths and `runLearningAssessmentFallback` with `DEFAULT_MASTERY_THRESHOLD` / `ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1')?.masteryComplete` (the registry call is already correctly used at line 397 of the same file then bypassed two functions later — exact same miss class as #605). Mock-engine `confidence: 0.7` → `guardrails.confidenceBounds.defaultConfidence`. `lib/pipeline/adapt-runner.ts::applyAdaptationAction`'s silent-fallback `targetValue ?? 0.5` writes get `// TODO(ai-guard):` markers and a child issue for the proper fix. Five new audit counters: `composeLockedModuleMismatch`, `composeCallCounterIncoherent`, `composeMemorylessReminisceCount`, `composeGenericNounFallbackCount`, `composeHeuristicProgressFallback` — all `kind: "invariant"`, target 0, baseline JSON updated in the same commit. Also fixed stale path in the TUNER → COMPOSE row (`lib/playbook/bump-timestamp.ts` → `lib/compose/bump-timestamp.ts`) — the file lives in `lib/compose/`, never `lib/playbook/`. |
 | 2026-05-27 | **Link L9 added — learner-facing module-picker reachability (#948).** Pins the silent-reachability invariant exposed by PR #947's `/x/sim` fix. Every learner-facing page that mounts a session on a Playbook MUST resolve `playbookId` via the canonical fallback (URL → single ACTIVE enrollment → most-recently enrolled ACTIVE → empty state). Shared helper at `lib/caller/resolve-active-playbook.ts` + API wrapper at `/api/callers/[id]/active-playbook` + arch-checker Check G (soft warn) + integration journey test on 4 caller shapes + 13-case vitest. Defends against a learner deep-linking into the sim view, missing the picker silently, and being unable to focus a session. |

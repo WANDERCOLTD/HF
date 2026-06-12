@@ -44,8 +44,12 @@ const MAX_RESULT_LENGTH = 3000;
  * recompose via isPromptStale picks them up on next caller touchpoint).
  * The "proposed" wording is about RECOMPOSE, not WRITE.
  */
+// The actual tray buttons are "Recompose this learner" / "Recompose entire
+// cohort" (and "Got it — dismiss" when both are disabled, per #1502).
+// Earlier copy said "Save & apply" which has no matching button label —
+// confused operators in live demo (2026-06-11).
 const TRAY_PROPOSED_SUFFIX =
-  "Proposed — review in the pending changes tray (bottom-right) and click **Save & apply** to recompose.";
+  "Proposed — review in the pending changes tray (bottom-right). The config is already saved; click **Recompose this learner** to rebuild their prompt now, or dismiss the tray (the next call from any learner will pick up the change automatically).";
 
 // Minimum role required per tool (matches REST API auth levels)
 const TOOL_MIN_ROLE: Record<string, UserRole> = {

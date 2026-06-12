@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { MemoryCategory } from "@prisma/client";
 
-// Reconciled with the live ChatContext.tsx type ("DATA" | "TUNING" | "COURSE_MANAGE" | "DEMO").
-// BUG and CALL are legacy API modes still routed through this command pipeline;
-// keep them in the union so the cast in app/api/chat/route.ts stays type-safe.
-type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING" | "COURSE_MANAGE" | "DEMO";
+// #1504 Slice 3 — public chat tabs are now ASSISTANT + DEMO only. CALL +
+// BUG remain in the union because they're still dispatched through this
+// command pipeline by route-level entry points (voice sim, bug reporter) —
+// they are never picked by a UI tab. Pre-Slice-3 aliases (DATA / TUNING /
+// COURSE_MANAGE) are normalised to ASSISTANT by the route handler before
+// reaching this layer, so they don't appear here.
+type ChatMode = "ASSISTANT" | "CALL" | "BUG" | "DEMO";
 
 interface EntityBreadcrumb {
   type: string;
@@ -105,7 +108,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["?", "commands"],
     description: "Show available commands",
     usage: "/help [command]",
-    modes: ["DATA", "CALL", "TUNING", "COURSE_MANAGE", "DEMO"],
+    modes: ["ASSISTANT", "CALL", "DEMO"],
     execute: async (args, ctx) => {
       const specificCommand = args[0];
       if (specificCommand) {
@@ -138,7 +141,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["ctx"],
     description: "Show current entity context",
     usage: "/context",
-    modes: ["DATA", "CALL", "TUNING"],
+    modes: ["ASSISTANT", "CALL"],
     execute: async (args, ctx) => {
       if (ctx.entityContext.length === 0) {
         return {
@@ -167,7 +170,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["reset"],
     description: "Clear chat history for current mode",
     usage: "/clear",
-    modes: ["DATA", "CALL", "TUNING"],
+    modes: ["ASSISTANT", "CALL"],
     execute: async (args, ctx) => {
       return {
         ok: true,
@@ -183,7 +186,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["mem"],
     description: "Show memories for current caller",
     usage: "/memories [category]",
-    modes: ["DATA", "CALL"],
+    modes: ["ASSISTANT", "CALL"],
     execute: async (args, ctx) => {
       const callerEntity = ctx.entityContext.find((e) => e.type === "caller");
       if (!callerEntity) {
@@ -254,7 +257,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["prompt", "compose"],
     description: "Show or build the composed prompt for current caller",
     usage: "/buildprompt",
-    modes: ["DATA", "CALL"],
+    modes: ["ASSISTANT", "CALL"],
     execute: async (args, ctx) => {
       const callerEntity = ctx.entityContext.find((e) => e.type === "caller");
       if (!callerEntity) {
@@ -302,7 +305,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: [],
     description: "Show information about the current caller",
     usage: "/caller",
-    modes: ["DATA", "CALL"],
+    modes: ["ASSISTANT", "CALL"],
     execute: async (args, ctx) => {
       const callerEntity = ctx.entityContext.find((e) => e.type === "caller");
       if (!callerEntity) {
@@ -363,16 +366,18 @@ const COMMANDS: ChatCommand[] = [
     aliases: [],
     description: "Show current tuning scope (LEARNER or PLAYBOOK)",
     usage: "/scope",
-    modes: ["TUNING"],
+    modes: ["ASSISTANT"],
     execute: async (_args, ctx) => {
       const scope = ctx.tuningScope ?? "PLAYBOOK";
       const explainer =
         scope === "LEARNER"
           ? "Changes apply to the selected learner only."
           : "Changes apply to the whole course.";
+      // #1504 Slice 3 — the scope toggle now lives inline inside the
+      // Assistant tab (no separate Tuning tab post-consolidation).
       return {
         ok: true,
-        message: `**Scope: ${scope}**\n\n${explainer}\n\nFlip with the toggle at the top of the Tuning tab.`,
+        message: `**Scope: ${scope}**\n\n${explainer}\n\nFlip with the Scope toggle just above the message list in the Assistant tab.`,
         action: "display",
       };
     },
@@ -383,7 +388,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["parameters"],
     description: "List tunable parameters for current context",
     usage: "/params",
-    modes: ["TUNING"],
+    modes: ["ASSISTANT"],
     execute: async (_args, ctx) => {
       const scope = ctx.tuningScope ?? "PLAYBOOK";
       const lines = [

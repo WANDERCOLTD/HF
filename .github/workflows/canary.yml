@@ -1,0 +1,87 @@
+name: Adaptive Loop canary
+
+# Story #1514 — Slice 4 of epic #1510. Nightly real-engine canary that
+# drives one call through the full pipeline (EXTRACT → LEARN → AGGREGATE
+# → COMPOSE) and asserts the chain closes. WARN-only by default — hard
+# fails only on EXTRACT-empty and COMPOSE invariant errors. Results land
+# in AppLog (subject: pipeline.canary.run) and surface on
+# /x/help/pipeline-health.
+#
+# Schedule: 03:00 UTC nightly. The cron uses UTC; pick a window away
+# from the main test workflow to avoid contention.
+#
+# Required secrets:
+#   - ANTHROPIC_API_KEY    real-engine LLM (canary self-skips without it)
+#   - INTERNAL_API_SECRET  service-to-service header for the pipeline
+#                          route (the same secret prod uses)
+#   - DATABASE_URL         points at the env we're canarying against
+#                          (hf_sandbox by default; flip to hf_staging
+#                          for a tighter gate later)
+#   - TEST_API_URL         the Cloud Run dev/staging URL the canary
+#                          POSTs into
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Target environment to canary"
+        type: choice
+        default: "dev"
+        options:
+          - dev
+          - staging
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  canary:
+    name: Adaptive Loop canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: apps/admin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: apps/admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run canary (warn-only, against ${{ inputs.target_env || 'dev' }})
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          INTERNAL_API_SECRET: ${{ secrets.INTERNAL_API_SECRET }}
+          # DATABASE_URL points at the same DB the target Cloud Run
+          # service binds (hf_sandbox for DEV; hf_staging for STAGING).
+          # See `docs/CLOUD-DEPLOYMENT.md` for the secret mapping.
+          DATABASE_URL: ${{ secrets.DATABASE_URL_CANARY }}
+          TEST_API_URL: ${{ secrets.CANARY_API_URL }}
+          # Default to WARN-only for the first 2 weeks of observation
+          # per the epic plan. Flip to "false" via workflow_dispatch
+          # input once G9 / G2 / G3 dependency stories land.
+          HF_CANARY_WARN_ONLY: "true"
+        run: npm run test:canary
+
+      - name: Upload vitest output as artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-vitest-output
+          path: apps/admin/test-results/**
+          retention-days: 14
+          if-no-files-found: ignore

@@ -5,9 +5,33 @@ import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { EntityBreadcrumb, useEntityContext } from "./EntityContext";
 
-export type ChatMode = "DATA" | "TUNING" | "COURSE_MANAGE" | "DEMO";
+/**
+ * #1504 Slice 3 — public ChatMode narrowed to the two tabs the operator
+ * actually sees in the chat panel. Internal route-level execution modes
+ * (CALL / BUG / WIZARD / COURSE_REF) are NOT in this union — they're
+ * dispatched by route.ts based on entry point, not picked by a tab.
+ *
+ * Legacy persisted-history aliases:
+ *   - "DATA"          → maps to ASSISTANT
+ *   - "TUNING"        → already merged into DATA by the Slice 2 migration
+ *   - "COURSE_MANAGE" → already merged into DATA by the Slice 2 migration
+ *
+ * The migration in `loadPersistedMessages` collapsed any TUNING /
+ * COURSE_MANAGE arrays into the DATA bucket. Slice 3 then aliases the DATA
+ * bucket → ASSISTANT on load, so the on-disk shape stays compatible with
+ * the pre-Slice-3 storage written by older clients but the in-memory shape
+ * is the new two-tab world.
+ */
+export type ChatMode = "ASSISTANT" | "DEMO";
 export type ChatLayout = "vertical" | "horizontal" | "popout";
 export type TuningScope = "LEARNER" | "PLAYBOOK";
+
+/**
+ * Legacy mode values that may appear in localStorage from pre-Slice-3
+ * persisted writes. Exported so the route handler + commands layer can
+ * accept both shapes during the transition window.
+ */
+export type LegacyChatMode = "DATA" | "TUNING" | "COURSE_MANAGE";
 
 export interface ChatMessage {
   id: string;
@@ -41,13 +65,28 @@ interface ChatState {
    * active entity's *type* changes (caller ↔ playbook ↔ neither) so a stale
    * PLAYBOOK toggle from a previous course page never leaks onto a caller
    * page and causes the AI to mis-attribute writes.
+   *
+   * #1504 Slice 3 — after the tab consolidation this toggle lives INSIDE
+   * Assistant at all times (was previously only rendered when mode was
+   * DATA or TUNING). It's the only way an operator can disambiguate
+   * LEARNER vs PLAYBOOK scope for behaviour-target writes once the
+   * Tuning tab is gone.
    */
   tuningScope: TuningScope | null;
   /**
-   * #727 v1 — when set, every DATA-mode message includes this ticket's UUID
-   * so the API can inject the ticket + comment thread into the system prompt.
-   * Set by the Feedback view's "Discuss with AI" button. Not persisted —
-   * lives only as long as the user is actively discussing the ticket.
+   * Whether demo annotations (operator presenter notes) render on the
+   * Course Design Preview lens. Toggled from the 🎬 Demo tab header in
+   * ChatPanel. Persisted in settings. Default ON so a fresh operator sees
+   * their notes; OFF hides every saved annotation + sticky note until
+   * flipped back. Does NOT delete anything — purely a visibility filter.
+   */
+  demoAnnotationsVisible: boolean;
+  /**
+   * #727 v1 — when set, every Assistant-mode message includes this ticket's
+   * UUID so the API can inject the ticket + comment thread into the system
+   * prompt. Set by the Feedback view's "Discuss with AI" button. Not
+   * persisted — lives only as long as the user is actively discussing the
+   * ticket.
    */
   discussionTicketId: string | null;
   discussionTicketNumber: number | null;
@@ -64,6 +103,11 @@ interface ChatActions {
    * AI re-asks on the next turn (#911 — closes the stale-toggle hole).
    */
   setTuningScope: (scope: TuningScope | null) => void;
+  /**
+   * Show / hide demo annotations on the Preview lens. UI lives on the
+   * Demo tab header in ChatPanel; Preview reads via useChatContext.
+   */
+  setDemoAnnotationsVisible: (visible: boolean) => void;
   /**
    * Set / clear the active ticket the Assistant should be discussing.
    * Pass `null` to clear (e.g. when closing the ticket detail panel).
@@ -84,6 +128,22 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 
 const STORAGE_KEY_PREFIX = "hf.chat.history";
 const SETTINGS_KEY_PREFIX = "hf.chat.settings";
+// #1504 Slice 2 — per-user marker that the DATA/TUNING/COURSE_MANAGE histories
+// have been merged into a single DATA stream (the runtime default tab).
+// Idempotent: once set, subsequent loads short-circuit the merge logic and
+// trust that the persisted shape is already collapsed.
+const MIGRATION_FLAG_KEY_PREFIX = "hf.chat.history-migrated.v1504";
+// #1504 Slice 2 — per-user marker that the one-time "history merged" banner
+// has been shown + dismissed. Values: undefined (not yet eligible) | "pending"
+// (set by the migration; ChatPanel renders the banner) | "shown" (user has
+// dismissed; never shows again for this user).
+const MERGED_BANNER_KEY_PREFIX = "hf.chat.history-merged-banner.v1504";
+// #1504 Slice 3 — per-user marker for the "tabs simplified" one-time banner.
+// Always shown once on first load after the consolidation, regardless of
+// whether the user had legacy history (the change is operator-visible even
+// for fresh installs because the 4-tab world is gone). Values: undefined
+// (not yet seen) | "shown" (dismissed; never re-appears).
+const TABS_COLLAPSED_BANNER_KEY_PREFIX = "hf.chat.tabs-collapsed-banner.v1504s3";
 // Rolling trim, not an expiry. No TTL on chat history — persists until the
 // user clears it explicitly (Clear button in header or /clear command).
 // Matches Slack / ChatGPT / Linear conventions; localStorage cap (~5MB) is
@@ -98,36 +158,40 @@ function getSettingsKey(userId: string | undefined): string {
   return userId ? `${SETTINGS_KEY_PREFIX}.${userId}` : SETTINGS_KEY_PREFIX;
 }
 
-// Mode display configuration
+function getMigrationFlagKey(userId: string | undefined): string {
+  return userId ? `${MIGRATION_FLAG_KEY_PREFIX}.${userId}` : MIGRATION_FLAG_KEY_PREFIX;
+}
+
+export function getMergedBannerKey(userId: string | undefined): string {
+  return userId ? `${MERGED_BANNER_KEY_PREFIX}.${userId}` : MERGED_BANNER_KEY_PREFIX;
+}
+
+export function getTabsCollapsedBannerKey(userId: string | undefined): string {
+  return userId
+    ? `${TABS_COLLAPSED_BANNER_KEY_PREFIX}.${userId}`
+    : TABS_COLLAPSED_BANNER_KEY_PREFIX;
+}
+
+// Mode display configuration. After Slice 3 only two visible tabs.
 export const MODE_CONFIG: Record<ChatMode, { label: string; icon: string; color: string; description: string }> = {
-  DATA: {
+  // #1504 Slice 3 — subsumes legacy DATA + TUNING + COURSE_MANAGE. The
+  // unified-assistant builder routes intent based on entity context + the
+  // sticky `tuningScope` toggle below the tabs. Backend prompts handled at
+  // app/api/chat/route.ts via `buildUnifiedAssistantPrompt`.
+  ASSISTANT: {
     label: "Assistant",
     icon: "✦",
     color: "var(--accent-primary)",
-    description: "Context-aware assistant with tools and parameter knowledge",
-  },
-  TUNING: {
-    label: "Tuning",
-    icon: "⚙",
-    color: "var(--accent-primary)",
-    description: "Tune behaviour parameters for one learner or the whole course",
-  },
-  // #1225 — Course-management mode. Mounted by /x/courses/[id]/chat; the
-  // ChatPanel renders identically to DATA mode but the route.ts dispatcher
-  // narrows the tool surface to COURSE_MANAGE_TOOLS and the system prompt
-  // carries the active course's full editable snapshot.
-  COURSE_MANAGE: {
-    label: "Course",
-    icon: "◎",
-    color: "var(--accent-primary)",
-    description: "Chat-driven editor for the active course — talks to course-relevant tools only",
+    description: "Context-aware assistant — tunes, edits, queries. Use the Scope toggle to target Learner or Course.",
   },
   // #1485 (Layer 3 Slice 4) — DEMO mode: scoped 5-tool palette for operators
-  // driving a live demo. Wired in app/api/chat/route.ts:354 (DEMO branch +
-  // DEMO_TOOLS filter + buildDemoSystemPrompt).
+  // driving a live demo. Wired in app/api/chat/route.ts:330 (DEMO branch +
+  // DEMO_TOOLS filter + buildDemoSystemPrompt). Structurally distinct from
+  // ASSISTANT — narrow palette, different conversational stance, safety
+  // contracts (`fanoutScope:'none'`, `no-ai-fanout-all` ESLint).
   DEMO: {
     label: "Demo",
-    icon: "▶",
+    icon: "🎬",
     color: "var(--accent-primary)",
     description: "Remote control for live demos — narrow action palette (test voice, dry-run, apply preset)",
   },
@@ -139,37 +203,149 @@ function generateId(): string {
 
 function createEmptyMessages(): Record<ChatMode, ChatMessage[]> {
   return {
-    DATA: [],
-    TUNING: [],
-    COURSE_MANAGE: [],
+    ASSISTANT: [],
     DEMO: [],
   };
 }
 
-function loadPersistedMessages(userId: string | undefined): Record<ChatMode, ChatMessage[]> {
+/**
+ * #1504 Slice 3 — public for routes / handlers that still emit legacy
+ * mode strings. Maps the wide pre-Slice-3 union onto the narrowed two-tab
+ * union. ASSISTANT round-trips identity.
+ */
+export function normalizeChatMode(input: string | undefined | null): ChatMode {
+  if (input === "DEMO") return "DEMO";
+  if (input === "ASSISTANT") return "ASSISTANT";
+  // Pre-Slice-3 persisted aliases — all funnel into ASSISTANT because the
+  // unified builder owns those intents post-Slice 2.
+  if (input === "DATA" || input === "TUNING" || input === "COURSE_MANAGE") return "ASSISTANT";
+  // Anything unrecognised — including CALL / BUG / WIZARD / COURSE_REF
+  // which never land here from the panel — falls back to ASSISTANT so a
+  // mis-typed setting can't strand the user on a nonexistent tab.
+  return "ASSISTANT";
+}
+
+/**
+ * #1504 Slice 2 — exported for unit tests so the migration shape can be
+ * pinned without going through the full ChatProvider hydration cycle.
+ *
+ * #1504 Slice 3 — extended to alias legacy DATA / TUNING / COURSE_MANAGE
+ * persisted keys onto the new ASSISTANT bucket. The Slice 2 migration
+ * collapsed TUNING + COURSE_MANAGE → DATA; Slice 3 then reads DATA out as
+ * ASSISTANT (and merges any straggler TUNING / COURSE_MANAGE entries from
+ * pre-Slice-2 clients that wrote AFTER this user's last load).
+ *
+ * Idempotency: the v1504 sentinel from Slice 2 still gates the legacy
+ * bucket re-merge; the Slice 3 alias-read is pure and always runs.
+ *
+ * Corrupt JSON / unparseable storage → returns empty state (graceful
+ * fallback; never throws). Pre-existing CALL-key migration kept.
+ */
+export function loadPersistedMessages(userId: string | undefined): Record<ChatMode, ChatMessage[]> {
   if (typeof window === "undefined") return createEmptyMessages();
+  // Helper — fired on any no-op return path (no storage / corrupt JSON / wrong
+  // shape) so the per-user migration sentinel is set exactly once and we never
+  // scan the same broken blob on every subsequent load.
+  const markMigratedBestEffort = () => {
+    try {
+      localStorage.setItem(getMigrationFlagKey(userId), "1");
+    } catch {
+      // ignore
+    }
+  };
   try {
     const stored = localStorage.getItem(getStorageKey(userId));
-    if (!stored) return createEmptyMessages();
+    if (!stored) {
+      markMigratedBestEffort();
+      return createEmptyMessages();
+    }
     const parsed = JSON.parse(stored);
-    // Convert timestamp strings back to Date objects
-    for (const mode of Object.keys(parsed) as ChatMode[]) {
-      if (parsed[mode]) {
-        parsed[mode] = parsed[mode].map((msg: ChatMessage) => ({
+    if (!parsed || typeof parsed !== "object") {
+      markMigratedBestEffort();
+      return createEmptyMessages();
+    }
+    // Convert timestamp strings back to Date objects (defensive on every key
+    // we know about — both the canonical two-tab modes and the legacy ones
+    // we still alias-read for backward compatibility).
+    const knownKeys = ["ASSISTANT", "DATA", "TUNING", "COURSE_MANAGE", "DEMO"] as const;
+    for (const key of knownKeys) {
+      const bucket = parsed[key];
+      if (Array.isArray(bucket)) {
+        parsed[key] = bucket.map((msg: ChatMessage) => ({
           ...msg,
           timestamp: new Date(msg.timestamp),
         }));
       }
     }
-    // Ensure all modes exist (handle migration from old storage with CALL)
+
+    const alreadyMigrated = localStorage.getItem(getMigrationFlagKey(userId)) === "1";
+
+    // #1504 Slice 3 — build the new two-tab in-memory shape. ASSISTANT
+    // absorbs the post-Slice-2 DATA bucket plus any straggler legacy
+    // buckets that might have been written by a client that bypassed the
+    // Slice 2 migration (e.g. an offline tab opened before Slice 2 shipped
+    // and saved after).
     const result = createEmptyMessages();
-    for (const mode of Object.keys(result) as ChatMode[]) {
-      if (parsed[mode]) {
-        result[mode] = parsed[mode];
+
+    const retagToAssistant = (m: ChatMessage): ChatMessage => ({ ...m, mode: "ASSISTANT" });
+
+    const assistantBucket = Array.isArray(parsed.ASSISTANT) ? (parsed.ASSISTANT as ChatMessage[]) : [];
+    const dataBucket = Array.isArray(parsed.DATA) ? (parsed.DATA as ChatMessage[]) : [];
+    const tuningBucket = Array.isArray(parsed.TUNING) ? (parsed.TUNING as ChatMessage[]) : [];
+    const courseManageBucket = Array.isArray(parsed.COURSE_MANAGE)
+      ? (parsed.COURSE_MANAGE as ChatMessage[])
+      : [];
+
+    // Merge by timestamp so a chronological scroll-back stays coherent
+    // even when legacy clients interleaved writes across two buckets.
+    const mergedAssistant = [
+      ...assistantBucket.map(retagToAssistant),
+      ...dataBucket.map(retagToAssistant),
+      ...tuningBucket.map(retagToAssistant),
+      ...courseManageBucket.map(retagToAssistant),
+    ].sort((a, b) => {
+      const ta = a.timestamp instanceof Date ? a.timestamp.getTime() : 0;
+      const tb = b.timestamp instanceof Date ? b.timestamp.getTime() : 0;
+      return ta - tb;
+    });
+    result.ASSISTANT = mergedAssistant.slice(-MAX_MESSAGES_PER_MODE);
+
+    if (Array.isArray(parsed.DEMO)) {
+      result.DEMO = parsed.DEMO as ChatMessage[];
+    }
+
+    // #1504 Slice 2 — one-time banner trigger for users whose legacy
+    // TUNING / COURSE_MANAGE buckets contained at least one message. Slice
+    // 3 inherits this banner unchanged because the user-visible message
+    // ("Chat history merged across modes") still describes what happened.
+    if (!alreadyMigrated) {
+      const hadLegacy = tuningBucket.length + courseManageBucket.length > 0;
+      if (hadLegacy) {
+        try {
+          localStorage.setItem(getMergedBannerKey(userId), "pending");
+        } catch {
+          // ignore — banner is a nice-to-have, not load-bearing
+        }
+      }
+      try {
+        localStorage.setItem(getMigrationFlagKey(userId), "1");
+      } catch {
+        // ignore — migration sentinel is best-effort; the merge already
+        // happened in memory and will be re-persisted on the next save.
       }
     }
+
     return result;
   } catch {
+    // Corrupt JSON / unparseable storage. Mark as migrated so we don't
+    // re-attempt the merge against the same broken blob on every load.
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(getMigrationFlagKey(userId), "1");
+      }
+    } catch {
+      // ignore
+    }
     return createEmptyMessages();
   }
 }
@@ -188,8 +364,8 @@ function persistMessages(messages: Record<ChatMode, ChatMessage[]>, userId: stri
   }
 }
 
-function loadSettings(userId: string | undefined): { isOpen: boolean; mode: ChatMode; chatLayout: ChatLayout; tuningScope: TuningScope | null } {
-  const defaults = { isOpen: false, mode: "DATA" as ChatMode, chatLayout: "vertical" as ChatLayout, tuningScope: "PLAYBOOK" as TuningScope | null };
+function loadSettings(userId: string | undefined): { isOpen: boolean; mode: ChatMode; chatLayout: ChatLayout; tuningScope: TuningScope | null; demoAnnotationsVisible: boolean } {
+  const defaults = { isOpen: false, mode: "ASSISTANT" as ChatMode, chatLayout: "vertical" as ChatLayout, tuningScope: "PLAYBOOK" as TuningScope | null, demoAnnotationsVisible: true };
   if (typeof window === "undefined") return defaults;
   try {
     const stored = localStorage.getItem(getSettingsKey(userId));
@@ -202,16 +378,25 @@ function loadSettings(userId: string | undefined): { isOpen: boolean; mode: Chat
         : parsed.tuningScope === null
           ? null
           : "PLAYBOOK";
-    return { isOpen: false, mode: "DATA", chatLayout: parsed.chatLayout || "vertical", tuningScope: scope };
+    // #1504 Slice 3 — narrow persisted `mode` onto the two-tab union via
+    // the canonical normaliser. Any legacy DATA / TUNING / COURSE_MANAGE
+    // setting maps to ASSISTANT; anything unrecognised falls back the
+    // same way (safer than stranding the user on a missing tab).
+    const mode = normalizeChatMode(parsed.mode);
+    const demoAnnotationsVisible =
+      typeof parsed.demoAnnotationsVisible === "boolean"
+        ? parsed.demoAnnotationsVisible
+        : true;
+    return { isOpen: false, mode, chatLayout: parsed.chatLayout || "vertical", tuningScope: scope, demoAnnotationsVisible };
   } catch {
     return defaults;
   }
 }
 
-function persistSettings(isOpen: boolean, mode: ChatMode, chatLayout: ChatLayout, tuningScope: TuningScope | null, userId: string | undefined): void {
+function persistSettings(isOpen: boolean, mode: ChatMode, chatLayout: ChatLayout, tuningScope: TuningScope | null, demoAnnotationsVisible: boolean, userId: string | undefined): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(getSettingsKey(userId), JSON.stringify({ isOpen, mode, chatLayout, tuningScope }));
+    localStorage.setItem(getSettingsKey(userId), JSON.stringify({ isOpen, mode, chatLayout, tuningScope, demoAnnotationsVisible }));
   } catch {
     // Ignore storage errors
   }
@@ -222,9 +407,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const userId = session?.user?.id;
 
   const [isOpen, setIsOpen] = useState(false);
-  const [mode, setModeState] = useState<ChatMode>("DATA");
+  const [mode, setModeState] = useState<ChatMode>("ASSISTANT");
   const [chatLayout, setChatLayoutState] = useState<ChatLayout>("vertical");
   const [tuningScope, setTuningScopeState] = useState<TuningScope | null>("PLAYBOOK");
+  const [demoAnnotationsVisible, setDemoAnnotationsVisibleState] = useState<boolean>(true);
   const [messages, setMessages] = useState<Record<ChatMode, ChatMessage[]>>(createEmptyMessages);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
@@ -265,6 +451,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setModeState(settings.mode);
       setChatLayoutState(settings.chatLayout);
       setTuningScopeState(settings.tuningScope);
+      setDemoAnnotationsVisibleState(settings.demoAnnotationsVisible);
       setLastUserId(userId);
       setInitialized(true);
     }
@@ -280,9 +467,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // Persist settings when they change
   useEffect(() => {
     if (initialized) {
-      persistSettings(isOpen, mode, chatLayout, tuningScope, userId);
+      persistSettings(isOpen, mode, chatLayout, tuningScope, demoAnnotationsVisible, userId);
     }
-  }, [isOpen, mode, chatLayout, tuningScope, initialized, userId]);
+  }, [isOpen, mode, chatLayout, tuningScope, demoAnnotationsVisible, initialized, userId]);
 
   // #911 — reset the tuning scope toggle whenever the *type* of the active
   // entity changes (caller → playbook, playbook → caller, either → none, or
@@ -361,12 +548,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setTuningScopeState(scope);
   }, []);
 
+  const setDemoAnnotationsVisible = useCallback((visible: boolean) => {
+    setDemoAnnotationsVisibleState(visible);
+  }, []);
+
   const setDiscussionTicket = useCallback((id: string | null, ticketNumber: number | null = null) => {
     setDiscussionTicketIdState(id);
     setDiscussionTicketNumberState(id ? ticketNumber : null);
-    // Force DATA mode when starting a ticket discussion — TUNING wouldn't see
-    // the ticket block (it's only injected on the DATA-mode prompt branch).
-    if (id) setModeState("DATA");
+    // Force ASSISTANT mode when starting a ticket discussion — DEMO doesn't
+    // see the ticket block (it's only injected on the unified Assistant
+    // prompt branch).
+    if (id) setModeState("ASSISTANT");
   }, []);
 
   const addMessage = useCallback((message: Omit<ChatMessage, "id" | "timestamp">): string => {
@@ -472,12 +664,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               isCommand: true,
-              ...((mode === "DATA" || mode === "TUNING") && tuningScope ? { tuningScope } : {}),
-              ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
-              ...(pathname && (mode === "DATA" || mode === "TUNING" || mode === "COURSE_MANAGE" || mode === "DEMO") ? { pageHint: { route: pathname } } : {}),
-              ...((mode === "DATA" || mode === "COURSE_MANAGE" || mode === "DEMO") && entityContext.pageContext?.page
-                ? { pageContext: entityContext.pageContext }
-                : {}),
+              ...(mode === "ASSISTANT" && tuningScope ? { tuningScope } : {}),
+              ...(mode === "ASSISTANT" && discussionTicketId ? { discussionTicketId } : {}),
+              ...(pathname ? { pageHint: { route: pathname } } : {}),
+              ...(entityContext.pageContext?.page ? { pageContext: entityContext.pageContext } : {}),
             }),
           });
 
@@ -487,7 +677,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             metadata: { command: content.trim(), commandResult: data, isStreaming: false },
           });
           if (data?.action === "execute" && data?.data?.clearHistory) {
-            const targetMode = data.data.clearHistory as ChatMode;
+            const targetMode = normalizeChatMode(data.data.clearHistory);
             setMessages((prev) => ({ ...prev, [targetMode]: [] }));
           }
         } catch (err) {
@@ -535,12 +725,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               conversationHistory: history,
-              ...((mode === "DATA" || mode === "TUNING") && tuningScope ? { tuningScope } : {}),
-              ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
-              ...(pathname && (mode === "DATA" || mode === "TUNING" || mode === "COURSE_MANAGE" || mode === "DEMO") ? { pageHint: { route: pathname } } : {}),
-              ...((mode === "DATA" || mode === "COURSE_MANAGE" || mode === "DEMO") && entityContext.pageContext?.page
-                ? { pageContext: entityContext.pageContext }
-                : {}),
+              ...(mode === "ASSISTANT" && tuningScope ? { tuningScope } : {}),
+              ...(mode === "ASSISTANT" && discussionTicketId ? { discussionTicketId } : {}),
+              ...(pathname ? { pageHint: { route: pathname } } : {}),
+              ...(entityContext.pageContext?.page ? { pageContext: entityContext.pageContext } : {}),
               ...(trayReflections.length > 0 ? { trayReflections } : {}),
             }),
             signal: abortControllerRef.current.signal,
@@ -650,6 +838,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     mode,
     chatLayout,
     tuningScope,
+    demoAnnotationsVisible,
     discussionTicketId,
     discussionTicketNumber,
     messages,
@@ -663,6 +852,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setMode,
     setChatLayout,
     setTuningScope,
+    setDemoAnnotationsVisible,
     setDiscussionTicket,
     sendMessage,
     addMessage,
