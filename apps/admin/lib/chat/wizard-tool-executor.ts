@@ -13,70 +13,12 @@ import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import { validUuid } from "./wizard-tool-executor/_shared/valid-uuid";
 import { applyStudentExperienceConfig } from "./wizard-tool-executor/_shared/apply-student-experience";
-import { inferTypeFromName } from "./wizard-tool-executor/resolvers/infer-type-from-name";
 import { resolveCourseByName } from "./wizard-tool-executor/resolvers/course-by-name";
 import { resolveSubjectByName } from "./wizard-tool-executor/resolvers/subject-by-name";
 import { resolveInstitutionByName } from "./wizard-tool-executor/resolvers/institution-by-name";
+import { ensureInstitutionAndDomain } from "./wizard-tool-executor/_shared/ensure-institution-and-domain";
 
 export { applyStudentExperienceConfig };
-
-/** Resolve existing institution by name, or create institution + domain + link user. */
-async function ensureInstitutionAndDomain(
-  institutionName: string,
-  userId: string,
-  typeSlug?: string,
-): Promise<{ domainId: string; institutionId: string; domainKind: "INSTITUTION" | "COMMUNITY" } | null> {
-  const resolved = await resolveInstitutionByName(institutionName);
-  if (resolved) {
-    return { domainId: resolved.domainId, institutionId: resolved.institutionId, domainKind: resolved.domainKind };
-  }
-
-  try {
-    const { prisma } = await import("@/lib/prisma");
-    const slugify = (await import("slugify")).default;
-
-    let typeId: string | undefined;
-    let domainKind: "INSTITUTION" | "COMMUNITY" = "INSTITUTION";
-    const resolvedTypeSlug = typeSlug || inferTypeFromName(institutionName) || undefined;
-    if (resolvedTypeSlug) {
-      const instType = await prisma.institutionType.findFirst({
-        where: { slug: resolvedTypeSlug },
-        select: { id: true, defaultDomainKind: true },
-      });
-      typeId = instType?.id;
-      if (instType?.defaultDomainKind === "COMMUNITY") domainKind = "COMMUNITY";
-    }
-
-    const [institution, domain] = await prisma.$transaction(async (tx) => {
-      const inst = await tx.institution.create({
-        data: {
-          name: institutionName,
-          slug: slugify(institutionName, { lower: true, strict: true }),
-          ...(typeId ? { typeId } : {}),
-        },
-      });
-      const dom = await tx.domain.create({
-        data: {
-          name: institutionName,
-          slug: slugify(institutionName, { lower: true, strict: true }),
-          institutionId: inst.id,
-          kind: domainKind,
-        },
-      });
-      await tx.user.update({
-        where: { id: userId },
-        data: { activeInstitutionId: inst.id },
-      });
-      return [inst, dom] as const;
-    });
-
-    console.log(`[wizard-tools] ensureInstitutionAndDomain: created "${institutionName}" (inst: ${institution.id}, domain: ${domain.id})`);
-    return { domainId: domain.id, institutionId: institution.id, domainKind };
-  } catch (err) {
-    console.error("[wizard-tools] ensureInstitutionAndDomain failed:", err);
-    return null;
-  }
-}
 
 // ── Tool result type ────────────────────────────────────
 
