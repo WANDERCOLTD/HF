@@ -131,8 +131,29 @@ function MarkdownContent({ body }: { body: string }) {
  * Minimal markdown to HTML renderer.
  * Handles: h1-h3, bold, italic, bullets, numbered lists, code, links, horizontal rules.
  * Not a full parser — sufficient for demo content.
+ *
+ * SECURITY: escapes HTML in the input BEFORE applying markdown transforms so a
+ * malicious demo JSON body cannot inject raw HTML / scripts via the
+ * `dangerouslySetInnerHTML` consumer at line 69. Without the escape, a body
+ * like `"<script>alert(1)</script>"` would render as a live script tag (the
+ * markdown transforms are regex-replace only and don't escape input). Demo
+ * content is in-repo + code-reviewed today, so this was a latent risk; the
+ * escape closes it before demo content ever becomes admin-editable via UI.
+ * Audit follow-up to HF-M, "what else can we do" sweep.
  */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function renderSimpleMarkdown(md: string): string {
+  // Escape before any markdown transform — inlineFormat below treats `**` and
+  // backticks as syntax but does NOT escape angle brackets.
+  md = escapeHtml(md);
   const lines = md.split("\n");
   const result: string[] = [];
   let inList = false;

@@ -140,6 +140,12 @@ function PipelineLiveView() {
   };
 
   const stageIcon = (stageName: string) => {
+    // SECURITY: the `dangerouslySetInnerHTML` consumer of this function (~L326)
+    // is safe because every return value comes from a hardcoded dictionary of
+    // numeric HTML entities. The `stageName` argument is the LOOKUP key, never
+    // the value — a malicious / unknown stage name falls through to the
+    // clipboard fallback. There is no path from external input to the rendered
+    // HTML. Audit follow-up to HF-M, "what else can we do" sweep.
     const icons: Record<string, string> = {
       EXTRACT: "&#128269;",
       SCORE_AGENT: "&#128202;",
