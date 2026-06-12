@@ -114,6 +114,35 @@ function formatPayload(payload: unknown): string {
   }
 }
 
+/**
+ * Latest `pipeline.canary.run` row — written by the #1514 canary E2E
+ * after each run (nightly via `.github/workflows/canary.yml`, or
+ * ad-hoc via `npm run test:canary`). Renders the gate-by-gate verdict
+ * so an operator can confirm at a glance "did the loop close last
+ * night?" without digging through AppLog.
+ */
+async function loadLatestCanaryRun(): Promise<{
+  createdAt: Date;
+  level: string | null;
+  message: string | null;
+  metadata: unknown;
+} | null> {
+  try {
+    return await prisma.appLog.findFirst({
+      where: { stage: "pipeline.canary.run" },
+      orderBy: { createdAt: "desc" },
+      select: {
+        createdAt: true,
+        level: true,
+        message: true,
+        metadata: true,
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
 export default async function PipelineHealthPage() {
   const session = await auth();
   if (!session) redirect("/login");
@@ -122,6 +151,22 @@ export default async function PipelineHealthPage() {
 
   const rows = await loadAggregate();
   const seen = new Set(rows.map((r) => r.invariantId));
+  const latestCanary = await loadLatestCanaryRun();
+  const canaryMeta =
+    (latestCanary?.metadata as
+      | {
+          passed?: number;
+          failed?: number;
+          warns?: number;
+          gateResults?: Array<{
+            gate: string;
+            outcome: string;
+            detail: string;
+          }>;
+          warnOnly?: boolean;
+        }
+      | null
+      | undefined) ?? null;
 
   return (
     <main className="hf-page">
@@ -179,6 +224,61 @@ export default async function PipelineHealthPage() {
               ))}
             </tbody>
           </table>
+        )}
+      </section>
+
+      <section className="hf-card">
+        <h2 className="hf-section-title">Latest canary run</h2>
+        <p className="hf-section-desc">
+          The Adaptive Loop canary E2E (story <code>#1514</code>) drives a
+          real-engine call through EXTRACT → LEARN → AGGREGATE → COMPOSE and
+          asserts the chain closes. Hard FAILs block deploy; WARNs surface
+          the dependency stories (G9 / #1515 and G2 / #1516). Schedule:
+          nightly via <code>.github/workflows/canary.yml</code>; ad-hoc via{" "}
+          <code>npm run test:canary</code>.
+        </p>
+        {!latestCanary ? (
+          <div className="hf-empty">
+            <p>No canary run recorded yet.</p>
+            <p className="hf-text-xs hf-text-muted">
+              Run <code>npm run test:canary</code> with{" "}
+              <code>ANTHROPIC_API_KEY</code> set, or wait for the nightly
+              workflow to land its first result.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="hf-text-xs hf-text-muted">
+              {latestCanary.createdAt.toISOString()} ·{" "}
+              <code>{latestCanary.level ?? "info"}</code> ·{" "}
+              {latestCanary.message ?? "(no summary)"}
+              {canaryMeta?.warnOnly ? " · warn-only mode" : ""}
+            </p>
+            {canaryMeta?.gateResults && canaryMeta.gateResults.length > 0 && (
+              <table className="hf-help-demos-table">
+                <thead>
+                  <tr>
+                    <th>Gate</th>
+                    <th>Outcome</th>
+                    <th>Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {canaryMeta.gateResults.map((g) => (
+                    <tr key={g.gate}>
+                      <td>
+                        <code>{g.gate}</code>
+                      </td>
+                      <td>
+                        <code>{g.outcome}</code>
+                      </td>
+                      <td className="hf-text-xs">{g.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
         )}
       </section>
 
