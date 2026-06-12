@@ -1,0 +1,119 @@
+description: "DEMO mode — Cmd+K scope-prefix tokens (#1546 / Epic #1442 Layer 3 Slice 5)"
+
+# Run with: npx promptfoo eval -c evals/demo/v2-scope-prefixes.yaml --no-cache
+# View:     npm run eval:view
+#
+# Three scenarios covering the @caller / ^course / ~domain scope-prefix
+# pattern. The route's `parseScopeTokens` strips the trailing token before
+# the model sees the message and prepends a synthetic `[scope] …` user-
+# prefixed note describing the resolved scope. The model must then emit
+# `update_behavior_target` with the resolved id in the correct slot
+# (caller_id / playbook_id / domain_id).
+#
+# Drift traps:
+#   - model must NOT propose `playbook_id` when the scope was CALLER
+#   - model must NOT propose `caller_id` when the scope was PLAYBOOK
+#   - model must NOT claim "Done" / "Applied" before tool result
+#   - model must mention the DOMAIN-fanout in plain text for ~domain writes
+
+prompts:
+  - id: scope-prefix-prompt
+    label: "DEMO — scope-prefix resolution + update_behavior_target"
+    raw: |
+      You are the DEMO ASSISTANT for the HumanFirst platform.
+
+      You are operating as the operator's remote control while they run a LIVE PRODUCT DEMO for a prospect. Your job is to make small course-level tweaks land fast so the operator can show the prospect a visible behaviour change on the very next demo call.
+
+      ## Scope-prefix tokens (#1546)
+
+      The route layer strips trailing scope tokens (`@<caller>`, `^<course>`, `~<domain>`, `#system`) and prepends a synthetic `[scope] …` user-prefixed note describing the resolved scope.
+
+      When a `[scope]` note is present, USE THE RESOLVED IDS in the next tool call. Do not ask the operator which course / caller they meant — that was decided at parse time.
+
+      For DOMAIN-scope writes, mention the fanout explicitly in your reply.
+
+      ## Tool
+
+      You have `update_behavior_target`. Pass exactly one of `playbook_id`, `caller_id`, or `domain_id` matching the resolved scope.
+
+      ---
+      {{scopeHint}}
+
+      The operator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 600
+      tools:
+        - name: update_behavior_target
+          description: "Update a BehaviorTarget at the resolved cascade scope. Pass exactly one of playbook_id / caller_id / domain_id."
+          input_schema:
+            type: object
+            properties:
+              playbook_id: { type: string }
+              caller_id: { type: string }
+              domain_id: { type: string }
+              parameter_id: { type: string }
+              target_value: { type: number }
+              reason: { type: string }
+            required: [parameter_id, target_value, reason]
+
+tests:
+
+  # ── Scenario 1: CALLER scope ─────────────────────────────────────────
+
+  - description: "1 — '@bertie' → update_behavior_target with caller_id, no playbook_id"
+    vars:
+      scopeHint: "[scope] Operator targeted CALLER scope (Bertie Tallstaff). For the next tool call, pass caller_id=clr-bertie-001. Use update_behavior_target for the next tool call."
+      userMessage: "set response-length 0.2"
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The model produced a tool_use block calling `update_behavior_target`
+          with `caller_id = "clr-bertie-001"`, `parameter_id = "BEH-RESPONSE-LEN"`,
+          `target_value = 0.2`. The args do NOT contain `playbook_id` or
+          `domain_id`. The response does NOT contain success language
+          ("Done", "Set", "Applied") — those are premature before the tool
+          result arrives.
+
+  # ── Scenario 2: PLAYBOOK scope ────────────────────────────────────────
+
+  - description: "2 — '^OCEAN' → update_behavior_target with playbook_id, no caller_id"
+    vars:
+      scopeHint: "[scope] Operator targeted PLAYBOOK scope (OCEAN). For the next tool call, pass playbook_id=pb-ocean-001."
+      userMessage: "set response-length 0.3"
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The model produced a tool_use block calling `update_behavior_target`
+          with `playbook_id = "pb-ocean-001"`, `parameter_id = "BEH-RESPONSE-LEN"`,
+          `target_value = 0.3`. The args do NOT contain `caller_id` or
+          `domain_id`. The response does NOT contain success language.
+
+  # ── Scenario 3: DOMAIN scope (with fanout mention) ───────────────────
+
+  - description: "3 — '~education' → update_behavior_target with domain_id + fanout mention in reply"
+    vars:
+      scopeHint: "[scope] Operator targeted DOMAIN scope (Education). For the next tool call, pass domain_id=dom-education-001. ⚠ This affects every course in the domain — confirm before applying."
+      userMessage: "set warmth 0.5"
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The model produced a tool_use block calling `update_behavior_target`
+          with `domain_id = "dom-education-001"`, `parameter_id` matching
+          "warmth" (BEH-WARMTH or similar), `target_value = 0.5`. The args do
+          NOT contain `playbook_id` or `caller_id`. The model's text
+          response mentions the DOMAIN fanout explicitly (e.g. "this affects
+          every course in the Education domain" / "fanout" / "all enrolled
+          learners across the domain") so the operator knows what they're
+          approving.

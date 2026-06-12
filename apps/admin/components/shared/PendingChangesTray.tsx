@@ -330,6 +330,18 @@ export function PendingChangesTray(): React.ReactElement | null {
             </p>
           )}
 
+          {/* #1546 — DOMAIN-scope writes fan out across every course in
+             the domain. This is the human gate (per Epic #1442 ADR §3.4
+             — "ScopePicker copy" — and the cascade-honesty contract).
+             Render once even when multiple DOMAIN entries are queued so
+             the warning isn't drowned out. */}
+          {entries.some((e) => e.scope === "domain") && (
+            <p className="hf-pending-tray-ai-warning" data-testid="hf-pending-tray-domain-warning">
+              ⚠ Affects every course in this domain. All enrolled learners across
+              the domain will receive updated settings on their next call.
+            </p>
+          )}
+
           {/* Dead-end-state reassurance (#1442 Layer 4 follow-on).
              When both recompose buttons are disabled, the operator could
              think nothing applied. In fact the underlying config write

@@ -42,6 +42,11 @@ const AI_TOOL_PATH_FRAGMENTS = [
   "lib/chat/conversational-wizard-tools",
   "lib/chat/admin-tool-handlers",
   "app/api/chat/route.ts",
+  // #1546 — cascade write router is reachable from Cmd+K via the DEMO
+  // mode scope-prefix parser (resolves @caller / ^course / ~domain tokens
+  // and routes through `setKnobAtLayer`). Bring it into the fanout rule
+  // surface — Sprint 3 TODO actioned.
+  "lib/cascade/set-at-layer",
 ];
 
 function isAITool(filename) {
