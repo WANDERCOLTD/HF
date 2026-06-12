@@ -27,9 +27,11 @@
  * SharePoint "Limited Access" anti-pattern). The router writes exactly
  * one row at exactly the requested layer.
  *
- * Sprint 3 TODO: when Cmd+K domain writes ship, add `lib/cascade/
- * set-at-layer.ts` to `AI_TOOL_PATH_FRAGMENTS` in
- * `eslint-rules/no-ai-fanout-all.mjs`.
+ * Cmd+K reachability: the DEMO mode scope-prefix parser (`@caller` /
+ * `^course` / `~domain`) routes through this file. It is therefore in
+ * `AI_TOOL_PATH_FRAGMENTS` (`eslint-rules/no-ai-fanout-all.mjs`) — every
+ * AI tool path that reaches a cascade write is guarded against
+ * `fanoutScope: 'all'`. (#1546 — Sprint 3 TODO actioned.)
  */
 
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";

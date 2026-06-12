@@ -8,6 +8,13 @@ import { buildUnifiedAssistantPrompt } from "@/lib/chat/unified-assistant-prompt
 import { parsePageContext, type PageContextHint } from "./page-context";
 import { parseTrayReflections, buildReflectionMessages } from "./tray-reflection";
 import { executeCommand, parseCommand } from "@/lib/chat/commands";
+import { parseScopeTokens } from "@/lib/chat/scope-prefix-parser";
+import { inferScopeFromUrl } from "@/lib/chat/scope-infer";
+import { buildScopeHintMessage, type ScopeHint } from "@/lib/chat/scope-hint-message";
+import { HF_TOOL_META } from "@/lib/chat/hf-tool-meta";
+import { resolveCallerByName } from "@/lib/chat/scope-resolvers/caller-by-name";
+import { resolvePlaybookByName } from "@/lib/chat/scope-resolvers/playbook-by-name";
+import { resolveDomainByName } from "@/lib/chat/scope-resolvers/domain-by-name";
 import { logAI } from "@/lib/logger";
 import { logAIInteraction } from "@/lib/ai/knowledge-accumulation";
 import { requireAuth, isAuthError } from "@/lib/permissions";
@@ -353,15 +360,130 @@ export async function POST(request: NextRequest) {
     // unchanged), but the system prompt is action-oriented and the tool
     // surface is narrowed to DEMO_TOOLS (5 tools).
     if (mode === "DEMO") {
+      // #1546 Slice 5 — scope-prefix parsing. Strip trailing @caller / ^course
+      // / ~domain / #system tokens, resolve names to ids, inject a synthetic
+      // [scope] user-prefixed message into demoMessages so the LLM knows
+      // which cascade target to pass to the next tool call.
+      const sessionInstitutionId = authResult.session.user.institutionId ?? undefined;
+      const institutionScope = userRole === "SUPERADMIN" ? undefined : sessionInstitutionId;
+      const scopeParse = parseScopeTokens(message);
+      if (scopeParse.error) {
+        return NextResponse.json(
+          { ok: false, error: scopeParse.error },
+          { status: 400 },
+        );
+      }
+
+      let scopeHint: ScopeHint | null = null;
+
+      if (scopeParse.scopeToken?.kind === "system") {
+        if (userRole !== "ADMIN" && userRole !== "SUPERADMIN") {
+          return NextResponse.json(
+            { ok: false, error: "SYSTEM scope requires ADMIN role" },
+            { status: 403 },
+          );
+        }
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "SYSTEM scope writes ship in Sprint 2 — use a per-course override for now",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (scopeParse.scopeToken?.kind === "caller") {
+        const r = await resolveCallerByName(scopeParse.scopeToken.name, {
+          institutionId: institutionScope,
+        });
+        if (!r.ok) {
+          return NextResponse.json(
+            { ok: false, error: r.reason, candidates: r.candidates ?? [] },
+            { status: 400 },
+          );
+        }
+        scopeHint = {
+          layer: "CALLER",
+          scopeIds: { callerId: r.callerId },
+          label: r.label,
+          suggestedTool: "update_behavior_target",
+        };
+      } else if (scopeParse.scopeToken?.kind === "playbook") {
+        const r = await resolvePlaybookByName(scopeParse.scopeToken.name, {
+          institutionId: institutionScope,
+        });
+        if (!r.ok) {
+          return NextResponse.json(
+            { ok: false, error: r.reason, candidates: r.candidates ?? [] },
+            { status: 400 },
+          );
+        }
+        scopeHint = {
+          layer: "PLAYBOOK",
+          scopeIds: { playbookId: r.playbookId },
+          label: r.label,
+        };
+      } else if (scopeParse.scopeToken?.kind === "domain") {
+        const r = await resolveDomainByName(scopeParse.scopeToken.name, {
+          institutionId: institutionScope,
+        });
+        if (!r.ok) {
+          return NextResponse.json(
+            { ok: false, error: r.reason, candidates: r.candidates ?? [] },
+            { status: 400 },
+          );
+        }
+        scopeHint = {
+          layer: "DOMAIN",
+          scopeIds: { domainId: r.domainId },
+          label: r.label,
+        };
+      } else {
+        // No token — try URL inference. Only attach a hint when a concrete
+        // course/caller/domain id is in the route; otherwise let the LLM
+        // ask the operator for a scope (per ADR §3.4 — do not silently default).
+        const inferred = inferScopeFromUrl(pageHintRoute);
+        if (inferred.ok) {
+          // URL-inferred — we don't have a human label here. Use the id as
+          // a fallback. The tray entry (when the LLM emits a tool call)
+          // will re-derive a readable label from the DB row.
+          const inferredLabel =
+            inferred.layer === "PLAYBOOK"
+              ? (inferred.scopeIds.playbookId ?? "current course")
+              : inferred.layer === "CALLER"
+                ? (inferred.scopeIds.callerId ?? "current caller")
+                : (inferred.scopeIds.domainId ?? "current domain");
+          scopeHint = {
+            layer: inferred.layer,
+            scopeIds: inferred.scopeIds,
+            label: inferredLabel,
+          };
+        }
+        // When `inferred.ok === false` we proceed with no hint; the model's
+        // system prompt instructs it to ask for clarification.
+      }
+
       const { buildDemoSystemPrompt } = await import("@/lib/chat/demo-system-prompt");
       const demoPrompt = await buildDemoSystemPrompt({ entityContext });
       const callPoint = "chat.demo";
       const aiConfig = await getAIConfig(callPoint);
       const selectedEngine = engine || aiConfig.provider;
 
+      // Use the stripped message for the LLM-bound user turn. The original
+      // `message` is preserved for dedup against conversationHistory (the
+      // client's history insertion still carries the raw form).
+      const llmMessage = scopeParse.stripped.trim();
       const lastHist = conversationHistory[conversationHistory.length - 1];
       const msgInHistory =
         lastHist?.role === "user" && lastHist?.content === message.trim();
+
+      // Prepend the scope-hint as a synthetic user-prefixed note immediately
+      // before the current message. The DEMO system prompt instructs the
+      // model to acknowledge the [scope] block before emitting tool calls.
+      const scopeHintTurn: AIMessage[] = scopeHint
+        ? [{ role: "user", content: buildScopeHintMessage(scopeHint) }]
+        : [];
 
       const demoMessages: AIMessage[] = [
         { role: "system", content: demoPrompt },
@@ -369,17 +491,21 @@ export async function POST(request: NextRequest) {
           role: m.role as "user" | "assistant",
           content: m.content,
         })),
-        ...(msgInHistory ? [] : [{ role: "user" as const, content: message.trim() }]),
+        ...scopeHintTurn,
+        ...(msgInHistory ? [] : [{ role: "user" as const, content: llmMessage }]),
       ];
 
       const userId = authResult.session.user.id;
+      // Reference HF_TOOL_META so the future autocomplete + scope-completion
+      // surfaces have a single source of truth without an unused-import warning.
+      void HF_TOOL_META;
       return await handleDataModeWithTools(
         demoMessages,
         callPoint,
         engine,
         selectedEngine,
         mode,
-        message,
+        llmMessage,
         entityContext,
         conversationHistory,
         userRole,

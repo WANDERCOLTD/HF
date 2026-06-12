@@ -154,6 +154,28 @@ describe("PendingChangesTray", () => {
     expect(getByText("old → new")).toBeInTheDocument();
   });
 
+  // #1546 — DOMAIN-scope fanout warning banner. Cmd+K scope-prefix writes
+  // can land at DOMAIN scope, which fans out to every course in the domain.
+  // The tray is the human gate — surfacing the fanout copy here is the
+  // structural defence (per Epic #1442 ADR §3.4 ScopePicker copy).
+  it("renders the domain-scope fanout warning when any entry has scope='domain'", async () => {
+    const { findByTestId } = render(
+      <TestHarness setupEntries={(push) => push(nonFanoutEntry({ scope: "domain" }))} />,
+    );
+    await findByTestId("pending-changes-tray");
+    const banner = await findByTestId("hf-pending-tray-domain-warning");
+    expect(banner.textContent).toMatch(/affects every course in this domain/i);
+    expect(banner.textContent).toMatch(/all enrolled learners across the domain/i);
+  });
+
+  it("does NOT render the domain-scope warning for playbook-only entries", async () => {
+    const { findByTestId, queryByTestId } = render(
+      <TestHarness setupEntries={(push) => push(fanoutClassEntry())} />,
+    );
+    await findByTestId("pending-changes-tray");
+    expect(queryByTestId("hf-pending-tray-domain-warning")).toBeNull();
+  });
+
   it("shows AI badge for ai-suggested entries", async () => {
     const { findByText } = render(
       <TestHarness
