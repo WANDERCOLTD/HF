@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import rule from "../../apps/admin/eslint-rules/no-ai-forbidden-fields.mjs";
+import rule from "../../eslint-rules/no-ai-forbidden-fields.mjs";
 import { smokeRule } from "./_helpers.js";
 
 describe("no-ai-forbidden-fields", () => {

@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       communityKind === "OPEN_CONNECTION"
         ? (hubPattern || "companion")
         : (topics[0]?.pattern || "companion");
-    const archetype = PATTERN_ARCHETYPE_MAP[primaryPattern] || "COMPANION-001";
+    const archetype = PATTERN_ARCHETYPE_MAP[primaryPattern] || config.specs.companionArchetype;
 
     // Resolve operator's Caller ID for CohortGroup ownership
     const userId = authResult.session.user?.id;

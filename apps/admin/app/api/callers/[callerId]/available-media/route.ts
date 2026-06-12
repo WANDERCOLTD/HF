@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 /**
  * @api GET /api/callers/:callerId/available-media
@@ -20,6 +21,13 @@ export async function GET(
 
   const { callerId } = await params;
 
+
+  // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+  // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+  // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+  if (!studentAllowedToReadCaller(auth.session, callerId)) {
+    return callerScopeMismatchResponse();
+  }
   // Get caller's domain and its linked subjects
   const caller = await prisma.caller.findUnique({
     where: { id: callerId },

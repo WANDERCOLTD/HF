@@ -7,6 +7,7 @@ import {
   extractModuleTrustLevels,
 } from "@/lib/curriculum/track-progress";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 /**
  * @api GET /api/callers/:callerId/trust-progress
@@ -30,6 +31,13 @@ export async function GET(
 
     const { callerId } = await params;
 
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     // Verify caller exists
     const caller = await prisma.caller.findUnique({
       where: { id: callerId },

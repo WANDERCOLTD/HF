@@ -27,6 +27,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { config } from "@/lib/config";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 const PROFILE_LABELS: Record<string, string> = {
   "comprehension-led": "Comprehension Skills",
@@ -40,11 +42,15 @@ const PROFILE_PREFIXES: Record<string, string> = {
   "coaching-led": "COACH_",
 };
 
-const AGG_SCOPES: Record<string, string> = {
-  "comprehension-led": "COMP-AGG-001",
-  "discussion-led": "DISC-AGG-001",
-  "coaching-led": "COACH-AGG-001",
-};
+// Built fresh per request so an env-var override (COMP_AGG_SPEC_SLUG etc.) is
+// honoured — a module-scope literal would freeze the slug at first import.
+function getAggScopes(): Record<string, string> {
+  return {
+    "comprehension-led": config.specs.aggComprehension,
+    "discussion-led": config.specs.aggDiscussion,
+    "coaching-led": config.specs.aggCoaching,
+  };
+}
 
 // Shape of the per-LO mastery attribute key. The slug between
 // `lo_mastery:` and the LO ref is the module slug — used by the module-
@@ -60,6 +66,13 @@ export async function GET(
 
   const { callerId } = await params;
 
+
+  // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+  // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+  // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+  if (!studentAllowedToReadCaller(auth.session, callerId)) {
+    return callerScopeMismatchResponse();
+  }
   // Resolve teaching profile + playbook context: caller → enrollment →
   // playbook → subject. We pull the playbook id + name as well so the
   // module-mastery branch (below) can render the course name.
@@ -95,7 +108,7 @@ export async function GET(
   // parameter prefix + aggregator spec.
   if (profile && PROFILE_PREFIXES[profile]) {
     const prefix = PROFILE_PREFIXES[profile];
-    const aggScope = AGG_SCOPES[profile];
+    const aggScope = getAggScopes()[profile];
 
     const scores = await prisma.callScore.findMany({
       where: {

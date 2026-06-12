@@ -652,8 +652,14 @@ registerTransform("computeSessionPedagogy", (
     && plan.sessionType !== "OPEN_CONVERSATION";
 
   if (isTeachingSession) {
+    // Match against the configured default-archetype slug (env-overridable) rather
+    // than a hardcoded "TUT-001" — a literal would silently stop matching under a
+    // DEFAULT_ARCHETYPE_SLUG override (audit HF-I).
+    const defaultArchetypeSlug = config.specs.defaultArchetype.toUpperCase();
     const tutorSpec = (context.loadedData.systemSpecs as Array<{ slug?: string; config?: any }>)?.find(
-      (s) => s.slug?.toUpperCase().includes("TUT-001") || s.slug?.toUpperCase().includes("TUTOR-IDENTITY"),
+      (s) =>
+        s.slug?.toUpperCase().includes(defaultArchetypeSlug) ||
+        s.slug?.toUpperCase().includes("TUTOR-IDENTITY"),
     );
     const pcFlow = tutorSpec?.config?.session_pedagogy?.postCoverageFlow;
 

@@ -19,8 +19,16 @@
  * helper picks them up.
  */
 
+import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import rule from "../../eslint-rules/no-hardcoded-greeting-in-composition.mjs";
+import { smokeRule } from "./_helpers.js";
+
+describe("no-hardcoded-greeting-in-composition", () => {
+  it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
+    smokeRule("no-hardcoded-greeting-in-composition", rule as never);
+  });
+});
 
 const tester = new RuleTester({
   languageOptions: { ecmaVersion: 2022, sourceType: "module" },

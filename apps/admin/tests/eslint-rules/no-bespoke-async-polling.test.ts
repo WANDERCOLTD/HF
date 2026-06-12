@@ -5,13 +5,19 @@
  * `setTimeout` or `setInterval` fires unless the file is on the
  * grandfathering allowlist or under a test-path fragment.
  *
- * Sibling smoke test (KB back-link, meta.docs.url, structural shape) lives
- * at REPO-ROOT `tests/eslint-rules/no-bespoke-async-polling.test.ts` per
- * the meta-ratchet convention.
+ * smokeRule (HF-F: one location per rule, both checks here) + RuleTester behavioural cases.
  */
 
+import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import rule from "../../eslint-rules/no-bespoke-async-polling.mjs";
+import { smokeRule } from "./_helpers.js";
+
+describe("no-bespoke-async-polling", () => {
+  it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
+    smokeRule("no-bespoke-async-polling", rule as never);
+  });
+});
 
 const tester = new RuleTester({
   languageOptions: { ecmaVersion: 2022, sourceType: "module" },

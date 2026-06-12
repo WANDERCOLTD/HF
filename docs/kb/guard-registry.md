@@ -31,6 +31,18 @@ invariant → understands the incident → doesn't bypass it*:
 counts ESLint rules missing a KB link and fails if the count rises above its baseline —
 a guard that guards the guards. Baseline only ever drops as rules are wired (currently 1/10 wired).
 
+**Meta-ratchet:** [`scripts/capture/check-eslint-rule-tests.ts`](../../apps/admin/scripts/capture/check-eslint-rule-tests.ts)
+fails if any rule is missing a sibling test file at `apps/admin/tests/eslint-rules/<rule>.test.ts`.
+Each test file runs the [`smokeRule`](../../apps/admin/tests/eslint-rules/_helpers.ts) structural
+check (meta.type, KB back-link, messages, at-least-one-visitor on a guarded probe path) plus —
+for rules with non-trivial logic — RuleTester behavioural cases. **HF-F (2026-06-11):** rule
+tests previously had a 2-location split (smoke at repo-root `tests/eslint-rules/`, behavioural
+at `apps/admin/tests/eslint-rules/`); the repo-root files weren't picked up by the
+apps/admin-rooted vitest runner, so smoke checks existed for the ratchet but never RAN. HF-F
+collapsed the split: 18 rules, 1 file each, both checks in the same file, both actually
+execute. Surfaced 5 latent rule defects (the path-scoped rules whose `create()` returned `{}`
+for `/dev/null` probe — fixed by extending `smokeRule`'s `PROBE_FILENAMES`).
+
 ## ESLint rules — `apps/admin/eslint-rules/`
 
 ✅ = KB-linked (`meta.docs.url` set).
@@ -55,6 +67,8 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`hf-voice/no-vapi-column-ref`](#guard-no-vapi-column-ref) | Disallow the 6 pre-#1020 `vapi`-prefixed Call columns; use `voice*` names (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP3) | #1020/#1024 | **a** |
 | [`hf-voice/no-vapi-tool-definitions-const`](#guard-no-vapi-tool-definitions-const) | Disallow the `VAPI_TOOL_DEFINITIONS` TS const; load via TOOLS-001 spec (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-VP2) | #1019/#1024 | **a** |
 | [`no-bespoke-async-polling`](#guard-no-bespoke-async-polling) | Bespoke `setInterval`/`setTimeout` retry loops outside an allow-list; use `lib/async/wait-until-ready.ts` | G7 / 2026-06-11 | **meta** |
+| [`hf-security/no-secrets-in-client`](#guard-no-secrets-in-client) | Plaintext credentials / secret-shaped literals in `"use client"` files (they ship in the browser bundle) | HF-J / 2026-06-11 | **a** |
+| [`hf-config/no-hardcoded-spec-slug`](#guard-no-hardcoded-spec-slug) | Hardcoded spec-slug literals (`TUT-001`, `GOAL-001`, …) in `lib/`+`app/` runtime; use `config.specs.*`. **Active (error)** after HF-I sweep | HF-I / 2026-06-11 | **b** |
 
 ### Guard detail
 
@@ -222,18 +236,120 @@ replacement is `waitUntilReady({ predicate, ready, timeout, interval, label, onT
 signal? })` from `lib/async/wait-until-ready.ts`. **Survives hardening:** "single async
 chokepoint" is a methodology fitness function, architecture-independent.
 
+<a id="guard-no-secrets-in-client"></a>
+**`hf-security/no-secrets-in-client`** · class **a** · born HF-J / 2026-06-11 ·
+[rule source](../../apps/admin/eslint-rules/no-secrets-in-client.mjs) ·
+test → [`tests/eslint-rules/no-secrets-in-client.test.ts`](../../apps/admin/tests/eslint-rules/no-secrets-in-client.test.ts)
+
+Anything a `"use client"` component holds as a string literal ships to the browser. The
+2026-06-11 audit (HF-B) found `app/login/page.tsx` declaring a module-scope `DEMO_ACCOUNTS`
+array with plaintext passwords — present in the PROD bundle regardless of the runtime
+`isNonProd` render gate. This rule fires, **only in files carrying the `"use client"`
+directive**, when (1) a credential-shaped key (`password`, `secret`, `apiKey`, `privateKey`,
+`clientSecret`, `accessToken`, …) is assigned a non-empty string literal, or (2) any literal
+matches a high-confidence secret shape (OpenAI `sk-`, Anthropic, AWS `AKIA`, GitHub `ghp_`,
+JWT, Google `AIza`). Server files, `process.env.*` / identifier values, and empty strings
+pass. The one known offence (the build-stripped demo creds) carries a documented
+`eslint-disable` with rationale. Severity `error` from day 1. **Survives hardening:** "no
+secret in browser-shipped code" is an architecture-independent data-safety invariant.
+
+<a id="guard-no-hardcoded-spec-slug"></a>
+**`hf-config/no-hardcoded-spec-slug`** · class **b** · born HF-I / 2026-06-11 · **status: active (error)** ·
+[rule source](../../apps/admin/eslint-rules/no-hardcoded-spec-slug.mjs) ·
+test → [`tests/eslint-rules/no-hardcoded-spec-slug.test.ts`](../../apps/admin/tests/eslint-rules/no-hardcoded-spec-slug.test.ts)
+
+Spec slugs are env-overridable config (`config.specs.*`, `lib/config.ts`). A literal slug in
+runtime code silently stops matching once the corresponding `*_SPEC_SLUG` env var is
+overridden. The audit (HF-I) found two live bugs — `extract-goals.ts` wrote
+`sourceSpecSlug: "GOAL-001"` to the DB with no config backing (fixed by adding
+`config.specs.goal`), and `pedagogy.ts` matched `slug.includes("TUT-001")` (fixed to
+`config.specs.defaultArchetype`). The rule fires on a string literal matching
+`^[A-Z]{2,}(-[A-Z]+)*-\d{3}$` inside `lib/`+`app/`, allow-listing `lib/config.ts`, three
+registries / mirrors (`lib/demo/registry.ts` — demo catalogue; `lib/registry/index.ts` —
+Parameter ID registry, where the rule's shape-only regex would otherwise false-positive on
+behaviour Parameter IDs like `CP-004`; `lib/institution-types/sector-config.ts` — documented
+client mirror of `config.specs.*Archetype` that cannot import `lib/config.ts` because it
+ships to the browser), tests, scripts, `prisma/`, and `docs-archive/`. **Activation (the
+sweep):** 29 residual sites cleared in the same PR — 16 false-positives moved to the
+ALLOWLIST_PATH_FRAGMENTS, 1 SettingsClient search keyword carries an inline disable with
+rationale, and 13 runtime consumers across 7 files were routed through 4 new getters
+(`aggComprehension` / `aggDiscussion` / `aggCoaching` / `goalProgress`). Rule severity
+promoted dormant → `error`. **Survives hardening as scaffold (b):** it protects today's
+`config.specs.*` indirection; retire if the slug-config mechanism changes.
+
 ## CI check scripts — `apps/admin/scripts/`
 
 | Script | Prevents / asserts | Born | Class |
 |---|---|---|---|
-| `check-ratchet.sh` | Count-cap ratchet — `tsc_errors` (212), `lint_errors` (0), `lint_warnings` (4423), `quarantined_tests` (37) can only **drop**, never rise. Reads `.ratchet.json`. | #227 | **meta** (master fitness function) |
+| `check-ratchet.sh` | Count-cap ratchet — `tsc_errors` (190), `lint_errors` (0), `lint_warnings` (4426), `quarantined_tests` (36), `knip_unused` (161) can only **drop**, never rise. Reads `.ratchet.json`. | #227 | **meta** (master fitness function) |
 | `check-fk-consistency.ts` | Cross-playbook leak, orphan-LO, dangling soft-FK | #415/#615 | **a** |
 | `check-schema-health.ts` | Schema health invariants | — | **a** |
 | `check-anchor-divergence.ts` | `qualificationAnchor` slug-set divergence | #1081 | **b** |
 | `check-doc-citations.ts` | Canonical-doc `file::symbol` citation drift | — | **meta** (KB integrity) |
 | `check-knowledge-map.ts` | `KNOWLEDGE-MAP.md` ratchet — repo translation layer stays in step | — | **meta** (KB integrity) |
 | `check-uplift-visual.ts` | Caller Insights visual regression | — | **meta** (test) |
+| [`check-webhook-signature.ts`](#guard-check-webhook-signature) | Voice-provider `verifyInboundRequest` may not be a no-op `return null` stub — every webhook verifier must do real work | HF-C/HF-K / 2026-06-11 | **a** |
+| [`check-guard-tests-not-quarantined.ts`](#guard-check-guard-tests-not-quarantined) | A named registry of security / data-integrity guard tests may never be quarantined in `vitest.config.ts` or deleted | HF-E / 2026-06-11 | **meta** |
+| [`check-tsc-protected-files.ts`](#guard-check-tsc-protected-files) | A hand-picked set of guard-bearing files must have ZERO tsc errors, independent of the global `tsc_errors` ratchet baseline | HF-G / 2026-06-11 | **meta** |
+| [`check-knip-ratchet.ts`](#guard-check-knip-ratchet) | Dead-code ratchet — unused exports+types (`knip`) may only drop, never rise. Turns the informational `knip:ci` step into a blocking gate via `kb:check` | HF-H / 2026-06-11 | **meta** |
 | `cleanup-agent-worktrees.sh` | GC of agent-spawned worktrees whose PR is MERGED or CLOSED. Operator script; nudge surfaced in SessionStart hook when count > 6. | — | **meta** (process hygiene) |
+
+<a id="guard-check-knip-ratchet"></a>
+**`check-knip-ratchet.ts`** · class **meta** · born HF-H / 2026-06-11 ·
+[script source](../../apps/admin/scripts/capture/check-knip-ratchet.ts) · baseline `knip_unused` in `.ratchet.json` · wired into `npm run kb:check`
+
+`knip` (dead-code detector) was configured and ran in CI, but only as `continue-on-error:
+true` — so dead code accumulated unchecked (audit HF-H found 161 unused exports+types). This
+turns it into a monotonic ratchet: the count of unused EXPORTS + TYPES (the source-only
+dead-code signal; dependency/unlisted findings excluded as env-noisy) may only DROP. Baseline
+161 at landing. Because `kb:check` is a blocking CI step, this is now a real gate — delete dead
+code to lower it, lock the win. **Survives hardening:** "dead code only shrinks" is a
+methodology fitness function (legibility ← the whole point of the KB program).
+
+<a id="guard-check-tsc-protected-files"></a>
+**`check-tsc-protected-files.ts`** · class **meta** · born HF-G / 2026-06-11 ·
+[script source](../../apps/admin/scripts/capture/check-tsc-protected-files.ts) · wired into `npm run kb:check`
+
+The global `tsc_errors` ratchet (`.ratchet.json`, 190) only stops the count *rising* — it
+carries a large baseline, and a real bug hid inside it: `ContractRegistry.get(...)` (a
+nonexistent method → TS2339) was swallowed by a try/catch so tuned `SKILL_MEASURE_V1` config
+silently never loaded (audit HF-A). This guard adds a tighter ring: a hand-picked set of
+guard-bearing files (`lib/contracts/registry.ts`, `lib/goals/track-progress.ts`,
+`lib/pipeline/aggregate-runner.ts`, `lib/curriculum/resolve-module.ts`,
+`lib/voice/{create,end}-session.ts`, `lib/learner-scope.ts`, the two webhook verifiers) MUST
+have ZERO tsc errors regardless of the global baseline. A new type error in any of them fails
+CI immediately. As the 190 burns down, migrate more files in — the list only grows.
+**Survives hardening:** "guard code must type-check" is a methodology fitness function.
+
+<a id="guard-check-guard-tests-not-quarantined"></a>
+**`check-guard-tests-not-quarantined.ts`** · class **meta** · born HF-E / 2026-06-11 ·
+[script source](../../apps/admin/scripts/capture/check-guard-tests-not-quarantined.ts) · wired into `npm run kb:check`
+
+The audit's central finding: `tests/lib/route-auth-coverage.test.ts` — a security gate — was
+quarantined in `vitest.config.ts` alongside ~30 ordinary flaky tests, and the
+`quarantined_tests` ratchet counted it identically, so nothing signalled that an auth gate had
+gone dark. This sentinel holds a named registry of GUARD tests (auth-coverage, page-auth,
+factual-grounding, learner-scope, validate-manifest, create/end-session, resolve-module,
+disclosure-store, retell-auth, skill-tier-mapping) and fails CI if any of them is (a) absent
+from disk or (b) present in the vitest exclude block. Retiring a guard test becomes an explicit,
+reviewable edit here — never a silent line in the exclude list. **Survives hardening:** "the
+guards that guard the system must themselves always run" is a methodology fitness function.
+
+<a id="guard-check-webhook-signature"></a>
+**`check-webhook-signature.ts`** · class **a** · born HF-C/HF-K / 2026-06-11 ·
+[script source](../../apps/admin/scripts/capture/check-webhook-signature.ts) · wired into `npm run kb:check`
+
+The Retell provider shipped a `verifyInboundRequest` that returned `null` unconditionally
+(#1079 follow-up debt) — every inbound Retell webhook was trusted WITHOUT signature
+verification, a spoofable end-of-call / transcript injection surface. HF-C implemented the
+real `x-retell-signature` HMAC check (`lib/voice/providers/retell/auth.ts`); this guard
+makes the regression structurally impossible. It brace-matches each
+`lib/voice/providers/*/index.ts` `verifyInboundRequest` body, strips comments + `void x;`
+no-ops, and fails if what remains is an empty body or a bare `return null`. A compliant impl
+delegates to a `verify*` helper or computes an HMAC inline; the "pass-through when no secret
+is configured" early return lives INSIDE that helper (dev ergonomics), not in the provider
+method. **Survives hardening:** "no unverified webhook ingress" is an architecture-independent
+data-safety invariant.
 
 ## Runtime guards & contracts
 

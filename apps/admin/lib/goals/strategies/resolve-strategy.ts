@@ -14,6 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { GoalType } from "@prisma/client";
+import { config } from "@/lib/config";
 
 export interface GoalProgressRule {
   priority: number;
@@ -58,7 +59,10 @@ export async function loadGoalProgressSpec(): Promise<GoalProgressSpec> {
   }
   try {
     const spec = await prisma.analysisSpec.findFirst({
-      where: { slug: { in: ["GOAL-PROGRESS-001", "goal-progress-001"] }, isActive: true },
+      where: {
+        slug: { in: [config.specs.goalProgress, config.specs.goalProgress.toLowerCase()] },
+        isActive: true,
+      },
       select: { config: true },
     });
     if (!spec) {

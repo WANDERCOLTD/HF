@@ -16,6 +16,10 @@ import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require
 import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
 import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
+import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
+import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
+import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
+import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -183,6 +187,24 @@ const eslintConfig = defineConfig([
           "no-ops-import-from-api": noOpsImportFromApi,
         },
       },
+      // Audit HF-J (2026-06-11) — block plaintext credentials / secret-shaped
+      // literals in `"use client"` files. They ship in the browser bundle
+      // regardless of any runtime render gate (the HF-B login/page.tsx finding).
+      "hf-security": {
+        rules: {
+          "no-secrets-in-client": noSecretsInClient,
+          "no-unscoped-caller-id-route": noUnscopedCallerIdRoute,
+          "require-html-safety-comment": requireHtmlSafetyComment,
+        },
+      },
+      // Audit HF-I (2026-06-11) — block hardcoded spec-slug literals in runtime
+      // code; slugs are env-overridable config (config.specs.*). Lands as `warn`
+      // (residual low-severity literals); promote to `error` once swept.
+      "hf-config": {
+        rules: {
+          "no-hardcoded-spec-slug": noHardcodedSpecSlug,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -225,6 +247,44 @@ const eslintConfig = defineConfig([
       // files that instantiate their own PrismaClient (bypass the singleton).
       // Carves out app/api/ops/route.ts (the legitimate ops surface).
       "hf-ops/no-ops-import-from-api": "error",
+
+      // Audit HF-J (2026-06-11) — error from day 1. The one known offence
+      // (login/page.tsx DEMO_ACCOUNTS) is build-stripped from PROD and carries
+      // a documented eslint-disable; any NEW secret literal in a client file
+      // fails CI.
+      "hf-security/no-secrets-in-client": "error",
+
+      // Audit HF-M.2 (2026-06-12) — Block [callerId] route files that have an
+      // HTTP handler but don't call studentAllowedToReadCaller() or
+      // resolveCallerScopeForReading(). Locks in the HF-M IDOR sweep from
+      // commit 0de21b02 so the next [callerId] route can't land without the
+      // STUDENT-scope guard. Severity `error` from day 1 — all 26 existing
+      // routes were patched in the same commit, so 0 violations at activation.
+      // See docs/audit/HF-M-evidence-path-param-idor.md.
+      "hf-security/no-unscoped-caller-id-route": "error",
+
+      // Audit HF-O/HF-P (2026-06-12) — every `dangerouslySetInnerHTML` site
+      // must carry either a `// SECURITY:` annotation documenting why the
+      // input is trusted, OR import / call an in-scope sanitizer (DOMPurify,
+      // escapeHtml, sanitize, …). Severity `error` from day 1 — the 4 existing
+      // sites all satisfy the rule (HF-P stageIcon has the SECURITY comment;
+      // HF-O DemoStepRenderer uses escapeHtml; the theme script + the
+      // RunInspector inline style are server-built constants with the
+      // annotation pattern). The fix-it for new sites is documented in the
+      // rule's failure message. Prevents the next latent-XSS landing.
+      "hf-security/require-html-safety-comment": "error",
+
+      // Audit HF-I sweep (2026-06-11) — landed as DORMANT in 843bcf3a after the two
+      // live bugs (GOAL-001 write → config.specs.goal; TUT-001 match →
+      // config.specs.defaultArchetype) were fixed. Sweep promoted to ERROR after the
+      // residual 29 sites were cleared: 16 false-positive sites moved to the
+      // ALLOWLIST_PATH_FRAGMENTS in the rule (lib/demo/registry.ts, lib/registry/index.ts
+      // (parameter ID registry — CP-004 is a Param, not a Spec), and the documented
+      // sector-config.ts client mirror), 1 SettingsClient search keyword carries an
+      // inline disable + rationale, and 13 runtime consumers across 7 files were
+      // routed through 4 new config.specs.* getters (aggComprehension/Discussion/
+      // Coaching/goalProgress). See docs/kb/guard-registry.md#guard-no-hardcoded-spec-slug.
+      "hf-config/no-hardcoded-spec-slug": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

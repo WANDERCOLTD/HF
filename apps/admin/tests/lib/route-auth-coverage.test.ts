@@ -39,6 +39,29 @@ const PUBLIC_ROUTES = new Set([
   "app/api/voice/[slug]/tools/route.ts",             // Canonical voice route (webhook-secret auth, #1079)
   "app/api/voice/[slug]/webhook/route.ts",           // Canonical voice route (webhook-secret auth, #1079)
   "app/api/join/[token]/route.ts",           // Public magic join link (token-based, no session)
+
+  // ── Intake surface (audit HF-D, 2026-06-11) — REVIEWED public exemptions ──
+  // The EnrollmentIntake surface is pre-auth by design: a learner has no session
+  // yet. Each route uses the random `intentId` as a bearer/capability token and
+  // 404s when the session isn't found. SECURITY NOTE: session + audit-bundle return
+  // PII keyed only by intentId — that intentId-as-bearer posture for PII is worth a
+  // dedicated security review (tracked as an HF-D follow-up), but it is an EXISTING,
+  // intentional posture, not a missing-auth regression — so it is exempted here so
+  // the coverage gate can be re-enabled.
+  "app/api/intake/bootstrap/route.ts",              // anonymous intake entry (resolveTenantCtx)
+  "app/api/intake/v2/start/route.ts",               // anonymous intake entry (v2)
+  "app/api/intake/chat/route.ts",                   // intentId-as-bearer
+  "app/api/intake/session/[intentId]/route.ts",     // intentId-as-bearer; 404 on miss
+  "app/api/intake/audit-bundle/route.ts",           // intentId-as-bearer
+  "app/api/intake/audit-bundle/[intentId]/route.ts", // intentId-as-bearer; 404 on miss
+  "app/api/intake/disclosure-acknowledge/route.ts", // intentId-as-bearer (#1048)
+  "app/api/intake/disclosure-signal/route.ts",      // server-derives disclosureId (#1048)
+
+  // ── Alternate-auth machine routes (audit HF-D) — not session-based ──
+  "app/api/media/[id]/public/route.ts",             // HMAC token, timing-safe compare
+  "app/api/tallyseal-bridge/[...slug]/route.ts",    // bridgeAuthFromStaticKey vs TALLYSEAL_BRIDGE_DEV_SECRET
+  "app/api/voice/llm-proxy/chat/completions/route.ts",            // x-vapi-secret header verify
+  "app/api/voice/llm-proxy/auth/[secret]/chat/completions/route.ts", // path-segment shared secret
 ]);
 
 // =====================================================
@@ -119,6 +142,11 @@ describe("Route auth coverage", () => {
     const ALLOWED_EXCEPTIONS = new Set([
       // Ticket ownership: "owner OR admin" is a business rule on top of auth
       "app/api/tickets/[ticketId]/route.ts",
+      // Audit HF-D — both DO call requireAuth() first, then layer an additional
+      // session.user.role check as defence-in-depth (not in place of auth). The
+      // extra role gate is a business rule on top of the auth call.
+      "app/api/voice/costs/route.ts",
+      "app/api/wizard/discard-draft/route.ts",
     ]);
 
     const violations: string[] = [];

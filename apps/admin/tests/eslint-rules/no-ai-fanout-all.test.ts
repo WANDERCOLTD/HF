@@ -1,6 +1,8 @@
 /**
  * Tests for `eslint-rules/no-ai-fanout-all.mjs` (#854 / #878).
  *
+ * smokeRule (HF-F: one location per rule, both checks here) + RuleTester behavioural cases.
+ *
  * Pins:
  *   - rule fires inside each of the 4 guarded AI-tool surfaces
  *   - rule survives the wizard-tool-executor monolith → per-tool-file split
@@ -16,8 +18,16 @@
  *     no-direct-*-config-write rules)
  */
 
+import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import rule from "../../eslint-rules/no-ai-fanout-all.mjs";
+import { smokeRule } from "./_helpers.js";
+
+describe("no-ai-fanout-all", () => {
+  it("has the structural pieces (meta.docs.url to KB, messages, create)", () => {
+    smokeRule("no-ai-fanout-all", rule as never);
+  });
+});
 
 const tester = new RuleTester({
   languageOptions: { ecmaVersion: 2022, sourceType: "module" },

@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getActiveCurricula, getCurriculumProgress } from "@/lib/curriculum/track-progress";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 type Params = { params: Promise<{ callerId: string }> };
 
@@ -22,6 +23,13 @@ export async function GET(req: NextRequest, { params }: Params) {
     if (isAuthError(authResult)) return authResult.error;
 
     const { callerId } = await params;
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     const moduleSlug = req.nextUrl.searchParams.get("moduleId");
 
     // Get all curricula this caller has progress in

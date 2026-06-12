@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getAllEnrollments, enrollCaller } from "@/lib/enrollment";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 /**
  * @api GET /api/callers/:callerId/enrollments
@@ -20,6 +21,13 @@ export async function GET(
   if (isAuthError(authResult)) return authResult.error;
 
   const { callerId } = await params;
+
+  // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+  // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+  // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+  if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+    return callerScopeMismatchResponse();
+  }
   const enrollments = await getAllEnrollments(callerId);
 
   return NextResponse.json({ ok: true, enrollments });
@@ -45,6 +53,13 @@ export async function POST(
   if (isAuthError(authResult)) return authResult.error;
 
   const { callerId } = await params;
+
+  // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+  // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+  // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+  if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+    return callerScopeMismatchResponse();
+  }
   const body = await req.json();
   const { playbookId } = body;
 

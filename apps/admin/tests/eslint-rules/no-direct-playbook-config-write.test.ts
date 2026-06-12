@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import rule from "../../apps/admin/eslint-rules/no-direct-playbook-config-write.mjs";
+import rule from "../../eslint-rules/no-direct-playbook-config-write.mjs";
 import { smokeRule } from "./_helpers.js";
 
 describe("no-direct-playbook-config-write", () => {

@@ -316,6 +316,9 @@ export default function RunInspector() {
   return (
     <div className="ri-layout">
       {/* Add spin keyframes + highlight animation */}
+      {/* SECURITY: inline <style> body is a static CSS template literal built from
+          local module constants (SPIN_KEYFRAMES etc.) — no user input flows in.
+          Audit HF-O/HF-P, "what other checks" sweep. */}
       <style dangerouslySetInnerHTML={{ __html: `
         ${SPIN_KEYFRAMES}
         @keyframes highlightPulse {

@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { config } from "@/lib/config";
 
 const PROFILE_LABELS: Record<string, string> = {
   "comprehension-led": "Comprehension Skills",
@@ -26,11 +27,15 @@ const PROFILE_PREFIXES: Record<string, string> = {
   "coaching-led": "COACH_",
 };
 
-const AGG_SCOPES: Record<string, string> = {
-  "comprehension-led": "COMP-AGG-001",
-  "discussion-led": "DISC-AGG-001",
-  "coaching-led": "COACH-AGG-001",
-};
+// Built fresh per request so an env-var override (COMP_AGG_SPEC_SLUG etc.) is
+// honoured — a module-scope literal would freeze the slug at first import.
+function getAggScopes(): Record<string, string> {
+  return {
+    "comprehension-led": config.specs.aggComprehension,
+    "discussion-led": config.specs.aggDiscussion,
+    "coaching-led": config.specs.aggCoaching,
+  };
+}
 
 const PARAM_LABELS: Record<string, string> = {
   COMP_RETRIEVAL: "Retrieval", COMP_INFERENCE: "Inference", COMP_VOCABULARY: "Vocabulary",
@@ -61,7 +66,7 @@ export async function GET(
   }
 
   const prefix = PROFILE_PREFIXES[profile];
-  const aggScope = AGG_SCOPES[profile];
+  const aggScope = getAggScopes()[profile];
 
   // Get enrolled caller IDs
   const enrollments = await prisma.callerPlaybook.findMany({

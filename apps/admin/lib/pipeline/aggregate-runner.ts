@@ -171,17 +171,17 @@ export async function accumulateSkillScores(
   let halfLifeSource: "rule" | "playbook" | "contract" | "default" = "default";
   let minCallsSource: "rule" | "playbook" | "contract" | "default" = "default";
   try {
-    // ContractRegistry exposes `getContract(id)`; the `.get()` here is a
-    // pre-existing typo (tsc has flagged this on main since the SKILL_MEASURE_V1
-    // wiring landed). The surrounding try/catch swallows the resulting throw,
-    // so the cascade has been falling through to SKILL_DEFAULTS on every call
-    // today — which is precisely what #1513's I-AL3 emit was designed to
-    // observe. NOT fixing here: changing `.get` → `.getContract` is a
-    // behavioural change (the contract STARTS being consulted) and belongs
-    // in a separate PR with its own contract-seeding verification. Tracking
-    // ticket: TODO file a follow-on.
-    // @ts-expect-error pre-existing typo — see comment above
-    const contract = await ContractRegistry.get("SKILL_MEASURE_V1");
+    // HF-A (audit #1533, commit 602e3ad): ContractRegistry exposes
+    // `getContract(id)`, NOT `.get(id)`. Pre-merge, main carried a
+    // documented @ts-expect-error TODO leaving the typo in place; HF-A
+    // confirmed via DB query on hf_sandbox that SKILL_MEASURE_V1 IS
+    // seeded with tuned values, so the contract READ is the correct
+    // behaviour — defaults were silently winning over the educator's
+    // tuned thresholds on every call. Fix preserves main's source-
+    // tracking observability (halfLifeSource / minCallsSource) so
+    // #1513's I-AL3 emit still distinguishes contract-driven from
+    // default-driven cascades. See docs/audit/HF-A-evidence-skill-measure-v1.md.
+    const contract = await ContractRegistry.getContract("SKILL_MEASURE_V1");
     const cfg = (contract?.config ?? {}) as Record<string, unknown>;
     if (typeof cfg.emaHalfLifeDays === "number") {
       halfLifeDays = cfg.emaHalfLifeDays;
@@ -191,8 +191,10 @@ export async function accumulateSkillScores(
       minCallsToFull = cfg.minCallsToFull;
       minCallsSource = "contract";
     }
-  } catch {
-    // Contract not seeded yet — defaults are fine.
+    // contract null (not seeded) → defaults already assigned above.
+  } catch (err) {
+    // Unexpected error reading the contract — log it; never silently swallow.
+    console.warn("[skill-agg] SKILL_MEASURE_V1 contract read failed — using defaults:", err);
   }
   const playbookOverride = await prisma.callerPlaybook.findFirst({
     where: { callerId, status: "ACTIVE" },

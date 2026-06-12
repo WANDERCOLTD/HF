@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import rule from "../../apps/admin/eslint-rules/no-module-read-without-course-style-guard.mjs";
+import rule from "../../eslint-rules/no-module-read-without-course-style-guard.mjs";
 import { smokeRule } from "./_helpers.js";
 
 describe("no-module-read-without-course-style-guard", () => {

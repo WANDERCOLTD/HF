@@ -181,8 +181,11 @@ registerTransform("computeQuickStart", (
 
     learning_guidance: (() => {
       // Surface aggregated learning competency from CallerAttributes (set by COMP/DISC/COACH-AGG specs)
+      const aggComp = config.specs.aggComprehension;
+      const aggDisc = config.specs.aggDiscussion;
+      const aggCoach = config.specs.aggCoaching;
       const learningAttrs = loadedData.callerAttributes.filter(
-        (a: CallerAttributeData) => a.scope === "COMP-AGG-001" || a.scope === "DISC-AGG-001" || a.scope === "COACH-AGG-001",
+        (a: CallerAttributeData) => a.scope === aggComp || a.scope === aggDisc || a.scope === aggCoach,
       );
       if (learningAttrs.length === 0) return null;
 

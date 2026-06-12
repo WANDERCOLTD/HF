@@ -35,6 +35,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 const bodySchema = z.object({
   moduleId: z.string().min(1).max(64).nullable(),
@@ -49,6 +50,13 @@ export async function POST(
 
   const { callerId } = await params;
 
+
+  // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+  // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+  // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+  if (!studentAllowedToReadCaller(auth.session, callerId)) {
+    return callerScopeMismatchResponse();
+  }
   const raw = await req.json().catch(() => null);
   const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) {

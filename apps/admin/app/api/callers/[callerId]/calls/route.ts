@@ -9,6 +9,7 @@ import {
 } from "@/lib/curriculum/resolve-module";
 import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
 import { createSession } from "@/lib/voice/create-session";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 /**
  * @operator-surface yes
@@ -32,6 +33,13 @@ export async function GET(
     if (isAuthError(authResult)) return authResult.error;
 
     const { callerId } = await params;
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     const url = new URL(_request.url);
     const activeOnly = url.searchParams.get("active") === "true";
 
@@ -102,6 +110,13 @@ export async function POST(
     if (isAuthError(authResult)) return authResult.error;
 
     const { callerId } = await params;
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     const body = await request.json();
     const { source = "ai-simulation", transcript = "", usedPromptId, playbookId, requestedModuleId } = body;
 

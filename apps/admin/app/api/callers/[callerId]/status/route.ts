@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireEntityAccess, isEntityAuthError } from "@/lib/access-control";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 const PROCESSING_WINDOW_MS = 5 * 60 * 1000;
 
@@ -24,6 +25,13 @@ export async function GET(
   if (isEntityAuthError(authResult)) return authResult.error;
 
   const { callerId } = await params;
+
+  // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+  // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+  // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+  if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+    return callerScopeMismatchResponse();
+  }
   const fiveMinAgo = new Date(Date.now() - PROCESSING_WINDOW_MS);
 
   const [recentCalls, scoreCounts, promptCalls] = await Promise.all([
