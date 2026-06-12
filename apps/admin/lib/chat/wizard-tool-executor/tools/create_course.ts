@@ -3,6 +3,7 @@ import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import type { WizardToolExec } from "../_shared/types";
 import { validUuid } from "../_shared/valid-uuid";
 import { applyStudentExperienceConfig } from "../_shared/apply-student-experience";
+import { ensureInstitutionAndDomain } from "../_shared/ensure-institution-and-domain";
 
 export async function execute(
   input: Record<string, unknown>,
@@ -568,8 +569,7 @@ try {
     // Re-enter the existing-course path by setting existingPlaybookId
     // and recursing through the same tool (setupData is immutable here,
     // so we call ourselves with the draftPlaybookId patched in).
-    return executeWizardTool(
-      "create_course",
+    return execute(
       input,
       userId,
       { ...setupData, draftPlaybookId: existingDupe.id },
