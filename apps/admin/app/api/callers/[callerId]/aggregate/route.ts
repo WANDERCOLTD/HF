@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAggregateSpecs } from "@/lib/pipeline/aggregate-runner";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 /**
  * @api POST /api/callers/:callerId/aggregate
@@ -23,6 +24,13 @@ export async function POST(
 
     const { callerId } = await params;
 
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     console.log(`[aggregate-api] Running AGGREGATE specs for caller ${callerId}`);
 
     const results = await runAggregateSpecs(callerId);
@@ -69,6 +77,13 @@ export async function GET(
 
     const { callerId } = await params;
 
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     // TODO: Track aggregation runs in a table if needed
     // For now, just return available specs
 

@@ -1,6 +1,6 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-11T23:08:06.739Z",
+  "generatedAt": "2026-06-12T09:16:39.526Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
@@ -25,7 +25,7 @@
       "VIEWER+TESTER": 3
     },
     "noAuthGate": 28,
-    "possiblyUnscoped": 134,
+    "possiblyUnscoped": 109,
     "internalSecret": 8
   },
   "routes": [
@@ -1194,10 +1194,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1238,10 +1238,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1258,10 +1258,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": false,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1280,10 +1280,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1300,10 +1300,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1320,10 +1320,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1401,10 +1401,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1423,10 +1423,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1443,10 +1443,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": false,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1486,10 +1486,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": false,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1528,10 +1528,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1546,10 +1546,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1566,10 +1566,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1586,10 +1586,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1606,10 +1606,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1626,10 +1626,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1646,10 +1646,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1666,10 +1666,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1746,10 +1746,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1786,10 +1786,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1806,10 +1806,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1824,10 +1824,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1904,10 +1904,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1922,10 +1922,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1942,10 +1942,10 @@
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
-        "usesScopeHelper": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
-        "possiblyUnscoped": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false

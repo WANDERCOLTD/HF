@@ -10,6 +10,7 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { getSkillTierMapping } from "@/lib/goals/track-progress";
 import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
 import { serializeCallForCallerDetail } from "@/lib/callers/serialize-call-for-detail";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 /**
  * @api GET /api/callers/:callerId
@@ -33,6 +34,13 @@ export async function GET(
 
     const { callerId } = await params;
 
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     // Fetch all caller data in parallel
     const [caller, personalityProfile, observations, memories, memorySummary, calls, identities, scores, callerTargets, curriculum, learnerProfile, goals] = await Promise.all([
       // Basic caller info
@@ -839,6 +847,13 @@ export async function PATCH(
     const { session } = authResult;
 
     const { callerId } = await params;
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     const body = await req.json();
 
     // Allowed fields to update
@@ -1084,6 +1099,13 @@ export async function DELETE(
     if (isEntityAuthError(authResult)) return authResult.error;
 
     const { callerId } = await params;
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     const body = await req.json().catch(() => ({}));
     const { exclude = false } = body;
 

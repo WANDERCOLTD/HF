@@ -4,6 +4,7 @@ import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummar
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { isPromptStale } from "@/lib/compose/staleness";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,13 @@ export async function POST(
 
     const { callerId } = await params;
 
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     // Validate caller exists and has a domain assigned
     const caller = await prisma.caller.findUnique({
       where: { id: callerId },
@@ -211,6 +219,13 @@ export async function GET(
     if (isAuthError(authResult)) return authResult.error;
 
     const { callerId } = await params;
+
+    // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+    // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+    // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+    if (!studentAllowedToReadCaller(authResult.session, callerId)) {
+      return callerScopeMismatchResponse();
+    }
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "20");
     const status = searchParams.get("status"); // "active" | "superseded" | "all"

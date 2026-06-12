@@ -28,6 +28,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { config } from "@/lib/config";
+import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 const PROFILE_LABELS: Record<string, string> = {
   "comprehension-led": "Comprehension Skills",
@@ -65,6 +66,13 @@ export async function GET(
 
   const { callerId } = await params;
 
+
+  // HF-M IDOR (2026-06-12): STUDENT-as-bearer routes that admit STUDENT must reject
+  // a foreign callerId — without this, a STUDENT can read any caller's PII by supplying
+  // their callerId in the URL path. See docs/audit/HF-M-evidence-path-param-idor.md.
+  if (!studentAllowedToReadCaller(auth.session, callerId)) {
+    return callerScopeMismatchResponse();
+  }
   // Resolve teaching profile + playbook context: caller → enrollment →
   // playbook → subject. We pull the playbook id + name as well so the
   // module-mastery branch (below) can render the course name.

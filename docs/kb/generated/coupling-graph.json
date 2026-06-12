@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-11T23:08:07.380Z",
+  "generatedAt": "2026-06-12T09:16:40.193Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1669,
-  "edgeCount": 3834,
+  "edgeCount": 3860,
   "skippedEdges": 1,
   "edges": [
     {
@@ -629,6 +629,10 @@
     },
     {
       "from": "app/api/caller-graph/[callerId]/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/caller-graph/[callerId]/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -645,6 +649,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/actions/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/actions/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -657,7 +665,15 @@
     },
     {
       "from": "app/api/callers/[callerId]/active-playbook/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/active-playbook/route.ts",
       "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/aggregate/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/aggregate/route.ts",
@@ -669,11 +685,19 @@
     },
     {
       "from": "app/api/callers/[callerId]/artifacts/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/artifacts/route.ts",
       "to": "lib/permissions.ts"
     },
     {
       "from": "app/api/callers/[callerId]/artifacts/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/available-media/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/available-media/route.ts",
@@ -709,6 +733,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/calls/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/calls/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -737,11 +765,19 @@
     },
     {
       "from": "app/api/callers/[callerId]/cohorts/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/cohorts/route.ts",
       "to": "lib/prisma.ts"
     },
     {
       "from": "app/api/callers/[callerId]/compose-prompt/route.ts",
       "to": "lib/compose/staleness.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/compose-prompt/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/compose-prompt/route.ts",
@@ -758,6 +794,10 @@
     {
       "from": "app/api/callers/[callerId]/compose-prompt/route.ts",
       "to": "lib/prompt/composition/renderPromptSummary.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/effective-behavior-targets/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/effective-behavior-targets/route.ts",
@@ -782,6 +822,10 @@
     {
       "from": "app/api/callers/[callerId]/enrollments/route.ts",
       "to": "lib/enrollment/index.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/enrollments/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/enrollments/route.ts",
@@ -817,6 +861,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/exam-readiness/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/exam-readiness/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -833,7 +881,15 @@
     },
     {
       "from": "app/api/callers/[callerId]/export/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/export/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/journey-progress/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/journey-progress/route.ts",
@@ -842,6 +898,10 @@
     {
       "from": "app/api/callers/[callerId]/journey-progress/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/last-selected-module/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/last-selected-module/route.ts",
@@ -857,6 +917,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/learning-trajectory/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/learning-trajectory/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -869,6 +933,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/lo-progress/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/lo-progress/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -877,11 +945,19 @@
     },
     {
       "from": "app/api/callers/[callerId]/media-history/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/media-history/route.ts",
       "to": "lib/permissions.ts"
     },
     {
       "from": "app/api/callers/[callerId]/media-history/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/module-progress/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/module-progress/route.ts",
@@ -953,6 +1029,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/route.ts",
       "to": "lib/learner/profile.ts"
     },
     {
@@ -993,11 +1073,19 @@
     },
     {
       "from": "app/api/callers/[callerId]/slugs/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/slugs/route.ts",
       "to": "lib/permissions.ts"
     },
     {
       "from": "app/api/callers/[callerId]/slugs/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/snapshot/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/snapshot/route.ts",
@@ -1010,6 +1098,10 @@
     {
       "from": "app/api/callers/[callerId]/status/route.ts",
       "to": "lib/access-control.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/status/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/status/route.ts",
@@ -1057,6 +1149,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/trust-progress/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/trust-progress/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -1069,7 +1165,15 @@
     },
     {
       "from": "app/api/callers/[callerId]/uplift/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/uplift/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/voice-provider/route.ts",
+      "to": "lib/learner-scope.ts"
     },
     {
       "from": "app/api/callers/[callerId]/voice-provider/route.ts",
@@ -15628,7 +15732,7 @@
     {
       "path": "app/api/caller-graph/[callerId]/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/actions/[actionId]/route.ts",
@@ -15638,27 +15742,27 @@
     {
       "path": "app/api/callers/[callerId]/actions/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/active-playbook/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/aggregate/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/artifacts/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/available-media/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/behavior-targets/route.ts",
@@ -15668,7 +15772,7 @@
     {
       "path": "app/api/callers/[callerId]/calls/route.ts",
       "inDegree": 0,
-      "outDegree": 7
+      "outDegree": 8
     },
     {
       "path": "app/api/callers/[callerId]/cascade/voice/route.ts",
@@ -15678,17 +15782,17 @@
     {
       "path": "app/api/callers/[callerId]/cohorts/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/compose-prompt/route.ts",
       "inDegree": 0,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "app/api/callers/[callerId]/effective-behavior-targets/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/enrollments/[enrollmentId]/route.ts",
@@ -15698,7 +15802,7 @@
     {
       "path": "app/api/callers/[callerId]/enrollments/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/eval-prompt/route.ts",
@@ -15708,42 +15812,42 @@
     {
       "path": "app/api/callers/[callerId]/exam-readiness/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/callers/[callerId]/export/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/callers/[callerId]/journey-progress/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/last-selected-module/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/learning-trajectory/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/callers/[callerId]/lo-progress/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/callers/[callerId]/media-history/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/module-progress/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/phone/route.ts",
@@ -15763,7 +15867,7 @@
     {
       "path": "app/api/callers/[callerId]/route.ts",
       "inDegree": 0,
-      "outDegree": 10
+      "outDegree": 11
     },
     {
       "path": "app/api/callers/[callerId]/session-flow-progress/route.ts",
@@ -15773,17 +15877,17 @@
     {
       "path": "app/api/callers/[callerId]/slugs/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/snapshot/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/status/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/survey/route.ts",
@@ -15803,17 +15907,17 @@
     {
       "path": "app/api/callers/[callerId]/trust-progress/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/callers/[callerId]/uplift/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/callers/[callerId]/voice-provider/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/callers/merge/route.ts",
@@ -21862,7 +21966,7 @@
     },
     {
       "path": "lib/learner-scope.ts",
-      "inDegree": 16,
+      "inDegree": 42,
       "outDegree": 1
     },
     {
@@ -23733,6 +23837,11 @@
       "outDegree": 43
     },
     {
+      "path": "lib/learner-scope.ts",
+      "inDegree": 42,
+      "outDegree": 1
+    },
+    {
       "path": "lib/prompt/composition/types.ts",
       "inDegree": 43,
       "outDegree": 0
@@ -23786,11 +23895,6 @@
       "path": "lib/access-control.ts",
       "inDegree": 23,
       "outDegree": 2
-    },
-    {
-      "path": "lib/ai/client.ts",
-      "inDegree": 22,
-      "outDegree": 3
     }
   ]
 }
