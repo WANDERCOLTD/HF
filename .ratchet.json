@@ -1,8 +1,8 @@
 {
-  "tsc_errors": 193,
+  "tsc_errors": 196,
   "lint_errors": 0,
-  "lint_warnings": 4426,
+  "lint_warnings": 4425,
   "quarantined_tests": 37,
   "same_issue_fix_chain_max": 10,
-  "memory_md_bytes": 29073
+  "memory_md_bytes": 29422
 }

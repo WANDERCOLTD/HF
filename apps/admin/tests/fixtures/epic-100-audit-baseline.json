@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-06-04T16:30:00.000Z",
-  "_note": "Baseline snapshot of Epic 100 audit counters. INVARIANTS block CI when above target (exit 1). INFORMATIONAL counters report leak surface / historical drift and never fail the build. Re-snap on VM after each story merges via `npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json`. #1008: added composeGenericNounFallbackCount, composeMemorylessReminisceCount, composeCallCounterIncoherent (target 0 each). Initial baseline=0 pending re-snap on DEV after deploy. #1016 (AnyVoice): added vapiNamedColumnsOnCallModel + vapiToolDefinitionsConstantPresent. Post-epic (#1015 closed): both now read 0. Build-time enforced by hf-voice/no-vapi-column-ref + hf-voice/no-vapi-tool-definitions-const ESLint rules from #1024.",
+  "_note": "Baseline snapshot of Epic 100 audit counters. INVARIANTS block CI when above target (exit 1). INFORMATIONAL counters report leak surface / historical drift and never fail the build. Re-snap on VM after each story merges via `npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json`. #1008: added composeGenericNounFallbackCount, composeMemorylessReminisceCount, composeCallCounterIncoherent (target 0 each). Initial baseline=0 pending re-snap on DEV after deploy. #1016 (AnyVoice): added vapiNamedColumnsOnCallModel + vapiToolDefinitionsConstantPresent. Post-epic (#1015 closed): both now read 0. Build-time enforced by hf-voice/no-vapi-column-ref + hf-voice/no-vapi-tool-definitions-const ESLint rules from #1024. #1511 (epic #1510 Slice 1): added five Adaptive Loop observability counters (iAL1MemoryAbsentRealEngine, iAL2SkillTargetUnscored, iAL3DefaultFallbackInfo, iAL4ProsodySkipWarn, iAL5ZeroTargetsWarn). All informational — they count last-24h AppLog rows the runtime invariant runner writes, not DB-side contract violations. Initial baseline=0 pending re-snap on DEV after the runner has been running for >24h with real-engine traffic.",
   "counters": [
     {
       "key": "duplicatePlaybookSubjects",
@@ -145,6 +145,51 @@
       "target": 0,
       "status": "pass",
       "description": "Presence (0 or 1) of the VAPI_TOOL_DEFINITIONS TypeScript constant outside _archived/. Catches the I-VP2 anti-pattern. #1019 migrated the array into the TOOLS-001 spec and removed the constant. Build-time enforced by ESLint rule hf-voice/no-vapi-tool-definitions-const (#1024). Post-epic value: 0."
+    },
+    {
+      "key": "iAL1MemoryAbsentRealEngine",
+      "story": "#1511",
+      "kind": "informational",
+      "count": 0,
+      "target": 0,
+      "status": "info",
+      "description": "INFORMATIONAL. Last-24h AppLog rows with stage='pipeline.invariant.i-al1'. Mock engine excluded. Structural fix: #1510 Slice 5 (#1515 CONDITIONAL)."
+    },
+    {
+      "key": "iAL2SkillTargetUnscored",
+      "story": "#1511",
+      "kind": "informational",
+      "count": 0,
+      "target": 0,
+      "status": "info",
+      "description": "INFORMATIONAL. Last-24h AppLog rows with stage='pipeline.invariant.i-al2'. Skill CallScore exists but CallerTarget.currentScore is null. Structural fix: #1510 Slice 6 (#1516 CONDITIONAL)."
+    },
+    {
+      "key": "iAL3DefaultFallbackInfo",
+      "story": "#1511",
+      "kind": "informational",
+      "count": 0,
+      "target": 0,
+      "status": "info",
+      "description": "INFORMATIONAL signal (not a violation). Last-24h AppLog rows with stage='pipeline.invariant.i-al3'. AGGREGATE-stage default-fallback fires. Healthy production shows some non-zero value."
+    },
+    {
+      "key": "iAL4ProsodySkipWarn",
+      "story": "#1511",
+      "kind": "informational",
+      "count": 0,
+      "target": 0,
+      "status": "info",
+      "description": "INFORMATIONAL. Last-24h AppLog rows with stage='pipeline.invariant.i-al4' AND level='warn'. Excludes 'existing-envelope' cache hits. Structural fix: #1510 Slice 2 (#1512)."
+    },
+    {
+      "key": "iAL5ZeroTargetsWarn",
+      "story": "#1511",
+      "kind": "informational",
+      "count": 0,
+      "target": 0,
+      "status": "info",
+      "description": "INFORMATIONAL. Last-24h AppLog rows with stage='pipeline.invariant.i-al5' AND level IN ('warn','error'). ERROR severity indicates SYSTEM defaults are also empty. Structural fix: #1510 Slice 3 (#1513)."
     }
   ]
 }

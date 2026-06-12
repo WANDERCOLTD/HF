@@ -36,6 +36,7 @@ import { extractFailureAdaptation } from "@/lib/pipeline/extract-failure-adaptat
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
 import { shouldSkipForEvidenceFirst, shouldSkipForZeroEvidence } from "@/lib/pipeline/evidence-gate";
 import { validateSpecDependencies } from "@/lib/pipeline/validate-dependencies";
+import { checkInvariantsAfterPipeline } from "@/lib/pipeline/adaptive-loop-invariants";
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
 import { extractGoals, extractGoalCompletionSignals } from "@/lib/goals/extract-goals";
@@ -4083,6 +4084,15 @@ async function runSpecDrivenPipeline(ctx: PipelineContext): Promise<{
   } catch (err: any) {
     log.warn(`CallerIdentity update failed (non-blocking): ${err.message}`);
   }
+
+  // #1511 — Adaptive Loop observability invariants (epic #1510 Slice 1).
+  // Derives I-AL1 (memory presence on real-engine) + I-AL2 (skill scores
+  // reach CallerTarget) and writes structured AppLog rows for the
+  // pipeline-health dashboard. WARN-only, NON-BLOCKING — fire-and-forget,
+  // never awaited, never throws (the runner swallows its own errors).
+  // I-AL3 / I-AL4 / I-AL5 emit at their stage runners via sibling slices
+  // (#1512 / #1513). See docs/CHAIN-CONTRACTS.md §6.
+  void checkInvariantsAfterPipeline(ctx.callId).catch(() => undefined);
 
   return {
     summary: ctx.results,

@@ -598,7 +598,112 @@ const counters: CounterDefinition[] = [
       return 0;
     },
   },
+  /* #1511 — Adaptive Loop observability invariants (epic #1510 Slice 1).
+   *
+   * All five counters are INFORMATIONAL — they count last-24h AppLog rows the
+   * runtime invariant runner wrote, not contract violations in the DB. The
+   * structural fixes that drive them to zero live in sibling slices
+   * (#1512 PROSODY, #1513 SCORE_AGENT defaults). When those slices ship +
+   * deploy, re-snap the baseline via:
+   *   npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json
+   *
+   * See docs/CHAIN-CONTRACTS.md §6 for per-invariant contracts.
+   */
+  {
+    key: "iAL1MemoryAbsentRealEngine",
+    story: "#1511",
+    kind: "informational",
+    target: 0,
+    description:
+      "INFORMATIONAL. Last-24h AppLog rows with stage='pipeline.invariant.i-al1' — real-engine EXTRACT with transcript >= 200 chars produced zero CallerMemory rows. Mock engine excluded by design (route.ts:1029-1031 / G9 #1158 audit). Structural fix: epic #1510 Slice 5 (#1515 CONDITIONAL).",
+    query: async () => countInvariantLogs("pipeline.invariant.i-al1"),
+  },
+  {
+    key: "iAL2SkillTargetUnscored",
+    story: "#1511",
+    kind: "informational",
+    target: 0,
+    description:
+      "INFORMATIONAL. Last-24h AppLog rows with stage='pipeline.invariant.i-al2' — skill_* CallScore rows exist for the caller in the 6h fresh window but CallerTarget.currentScore is null. Indicates aggregate-runner EMA cascade silently no-op'd. Structural fix: epic #1510 Slice 6 (#1516 CONDITIONAL).",
+    query: async () => countInvariantLogs("pipeline.invariant.i-al2"),
+  },
+  {
+    key: "iAL3DefaultFallbackInfo",
+    story: "#1511",
+    kind: "informational",
+    target: 0,
+    description:
+      "INFORMATIONAL (signal, not violation). Last-24h AppLog rows with stage='pipeline.invariant.i-al3' — AGGREGATE-stage runner fell through to SKILL_DEFAULTS constants instead of reading from rule/playbook/contract config. Production should show some non-zero count (variance is healthy). A sudden drop OR spike is the signal to investigate — silent override loss vs override storm.",
+    query: async () => countInvariantLogs("pipeline.invariant.i-al3"),
+  },
+  {
+    key: "iAL4ProsodySkipWarn",
+    story: "#1511",
+    kind: "informational",
+    target: 0,
+    description:
+      "INFORMATIONAL. Last-24h AppLog rows with stage='pipeline.invariant.i-al4' AND level='warn' — PROSODY skipped for an actionable reason (no-stereoUrl / no-tierPreset / no-provider). 'existing-envelope' cache hits emit level='info' and are excluded from this counter. Structural fix: epic #1510 Slice 2 (#1512 PROSODY loud-WARN + IELTS data seed) wires the missing emits.",
+    query: async () =>
+      countInvariantLogs("pipeline.invariant.i-al4", { onlyLevel: "warn" }),
+  },
+  {
+    key: "iAL5ZeroTargetsWarn",
+    story: "#1511",
+    kind: "informational",
+    target: 0,
+    description:
+      "INFORMATIONAL. Last-24h AppLog rows with stage='pipeline.invariant.i-al5' AND level IN ('warn','error') — SCORE_AGENT loaded zero BehaviorTarget(scope=PLAYBOOK) for a call. ERROR severity indicates the SYSTEM defaults are ALSO empty (cascade has no root). Structural fix: epic #1510 Slice 3 (#1513 BehaviorTarget system-defaults seed + SCORE_AGENT cascade fallback).",
+    query: async () =>
+      countInvariantLogs("pipeline.invariant.i-al5", {
+        levels: ["warn", "error"],
+      }),
+  },
 ];
+
+/**
+ * Last-24h count helper for the Adaptive Loop AppLog counters. Wrapped so each
+ * counter row stays readable. Returns 0 on schema mismatch (e.g. AppLog table
+ * absent on a freshly-init'd DB) rather than skipping — these counters are
+ * informational so the audit script can keep reporting even when the
+ * observability surface hasn't shipped yet.
+ */
+async function countInvariantLogs(
+  stage: string,
+  options?: { onlyLevel?: string; levels?: string[] },
+): Promise<number> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  try {
+    if (options?.onlyLevel) {
+      const result = await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM "AppLog"
+        WHERE stage = ${stage}
+          AND level = ${options.onlyLevel}
+          AND "createdAt" >= ${since}
+      `;
+      return Number(result[0]?.count ?? 0);
+    }
+    if (options?.levels && options.levels.length > 0) {
+      const result = await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM "AppLog"
+        WHERE stage = ${stage}
+          AND level = ANY(${options.levels})
+          AND "createdAt" >= ${since}
+      `;
+      return Number(result[0]?.count ?? 0);
+    }
+    const result = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count
+      FROM "AppLog"
+      WHERE stage = ${stage}
+        AND "createdAt" >= ${since}
+    `;
+    return Number(result[0]?.count ?? 0);
+  } catch {
+    return 0;
+  }
+}
 
 /* ---------------------------------------------------------------------- */
 /* Runner                                                                 */
