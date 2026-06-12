@@ -27,17 +27,26 @@ import {
   getSession,
   PURPOSE,
 } from "@/lib/intake/session-store";
+import { readIntakeSid } from "@/lib/intake/intake-session-cookie";
 import type { EventId, IntentId, SubjectId } from "@/lib/intake/tallyseal";
 
 export const dynamic = "force-dynamic";
 
+// HF-D P1 #3 (issue #1542): `intentId` removed from the body schema —
+// it now travels as the `__hf_intake_sid` cookie.
 const BodySchema = z.object({
-  intentId: z.string().min(1),
   requirementId: z.string().min(1),
   chatSessionId: z.string().min(1).max(120),
 });
 
 export async function POST(req: NextRequest) {
+  const intentId = readIntakeSid(req);
+  if (!intentId) {
+    return NextResponse.json(
+      { error: "no_intake_session", message: "No in-flight intake session." },
+      { status: 401 },
+    );
+  }
   let body: z.infer<typeof BodySchema>;
   try {
     body = BodySchema.parse(await req.json());
@@ -45,9 +54,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
 
-  const session = getSession(body.intentId as IntentId);
+  const session = getSession(intentId as IntentId);
   if (!session) {
-    return NextResponse.json({ error: "session not found" }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: "session_expired",
+        message: "Your session has expired. Please restart the intake flow.",
+      },
+      { status: 410 },
+    );
   }
 
   // Find the DisclosureDelivered event we're acknowledging — the
@@ -82,7 +97,7 @@ export async function POST(req: NextRequest) {
   // Derive the canonical disclosureId using the same algorithm as
   // bootstrap (Q-CR9 write-path coherence; both routes must agree on
   // the typed-table row identity).
-  const disclosureId = deriveDisclosureId(body.intentId, body.requirementId);
+  const disclosureId = deriveDisclosureId(intentId, body.requirementId);
   const acknowledgedAt = new Date();
 
   appendEvent(session, {

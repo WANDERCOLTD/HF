@@ -24,6 +24,7 @@ import {
   getSession,
   PURPOSE,
 } from "@/lib/intake/session-store";
+import { readIntakeSid } from "@/lib/intake/intake-session-cookie";
 import type { IntentId } from "@/lib/intake/tallyseal";
 
 export const dynamic = "force-dynamic";
@@ -38,12 +39,21 @@ const SignalSchema = z.object({
   viewMs: z.number().optional(),
 });
 
+// HF-D P1 #3 (issue #1542): `intentId` removed from the body schema —
+// it now travels as the `__hf_intake_sid` cookie.
 const BodySchema = z.object({
-  intentId: z.string().min(1),
   signal: SignalSchema,
 });
 
 export async function POST(req: NextRequest) {
+  const intentId = readIntakeSid(req);
+  // SIGNAL not gate: a signal arriving without an active intake
+  // session is a no-op, not an error — preserves pre-fix quiet-200
+  // semantics so a client banner that fires after a tab refresh
+  // doesn't surface a scary 401.
+  if (!intentId) {
+    return NextResponse.json({ ok: false, reason: "no-intake-session" }, { status: 200 });
+  }
   let body: z.infer<typeof BodySchema>;
   try {
     body = BodySchema.parse(await req.json());
@@ -51,7 +61,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
 
-  const session = getSession(body.intentId as IntentId);
+  const session = getSession(intentId as IntentId);
   if (!session) {
     // Quiet 200: SIGNAL not gate — signal arriving after session GC
     // shouldn't break the client. Audit-trail-wise this is a no-op.
@@ -85,7 +95,7 @@ export async function POST(req: NextRequest) {
     await store.recordSignal({
       id: `sig_${randomUUID()}`,
       tenantId: session.tenant.id,
-      disclosureId: deriveDisclosureId(body.intentId, body.signal.requirementId),
+      disclosureId: deriveDisclosureId(intentId, body.signal.requirementId),
       requirementId: body.signal.requirementId,
       signalType: body.signal.signalType,
       contentHash: body.signal.contentHash,

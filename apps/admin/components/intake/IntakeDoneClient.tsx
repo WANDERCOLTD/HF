@@ -1,7 +1,20 @@
 "use client";
 
-// Client-side recap shell — fetches the session snapshot, renders
-// the CoC + summary + actions. Reads ?intentId= + ?token= from URL.
+// Client-side recap shell — fetches the session snapshot via the
+// cookie-authenticated GET /api/intake/session, renders the CoC +
+// summary + actions. Reads ?token= from URL (the classroom round-trip
+// token only — never the intentId).
+//
+// HF-D P1 #3 (issue #1542): pre-fix this client read `?intentId=`
+// from the URL, then GET'd `/api/intake/session/<intentId>` and the
+// audit-bundle JSONL via `<a href>`. Both surfaces leaked the bearer
+// into browser history, server access logs, Referer headers, and the
+// saved JSONL filename. Now: the `__hf_intake_sid` cookie is the
+// bearer; the session-snapshot response includes `intentId` in its
+// body for the downstream `/api/join/[token]` linkage (epic #1338);
+// the JSONL download POSTs to `/api/intake/audit-bundle/download` and
+// turns the streamed blob into a click-triggered download via
+// `URL.createObjectURL`.
 //
 // On "Continue to course": POSTs the captured values directly to
 // `/api/join/[token]` (the same endpoint /join/[token] auto-submits
@@ -28,6 +41,12 @@ import {
 } from "@/lib/intake/specs/enrollment.intent";
 
 interface SessionSnapshot {
+  /**
+   * The session's intentId. Surfaced in the response body so the
+   * cookie-only bearer transport stays opaque to the JS layer while
+   * the downstream `/api/join/[token]` linkage (epic #1338) can still
+   * forward it on the commit POST.
+   */
   readonly intentId: string;
   readonly state: string;
   readonly events: readonly Event[];
@@ -61,7 +80,6 @@ function deriveValuesDisplay(): ReadonlyArray<readonly [string, string]> {
 export function IntakeDoneClient() {
   const router = useRouter();
   const params = useSearchParams();
-  const intentId = params.get("intentId");
   const token = params.get("token");
   const [snapshot, setSnapshot] = useState<SessionSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,17 +89,34 @@ export function IntakeDoneClient() {
   // (or hit the audit-bundle download as a fallback).
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  // JSONL download in-flight state. Pre-fix this was an `<a href>`
+  // direct GET on `/api/intake/audit-bundle/<intentId>?format=jsonl`;
+  // now it POSTs to `/api/intake/audit-bundle/download` (cookie-only
+  // bearer) and assembles a Blob + ObjectURL for the click.
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!intentId) {
-      setError("missing intentId");
-      return;
-    }
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/intake/session/${encodeURIComponent(intentId)}`);
+        // Cookie-authenticated; same-origin fetch sends
+        // `__hf_intake_sid` automatically. 401 = no in-flight intake
+        // (the recap page was opened without going through the chat
+        // first); 410 = session evicted (container restart). Both
+        // surface as a recoverable error banner.
+        const res = await fetch("/api/intake/session");
         if (!res.ok) {
+          if (res.status === 401) {
+            throw new Error(
+              "No in-flight intake session. Please restart the enrolment flow.",
+            );
+          }
+          if (res.status === 410) {
+            throw new Error(
+              "Your session has expired. Please restart the enrolment flow.",
+            );
+          }
           const text = await res.text().catch(() => `${res.status}`);
           throw new Error(`session fetch failed: ${text}`);
         }
@@ -94,7 +129,7 @@ export function IntakeDoneClient() {
     return () => {
       cancelled = true;
     };
-  }, [intentId]);
+  }, []);
 
   const valuesDisplay = useMemo(() => deriveValuesDisplay(), []);
 
@@ -106,7 +141,39 @@ export function IntakeDoneClient() {
   }
 
   const captured = valuesDisplay.filter(([k]) => snapshot.values[k] !== undefined);
-  const bundleUrl = `/api/intake/audit-bundle/${encodeURIComponent(intentId!)}?format=jsonl`;
+
+  async function handleDownload() {
+    if (downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const res = await fetch("/api/intake/audit-bundle/download", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 410) {
+          throw new Error("Session expired — please restart the enrolment.");
+        }
+        const text = await res.text().catch(() => `${res.status}`);
+        throw new Error(text);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `enrollment-${Date.now()}.jsonl`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Defer revocation a tick so the browser commits the download.
+      setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    } catch (e) {
+      setDownloadError(e instanceof Error ? e.message : "Download failed.");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function handleContinue() {
     if (!token || joining) return;
@@ -117,7 +184,11 @@ export function IntakeDoneClient() {
       // Pass intentId so the join handler can link the resulting
       // Session(kind=ENROLLMENT) row back to the IntakeEvent chain
       // (Slice 2 of epic #1338 — #1343). Optional on the join schema.
-      if (intentId) body.intentId = intentId;
+      // HF-D P1 #3 (issue #1542 amendment 3): read intentId from the
+      // session-snapshot response body, NOT from the URL — the cookie
+      // bearer is opaque to the JS layer, but the snapshot endpoint
+      // returns the intentId for exactly this linkage step.
+      body.intentId = snapshot!.intentId;
       const res = await fetch(
         `/api/join/${encodeURIComponent(token)}`,
         {
@@ -171,14 +242,15 @@ export function IntakeDoneClient() {
         </div>
 
         <div className="hf-flex hf-gap-sm intake-done-actions" data-testid="intake-done-actions">
-          <a
+          <button
+            type="button"
             className="hf-btn hf-btn-secondary"
-            href={bundleUrl}
-            download
+            onClick={handleDownload}
+            disabled={downloading}
             data-testid="intake-done-download"
           >
-            Download audit bundle (.jsonl)
-          </a>
+            {downloading ? "Preparing…" : "Download audit bundle (.jsonl)"}
+          </button>
           {token ? (
             <button
               type="button"
@@ -191,6 +263,15 @@ export function IntakeDoneClient() {
             </button>
           ) : null}
         </div>
+        {downloadError ? (
+          <div
+            className="hf-banner hf-banner-error"
+            role="alert"
+            data-testid="intake-done-download-error"
+          >
+            {downloadError}
+          </div>
+        ) : null}
         {joinError ? (
           <div
             className="hf-banner hf-banner-error"

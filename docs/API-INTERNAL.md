@@ -16008,20 +16008,22 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 511 |
+| Route files found | 513 |
 | Files with annotations | 501 |
-| Files missing annotations | 10 |
-| Coverage | 98.0% |
+| Files missing annotations | 12 |
+| Coverage | 97.7% |
 
 ### Files missing `@api` annotations
 
 - `app/api/callers/[callerId]/last-selected-module/route.ts`
 - `app/api/demonstrate/suggest/route.ts`
 - `app/api/intake/audit-bundle/[intentId]/route.ts`
+- `app/api/intake/audit-bundle/download/route.ts`
 - `app/api/intake/audit-bundle/route.ts`
 - `app/api/intake/bootstrap/route.ts`
 - `app/api/intake/chat/route.ts`
 - `app/api/intake/disclosure-acknowledge/route.ts`
 - `app/api/intake/disclosure-signal/route.ts`
 - `app/api/intake/session/[intentId]/route.ts`
+- `app/api/intake/session/route.ts`
 - `app/api/tallyseal-bridge/[...slug]/route.ts`

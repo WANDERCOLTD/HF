@@ -113,7 +113,10 @@ test.describe("intake/enrollment-crawcus", () => {
     await expect(input).toBeEnabled({ timeout: 20_000 });
     await input.fill(email);
     await sendBtn.click();
-    await page.waitForURL(/\/intake\/done\?intentId=/, { timeout: 30_000 });
+    // HF-D P1 #3 (issue #1542): intentId is no longer in the URL —
+    // bearer travels as the `__hf_intake_sid` cookie. Match either
+    // `/intake/done` bare or `/intake/done?token=…` (classroom round-trip).
+    await page.waitForURL(/\/intake\/done(\?|$)/, { timeout: 30_000 });
     await expect(page.locator("body")).toContainText(email);
   });
 
@@ -128,7 +131,7 @@ test.describe("intake/enrollment-crawcus", () => {
     await expect(page.locator("body")).toContainText("Privacy Notice", { timeout: 5_000 });
   });
 
-  test("redirects to /intake/done with intentId after enrolment completes", async ({ page }) => {
+  test("redirects to /intake/done after enrolment completes (cookie-bearer)", async ({ page }) => {
     const email = makeEmail();
     await page.goto(ROUTE);
     const input = page.getByTestId("enrollment-chat-input");
@@ -137,7 +140,10 @@ test.describe("intake/enrollment-crawcus", () => {
     await page.getByTestId("enrollment-chat-send").click();
 
     // Wait for the chat client to follow data.redirectUrl → /intake/done?…
-    await page.waitForURL(/\/intake\/done\?intentId=/, { timeout: 30_000 });
+    // HF-D P1 #3 (issue #1542): intentId is no longer in the URL —
+    // bearer travels as the `__hf_intake_sid` cookie. Match either
+    // `/intake/done` bare or `/intake/done?token=…` (classroom round-trip).
+    await page.waitForURL(/\/intake\/done(\?|$)/, { timeout: 30_000 });
 
     // The recap page renders the captured values + actions + CoC.
     await expect(page.getByTestId("intake-done-summary")).toBeVisible({ timeout: 15_000 });

@@ -24,6 +24,7 @@ import {
   setValue,
   PURPOSE,
 } from "@/lib/intake/session-store";
+import { setIntakeSidCookie } from "@/lib/intake/intake-session-cookie";
 import type {
   IntentKey,
   ProjectionName,
@@ -198,11 +199,19 @@ export async function POST(req: NextRequest) {
 
   appendMessage(session, "system", welcomeMessage);
 
-  return NextResponse.json({
+  // HF-D P1: the intentId travels as an httpOnly cookie (see
+  // lib/intake/intake-session-cookie.ts). The response body still
+  // includes it because the EnrollmentChat client surfaces it for the
+  // /api/join/[token] linkage step at end-of-flow and because tests
+  // assert on it; the bearer transport for every subsequent route on
+  // this surface is the cookie, not the body field.
+  const response = NextResponse.json({
     intentId: session.intentId,
     events: session.events,
     suggestions: [],
     values: session.values,
     messages: session.messages,
   });
+  setIntakeSidCookie(response, session.intentId);
+  return response;
 }
