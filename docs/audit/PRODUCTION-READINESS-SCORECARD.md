@@ -1,8 +1,9 @@
-# Production-Readiness Scorecard — Audit Closeout (2026-06-12)
+# Production-Readiness Scorecard — Audit Closeout (2026-06-12, REV-1)
 
 Closing scorecard for the production-strength audit. Tracks every finding from
-the original HF-A → HF-L sweep plus the two follow-ups (HF-A live evidence,
-HF-D PII review). Each line is one of:
+the original HF-A → HF-L sweep plus the follow-ups (HF-A live evidence, HF-D
+PII review, **HF-M IDOR sweep added 2026-06-12 from the "what other checks"
+deep-dive after the initial verdict shipped**). Each line is one of:
 
 - ✅ **Ship** — fixed structurally, regression-pinned.
 - 🟡 **Improved + tracked** — quick win applied; deeper structural work queued.
@@ -25,13 +26,23 @@ HF-D PII review). Each line is one of:
 | HF-J  | `"use client"` files can ship plaintext credentials in the browser bundle (HF-B fingerprint)     | ✅     | `0881b3ed`                          | Structural ESLint rule blocks the class, severity `error` from day 1. 11 behavioural cases pin it (10/10 pass). |
 | HF-K  | A future provider could land another no-op webhook verifier                                       | ✅     | `ea6b2c9d`                          | `check-webhook-signature.ts` brace-matches every `lib/voice/providers/*/index.ts verifyInboundRequest` and fails on empty body or bare `return null`. |
 | HF-L  | Two load-bearing AI-to-DB guards (resolve-module #407 + disclosure-store #1048) had no pin       | ✅     | `f57c6530`                          | None. 12 vitests pin the invariants both write paths depend on. |
+| HF-M  | **CRITICAL** — 26 `[callerId]` path-param routes admit STUDENT (`requireAuth("VIEWER")` or `requireEntityAccess(...,"R")` with unused scope) and let STUDENT read any caller's PII (snapshot route returns full dossier incl. transcripts) | ✅     | `0de21b02`                          | None on `[callerId]`. Three named follow-ons in the evidence doc: HF-M.1 sweep the other path-param families (`[playbookId]`/`[domainId]`/`[callId]`/`[cohortId]`); HF-M.2 structural ESLint rule; HF-M.3 promote route-auth-coverage to also check scope guards. |
+| HF-N  | `npm audit`: 65 vulnerabilities including 32 high + 3 critical                                   | 🟡     | `7b846024`                          | Non-force fix dropped to 16 (5 high + 1 critical), all in dev-only paths or same-major patches. `next@16.2.9` + promptfoo bump need a focused sprint slot (`--force`). |
+| HF-O  | Latent XSS in `components/demo/DemoStepRenderer.tsx` — `renderSimpleMarkdown` fed `dangerouslySetInnerHTML` without HTML-escape | ✅ | `7b846024` | None. `escapeHtml` runs before any markdown transform; 3 vitests pin the escape position. Demo content was in-repo so risk was LATENT, but closes the surface before content ever becomes admin-editable. |
+| HF-P  | `app/x/flows/page.tsx::stageIcon` is a `dangerouslySetInnerHTML` source that needed an audit walk | ✅ | `7b846024` | None. Hardcoded numeric-entity dictionary; `stageName` is the lookup KEY not VALUE. Documented with a 6-line comment so future audits don't re-walk the trust chain. |
 
 ## What "production strength" looks like after the audit
 
-The audit found 12 distinct findings across 4 risk classes. **9 of 12 are
-fully closed; 3 are improved-and-tracked with named follow-ups** (HF-D, HF-G, HF-H).
+The audit found 16 distinct findings across 5 risk classes. **13 of 16 are
+fully closed; 3 are improved-and-tracked with named follow-ups** (HF-D, HF-H, HF-N).
 None of the remaining work is a market-test blocker; all three are scoped as
 ongoing hardening that burns down post-launch.
+
+**REV-1 note:** the initial "passes the bar" verdict (REV-0) was issued after
+HF-A → HF-L closed. The "what other checks" follow-on probe surfaced HF-M as
+a genuine PII leak that affected every learner data path keyed off the URL
+callerId. HF-M closed in the same session. The current verdict reflects the
+post-HF-M state.
 
 ### Where the app stands on production-readiness dimensions
 
@@ -81,14 +92,19 @@ ongoing hardening that burns down post-launch.
   in this audit.
 - **Browser-side accessibility / WCAG conformance.** Out of scope for a code
   audit; `ui-reviewer` + `ux-reviewer` agents own that surface.
-- **3rd-party dependency vulnerabilities.** `npm audit` shows 65 vulnerabilities
-  (4 low / 26 mod / 32 high / 3 crit) on this branch's fresh `npm ci`; almost
-  all are in `glob@10` / `fluent-ffmpeg@2.1.3` (deprecated, not exploitable in
-  our usage) but a clean `npm audit fix --force` pass is worth a sprint slot.
+- **3rd-party dep vuln residual.** HF-N closed the non-force batch (65 → 16);
+  the remaining 6 high+crit all require `--force` (major bumps). Tracked.
+- **Complexity hotspots — 3 files >2900 lines.** `pipeline/route.ts` (4258),
+  `admin-tool-handlers.ts` (3092), `wizard-tool-executor.ts` (2900). Handoff
+  for the refactor session: `docs/audit/HANDOFF-large-file-refactor.md`.
+- **CSP enforcement flip.** Policy is currently
+  `Content-Security-Policy-Report-Only` unless `CSP_ENFORCE=true`. Includes
+  `'unsafe-inline'` for scripts + styles (themeInitScript dependency). Flip
+  to enforce when operator times it with a deploy.
 
 ## Commit chain (audit branch `claude/model-kqgcaq`)
 
-12 commits from the audit base:
+17 commits from the audit base:
 
 ```
 602e3adb  fix(skill): call ContractRegistry.getContract, not nonexistent .get()                       [HF-A]
@@ -104,24 +120,40 @@ d824a9ba  fix(config): clear HF-I residual slug literals + activate no-hardcoded
 87ef9f1a  docs(audit): record live evidence for HF-A SKILL_MEASURE_V1 classification                 [HF-A evidence]
 13c86cf5  fix(test): collapse rule-test 2-location split — HF-F (smoke tests now actually run)       [HF-F]
 376df6f0  fix(intake): HF-D P0 — rate-limit PII reads + redact intentId from JSONL filename          [HF-D review + P0]
+d2ce6e03  docs(audit): closing production-readiness scorecard (REV-0)
+f02fd290  docs(audit): handoff for the 3 over-large files (4258 + 3092 + 2900 lines)
+0de21b02  fix(api): HF-M IDOR sweep — 26 path-param [callerId] routes now reject foreign callerIds   [HF-M]
+7b846024  fix(audit): npm audit fix (65→16) + escape demo markdown XSS + stageIcon safety comment    [HF-N/O/P]
 ```
 
-## Final verdict
+## Final verdict (REV-1, post-HF-M)
 
 **The app passes the production-strength bar for the planned market-test scope** (100 users,
 hf_sandbox + Cloud Run dev, IELTS + adjacent course archetypes), with three explicit caveats:
 
-1. HF-D P1 (cookie posture + TTL) must land before the PrismaEventStore Phase 1.5
-   migration. Until that ships, the intake intentId-as-bearer posture is bounded
-   by Cloud Run container TTL (typically <24h) — acceptable for market test, not
-   acceptable for persistent durable storage.
-2. `provider-factory.ts:24` encryption-at-rest is queued. The deferral is
-   explicit + documented by the original author; the threat model is bounded by
-   DB-access discipline (no shared dumps; Cloud SQL audit logs enabled).
-3. The dependency-audit sweep is a sprint slot post-market-test — the high/crit
-   findings are all in transitively-deprecated packages not on the live path.
+1. **HF-D P1** (cookie posture + TTL) must land before the PrismaEventStore
+   Phase 1.5 migration. Until that ships, the intake intentId-as-bearer posture
+   is bounded by Cloud Run container TTL (typically <24h) — acceptable for
+   market test, not acceptable for persistent durable storage.
+2. **HF-M.1** (path-param IDOR sweep for `[playbookId]` / `[domainId]` /
+   `[callId]` / `[cohortId]` families) — the `[callerId]` family is closed in
+   this session; the sibling families need the same sweep. Same threat model.
+   Each is a fresh audit pass.
+3. **HF-N** (`npm audit --force` pass) + **provider-factory.ts:24**
+   encryption-at-rest are queued. Both are deferred by design with a focused
+   sprint slot. The remaining 6 high+crit deps are dev-only or same-major
+   patches (not in the runtime path).
 
-CI guard surface after the audit: **27 active guards** (15 ESLint rules including the 3 audit-born + 12 CI-check
-scripts), all KB-linked, all with sibling tests that actually execute. The
-ratchets (`tsc_errors`, `lint_errors`, `lint_warnings`, `quarantined_tests`,
+CI guard surface after the audit: **27 active guards** (15 ESLint rules
+including the 3 audit-born + 12 CI-check scripts), all KB-linked, all with
+sibling tests that actually execute (HF-F closure). The ratchets
+(`tsc_errors`, `lint_errors`, `lint_warnings`, `quarantined_tests`,
 `knip_unused`, `memory_md_bytes`) can only burn down.
+
+**Latency-of-finding self-assessment**: HF-M was a real PII leak that the
+initial sweep missed; it took an explicit "what other checks" probe to surface
+it. Worth capturing as a process lesson — the audit alphabet (HF-A → HF-L)
+covered the *expected* finding shapes from the original scope; the late-stage
+probe added Z-axis depth (IDOR / DOM XSS / npm audit / file complexity) that
+the original scope didn't enumerate. Future audits should bake the Z-axis
+probes in from the start.
