@@ -37,6 +37,7 @@ import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
 import { shouldSkipForEvidenceFirst, shouldSkipForZeroEvidence } from "@/lib/pipeline/evidence-gate";
 import { validateSpecDependencies } from "@/lib/pipeline/validate-dependencies";
 import { checkInvariantsAfterPipeline } from "@/lib/pipeline/adaptive-loop-invariants";
+import { loadBehaviorTargetsWithCascade } from "@/lib/pipeline/score-agent-cascade";
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
 import { extractGoals, extractGoalCompletionSignals } from "@/lib/goals/extract-goals";
@@ -3498,6 +3499,24 @@ const stageExecutors: Record<string, StageExecutor> = {
   // SCORE_AGENT stage: Score agent behavior (batched)
   SCORE_AGENT: async (ctx, stage) => {
     ctx.log.info(`Stage ${stage.name}: ${stage.description}`);
+
+    // #1513 Slice 3 — BehaviorTarget cascade observability. Loads the
+    // (playbookId, scope=PLAYBOOK) → (scope=SYSTEM) cascade for I-AL5
+    // surfacing. Runs BEFORE the idempotency short-circuit so the
+    // dashboard still sees the gap on a force-rerun. NON-BLOCKING:
+    // result is logged for visibility; downstream scoring uses MEASURE
+    // specs to derive parameters (cascade is observational only).
+    const targetCascade = await loadBehaviorTargetsWithCascade({
+      playbookId: ctx.call.playbookId,
+      callerId: ctx.callerId,
+      callId: ctx.callId,
+    });
+    ctx.log.info("SCORE_AGENT BehaviorTarget cascade resolved", {
+      playbookId: ctx.call.playbookId,
+      resolvedScope: targetCascade.resolvedScope,
+      targetCount: targetCascade.targets.length,
+      iAL5Emitted: targetCascade.emitted,
+    });
 
     // Idempotency: skip AI call if measurements already exist for this call
     if (!ctx.force) {
