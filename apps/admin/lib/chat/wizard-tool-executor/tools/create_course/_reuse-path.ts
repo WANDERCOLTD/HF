@@ -169,9 +169,24 @@ export async function reuseExistingCoursePath(
   // branch (step 7d below). Re-applying the projection on an
   // already-set-up playbook is idempotent, so this is safe even
   // when the user is just tweaking config on an existing course.
+  //
+  // (#3 2026-06-13) launchBlockers gate — same semantics as _new-path.ts.
+  // When non-empty the playbook is demoted back to DRAFT and the chat
+  // surfaces them to the educator via the response payload.
+  let reuseLaunchBlockers: Array<{ code: string; sourceContentId?: string; sourceName?: string; message: string }> = [];
   try {
     const { runProjectionForPlaybook } = await import("@/lib/wizard/run-projection-for-playbook");
-    await runProjectionForPlaybook(existingPlaybookId);
+    const projectionResult = await runProjectionForPlaybook(existingPlaybookId);
+    reuseLaunchBlockers = projectionResult.launchBlockers ?? [];
+    if (reuseLaunchBlockers.length > 0) {
+      await prisma.playbook.update({
+        where: { id: existingPlaybookId },
+        data: { status: "DRAFT", publishedAt: null },
+      });
+      console.warn(
+        `[projection] create_course (existing path): demoting playbook=${existingPlaybookId} to DRAFT — ${reuseLaunchBlockers.length} launch blocker(s): ${reuseLaunchBlockers.map((b) => b.code).join(", ")}`,
+      );
+    }
   } catch (err) {
     console.error(
       `[projection] create_course (existing path): projection failed for playbook=${existingPlaybookId} — config update still applied. Error:`,
@@ -200,8 +215,10 @@ export async function reuseExistingCoursePath(
         content: JSON.stringify({
           ok: true,
           playbookId: existingPlaybookId,
+          playbookStatus: reuseLaunchBlockers.length > 0 ? "DRAFT" : "PUBLISHED",
           callerId: existingCallerId,
           existingCourse: true,
+          launchBlockers: reuseLaunchBlockers,
         }),
       },
     };
@@ -384,9 +401,11 @@ export async function reuseExistingCoursePath(
       content: JSON.stringify({
         ok: true,
         playbookId: existingPlaybookId,
+        playbookStatus: reuseLaunchBlockers.length > 0 ? "DRAFT" : "PUBLISHED",
         callerId: caller.id,
         callerName,
         existingCourse: true,
+        launchBlockers: reuseLaunchBlockers,
       }),
     },
   };

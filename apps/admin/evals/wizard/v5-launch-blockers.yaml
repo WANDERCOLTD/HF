@@ -1,0 +1,139 @@
+description: "Wizard V5 — post-create launchBlockers gate (#3 mastery follow-up 2026-06-13)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-launch-blockers.yaml --no-cache
+#
+# Tests the "Post-create publish gate (launchBlockers)" section of
+# v5-system-prompt.ts: when create_course's response carries non-empty
+# launchBlockers + playbookStatus: "DRAFT", the assistant MUST refuse the
+# "Ready to launch" affirmation, plainly tell the educator the course is in
+# DRAFT, list each blocker's message, and suggest the fix (typically: add
+# a `## Skills Framework` section to the course-ref doc).
+
+prompts:
+  - id: v5-launch-blockers-prompt
+    label: "V5 — launchBlockers post-create gate"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## Post-create publish gate (launchBlockers)
+
+      `create_course`'s response includes two fields that gate the post-create message:
+      - `playbookStatus`: `"PUBLISHED"` (course is live and learners can use it) OR
+        `"DRAFT"` (course exists but is NOT live).
+      - `launchBlockers`: an array of `{code, message, sourceName?}` items. Non-empty
+        array ⇔ `playbookStatus === "DRAFT"`.
+
+      **When `launchBlockers` is non-empty:**
+      1. DO NOT say "Your course is ready" or "You can start testing" or anything
+         suggesting the course can take learners.
+      2. DO say plainly: "Your course was created as a **DRAFT** — I can't launch it
+         yet because:" then list each blocker's `message` as a bullet.
+      3. For `PROJECTION_NO_SKILLS_FRAMEWORK`: tell the educator to add a
+         `## Skills Framework` section to their course-ref doc with at least one
+         skill and re-upload.
+      4. For `NO_COURSE_REFERENCE_SOURCE`: tell them to upload a course-ref doc.
+      5. NEVER show "Ready to launch" / "Start testing" chips while blockers present.
+      6. The educator's next action is to fix the course-ref + re-run create_course.
+
+      **When `launchBlockers` is empty (the normal path):** behave as before —
+      short success message + action cards.
+
+      ---
+      Tool result from create_course: {{toolResult}}
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1500
+
+tests:
+  # ── Test A — PROJECTION_NO_SKILLS_FRAMEWORK blocker ──
+
+  - description: "Test A — DRAFT + no-skills blocker → assistant tells educator to add Skills Framework"
+    vars:
+      toolResult: |
+        {
+          "ok": true,
+          "playbookId": "pb-abc",
+          "playbookStatus": "DRAFT",
+          "launchBlockers": [
+            {
+              "code": "PROJECTION_NO_SKILLS_FRAMEWORK",
+              "sourceName": "course-ref.md",
+              "message": "No parseable `## Skills Framework` -> `### SKILL-NN: Name` section found. Educator dashboard band/tier UI will be flat-zero until at least one skill is declared. Skills Framework is REQUIRED per a-sample-docs/course-reference-template.md."
+            }
+          ]
+        }
+      userMessage: "Great, what's next?"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response mentions DRAFT explicitly. Response surfaces the
+          PROJECTION_NO_SKILLS_FRAMEWORK blocker in plain English
+          (mentions "Skills Framework" or "skills"). Response tells the
+          educator to add the Skills Framework section to the course-ref
+          and re-upload (or similar fix guidance). Response does NOT say
+          "Your course is ready" or "You can start testing" or "Ready to
+          launch". Response does NOT pretend the course is publishable.
+      - type: not-icontains
+        value: "course is ready"
+      - type: not-icontains
+        value: "start testing"
+      - type: not-icontains
+        value: "Ready to launch"
+      - type: icontains
+        value: "DRAFT"
+
+  # ── Test B — NO_COURSE_REFERENCE_SOURCE blocker ──
+
+  - description: "Test B — DRAFT + missing-course-ref blocker → assistant tells educator to upload course-ref"
+    vars:
+      toolResult: |
+        {
+          "ok": true,
+          "playbookId": "pb-def",
+          "playbookStatus": "DRAFT",
+          "launchBlockers": [
+            {
+              "code": "NO_COURSE_REFERENCE_SOURCE",
+              "message": "No COURSE_REFERENCE source linked. Upload at least one course-ref doc before launching."
+            }
+          ]
+        }
+      userMessage: "Done?"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response mentions DRAFT and tells the educator to upload a
+          course-ref doc. Response does NOT say "Your course is ready" or
+          "You can start testing".
+      - type: icontains
+        value: "DRAFT"
+      - type: not-icontains
+        value: "course is ready"
+
+  # ── Test C — empty launchBlockers → normal success path ──
+
+  - description: "Test C — PUBLISHED with empty launchBlockers → normal short success message"
+    vars:
+      toolResult: |
+        {
+          "ok": true,
+          "playbookId": "pb-ghi",
+          "playbookStatus": "PUBLISHED",
+          "launchBlockers": [],
+          "callerId": "caller-1",
+          "callerName": "Test Learner"
+        }
+      userMessage: "Done?"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response is short and acknowledges the course was created
+          successfully. Response does NOT mention DRAFT, blockers, or
+          Skills Framework problems.
+      - type: not-icontains
+        value: "DRAFT"
+      - type: not-icontains
+        value: "blocker"

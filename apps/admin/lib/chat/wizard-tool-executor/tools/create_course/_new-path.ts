@@ -21,6 +21,21 @@ import { applyStudentExperienceConfig } from "../../_shared/apply-student-experi
 import type { ResolvedCreateCourseContext } from "./_context";
 import { buildNewConfigUpdate } from "./_new-config-merge";
 
+/**
+ * Publish-time launch blocker (#3 — 2026-06-13). Emitted by
+ * `runProjectionForPlaybook` and forwarded through the create_course
+ * tool response so the wizard chat assistant can surface them to the
+ * educator. When non-empty the Playbook is demoted back to DRAFT
+ * inside `newCourseScaffoldPath` and the chat's "Ready to launch" cue
+ * is replaced by a course-ref-fix nudge.
+ */
+export interface LaunchBlocker {
+  code: string;
+  sourceContentId?: string;
+  sourceName?: string;
+  message: string;
+}
+
 export interface NewPathState {
   playbookId: string;
   subjectId: string;
@@ -29,6 +44,8 @@ export interface NewPathState {
   mediaLookup: Map<string, { fileName: string; title: string | null }>;
   /** Resolved onboarding flow phases (after media attachment, if any). */
   finalFlowPhases: { phases: Array<Record<string, unknown>> } | null;
+  /** Launch blockers from projection — see {@link LaunchBlocker}. */
+  launchBlockers: LaunchBlocker[];
 }
 
 export type NewPathResult =
@@ -285,9 +302,29 @@ export async function newCourseScaffoldPath(
 
   // 7d. COURSE_REFERENCE projection (#338) — derive CurriculumModule,
   //     BehaviorTargets, Parameters, Goal templates. Race-safe + best-effort.
+  //
+  // The projection result's `launchBlockers` is the publish-time gate (#3
+  // 2026-06-13). When non-empty the playbook is demoted back to DRAFT —
+  // `scaffoldDomain` already published it in the same call chain, before
+  // we knew whether the course-ref had a parseable Skills Framework. The
+  // blockers are forwarded to the educator via the tool response so the
+  // chat assistant can surface them in plain language.
+  let launchBlockers: Array<{ code: string; sourceContentId?: string; sourceName?: string; message: string }> = [];
   try {
     const { runProjectionForPlaybook } = await import("@/lib/wizard/run-projection-for-playbook");
-    await runProjectionForPlaybook(playbookId);
+    const projectionResult = await runProjectionForPlaybook(playbookId);
+    launchBlockers = projectionResult.launchBlockers ?? [];
+    if (launchBlockers.length > 0) {
+      // Demote to DRAFT — keep the course visible to the educator for fixes
+      // but refuse to expose it to learners until the blockers clear.
+      await prisma.playbook.update({
+        where: { id: playbookId },
+        data: { status: "DRAFT", publishedAt: null },
+      });
+      console.warn(
+        `[projection] create_course: demoting playbook=${playbookId} to DRAFT — ${launchBlockers.length} launch blocker(s): ${launchBlockers.map((b) => b.code).join(", ")}`,
+      );
+    }
   } catch (err) {
     console.error(
       `[projection] create_course: projection failed for playbook=${playbookId} — course still created. Error:`,
@@ -395,6 +432,7 @@ export async function newCourseScaffoldPath(
       resolvedWelcome,
       mediaLookup,
       finalFlowPhases,
+      launchBlockers,
     },
   };
 }

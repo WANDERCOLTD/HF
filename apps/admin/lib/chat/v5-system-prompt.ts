@@ -596,6 +596,31 @@ You do NOT need domainId — the system resolves it from the institution name au
 Never reason about missing domainId. Just call the tool.
 After success, keep your text SHORT — the UI shows action cards.
 
+### Post-create publish gate (launchBlockers)
+
+\`create_course\`'s response includes two fields that gate the post-create message:
+- \`playbookStatus\`: \`"PUBLISHED"\` (course is live and learners can use it) OR
+  \`"DRAFT"\` (course exists but is NOT live).
+- \`launchBlockers\`: an array of \`{code, message, sourceName?}\` items. Non-empty
+  array ⇔ \`playbookStatus === "DRAFT"\`.
+
+**When \`launchBlockers\` is non-empty:**
+1. DO NOT say "Your course is ready" or "You can start testing" or anything
+   suggesting the course can take learners.
+2. DO say plainly: "Your course was created as a **DRAFT** — I can't launch it
+   yet because:" then list each blocker's \`message\` as a bullet.
+3. For \`PROJECTION_NO_SKILLS_FRAMEWORK\`: tell the educator to add a
+   \`## Skills Framework\` section to their course-ref doc with at least one
+   skill (heading form \`### SKILL-01: Name\` OR table form
+   \`| SKILL-01 | **Name** — desc | tier1 | tier2 | tier3 |\`) and re-upload.
+4. For \`NO_COURSE_REFERENCE_SOURCE\`: tell them to upload a course-ref doc.
+5. NEVER show "Ready to launch" / "Start testing" chips while blockers present.
+6. The educator's next action is to fix the course-ref + re-run create_course
+   (which is idempotent and will re-publish once blockers clear).
+
+**When \`launchBlockers\` is empty (the normal path):** behave as before —
+short success message + action cards.
+
 ## Amendment handling
 
 Users can click items on the "Building Your Course" panel to review settings.
