@@ -287,14 +287,19 @@
 }
 
 .hf-cohort-row {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  align-items: center;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
   padding: 12px 16px;
   background: var(--surface-primary);
   border: 1px solid var(--border-default);
   border-radius: 12px;
+}
+
+.hf-cohort-row-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  align-items: center;
+  gap: 16px;
 }
 
 .hf-cohort-row-meta {
@@ -308,6 +313,24 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: flex-start;
+}
+
+.hf-cohort-cell-wrap {
+  position: relative;
+  border-radius: 6px;
+  transition: outline-color 100ms ease-out;
+}
+
+.hf-cohort-cell-wrap--selected {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.hf-cohort-hint {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 12px;
 }
 
 /* ── Rubric Calibration lens (SP3-A) ─────────────────────────────────────── */
@@ -522,4 +545,159 @@
 .hf-rubric-measure-weight {
   color: var(--text-muted);
   font-size: 11px;
+}
+
+/* ── Cohort cell drill panel (SP2-D-followon) ─────────────────────────── */
+
+.hf-cohort-drill-panel {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hf-cohort-drill-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hf-cohort-drill-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hf-cohort-drill-title strong {
+  color: var(--text-primary);
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.hf-cohort-drill-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.hf-cohort-drill-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 80ms ease-out, color 80ms ease-out;
+}
+
+.hf-cohort-drill-close:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.hf-cohort-drill-loading,
+.hf-cohort-drill-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hf-cohort-drill-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--status-error-text, var(--text-primary));
+}
+
+.hf-cohort-drill-learners {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-cohort-drill-learner {
+  padding: 10px 12px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hf-cohort-drill-learner-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hf-cohort-drill-learner-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+  flex: 1;
+}
+
+.hf-cohort-drill-learner-score {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.hf-cohort-drill-learner-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 36px;
+}
+
+.hf-cohort-drill-evidence-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-cohort-drill-evidence-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hf-cohort-drill-evidence-excerpt {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.hf-cohort-drill-evidence-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding-left: 36px;
 }

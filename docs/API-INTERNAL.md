@@ -10112,6 +10112,12 @@ Partial update of Playbook.config — accepts a sessionFlow
 
 ---
 
+### `GET` /api/courses/[courseId]/skills-cohort-cell
+
+**Auth**: Session
+
+---
+
 ### `GET` /api/courses/[courseId]/skills-cohort-heatmap
 
 **Auth**: Session
@@ -16050,8 +16056,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 519 |
-| Files with annotations | 507 |
+| Route files found | 521 |
+| Files with annotations | 509 |
 | Files missing annotations | 12 |
 | Coverage | 97.7% |
 
