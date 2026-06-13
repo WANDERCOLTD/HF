@@ -252,19 +252,88 @@ export async function trackGoalProgress(
 }
 
 /**
+ * Resolve `goal.ref` to one or more `(moduleId, actualLoRef)` pairs scoped
+ * to the goal's playbook. Three ref shapes are supported:
+ *
+ *   1. `<moduleSlug>::LO<n>`   — n is 1-based position within the module's
+ *      LO list ordered by sortOrder. Written by
+ *      `scripts/fix-cio-cto-playbooks.ts:232` and the CIO/CTO seed pass.
+ *   2. `<moduleSlug>::<loRef>` — explicit LO ref (e.g. `STD-04-01`).
+ *      Written by future projectors that want to scope a ref to one module.
+ *   3. `<loRef>`               — bare LO ref. Original `#414 Phase 5b`
+ *      behaviour — resolves across every module in the playbook that
+ *      contains an LO with this ref.
+ *
+ * The resolver returns `actualLoRef` separately because the storage key in
+ * `CallerModuleProgress.loScoresJson` is keyed by the canonical LO ref
+ * (e.g. `STD-04-01`), never by the compound or positional form.
+ *
+ * #1205 — playbookId scoping is via `PlaybookCurriculum` primary join.
+ */
+async function resolveLearningObjective(
+  playbookId: string,
+  ref: string,
+): Promise<Array<{ moduleId: string; actualLoRef: string }>> {
+  const compoundMatch = ref.match(/^(.+?)::(.+)$/);
+  if (compoundMatch) {
+    const moduleSlug = compoundMatch[1];
+    const loToken = compoundMatch[2];
+    const moduleRow = await prisma.curriculumModule.findFirst({
+      where: {
+        slug: moduleSlug,
+        curriculum: {
+          playbookLinks: { some: { playbookId, role: "primary" } },
+        },
+      },
+      select: {
+        id: true,
+        learningObjectives: {
+          select: { ref: true, sortOrder: true },
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+    if (!moduleRow) return [];
+
+    const positionMatch = loToken.match(/^LO(\d+)$/i);
+    if (positionMatch) {
+      const index = parseInt(positionMatch[1], 10) - 1;
+      const lo = moduleRow.learningObjectives[index];
+      return lo ? [{ moduleId: moduleRow.id, actualLoRef: lo.ref }] : [];
+    }
+
+    const lo = moduleRow.learningObjectives.find((l) => l.ref === loToken);
+    return lo ? [{ moduleId: moduleRow.id, actualLoRef: lo.ref }] : [];
+  }
+
+  const los = await prisma.learningObjective.findMany({
+    where: {
+      ref,
+      module: {
+        curriculum: {
+          playbookLinks: { some: { playbookId, role: "primary" } },
+        },
+      },
+    },
+    select: { moduleId: true },
+  });
+  return los.map((l) => ({ moduleId: l.moduleId, actualLoRef: ref }));
+}
+
+/**
  * #414 Phase 5b — derive a LEARN goal's progress from the specific LO it
  * tracks (`goal.ref`). Mean of `CallerModuleProgress.loScoresJson[ref].mastery`
- * across every module in the caller's playbook curricula that contains an LO
- * with this ref. Modules where the caller has no progress row, or where the
- * loScoresJson has no entry for `ref`, are skipped from the mean (matches
- * the existing `rollupModuleMastery` semantics — partial coverage doesn't
- * drag a goal toward zero).
+ * across every module the ref resolves to. Modules where the caller has no
+ * progress row, or where the loScoresJson has no entry for the resolved
+ * `actualLoRef`, are skipped from the mean (matches the existing
+ * `rollupModuleMastery` semantics — partial coverage doesn't drag a goal
+ * toward zero).
+ *
+ * See `resolveLearningObjective` for the three ref shapes supported.
  *
  * Returns null when:
- *   - no LO with this ref exists in the playbook's curricula, or
+ *   - the ref resolves to zero LOs in the playbook's curricula, or
  *   - no caller progress has accumulated for any matching module's loScoresJson
- *
- * Mean-across-modules is the documented aggregation per #414 AC.
  */
 export async function deriveLearnGoalProgressFromRef(
   callerId: string,
@@ -276,22 +345,12 @@ export async function deriveLearnGoalProgressFromRef(
 } | null> {
   if (!goal.ref || !goal.playbookId) return null;
 
-  // #1205 — canonical playbookId scoping via PlaybookCurriculum primary join
-  // (variant-aware). Replaces direct curriculum.playbookId filter.
-  const los = await prisma.learningObjective.findMany({
-    where: {
-      ref: goal.ref,
-      module: {
-        curriculum: {
-          playbookLinks: { some: { playbookId: goal.playbookId, role: "primary" } },
-        },
-      },
-    },
-    select: { moduleId: true },
-  });
-  if (los.length === 0) return null;
+  const resolved = await resolveLearningObjective(goal.playbookId, goal.ref);
+  if (resolved.length === 0) return null;
 
-  const moduleIds = Array.from(new Set(los.map((lo) => lo.moduleId)));
+  const moduleIds = Array.from(new Set(resolved.map((r) => r.moduleId)));
+  const refByModule = new Map(resolved.map((r) => [r.moduleId, r.actualLoRef]));
+
   const progresses = await prisma.callerModuleProgress.findMany({
     where: { callerId, moduleId: { in: moduleIds } },
     select: { moduleId: true, loScoresJson: true },
@@ -299,11 +358,13 @@ export async function deriveLearnGoalProgressFromRef(
 
   const masteries: number[] = [];
   for (const p of progresses) {
+    const actualLoRef = refByModule.get(p.moduleId);
+    if (!actualLoRef) continue;
     const scores = p.loScoresJson as Record<
       string,
       { mastery?: number; callCount?: number }
     > | null;
-    const entry = scores?.[goal.ref];
+    const entry = scores?.[actualLoRef];
     if (entry && typeof entry.mastery === "number") {
       masteries.push(entry.mastery);
     }
