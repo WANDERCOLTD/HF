@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Award, AlertTriangle, Info, Grid3X3, Users } from "lucide-react";
+import {
+  Award,
+  AlertTriangle,
+  Info,
+  Grid3X3,
+  Users,
+  Sliders,
+} from "lucide-react";
 
 import {
   ABOVE_TARGET,
@@ -9,10 +16,15 @@ import {
   TierCell,
 } from "@/components/shared/TierCell";
 import { tierLabel } from "@/lib/banding/tier-colors";
+import { CascadeValue } from "@/components/shared/CascadeValue";
+import { CascadeInspectorTray } from "@/components/cascade/CascadeInspectorTray";
+import { BandingPicker } from "@/components/shared/BandingPicker";
+import { VariantPresetPill } from "@/components/shared/VariantPresetPill";
+import type { Effective } from "@/lib/cascade/layer-types";
 
 import "./course-skills-tab.css";
 
-type LensId = "framework-map" | "cohort-heatmap";
+type LensId = "framework-map" | "cohort-heatmap" | "rubric-calibration";
 
 interface LensSpec {
   id: LensId;
@@ -33,6 +45,12 @@ const LENSES: LensSpec[] = [
     label: "Cohort Heatmap",
     icon: <Users size={14} />,
     blurb: "Where the cohort sits — per-skill × per-tier learner count.",
+  },
+  {
+    id: "rubric-calibration",
+    label: "Rubric Calibration",
+    icon: <Sliders size={14} />,
+    blurb: "What the AI tutor reads — per-skill MEASURE prompt + tuning knobs.",
   },
 ];
 
@@ -160,8 +178,10 @@ export function CourseSkillsTab({ courseId }: Props) {
             setExpandedSkillRef((prev) => (prev === skillRef ? null : skillRef))
           }
         />
-      ) : (
+      ) : activeLens === "cohort-heatmap" ? (
         <CohortHeatmapLens courseId={courseId} />
+      ) : (
+        <RubricCalibrationLens courseId={courseId} />
       )}
 
       <Legend />
@@ -461,6 +481,373 @@ function CohortHeatmapRowView({
       </div>
     </div>
   );
+}
+
+// ── Rubric Calibration lens (SP3-A) ─────────────────────────────────────────
+
+interface RubricCalibrationAction {
+  description: string;
+  parameterId: string;
+  weight: number;
+}
+
+interface RubricCalibrationMeasure {
+  triggerName: string;
+  given: string;
+  when: string;
+  then: string;
+  actions: RubricCalibrationAction[];
+}
+
+interface RubricCalibrationSkill {
+  skillRef: string;
+  parameterId: string;
+  parameterName: string;
+  description: string | null;
+  targetValue: number;
+  tierScheme: string[];
+  tiers: Record<string, string>;
+  bandThresholds: Record<string, string> | null;
+  measure: RubricCalibrationMeasure | null;
+}
+
+interface RubricCalibrationMasteryPolicyChip {
+  knobKey: "skillTierMapping" | "skillScoringEmaHalfLifeDays";
+  envelope: Effective<unknown>;
+}
+
+interface RubricCalibrationVariantPreset {
+  useFreshMastery: boolean | null;
+  maxMasteryTier: string | null;
+  scoringMode: string | null;
+}
+
+interface RubricCalibrationResponse {
+  courseId: string;
+  playbookStatus: string;
+  measureSpecSlug: string | null;
+  skills: RubricCalibrationSkill[];
+  masteryPolicyChips: RubricCalibrationMasteryPolicyChip[];
+  variantPreset: RubricCalibrationVariantPreset;
+  empty: boolean;
+}
+
+const MASTERY_CHIP_LABELS: Record<
+  RubricCalibrationMasteryPolicyChip["knobKey"],
+  string
+> = {
+  skillTierMapping: "Tier mapping",
+  skillScoringEmaHalfLifeDays: "EMA half-life",
+};
+
+function fmtMasteryChipValue(
+  knobKey: RubricCalibrationMasteryPolicyChip["knobKey"],
+  value: unknown,
+): string {
+  if (value === null || value === undefined) return "— default";
+  if (knobKey === "skillScoringEmaHalfLifeDays") {
+    if (typeof value === "number") return `${value} day${value === 1 ? "" : "s"}`;
+    return String(value);
+  }
+  // skillTierMapping is a complex object — surface a structural summary.
+  if (typeof value === "object" && value !== null && "thresholds" in value) {
+    return "custom mapping";
+  }
+  return "custom";
+}
+
+function RubricCalibrationLens({ courseId }: { courseId: string }) {
+  const [data, setData] = useState<RubricCalibrationResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedSkillRef, setExpandedSkillRef] = useState<string | null>(null);
+  const [inspecting, setInspecting] = useState<{
+    knobKey: string;
+    knobLabel: string;
+  } | null>(null);
+
+  const refresh = () => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/courses/${courseId}/skills-rubric-calibration`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then((payload: RubricCalibrationResponse) => setData(payload))
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch(`/api/courses/${courseId}/skills-rubric-calibration`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then((payload: RubricCalibrationResponse) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  if (loading) {
+    return (
+      <div className="hf-skills-loading" role="status" aria-live="polite">
+        Loading Rubric Calibration…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="hf-skills-error hf-banner-error" role="alert">
+        <AlertTriangle size={16} />
+        <div>
+          <strong>Could not load Rubric Calibration.</strong>
+          <div>{error}</div>
+        </div>
+      </div>
+    );
+  }
+  if (!data) return null;
+  if (data.empty) {
+    return <EmptyState />;
+  }
+
+  return (
+    <div className="hf-rubric-calibration">
+      <section className="hf-rubric-policy">
+        <header className="hf-rubric-section-header">
+          <h3>Mastery policy</h3>
+          <p>
+            How scores convert to tiers and how quickly EMA mastery responds to
+            new evidence. Two of these inherit from Domain when set there;
+            three are variant-intrinsic and don&apos;t cascade.
+          </p>
+        </header>
+        <div className="hf-rubric-policy-row">
+          {data.masteryPolicyChips.map((chip) => (
+            <CascadeValue
+              key={chip.knobKey}
+              envelope={chip.envelope}
+              knobKey={chip.knobKey}
+              ariaLabel={`Inspect ${MASTERY_CHIP_LABELS[chip.knobKey]} cascade`}
+              hideSubtitle={false}
+              onInspect={() =>
+                setInspecting({
+                  knobKey: chip.knobKey,
+                  knobLabel: MASTERY_CHIP_LABELS[chip.knobKey],
+                })
+              }
+            >
+              <span className="hf-rubric-chip-value">
+                <strong>{MASTERY_CHIP_LABELS[chip.knobKey]}:</strong>{" "}
+                {fmtMasteryChipValue(chip.knobKey, chip.envelope.value)}
+              </span>
+            </CascadeValue>
+          ))}
+        </div>
+        <div className="hf-rubric-policy-row">
+          <VariantPresetPill
+            knob="useFreshMastery"
+            value={data.variantPreset.useFreshMastery}
+          />
+          <VariantPresetPill
+            knob="maxMasteryTier"
+            value={data.variantPreset.maxMasteryTier}
+          />
+          <VariantPresetPill
+            knob="scoringMode"
+            value={data.variantPreset.scoringMode}
+          />
+        </div>
+      </section>
+
+      <section className="hf-rubric-banding">
+        <header className="hf-rubric-section-header">
+          <h3>Preset banding</h3>
+          <p>
+            Swap the whole tier-mapping scheme in one click. Persists to
+            this course&apos;s config — Domain-level defaults still apply
+            when this is cleared.
+          </p>
+        </header>
+        <BandingPicker courseId={courseId} onSaved={refresh} />
+      </section>
+
+      <section className="hf-rubric-skills">
+        <header className="hf-rubric-section-header">
+          <h3>Per-skill rubric</h3>
+          <p>
+            Click a skill to see the literal prompt the AI tutor reads when it
+            scores a transcript.
+            {data.measureSpecSlug ? (
+              <>
+                {" "}
+                MEASURE spec: <code>{data.measureSpecSlug}</code>.
+              </>
+            ) : (
+              <>
+                {" "}
+                No MEASURE spec exists yet — re-project this course-ref to
+                mint one.
+              </>
+            )}
+          </p>
+        </header>
+        {data.skills.map((skill) => {
+          const expanded = expandedSkillRef === skill.skillRef;
+          return (
+            <div
+              key={skill.skillRef}
+              className="hf-rubric-skill"
+              data-skill-ref={skill.skillRef}
+            >
+              <button
+                type="button"
+                className="hf-rubric-skill-header"
+                onClick={() =>
+                  setExpandedSkillRef((prev) =>
+                    prev === skill.skillRef ? null : skill.skillRef,
+                  )
+                }
+                aria-expanded={expanded}
+                aria-controls={`hf-rubric-${skill.skillRef}-body`}
+              >
+                <span className="hf-skill-row-ref">{skill.skillRef}</span>
+                <span className="hf-skill-row-name">{skill.parameterName}</span>
+                <span className="hf-skill-row-target">
+                  Target: {tierLabelForTarget(skill)}
+                </span>
+                <span className="hf-skill-row-chevron" aria-hidden>
+                  {expanded ? "▾" : "▸"}
+                </span>
+              </button>
+
+              {expanded ? (
+                <div
+                  id={`hf-rubric-${skill.skillRef}-body`}
+                  className="hf-rubric-skill-body"
+                >
+                  {skill.description ? (
+                    <p className="hf-skill-description">{skill.description}</p>
+                  ) : null}
+
+                  <div className="hf-rubric-skill-tiers">
+                    <div className="hf-rubric-subheading">Tier descriptors</div>
+                    {skill.tierScheme.map((tier) => (
+                      <div key={tier} className="hf-rubric-tier-row">
+                        <TierCell tier={tier} size="compact" />
+                        <strong className="hf-rubric-tier-name">
+                          {tierLabel(tier)}
+                        </strong>
+                        <span className="hf-rubric-tier-text">
+                          {skill.tiers[tier] ?? (
+                            <em className="hf-skill-detail-empty">
+                              (no descriptor yet)
+                            </em>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {skill.bandThresholds &&
+                  Object.keys(skill.bandThresholds).length > 0 ? (
+                    <div className="hf-rubric-skill-bands">
+                      <div className="hf-rubric-subheading">
+                        Per-band descriptors
+                      </div>
+                      {Object.entries(skill.bandThresholds)
+                        .sort(([a], [b]) => Number(b) - Number(a))
+                        .map(([band, text]) => (
+                          <div key={band} className="hf-rubric-band-row">
+                            <strong>Band {band}</strong>
+                            <span>{text}</span>
+                          </div>
+                        ))}
+                    </div>
+                  ) : null}
+
+                  {skill.measure ? (
+                    <div className="hf-rubric-skill-measure">
+                      <div className="hf-rubric-subheading">
+                        What the AI tutor reads (MEASURE prompt)
+                      </div>
+                      <dl className="hf-rubric-measure-block">
+                        <dt>Given</dt>
+                        <dd>{skill.measure.given}</dd>
+                        <dt>When</dt>
+                        <dd>{skill.measure.when}</dd>
+                        <dt>Then</dt>
+                        <dd>{skill.measure.then}</dd>
+                      </dl>
+                      {skill.measure.actions.length > 0 ? (
+                        <div className="hf-rubric-measure-actions">
+                          <strong>Actions:</strong>
+                          <ul>
+                            {skill.measure.actions.map((act, i) => (
+                              <li key={`${act.parameterId}-${i}`}>
+                                {act.description}{" "}
+                                <span className="hf-rubric-measure-weight">
+                                  (weight {act.weight})
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="hf-rubric-skill-measure hf-rubric-skill-measure--empty">
+                      <em>
+                        No MEASURE trigger matched this skill. Re-project the
+                        course-ref to mint one.
+                      </em>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </section>
+
+      {inspecting ? (
+        <CascadeInspectorTray
+          knobKey={inspecting.knobKey}
+          knobLabel={inspecting.knobLabel}
+          scopeChain={{ playbookId: courseId }}
+          onClose={() => setInspecting(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function tierLabelForTarget(skill: RubricCalibrationSkill): string {
+  const targetTier =
+    tierForTargetValue(skill.tierScheme, skill.targetValue) ??
+    skill.tierScheme[skill.tierScheme.length - 1];
+  if (!targetTier) return "—";
+  return `${tierLabel(targetTier)} · ${(skill.targetValue * 10).toFixed(1)}`;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

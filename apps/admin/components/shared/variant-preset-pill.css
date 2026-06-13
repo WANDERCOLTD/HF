@@ -1,0 +1,28 @@
+/* VariantPresetPill — small inline pill for variant-intrinsic mastery knobs.
+ * Visually distinct from the cascade chip (LayerBadge) so the educator sees
+ * "this knob is identity to the variant, no cascade applies". */
+
+.hf-variant-preset-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.hf-variant-preset-pill-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.hf-variant-preset-pill-value {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
