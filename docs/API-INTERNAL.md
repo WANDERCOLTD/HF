@@ -10100,6 +10100,12 @@ Partial update of Playbook.config — accepts a sessionFlow
 
 ---
 
+### `GET` /api/courses/[courseId]/skills-evidence
+
+**Auth**: Session
+
+---
+
 ### `GET` /api/courses/[courseId]/skills-framework
 
 **Auth**: Session
@@ -16020,8 +16026,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 515 |
-| Files with annotations | 503 |
+| Route files found | 516 |
+| Files with annotations | 504 |
 | Files missing annotations | 12 |
 | Coverage | 97.7% |
 
