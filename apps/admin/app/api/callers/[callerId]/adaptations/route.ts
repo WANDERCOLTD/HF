@@ -66,17 +66,22 @@ export interface AdaptationOverride {
   updatedAt: string | null;
 }
 
-/** Why the engine adapted — `RewardScore` evidence + `Goal.progressMetrics`
- *  structured progress. SP5-C fills this. */
+/** Why the engine adapted — one entry per `targetUpdatesApplied` row
+ *  inside `RewardScore` (the REWARD stage writes this per call). The
+ *  rationale text is whatever the REWARD-stage writer logged on the
+ *  update; the direction is derived from `newTarget - oldTarget`. */
 export interface AdaptationReason {
   callId: string;
   at: string;
-  /** Free-text explanation written by the REWARD stage. */
+  /** Free-text rationale captured by the REWARD-stage writer. */
   rationale: string;
-  /** Direction the engine pushed: UP / DOWN / HOLD. */
+  /** Direction the engine pushed the target. */
   direction: "up" | "down" | "hold";
   parameterId: string | null;
   parameterName: string | null;
+  /** Numeric delta `newTarget - oldTarget`. Null when either side is
+   *  missing from the JSON. */
+  delta: number | null;
 }
 
 /** What the next call's adaptation will be — `goalAdaptationGuidance`
@@ -236,14 +241,107 @@ export async function GET(
     });
   }
 
+  // ── SP5-C "Why" ─────────────────────────────────────────────────────────
+  // Walk the most recent N calls with RewardScore.targetUpdatesApplied
+  // populated; each update row produces one AdaptationReason entry.
+  // Bounded fetch keeps the read O(N callers × constant) — no per-row N+1.
+  const recentRewards = await prisma.rewardScore.findMany({
+    where: {
+      call: { callerId, playbookId },
+      NOT: { targetUpdatesApplied: { equals: null as never } },
+    },
+    select: {
+      callId: true,
+      scoredAt: true,
+      targetUpdatesApplied: true,
+    },
+    orderBy: { scoredAt: "desc" },
+    take: REWARD_LOOKBACK,
+  });
+
+  const reasonParamIds = new Set<string>();
+  for (const r of recentRewards) {
+    const updates = parseTargetUpdates(r.targetUpdatesApplied);
+    for (const u of updates) {
+      if (u.parameterId) reasonParamIds.add(u.parameterId);
+    }
+  }
+  const reasonParamNames = reasonParamIds.size
+    ? await prisma.parameter.findMany({
+        where: { parameterId: { in: [...reasonParamIds] } },
+        select: { parameterId: true, name: true },
+      })
+    : [];
+  const reasonNameByParam = new Map(
+    reasonParamNames.map((p) => [p.parameterId, p.name]),
+  );
+
+  const why: AdaptationReason[] = [];
+  for (const r of recentRewards) {
+    const updates = parseTargetUpdates(r.targetUpdatesApplied);
+    for (const u of updates) {
+      const delta =
+        typeof u.oldTarget === "number" && typeof u.newTarget === "number"
+          ? u.newTarget - u.oldTarget
+          : null;
+      const direction: "up" | "down" | "hold" =
+        delta == null || Math.abs(delta) < 0.005
+          ? "hold"
+          : delta > 0
+            ? "up"
+            : "down";
+      why.push({
+        callId: r.callId,
+        at: r.scoredAt.toISOString(),
+        rationale: u.reason ?? "(no rationale logged)",
+        direction,
+        parameterId: u.parameterId,
+        parameterName: u.parameterId
+          ? reasonNameByParam.get(u.parameterId) ?? u.parameterId
+          : null,
+        delta,
+      });
+    }
+  }
+  const whyTrimmed = why.slice(0, REWARD_REASONS_MAX);
+
   return NextResponse.json({
     callerId,
     callerName: caller.name,
     playbookId,
     playbookName: enrolment.playbook?.name ?? null,
     whatWasAdapted,
-    why: [],
+    why: whyTrimmed,
     nextAdaptation: null,
-    empty: whatWasAdapted.length === 0,
+    empty: whatWasAdapted.length === 0 && whyTrimmed.length === 0,
   } satisfies AdaptationsResponse);
+}
+
+/** Most-recent N RewardScore rows scanned for `targetUpdatesApplied`. */
+const REWARD_LOOKBACK = 12;
+/** Max reason entries returned to the UI (some calls have multiple updates). */
+const REWARD_REASONS_MAX = 30;
+
+interface TargetUpdate {
+  parameterId: string | null;
+  oldTarget: number | null;
+  newTarget: number | null;
+  reason: string | null;
+}
+
+function parseTargetUpdates(value: unknown): TargetUpdate[] {
+  if (!Array.isArray(value)) return [];
+  const out: TargetUpdate[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    out.push({
+      parameterId:
+        typeof e.parameterId === "string" ? e.parameterId : null,
+      oldTarget: typeof e.oldTarget === "number" ? e.oldTarget : null,
+      newTarget: typeof e.newTarget === "number" ? e.newTarget : null,
+      reason: typeof e.reason === "string" ? e.reason : null,
+    });
+  }
+  return out;
 }

@@ -52,6 +52,7 @@ interface AdaptationReason {
   direction: "up" | "down" | "hold";
   parameterId: string | null;
   parameterName: string | null;
+  delta: number | null;
 }
 
 interface NextAdaptationGuidance {
@@ -308,7 +309,7 @@ function sourceScopeLabel(scope: "SYSTEM" | "PLAYBOOK" | "CALLER"): string {
   }
 }
 
-// ── Section 2: Why (SP5-C will fill) ────────────────────────────────────────
+// ── Section 2: Why (SP5-C) ──────────────────────────────────────────────────
 
 function WhySection({
   reasons,
@@ -321,25 +322,70 @@ function WhySection({
     <section className="hf-adaptations-section">
       <h3 className="hf-adaptations-section-title">Why</h3>
       <p className="hf-adaptations-section-desc">
-        Reasoning the REWARD stage logged when it pushed a parameter up,
-        down, or held it steady. Pulls from <code>RewardScore</code> + the
-        structured <code>Goal.progressMetrics.progress</code> evidence so
-        you can trace any change back to the call that triggered it.
+        Timeline of REWARD-stage adaptations — what the engine pushed up,
+        down, or held, with the rationale the writer logged. Each entry
+        links back to the call that triggered it (callId shown).
       </p>
       {reasons.length === 0 ? (
         <p className="hf-adaptations-empty-text">
           {empty
             ? "No adaptation reasoning logged yet — appears after the first scoring call."
-            : "Coming in SP5-C: timeline of REWARD-stage rationale with cite-back to source calls."}
+            : "No target updates have been logged in the most recent calls."}
         </p>
       ) : (
-        <p className="hf-adaptations-placeholder">
-          {reasons.length} reason{reasons.length === 1 ? "" : "s"} captured ·
-          full timeline lands in SP5-C.
-        </p>
+        <ul className="hf-adaptations-reason-rows">
+          {reasons.map((r, i) => (
+            <ReasonRow key={`${r.callId}-${i}`} reason={r} />
+          ))}
+        </ul>
       )}
     </section>
   );
+}
+
+function ReasonRow({ reason }: { reason: AdaptationReason }) {
+  const arrow =
+    reason.direction === "up" ? "↑" : reason.direction === "down" ? "↓" : "→";
+  const deltaLabel =
+    reason.delta != null
+      ? `${reason.delta > 0 ? "+" : ""}${(reason.delta * 100).toFixed(0)} pts`
+      : "";
+  const when = formatReasonDate(reason.at);
+  return (
+    <li className="hf-adaptations-reason-row">
+      <div className="hf-adaptations-reason-head">
+        <span
+          className={`hf-adaptations-reason-arrow hf-adaptations-reason-arrow-${reason.direction}`}
+          aria-label={`Direction ${reason.direction}`}
+        >
+          {arrow}
+        </span>
+        <span className="hf-adaptations-reason-param">
+          {reason.parameterName ?? "(no parameter)"}
+        </span>
+        <span className="hf-adaptations-reason-delta">{deltaLabel}</span>
+        <span className="hf-adaptations-reason-when">{when}</span>
+      </div>
+      <p className="hf-adaptations-reason-text">{reason.rationale}</p>
+      <div className="hf-adaptations-reason-callid">
+        Call {reason.callId.slice(0, 8)}…
+      </div>
+    </li>
+  );
+}
+
+function formatReasonDate(iso: string): string {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return iso;
+  const diffMs = Date.now() - then.getTime();
+  const day = 24 * 60 * 60 * 1000;
+  const days = Math.floor(diffMs / day);
+  if (days < 0) return then.toLocaleDateString();
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.round(days / 7)}w ago`;
+  return then.toLocaleDateString();
 }
 
 // ── Section 3: Next call's adaptation (SP5-D will fill) ─────────────────────

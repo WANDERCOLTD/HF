@@ -252,3 +252,87 @@
   color: var(--text-muted);
   padding-top: 2px;
 }
+
+/* ── SP5-C: reason rows ──────────────────────────────────────────────── */
+
+.hf-adaptations-reason-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hf-adaptations-reason-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--border-default);
+  border-radius: 0 4px 4px 0;
+  background: color-mix(in srgb, var(--surface-secondary) 50%, transparent);
+}
+
+.hf-adaptations-reason-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.hf-adaptations-reason-arrow {
+  font-size: 14px;
+  font-weight: 700;
+  width: 16px;
+  text-align: center;
+}
+
+.hf-adaptations-reason-arrow-up {
+  color: var(--status-success-text);
+}
+
+.hf-adaptations-reason-arrow-down {
+  color: var(--status-error-text);
+}
+
+.hf-adaptations-reason-arrow-hold {
+  color: var(--text-muted);
+}
+
+.hf-adaptations-reason-param {
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 120px;
+}
+
+.hf-adaptations-reason-delta {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 50px;
+  text-align: right;
+}
+
+.hf-adaptations-reason-when {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.hf-adaptations-reason-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.45;
+  padding-left: 24px;
+}
+
+.hf-adaptations-reason-callid {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--text-muted);
+  padding-left: 24px;
+}
