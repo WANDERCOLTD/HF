@@ -252,8 +252,8 @@ export async function trackGoalProgress(
 }
 
 /**
- * Resolve `goal.ref` to one or more `(moduleId, actualLoRef)` pairs scoped
- * to the goal's playbook. Three ref shapes are supported:
+ * Resolve `goal.ref` to one or more `(moduleId, moduleSlug, actualLoRef)`
+ * triples scoped to the goal's playbook. Three ref shapes are supported:
  *
  *   1. `<moduleSlug>::LO<n>`   — n is 1-based position within the module's
  *      LO list ordered by sortOrder. Written by
@@ -264,16 +264,18 @@ export async function trackGoalProgress(
  *      behaviour — resolves across every module in the playbook that
  *      contains an LO with this ref.
  *
- * The resolver returns `actualLoRef` separately because the storage key in
- * `CallerModuleProgress.loScoresJson` is keyed by the canonical LO ref
- * (e.g. `STD-04-01`), never by the compound or positional form.
+ * The resolver returns `moduleSlug` + `actualLoRef` separately because the
+ * canonical mastery storage key in `CallerAttribute`
+ * (`curriculum:{specSlug}:lo_mastery:{moduleSlug}:{loRef}`) needs both,
+ * keyed by canonical LO ref (e.g. `STD-04-01`), never by the compound or
+ * positional form.
  *
  * #1205 — playbookId scoping is via `PlaybookCurriculum` primary join.
  */
 async function resolveLearningObjective(
   playbookId: string,
   ref: string,
-): Promise<Array<{ moduleId: string; actualLoRef: string }>> {
+): Promise<Array<{ moduleId: string; moduleSlug: string; actualLoRef: string }>> {
   const compoundMatch = ref.match(/^(.+?)::(.+)$/);
   if (compoundMatch) {
     const moduleSlug = compoundMatch[1];
@@ -287,6 +289,7 @@ async function resolveLearningObjective(
       },
       select: {
         id: true,
+        slug: true,
         learningObjectives: {
           select: { ref: true, sortOrder: true },
           orderBy: { sortOrder: "asc" },
@@ -299,11 +302,15 @@ async function resolveLearningObjective(
     if (positionMatch) {
       const index = parseInt(positionMatch[1], 10) - 1;
       const lo = moduleRow.learningObjectives[index];
-      return lo ? [{ moduleId: moduleRow.id, actualLoRef: lo.ref }] : [];
+      return lo
+        ? [{ moduleId: moduleRow.id, moduleSlug: moduleRow.slug, actualLoRef: lo.ref }]
+        : [];
     }
 
     const lo = moduleRow.learningObjectives.find((l) => l.ref === loToken);
-    return lo ? [{ moduleId: moduleRow.id, actualLoRef: lo.ref }] : [];
+    return lo
+      ? [{ moduleId: moduleRow.id, moduleSlug: moduleRow.slug, actualLoRef: lo.ref }]
+      : [];
   }
 
   const los = await prisma.learningObjective.findMany({
@@ -315,25 +322,38 @@ async function resolveLearningObjective(
         },
       },
     },
-    select: { moduleId: true },
+    select: { moduleId: true, module: { select: { slug: true } } },
   });
-  return los.map((l) => ({ moduleId: l.moduleId, actualLoRef: ref }));
+  return los.map((l) => ({
+    moduleId: l.moduleId,
+    moduleSlug: l.module.slug,
+    actualLoRef: ref,
+  }));
 }
 
 /**
  * #414 Phase 5b — derive a LEARN goal's progress from the specific LO it
- * tracks (`goal.ref`). Mean of `CallerModuleProgress.loScoresJson[ref].mastery`
- * across every module the ref resolves to. Modules where the caller has no
- * progress row, or where the loScoresJson has no entry for the resolved
- * `actualLoRef`, are skipped from the mean (matches the existing
- * `rollupModuleMastery` semantics — partial coverage doesn't drag a goal
- * toward zero).
+ * tracks (`goal.ref`). Mean of `CallerAttribute.numberValue` for keys
+ * matching `:lo_mastery:<moduleSlug>:<actualLoRef>` across every module the
+ * ref resolves to. Modules where the caller has no `lo_mastery:*` row for
+ * the resolved `actualLoRef` are skipped from the mean (partial coverage
+ * doesn't drag a goal toward zero).
+ *
+ * **Read source: `CallerAttribute lo_mastery:*` (canonical educator
+ * dashboard value).** The earlier implementation read from
+ * `CallerModuleProgress.loScoresJson` which holds an arithmetic-mean
+ * running average — divergent from the `Math.max(existing, score)`
+ * monotonic ratchet at the canonical write site
+ * (`lib/curriculum/track-progress.ts:343`). Goal.progress was lagging the
+ * dashboard by ~6× as a result (live audit 2026-06-13: Cyrus STD-04-01 at
+ * 0.70 dashboard / 0.11 loScoresJson). This read switch closes the gap.
  *
  * See `resolveLearningObjective` for the three ref shapes supported.
  *
  * Returns null when:
  *   - the ref resolves to zero LOs in the playbook's curricula, or
- *   - no caller progress has accumulated for any matching module's loScoresJson
+ *   - no `lo_mastery:*` CallerAttribute row exists for any resolved
+ *     `(moduleSlug, actualLoRef)` pair.
  */
 export async function deriveLearnGoalProgressFromRef(
   callerId: string,
@@ -348,33 +368,35 @@ export async function deriveLearnGoalProgressFromRef(
   const resolved = await resolveLearningObjective(goal.playbookId, goal.ref);
   if (resolved.length === 0) return null;
 
-  const moduleIds = Array.from(new Set(resolved.map((r) => r.moduleId)));
-  const refByModule = new Map(resolved.map((r) => [r.moduleId, r.actualLoRef]));
+  // Build the canonical key suffix per resolved (moduleSlug, loRef) pair.
+  // The full key shape is `curriculum:{specSlug}:lo_mastery:{moduleSlug}:{loRef}`
+  // — the suffix is fully discriminating (specSlug varies by curriculum
+  // sourceSpec but the lo_mastery body is unique). We match on suffix to
+  // avoid having to resolve specSlug at read time.
+  const suffixes = resolved.map((r) => `:lo_mastery:${r.moduleSlug}:${r.actualLoRef}`);
 
-  const progresses = await prisma.callerModuleProgress.findMany({
-    where: { callerId, moduleId: { in: moduleIds } },
-    select: { moduleId: true, loScoresJson: true },
+  const rows = await prisma.callerAttribute.findMany({
+    where: {
+      callerId,
+      scope: "CURRICULUM",
+      valueType: "NUMBER",
+      validUntil: null,
+      OR: suffixes.map((s) => ({ key: { endsWith: s } })),
+    },
+    select: { key: true, numberValue: true },
   });
 
   const masteries: number[] = [];
-  for (const p of progresses) {
-    const actualLoRef = refByModule.get(p.moduleId);
-    if (!actualLoRef) continue;
-    const scores = p.loScoresJson as Record<
-      string,
-      { mastery?: number; callCount?: number }
-    > | null;
-    const entry = scores?.[actualLoRef];
-    if (entry && typeof entry.mastery === "number") {
-      masteries.push(entry.mastery);
-    }
+  for (const row of rows) {
+    if (row.numberValue == null) continue;
+    masteries.push(row.numberValue);
   }
   if (masteries.length === 0) return null;
 
   const progress = masteries.reduce((s, v) => s + v, 0) / masteries.length;
   return {
     progress,
-    totalModulesWithRef: moduleIds.length,
+    totalModulesWithRef: resolved.length,
     touchedModules: masteries.length,
   };
 }
