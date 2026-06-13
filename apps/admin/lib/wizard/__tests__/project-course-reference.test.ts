@@ -20,6 +20,143 @@ describe("parseSkillsFramework", () => {
     expect(result.skills).toEqual([]);
     expect(result.validationWarnings).toEqual([]);
   });
+});
+
+// (c) Course-ref template enforcement — no skills → projection emits
+// PROJECTION_NO_SKILLS_FRAMEWORK warning. Educator dashboard band/tier UI
+// would otherwise sit flat-zero on every learner forever.
+describe("projectCourseReference — PROJECTION_NO_SKILLS_FRAMEWORK warning", () => {
+  it("emits the warning when the course-ref has no Skills Framework section", () => {
+    const text =
+      "---\nhf-document-type: COURSE_REFERENCE_CANONICAL\n---\n\n# Course\n\n## Outcomes\n\n**OUT-01:** Something.\n";
+    const result = projectCourseReference(text, { sourceContentId: SOURCE_ID });
+    expect(result.skills).toHaveLength(0);
+    const codes = result.validationWarnings.map((w) => w.code);
+    expect(codes).toContain("PROJECTION_NO_SKILLS_FRAMEWORK");
+  });
+
+  it("emits the warning when the section heading exists but no `### SKILL-NN` blocks are inside", () => {
+    const text =
+      "# Course\n\n## Skills Framework\n\nThis course measures skills but I haven't filled them in yet.\n\n## Next Section\n";
+    const result = projectCourseReference(text, { sourceContentId: SOURCE_ID });
+    expect(result.skills).toHaveLength(0);
+    const codes = result.validationWarnings.map((w) => w.code);
+    expect(codes).toContain("PROJECTION_NO_SKILLS_FRAMEWORK");
+  });
+
+  it("does NOT emit the warning when at least one SKILL-NN is declared in heading form", () => {
+    const text =
+      "# Course\n\n## Skills Framework\n\n### SKILL-01: Example Skill\n\nDef.\n\n- **Emerging:** A\n- **Developing:** B\n- **Secure:** C\n";
+    const result = projectCourseReference(text, { sourceContentId: SOURCE_ID });
+    expect(result.skills).toHaveLength(1);
+    const codes = result.validationWarnings.map((w) => w.code);
+    expect(codes).not.toContain("PROJECTION_NO_SKILLS_FRAMEWORK");
+  });
+});
+
+// Table-form Skills Framework (CTO/CIO + future custom-tier courses).
+describe("parseSkillsFramework — TABLE form", () => {
+  it("parses CTO 4-tier table (Foundation/Developing/Practitioner/Distinction)", () => {
+    const text = `## Skills Framework
+
+Some preamble.
+
+| Skill ref | Skill | Foundation | Developing | Practitioner | Distinction |
+|---|---|---|---|---|---|
+| SKILL-01 | **Stakeholder anticipation** — predicting what the exec / board / business unit will worry about before they raise it | Reacts to stakeholder concerns | Proactively addresses known concerns | Anticipates the question two quarters out | Has reframed a stakeholder's understanding before they articulated it |
+| SKILL-02 | **Risk articulation** — explaining IT risk in business terms | Lists technical risks | Translates one risk per call | Quantifies + sequences risk | Coaches the board to think in risk |
+`;
+    const result = parseSkillsFramework(text);
+    expect(result.skills).toHaveLength(2);
+
+    const s1 = result.skills[0];
+    expect(s1.ref).toBe("SKILL-01");
+    expect(s1.name).toBe("Stakeholder anticipation");
+    expect(s1.description).toContain("predicting what the exec");
+    expect(s1.tierScheme).toEqual([
+      "foundation",
+      "developing",
+      "practitioner",
+      "distinction",
+    ]);
+    expect(s1.tiers.foundation).toBe("Reacts to stakeholder concerns");
+    expect(s1.tiers.distinction).toContain("reframed");
+
+    const s2 = result.skills[1];
+    expect(s2.ref).toBe("SKILL-02");
+    expect(s2.name).toBe("Risk articulation");
+    expect(s2.tiers.foundation).toBe("Lists technical risks");
+    expect(s2.tiers.distinction).toBe("Coaches the board to think in risk");
+  });
+
+  it("parses 3-tier table (Emerging/Developing/Secure) — same scheme as heading form", () => {
+    const text = `## Skills Framework
+
+| Skill ref | Skill | Emerging | Developing | Secure |
+|---|---|---|---|---|
+| SKILL-01 | **Listening** — paying attention | weak | mid | strong |
+`;
+    const result = parseSkillsFramework(text);
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0].tierScheme).toEqual(["emerging", "developing", "secure"]);
+    expect(result.skills[0].tiers.secure).toBe("strong");
+  });
+
+  it("emits SKILL_UNRECOGNISED_TIER_SCHEME for a non-standard scheme", () => {
+    const text = `## Skills Framework
+
+| Skill ref | Skill | Apple | Banana | Cherry |
+|---|---|---|---|---|
+| SKILL-01 | **X** — y | a | b | c |
+`;
+    const result = parseSkillsFramework(text);
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0].tierScheme).toEqual(["apple", "banana", "cherry"]);
+    expect(result.validationWarnings.some((w) => w.code === "SKILL_UNRECOGNISED_TIER_SCHEME")).toBe(true);
+  });
+
+  it("warns when a row is truncated (fewer tier cells than the header promises)", () => {
+    const text = `## Skills Framework
+
+| Skill ref | Skill | Foundation | Developing | Practitioner | Distinction |
+|---|---|---|---|---|---|
+| SKILL-01 | **Half** — short | only one cell |
+| SKILL-02 | **Full** — long | a | b | c | d |
+`;
+    const result = parseSkillsFramework(text);
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0].ref).toBe("SKILL-02");
+    expect(result.validationWarnings.some((w) => w.code === "SKILL_TABLE_ROW_TRUNCATED")).toBe(true);
+  });
+
+  it("accepts a skill cell without bolded name (plain text)", () => {
+    const text = `## Skills Framework
+
+| Skill ref | Skill | Foundation | Developing | Practitioner | Distinction |
+|---|---|---|---|---|---|
+| SKILL-01 | Plain Skill Name | a | b | c | d |
+`;
+    const result = parseSkillsFramework(text);
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0].name).toBe("Plain Skill Name");
+    expect(result.skills[0].description).toBeUndefined();
+  });
+
+  it("downstream goal name uses the top tier label (Distinction for CTO, not Secure)", () => {
+    const text = `## Skills Framework
+
+| Skill ref | Skill | Foundation | Developing | Practitioner | Distinction |
+|---|---|---|---|---|---|
+| SKILL-01 | **Stakeholder anticipation** — desc | f | d | p | top |
+`;
+    const projection = projectCourseReference(text, { sourceContentId: SOURCE_ID });
+    const achieve = projection.configPatch.goalTemplates.filter((g) => g.type === "ACHIEVE");
+    expect(achieve).toHaveLength(1);
+    expect(achieve[0].name).toBe("Reach Distinction on Stakeholder anticipation");
+  });
+});
+
+describe("parseSkillsFramework — additional cases", () => {
 
   it("captures the 4 IELTS Speaking criteria from the v2.2 fixture", () => {
     const result = parseSkillsFramework(IELTS_V22);

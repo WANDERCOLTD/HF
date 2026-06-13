@@ -471,29 +471,29 @@ describe("lib/goals/track-progress.ts", () => {
       ];
       mockPrisma.goal.findMany.mockResolvedValue(goals);
 
-      // Each ref lives in its own module.
+      // Each ref lives in its own module; resolver now needs module.slug.
       mockPrisma.learningObjective.findMany.mockImplementation(
         ({ where }: any) =>
-          Promise.resolve([{ moduleId: `mod-${where.ref}` }]),
+          Promise.resolve([
+            { moduleId: `mod-${where.ref}`, module: { slug: `slug-${where.ref}` } },
+          ]),
       );
 
-      // Caller has progress on every module, with a distinct mastery per ref.
-      mockPrisma.callerModuleProgress.findMany.mockImplementation(
-        ({ where }: any) => {
-          const moduleIds: string[] = where.moduleId.in;
-          return Promise.resolve(
-            moduleIds.map((id) => {
-              const ref = id.replace(/^mod-/, "");
-              // Build a deterministic per-ref mastery: OUT-01→0.1, OUT-02→0.2 …
-              const n = parseInt(ref.split("-")[1] ?? "0", 10);
-              return {
-                moduleId: id,
-                loScoresJson: { [ref]: { mastery: n / 10, callCount: 1 } },
-              };
-            }),
-          );
-        },
-      );
+      // Caller has lo_mastery for every ref with a distinct mastery.
+      // OUT-01 → 0.1, OUT-02 → 0.2 …  (CallerAttribute canonical key shape)
+      mockPrisma.callerAttribute.findMany.mockImplementation(({ where }: any) => {
+        const suffixes: string[] = (where.OR ?? []).map((c: any) => c.key.endsWith);
+        const rows = suffixes.map((suffix) => {
+          // suffix: `:lo_mastery:slug-OUT-NN:OUT-NN`
+          const m = suffix.match(/:lo_mastery:slug-OUT-(\d+):OUT-\d+$/);
+          const n = m ? parseInt(m[1], 10) : 0;
+          return {
+            key: `curriculum:spec-v1${suffix}`,
+            numberValue: n / 10,
+          };
+        });
+        return Promise.resolve(rows);
+      });
 
       await trackGoalProgress("caller-1", "call-1");
 
@@ -515,19 +515,13 @@ describe("lib/goals/track-progress.ts", () => {
       mockPrisma.goal.findMany.mockResolvedValue([refGoal({ ref: "OUT-01" })]);
 
       mockPrisma.learningObjective.findMany.mockResolvedValue([
-        { moduleId: "mod-part1" },
-        { moduleId: "mod-mock" },
+        { moduleId: "mod-part1", module: { slug: "part1" } },
+        { moduleId: "mod-mock", module: { slug: "mock" } },
       ]);
 
-      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
-        {
-          moduleId: "mod-part1",
-          loScoresJson: { "OUT-01": { mastery: 0.4, callCount: 2 } },
-        },
-        {
-          moduleId: "mod-mock",
-          loScoresJson: { "OUT-01": { mastery: 0.6, callCount: 1 } },
-        },
+      mockPrisma.callerAttribute.findMany.mockResolvedValue([
+        { key: "curriculum:spec-v1:lo_mastery:part1:OUT-01", numberValue: 0.4 },
+        { key: "curriculum:spec-v1:lo_mastery:mock:OUT-01", numberValue: 0.6 },
       ]);
 
       await trackGoalProgress("caller-1", "call-1");
@@ -539,21 +533,18 @@ describe("lib/goals/track-progress.ts", () => {
       });
     });
 
-    it("skips modules where caller has no loScoresJson entry for the ref (partial coverage)", async () => {
-      // OUT-01 is in 2 modules, but caller only has progress on 1.
+    it("skips modules where caller has no lo_mastery row for the ref (partial coverage)", async () => {
+      // OUT-01 is in 2 modules, but caller only has lo_mastery on 1.
       mockPrisma.goal.findMany.mockResolvedValue([refGoal({ ref: "OUT-01" })]);
 
       mockPrisma.learningObjective.findMany.mockResolvedValue([
-        { moduleId: "mod-part1" },
-        { moduleId: "mod-mock" },
+        { moduleId: "mod-part1", module: { slug: "part1" } },
+        { moduleId: "mod-mock", module: { slug: "mock" } },
       ]);
 
-      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
-        {
-          moduleId: "mod-part1",
-          loScoresJson: { "OUT-01": { mastery: 0.8, callCount: 3 } },
-        },
-        // mod-mock has no progress row at all
+      mockPrisma.callerAttribute.findMany.mockResolvedValue([
+        { key: "curriculum:spec-v1:lo_mastery:part1:OUT-01", numberValue: 0.8 },
+        // mod-mock has no lo_mastery row at all
       ]);
 
       await trackGoalProgress("caller-1", "call-1");
@@ -614,13 +605,10 @@ describe("lib/goals/track-progress.ts", () => {
         refGoal({ progress: 0.7, ref: "OUT-01" }),
       ]);
       mockPrisma.learningObjective.findMany.mockResolvedValue([
-        { moduleId: "mod-1" },
+        { moduleId: "mod-1", module: { slug: "mod-1" } },
       ]);
-      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
-        {
-          moduleId: "mod-1",
-          loScoresJson: { "OUT-01": { mastery: 0.7, callCount: 5 } },
-        },
+      mockPrisma.callerAttribute.findMany.mockResolvedValue([
+        { key: "curriculum:spec-v1:lo_mastery:mod-1:OUT-01", numberValue: 0.7 },
       ]);
 
       const result = await trackGoalProgress("caller-1", "call-1");
@@ -1131,10 +1119,10 @@ describe("lib/goals/track-progress.ts", () => {
     // progress past 1.0.
     function setupLoMastery(mastery: number) {
       mockPrisma.learningObjective.findMany.mockResolvedValue([
-        { moduleId: "mod-1" },
+        { moduleId: "mod-1", module: { slug: "mod-1" } },
       ]);
-      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
-        { moduleId: "mod-1", loScoresJson: { "OUT-01": { mastery } } },
+      mockPrisma.callerAttribute.findMany.mockResolvedValue([
+        { key: "curriculum:spec-v1:lo_mastery:mod-1:OUT-01", numberValue: mastery },
       ]);
     }
 
@@ -1243,9 +1231,11 @@ describe("lib/goals/track-progress.ts", () => {
         }),
       ];
       // LO mastery for g1
-      mockPrisma.learningObjective.findMany.mockResolvedValue([{ moduleId: "mod-1" }]);
-      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
-        { moduleId: "mod-1", loScoresJson: { "OUT-01": { mastery: 0.5 } } },
+      mockPrisma.learningObjective.findMany.mockResolvedValue([
+        { moduleId: "mod-1", module: { slug: "mod-1" } },
+      ]);
+      mockPrisma.callerAttribute.findMany.mockResolvedValue([
+        { key: "curriculum:spec-v1:lo_mastery:mod-1:OUT-01", numberValue: 0.5 },
       ]);
       // CONNECT signal for g2 (warmth/empathy/insight avg above highBumpThreshold)
       mockPrisma.callScore.findMany.mockResolvedValue([
