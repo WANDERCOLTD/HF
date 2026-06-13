@@ -474,27 +474,21 @@ try {
             };
             const assertionRows = convertCourseRefToAssertions(refData);
             if (assertionRows.length > 0) {
-              const refSource = await prisma.contentSource.create({
-                data: {
-                  name: `${courseName || "Course"} — Course Reference`,
-                  documentType: "COURSE_REFERENCE",
-                  textSample: renderCourseRefMarkdown(refData),
-                  status: "COMPLETED",
-                },
+              // #1545 — route through the shared pedagogy helper. Pre-fix
+              // this branch hand-rolled a write block that named three
+              // non-existent fields (`status` on ContentSource;
+              // `confidence` + `isActive` on ContentAssertion) plus
+              // missed the required `slug` — Prisma threw on every run
+              // and the outer try/catch logged "non-fatal".
+              const { createPedagogyAssertionsFromCourseRef } = await import("./_pedagogy-assertions");
+              const result = await createPedagogyAssertionsFromCourseRef({
+                courseName: courseName || "Course",
+                playbookId: existingPlaybookId,
+                subjectId: existingPbSubject.subjectId,
+                textSample: renderCourseRefMarkdown(refData),
+                assertionRows,
               });
-              await prisma.subjectSource.create({
-                data: { subjectId: existingPbSubject.subjectId, sourceId: refSource.id },
-              });
-              // Dual-write: PlaybookSource for pedagogy source
-              const { upsertPlaybookSource: upsertPedExisting } = await import("@/lib/knowledge/domain-sources");
-              await upsertPedExisting(existingPlaybookId, refSource.id, { tags: ["course-reference"] });
-
-              for (const row of assertionRows) {
-                await prisma.contentAssertion.create({
-                  data: { ...row, sourceId: refSource.id, confidence: 1.0, depth: 0, isActive: true },
-                });
-              }
-              console.log(`[wizard] Created ${assertionRows.length} pedagogy assertions for existing course`);
+              console.log(`[wizard] Created ${result.assertionCount} pedagogy assertions for existing course`);
             }
           } catch (err) {
             console.error("[wizard] Pedagogy assertion creation (existing) failed (non-fatal):", (err as Error).message);
@@ -1094,7 +1088,10 @@ try {
     // Skip onboarding: mark complete, mark surveys submitted, then compose
     if (skipOnboarding) {
       const { applySkipOnboarding } = await import("@/lib/enrollment/skip-onboarding");
-      await applySkipOnboarding(c.id, domainId);
+      // domainId is narrowed at L107 guard; the re-broadening from L104
+      // assignment loses through this deep nested closure. Non-null
+      // assertion is safe — control flow can't reach here without it.
+      await applySkipOnboarding(c.id, domainId!);
 
       const { autoComposeForCaller } = await import("@/lib/enrollment/auto-compose");
       autoComposeForCaller(c.id, playbookId).catch(err =>
@@ -1213,37 +1210,19 @@ try {
 
         const assertionRows = convertCourseRefToAssertions(refData);
         if (assertionRows.length > 0) {
-          // Create a ContentSource to hold the pedagogy assertions
-          const refSource = await prisma.contentSource.create({
-            data: {
-              name: `${courseName} — Course Reference`,
-              documentType: "COURSE_REFERENCE",
-              textSample: renderCourseRefMarkdown(refData),
-              status: "COMPLETED",
-            },
+          // #1545 — route through the shared pedagogy helper (mirror of
+          // the reuse-path block above). Pre-fix this branch carried the
+          // same three drifted field names and missed the required
+          // `slug` — Prisma threw on every wizard run.
+          const { createPedagogyAssertionsFromCourseRef } = await import("./_pedagogy-assertions");
+          const result = await createPedagogyAssertionsFromCourseRef({
+            courseName,
+            playbookId,
+            subjectId: subject.id,
+            textSample: renderCourseRefMarkdown(refData),
+            assertionRows,
           });
-
-          // Link source to primary subject
-          await prisma.subjectSource.create({
-            data: { subjectId: subject.id, sourceId: refSource.id },
-          });
-          // Dual-write: PlaybookSource for pedagogy source
-          const { upsertPlaybookSource: upsertPedNew } = await import("@/lib/knowledge/domain-sources");
-          await upsertPedNew(playbookId, refSource.id, { tags: ["course-reference"] });
-
-          // Create assertion rows
-          for (const row of assertionRows) {
-            await prisma.contentAssertion.create({
-              data: {
-                ...row,
-                sourceId: refSource.id,
-                confidence: 1.0,
-                depth: 0,
-                isActive: true,
-              },
-            });
-          }
-          console.log(`[wizard] Created ${assertionRows.length} pedagogy assertions from course reference data`);
+          console.log(`[wizard] Created ${result.assertionCount} pedagogy assertions from course reference data`);
         }
       } catch (err) {
         console.error("[wizard] Pedagogy assertion creation failed (non-fatal):", (err as Error).message);
