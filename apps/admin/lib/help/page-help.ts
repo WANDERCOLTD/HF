@@ -265,6 +265,12 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
         whenToUse: "When you want a single coherent answer to 'where is this learner right now?' across all four mastery stores. STUDENT-visible for own data.",
       },
       {
+        id: "adaptations",
+        label: "Adaptations",
+        about: "Per-learner change log — what the engine adapted (CallerTarget overrides vs playbook default), why (REWARD-stage rationale + Goal evidence trail), and what the next call's adaptation will be (goalAdaptationGuidance LOW/MID/HIGH preview). OPERATOR+ only — the change log is operator-private, not learner-facing.",
+        whenToUse: "When you want to audit what the engine has done for this learner since enrolment, or preview what it will adapt next call.",
+      },
+      {
         id: "uplift-v2",
         label: "Uplift",
         about: "Learner proof report — Hero rings, How we adapted (EQ), Skill chart + radar, Module heatmap, Goals achieved, Score trends, Topics covered, Engagement. Printable.",

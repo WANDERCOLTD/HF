@@ -1,0 +1,122 @@
+/* Caller Detail → Adaptations tab (SP5-A shell).
+ * Mirrors `attainment-tab.css` layout primitives so the two beta tabs
+ * read as siblings. Tokens only — no hardcoded hex (HF design system
+ * zero-tolerance).
+ */
+
+.hf-adaptations-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hf-adaptations-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Loading / error / locked / empty states ──────────────────────────── */
+
+.hf-adaptations-loading {
+  padding: 24px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.hf-adaptations-error,
+.hf-adaptations-empty,
+.hf-adaptations-locked {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.hf-adaptations-locked {
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.hf-adaptations-locked strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.hf-adaptations-locked p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-adaptations-empty {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.hf-adaptations-empty strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.hf-adaptations-empty p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-adaptations-error strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ── Section primitives ──────────────────────────────────────────────── */
+
+.hf-adaptations-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+}
+
+.hf-adaptations-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.hf-adaptations-section-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 6px 0;
+  line-height: 1.45;
+}
+
+.hf-adaptations-section-desc code {
+  font-size: 11px;
+  background: var(--surface-secondary);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.hf-adaptations-empty-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+  padding: 8px 0;
+}
+
+.hf-adaptations-placeholder {
+  font-size: 12px;
+  color: var(--text-primary);
+  margin: 0;
+  padding: 8px 0;
+}
