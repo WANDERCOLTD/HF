@@ -9875,6 +9875,18 @@ Evaluate a composed prompt against the quality rubric.
 
 ---
 
+### `GET` /api/callers/[callerId]/attainment
+
+**Auth**: Session
+
+---
+
+### `GET` /api/callers/[callerId]/skills-evidence
+
+**Auth**: Session
+
+---
+
 ### `POST` /api/content-sources/:sourceId/structure
 
 **Auth**: OPERATOR
@@ -16026,8 +16038,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 516 |
-| Files with annotations | 504 |
+| Route files found | 518 |
+| Files with annotations | 506 |
 | Files missing annotations | 12 |
 | Coverage | 97.7% |
 

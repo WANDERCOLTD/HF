@@ -36,6 +36,7 @@ import { StalePromptPill } from "./caller-detail/StalePromptPill";
 import { UpliftTab } from "./caller-detail/UpliftTab";
 import { UpliftV2Tab } from "./caller-detail/caller-detail-v2/UpliftV2Tab";
 import { ProgressV2Tab } from "./caller-detail/caller-detail-v2/ProgressV2Tab";
+import { AttainmentTab } from "./caller-detail/AttainmentTab";
 import { V1BetaBanner } from "./caller-detail/caller-detail-v2/V1BetaBanner";
 import { OverviewV2Tab } from "./caller-detail/caller-detail-v2/OverviewV2Tab";
 
@@ -89,7 +90,7 @@ export default function CallerDetailPage() {
   // Tabs that may render but DO NOT appear in the tab bar (legacy / hidden).
   // The validTabs list keeps render branches reachable via ?tab=<id>; the
   // tab bar itself is built from the VISIBLE_TABS subset below.
-  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow"];
+  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow", "attainment"];
   const VISIBLE_TABS = new Set<SectionId>([
     "overview-v2",
     "calls-prompts",
@@ -698,6 +699,11 @@ export default function CallerDetailPage() {
       { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
       { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
       { id: "progress-v2", label: <TabWithHelp tabId="progress-v2">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.targets || 0) + (data.counts.measurements || 0), group: "shared" },
+      // Sprint 4 SP4-A — Attainment beta tab. Unified per-learner view across
+      // the four parallel state stores (skill EMA + LO mastery + module
+      // mastery + goal progress). Will replace Progress (v2) once SP4-E
+      // tags the legacy surface WILL_RETIRE.
+      { id: "attainment", label: <TabWithHelp tabId="attainment">Attainment</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
       { id: "uplift-v2", label: <TabWithHelp tabId="uplift-v2">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
       { id: "session-flow", label: <TabWithHelp tabId="session-flow">Session Flow</TabWithHelp>, icon: <SlidersHorizontal size={13} />, group: "shared" },
       { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
@@ -1245,6 +1251,11 @@ export default function CallerDetailPage() {
           callerId={callerId}
           memorySummary={data.memorySummary ?? null}
         />
+      )}
+
+      {/* Sprint 4 SP4-A — Attainment beta tab. Unified per-learner view. */}
+      {activeSection === "attainment" && (
+        <AttainmentTab callerId={callerId} />
       )}
 
       {activeSection === "calls-prompts" && (

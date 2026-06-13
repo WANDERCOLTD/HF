@@ -1,0 +1,303 @@
+.hf-attainment-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 8px 0 32px;
+}
+
+.hf-attainment-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.hf-attainment-loading,
+.hf-attainment-empty,
+.hf-attainment-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.hf-attainment-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.hf-attainment-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hf-attainment-section-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hf-attainment-empty-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* ── Skill row ───────────────────────────────────────────────────────────── */
+
+.hf-attainment-skill-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.hf-attainment-skill-row {
+  border-bottom: 1px solid var(--border-default);
+  padding: 6px 0;
+}
+
+.hf-attainment-skill-row:last-child {
+  border-bottom: 0;
+}
+
+.hf-attainment-skill-header {
+  display: grid;
+  grid-template-columns: 70px 1fr auto 110px 14px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 6px 4px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-primary);
+}
+
+.hf-attainment-skill-header:hover {
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  border-radius: 6px;
+}
+
+.hf-attainment-skill-ref {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--accent-primary);
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.hf-attainment-skill-name {
+  font-weight: 600;
+  font-size: 13px;
+  text-align: left;
+}
+
+.hf-attainment-skill-target {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-attainment-skill-chevron {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ── Evidence expand ─────────────────────────────────────────────────────── */
+
+.hf-attainment-evidence-list,
+.hf-attainment-evidence-loading,
+.hf-attainment-evidence-empty {
+  margin: 8px 0 12px 70px;
+  padding: 12px 14px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.hf-attainment-evidence-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.hf-attainment-evidence-item {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border-default);
+}
+
+.hf-attainment-evidence-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.hf-attainment-evidence-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.hf-attainment-evidence-quotes {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.hf-attainment-evidence-quotes li {
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.hf-attainment-evidence-quote-empty {
+  color: var(--text-muted);
+}
+
+/* ── Module rows ─────────────────────────────────────────────────────────── */
+
+.hf-attainment-module-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.hf-attainment-module-row {
+  display: grid;
+  grid-template-columns: 1fr 220px 130px;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 4px;
+}
+
+.hf-attainment-module-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.hf-attainment-module-bar {
+  height: 8px;
+  background: var(--surface-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hf-attainment-module-bar-fill {
+  height: 100%;
+  background: var(--status-success-text);
+}
+
+.hf-attainment-module-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* ── Goal rows ───────────────────────────────────────────────────────────── */
+
+.hf-attainment-goal-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.hf-attainment-goal-row {
+  display: grid;
+  grid-template-columns: 1fr 220px 60px;
+  grid-template-rows: auto auto;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px dashed var(--border-default);
+}
+
+.hf-attainment-goal-row:last-child {
+  border-bottom: 0;
+}
+
+.hf-attainment-goal-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.hf-attainment-goal-type {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.hf-attainment-goal-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.hf-attainment-goal-strategy {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.hf-attainment-goal-bar {
+  grid-column: 2;
+  grid-row: 1;
+  height: 6px;
+  background: var(--surface-secondary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hf-attainment-goal-bar-fill {
+  height: 100%;
+  background: var(--status-success-text);
+}
+
+.hf-attainment-goal-pct {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.hf-attainment-goal-evidence {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-left: 8px;
+}
+
+.hf-attainment-goal-more {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 4px;
+}
