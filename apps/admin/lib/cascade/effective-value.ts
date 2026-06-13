@@ -28,6 +28,7 @@ import { resolveSessionFlowKnob } from "./resolvers/session-flow";
 import { resolveWelcomeMessage } from "./resolvers/welcome-message";
 import { resolveVoiceConfigKnob } from "./resolvers/voice-config";
 import { resolveIdentitySpec } from "./resolvers/identity-spec";
+import { resolveMasteryPolicyKnob } from "./resolvers/mastery-policy";
 
 /**
  * Scope IDs the cascade can resolve against. SYSTEM is implicit (no id);
@@ -100,6 +101,17 @@ const FAMILIES: readonly KnobFamily[] = [
     name: "identity-spec",
     match: (k) => k === "identitySpecId",
     resolve: (scope) => resolveIdentitySpec(scope),
+  },
+  {
+    // Sprint 1 SP1-D (2026-06-13) — only the 2 mastery knobs that
+    // genuinely cascade across Domain → Playbook. The other three
+    // (`useFreshMastery`, `maxMasteryTier`, `scoringMode`) are intrinsic
+    // to the course/variant and stay Playbook-only — the Rubric
+    // Calibration lens renders them with a variant-preset pill instead
+    // of a cascade chip.
+    name: "mastery-policy",
+    match: (k) => k === "skillTierMapping" || k === "skillScoringEmaHalfLifeDays",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
   },
 ];
 
