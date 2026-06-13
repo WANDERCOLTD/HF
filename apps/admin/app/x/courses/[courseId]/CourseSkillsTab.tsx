@@ -8,6 +8,7 @@ import {
   Grid3X3,
   Users,
   Sliders,
+  X,
 } from "lucide-react";
 
 import {
@@ -356,6 +357,21 @@ function CohortHeatmapLens({ courseId }: { courseId: string }) {
   const [data, setData] = useState<CohortHeatmapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{
+    skillRef: string;
+    tier: string;
+  } | null>(null);
+
+  // Escape key closes the drill panel — sibling to the click-elsewhere
+  // pattern used by other slide-down panels in the admin.
+  useEffect(() => {
+    if (!selectedCell) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setSelectedCell(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedCell]);
 
   useEffect(() => {
     let cancelled = false;
@@ -426,13 +442,24 @@ function CohortHeatmapLens({ courseId }: { courseId: string }) {
   return (
     <div className="hf-skills-cohort">
       <div className="hf-skills-cohort-meta">
-        Cohort: <strong>{data.totalLearners}</strong> learners enrolled
+        Cohort: <strong>{data.totalLearners}</strong> learners enrolled.
+        <span className="hf-cohort-hint"> Click any cell to drill in.</span>
       </div>
       {data.rows.map((row) => (
         <CohortHeatmapRowView
           key={row.skillRef}
           row={row}
           totalLearners={data.totalLearners}
+          courseId={courseId}
+          selectedCell={selectedCell}
+          onSelectCell={(skillRef, tier) =>
+            setSelectedCell((prev) =>
+              prev && prev.skillRef === skillRef && prev.tier === tier
+                ? null
+                : { skillRef, tier },
+            )
+          }
+          onClose={() => setSelectedCell(null)}
         />
       ))}
     </div>
@@ -442,9 +469,17 @@ function CohortHeatmapLens({ courseId }: { courseId: string }) {
 function CohortHeatmapRowView({
   row,
   totalLearners,
+  courseId,
+  selectedCell,
+  onSelectCell,
+  onClose,
 }: {
   row: CohortHeatmapRow;
   totalLearners: number;
+  courseId: string;
+  selectedCell: { skillRef: string; tier: string } | null;
+  onSelectCell: (skillRef: string, tier: string) => void;
+  onClose: () => void;
 }) {
   // Ordered render: AWAITING, scheme[0..n], ABOVE_TARGET
   const orderedTiers = useMemo(() => {
@@ -452,33 +487,178 @@ function CohortHeatmapRowView({
     return out;
   }, [row.tierScheme]);
 
+  const isCellSelected = (tier: string) =>
+    selectedCell !== null &&
+    selectedCell.skillRef === row.skillRef &&
+    selectedCell.tier === tier;
+
   return (
     <div className="hf-cohort-row">
-      <div className="hf-cohort-row-meta">
-        <span className="hf-skill-row-ref">{row.skillRef}</span>
-        <span className="hf-skill-row-name">{row.parameterName}</span>
-        <span className="hf-skill-row-target">
-          Target:{" "}
-          {row.targetTier ? tierLabel(row.targetTier) : "—"} · {(row.targetValue * 10).toFixed(1)}
-        </span>
+      <div className="hf-cohort-row-grid">
+        <div className="hf-cohort-row-meta">
+          <span className="hf-skill-row-ref">{row.skillRef}</span>
+          <span className="hf-skill-row-name">{row.parameterName}</span>
+          <span className="hf-skill-row-target">
+            Target:{" "}
+            {row.targetTier ? tierLabel(row.targetTier) : "—"} · {(row.targetValue * 10).toFixed(1)}
+          </span>
+        </div>
+        <div className="hf-cohort-row-cells">
+          {orderedTiers.map((tier) => {
+            const count = row.buckets[tier] ?? 0;
+            const pct = totalLearners > 0 ? Math.round((count / totalLearners) * 100) : 0;
+            return (
+              <div
+                key={`${row.skillRef}-${tier}`}
+                className={`hf-cohort-cell-wrap ${
+                  isCellSelected(tier) ? "hf-cohort-cell-wrap--selected" : ""
+                }`}
+                data-cell={`${row.skillRef}-${tier}`}
+              >
+                <TierCell
+                  tier={tier}
+                  target={tier === row.targetTier}
+                  caption={`${count} · ${pct}%`}
+                  size="default"
+                  onClick={() => onSelectCell(row.skillRef, tier)}
+                >
+                  {count}
+                </TierCell>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="hf-cohort-row-cells">
-        {orderedTiers.map((tier) => {
-          const count = row.buckets[tier] ?? 0;
-          const pct = totalLearners > 0 ? Math.round((count / totalLearners) * 100) : 0;
-          return (
-            <TierCell
-              key={`${row.skillRef}-${tier}`}
-              tier={tier}
-              target={tier === row.targetTier}
-              caption={`${count} · ${pct}%`}
-              size="default"
-            >
-              {count}
-            </TierCell>
-          );
-        })}
-      </div>
+      {selectedCell && selectedCell.skillRef === row.skillRef ? (
+        <CohortCellEvidencePanel
+          courseId={courseId}
+          skillRef={selectedCell.skillRef}
+          tier={selectedCell.tier}
+          onClose={onClose}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ── Cohort cell drill panel (SP2-D-followon) ────────────────────────────────
+
+interface CohortCellLearner {
+  callerId: string;
+  callerName: string | null;
+  currentScore: number | null;
+  lastMeasurement: {
+    callId: string;
+    measuredAt: string;
+    score: number;
+    confidence: number;
+    excerpts: string[];
+  } | null;
+}
+
+interface CohortCellResponse {
+  courseId: string;
+  skillRef: string;
+  parameterId: string;
+  parameterName: string;
+  tier: string;
+  tierScheme: string[];
+  learners: CohortCellLearner[];
+  empty: boolean;
+}
+
+function CohortCellEvidencePanel({
+  courseId,
+  skillRef,
+  tier,
+  onClose,
+}: {
+  courseId: string;
+  skillRef: string;
+  tier: string;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<CohortCellResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setData(null);
+    const qs = new URLSearchParams({ skillRef, tier });
+    fetch(`/api/courses/${courseId}/skills-cohort-cell?${qs.toString()}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then((payload: CohortCellResponse) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, skillRef, tier]);
+
+  return (
+    <div
+      className="hf-cohort-drill-panel"
+      role="region"
+      aria-label={`${skillRef} at ${tierLabel(tier)} drill panel`}
+    >
+      <header className="hf-cohort-drill-header">
+        <div className="hf-cohort-drill-title">
+          <strong>{skillRef}</strong> · {tierLabel(tier)}
+          {data && !loading ? (
+            <span className="hf-cohort-drill-count">
+              {data.learners.length} learner{data.learners.length === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          className="hf-cohort-drill-close"
+          onClick={onClose}
+          aria-label="Close drill panel"
+        >
+          <X size={14} aria-hidden />
+        </button>
+      </header>
+
+      {loading ? (
+        <div className="hf-cohort-drill-loading" role="status" aria-live="polite">
+          Loading evidence…
+        </div>
+      ) : error ? (
+        <div className="hf-cohort-drill-error" role="alert">
+          <AlertTriangle size={14} />
+          <span>{error}</span>
+        </div>
+      ) : data && data.learners.length === 0 ? (
+        <div className="hf-cohort-drill-empty">
+          <Info size={14} aria-hidden />
+          <span>
+            No learners in <strong>{tierLabel(tier)}</strong> yet for{" "}
+            <strong>{data.parameterName}</strong>.
+          </span>
+        </div>
+      ) : data ? (
+        <ul className="hf-cohort-drill-learners">
+          {data.learners.map((l) => (
+            <CohortDrillLearnerRow key={l.callerId} learner={l} tier={tier} />
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -849,6 +1029,60 @@ function tierLabelForTarget(skill: RubricCalibrationSkill): string {
   if (!targetTier) return "—";
   return `${tierLabel(targetTier)} · ${(skill.targetValue * 10).toFixed(1)}`;
 }
+
+function CohortDrillLearnerRow({
+  learner,
+  tier,
+}: {
+  learner: CohortCellLearner;
+  tier: string;
+}) {
+  const scoreLabel =
+    typeof learner.currentScore === "number"
+      ? (learner.currentScore * 10).toFixed(1)
+      : "—";
+  const measuredAtLabel = learner.lastMeasurement
+    ? new Date(learner.lastMeasurement.measuredAt).toLocaleDateString()
+    : null;
+
+  return (
+    <li className="hf-cohort-drill-learner">
+      <div className="hf-cohort-drill-learner-head">
+        <TierCell tier={tier} size="compact" />
+        <strong className="hf-cohort-drill-learner-name">
+          {learner.callerName ?? learner.callerId.slice(0, 8)}
+        </strong>
+        <span className="hf-cohort-drill-learner-score">EMA {scoreLabel}</span>
+      </div>
+      {learner.lastMeasurement ? (
+        <div className="hf-cohort-drill-learner-evidence">
+          <span className="hf-cohort-drill-evidence-meta">
+            Last cited {measuredAtLabel} · confidence{" "}
+            {(learner.lastMeasurement.confidence * 100).toFixed(0)}%
+          </span>
+          {learner.lastMeasurement.excerpts.length > 0 ? (
+            <ul className="hf-cohort-drill-evidence-list">
+              {learner.lastMeasurement.excerpts.map((excerpt, i) => (
+                <li key={i} className="hf-cohort-drill-evidence-excerpt">
+                  &ldquo;{excerpt}&rdquo;
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="hf-cohort-drill-evidence-empty">
+              Measured but no transcript excerpt was retained.
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="hf-cohort-drill-evidence-empty">
+          No transcript evidence captured yet.
+        </div>
+      )}
+    </li>
+  );
+}
+
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
