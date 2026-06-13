@@ -20,6 +20,41 @@ describe("parseSkillsFramework", () => {
     expect(result.skills).toEqual([]);
     expect(result.validationWarnings).toEqual([]);
   });
+});
+
+// (c) Course-ref template enforcement — no skills → projection emits
+// PROJECTION_NO_SKILLS_FRAMEWORK warning. Educator dashboard band/tier UI
+// would otherwise sit flat-zero on every learner forever.
+describe("projectCourseReference — PROJECTION_NO_SKILLS_FRAMEWORK warning", () => {
+  it("emits the warning when the course-ref has no Skills Framework section", () => {
+    const text =
+      "---\nhf-document-type: COURSE_REFERENCE_CANONICAL\n---\n\n# Course\n\n## Outcomes\n\n**OUT-01:** Something.\n";
+    const result = projectCourseReference(text, { sourceContentId: SOURCE_ID });
+    expect(result.skills).toHaveLength(0);
+    const codes = result.validationWarnings.map((w) => w.code);
+    expect(codes).toContain("PROJECTION_NO_SKILLS_FRAMEWORK");
+  });
+
+  it("emits the warning when the section heading exists but no `### SKILL-NN` blocks are inside", () => {
+    const text =
+      "# Course\n\n## Skills Framework\n\nThis course measures skills but I haven't filled them in yet.\n\n## Next Section\n";
+    const result = projectCourseReference(text, { sourceContentId: SOURCE_ID });
+    expect(result.skills).toHaveLength(0);
+    const codes = result.validationWarnings.map((w) => w.code);
+    expect(codes).toContain("PROJECTION_NO_SKILLS_FRAMEWORK");
+  });
+
+  it("does NOT emit the warning when at least one SKILL-NN is declared in heading form", () => {
+    const text =
+      "# Course\n\n## Skills Framework\n\n### SKILL-01: Example Skill\n\nDef.\n\n- **Emerging:** A\n- **Developing:** B\n- **Secure:** C\n";
+    const result = projectCourseReference(text, { sourceContentId: SOURCE_ID });
+    expect(result.skills).toHaveLength(1);
+    const codes = result.validationWarnings.map((w) => w.code);
+    expect(codes).not.toContain("PROJECTION_NO_SKILLS_FRAMEWORK");
+  });
+});
+
+describe("parseSkillsFramework — additional cases", () => {
 
   it("captures the 4 IELTS Speaking criteria from the v2.2 fixture", () => {
     const result = parseSkillsFramework(IELTS_V22);
