@@ -259,6 +259,12 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
         whenToUse: "When you want to drill into scores, goals, module mastery, exam readiness or the session plan.",
       },
       {
+        id: "attainment",
+        label: "Attainment",
+        about: "Unified per-learner attainment view across skill EMA bands, LO mastery, module mastery, and goal progress — same cold→hot colours and glyphs as the cohort heatmap. Click any skill row to see the most recent evidence the AI tutor cited.",
+        whenToUse: "When you want a single coherent answer to 'where is this learner right now?' across all four mastery stores. STUDENT-visible for own data.",
+      },
+      {
         id: "uplift-v2",
         label: "Uplift",
         about: "Learner proof report — Hero rings, How we adapted (EQ), Skill chart + radar, Module heatmap, Goals achieved, Score trends, Topics covered, Engagement. Printable.",
