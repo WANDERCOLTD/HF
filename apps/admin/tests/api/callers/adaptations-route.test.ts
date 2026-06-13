@@ -19,6 +19,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     callerTarget: { count: vi.fn(), findMany: vi.fn() },
     parameter: { findMany: vi.fn() },
     behaviorTarget: { findMany: vi.fn() },
+    rewardScore: { findMany: vi.fn() as ReturnType<typeof vi.fn> },
   },
 }));
 
@@ -48,6 +49,8 @@ async function loadRoute() {
 describe("GET /api/callers/[callerId]/adaptations — SP5-A shell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: no RewardScore rows. Individual SP5-C tests override.
+    mockPrisma.rewardScore.findMany.mockResolvedValue([]);
   });
 
   it("returns 403 for STUDENT (refused at requireAuth OPERATOR gate)", async () => {
@@ -150,6 +153,120 @@ describe("GET /api/callers/[callerId]/adaptations — SP5-A shell", () => {
       callsApplied: 0,
     });
     expect(body.empty).toBe(false);
+  });
+
+  it("SP5-C: derives why-entries from RewardScore.targetUpdatesApplied with direction + delta", async () => {
+    mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Alex" });
+    mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
+      playbookId: "pb1",
+      playbook: { id: "pb1", name: "IELTS Speaking" },
+    });
+    mockPrisma.rewardScore.findMany.mockResolvedValueOnce([
+      {
+        callId: "call-99",
+        scoredAt: new Date("2026-06-12T10:00:00Z"),
+        targetUpdatesApplied: [
+          {
+            parameterId: "BEH_QUESTION_RATE",
+            oldTarget: 0.5,
+            newTarget: 0.7,
+            reason: "Assessment near threshold — raise questioning",
+          },
+          {
+            parameterId: "BEH_PRAISE_RATE",
+            oldTarget: 0.5,
+            newTarget: 0.5,
+            reason: "No change warranted this call",
+          },
+        ],
+      },
+    ]);
+    mockPrisma.parameter.findMany.mockResolvedValue([
+      { parameterId: "BEH_QUESTION_RATE", name: "Question rate" },
+      { parameterId: "BEH_PRAISE_RATE", name: "Praise rate" },
+    ]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.why).toHaveLength(2);
+    const up = body.why.find((r: { direction: string }) => r.direction === "up");
+    const hold = body.why.find((r: { direction: string }) => r.direction === "hold");
+    expect(up).toMatchObject({
+      parameterName: "Question rate",
+      direction: "up",
+      callId: "call-99",
+    });
+    expect(up.delta).toBeCloseTo(0.2, 5);
+    expect(hold).toMatchObject({
+      parameterName: "Praise rate",
+      direction: "hold",
+    });
+    expect(hold.delta).toBeCloseTo(0, 5);
+    expect(body.empty).toBe(false);
+  });
+
+  it("SP5-C: down direction when newTarget < oldTarget", async () => {
+    mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Alex" });
+    mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
+      playbookId: "pb1",
+      playbook: { id: "pb1", name: "IELTS Speaking" },
+    });
+    mockPrisma.rewardScore.findMany.mockResolvedValueOnce([
+      {
+        callId: "call-7",
+        scoredAt: new Date("2026-06-10T10:00:00Z"),
+        targetUpdatesApplied: [
+          {
+            parameterId: "BEH_INTERRUPTIONS",
+            oldTarget: 0.4,
+            newTarget: 0.2,
+            reason: "Too many interruptions — soften",
+          },
+        ],
+      },
+    ]);
+    mockPrisma.parameter.findMany.mockResolvedValue([
+      { parameterId: "BEH_INTERRUPTIONS", name: "Interruptions" },
+    ]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.why[0].direction).toBe("down");
+    expect(body.why[0].delta).toBeCloseTo(-0.2, 5);
+  });
+
+  it("SP5-C: tolerates malformed targetUpdatesApplied entries", async () => {
+    mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Alex" });
+    mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
+      playbookId: "pb1",
+      playbook: { id: "pb1", name: "IELTS Speaking" },
+    });
+    mockPrisma.rewardScore.findMany.mockResolvedValueOnce([
+      {
+        callId: "call-1",
+        scoredAt: new Date("2026-06-10T10:00:00Z"),
+        targetUpdatesApplied: [
+          null,
+          { parameterId: 42 }, // non-string parameterId
+          { reason: "missing both targets" },
+          { parameterId: "OK", oldTarget: 0.3, newTarget: 0.5, reason: "valid" },
+        ],
+      },
+    ]);
+    mockPrisma.parameter.findMany.mockResolvedValue([
+      { parameterId: "OK", name: "OK param" },
+    ]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.why).toHaveLength(3); // null skipped; non-object skipped; others kept
+    const valid = body.why.find((r: { parameterId: string }) => r.parameterId === "OK");
+    expect(valid?.direction).toBe("up");
+    const missingBoth = body.why.find(
+      (r: { rationale: string }) => r.rationale === "missing both targets",
+    );
+    expect(missingBoth?.direction).toBe("hold");
+    expect(missingBoth?.delta).toBeNull();
   });
 
   it("SP5-B: CALLER-scope override carries confidence + callsApplied from CallerTarget", async () => {
