@@ -291,6 +291,17 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       { keys: "A", action: "callback", callbackId: "tab:ai-call", label: "Call tab (cAll)" },
     ],
   },
+
+  // ── Help bank ────────────────────────────────────────────────────────
+  {
+    match: "/x/help/glossary",
+    title: "Glossary — Skills, LOs, TPs, Mastery",
+    about:
+      "Canonical vocabulary across course design, skill measurement, and learner progress. Open this when you're unsure whether a label means Skill vs LO vs Mastery vs Skill Score — every term maps to its DB shape and example. Maintained in `docs/glossary-skills-mastery.md`; this page reflects the current branch.",
+    chords: [
+      { keys: "C", action: "navigate", href: "/x/courses", label: "Back to Courses" },
+    ],
+  },
 ];
 
 /**

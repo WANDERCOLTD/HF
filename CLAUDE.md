@@ -209,6 +209,7 @@ These memory files are kept in sync with the codebase. Consult them first.
 | [memory/holographic.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/holographic.md) | 8 sections, state shape, permissions, Phase 2 pattern | Section added/changed, new Phase 2 component |
 | [memory/async-patterns.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/async-patterns.md) | useTaskPoll / useAsyncStep / WizardShell / spinner-vs-glow | New hook, polling pattern, wizard framework change |
 | [memory/extraction.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/extraction.md) | DocumentTypes, resolution chain, ContentAssertion shape, trust levels | New DocumentType, extraction category, new resolveExtractionConfig caller |
+| [`docs/glossary-skills-mastery.md`](./docs/glossary-skills-mastery.md) | Canonical vocab: Course/Source/Skill/LO/TP/Mastery. Educator label ↔ DB shape. Surfaced at `/x/help/glossary`. | New entity in the 7 layers; UI label change; new tier scheme; new mastery store |
 
 ### Hard-prereq contract docs (read before touching the surface)
 
