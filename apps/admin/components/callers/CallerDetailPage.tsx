@@ -37,6 +37,7 @@ import { UpliftTab } from "./caller-detail/UpliftTab";
 import { UpliftV2Tab } from "./caller-detail/caller-detail-v2/UpliftV2Tab";
 import { ProgressV2Tab } from "./caller-detail/caller-detail-v2/ProgressV2Tab";
 import { AttainmentTab } from "./caller-detail/AttainmentTab";
+import { AdaptationsTab } from "./caller-detail/AdaptationsTab";
 import { V1BetaBanner } from "./caller-detail/caller-detail-v2/V1BetaBanner";
 import { OverviewV2Tab } from "./caller-detail/caller-detail-v2/OverviewV2Tab";
 
@@ -90,7 +91,7 @@ export default function CallerDetailPage() {
   // Tabs that may render but DO NOT appear in the tab bar (legacy / hidden).
   // The validTabs list keeps render branches reachable via ?tab=<id>; the
   // tab bar itself is built from the VISIBLE_TABS subset below.
-  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow", "attainment"];
+  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow", "attainment", "adaptations"];
   const VISIBLE_TABS = new Set<SectionId>([
     "overview-v2",
     "calls-prompts",
@@ -704,6 +705,7 @@ export default function CallerDetailPage() {
       // mastery + goal progress). Will replace Progress (v2) once SP4-E
       // tags the legacy surface WILL_RETIRE.
       { id: "attainment", label: <TabWithHelp tabId="attainment">Attainment</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
+      { id: "adaptations", label: <TabWithHelp tabId="adaptations">Adaptations</TabWithHelp>, icon: <SlidersHorizontal size={13} />, group: "shared" },
       { id: "uplift-v2", label: <TabWithHelp tabId="uplift-v2">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
       { id: "session-flow", label: <TabWithHelp tabId="session-flow">Session Flow</TabWithHelp>, icon: <SlidersHorizontal size={13} />, group: "shared" },
       { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
@@ -1256,6 +1258,13 @@ export default function CallerDetailPage() {
       {/* Sprint 4 SP4-A — Attainment beta tab. Unified per-learner view. */}
       {activeSection === "attainment" && (
         <AttainmentTab callerId={callerId} />
+      )}
+
+      {/* Sprint 5 SP5-A — Adaptations beta tab. OPERATOR+ only; the
+          component renders a "locked" message for STUDENT/VIEWER and
+          the API route refuses non-OPERATOR sessions. */}
+      {activeSection === "adaptations" && (
+        <AdaptationsTab callerId={callerId} />
       )}
 
       {activeSection === "calls-prompts" && (
