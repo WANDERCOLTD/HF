@@ -10124,6 +10124,12 @@ Partial update of Playbook.config — accepts a sessionFlow
 
 ---
 
+### `GET` /api/courses/[courseId]/skills-rubric-calibration
+
+**Auth**: Session
+
+---
+
 ### `GET` /api/courses/[courseId]/students
 
 List all students (callers) enrolled in a course (playbook).
@@ -16038,8 +16044,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 518 |
-| Files with annotations | 506 |
+| Route files found | 519 |
+| Files with annotations | 507 |
 | Files missing annotations | 12 |
 | Coverage | 97.7% |
 
