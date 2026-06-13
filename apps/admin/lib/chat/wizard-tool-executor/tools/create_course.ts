@@ -12,8 +12,6 @@ if (graphGuard.earlyReturn) return graphGuard.earlyReturn;
 // Server-side: full course creation with scaffolding (identity spec, playbook, system specs, publish, onboarding)
 try {
   const { prisma } = await import("@/lib/prisma");
-  const { enrollCaller } = await import("@/lib/enrollment");
-  const { randomFakeName } = await import("@/lib/fake-names");
 
   // ── Stage 3 — subject-discipline guard (extracted #1544) ──
   // Runs before domain resolution so a missing subjectDiscipline never
@@ -77,129 +75,10 @@ try {
     select: { id: true, name: true, slug: true },
   });
 
-  // 9a. Ensure the wizard user has a TEACHER Caller (needed for educator dashboard + cohort ownership)
-  let teacherCaller = await prisma.caller.findFirst({
-    where: { userId, domainId, role: "TEACHER" },
-    select: { id: true },
-  });
-  if (!teacherCaller) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true, email: true },
-    });
-    teacherCaller = await prisma.caller.create({
-      data: {
-        name: user?.name || "Educator",
-        email: user?.email || undefined,
-        role: "TEACHER",
-        userId,
-        domainId,
-      },
-      select: { id: true },
-    });
-  }
-
-  // 9b. Create TWO test callers: demo (skips onboarding) + full (normal journey)
-  const { instantiatePlaybookGoals } = await import("@/lib/enrollment/instantiate-goals");
-  const { instantiatePlaybookTargets } = await import("@/lib/enrollment/instantiate-targets");
-
-  async function createTestCaller(callerName: string, skipOnboarding: boolean) {
-    const c = await prisma.caller.create({
-      data: { name: callerName, domainId },
-    });
-    await enrollCaller(c.id, playbookId, "wizard-v2", undefined,
-      { skipAutoCompose: skipOnboarding });
-
-    // Instantiate Goal rows from playbook.config.goals. Shared helper keeps
-    // v5 wizard (course-setup) and chat wizard in lockstep. Re-throw on failure
-    // so the wizard reports the broken state instead of pretending success.
-    await instantiatePlaybookGoals(c.id, domainId);
-
-    // Pre-create CallerTarget placeholders. Non-fatal — see instantiate-targets.ts.
-    await instantiatePlaybookTargets(c.id).catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(`[wizard] Target instantiation failed for ${c.id}: ${message}`);
-    });
-
-    // Skip onboarding: mark complete, mark surveys submitted, then compose
-    if (skipOnboarding) {
-      const { applySkipOnboarding } = await import("@/lib/enrollment/skip-onboarding");
-      // domainId is narrowed at L107 guard; the re-broadening from L104
-      // assignment loses through this deep nested closure. Non-null
-      // assertion is safe — control flow can't reach here without it.
-      await applySkipOnboarding(c.id, domainId!);
-
-      const { autoComposeForCaller } = await import("@/lib/enrollment/auto-compose");
-      autoComposeForCaller(c.id, playbookId).catch(err =>
-        console.error(`[wizard] Auto-compose failed for demo caller ${c.id}:`, err.message));
-    }
-
-    return c;
-  }
-
-  const demoName = randomFakeName();
-  const callerName = randomFakeName();
-  // Demo caller (skip-onboarding) is best-effort — don't block course creation if it fails
-  let demoCaller: { id: string } | null = null;
-  try {
-    demoCaller = await createTestCaller(demoName, true);
-  } catch (err) {
-    console.error("[wizard] Demo caller creation failed (non-fatal):", (err as Error).message);
-  }
-  const caller = await createTestCaller(callerName, false);
-
-  // 9d. Create or reuse "Test Learners" cohort so the course has a join link.
-  //
-  // SCOPE BY PLAYBOOK, NOT BY NAME. Previously this looked up the cohort
-  // by (domainId, name) so a brand-new playbook would silently reuse the
-  // cohort of an earlier same-named playbook in the same domain — and
-  // inherit its entire member list. Live repro on hf-dev 2026-05-19:
-  // "IELTS Speaking Practice" was the 13th playbook of that name in
-  // the IELTS Prep Lab domain; the cohort created on 2026-05-10 had
-  // accumulated 4 leaked members across the prior runs.
-  //
-  // Scoping by playbook means: brand-new playbookId has no
-  // CohortPlaybook link yet → findFirst returns null → fresh cohort
-  // gets created. Re-runs of create_course on the SAME playbookId
-  // find the prior cohort and reuse it (the legitimate case the
-  // findFirst was added for).
-  const cohortName = `${courseName} — Test Learners`;
-  let cohort = await prisma.cohortGroup.findFirst({
-    where: { playbooks: { some: { playbookId } } },
-  });
-  let joinToken = cohort?.joinToken || "";
-  if (!cohort) {
-    joinToken = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-    cohort = await prisma.cohortGroup.create({
-      data: {
-        name: cohortName,
-        domainId,
-        ownerId: teacherCaller.id,
-        joinToken,
-        isActive: true,
-      },
-    });
-  }
-  await prisma.cohortPlaybook.upsert({
-    where: { cohortGroupId_playbookId: { cohortGroupId: cohort.id, playbookId } },
-    update: {},
-    create: {
-      cohortGroupId: cohort.id,
-      playbookId,
-      assignedBy: "wizard-v5",
-    },
-  });
-  // Add test callers to the cohort (skip if already a member)
-  for (const cId of [demoCaller?.id, caller.id].filter(Boolean) as string[]) {
-    const existingMembership = await prisma.callerCohortMembership.findFirst({
-      where: { callerId: cId, cohortGroupId: cohort.id },
-    });
-    if (!existingMembership) {
-      await prisma.callerCohortMembership.create({
-        data: { callerId: cId, cohortGroupId: cohort.id },
-      });
-    }
-  }
+  // ── Stage 7 — TEACHER + test caller enrollment + cohort (extracted #1544) ──
+  const { enrollAndCreateCaller } = await import("./create_course/_enroll");
+  const enrollState = await enrollAndCreateCaller({ ...newPathCtx, playbookId });
+  const { caller, callerName, demoCaller, demoName, cohort, joinToken } = enrollState;
 
   // 10. Backfill teachMethod on assertions extracted before teachingMode was set
   const resolvedTeachingModeNew = (input.teachingMode as string) || (setupData?.teachingMode as string);
