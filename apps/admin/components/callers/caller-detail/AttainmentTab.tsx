@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, AlertTriangle, Info } from "lucide-react";
+import {
+  TrendingUp,
+  AlertTriangle,
+  Info,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Circle,
+  CircleDot,
+} from "lucide-react";
 
 import {
   ABOVE_TARGET,
@@ -102,6 +111,30 @@ interface SkillEvidenceResponse {
   rows: SkillEvidenceRow[];
 }
 
+type LoMasteryStatus = "mastered" | "in_progress" | "not_started";
+
+interface LoMasteryEntry {
+  ref: string;
+  description: string;
+  mastery: number | null;
+  tier: string | null;
+  bandLabel: number | null;
+  masteryThreshold: number | null;
+  status: LoMasteryStatus;
+  updatedAt: string | null;
+}
+
+interface LoMasteryResponse {
+  callerId: string;
+  playbookId: string | null;
+  moduleId: string;
+  moduleSlug: string;
+  moduleTitle: string;
+  useFreshMastery: boolean;
+  scratchSourceCallId: string | null;
+  learningObjectives: LoMasteryEntry[];
+}
+
 interface Props {
   callerId: string;
 }
@@ -113,6 +146,10 @@ export function AttainmentTab({ callerId }: Props) {
   const [expandedSkillRef, setExpandedSkillRef] = useState<string | null>(null);
   const [evidence, setEvidence] = useState<Record<string, SkillEvidenceItem[]>>({});
   const [evidenceLoading, setEvidenceLoading] = useState<string | null>(null);
+  const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
+  const [loBreakdown, setLoBreakdown] = useState<Record<string, LoMasteryResponse>>({});
+  const [loLoading, setLoLoading] = useState<string | null>(null);
+  const [loError, setLoError] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +176,37 @@ export function AttainmentTab({ callerId }: Props) {
       cancelled = true;
     };
   }, [callerId]);
+
+  const handleToggleModule = async (moduleId: string) => {
+    const next = expandedModuleId === moduleId ? null : moduleId;
+    setExpandedModuleId(next);
+    if (next && !loBreakdown[moduleId]) {
+      setLoLoading(moduleId);
+      setLoError((prev) => {
+        const { [moduleId]: _, ...rest } = prev;
+        void _;
+        return rest;
+      });
+      try {
+        const res = await fetch(
+          `/api/callers/${callerId}/lo-mastery?moduleId=${encodeURIComponent(moduleId)}`,
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+        }
+        const payload: LoMasteryResponse = await res.json();
+        setLoBreakdown((prev) => ({ ...prev, [moduleId]: payload }));
+      } catch (err) {
+        setLoError((prev) => ({
+          ...prev,
+          [moduleId]: (err as Error).message,
+        }));
+      } finally {
+        setLoLoading(null);
+      }
+    }
+  };
 
   const handleToggleSkill = async (skillRef: string) => {
     const next = expandedSkillRef === skillRef ? null : skillRef;
@@ -224,6 +292,11 @@ export function AttainmentTab({ callerId }: Props) {
       <ModulesSection
         modules={data.modules}
         useFreshMastery={data.useFreshMastery}
+        expandedModuleId={expandedModuleId}
+        loBreakdown={loBreakdown}
+        loLoading={loLoading}
+        loError={loError}
+        onToggleModule={handleToggleModule}
       />
 
       <GoalsSection goals={data.goals} />
@@ -373,14 +446,24 @@ function SkillEvidencePanel({
   );
 }
 
-// ── Modules section (SP4-C will deepen this) ────────────────────────────────
+// ── Modules section + per-LO drill (SP4-C) ──────────────────────────────────
 
 function ModulesSection({
   modules,
   useFreshMastery,
+  expandedModuleId,
+  loBreakdown,
+  loLoading,
+  loError,
+  onToggleModule,
 }: {
   modules: ModuleProgress[];
   useFreshMastery: boolean;
+  expandedModuleId: string | null;
+  loBreakdown: Record<string, LoMasteryResponse>;
+  loLoading: string | null;
+  loError: Record<string, string>;
+  onToggleModule: (moduleId: string) => void;
 }) {
   if (modules.length === 0) {
     return (
@@ -396,33 +479,180 @@ function ModulesSection({
     <section className="hf-attainment-section">
       <h3 className="hf-attainment-section-title">Module mastery</h3>
       <p className="hf-attainment-section-desc">
-        Per-module rollup of LO mastery.
+        Per-module rollup of LO mastery. Click a module to see what&apos;s
+        mastered, what&apos;s in progress, and what hasn&apos;t been touched yet.
         {useFreshMastery
-          ? " · Mock-exam: this course resets per session, so figures reflect long-term mastery only — not the current mock."
+          ? " · Mock-exam: this course resets per session — figures reflect the most recent mock, not long-term mastery."
           : ""}
       </p>
       <div className="hf-attainment-module-rows">
         {modules.map((m) => {
           const pct = Math.round(m.mastery * 100);
+          const expanded = expandedModuleId === m.moduleId;
+          const breakdown = loBreakdown[m.moduleId];
+          const isLoading = loLoading === m.moduleId;
+          const err = loError[m.moduleId] ?? null;
           return (
             <div key={m.moduleId} className="hf-attainment-module-row">
-              <div className="hf-attainment-module-title">{m.moduleTitle}</div>
-              <div className="hf-attainment-module-bar">
+              <button
+                type="button"
+                className="hf-attainment-module-header"
+                onClick={() => onToggleModule(m.moduleId)}
+                aria-expanded={expanded}
+                aria-controls={`hf-attainment-module-body-${m.moduleId}`}
+              >
+                <span
+                  className="hf-attainment-module-chevron"
+                  aria-hidden="true"
+                >
+                  {expanded ? (
+                    <ChevronDown size={14} />
+                  ) : (
+                    <ChevronRight size={14} />
+                  )}
+                </span>
+                <span className="hf-attainment-module-title">
+                  {m.moduleTitle}
+                </span>
+                <span className="hf-attainment-module-bar">
+                  <span
+                    className="hf-attainment-module-bar-fill"
+                    style={{ width: `${pct}%` }}
+                  />
+                </span>
+                <span className="hf-attainment-module-meta">
+                  {pct}% · {m.status}
+                  {m.attemptsCount > 0
+                    ? ` · ${m.attemptsCount} attempt(s)`
+                    : ""}
+                </span>
+              </button>
+              {expanded ? (
                 <div
-                  className="hf-attainment-module-bar-fill"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <div className="hf-attainment-module-meta">
-                {pct}% · {m.status}
-                {m.attemptsCount > 0 ? ` · ${m.attemptsCount} attempt(s)` : ""}
-              </div>
+                  id={`hf-attainment-module-body-${m.moduleId}`}
+                  className="hf-attainment-module-body"
+                >
+                  {isLoading ? (
+                    <div
+                      className="hf-attainment-lo-loading"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      Loading learning objectives…
+                    </div>
+                  ) : err ? (
+                    <div
+                      className="hf-attainment-lo-error hf-banner-error"
+                      role="alert"
+                    >
+                      <AlertTriangle size={14} />
+                      <span>Could not load LO mastery: {err}</span>
+                    </div>
+                  ) : breakdown ? (
+                    <LoBreakdown breakdown={breakdown} />
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           );
         })}
       </div>
     </section>
   );
+}
+
+function LoBreakdown({ breakdown }: { breakdown: LoMasteryResponse }) {
+  if (breakdown.learningObjectives.length === 0) {
+    return (
+      <p className="hf-attainment-empty-text">
+        No learner-visible objectives declared for this module yet.
+      </p>
+    );
+  }
+  const mastered = breakdown.learningObjectives.filter(
+    (lo) => lo.status === "mastered",
+  ).length;
+  const inProgress = breakdown.learningObjectives.filter(
+    (lo) => lo.status === "in_progress",
+  ).length;
+  const notStarted = breakdown.learningObjectives.filter(
+    (lo) => lo.status === "not_started",
+  ).length;
+  const total = breakdown.learningObjectives.length;
+  return (
+    <div className="hf-attainment-lo-list">
+      <div className="hf-attainment-lo-summary">
+        <span className="hf-attainment-lo-summary-pill hf-attainment-lo-summary-pill-mastered">
+          <CheckCircle2 size={12} /> {mastered} mastered
+        </span>
+        <span className="hf-attainment-lo-summary-pill hf-attainment-lo-summary-pill-in-progress">
+          <CircleDot size={12} /> {inProgress} in progress
+        </span>
+        <span className="hf-attainment-lo-summary-pill hf-attainment-lo-summary-pill-not-started">
+          <Circle size={12} /> {notStarted} yet to do
+        </span>
+        <span className="hf-attainment-lo-summary-total">
+          {total} learning objective{total === 1 ? "" : "s"}
+        </span>
+      </div>
+      {breakdown.useFreshMastery && !breakdown.scratchSourceCallId ? (
+        <p className="hf-attainment-lo-note">
+          Mock-exam course: mastery resets each session. No scoring call
+          recorded yet, so every objective shows as &ldquo;yet to do&rdquo;.
+        </p>
+      ) : null}
+      <ul className="hf-attainment-lo-rows">
+        {breakdown.learningObjectives.map((lo) => {
+          const pct = lo.mastery == null ? 0 : Math.round(lo.mastery * 100);
+          return (
+            <li key={lo.ref} className="hf-attainment-lo-row">
+              <span
+                className={`hf-attainment-lo-status hf-attainment-lo-status-${lo.status}`}
+                aria-label={loStatusLabel(lo.status)}
+              >
+                {lo.status === "mastered" ? (
+                  <CheckCircle2 size={14} />
+                ) : lo.status === "in_progress" ? (
+                  <CircleDot size={14} />
+                ) : (
+                  <Circle size={14} />
+                )}
+              </span>
+              <span className="hf-attainment-lo-ref">{lo.ref}</span>
+              <span className="hf-attainment-lo-desc">{lo.description}</span>
+              {lo.mastery != null ? (
+                <>
+                  <span className="hf-attainment-lo-bar">
+                    <span
+                      className="hf-attainment-lo-bar-fill"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </span>
+                  <span className="hf-attainment-lo-pct">{pct}%</span>
+                  <span className="hf-attainment-lo-tier">
+                    {lo.tier ? tierLabel(lo.tier) : ""}
+                  </span>
+                </>
+              ) : (
+                <span className="hf-attainment-lo-empty">Not yet scored</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function loStatusLabel(status: LoMasteryStatus): string {
+  switch (status) {
+    case "mastered":
+      return "Mastered";
+    case "in_progress":
+      return "In progress";
+    case "not_started":
+      return "Yet to do";
+  }
 }
 
 // ── Goals section (SP4-D will deepen this) ──────────────────────────────────
