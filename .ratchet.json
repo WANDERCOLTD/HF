@@ -1,10 +1,10 @@
 {
-  "tsc_errors": 196,
+  "tsc_errors": 190,
   "lint_errors": 0,
-  "lint_warnings": 4425,
-  "quarantined_tests": 37,
+  "lint_warnings": 4436,
+  "quarantined_tests": 36,
   "knip_unused": 162,
-  "same_issue_fix_chain_max": 10,
+  "same_issue_fix_chain_max": 6,
   "memory_md_bytes": 29422,
   "npm_audit_high_crit": 6
 }
