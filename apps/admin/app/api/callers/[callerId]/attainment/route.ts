@@ -55,6 +55,28 @@ export interface AttainmentSkillBand {
   exceedsTarget: boolean;
 }
 
+export interface AttainmentGoalTrail {
+  /** Up to N most-recent evidence excerpts (transcript fragments captured
+   *  at extraction time). */
+  excerpts: string[];
+  /** Total number of evidence entries on this goal (may exceed `excerpts.length`). */
+  totalCount: number;
+  /** When the goal was first extracted. */
+  firstNoticedAt: string | null;
+  /** When the goal was most recently mentioned. */
+  lastMentionedAt: string | null;
+  /** Source call where the goal was first extracted. */
+  sourceCallId: string | null;
+  /** Most recent call where the goal was mentioned. */
+  lastMentionedCallId: string | null;
+  /** How many times this goal has been mentioned across calls. */
+  mentionCount: number;
+  /** EXPLICIT (caller said it directly) vs INFERRED (AI deduced). */
+  extractionMethod: string | null;
+  /** AI confidence at extraction time (0–1). */
+  confidence: number | null;
+}
+
 export interface AttainmentGoal {
   id: string;
   ref: string | null;
@@ -66,14 +88,12 @@ export interface AttainmentGoal {
    *  assessment_readiness / connect_warmth_avg / manual_only. Shown on
    *  the UI so the educator knows "this goal is driven by per-skill EMA". */
   strategy: string | null;
-  /** Structured evidence from `Goal.progressMetrics.progress` (last update). */
-  lastEvidence: {
-    evidence: string | null;
-    tier: string | null;
-    band: number | null;
-    callId: string | null;
-    at: string | null;
-  } | null;
+  /** Evidence trail synthesised from `Goal.progressMetrics`. `null` when
+   *  no metrics row exists (e.g. manually-created goal with no extraction
+   *  history). The trail uses the shape written by `extract-goals.ts`:
+   *  `{evidence: string[], extractionMethod, confidence, sourceCallId,
+   *  extractedAt, lastMentionedAt, lastMentionedCallId, mentionCount}`. */
+  trail: AttainmentGoalTrail | null;
 }
 
 export interface AttainmentModuleProgress {
@@ -103,6 +123,88 @@ export interface AttainmentResponse {
   modules: AttainmentModuleProgress[];
   goals: AttainmentGoal[];
   empty: boolean;
+}
+
+/** Max number of evidence excerpts surfaced in the trail. Older entries
+ *  are truncated; `totalCount` reports the full length. */
+const GOAL_TRAIL_MAX_EXCERPTS = 4;
+
+/**
+ * Synthesise an `AttainmentGoalTrail` from the JSON in `Goal.progressMetrics`.
+ *
+ * The shape that ships today is written by `lib/goals/extract-goals.ts`:
+ *
+ *   {
+ *     extractionMethod: "EXPLICIT" | "INFERRED",
+ *     confidence: 0..1,
+ *     evidence: string[],
+ *     sourceCallId: "call-…",
+ *     extractedAt: ISO date,
+ *     // — appended on subsequent mentions —
+ *     lastMentionedCallId: "call-…",
+ *     lastMentionedAt: ISO date,
+ *     mentionCount: number,
+ *   }
+ *
+ * Returns null when the metrics are absent / unparseable, so the UI can
+ * branch cleanly on "no evidence yet".
+ */
+function buildGoalTrail(
+  metrics: unknown,
+): AttainmentGoalTrail | null {
+  if (!metrics || typeof metrics !== "object") return null;
+  const m = metrics as Record<string, unknown>;
+  const rawEvidence = Array.isArray(m.evidence)
+    ? (m.evidence.filter((e) => typeof e === "string") as string[])
+    : [];
+  const sourceCallId =
+    typeof m.sourceCallId === "string" ? m.sourceCallId : null;
+  const lastMentionedCallId =
+    typeof m.lastMentionedCallId === "string" ? m.lastMentionedCallId : null;
+  const firstNoticedAt =
+    typeof m.extractedAt === "string" ? m.extractedAt : null;
+  const lastMentionedAt =
+    typeof m.lastMentionedAt === "string"
+      ? m.lastMentionedAt
+      : firstNoticedAt;
+  const mentionCount =
+    typeof m.mentionCount === "number"
+      ? m.mentionCount
+      : rawEvidence.length || 0;
+  const extractionMethod =
+    typeof m.extractionMethod === "string" ? m.extractionMethod : null;
+  const confidence =
+    typeof m.confidence === "number" ? m.confidence : null;
+
+  // Surface zero excerpts → null trail unless we have at least one signal
+  // (a callId or timestamp) so the UI can still render "Mentioned once,
+  // no excerpt captured".
+  if (
+    rawEvidence.length === 0 &&
+    !sourceCallId &&
+    !lastMentionedCallId &&
+    !firstNoticedAt
+  ) {
+    return null;
+  }
+
+  // Newest-first; the writer appends in chronological order so we reverse.
+  const excerptsNewestFirst = [...rawEvidence].reverse().slice(
+    0,
+    GOAL_TRAIL_MAX_EXCERPTS,
+  );
+
+  return {
+    excerpts: excerptsNewestFirst,
+    totalCount: rawEvidence.length,
+    firstNoticedAt,
+    lastMentionedAt,
+    sourceCallId,
+    lastMentionedCallId,
+    mentionCount,
+    extractionMethod,
+    confidence,
+  };
 }
 
 export async function GET(
@@ -271,29 +373,16 @@ export async function GET(
     orderBy: [{ priority: "desc" }, { name: "asc" }],
   });
 
-  const goals: AttainmentGoal[] = goalRows.map((g) => {
-    const metrics = (g.progressMetrics as Record<string, unknown> | null) ?? {};
-    const progress = (metrics.progress ?? null) as Record<string, unknown> | null;
-    const lastEvidence = progress
-      ? {
-          evidence: typeof progress.evidence === "string" ? progress.evidence : null,
-          tier: typeof progress.tier === "string" ? progress.tier : null,
-          band: typeof progress.band === "number" ? progress.band : null,
-          callId: typeof progress.callId === "string" ? progress.callId : null,
-          at: typeof progress.at === "string" ? progress.at : null,
-        }
-      : null;
-    return {
-      id: g.id,
-      ref: g.ref,
-      name: g.name,
-      type: g.type,
-      status: g.status,
-      progress: g.progress,
-      strategy: g.progressStrategy,
-      lastEvidence,
-    };
-  });
+  const goals: AttainmentGoal[] = goalRows.map((g) => ({
+    id: g.id,
+    ref: g.ref,
+    name: g.name,
+    type: g.type,
+    status: g.status,
+    progress: g.progress,
+    strategy: g.progressStrategy,
+    trail: buildGoalTrail(g.progressMetrics),
+  }));
 
   return NextResponse.json({
     callerId,

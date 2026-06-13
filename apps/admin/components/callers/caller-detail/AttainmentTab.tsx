@@ -62,6 +62,18 @@ interface ModuleProgress {
   freshMasteryActive: boolean;
 }
 
+interface AttainmentGoalTrail {
+  excerpts: string[];
+  totalCount: number;
+  firstNoticedAt: string | null;
+  lastMentionedAt: string | null;
+  sourceCallId: string | null;
+  lastMentionedCallId: string | null;
+  mentionCount: number;
+  extractionMethod: string | null;
+  confidence: number | null;
+}
+
 interface AttainmentGoal {
   id: string;
   ref: string | null;
@@ -70,13 +82,7 @@ interface AttainmentGoal {
   status: string;
   progress: number;
   strategy: string | null;
-  lastEvidence: {
-    evidence: string | null;
-    tier: string | null;
-    band: number | null;
-    callId: string | null;
-    at: string | null;
-  } | null;
+  trail: AttainmentGoalTrail | null;
 }
 
 interface AttainmentResponse {
@@ -150,6 +156,7 @@ export function AttainmentTab({ callerId }: Props) {
   const [loBreakdown, setLoBreakdown] = useState<Record<string, LoMasteryResponse>>({});
   const [loLoading, setLoLoading] = useState<string | null>(null);
   const [loError, setLoError] = useState<Record<string, string>>({});
+  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -299,7 +306,13 @@ export function AttainmentTab({ callerId }: Props) {
         onToggleModule={handleToggleModule}
       />
 
-      <GoalsSection goals={data.goals} />
+      <GoalsSection
+        goals={data.goals}
+        expandedGoalId={expandedGoalId}
+        onToggleGoal={(id) =>
+          setExpandedGoalId((current) => (current === id ? null : id))
+        }
+      />
     </div>
   );
 }
@@ -657,13 +670,22 @@ function loStatusLabel(status: LoMasteryStatus): string {
 
 // ── Goals section (SP4-D will deepen this) ──────────────────────────────────
 
-function GoalsSection({ goals }: { goals: AttainmentGoal[] }) {
+function GoalsSection({
+  goals,
+  expandedGoalId,
+  onToggleGoal,
+}: {
+  goals: AttainmentGoal[];
+  expandedGoalId: string | null;
+  onToggleGoal: (goalId: string) => void;
+}) {
   if (goals.length === 0) {
     return (
       <section className="hf-attainment-section">
         <h3 className="hf-attainment-section-title">Goal progress</h3>
         <p className="hf-attainment-empty-text">
-          No goals instantiated for this learner yet.
+          No goals instantiated for this learner yet — the first few calls
+          haven&apos;t surfaced anything specific to chase.
         </p>
       </section>
     );
@@ -672,35 +694,72 @@ function GoalsSection({ goals }: { goals: AttainmentGoal[] }) {
     <section className="hf-attainment-section">
       <h3 className="hf-attainment-section-title">Goal progress</h3>
       <p className="hf-attainment-section-desc">
-        Per-goal progress with the strategy driving it.
+        Per-goal progress with the strategy driving it. Click a goal to see
+        the evidence trail — what the learner said and when.
       </p>
       <div className="hf-attainment-goal-rows">
         {goals.slice(0, 12).map((g) => {
           const pct = Math.round(g.progress * 100);
+          const expanded = expandedGoalId === g.id;
+          const hasTrail = g.trail != null && (
+            g.trail.excerpts.length > 0 ||
+            g.trail.mentionCount > 0 ||
+            g.trail.firstNoticedAt != null
+          );
           return (
             <div key={g.id} className="hf-attainment-goal-row">
-              <div className="hf-attainment-goal-meta">
+              <button
+                type="button"
+                className="hf-attainment-goal-header"
+                onClick={() => onToggleGoal(g.id)}
+                aria-expanded={expanded}
+                aria-controls={`hf-attainment-goal-body-${g.id}`}
+                disabled={!hasTrail}
+              >
+                <span
+                  className="hf-attainment-goal-chevron"
+                  aria-hidden="true"
+                >
+                  {hasTrail ? (
+                    expanded ? (
+                      <ChevronDown size={12} />
+                    ) : (
+                      <ChevronRight size={12} />
+                    )
+                  ) : (
+                    <span className="hf-attainment-goal-chevron-spacer" />
+                  )}
+                </span>
                 <span className="hf-attainment-goal-type">{g.type}</span>
                 <span className="hf-attainment-goal-name">{g.name}</span>
                 {g.strategy ? (
                   <span className="hf-attainment-goal-strategy">
-                    {tierLabelForStrategy(g.strategy)}
+                    via {strategyLabel(g.strategy)}
                   </span>
                 ) : null}
-              </div>
-              <div className="hf-attainment-goal-bar">
+                <span className="hf-attainment-goal-bar">
+                  <span
+                    className="hf-attainment-goal-bar-fill"
+                    style={{ width: `${pct}%` }}
+                  />
+                </span>
+                <span className="hf-attainment-goal-pct">{pct}%</span>
+              </button>
+              {hasTrail && g.trail ? (
+                <div className="hf-attainment-goal-summary">
+                  {goalSummaryLine(g.trail)}
+                </div>
+              ) : (
+                <div className="hf-attainment-goal-summary hf-attainment-goal-summary-empty">
+                  No transcript evidence captured for this goal yet.
+                </div>
+              )}
+              {expanded && g.trail ? (
                 <div
-                  className="hf-attainment-goal-bar-fill"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <div className="hf-attainment-goal-pct">{pct}%</div>
-              {g.lastEvidence?.evidence ? (
-                <div className="hf-attainment-goal-evidence">
-                  <strong>Last:</strong> {g.lastEvidence.evidence}
-                  {g.lastEvidence.tier
-                    ? ` (${tierLabel(g.lastEvidence.tier.toLowerCase())})`
-                    : ""}
+                  id={`hf-attainment-goal-body-${g.id}`}
+                  className="hf-attainment-goal-body"
+                >
+                  <GoalTrailDetail trail={g.trail} />
                 </div>
               ) : null}
             </div>
@@ -716,7 +775,91 @@ function GoalsSection({ goals }: { goals: AttainmentGoal[] }) {
   );
 }
 
-function tierLabelForStrategy(strategy: string): string {
+function GoalTrailDetail({ trail }: { trail: AttainmentGoalTrail }) {
+  return (
+    <div className="hf-attainment-trail">
+      <div className="hf-attainment-trail-meta">
+        {trail.extractionMethod ? (
+          <span className="hf-attainment-trail-pill">
+            {trail.extractionMethod === "EXPLICIT"
+              ? "Said directly"
+              : trail.extractionMethod === "INFERRED"
+                ? "Inferred"
+                : trail.extractionMethod}
+          </span>
+        ) : null}
+        {trail.confidence != null ? (
+          <span className="hf-attainment-trail-pill hf-attainment-trail-pill-muted">
+            {Math.round(trail.confidence * 100)}% confidence
+          </span>
+        ) : null}
+        {trail.mentionCount > 0 ? (
+          <span className="hf-attainment-trail-pill hf-attainment-trail-pill-muted">
+            Mentioned {trail.mentionCount}×
+          </span>
+        ) : null}
+      </div>
+      {trail.excerpts.length > 0 ? (
+        <ul className="hf-attainment-trail-excerpts">
+          {trail.excerpts.map((excerpt, i) => (
+            <li key={i}>&ldquo;{excerpt}&rdquo;</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="hf-attainment-trail-empty">
+          No transcript excerpt captured at extraction time.
+        </p>
+      )}
+      {trail.totalCount > trail.excerpts.length ? (
+        <p className="hf-attainment-trail-more">
+          + {trail.totalCount - trail.excerpts.length} older mention
+          {trail.totalCount - trail.excerpts.length === 1 ? "" : "s"}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Educator-friendly one-liner summarising the trail. */
+function goalSummaryLine(trail: AttainmentGoalTrail): string {
+  const parts: string[] = [];
+  if (trail.firstNoticedAt) {
+    parts.push(`First noticed ${formatRelativeDate(trail.firstNoticedAt)}`);
+  }
+  if (
+    trail.lastMentionedAt &&
+    trail.lastMentionedAt !== trail.firstNoticedAt
+  ) {
+    parts.push(`last mentioned ${formatRelativeDate(trail.lastMentionedAt)}`);
+  }
+  if (trail.mentionCount > 1) {
+    parts.push(`across ${trail.mentionCount} calls`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : "Captured once";
+}
+
+/** Crude relative-date formatter — "today" / "yesterday" / "N days ago"
+ *  / "N weeks ago" / explicit date for older. Educators read these in
+ *  pre-call prep so absolute dates beyond a month carry more weight. */
+function formatRelativeDate(iso: string): string {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return iso;
+  const now = Date.now();
+  const diffMs = now - then.getTime();
+  const day = 24 * 60 * 60 * 1000;
+  const days = Math.floor(diffMs / day);
+  if (days < 0) return then.toLocaleDateString();
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) {
+    const weeks = Math.round(days / 7);
+    return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
+  }
+  return then.toLocaleDateString();
+}
+
+function strategyLabel(strategy: string): string {
   switch (strategy.toLowerCase()) {
     case "lo_rollup":
       return "LO rollup";
