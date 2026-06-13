@@ -212,15 +212,30 @@ export interface ParsedSkill {
   ref: string;
   name: string;
   description?: string;
-  tiers: {
-    emerging?: string;
-    developing?: string;
-    secure?: string;
-  };
+  /**
+   * Tier descriptors keyed by lowercase tier name. The default scheme is
+   * 3-tier `emerging` / `developing` / `secure`; the parser also accepts
+   * table-form Skills Framework with any tier scheme (`foundation` /
+   * `developing` / `practitioner` / `distinction` for CTO/CIO, CEFR's
+   * `a1`–`c2`, NHS AfC bands, etc.). Backward compatible — code reading
+   * `skill.tiers.emerging` still works for 3-tier courses.
+   *
+   * The ordered list of tier names for this skill lives in `tierScheme`.
+   */
+  tiers: Record<string, string>;
+  /**
+   * Ordered tier names (lowercase) — first = lowest tier, last = top tier
+   * (the "target" tier whose descriptor populates downstream goal copy and
+   * BehaviorTarget secureDescription). For 3-tier skills this is always
+   * `["emerging", "developing", "secure"]`; CTO/CIO 4-tier is
+   * `["foundation", "developing", "practitioner", "distinction"]`. Custom
+   * schemes are accepted with a `SKILL_UNRECOGNISED_TIER_SCHEME` warning.
+   */
+  tierScheme: string[];
   /**
    * Optional per-skill target band parsed from a `**Target band:** N.N`
    * line inside the skill section. Converted to `targetValue = band / 10`
-   * by `mapSkillsToAchieveAndTargets`. Absent = aim for Secure (1.0).
+   * by `mapSkillsToAchieveAndTargets`. Absent = aim for top tier (1.0).
    */
   targetBand?: number;
   /**
@@ -232,12 +247,52 @@ export interface ParsedSkill {
   bandThresholds?: Record<number, string>;
 }
 
+/**
+ * Known tier schemes — projection accepts any scheme but only warns when
+ * the parsed scheme doesn't match a recognised one (i.e. the educator
+ * might have mistyped a column header).
+ */
+export const KNOWN_TIER_SCHEMES: Record<string, readonly string[]> = {
+  three: ["emerging", "developing", "secure"],
+  cto: ["foundation", "developing", "practitioner", "distinction"],
+  cefr: ["a1", "a2", "b1", "b2", "c1", "c2"],
+};
+
+/** Default scheme for heading-form skills (existing v2.2/v3.0 behaviour). */
+const DEFAULT_TIER_SCHEME = KNOWN_TIER_SCHEMES.three;
+
+/** Normalize a tier label for storage key + scheme matching. */
+function normaliseTierName(raw: string): string {
+  return raw.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]+/g, "");
+}
+
+/** Check whether the given ordered tier list matches a known scheme. */
+function schemeMatchesKnown(scheme: readonly string[]): string | null {
+  for (const [name, known] of Object.entries(KNOWN_TIER_SCHEMES)) {
+    if (known.length !== scheme.length) continue;
+    if (known.every((t, i) => t === scheme[i])) return name;
+  }
+  return null;
+}
+
+/** Capitalise the first letter; used for display labels (`emerging` → `Emerging`). */
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export interface SkillsFrameworkResult {
   skills: ParsedSkill[];
   validationWarnings: ValidationWarning[];
 }
 
 const SKILL_HEADING = /^###\s+(SKILL-\d+)\s*:\s*(.+?)\s*$/;
+/** Markdown table data row carrying a skill in TABLE form (#cto). */
+const SKILL_TABLE_DATA_ROW = /^\s*\|\s*(SKILL-\d+)\s*\|/i;
+/** Markdown table separator row: `|---|---|...|` (any number of cells). */
+const TABLE_SEPARATOR = /^\s*\|(\s*:?-{3,}:?\s*\|)+\s*$/;
+/** First-cell looks like a header: contains "Skill ref" or "Ref" — used to find header row. */
+const SKILL_TABLE_HEADER_FIRST_CELL = /^(skill\s+ref|ref|skill\s+id)$/i;
 // Tier format accepts both v3.0 (`**Emerging:**`) and v2.2 (`**Emerging.**`)
 // punctuation styles. The captured text follows the closing `**`.
 const TIER_LINE = /^\s*[-*]\s*\*\*\s*(Emerging|Developing|Secure)\s*[:.]\s*\*\*\s*(.+?)\s*$/i;
@@ -277,9 +332,19 @@ export function parseSkillsFramework(bodyText: string): SkillsFrameworkResult {
     return { skills: [], validationWarnings: [] };
   }
 
+  const warnings: ValidationWarning[] = [];
+
+  // TABLE form takes precedence — if the section contains a recognisable
+  // skill table (`| Skill ref | Skill | Tier1 | Tier2 | ... |`), parse it
+  // and return. The heading-form path stays as-is for IELTS/Big5/Seducing
+  // courses that already use it.
+  const tableResult = parseSkillsFrameworkTable(sectionLines, warnings);
+  if (tableResult) {
+    return { skills: tableResult, validationWarnings: validateSkills(tableResult, warnings) };
+  }
+
   // Walk the section, accumulating one ParsedSkill per `### SKILL-NN` heading.
   const skills: ParsedSkill[] = [];
-  const warnings: ValidationWarning[] = [];
   let current: ParsedSkill | null = null;
   // Description = first non-empty paragraph after the heading, before tier
   // bullets. Treat blank line as paragraph break.
@@ -304,6 +369,7 @@ export function parseSkillsFramework(bodyText: string): SkillsFrameworkResult {
         ref: headingMatch[1],
         name: headingMatch[2].trim(),
         tiers: {},
+        tierScheme: [...DEFAULT_TIER_SCHEME],
       };
       captureDescription = true;
       continue;
@@ -367,27 +433,146 @@ export function parseSkillsFramework(bodyText: string): SkillsFrameworkResult {
   }
   finalize();
 
-  // Validate: every skill should have all three tiers. Missing tiers are
-  // warnings (publish gate decides whether to block) — they let an
-  // educator save partial work.
+  validateSkills(skills, warnings);
+  return { skills, validationWarnings: warnings };
+}
+
+/**
+ * Validate skill rows against their `tierScheme`. Missing tiers are
+ * warnings (publish gate decides whether to block) — they let an
+ * educator save partial work. Returns the warnings array for chaining.
+ */
+function validateSkills(
+  skills: ParsedSkill[],
+  warnings: ValidationWarning[],
+): ValidationWarning[] {
   for (const skill of skills) {
-    if (!skill.tiers.secure) {
+    const topTier = skill.tierScheme[skill.tierScheme.length - 1];
+    if (!skill.tiers[topTier]) {
       warnings.push({
         severity: "warning",
         code: "SKILL_MISSING_SECURE_TIER",
-        message: `${skill.ref} (${skill.name}) has no Secure tier — projection cannot derive a BehaviorTarget target value.`,
+        message: `${skill.ref} (${skill.name}) has no ${topTier} tier — projection cannot derive a BehaviorTarget target value.`,
       });
     }
-    if (!skill.tiers.emerging || !skill.tiers.developing) {
+    const missingMidTiers = skill.tierScheme
+      .slice(0, -1)
+      .filter((t) => !skill.tiers[t]);
+    if (missingMidTiers.length > 0) {
       warnings.push({
         severity: "warning",
         code: "SKILL_INCOMPLETE_TIERS",
-        message: `${skill.ref} (${skill.name}) is missing Emerging or Developing tier descriptions.`,
+        message: `${skill.ref} (${skill.name}) is missing tier descriptors for: ${missingMidTiers.join(", ")}.`,
       });
     }
   }
+  return warnings;
+}
 
-  return { skills, validationWarnings: warnings };
+/**
+ * Parse table-form Skills Framework:
+ *
+ * ```
+ * | Skill ref | Skill | Foundation | Developing | Practitioner | Distinction |
+ * |---|---|---|---|---|---|
+ * | SKILL-01 | **Stakeholder anticipation** — predicting … | Reacts to … | Proactively … | Anticipates … | Has reframed … |
+ * ```
+ *
+ * Returns null when no recognisable table is present (caller falls
+ * through to the heading-form parser). Returns `[]` when a header is
+ * detected but no data rows match — surfaces as
+ * PROJECTION_NO_SKILLS_FRAMEWORK upstream.
+ *
+ * Recognised tier schemes match `KNOWN_TIER_SCHEMES`; unrecognised ones
+ * are accepted with a `SKILL_UNRECOGNISED_TIER_SCHEME` warning so the
+ * educator notices a possible header typo.
+ */
+function parseSkillsFrameworkTable(
+  sectionLines: string[],
+  warnings: ValidationWarning[],
+): ParsedSkill[] | null {
+  // 1. Find the header row + separator + tier columns.
+  let headerIndex = -1;
+  let tierColumns: string[] = [];
+  for (let i = 0; i < sectionLines.length; i++) {
+    const line = sectionLines[i];
+    if (!line.trim().startsWith("|")) continue;
+    const cells = parseTableRow(line);
+    if (cells.length < 3) continue;
+    if (!SKILL_TABLE_HEADER_FIRST_CELL.test(cells[0])) continue;
+    // Next non-blank line must be a separator row to confirm this is the header.
+    const nextLine = sectionLines.slice(i + 1).find((l) => l.trim().length > 0);
+    if (!nextLine || !TABLE_SEPARATOR.test(nextLine)) continue;
+    headerIndex = i;
+    tierColumns = cells.slice(2).map(normaliseTierName);
+    break;
+  }
+  if (headerIndex < 0) return null;
+  if (tierColumns.length === 0) return null;
+
+  // 2. Validate the scheme.
+  const knownName = schemeMatchesKnown(tierColumns);
+  if (!knownName) {
+    warnings.push({
+      severity: "warning",
+      code: "SKILL_UNRECOGNISED_TIER_SCHEME",
+      message:
+        `Skills Framework table uses tier scheme [${tierColumns.join(", ")}] which doesn't ` +
+        `match any known scheme (${Object.keys(KNOWN_TIER_SCHEMES).join(", ")}). ` +
+        `Accepted as-is; check the header row for typos.`,
+    });
+  }
+
+  // 3. Walk data rows.
+  const skills: ParsedSkill[] = [];
+  for (let i = headerIndex + 1; i < sectionLines.length; i++) {
+    const line = sectionLines[i];
+    if (TABLE_SEPARATOR.test(line)) continue;
+    if (!SKILL_TABLE_DATA_ROW.test(line)) continue;
+    const cells = parseTableRow(line);
+    if (cells.length < 2 + tierColumns.length) {
+      // Row has fewer tier cells than the header promises — skip with warning.
+      warnings.push({
+        severity: "warning",
+        code: "SKILL_TABLE_ROW_TRUNCATED",
+        message: `Skill table row ${cells[0]} has ${cells.length - 2} tier cells; header declared ${tierColumns.length}.`,
+      });
+      continue;
+    }
+    const ref = cells[0];
+    const skillCell = cells[1];
+    // Skill cell may be `**Name** — description` or just `Name`. Pull the
+    // bolded name out and treat the rest as description; fall back to the
+    // whole cell as the name if no bold.
+    const skillCellMatch = skillCell.match(/^\*\*(.+?)\*\*\s*(?:[—-]\s*(.+))?$/);
+    const name = skillCellMatch ? skillCellMatch[1].trim() : skillCell;
+    const description = skillCellMatch && skillCellMatch[2] ? skillCellMatch[2].trim() : undefined;
+
+    const tiers: Record<string, string> = {};
+    for (let j = 0; j < tierColumns.length; j++) {
+      const cell = cells[2 + j]?.trim();
+      if (cell) tiers[tierColumns[j]] = cell;
+    }
+
+    skills.push({
+      ref,
+      name,
+      description,
+      tiers,
+      tierScheme: [...tierColumns],
+    });
+  }
+  return skills;
+}
+
+/**
+ * Split a markdown table row into cell strings. Trims outer pipes + each
+ * cell's surrounding whitespace. Does not handle escaped pipes inside
+ * cells — Skills Framework tables don't contain those today.
+ */
+function parseTableRow(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|\s*$/, "");
+  return trimmed.split("|").map((c) => c.trim());
 }
 
 // ── Mappers ────────────────────────────────────────────────────────────────
@@ -437,25 +622,34 @@ function mapSkillsToMeasureSpec(
   const triggers: ProjectedMeasureSpecTrigger[] = skills.map((skill) => {
     const hasTargetBand =
       typeof skill.targetBand === "number" && skill.targetBand > 0;
-    const secureLabel = hasTargetBand
-      ? `Secure (ceiling = 1.0; this course targets Band ${skill.targetBand} = ${(skill.targetBand! / 10).toFixed(2)})`
-      : "Secure (target)";
+    const topTierLower = skill.tierScheme[skill.tierScheme.length - 1] ?? "secure";
+    const topTierLabel = capitalize(topTierLower);
+    const topTierTargetLabel = hasTargetBand
+      ? `${topTierLabel} (ceiling = 1.0; this course targets Band ${skill.targetBand} = ${(skill.targetBand! / 10).toFixed(2)})`
+      : `${topTierLabel} (target)`;
+    // Build the rubric in tierScheme order so per-band ordering is stable
+    // for any scheme (3-tier, 4-tier CTO, CEFR 6-tier, etc.).
     const tierLines: string[] = [];
-    if (skill.tiers.emerging) tierLines.push(`Emerging: ${skill.tiers.emerging}`);
-    if (skill.tiers.developing)
-      tierLines.push(`Developing: ${skill.tiers.developing}`);
-    if (skill.tiers.secure) tierLines.push(`${secureLabel}: ${skill.tiers.secure}`);
+    for (const tierKey of skill.tierScheme) {
+      const value = skill.tiers[tierKey];
+      if (!value) continue;
+      const isTop = tierKey === topTierLower;
+      const label = isTop ? topTierTargetLabel : capitalize(tierKey);
+      tierLines.push(`${label}: ${value}`);
+    }
     const rubric =
       tierLines.length > 0
         ? `\n\nTier descriptors:\n${tierLines.join("\n")}`
         : "";
+
+    const tierFlow = skill.tierScheme.map(capitalize).join(" → ");
 
     return {
       skillRef: skill.ref,
       name: `${skill.name} band assessment`,
       given: "The caller spoke on this call",
       when: "End-of-call analysis",
-      then: `Score the caller's ${skill.name} per the rubric tiers (Emerging → Developing → Secure, normalised 0-1 where 0.X corresponds to Band X; Band 6.5 = 0.65, Band 9 = 0.9, Secure tier ceiling = 1.0). Score this criterion INDEPENDENTLY of the other criteria — composite scores hide what needs work.`,
+      then: `Score the caller's ${skill.name} per the rubric tiers (${tierFlow}, normalised 0-1 where the top tier (${topTierLabel}) corresponds to 1.0; bands map proportionally — e.g. Band 6.5 = 0.65, Band 9 = 0.9). Score this criterion INDEPENDENTLY of the other criteria — composite scores hide what needs work.`,
       actions: [
         {
           description: `Measure ${skill.name}: produce a 0-1 score against the tier descriptors below.${rubric}`,
@@ -488,13 +682,15 @@ function mapSkillsToAchieveAndTargets(skills: ParsedSkill[]): {
 
   for (const skill of skills) {
     const paramName = skillNameToParameterName(skill.name);
-    const secureDescription = skill.tiers.secure ?? skill.description;
+    const topTier = skill.tierScheme[skill.tierScheme.length - 1] ?? "secure";
+    const topTierLabel = capitalize(topTier);
+    const secureDescription = skill.tiers[topTier] ?? skill.description;
     const hasTargetBand =
       typeof skill.targetBand === "number" && skill.targetBand > 0;
     const targetValue = hasTargetBand ? skill.targetBand! / 10 : 1.0;
     const goalName = hasTargetBand
       ? `Reach Band ${skill.targetBand} on ${skill.name}`
-      : `Reach Secure on ${skill.name}`;
+      : `Reach ${topTierLabel} on ${skill.name}`;
 
     parameters.push({
       name: paramName,
