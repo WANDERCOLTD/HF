@@ -46,6 +46,21 @@ export interface RunProjectionResult {
     parametersUpdated: number;
     unmatchedCodes: string[];
   }>;
+  /**
+   * Launch-blocking issues found at projection time. The wizard's publish
+   * gate MUST refuse to mark a Playbook PUBLISHED while any blocker is
+   * present. Today the only blocker is `PROJECTION_NO_SKILLS_FRAMEWORK`
+   * (no parseable skill in any linked COURSE_REFERENCE source).
+   *
+   * The set MAY grow over time — keep the consumer treating any entry as
+   * a hard refusal, not just this specific code.
+   */
+  launchBlockers: Array<{
+    code: string;
+    sourceContentId?: string;
+    sourceName?: string;
+    message: string;
+  }>;
 }
 
 /**
@@ -88,11 +103,25 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
     console.warn(
       `[projection] no COURSE_REFERENCE source linked to playbook=${playbookId} — course is degenerate (no Goals/BehaviorTargets/CurriculumModule derived). See docs/CONTENT-PIPELINE.md §4 Phase 2.5.`,
     );
-    return { playbookId, appliedSources: [], skippedSources: [], degenerate: true, rubricBandsApplied: [] };
+    return {
+      playbookId,
+      appliedSources: [],
+      skippedSources: [],
+      degenerate: true,
+      rubricBandsApplied: [],
+      launchBlockers: [
+        {
+          code: "NO_COURSE_REFERENCE_SOURCE",
+          message:
+            "No COURSE_REFERENCE source linked. Upload at least one course-ref doc before launching.",
+        },
+      ],
+    };
   }
 
   const appliedSources: RunProjectionResult["appliedSources"] = [];
   const skippedSources: RunProjectionResult["skippedSources"] = [];
+  const launchBlockers: RunProjectionResult["launchBlockers"] = [];
   const storage = getStorageAdapter();
 
   for (const link of links) {
@@ -141,6 +170,25 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
     }
 
     const projection = projectCourseReference(text, { sourceContentId: source.id });
+
+    // (3) Promote PROJECTION_NO_SKILLS_FRAMEWORK from a soft warning to a
+    // launch blocker. Without skills no `skill_*` Parameters or BehaviorTargets
+    // are minted, no MEASURE spec is created, no CallerTarget rows can be
+    // populated. The educator dashboard sits flat-zero on every learner
+    // forever. The publish gate consumes `launchBlockers` and refuses to mark
+    // the Playbook PUBLISHED until at least one source resolves the blocker.
+    const noSkillsWarning = projection.validationWarnings.find(
+      (w) => w.code === "PROJECTION_NO_SKILLS_FRAMEWORK",
+    );
+    if (noSkillsWarning) {
+      launchBlockers.push({
+        code: "PROJECTION_NO_SKILLS_FRAMEWORK",
+        sourceContentId: source.id,
+        sourceName: source.name,
+        message: noSkillsWarning.message,
+      });
+    }
+
     const result = await applyProjection(projection, {
       playbookId,
       sourceContentId: source.id,
@@ -263,11 +311,23 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
     });
   }
 
+  // Collapse PROJECTION_NO_SKILLS_FRAMEWORK across multiple sources: if ANY
+  // source produced skills, the blocker is cleared (the educator only needs
+  // one parseable Skills Framework, not one per doc). Done last so the order
+  // of `links` doesn't matter.
+  const someSourceProducedSkills = appliedSources.some(
+    (s) => (s.result.parametersUpserted ?? 0) > 0,
+  );
+  const filteredBlockers = someSourceProducedSkills
+    ? launchBlockers.filter((b) => b.code !== "PROJECTION_NO_SKILLS_FRAMEWORK")
+    : launchBlockers;
+
   return {
     playbookId,
     appliedSources,
     skippedSources,
     degenerate: false,
     rubricBandsApplied,
+    launchBlockers: filteredBlockers,
   };
 }

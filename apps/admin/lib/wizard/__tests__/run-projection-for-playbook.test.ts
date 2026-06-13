@@ -447,4 +447,175 @@ describe("runProjectionForPlaybook", () => {
     expect(mockWriteBandThresholds).not.toHaveBeenCalled();
     expect(result.rubricBandsApplied).toEqual([]);
   });
+
+  // (3) Publish-time launch blocker — PROJECTION_NO_SKILLS_FRAMEWORK upgraded
+  // from a soft validation warning to a launch blocker. The publish gate
+  // consumes `launchBlockers` and refuses to mark Playbook PUBLISHED when
+  // any entry is present.
+  describe("launch blockers", () => {
+    it("emits NO_COURSE_REFERENCE_SOURCE blocker when no course-ref source is linked", async () => {
+      setSources([]);
+      const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
+      const result = await runProjectionForPlaybook(PLAYBOOK_ID);
+
+      expect(result.degenerate).toBe(true);
+      expect(result.launchBlockers).toEqual([
+        expect.objectContaining({ code: "NO_COURSE_REFERENCE_SOURCE" }),
+      ]);
+    });
+
+    it("emits PROJECTION_NO_SKILLS_FRAMEWORK when the course-ref has no parseable Skills Framework", async () => {
+      const noSkills = "# Course\n\n## Outcomes\n\n**OUT-01:** Something.\n";
+      setSources([
+        {
+          source: {
+            id: "src-bad",
+            name: "course-ref without skills",
+            mediaAssets: [{ storageKey: "k", fileName: "course-ref.md" }],
+          },
+        },
+      ]);
+      mockStorageDownload.mockResolvedValue(Buffer.from(noSkills));
+      mockExtractTextFromBuffer.mockResolvedValue({ text: noSkills, fileType: "text" });
+      mockApplyProjection.mockResolvedValue({
+        parametersUpserted: 0,
+        behaviorTargetsCreated: 0,
+        behaviorTargetsUpdated: 0,
+        behaviorTargetsRemoved: 0,
+        curriculumModulesCreated: 0,
+        curriculumModulesUpdated: 0,
+        curriculumModulesRemoved: 0,
+        learningObjectivesCreated: 0,
+        learningObjectivesUpdated: 0,
+        learningObjectivesRemoved: 0,
+        goalTemplatesWritten: 0,
+        curriculumId: "curr-1",
+        measureSpecId: null,
+        measureTriggerCount: 0,
+        warnings: [],
+        noop: true,
+      });
+
+      const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
+      const result = await runProjectionForPlaybook(PLAYBOOK_ID);
+
+      expect(result.launchBlockers).toEqual([
+        expect.objectContaining({
+          code: "PROJECTION_NO_SKILLS_FRAMEWORK",
+          sourceContentId: "src-bad",
+          sourceName: "course-ref without skills",
+        }),
+      ]);
+    });
+
+    it("clears PROJECTION_NO_SKILLS_FRAMEWORK when at least one applied source produced Parameters", async () => {
+      // Two sources: first has no skills, second is IELTS with the full 4-skill
+      // framework. The educator only needs ONE source with a Skills Framework.
+      setSources([
+        {
+          source: {
+            id: "src-bad",
+            name: "no-skills",
+            mediaAssets: [{ storageKey: "k1", fileName: "course-ref.md" }],
+          },
+        },
+        {
+          source: {
+            id: "src-ielts",
+            name: "IELTS course-ref",
+            mediaAssets: [{ storageKey: "k2", fileName: "ielts.md" }],
+          },
+        },
+      ]);
+      mockStorageDownload.mockImplementation((key: string) =>
+        key === "k2"
+          ? Promise.resolve(Buffer.from(IELTS_V22))
+          : Promise.resolve(Buffer.from("# Course\n\n## Outcomes\n\n**OUT-01:** Hi.\n")),
+      );
+      mockExtractTextFromBuffer.mockImplementation((buffer: Buffer) => ({
+        text: buffer.toString("utf-8"),
+        fileType: "text",
+      }));
+      // Per-call mock: first call returns 0 params, second returns 4.
+      mockApplyProjection
+        .mockResolvedValueOnce({
+          parametersUpserted: 0,
+          behaviorTargetsCreated: 0,
+          behaviorTargetsUpdated: 0,
+          behaviorTargetsRemoved: 0,
+          curriculumModulesCreated: 0,
+          curriculumModulesUpdated: 0,
+          curriculumModulesRemoved: 0,
+          learningObjectivesCreated: 0,
+          learningObjectivesUpdated: 0,
+          learningObjectivesRemoved: 0,
+          goalTemplatesWritten: 0,
+          curriculumId: "curr-1",
+          measureSpecId: null,
+          measureTriggerCount: 0,
+          warnings: [],
+          noop: true,
+        })
+        .mockResolvedValueOnce({
+          parametersUpserted: 4,
+          behaviorTargetsCreated: 4,
+          behaviorTargetsUpdated: 0,
+          behaviorTargetsRemoved: 0,
+          curriculumModulesCreated: 5,
+          curriculumModulesUpdated: 0,
+          curriculumModulesRemoved: 0,
+          learningObjectivesCreated: 27,
+          learningObjectivesUpdated: 0,
+          learningObjectivesRemoved: 0,
+          goalTemplatesWritten: 25,
+          curriculumId: "curr-1",
+          measureSpecId: "msp-1",
+          measureTriggerCount: 4,
+          warnings: [],
+          noop: false,
+        });
+
+      const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
+      const result = await runProjectionForPlaybook(PLAYBOOK_ID);
+
+      expect(result.launchBlockers).toEqual([]);
+    });
+
+    it("returns launchBlockers: [] when the course-ref has a parseable Skills Framework", async () => {
+      setSources([
+        {
+          source: {
+            id: "src-ielts",
+            name: "IELTS",
+            mediaAssets: [{ storageKey: "k", fileName: "ielts.md" }],
+          },
+        },
+      ]);
+      mockStorageDownload.mockResolvedValue(Buffer.from(IELTS_V22));
+      mockExtractTextFromBuffer.mockResolvedValue({ text: IELTS_V22, fileType: "text" });
+      mockApplyProjection.mockResolvedValue({
+        parametersUpserted: 4,
+        behaviorTargetsCreated: 4,
+        behaviorTargetsUpdated: 0,
+        behaviorTargetsRemoved: 0,
+        curriculumModulesCreated: 5,
+        curriculumModulesUpdated: 0,
+        curriculumModulesRemoved: 0,
+        learningObjectivesCreated: 27,
+        learningObjectivesUpdated: 0,
+        learningObjectivesRemoved: 0,
+        goalTemplatesWritten: 25,
+        curriculumId: "curr-1",
+        measureSpecId: "msp-1",
+        measureTriggerCount: 4,
+        warnings: [],
+        noop: false,
+      });
+
+      const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
+      const result = await runProjectionForPlaybook(PLAYBOOK_ID);
+
+      expect(result.launchBlockers).toEqual([]);
+    });
+  });
 });
