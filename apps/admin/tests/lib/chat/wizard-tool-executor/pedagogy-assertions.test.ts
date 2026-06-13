@@ -143,27 +143,43 @@ describe("createPedagogyAssertionsFromCourseRef — canonical write shape (#1545
 });
 
 describe("create_course.ts static regression — drift fields must not return (#1545)", () => {
-  it("create_course.ts no longer writes status / confidence / isActive on assertion creates", async () => {
+  it("create_course (orchestrator + stage helpers) no longer writes status / confidence / isActive on assertion creates", async () => {
     // Sibling of the static-source check at
     // `tests/lib/content-trust/playbook-source-isolation.test.ts:77-100`.
     // The helper is the sanctioned source of write shape; if a future
     // edit re-inlines a drifted field, this test fires.
+    //
+    // Post-#1544 the pedagogy block was lifted out of the monolithic
+    // create_course.ts into the per-stage helpers under
+    // `tools/create_course/`. The check now spans the orchestrator + the
+    // two stage files that own the pedagogy write (`_reuse-path.ts` for
+    // the reuse-branch block, `_lesson-plan.ts` for the new-path block).
     const fs = await import("fs/promises");
     const path = await import("path");
-    const file = path.resolve(
+    const baseDir = path.resolve(
       __dirname,
-      "../../../../lib/chat/wizard-tool-executor/tools/create_course.ts",
+      "../../../../lib/chat/wizard-tool-executor/tools",
     );
-    const src = await fs.readFile(file, "utf8");
+    const targets = [
+      "create_course.ts",
+      "create_course/_reuse-path.ts",
+      "create_course/_lesson-plan.ts",
+    ];
+    const sources = await Promise.all(
+      targets.map((rel) => fs.readFile(path.join(baseDir, rel), "utf8")),
+    );
+    const combined = sources.join("\n");
+
+    // Helper import + canonical name must be reachable from at least one
+    // of the surveyed files — proves the wizard hasn't reverted to an
+    // inline hand-rolled write block.
+    expect(combined).toMatch(/await import\("\.\.?\/(?:create_course\/)?_pedagogy-assertions"\)/);
+    expect(combined).toContain("createPedagogyAssertionsFromCourseRef");
 
     // None of the four drift fields may appear inside a ContentSource or
-    // ContentAssertion `prisma.*.create({ data: { … } })` block. The
-    // wider file uses `isActive: true` elsewhere (Playbook etc.) so we
-    // anchor the check on context: the helper import + canonical write
-    // shape must be present.
-    expect(src).toContain('await import("./_pedagogy-assertions")');
-    expect(src).toContain("createPedagogyAssertionsFromCourseRef");
-    expect(src).not.toMatch(/contentSource\.create[\s\S]*?status:\s*"COMPLETED"/);
-    expect(src).not.toMatch(/contentAssertion\.create[\s\S]*?confidence:\s*1\.0/);
+    // ContentAssertion `prisma.*.create({ data: { … } })` block in any of
+    // the surveyed files.
+    expect(combined).not.toMatch(/contentSource\.create[\s\S]*?status:\s*"COMPLETED"/);
+    expect(combined).not.toMatch(/contentAssertion\.create[\s\S]*?confidence:\s*1\.0/);
   });
 });

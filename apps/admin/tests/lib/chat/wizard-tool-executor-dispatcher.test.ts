@@ -44,11 +44,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Shared prisma mock — every case touches some subset of these models ──
 const mockPrisma = {
-  playbook: { findUnique: vi.fn(), update: vi.fn() },
-  domain: { findUnique: vi.fn(), findFirst: vi.fn() },
+  playbook: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  domain: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   institution: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
   institutionType: { findFirst: vi.fn() },
-  subject: { findUnique: vi.fn() },
+  subject: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn() },
+  subjectDomain: { findFirst: vi.fn(), create: vi.fn() },
+  playbookSubject: { upsert: vi.fn() },
   user: { update: vi.fn() },
   $transaction: vi.fn(),
 };
@@ -100,6 +102,27 @@ vi.mock("@/lib/knowledge/cleanup-placeholder-subjects", () => ({
   unlinkNonPrimaryPlaybookSubjects: mockUnlinkNonPrimaryPlaybookSubjects,
   removePlaceholderPlaybookSubjects: mockRemovePlaceholderPlaybookSubjects,
   isPlaceholderSubjectName: mockIsPlaceholderSubjectName,
+}));
+
+// New-path dispatcher pin (#1544 AC) requires mocking the dynamic
+// imports the Stage 5 helper makes. Each block returns the bare minimum
+// needed for the path to reach the #607 `unlinkNonPrimaryPlaybookSubjects`
+// call. Returns past that point can throw — the pin asserts BEFORE.
+const mockScaffoldDomain = vi.fn(async () => ({ playbook: { id: "pb-new" } }));
+vi.mock("@/lib/domain/scaffold", () => ({ scaffoldDomain: mockScaffoldDomain }));
+
+const mockLoadPersonaArchetype = vi.fn(async () => null);
+const mockLoadPersonaFlowPhases = vi.fn(async () => null);
+const mockLoadPersonaWelcomeTemplate = vi.fn(async () => null);
+vi.mock("@/lib/domain/persona-loaders", () => ({
+  loadPersonaArchetype: mockLoadPersonaArchetype,
+  loadPersonaFlowPhases: mockLoadPersonaFlowPhases,
+  loadPersonaWelcomeTemplate: mockLoadPersonaWelcomeTemplate,
+}));
+
+const mockSuggestTeachingProfile = vi.fn(() => ({}));
+vi.mock("@/lib/content-trust/teaching-profiles", () => ({
+  suggestTeachingProfile: mockSuggestTeachingProfile,
 }));
 
 // slugify is dynamically imported; vitest's auto-mock would clobber it.
@@ -404,6 +427,72 @@ describe("executeWizardTool / create_course (reuse path — #607 invariant)", ()
       draftPbId,
       expect.any(Function),
       expect.objectContaining({ reason: expect.stringContaining("existing path") }),
+    );
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// 6. create_course — new path #607 unlink guard (#1544 Stage 5 AC)
+// ════════════════════════════════════════════════════════════════════════
+
+describe("executeWizardTool / create_course (new path — #607 invariant)", () => {
+  it("calls unlinkNonPrimaryPlaybookSubjects on the fresh-scaffold branch too", async () => {
+    // Graph green-lit.
+    mockEvaluateGraph.mockReturnValueOnce({ canLaunch: true, missingRequired: [] });
+
+    const existingDomainId = "ckdomnewabcdefghijklmnopqr";
+    const courseName = "Brand New Course";
+    const subjectDiscipline = "Astronomy";
+
+    // domain.findUnique #1 — Stage 5 reads { slug } for the course-scoped Subject slug.
+    mockPrisma.domain.findUnique.mockResolvedValueOnce({ slug: "new-domain" });
+    // subject.findUnique — slug doesn't exist → forces subject.create.
+    mockPrisma.subject.findUnique.mockResolvedValueOnce(null);
+    // subject.create — returns the fresh Subject row Stage 5 then threads to #607.
+    mockPrisma.subject.create.mockResolvedValueOnce({
+      id: "subj-new",
+      slug: "new-domain-brand-new-course-astronomy",
+      name: subjectDiscipline,
+    });
+    // subjectDomain.findFirst — no prior link → trigger .create (mocked to no-op).
+    mockPrisma.subjectDomain.findFirst.mockResolvedValueOnce(null);
+    // playbook.findFirst — dedup-by-name returns null → no recurse into reuse path.
+    mockPrisma.playbook.findFirst.mockResolvedValueOnce(null);
+
+    const executeWizardTool = await loadExecutor();
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await executeWizardTool(
+        "create_course",
+        { courseName, subjectDiscipline },
+        "user-1",
+        {
+          existingDomainId,
+        },
+      );
+    } catch {
+      // Downstream of #607 (config/projection/onboarding flow) isn't fully
+      // mocked — a throw past the pin is expected. The assertion below fires
+      // BEFORE any throw because the #607 unlink is one of the first writes
+      // after scaffoldDomain returns.
+    } finally {
+      logSpy.mockRestore();
+    }
+
+    // Critical: #607 unlink fires on the new-path too, with the freshly-
+    // created Subject as the keep-id.
+    expect(mockUnlinkNonPrimaryPlaybookSubjects).toHaveBeenCalledWith(
+      "pb-new",
+      "subj-new",
+    );
+    // Critical: scaffoldDomain was called with forceNewPlaybook so the
+    // path is truly the fresh-scaffold branch.
+    expect(mockScaffoldDomain).toHaveBeenCalledWith(
+      existingDomainId,
+      expect.objectContaining({
+        forceNewPlaybook: true,
+        playbookName: courseName,
+      }),
     );
   });
 });
