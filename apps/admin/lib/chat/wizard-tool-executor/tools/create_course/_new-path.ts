@@ -378,7 +378,8 @@ export async function newCourseScaffoldPath(
         finalFlowPhases = { phases: updatedPhases as Array<Record<string, unknown>> };
         await updateDomainConfig(
           domainId,
-          (d) => ({ ...d, onboardingFlowPhases: finalFlowPhases }),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (d) => ({ ...d, onboardingFlowPhases: finalFlowPhases as any }),
           { reason: "wizard create_course — onboardingFlowPhases" },
         );
       }

@@ -114,7 +114,8 @@ export async function buildNewConfigUpdate(
   const learningOutcomes = (input.learningOutcomes as string[])
     || (setupData?.learningOutcomes as string[]);
   if (learningOutcomes && learningOutcomes.length > 0) {
-    const existingGoals = (configUpdate.goals as GoalShape[]) || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingGoals = (configUpdate.goals as any[]) || [];
     const { guardAILearningOutcomes } = await import("@/lib/chat/wizard-ai-output-guard");
     const guard = guardAILearningOutcomes(learningOutcomes, existingGoals);
     for (const dropped of guard.filtered) {
@@ -128,8 +129,9 @@ export async function buildNewConfigUpdate(
       );
     }
     if (guard.accepted.length > 0) {
-      const existingNames = new Set(existingGoals.map((g) => g.name?.toLowerCase().trim()));
-      const newLOGoals: GoalShape[] = guard.accepted
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existingNames = new Set(existingGoals.map((g: any) => g.name?.toLowerCase().trim()));
+      const newLOGoals = guard.accepted
         .filter((lo: string) => !existingNames.has(lo.toLowerCase().trim()))
         .map((lo: string) => ({
           type: "LEARN",

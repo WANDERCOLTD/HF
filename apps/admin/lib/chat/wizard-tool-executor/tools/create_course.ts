@@ -78,166 +78,19 @@ try {
   // ── Stage 7 — TEACHER + test caller enrollment + cohort (extracted #1544) ──
   const { enrollAndCreateCaller } = await import("./create_course/_enroll");
   const enrollState = await enrollAndCreateCaller({ ...newPathCtx, playbookId });
-  const { caller, callerName, demoCaller, demoName, cohort, joinToken } = enrollState;
 
-  // 10. Backfill teachMethod on assertions extracted before teachingMode was set
-  const resolvedTeachingModeNew = (input.teachingMode as string) || (setupData?.teachingMode as string);
-  if (resolvedTeachingModeNew) {
-    const { backfillTeachMethods } = await import("@/lib/content-trust/backfill-teach-methods");
-    backfillTeachMethods(playbookId).catch(err =>
-      console.error("[wizard] teachMethod backfill failed (non-fatal):", err.message));
-  }
-
-  // 10b. Sync instruction assertions into course identity spec overlay
-  const { syncInstructionsToIdentitySpec } = await import("@/lib/content-trust/sync-instructions-to-spec");
-
-  // 10c. Create assertions from pedagogy data (if user filled any pedagogy nodes)
-  //      Skip if pedagogy source already exists for this subject (re-run guard)
-  const hasPedagogy = setupData?.skillsFramework || setupData?.teachingPrinciples
-    || setupData?.coursePhases || setupData?.edgeCases || setupData?.assessmentBoundaries;
-  if (hasPedagogy) {
-    const existingPedSource = await prisma.contentSource.findFirst({
-      where: {
-        documentType: "COURSE_REFERENCE",
-        name: `${courseName} — Course Reference`,
-        subjects: { some: { subjectId: subject.id } },
-      },
-    });
-    if (!existingPedSource) {
-      try {
-        const { convertCourseRefToAssertions } = await import("@/lib/content-trust/course-ref-to-assertions");
-        const { renderCourseRefMarkdown } = await import("@/lib/content-trust/course-ref-to-markdown");
-        const refData = {
-          courseOverview: {
-            subject: subjectDiscipline,
-            studentAge: (setupData?.audience as string) || undefined,
-          },
-          skillsFramework: setupData?.skillsFramework as any,
-          teachingApproach: setupData?.teachingPrinciples as any,
-          coursePhases: setupData?.coursePhases as any,
-          edgeCases: setupData?.edgeCases as any,
-          assessmentBoundaries: setupData?.assessmentBoundaries as string[],
-          learnerModel: setupData?.learnerModel as any,
-          sessionOverrides: setupData?.sessionOverrides as any,
-          contentStrategy: setupData?.contentStrategy as any,
-          communicationRules: setupData?.communicationRules as any,
-        };
-
-        const assertionRows = convertCourseRefToAssertions(refData);
-        if (assertionRows.length > 0) {
-          // #1545 — route through the shared pedagogy helper (mirror of
-          // the reuse-path block above). Pre-fix this branch carried the
-          // same three drifted field names and missed the required
-          // `slug` — Prisma threw on every wizard run.
-          const { createPedagogyAssertionsFromCourseRef } = await import("./_pedagogy-assertions");
-          const result = await createPedagogyAssertionsFromCourseRef({
-            courseName,
-            playbookId,
-            subjectId: subject.id,
-            textSample: renderCourseRefMarkdown(refData),
-            assertionRows,
-          });
-          console.log(`[wizard] Created ${result.assertionCount} pedagogy assertions from course reference data`);
-        }
-      } catch (err) {
-        console.error("[wizard] Pedagogy assertion creation failed (non-fatal):", (err as Error).message);
-      }
-    }
-  }
-
-  syncInstructionsToIdentitySpec(playbookId).catch(err =>
-    console.error("[wizard] instruction spec sync failed (non-fatal):", err.message));
-
-  // 11. Auto-generate curriculum + lesson plan (background, chained)
-  //
-  // Both steps run in the background so the wizard response returns fast, but
-  // they are chained sequentially: curriculum first (which waits for extractions
-  // to finish), then lesson plan (which uses the freshly-built curriculum).
-  //
-  // Running in parallel used to produce placeholder modules ("M00-1", "4MD-2")
-  // because curriculum gen fired before extractions completed, got zero assertions,
-  // and fell through to goals-based generation.
-  // Always include the primary subject — after bridging (step 7b),
-  // content sources live on subject.id, not just packSubjectIds.
-  const curriculumSubjectIds = [subject.id, ...(subjectIdsToLink.length > 0 ? subjectIdsToLink : (packSubjectIds ?? []))];
-  const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");
-  (async () => {
-    try {
-      await generateInstantCurriculum({
-        domainId,
-        playbookId,
-        subjectName: subjectDiscipline,
-        persona: interactionPattern,
-        subjectIds: curriculumSubjectIds,
-        intents: {
-          sessionCount: input.sessionCount ? Number(input.sessionCount) : undefined,
-          durationMins: input.durationMins ? Number(input.durationMins) : undefined,
-          emphasis: input.planEmphasis as string | undefined,
-        },
-      });
-    } catch (err: any) {
-      console.error("[wizard] Instant curriculum failed (non-fatal):", err.message);
-    }
-
-    // Lesson plan generation removed — scheduler handles pacing
-  })();
-
-  // Build first call preview data (phases + resolved media filenames)
-  const previewDomain = await prisma.domain.findUnique({
-    where: { id: domainId },
-    select: { onboardingWelcome: true, onboardingFlowPhases: true },
-  });
-  const previewPhases = (previewDomain?.onboardingFlowPhases as { phases?: any[] } | null)?.phases || [];
-  const firstCallPreview = {
-    domainId,
+  // ── Stage 8 — backfill + sync + pedagogy assertions + curriculum +
+  //              first-call preview + return payload (extracted #1544) ──
+  const { generateLessonPlanAndReturn } = await import("./create_course/_lesson-plan");
+  return generateLessonPlanAndReturn({
+    ctx: newPathCtx,
     playbookId,
-    welcomeMessage: previewDomain?.onboardingWelcome || resolvedWelcome || null,
-    phases: previewPhases.map((p: any) => ({
-      phase: p.phase,
-      duration: p.duration,
-      goals: p.goals || [],
-      content: (p.content || []).map((c: any) => {
-        const info = mediaLookup.get(c.mediaId);
-        return {
-          mediaId: c.mediaId,
-          fileName: info?.fileName || "Unknown file",
-          title: info?.title || null,
-          instruction: c.instruction,
-        };
-      }),
-    })),
-  };
-
-  // Post-creation summary — surfaces entity counts so the AI can report them
-  const linkedSubjects = await prisma.playbookSubject.findMany({
-    where: { playbookId },
-    include: { subject: { select: { id: true, name: true } } },
+    subject,
+    subjectIdsToLink,
+    resolvedWelcome,
+    mediaLookup,
+    enrollState,
   });
-  const linkedSources = await prisma.subjectSource.findMany({
-    where: { subjectId: { in: linkedSubjects.map(ls => ls.subject.id) } },
-    select: { sourceId: true },
-    distinct: ["sourceId"],
-  });
-
-  return {
-    content: JSON.stringify({
-      ok: true,
-      domainId,
-      playbookId,
-      subjectId: subject.id,
-      callerId: caller.id,
-      callerName,
-      ...(demoCaller ? { demoCallerId: demoCaller.id, demoCallerName: demoName } : {}),
-      cohortId: cohort.id,
-      joinToken,
-      firstCallPreview,
-      creationSummary: {
-        subjectCount: linkedSubjects.length,
-        subjectNames: linkedSubjects.map(ls => ls.subject.name),
-        documentCount: linkedSources.length,
-      },
-    }),
-  };
 } catch (err) {
   // #338 followup — log the error server-side so failed create_course
   // calls are debuggable. Previously the error went only into the chat
