@@ -44,6 +44,47 @@ export type ComposeAffectingPlaybookConfigKey =
   (typeof COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS)[number];
 
 /**
+ * For each compose-affecting Playbook.config key, the `ComposeSection`
+ * whose hash it should bump when changed — #1556 (Story 1 of EPIC #1555).
+ *
+ * Section attribution is opinionated. Several keys could legitimately
+ * touch multiple sections (e.g. `sessionFlow` drives intake AND onboarding
+ * AND offboarding via the `SessionFlowEditor`); we pick the most
+ * representative section as the bucket. Story 2's per-section staleness
+ * work can refine this if read patterns reveal noise.
+ *
+ * Note the self-referential mapping for `firstCallMode`: the Playbook.config
+ * key maps to a config-kind section that reads from the same Playbook.config.
+ * Intentional for renderer-registry uniformity (#1559 / Story 4).
+ */
+export const COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEY_SECTIONS = {
+  // Mode/policy family — course-wide policy knobs
+  progressNarrative: "modePolicy",
+  audience: "modePolicy",
+  teachingMode: "modePolicy",
+  // Targets
+  firstSessionTargets: "behaviorTargets",
+  skillTierMapping: "behaviorTargets",
+  // Call-1 shape (self-referential — kind: "config" section reads from Playbook.config)
+  firstCallMode: "firstCallMode",
+  // Welcome / greeting family
+  welcomeMessage: "welcome",
+  firstCallCourseIntro: "welcome",
+  firstCallWaitForAck: "welcome",
+  // Journey-flow family
+  sessionFlow: "intake", // root of journey; intake is the entry. S2 can refine sub-paths.
+  onboardingFlowPhases: "onboarding",
+  offboardingSummary: "offboarding",
+  // Modules gate
+  lessonPlanMode: "modulesGate",
+  // Instructions / goal-adaptation
+  goals: "instructions",
+} as const satisfies Record<
+  ComposeAffectingPlaybookConfigKey,
+  import("./section").ComposeSectionKey
+>;
+
+/**
  * Returns true when any of the keys in `next` differ from `prev` by deep
  * equality. Used by `updatePlaybookConfig` to decide whether to bump the
  * timestamp.

@@ -17,7 +17,7 @@ Real incidents this doc would have prevented:
 | Incident | Date | What broke |
 |----------|------|-----------|
 | `visualAids` stale-ref drift | 2026-05-10 | The `visualAids` loader had no `documentType` filter; `course-ref.md` leaked to learners as media attachment. Fix landed same day via `isTutorOnlyDocumentType` (see CONTENT-PIPELINE.md §8 L1). |
-| `__teachingDepth` array-property hack | ongoing | `SectionDataLoader.ts::registerLoader("curriculumAssertions")` stashes `teachingDepth` on the result array via `(result as any).__teachingDepth = ...`. Only `transforms/teaching-content.ts::renderTeachingContent` knows to read it. Any future caller that maps/filters the array silently drops it. |
+| `__teachingDepth` array-property hack | ✅ FIXED (#814 story 2) | Previously: `SectionDataLoader.ts::registerLoader("curriculumAssertions")` stashed `teachingDepth` on the result array via `(result as any).__teachingDepth = ...`. Now: the loader returns a typed `CurriculumAssertionsLoaderResult` interface with `teachingDepth: number \| null` as a sibling field (`SectionDataLoader.ts:43-46`). Survives `.filter() / .map() / .slice()` downstream. Confirmed stale entry removed from §9 L1 (now marked FIXED). |
 | Isolated `PrismaClient` in template compiler | ongoing | `PromptTemplateCompiler.ts` instantiates its own `new PrismaClient()` rather than importing the shared `lib/prisma::prisma` singleton — separate connection pool, no logging instrumentation, can outlive request scope. |
 | Onboarding-flow override source ambiguity | 2026-05-10 | Welcome flow was firing instead of `course-ref.md` first-call rules because `pedagogy.ts` rendered overrides as a separate block alongside `onboardingFlowPhases`. Now `pedagogy.ts` REPLACES the flow; `buildComposeTrace.ts` records which source won. |
 | Stale flow-map memory file | 2026-05-08 → 2026-05-11 | Claude's `memory/flow-prompt-composition.md` was Claude-only; agents writing new transforms couldn't see it. This doc promotes that knowledge to the repo. |
@@ -204,6 +204,21 @@ Adding a new contract-gated query: update §5 here and the relevant CONTENT-PIPE
 | `onboardingOverriddenByPlaybook` | `true` when Playbook beat Domain | Trace line `onboarding-override: playbook beat domain` |
 | `mediaPalette` | `[{ fileName, documentType, sourceName }]` for every `visualAids` entry, enriched with the underlying `MediaAsset.source` | Trace lines `media-palette: N items` + first 5 rows |
 | `sectionsActivatedCount` / `sectionsSkippedCount` | Counts of activated / skipped sections | Trace line `sections: A activated, S skipped` |
+| `sectionsAffectedByKey` | `{ configKey: ComposeSectionKey }` — for every compose-affecting key (Playbook + Domain + AnalysisSpec), which compose section it bumps when changed. Static merge of the three `COMPOSE_AFFECTING_*_KEY_SECTIONS` maps in `lib/compose/`. #1556 (Story 1 of EPIC #1555). | Persisted in `ComposedPrompt.inputs.composition`; rendered by the Designer Inspector once #1559 (Story 4) lands the renderer registry. |
+
+### Key → section ownership — source of truth (#1556)
+
+The canonical mapping from a compose-affecting config key to the `ComposeSection` it bumps lives in **three sibling maps** under `apps/admin/lib/compose/`, all exported via the `lib/compose/index.ts` barrel:
+
+| File | Map | Domain |
+|---|---|---|
+| `affecting-keys.ts` | `COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEY_SECTIONS` | 14 Playbook.config keys |
+| `affecting-keys-domain.ts` | `COMPOSE_AFFECTING_DOMAIN_FIELD_SECTIONS` | 4 Domain fields |
+| `affecting-keys-spec.ts` | `COMPOSE_AFFECTING_SPEC_FIELD_SECTIONS` | 6 AnalysisSpec fields |
+
+Each map is `as const satisfies Record<KEY_TYPE, ComposeSectionKey>` — adding a new key to the `COMPOSE_AFFECTING_*_KEYS` array without adding a corresponding entry to the matching `*_KEY_SECTIONS` map is a TypeScript compile error.
+
+Story 2 (#1557) consumes these maps to drive section-grain staleness hash bumps. Story 3 (#1558) consumes the loader→section map (`PIPELINE_STATE_SECTION_LOADERS` in `section.ts`) to scope incremental recompose. If you add a new compose-affecting key, add its section to the matching map; if you add a new `ComposeSection`, add its loader deps to `PIPELINE_STATE_SECTION_LOADERS` and at least one key→section mapping.
 
 Three surfaces:
 
@@ -264,7 +279,7 @@ Failures in trace construction are caught and logged with `[compose-trace] faile
 
 | # | Landmine | Where | Status |
 |---|----------|-------|--------|
-| L1 | **`__teachingDepth` array-property hack** — `curriculumAssertions` loader stashes `teachingDepth` on the result array via `(result as any).__teachingDepth = teachingDepth;` then `transforms/teaching-content.ts::renderTeachingContent` reads it back via the same cast. Any caller that maps / filters / spreads the array drops it silently. | `SectionDataLoader.ts::registerLoader("curriculumAssertions")` (read in `transforms/teaching-content.ts::renderTeachingContent`) | ⚠ OPEN — tech debt. Proper fix: thread `teachingDepth` through a typed field on `LoadedDataContext` (e.g. `curriculumMeta.teachingDepth`) or pass via section `config`. Documenting; do NOT fix in this PR. |
+| L1 | **`__teachingDepth` array-property hack** — Previously: `curriculumAssertions` loader stashed `teachingDepth` on the result array via `(result as any).__teachingDepth = teachingDepth;` then `transforms/teaching-content.ts::renderTeachingContent` read it back via the same cast. Any caller that mapped / filtered / spread the array dropped it silently. | `SectionDataLoader.ts::registerLoader("curriculumAssertions")` — now returns typed `CurriculumAssertionsLoaderResult { assertions, teachingDepth }` (`SectionDataLoader.ts:43-46`). | ✅ **FIXED via #814 story 2.** `teachingDepth` is now a typed sibling field on the loader result interface, surviving downstream array ops. `transforms/teaching-content.ts::renderTeachingContent` reads `loadedData.curriculumAssertions.teachingDepth` directly. Status confirmed during #1556 (S1 compose-section contract) — no further action. |
 | L2 | **Isolated `PrismaClient` in the template compiler** — `PromptTemplateCompiler.ts` does `const prisma = new PrismaClient()` at module scope rather than importing the shared `lib/prisma::prisma` singleton. Means it has its own connection pool, sidesteps query logging instrumentation, and is not torn down between hot reloads in dev. | `PromptTemplateCompiler.ts` (module scope) | ⚠ OPEN. Fix: replace with `import { prisma } from "@/lib/prisma";`. Verify no test still mocks the local `PrismaClient` constructor before changing. |
 | L3 | **`visualAids` historical leak** — `subjectId + mimeType` was the only filter; tutor-only docs (`COURSE_REFERENCE`, `LESSON_PLAN`, `QUESTION_BANK`, `POLICY_DOCUMENT`) leaked into the learner media palette. | `SectionDataLoader.ts::registerLoader("visualAids")` | ✅ **FIXED 2026-05-10** via `isTutorOnlyDocumentType` post-filter (see CONTENT-PIPELINE.md §8 L1). Allow-list over `DocumentType` so new tutor-only types are excluded by default. **Re-verify when adding new `DocumentType` enum values.** |
 | L4 | **`subjectSources` cross-course metadata exposure** — no `playbookId` filter; surfaces `name` / `trustLevel` / `publisherOrg` of every source on any subject the playbook touches. | `SectionDataLoader.ts::registerLoader("subjectSources")` | ⚠ Documented intentional (metadata, not content); re-verify if you add a source-level field that's content-bearing. ENTITIES.md §9 E4. |
