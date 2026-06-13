@@ -34,6 +34,24 @@ export type ComposeAffectingDomainField =
   (typeof COMPOSE_AFFECTING_DOMAIN_FIELDS)[number];
 
 /**
+ * For each compose-affecting Domain field, the `ComposeSection` whose hash
+ * it should bump when changed — #1556 (Story 1 of EPIC #1555).
+ *
+ * Domain changes fan out across all playbooks in the domain, so any of these
+ * effectively marks the matched section stale on every caller in every
+ * playbook in that domain. Coarseness inherited from Domain blast radius.
+ */
+export const COMPOSE_AFFECTING_DOMAIN_FIELD_SECTIONS = {
+  onboardingFlowPhases: "onboarding",
+  onboardingDefaultTargets: "behaviorTargets",
+  onboardingWelcome: "welcome",
+  onboardingIdentitySpecId: "modePolicy",
+} as const satisfies Record<
+  ComposeAffectingDomainField,
+  import("./section").ComposeSectionKey
+>;
+
+/**
  * Returns true when any of the listed Domain fields differ between
  * `prev` and `next` by deep equality (JSON.stringify).
  */

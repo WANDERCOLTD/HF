@@ -14,6 +14,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
+import {
+  COMPOSE_AFFECTING_DOMAIN_FIELD_SECTIONS,
+  COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEY_SECTIONS,
+  COMPOSE_AFFECTING_SPEC_FIELD_SECTIONS,
+  type ComposeSectionKey,
+} from "@/lib/compose";
 import type { ComposeTrace, LoadedDataContext, ResolvedSpecs } from "./types";
 
 interface BuildTraceInput {
@@ -141,6 +147,17 @@ export async function buildComposeTrace(
     }
   }
 
+  // --- Sections affected by key ---------------------------------------------
+  // Static merge of the three compose-affecting key→section maps. Same on
+  // every compose run; emitted in the trace so the dry-run viewer and the
+  // ComposedPrompt viewer can render "this field, when changed, marks
+  // section X stale" without re-importing the maps client-side. #1556.
+  const sectionsAffectedByKey: Record<string, ComposeSectionKey> = {
+    ...COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEY_SECTIONS,
+    ...COMPOSE_AFFECTING_DOMAIN_FIELD_SECTIONS,
+    ...COMPOSE_AFFECTING_SPEC_FIELD_SECTIONS,
+  };
+
   return {
     loadersFired,
     loadersEmpty,
@@ -153,6 +170,7 @@ export async function buildComposeTrace(
     mediaPalette,
     sectionsActivatedCount: sectionsActivated.length,
     sectionsSkippedCount: sectionsSkipped.length,
+    sectionsAffectedByKey,
   };
 }
 

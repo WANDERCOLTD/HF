@@ -42,6 +42,34 @@ export type ComposeAffectingSpecField =
   (typeof COMPOSE_AFFECTING_SPEC_FIELDS)[number];
 
 /**
+ * For each compose-affecting AnalysisSpec field, the `ComposeSection` whose
+ * hash it should bump when changed — #1556 (Story 1 of EPIC #1555).
+ *
+ * Honest disclaimer: AnalysisSpec fields are degenerate-by-design for
+ * section attribution. A spec's `config` JSON can carry data for any
+ * section; `specRole` routes the spec into different sections by role;
+ * `isActive` toggles the whole spec on/off. Mapping all six fields to a
+ * single section is coarse — we pick `modePolicy` as a catch-all
+ * representing "system-level policy change" and accept the over-marking.
+ *
+ * Story 2's section hash work can introduce finer attribution if spec
+ * writes prove to noise-mark unrelated sections — the place to refine is
+ * at the AnalysisSpec update site (`lib/analysis-spec/update-analysis-spec-config.ts`),
+ * not here.
+ */
+export const COMPOSE_AFFECTING_SPEC_FIELD_SECTIONS = {
+  config: "modePolicy",
+  promptTemplate: "modePolicy",
+  isActive: "modePolicy",
+  scope: "modePolicy",
+  specRole: "modePolicy",
+  extendsAgent: "modePolicy",
+} as const satisfies Record<
+  ComposeAffectingSpecField,
+  import("./section").ComposeSectionKey
+>;
+
+/**
  * Returns true when any of the listed AnalysisSpec fields differ between
  * `prev` and `next` by deep equality (JSON.stringify).
  */

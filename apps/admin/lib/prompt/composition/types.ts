@@ -818,6 +818,17 @@ export interface ComposeTrace {
   /** Sections activated vs skipped (mirrors metadata fields for compact rendering). */
   sectionsActivatedCount: number;
   sectionsSkippedCount: number;
+  /**
+   * For every compose-affecting config key (Playbook + Domain + AnalysisSpec),
+   * which `ComposeSection` it bumps when changed. Static debugging aid —
+   * "if you change key X on this playbook, here's the section it affects".
+   * Sourced from the three `COMPOSE_AFFECTING_*_KEY_SECTIONS` maps in
+   * `lib/compose/`. #1556 (Story 1 of EPIC #1555).
+   */
+  sectionsAffectedByKey: Record<
+    string,
+    import("@/lib/compose").ComposeSectionKey
+  >;
 }
 
 // === UTILITY ===
