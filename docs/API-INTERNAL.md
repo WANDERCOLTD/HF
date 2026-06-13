@@ -9881,6 +9881,12 @@ Evaluate a composed prompt against the quality rubric.
 
 ---
 
+### `GET` /api/callers/[callerId]/lo-mastery
+
+**Auth**: Session
+
+---
+
 ### `GET` /api/callers/[callerId]/skills-evidence
 
 **Auth**: Session
