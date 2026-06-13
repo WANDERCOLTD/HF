@@ -103,11 +103,70 @@ You don't need to touch any of these — they're queued for me. Just FYI so you 
 
 If you want a 30-second test that #1564's parser still aligns with the renderer's expectations: run `parseSkillsFramework` against `a-sample-docs/course-reference-template.md`'s `## Skills Framework` block and confirm the result shape carries (a) stable skill IDs, (b) tier-ordered descriptors, (c) clear LO → Tier attribution. If any of those three are degraded or planned to change, drop a note in this file under "Drift detected" and I'll re-shape the renderer brief.
 
-## Open questions I'd like your ruling on (when you're back)
+## Open questions — RULINGS (2026-06-13, post-merge of #1564/#1565/#1566)
 
-1. **N-tier — is the order operator-defined or fixed?** If a course can declare `Beginner → Intermediate → Advanced` instead of `Emerging → Developing → Secure`, the renderer needs to read the tier names from the parser output, not from a hardcoded literal. Confirm where the canonical list lives post-#1564.
-2. **Empty tier rows — render or hide?** When a tier has 0 LOs (early-edit state) the renderer can either show "(no descriptors yet)" or hide the row. Educator-preference call — what's your inclination from the projection side?
-3. **Launch blockers + heatmap interaction.** #1565 demotes courses to DRAFT when launchBlockers fire. Should the heatmap render at all on DRAFT courses, or show a "Course not yet published" placeholder? I'd lean "render but with a `DRAFT` watermark badge" — same UX as the Course Design Console Preview lens treats DRAFT mode.
+1. **N-tier ordering — operator-defined PER SKILL, not per playbook.**
+   **Ruling:** the canonical tier-order list lives on each `ParsedSkill.tierScheme` array
+   (see `apps/admin/lib/wizard/project-course-reference.ts::parseSkillsFramework`).
+   It is **per-skill, not per-playbook** — different skills inside the same playbook
+   MAY declare different schemes (e.g. a course can mix CEFR for SKILL-01 with the
+   `cto` 4-tier for SKILL-02). The previous draft of this doc implied
+   "single scheme per playbook" — that was wrong; tech-lead caught it before grooming.
+   The renderer reads `tierScheme` from each skill, not a course-level summary.
+
+   `KNOWN_TIER_SCHEMES` (in `project-course-reference.ts`) registers `three`, `cto`,
+   and `cefr`. Unrecognised schemes are accepted with a
+   `SKILL_UNRECOGNISED_TIER_SCHEME` warning. Heatmap rows render in each skill's
+   `tierScheme` order.
+
+2. **Empty tier rows — render with placeholder, never hide.**
+   **Ruling:** when a tier has 0 descriptors, render with
+   `"(no descriptors yet — add to course-ref)"`. Hiding leaves the educator unable
+   to see what the projection's drift indicator could surface ("you declared 4 tiers
+   but only filled 3"). The placeholder is also necessary for the Source Lineage
+   lens which compares declared-vs-projected counts.
+
+3. **Launch blockers + heatmap — render with DRAFT watermark.**
+   **Ruling:** when `Playbook.status === "DRAFT"` (typically because PR #1565's
+   launchBlockers fired), the heatmap renders WITH a `DRAFT` watermark badge.
+   Matches the Course Design Console Preview lens's existing DRAFT-mode treatment.
+   Hiding would leave the educator with no visual to confirm what fixing the
+   course-ref will produce — they need to SEE the heatmap shell to know whether
+   their fix worked.
+
+## Drift detected
+
+(none — invariants below were verified against the as-merged shape of #1564.)
+
+## Invariants — confirmed shape (post-merge of #1564)
+
+The 4 invariants the renderer depends on, restated against the actual code shape:
+
+1. **Stable skill IDs.** `ParsedSkill.ref` is the `SKILL-NN` stable ID — emitted by
+   `parseSkillsFramework` in both heading-form and table-form parsing paths.
+   The new `resolveSkillByLogicalId(playbookId, skillRef)` helper landing in
+   Stream A-B mirrors `lib/curriculum/resolve-module.ts::resolveModuleByLogicalId`
+   — refuses unscoped lookup, throws on empty `playbookId`.
+
+2. **Tier ordering preserved.** Per-skill `tierScheme` array IS the canonical order.
+   The renderer iterates rows in `tierScheme` order (bottom = first entry, top = last).
+   Rule 1 above corrects the earlier "single scheme per playbook" mis-statement.
+
+3. **LO → Tier 1:1.** Stream A-B adds a parse-time `SKILL_LO_MULTI_TIER` validation
+   warning to `parseSkillsFramework` when the same `outcomeRef` appears under
+   multiple tiers within one Skill. First-wins resolution; warning surfaces in
+   the projection result's `validationWarnings` array so the Skills Framework
+   inspector can render an inline warning chip.
+
+4. **Mastery storage on `CallerAttribute lo_mastery:{moduleSlug}:{loRef}`.**
+   Canonical post-#611 + #1561 work. PR #1561 hardened the read side; this is
+   load-bearing for the heatmap drill.
+
+   **Important `useFreshMastery` fork:** when `Playbook.config.useFreshMastery === true`
+   (Exam Assessment courses), mastery lives on `Call.scratchMastery` per-call,
+   NOT on `CallerAttribute lo_mastery:*`. The heatmap's data-fetch layer MUST
+   branch on this — naive read = empty mastery on Exam Assessment courses.
+   See `apps/admin/lib/curriculum/scratch-mastery.ts`.
 
 ## TL;DR for the next session that opens this file
 
