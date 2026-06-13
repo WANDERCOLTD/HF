@@ -22,6 +22,7 @@
 import type { WizardToolExec } from "../../_shared/types";
 import type { ResolvedCreateCourseContext } from "./_context";
 import type { EnrollState } from "./_enroll";
+import type { LaunchBlocker } from "./_new-path";
 
 export interface LessonPlanArgs {
   ctx: ResolvedCreateCourseContext;
@@ -31,12 +32,20 @@ export interface LessonPlanArgs {
   resolvedWelcome: string | null;
   mediaLookup: Map<string, { fileName: string; title: string | null }>;
   enrollState: EnrollState;
+  /**
+   * Launch blockers from projection (#3 — 2026-06-13). Surfaced in the
+   * tool response under `launchBlockers`. When non-empty, the chat
+   * assistant MUST refuse the "Ready to launch" affirmation and tell
+   * the educator what to fix (typically: the uploaded course-ref has
+   * no parseable Skills Framework).
+   */
+  launchBlockers: LaunchBlocker[];
 }
 
 export async function generateLessonPlanAndReturn(
   args: LessonPlanArgs,
 ): Promise<WizardToolExec> {
-  const { ctx, playbookId, subject, subjectIdsToLink, resolvedWelcome, mediaLookup, enrollState } = args;
+  const { ctx, playbookId, subject, subjectIdsToLink, resolvedWelcome, mediaLookup, enrollState, launchBlockers } = args;
   const { input, setupData, domainId, subjectDiscipline, courseName, interactionPattern, packSubjectIds } = ctx;
   const { caller, callerName, demoCaller, demoName, cohort, joinToken } = enrollState;
   const { prisma } = await import("@/lib/prisma");
@@ -174,11 +183,22 @@ export async function generateLessonPlanAndReturn(
     distinct: ["sourceId"],
   });
 
+  // (#3 2026-06-13) Publish-time launch blockers. When non-empty the
+  // playbook has been demoted back to DRAFT inside _new-path.ts and the
+  // course is NOT available to learners. The chat assistant reads this
+  // field and tells the educator what to fix.
+  //
+  // `playbookStatus` is computed deterministically here so the chat does
+  // not need a second DB lookup to render "DRAFT — fix course-ref first"
+  // vs "PUBLISHED — ready to test" banners.
+  const playbookStatus = launchBlockers.length > 0 ? "DRAFT" : "PUBLISHED";
+
   return {
     content: JSON.stringify({
       ok: true,
       domainId,
       playbookId,
+      playbookStatus,
       subjectId: subject.id,
       callerId: caller.id,
       callerName,
@@ -191,6 +211,9 @@ export async function generateLessonPlanAndReturn(
         subjectNames: linkedSubjects.map((ls) => ls.subject.name),
         documentCount: linkedSources.length,
       },
+      // (#3) Empty array when the course is publishable; non-empty when
+      // the educator needs to fix the course-ref before learners can use it.
+      launchBlockers,
     }),
   };
 }

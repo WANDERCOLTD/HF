@@ -66,7 +66,7 @@ try {
   if (!newPathResult.ok) {
     return execute(input, userId, newPathResult.recurse.setupData);
   }
-  const { playbookId, subjectId: subjectIdFromScaffold, subjectIdsToLink, resolvedWelcome, mediaLookup } = newPathResult.state;
+  const { playbookId, subjectId: subjectIdFromScaffold, subjectIdsToLink, resolvedWelcome, mediaLookup, launchBlockers } = newPathResult.state;
   // Stages 7+8 use `subject` (the Prisma row shape). Re-fetch to preserve
   // type compatibility — orchestrator-level cost is one extra DB read,
   // which the next stage extracts away.
@@ -90,6 +90,7 @@ try {
     resolvedWelcome,
     mediaLookup,
     enrollState,
+    launchBlockers,
   });
 } catch (err) {
   // #338 followup — log the error server-side so failed create_course
