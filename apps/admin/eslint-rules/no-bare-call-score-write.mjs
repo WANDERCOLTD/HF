@@ -92,7 +92,7 @@ const rule = {
     docs: {
       description:
         "Disallow bare `prisma.callScore.{create,update,upsert}` outside the allow-list (#1539). Use `writeCallScore` from `@/lib/measurement/write-call-score` so every CallScore row stamps `analysisSpecId`.",
-      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/decisions/2026-06-12-spec-driven-batched-measurement.md",
+      url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-bare-call-score-write",
     },
     schema: [],
     messages: {

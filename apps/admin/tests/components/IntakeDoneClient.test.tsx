@@ -36,8 +36,11 @@ global.fetch = mockFetch as unknown as typeof fetch;
 import { IntakeDoneClient } from "@/components/intake/IntakeDoneClient";
 
 function mockSessionFetch(snapshotValues: Record<string, unknown>) {
+  // #1549 changed the URL from `/api/intake/session/<intentId>` to
+  // bare `/api/intake/session` (cookie-authenticated). Match either
+  // form so this mock works across the cookie cutover.
   mockFetch.mockImplementation(async (url: string) => {
-    if (url.startsWith("/api/intake/session/")) {
+    if (url === "/api/intake/session" || url.startsWith("/api/intake/session/")) {
       return {
         ok: true,
         json: async () => ({

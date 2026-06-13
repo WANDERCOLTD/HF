@@ -33,6 +33,20 @@ vi.mock("next/navigation", () => {
   };
 });
 
+// #1531 — PreviewLens consumes `useChatContext()` to read the
+// `demoAnnotationsVisible` toggle. Tests render PreviewLens directly
+// (lazy compose) without a `<ChatProvider>`, so stub the hook to a
+// minimal shape — `demoAnnotationsVisible: true` matches the default.
+vi.mock("@/contexts/ChatContext", async () => {
+  const actual = await vi.importActual<Record<string, unknown>>(
+    "@/contexts/ChatContext",
+  );
+  return {
+    ...actual,
+    useChatContext: () => ({ demoAnnotationsVisible: true }),
+  };
+});
+
 // Synthetic resolved Session Flow response — represents a *post-migration*
 // course (sessionFlow.intake set, welcome legacy can be absent).
 function makeResolvedResponse(opts: {

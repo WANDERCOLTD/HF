@@ -60,6 +60,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-orphan-instruction-fallback`](#guard-no-orphan-instruction-fallback) | Generic-noun fallbacks for missing module/LO names in prompt transforms (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-C4) | #1006/#1008 | **a** |
 | [`no-undeclared-field-require`](#guard-no-undeclared-field-require) | `has(...)` refs to field keys not declared in the enclosing spec `define` | #1078 | **a** |
 | [`no-bare-call-create`](#guard-no-bare-call-create) | Bare `prisma.call.create` / `prisma.session.create` outside allow-list; must use `createCallEnteringPipeline` / `createSession` | #1333/#1342 | **a** |
+| [`no-bare-call-score-write`](#guard-no-bare-call-score-write) | Bare `prisma.callScore.{create,update,upsert}` outside allow-list; must use `writeCallScore` so every row stamps `analysisSpecId` | #1539 | **a** |
 | [`no-hardcoded-greeting-in-composition`](#guard-no-hardcoded-greeting-in-composition) | Literal greeting strings in prompt-composition transforms / voice assistant-config builders | #1384 | **a** |
 | [`no-unscoped-slug-lookup`](#guard-no-unscoped-slug-lookup) | Unscoped slug/ref lookups on per-parent-unique entities (`CurriculumModule`, LO) | #407/#411 | **b** |
 | [`no-deprecated-curricula-relation`](#guard-no-deprecated-curricula-relation) | Reads of the `@deprecated Playbook.curricula` relation; use `playbookCurricula` | #1205 | **b** |
@@ -176,6 +177,20 @@ The allow-list in `no-bare-call-create.mjs` must be updated when adding a delibe
 bypass (harness, seed, batch import) — making the bypass intentional and documented.
 **Survives hardening:** FK-completeness and atomic counter assignment are write-path
 invariants independent of architecture; the builder pattern carries forward.
+
+<a id="guard-no-bare-call-score-write"></a>
+**`no-bare-call-score-write`** · class **(a) invariant** · born #1539 ·
+[rule source](../../apps/admin/eslint-rules/no-bare-call-score-write.mjs)
+
+Every `CallScore` row written from the production pipeline MUST carry `analysisSpecId`
+(the AnalysisSpec whose rubric produced the score). The chokepoint helper `writeCallScore`
+requires the column in its TypeScript signature AND asserts non-empty at runtime; this
+rule stops a future edit from smuggling a bare `prisma.callScore.{create,update,upsert}`
+past the helper. Pairs structurally with `no-bare-call-create` — same builder-pattern
+discipline, applied to the measurement write path. Allow-list updates accompany any
+deliberate bypass (drain scripts, demo reset, manual ops) so the bypass stays
+documented. **Survives hardening:** spec-driven measurement is an architectural
+property of the pipeline; the builder pattern carries forward.
 
 <a id="guard-no-hardcoded-greeting-in-composition"></a>
 **`no-hardcoded-greeting-in-composition`** · class **(a) invariant** · born #1384 ·

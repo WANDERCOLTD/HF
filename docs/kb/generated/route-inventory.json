@@ -1,10 +1,10 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-12T13:23:23.991Z",
+  "generatedAt": "2026-06-12T17:02:54.510Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 511,
+    "routeCount": 513,
     "byAuthLevel": {
       "VIEWER": 113,
       "ADMIN": 81,
@@ -15,7 +15,7 @@
       "VIEWER+OPERATOR": 67,
       "auth-gate(non-role)": 53,
       "VIEWER+OPERATOR+ADMIN": 4,
-      "<none>": 29,
+      "<none>": 31,
       "VIEWER+STUDENT": 1,
       "OPERATOR+ADMIN": 4,
       "TESTER": 1,
@@ -24,7 +24,7 @@
       "ADMIN+OPERATOR": 1,
       "VIEWER+TESTER": 3
     },
-    "noAuthGate": 28,
+    "noAuthGate": 30,
     "possiblyUnscoped": 109,
     "internalSecret": 8
   },
@@ -5896,6 +5896,24 @@
       "reviewed": false
     },
     {
+      "route": "/api/intake/audit-bundle/download",
+      "file": "apps/admin/app/api/intake/audit-bundle/download/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [],
+      "hasAuthGate": false,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": true
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/intake/audit-bundle",
       "file": "apps/admin/app/api/intake/audit-bundle/route.ts",
       "methods": [
@@ -5988,6 +6006,24 @@
     {
       "route": "/api/intake/session/[intentId]",
       "file": "apps/admin/app/api/intake/session/[intentId]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [],
+      "hasAuthGate": false,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": true
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/intake/session",
+      "file": "apps/admin/app/api/intake/session/route.ts",
       "methods": [
         "GET"
       ],

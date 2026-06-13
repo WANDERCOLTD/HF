@@ -16,8 +16,17 @@ const { mockPrisma } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+// #1533 added studentAllowedToReadCaller(session, callerId) at the top of
+// the route — the mock must therefore return a `session` shape with
+// `user.role` so the STUDENT-scope branch has something to read. OPERATOR
+// passes through regardless of `learnerCallerId`.
 vi.mock("@/lib/access-control", () => ({
-  requireEntityAccess: vi.fn().mockResolvedValue({ userId: "u1" }),
+  requireEntityAccess: vi.fn().mockResolvedValue({
+    session: {
+      user: { id: "u1", role: "OPERATOR", learnerCallerId: null },
+    },
+    scope: "ALL",
+  }),
   isEntityAuthError: vi.fn().mockReturnValue(false),
 }));
 

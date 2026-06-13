@@ -32,10 +32,14 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// #1533 HF-A audit renamed `ContractRegistry.get` → `getContract`; the
+// runtime in `aggregate-runner.ts:184` calls `.getContract`. Mock the
+// canonical method or the contract read silently fails → defaults
+// always win → I-AL3 emit fires when the test expects it not to.
 const mockContractGet = vi.fn();
 vi.mock("@/lib/contracts/registry", () => ({
   ContractRegistry: {
-    get: (...args: unknown[]) => mockContractGet(...args),
+    getContract: (...args: unknown[]) => mockContractGet(...args),
   },
 }));
 

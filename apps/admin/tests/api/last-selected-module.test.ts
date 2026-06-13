@@ -39,11 +39,27 @@ vi.mock("@/lib/permissions", () => ({
     Boolean(v && typeof v === "object" && "error" in (v as Record<string, unknown>)),
 }));
 
-function makeSession(role: string, userId = "user-1") {
+function makeSession(
+  role: string,
+  userId = "user-1",
+  // #1533 added `studentAllowedToReadCaller(session, callerId)` as the
+  // first gate in this route — when `role === "STUDENT"`, the session
+  // must carry `user.learnerCallerId` matching the URL `callerId` or the
+  // route 403s before reaching the prisma path. Tests using STUDENT pass
+  // `learnerCallerId` to control the IDOR gate; OPERATOR+ bypass it.
+  learnerCallerId: string | null = null,
+) {
   return {
     session: {
       expires: new Date(Date.now() + 86400000).toISOString(),
-      user: { id: userId, email: "u@example.com", name: "U", image: null, role },
+      user: {
+        id: userId,
+        email: "u@example.com",
+        name: "U",
+        image: null,
+        role,
+        learnerCallerId,
+      },
     },
   };
 }
@@ -69,7 +85,11 @@ describe("POST /api/callers/[callerId]/last-selected-module", () => {
 
   describe("STUDENT scope (own-only)", () => {
     it("writes when callerId matches the session's own LEARNER caller", async () => {
-      mockRequireAuth.mockResolvedValue(makeSession("STUDENT"));
+      // #1533 — session must carry learnerCallerId matching the URL
+      // caller for the IDOR gate to pass through to the inline check.
+      mockRequireAuth.mockResolvedValue(
+        makeSession("STUDENT", "user-1", "own-caller"),
+      );
       mockCallerFindFirst.mockResolvedValue({ id: "own-caller" });
       mockModuleFindUnique.mockResolvedValue({ id: "mod-1" });
       mockCallerUpdate.mockResolvedValue({ id: "own-caller", lastSelectedModuleId: "mod-1" });
@@ -87,13 +107,20 @@ describe("POST /api/callers/[callerId]/last-selected-module", () => {
     });
 
     it("refuses 403 when callerId is a different caller (foreign-write leak)", async () => {
-      mockRequireAuth.mockResolvedValue(makeSession("STUDENT"));
+      // #1533 — IDOR gate (studentAllowedToReadCaller) intercepts foreign
+      // callerId BEFORE the inline check, returning "caller scope
+      // mismatch" rather than the inline "STUDENT cannot write" message.
+      // Both code paths share the security property (the write is
+      // blocked); accept either error message.
+      mockRequireAuth.mockResolvedValue(
+        makeSession("STUDENT", "user-1", "own-caller"),
+      );
       mockCallerFindFirst.mockResolvedValue({ id: "own-caller" });
 
       const { status, json } = await callPost("victim-caller", { moduleId: "mod-1" });
 
       expect(status).toBe(403);
-      expect(json.error).toMatch(/STUDENT cannot write/);
+      expect(json.error).toMatch(/STUDENT cannot write|caller scope mismatch/);
       expect(mockCallerUpdate).not.toHaveBeenCalled();
     });
 
