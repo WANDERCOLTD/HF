@@ -1,0 +1,123 @@
+.hf-help-glossary-body {
+  background: var(--surface-primary);
+  border-radius: 16px;
+  padding: 32px;
+  border: 1px solid var(--border-default);
+  margin-top: 16px;
+}
+
+.hf-help-glossary-body h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 32px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.hf-help-glossary-body h1:first-child {
+  margin-top: 0;
+}
+
+.hf-help-glossary-body h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 28px;
+  margin-bottom: 12px;
+}
+
+.hf-help-glossary-body h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 20px;
+  margin-bottom: 8px;
+}
+
+.hf-help-glossary-body p {
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.hf-help-glossary-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.hf-help-glossary-body th,
+.hf-help-glossary-body td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  vertical-align: top;
+}
+
+.hf-help-glossary-body th {
+  background: var(--surface-secondary);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hf-help-glossary-body code {
+  background: var(--surface-secondary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  color: var(--text-primary);
+}
+
+.hf-help-glossary-body pre {
+  background: var(--surface-secondary);
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.hf-help-glossary-body pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.hf-help-glossary-body blockquote {
+  border-left: 3px solid var(--accent-primary);
+  padding: 8px 16px;
+  margin: 16px 0;
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  color: var(--text-primary);
+  font-style: normal;
+}
+
+.hf-help-glossary-body hr {
+  border: 0;
+  border-top: 1px solid var(--border-default);
+  margin: 32px 0;
+}
+
+.hf-help-glossary-body ul,
+.hf-help-glossary-body ol {
+  padding-left: 24px;
+  margin: 12px 0;
+}
+
+.hf-help-glossary-body li {
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.hf-help-glossary-body a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.hf-help-glossary-body a:hover {
+  text-decoration: underline;
+}
