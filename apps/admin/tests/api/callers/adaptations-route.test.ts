@@ -20,6 +20,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     parameter: { findMany: vi.fn() },
     behaviorTarget: { findMany: vi.fn() },
     rewardScore: { findMany: vi.fn() as ReturnType<typeof vi.fn> },
+    goal: { findMany: vi.fn() as ReturnType<typeof vi.fn> },
   },
 }));
 
@@ -49,8 +50,10 @@ async function loadRoute() {
 describe("GET /api/callers/[callerId]/adaptations — SP5-A shell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: no RewardScore rows. Individual SP5-C tests override.
+    // Defaults: no RewardScore rows, no Goal rows. Individual SP5-C/D
+    // tests override.
     mockPrisma.rewardScore.findMany.mockResolvedValue([]);
+    mockPrisma.goal.findMany.mockResolvedValue([]);
   });
 
   it("returns 403 for STUDENT (refused at requireAuth OPERATOR gate)", async () => {
@@ -267,6 +270,81 @@ describe("GET /api/callers/[callerId]/adaptations — SP5-A shell", () => {
     );
     expect(missingBoth?.direction).toBe("hold");
     expect(missingBoth?.delta).toBeNull();
+  });
+
+  it("SP5-D: bands top-3 goals as LOW/MID/HIGH from progress", async () => {
+    mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Alex" });
+    mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
+      playbookId: "pb1",
+      playbook: { id: "pb1", name: "IELTS Speaking" },
+    });
+    mockPrisma.goal.findMany.mockResolvedValue([
+      {
+        id: "g1",
+        name: "Foundations",
+        type: "LEARN",
+        progress: 0.1,
+        isAssessmentTarget: false,
+      },
+      {
+        id: "g2",
+        name: "Mid track",
+        type: "ACHIEVE",
+        progress: 0.55,
+        isAssessmentTarget: true,
+      },
+      {
+        id: "g3",
+        name: "Almost there",
+        type: "LEARN",
+        progress: 0.9,
+        isAssessmentTarget: false,
+      },
+    ]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.nextAdaptation).toHaveLength(3);
+    const low = body.nextAdaptation.find(
+      (e: { goalId: string }) => e.goalId === "g1",
+    );
+    const mid = body.nextAdaptation.find(
+      (e: { goalId: string }) => e.goalId === "g2",
+    );
+    const high = body.nextAdaptation.find(
+      (e: { goalId: string }) => e.goalId === "g3",
+    );
+    expect(low.band).toBe("low");
+    expect(low.guidance).toMatch(/Introduce concepts gently/);
+    expect(mid.band).toBe("mid");
+    expect(mid.guidance).toMatch(/Track milestones/);
+    expect(mid.isAssessmentTarget).toBe(true);
+    expect(high.band).toBe("high");
+    expect(high.guidance).toMatch(/Challenge with application/);
+    expect(body.empty).toBe(false);
+  });
+
+  it("SP5-D: unknown goal type falls back to LEARN guidance", async () => {
+    mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Alex" });
+    mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
+      playbookId: "pb1",
+      playbook: { id: "pb1", name: "IELTS Speaking" },
+    });
+    mockPrisma.goal.findMany.mockResolvedValue([
+      {
+        id: "g1",
+        name: "Unknown-type goal",
+        type: "FOOBAR",
+        progress: 0.5,
+        isAssessmentTarget: false,
+      },
+    ]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.nextAdaptation[0].guidance).toMatch(
+      /Build on prior foundations/,
+    );
   });
 
   it("SP5-B: CALLER-scope override carries confidence + callsApplied from CallerTarget", async () => {

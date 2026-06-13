@@ -55,10 +55,14 @@ interface AdaptationReason {
   delta: number | null;
 }
 
-interface NextAdaptationGuidance {
+interface NextAdaptationGuidanceEntry {
+  goalId: string;
+  goalName: string;
+  goalType: string;
+  progress: number;
   band: "low" | "mid" | "high";
-  summary: string;
-  affectedParameterIds: string[];
+  guidance: string;
+  isAssessmentTarget: boolean;
 }
 
 interface AdaptationsResponse {
@@ -68,7 +72,7 @@ interface AdaptationsResponse {
   playbookName: string | null;
   whatWasAdapted: AdaptationOverride[];
   why: AdaptationReason[];
-  nextAdaptation: NextAdaptationGuidance | null;
+  nextAdaptation: NextAdaptationGuidanceEntry[];
   empty: boolean;
 }
 
@@ -388,37 +392,60 @@ function formatReasonDate(iso: string): string {
   return then.toLocaleDateString();
 }
 
-// ── Section 3: Next call's adaptation (SP5-D will fill) ─────────────────────
+// ── Section 3: Next call's adaptation (SP5-D) ───────────────────────────────
 
 function NextAdaptationSection({
   guidance,
   empty,
 }: {
-  guidance: NextAdaptationGuidance | null;
+  guidance: NextAdaptationGuidanceEntry[];
   empty: boolean;
 }) {
   return (
     <section className="hf-adaptations-section">
       <h3 className="hf-adaptations-section-title">Next call</h3>
       <p className="hf-adaptations-section-desc">
-        What the engine will adapt on the next scoring call — preview of the{" "}
-        <code>goalAdaptationGuidance</code> LOW / MID / HIGH band the ADAPT
-        stage will apply when the learner next picks up the phone.
+        Preview of the guidance the AI will receive when composing this
+        learner&apos;s next prompt. One entry per top-3 active goal, banded
+        by current progress: LOW (&lt;30%) · MID (&lt;70%) · HIGH (≥70%).
       </p>
-      {guidance === null ? (
+      {guidance.length === 0 ? (
         <p className="hf-adaptations-empty-text">
           {empty
-            ? "Nothing queued yet — the engine plans the next adaptation once it has at least one scoring call to work from."
-            : "Coming in SP5-D: live preview of the next call's planned adaptation with affected parameters."}
+            ? "Nothing queued yet — the engine plans the next adaptation once at least one active goal is set."
+            : "No active goals — set or import a goal for this learner to see the next-call preview."}
         </p>
       ) : (
-        <p className="hf-adaptations-placeholder">
-          Next adaptation: <strong>{guidance.band.toUpperCase()}</strong> ·
-          {guidance.affectedParameterIds.length} parameter
-          {guidance.affectedParameterIds.length === 1 ? "" : "s"} affected ·
-          full preview lands in SP5-D.
-        </p>
+        <ul className="hf-adaptations-next-rows">
+          {guidance.map((g) => (
+            <NextRow key={g.goalId} entry={g} />
+          ))}
+        </ul>
       )}
     </section>
+  );
+}
+
+function NextRow({ entry }: { entry: NextAdaptationGuidanceEntry }) {
+  const pct = Math.round(entry.progress * 100);
+  return (
+    <li className="hf-adaptations-next-row">
+      <div className="hf-adaptations-next-head">
+        <span
+          className={`hf-adaptations-next-band hf-adaptations-next-band-${entry.band}`}
+        >
+          {entry.band.toUpperCase()}
+        </span>
+        <span className="hf-adaptations-next-type">{entry.goalType}</span>
+        <span className="hf-adaptations-next-name">{entry.goalName}</span>
+        <span className="hf-adaptations-next-pct">{pct}%</span>
+        {entry.isAssessmentTarget ? (
+          <span className="hf-adaptations-next-assessment">
+            assessment target
+          </span>
+        ) : null}
+      </div>
+      <p className="hf-adaptations-next-guidance">{entry.guidance}.</p>
+    </li>
   );
 }
