@@ -589,6 +589,34 @@ export function projectCourseReference(
     : extractOutcomeStatements(bodyText);
   const { skills, validationWarnings: skillWarnings } = parseSkillsFramework(bodyText);
 
+  // (c) Course-ref template enforcement (2026-06-13). Every course-ref MUST
+  // declare at least one parseable skill via the `## Skills Framework` →
+  // `### SKILL-NN: Name (CODE)` structure. Without it the educator dashboard
+  // shows flat-zero on every learner forever (no skill_* Parameter rows, no
+  // BehaviorTargets, no MEASURE spec, no CallerTarget rows). The CTO/CIO
+  // course-refs hit this gap on 2026-06-13: section present but in table
+  // form (4-tier rubric) which the parser doesn't yet support → silently
+  // produces 0 skills.
+  //
+  // Severity: warning (not error) so a partial draft can still be saved
+  // and re-projected; the publish-time gate in run-projection-for-playbook
+  // can upgrade this to a launch blocker. Table-form + N-tier support is
+  // tracked as a follow-on.
+  const projectionNoSkillsWarning: ValidationWarning[] =
+    skills.length === 0
+      ? [
+          {
+            severity: "warning",
+            code: "PROJECTION_NO_SKILLS_FRAMEWORK",
+            message:
+              "No parseable `## Skills Framework` → `### SKILL-NN: Name` " +
+              "section found. Educator dashboard band/tier UI will be flat-zero " +
+              "until at least one skill is declared. Skills Framework is " +
+              "REQUIRED per a-sample-docs/course-reference-template.md.",
+          },
+        ]
+      : [];
+
   const learnGoals = mapOutcomesToLearnGoals(outcomes);
   const { achieveGoals, behaviorTargets, parameters } = mapSkillsToAchieveAndTargets(skills);
   const measureSpec = mapSkillsToMeasureSpec(skills);
@@ -621,7 +649,11 @@ export function projectCourseReference(
     curriculumModules: mapAuthoredModulesToCurriculumModules(detected.modules, outcomes),
     parameters,
     measureSpec,
-    validationWarnings: [...detected.validationWarnings, ...skillWarnings],
+    validationWarnings: [
+      ...detected.validationWarnings,
+      ...skillWarnings,
+      ...projectionNoSkillsWarning,
+    ],
     contentDeclaration: declaration,
     pedagogy,
     skills,
