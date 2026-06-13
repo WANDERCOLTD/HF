@@ -9,8 +9,9 @@ import {
   Settings as SettingsIcon, Users2,
   Zap, Target, BarChart3,
   PlayCircle, Copy, Link2, GraduationCap, Wand2, FileSearch,
-  Mic,
+  Mic, Award,
 } from 'lucide-react';
+import { CourseSkillsTab } from './CourseSkillsTab';
 import { VoiceConfigSection } from '@/components/voice/VoiceConfigSection';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-trust/resolve-config';
@@ -149,7 +150,7 @@ type SessionTabData = {
 
 import { SectionHeader } from './SectionHeader';
 
-const VALID_TABS = ['intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'voice', 'settings',
+const VALID_TABS = ['intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'skills', 'voice', 'settings',
   // Legacy tab IDs — redirected in handleTabChange
   'overview', 'journey', 'genome', 'audience', 'session-flow',
 ];
@@ -406,6 +407,10 @@ export default function CourseDetailPage() {
     { id: 'learners', label: <TabWithHelp tabId="learners">Learners</TabWithHelp>, icon: <Users2 size={14} /> },
     { id: 'proof', label: <TabWithHelp tabId="proof">Proof Points</TabWithHelp>, icon: <BarChart3 size={14} /> },
     { id: 'goals', label: <TabWithHelp tabId="goals">Goals</TabWithHelp>, icon: <Target size={14} /> },
+    // Sprint 2 SP2-B — Skills Framework Inspector beta tab. Renders the
+    // structural rubric the educator authored (Framework Map lens default).
+    // OPERATOR+ only — matches Course Detail tab conventions.
+    ...(isOperator ? [{ id: 'skills', label: <TabWithHelp tabId="skills">Skills</TabWithHelp>, icon: <Award size={14} /> }] : []),
     // #1273 — Voice extracted from Settings tab to a first-class tab.
     // OPERATOR-only (matches the in-Settings location's gate). Sits before
     // Settings to keep the tuning surfaces (Goals + Voice) adjacent.
@@ -1689,6 +1694,13 @@ export default function CourseDetailPage() {
           courseId={courseId!}
           playbookConfig={detail?.config as Record<string, unknown> | null | undefined}
         />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* SKILLS FRAMEWORK TAB (beta — Sprint 2 SP2-B)   */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'skills' && (
+        <CourseSkillsTab courseId={courseId!} />
       )}
 
       {/* ═══════════════════════════════════════════════ */}
