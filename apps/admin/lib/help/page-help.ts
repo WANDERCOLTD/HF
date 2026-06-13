@@ -185,6 +185,13 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
         whenToUse: "When you want to retune what the AI is trying to achieve with each caller.",
       },
       {
+        id: "skills",
+        label: "Skills",
+        about: "Skills Framework Inspector (beta) — the structural rubric your course measures learners against. Each row is a Skill; each cell is a Tier in that skill's scheme; the educator's target tier carries a ★ marker. Cold→hot colours and glyphs are consistent with the Cohort heatmap and the per-learner Attainment view.",
+        whenToUse: "When you want to inspect the rubric the AI tutor scores against, see how each tier is described, and (later) drill into who in the cohort has reached which tier.",
+        requiresOperator: true,
+      },
+      {
         id: "voice",
         label: "Voice",
         about: "TTS engine, voice ID, transcriber, silence timeout, max duration, and other per-course voice overrides. Cascades from System → Provider → Domain → Course.",
