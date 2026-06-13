@@ -252,6 +252,18 @@ against the same doc is a no-op.
 ## Skills Framework
 
 <!-- HOW TO USE
+**REQUIRED. Without this section the educator dashboard cannot show learner
+band/tier progress — every learner appears flat-zero on every skill, and the
+adaptive loop has no skill targets to adjust against.** The projection
+emits a `PROJECTION_NO_SKILLS_FRAMEWORK` validation warning when the
+section is missing or empty; the wizard surfaces this as a publish-time
+blocker (you can save a draft without it, but cannot launch a course).
+
+If you genuinely have NO measurable skills (e.g. a pure exploration
+discussion course), declare a single placeholder skill anyway and
+mark it `(skill_overall)` — the educator can replace it later via
+the Course Design Console.
+
 List each measurable skill the course develops. Use exactly three proficiency
 tiers per skill: Emerging, Developing, Secure. Tier descriptions should be
 behavioural ("the learner does X") not affective ("the learner enjoys X").
