@@ -39,9 +39,10 @@ interface AdaptationOverride {
   parameterName: string;
   defaultValue: number;
   overrideValue: number;
+  sourceScope: "SYSTEM" | "PLAYBOOK" | "CALLER";
   confidence: number | null;
   callsApplied: number;
-  updatedAt: string;
+  updatedAt: string | null;
 }
 
 interface AdaptationReason {
@@ -195,7 +196,7 @@ export function AdaptationsTab({ callerId }: Props) {
   );
 }
 
-// ── Section 1: What was adapted (SP5-B will fill) ───────────────────────────
+// ── Section 1: What was adapted (SP5-B) ─────────────────────────────────────
 
 function WhatWasAdaptedSection({
   overrides,
@@ -208,24 +209,103 @@ function WhatWasAdaptedSection({
     <section className="hf-adaptations-section">
       <h3 className="hf-adaptations-section-title">What was adapted</h3>
       <p className="hf-adaptations-section-desc">
-        Per-parameter overrides this learner has earned through their calls.
-        Each row shows the playbook default, the override value, and which
-        cascade layer is currently in effect.
+        Per-parameter overrides this learner has earned. Each row shows the
+        system default, the current effective value, and the cascade chip
+        for the layer winning right now (CALLER overrides PLAYBOOK overrides
+        SYSTEM). SYSTEM-only rows (unchanged baseline) are hidden.
       </p>
       {overrides.length === 0 ? (
         <p className="hf-adaptations-empty-text">
           {empty
             ? "No adaptations yet — the engine starts with the playbook's defaults and adapts after the first scoring call."
-            : "Coming in SP5-B: CallerTarget overrides with cascade chips."}
+            : "No per-parameter overrides recorded yet on top of the playbook + system baseline."}
         </p>
       ) : (
-        <p className="hf-adaptations-placeholder">
-          {overrides.length} override
-          {overrides.length === 1 ? "" : "s"} captured · full table lands in SP5-B.
-        </p>
+        <ul className="hf-adaptations-override-rows">
+          {overrides.map((o) => (
+            <OverrideRow key={o.parameterId} override={o} />
+          ))}
+        </ul>
       )}
     </section>
   );
+}
+
+function OverrideRow({ override }: { override: AdaptationOverride }) {
+  const defaultPct = Math.round(override.defaultValue * 100);
+  const overridePct = Math.round(override.overrideValue * 100);
+  const delta = override.overrideValue - override.defaultValue;
+  const direction = delta > 0.02 ? "up" : delta < -0.02 ? "down" : "flat";
+  const deltaLabel =
+    direction === "flat"
+      ? "≈ default"
+      : `${delta > 0 ? "+" : ""}${(delta * 100).toFixed(0)} pts`;
+  return (
+    <li className="hf-adaptations-override-row">
+      <div className="hf-adaptations-override-head">
+        <span className="hf-adaptations-override-name">
+          {override.parameterName}
+        </span>
+        <span
+          className={`hf-adaptations-cascade-chip hf-adaptations-cascade-chip-${override.sourceScope.toLowerCase()}`}
+        >
+          {sourceScopeLabel(override.sourceScope)}
+        </span>
+        <span
+          className={`hf-adaptations-override-delta hf-adaptations-override-delta-${direction}`}
+        >
+          {deltaLabel}
+        </span>
+      </div>
+      <div className="hf-adaptations-override-bars">
+        <div className="hf-adaptations-override-bar-row">
+          <span className="hf-adaptations-override-bar-label">Default</span>
+          <span className="hf-adaptations-override-bar">
+            <span
+              className="hf-adaptations-override-bar-fill hf-adaptations-override-bar-fill-default"
+              style={{ width: `${defaultPct}%` }}
+            />
+          </span>
+          <span className="hf-adaptations-override-bar-pct">{defaultPct}%</span>
+        </div>
+        <div className="hf-adaptations-override-bar-row">
+          <span className="hf-adaptations-override-bar-label">Now</span>
+          <span className="hf-adaptations-override-bar">
+            <span
+              className="hf-adaptations-override-bar-fill hf-adaptations-override-bar-fill-now"
+              style={{ width: `${overridePct}%` }}
+            />
+          </span>
+          <span className="hf-adaptations-override-bar-pct">{overridePct}%</span>
+        </div>
+      </div>
+      {override.sourceScope === "CALLER" ? (
+        <div className="hf-adaptations-override-meta">
+          {override.callsApplied > 0
+            ? `${override.callsApplied} call${override.callsApplied === 1 ? "" : "s"} of evidence`
+            : "Evidence pending"}
+          {override.confidence != null
+            ? ` · ${Math.round(override.confidence * 100)}% confidence`
+            : ""}
+        </div>
+      ) : override.sourceScope === "PLAYBOOK" ? (
+        <div className="hf-adaptations-override-meta">
+          Playbook-scope default (no caller-specific adaptation yet)
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function sourceScopeLabel(scope: "SYSTEM" | "PLAYBOOK" | "CALLER"): string {
+  switch (scope) {
+    case "SYSTEM":
+      return "System";
+    case "PLAYBOOK":
+      return "Playbook";
+    case "CALLER":
+      return "Caller";
+  }
 }
 
 // ── Section 2: Why (SP5-C will fill) ────────────────────────────────────────

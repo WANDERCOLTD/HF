@@ -16,11 +16,17 @@ const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     caller: { findUnique: vi.fn() },
     callerPlaybook: { findFirst: vi.fn() },
-    callerTarget: { count: vi.fn() },
+    callerTarget: { count: vi.fn(), findMany: vi.fn() },
+    parameter: { findMany: vi.fn() },
+    behaviorTarget: { findMany: vi.fn() },
   },
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+vi.mock(
+  "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller",
+  () => ({ getEffectiveBehaviorTargetsForCaller: vi.fn(async () => []) }),
+);
 
 // Default mock — OPERATOR session passes. Per-test overrides simulate
 // STUDENT/VIEWER refusal at the auth gate.
@@ -82,7 +88,6 @@ describe("GET /api/callers/[callerId]/adaptations — SP5-A shell", () => {
       playbookId: "pb1",
       playbook: { id: "pb1", name: "IELTS Speaking" },
     });
-    mockPrisma.callerTarget.count.mockResolvedValue(0);
     const { GET } = await loadRoute();
     const res = await GET(new Request("http://x"), PARAMS);
     const body = await res.json();
@@ -90,21 +95,105 @@ describe("GET /api/callers/[callerId]/adaptations — SP5-A shell", () => {
     expect(body.playbookId).toBe("pb1");
     expect(body.playbookName).toBe("IELTS Speaking");
     expect(body.empty).toBe(true);
+    expect(body.whatWasAdapted).toEqual([]);
   });
 
-  it("returns shell with empty=false when ≥1 override exists", async () => {
+  it("SP5-B: filters SYSTEM-only entries from whatWasAdapted (those are unchanged baseline)", async () => {
     mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Alex" });
     mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
       playbookId: "pb1",
       playbook: { id: "pb1", name: "IELTS Speaking" },
     });
-    mockPrisma.callerTarget.count.mockResolvedValue(3);
+    const effective = await import(
+      "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller"
+    );
+    vi.mocked(effective.getEffectiveBehaviorTargetsForCaller).mockResolvedValueOnce([
+      {
+        parameterId: "BEH_QUESTION_RATE",
+        effectiveValue: 0.6,
+        sourceScope: "SYSTEM",
+        systemValue: 0.6,
+        playbookValue: null,
+        callerValue: null,
+      },
+      {
+        parameterId: "BEH_PRAISE_RATE",
+        effectiveValue: 0.4,
+        sourceScope: "PLAYBOOK",
+        systemValue: 0.5,
+        playbookValue: 0.4,
+        callerValue: null,
+      },
+    ]);
+    mockPrisma.parameter.findMany.mockResolvedValue([
+      { parameterId: "BEH_PRAISE_RATE", name: "Praise rate" },
+    ]);
+    mockPrisma.callerTarget.findMany.mockResolvedValue([]);
+    mockPrisma.behaviorTarget.findMany.mockResolvedValue([
+      {
+        parameterId: "BEH_PRAISE_RATE",
+        updatedAt: new Date("2026-06-10T10:00:00Z"),
+      },
+    ]);
     const { GET } = await loadRoute();
     const res = await GET(new Request("http://x"), PARAMS);
     const body = await res.json();
+    // SYSTEM-only row dropped; PLAYBOOK survived.
+    expect(body.whatWasAdapted).toHaveLength(1);
+    expect(body.whatWasAdapted[0]).toMatchObject({
+      parameterId: "BEH_PRAISE_RATE",
+      parameterName: "Praise rate",
+      defaultValue: 0.5,
+      overrideValue: 0.4,
+      sourceScope: "PLAYBOOK",
+      confidence: null,
+      callsApplied: 0,
+    });
     expect(body.empty).toBe(false);
-    // SP5-A shell — sections are still empty arrays. SP5-B fills them.
-    expect(body.whatWasAdapted).toEqual([]);
-    expect(body.why).toEqual([]);
+  });
+
+  it("SP5-B: CALLER-scope override carries confidence + callsApplied from CallerTarget", async () => {
+    mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Alex" });
+    mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
+      playbookId: "pb1",
+      playbook: { id: "pb1", name: "IELTS Speaking" },
+    });
+    const effective = await import(
+      "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller"
+    );
+    vi.mocked(effective.getEffectiveBehaviorTargetsForCaller).mockResolvedValueOnce([
+      {
+        parameterId: "skill_fluency",
+        effectiveValue: 0.78,
+        sourceScope: "CALLER",
+        systemValue: 0.5,
+        playbookValue: null,
+        callerValue: 0.78,
+      },
+    ]);
+    mockPrisma.parameter.findMany.mockResolvedValue([
+      { parameterId: "skill_fluency", name: "Fluency" },
+    ]);
+    mockPrisma.callerTarget.findMany.mockResolvedValue([
+      {
+        parameterId: "skill_fluency",
+        confidence: 0.85,
+        callsUsed: 4,
+        updatedAt: new Date("2026-06-12T09:00:00Z"),
+      },
+    ]);
+    mockPrisma.behaviorTarget.findMany.mockResolvedValue([]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.whatWasAdapted[0]).toMatchObject({
+      parameterId: "skill_fluency",
+      sourceScope: "CALLER",
+      confidence: 0.85,
+      callsApplied: 4,
+      overrideValue: 0.78,
+      defaultValue: 0.5,
+    });
+    expect(body.whatWasAdapted[0].updatedAt).toBe("2026-06-12T09:00:00.000Z");
   });
 });

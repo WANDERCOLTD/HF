@@ -39,19 +39,31 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { getEffectiveBehaviorTargetsForCaller } from "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller";
 
-/** What changed for this learner vs the playbook default. SP5-B fills
- *  this with `CallerTarget` rows joined to `Parameter` so the UI can
- *  render the override + the cascade chip (system / playbook / caller). */
+/** What changed for this learner vs the playbook default. Each row is one
+ *  cascade-resolved BEHAVIOR parameter; the UI renders the source-scope
+ *  chip (SYSTEM / PLAYBOOK / CALLER) so the educator can see which layer
+ *  is currently in effect. SYSTEM-only rows are omitted (those aren't
+ *  "adaptations" — they're the unchanged baseline). */
 export interface AdaptationOverride {
   parameterId: string;
   parameterName: string;
+  /** SYSTEM-scope value (or 0.5 default if no SYSTEM row exists). */
   defaultValue: number;
+  /** Cascade-resolved effective value (the winning layer's value). */
   overrideValue: number;
+  /** Which cascade layer is currently winning. */
+  sourceScope: "SYSTEM" | "PLAYBOOK" | "CALLER";
+  /** AI confidence on the CallerTarget override (CALLER-scope only;
+   *  null when the winner is PLAYBOOK or SYSTEM). */
   confidence: number | null;
+  /** How many scoring calls fed into the CallerTarget rollup
+   *  (CALLER-scope only; 0 when the winner is PLAYBOOK or SYSTEM). */
   callsApplied: number;
-  /** ISO timestamp of the most recent override write. */
-  updatedAt: string;
+  /** ISO timestamp of the most recent override write to the winning
+   *  layer; null when no override exists (pure SYSTEM baseline). */
+  updatedAt: string | null;
 }
 
 /** Why the engine adapted — `RewardScore` evidence + `Goal.progressMetrics`
@@ -132,23 +144,106 @@ export async function GET(
     } satisfies AdaptationsResponse);
   }
 
-  // SP5-A is the shell — real data writers (SP5-B/C/D) will replace
-  // these placeholders. We still walk one cheap query (CallerTarget
-  // count) so the UI can render an accurate "no adaptations yet"
-  // empty-state rather than misleadingly claiming the section is
-  // ready-but-empty.
-  const overrideCount = await prisma.callerTarget.count({
-    where: { callerId },
-  });
+  const playbookId = enrolment.playbookId;
+
+  // ── SP5-B "What was adapted" ─────────────────────────────────────────────
+  // Cascade-resolved per-parameter values via the canonical resolver
+  // (`getEffectiveBehaviorTargetsForCaller`) so we never drift from the
+  // values the COMPOSE stage uses. The resolver returns one entry per
+  // parameter touched by ANY layer; we filter to entries where a
+  // non-SYSTEM layer is winning — SYSTEM-only rows are the unchanged
+  // baseline, not an "adaptation".
+  const effectiveTargets = await getEffectiveBehaviorTargetsForCaller(
+    playbookId,
+    callerId,
+  );
+  const adaptedEntries = effectiveTargets.filter(
+    (e) => e.sourceScope !== "SYSTEM",
+  );
+
+  let whatWasAdapted: AdaptationOverride[] = [];
+  if (adaptedEntries.length > 0) {
+    const parameterIds = adaptedEntries.map((e) => e.parameterId);
+    const parameters = await prisma.parameter.findMany({
+      where: { parameterId: { in: parameterIds } },
+      select: { parameterId: true, name: true },
+    });
+    const nameByParam = new Map(
+      parameters.map((p) => [p.parameterId, p.name]),
+    );
+
+    // Pull CallerTarget rows for CALLER-scope winners — gives us the
+    // AI-computed confidence + callsUsed + updatedAt that the cascade
+    // resolver doesn't carry. PLAYBOOK winners get a separate
+    // BehaviorTarget read for updatedAt.
+    const callerScopeIds = adaptedEntries
+      .filter((e) => e.sourceScope === "CALLER")
+      .map((e) => e.parameterId);
+    const callerTargets = callerScopeIds.length
+      ? await prisma.callerTarget.findMany({
+          where: { callerId, parameterId: { in: callerScopeIds } },
+          select: {
+            parameterId: true,
+            confidence: true,
+            callsUsed: true,
+            updatedAt: true,
+          },
+        })
+      : [];
+    const callerTargetByParam = new Map(
+      callerTargets.map((t) => [t.parameterId, t]),
+    );
+
+    const playbookScopeIds = adaptedEntries
+      .filter((e) => e.sourceScope === "PLAYBOOK")
+      .map((e) => e.parameterId);
+    const playbookTargets = playbookScopeIds.length
+      ? await prisma.behaviorTarget.findMany({
+          where: {
+            scope: "PLAYBOOK",
+            playbookId,
+            parameterId: { in: playbookScopeIds },
+            effectiveUntil: null,
+          },
+          select: { parameterId: true, updatedAt: true },
+        })
+      : [];
+    const playbookTargetByParam = new Map(
+      playbookTargets.map((t) => [t.parameterId, t]),
+    );
+
+    whatWasAdapted = adaptedEntries.map((e) => {
+      const callerRow = callerTargetByParam.get(e.parameterId);
+      const playbookRow = playbookTargetByParam.get(e.parameterId);
+      const updatedAt =
+        e.sourceScope === "CALLER"
+          ? callerRow?.updatedAt.toISOString() ?? null
+          : e.sourceScope === "PLAYBOOK"
+            ? playbookRow?.updatedAt.toISOString() ?? null
+            : null;
+      return {
+        parameterId: e.parameterId,
+        parameterName: nameByParam.get(e.parameterId) ?? e.parameterId,
+        defaultValue: e.systemValue ?? 0.5,
+        overrideValue: e.effectiveValue,
+        sourceScope: e.sourceScope,
+        confidence:
+          e.sourceScope === "CALLER" ? callerRow?.confidence ?? null : null,
+        callsApplied:
+          e.sourceScope === "CALLER" ? callerRow?.callsUsed ?? 0 : 0,
+        updatedAt,
+      };
+    });
+  }
 
   return NextResponse.json({
     callerId,
     callerName: caller.name,
-    playbookId: enrolment.playbookId,
+    playbookId,
     playbookName: enrolment.playbook?.name ?? null,
-    whatWasAdapted: [],
+    whatWasAdapted,
     why: [],
     nextAdaptation: null,
-    empty: overrideCount === 0,
+    empty: whatWasAdapted.length === 0,
   } satisfies AdaptationsResponse);
 }
