@@ -25,7 +25,11 @@ import type { Effective } from "@/lib/cascade/layer-types";
 
 import "./course-skills-tab.css";
 
-type LensId = "framework-map" | "cohort-heatmap" | "rubric-calibration";
+type LensId =
+  | "framework-map"
+  | "cohort-heatmap"
+  | "rubric-calibration"
+  | "mastery-vs-skill";
 
 interface LensSpec {
   id: LensId;
@@ -52,6 +56,12 @@ const LENSES: LensSpec[] = [
     label: "Rubric Calibration",
     icon: <Sliders size={14} />,
     blurb: "What the AI tutor reads — per-skill MEASURE prompt + tuning knobs.",
+  },
+  {
+    id: "mastery-vs-skill",
+    label: "Mastery vs Skill",
+    icon: <Info size={14} />,
+    blurb: "Educational view — how Skill EMA differs from LO Mastery.",
   },
 ];
 
@@ -181,8 +191,10 @@ export function CourseSkillsTab({ courseId }: Props) {
         />
       ) : activeLens === "cohort-heatmap" ? (
         <CohortHeatmapLens courseId={courseId} />
-      ) : (
+      ) : activeLens === "rubric-calibration" ? (
         <RubricCalibrationLens courseId={courseId} />
+      ) : (
+        <MasteryVsSkillExplainerLens />
       )}
 
       <Legend />
@@ -1144,5 +1156,156 @@ function Legend() {
         ★ = the tier the educator targets · cold → hot, left to right
       </span>
     </footer>
+  );
+}
+
+
+// ── Lens: Mastery vs Skill explainer (SP3-C) ────────────────────────────────
+
+/**
+ * Pure-static educational lens. Explains the difference between the
+ * two scoring systems an educator sees across HF — Skill (cross-cutting,
+ * EMA-decayed) and Mastery (per-LO/module, ratchet). No data fetching;
+ * the content is the lens.
+ *
+ * Educators consistently conflate the two and ask "why does this skill
+ * score go DOWN after a bad session?" (answer: EMA decays toward recent
+ * performance) and "why does mastery stay HIGH after a stumble?"
+ * (answer: ratchet is monotonic). This lens is the canonical place to
+ * point them.
+ *
+ * Cross-links to `/x/help/glossary` for deeper terminology.
+ */
+function MasteryVsSkillExplainerLens() {
+  return (
+    <section
+      className="hf-skills-explainer"
+      role="region"
+      aria-label="Mastery vs Skill explainer"
+    >
+      <p className="hf-skills-explainer-intro">
+        HF tracks two parallel scores for every learner. They mean
+        different things, update differently, and are surfaced in
+        different places. Educators most often ask: <em>&ldquo;why does
+        skill go down after a bad call but mastery doesn&apos;t?&rdquo;</em>{" "}
+        — answer below.
+      </p>
+
+      <div className="hf-skills-explainer-grid">
+        <article className="hf-skills-explainer-card">
+          <header className="hf-skills-explainer-card-header">
+            <h3>Skill (EMA band)</h3>
+            <span className="hf-skills-explainer-tag">cross-cutting</span>
+          </header>
+          <dl className="hf-skills-explainer-dl">
+            <dt>What it measures</dt>
+            <dd>
+              Cross-cutting capability — e.g. <strong>Fluency</strong>,{" "}
+              <strong>Pronunciation</strong>. One skill spans many modules
+              and many calls; the score reflects current command.
+            </dd>
+            <dt>How it updates</dt>
+            <dd>
+              <strong>EMA-decayed</strong> after every scoring call.
+              Recent calls weigh more; old calls fade. <strong>Can move
+              down</strong> if recent performance is worse than the
+              decayed history.
+            </dd>
+            <dt>Storage</dt>
+            <dd>
+              <code>CallerTarget.currentScore</code> per
+              <code>skill_*</code> parameter. Banded via
+              <code>scoreToTier()</code> + the playbook&apos;s configured
+              tier scheme.
+            </dd>
+            <dt>Where you see it</dt>
+            <dd>
+              Cohort Heatmap (this tab) · Caller Detail →{" "}
+              <strong>Attainment</strong> tab (Skill bands section).
+            </dd>
+          </dl>
+        </article>
+
+        <article className="hf-skills-explainer-card">
+          <header className="hf-skills-explainer-card-header">
+            <h3>Mastery (ratchet)</h3>
+            <span className="hf-skills-explainer-tag">per-objective</span>
+          </header>
+          <dl className="hf-skills-explainer-dl">
+            <dt>What it measures</dt>
+            <dd>
+              Whether a specific Learning Objective has been demonstrated
+              to criterion. One LO is owned by one module; mastery is a
+              durable claim about <em>that</em> outcome on <em>that</em>{" "}
+              learner.
+            </dd>
+            <dt>How it updates</dt>
+            <dd>
+              <strong>Ratchet — monotonic.</strong> A demonstration moves
+              mastery <em>up</em>. A bad call does not move it down.
+              (Exception: <code>useFreshMastery</code> playbooks — mock
+              exams — store mastery per-call on{" "}
+              <code>Call.scratchMastery</code> instead of the long-term
+              ratchet.)
+            </dd>
+            <dt>Storage</dt>
+            <dd>
+              <code>
+                CallerAttribute lo_mastery:{"{moduleSlug}"}:
+                {"{loRef}"}
+              </code>{" "}
+              for the ratchet · <code>Call.scratchMastery</code> for
+              mock-exam playbooks.
+            </dd>
+            <dt>Where you see it</dt>
+            <dd>
+              Caller Detail → <strong>Attainment</strong> tab (Module
+              mastery section + per-LO drill on click).
+            </dd>
+          </dl>
+        </article>
+      </div>
+
+      <div className="hf-skills-explainer-faq">
+        <h3 className="hf-skills-explainer-faq-title">Common questions</h3>
+        <dl className="hf-skills-explainer-faq-dl">
+          <dt>
+            A learner had a bad call. Why did Skill drop but Mastery
+            stay the same?
+          </dt>
+          <dd>
+            Skill is EMA-decayed — recent performance pulls the score
+            toward the worse value. Mastery is a ratchet — once an LO
+            is demonstrated to criterion, a later bad call doesn&apos;t
+            un-demonstrate it. They&apos;re answering different questions
+            (&ldquo;where are they now?&rdquo; vs &ldquo;what have they
+            learned?&rdquo;).
+          </dd>
+          <dt>Can I have one without the other?</dt>
+          <dd>
+            Yes. A course can have <strong>just skills</strong> (e.g.
+            IELTS Speaking — 4 cross-cutting skill bands, no
+            module-LO scaffolding) or <strong>just mastery</strong>{" "}
+            (e.g. a knowledge curriculum with no measured behaviour).
+            Most courses use both.
+          </dd>
+          <dt>What about Goals?</dt>
+          <dd>
+            Goals can be driven by either system —{" "}
+            <code>progressStrategy: skill_ema</code> uses the skill
+            score; <code>lo_rollup</code> uses mastery. The strategy
+            shows next to each goal in the Attainment tab.
+          </dd>
+          <dt>Where&apos;s the canonical glossary?</dt>
+          <dd>
+            <a href="/x/help/glossary" className="hf-skills-explainer-link">
+              /x/help/glossary
+            </a>{" "}
+            — the 7 layers, every term defined once, educator label ↔
+            DB shape.
+          </dd>
+        </dl>
+      </div>
+    </section>
   );
 }
