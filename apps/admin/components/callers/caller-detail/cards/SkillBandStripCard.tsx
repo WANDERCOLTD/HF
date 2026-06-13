@@ -1,5 +1,7 @@
 "use client";
 
+// WILL_RETIRE — covered by Attainment (SP4-A/C/D): see docs/retirement-audit/attainment-sp4e.md
+
 /**
  * SkillBandStripCard — Overview hero strip showing per-skill bands.
  *

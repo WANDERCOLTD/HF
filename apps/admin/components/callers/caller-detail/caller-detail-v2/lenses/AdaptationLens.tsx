@@ -1,5 +1,7 @@
 "use client";
 
+// WILL_RETIRE — covered by Adaptations (SP5-A/B/C/D): see docs/retirement-audit/adaptations-sp5e.md
+
 import React from "react";
 import { AdaptationSection } from "../sections/AdaptationSection";
 
