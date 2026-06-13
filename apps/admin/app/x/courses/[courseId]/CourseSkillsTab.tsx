@@ -655,7 +655,12 @@ function CohortCellEvidencePanel({
       ) : data ? (
         <ul className="hf-cohort-drill-learners">
           {data.learners.map((l) => (
-            <CohortDrillLearnerRow key={l.callerId} learner={l} tier={tier} />
+            <CohortDrillLearnerRow
+              key={l.callerId}
+              learner={l}
+              tier={tier}
+              skillRef={skillRef}
+            />
           ))}
         </ul>
       ) : null}
@@ -1033,9 +1038,11 @@ function tierLabelForTarget(skill: RubricCalibrationSkill): string {
 function CohortDrillLearnerRow({
   learner,
   tier,
+  skillRef,
 }: {
   learner: CohortCellLearner;
   tier: string;
+  skillRef: string;
 }) {
   const scoreLabel =
     typeof learner.currentScore === "number"
@@ -1053,6 +1060,12 @@ function CohortDrillLearnerRow({
           {learner.callerName ?? learner.callerId.slice(0, 8)}
         </strong>
         <span className="hf-cohort-drill-learner-score">EMA {scoreLabel}</span>
+        <a
+          className="hf-cohort-drill-learner-link"
+          href={`/x/callers/${learner.callerId}?tab=attainment&skillRef=${encodeURIComponent(skillRef)}`}
+        >
+          View attainment →
+        </a>
       </div>
       {learner.lastMeasurement ? (
         <div className="hf-cohort-drill-learner-evidence">

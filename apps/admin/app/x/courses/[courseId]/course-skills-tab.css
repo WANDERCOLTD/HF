@@ -667,6 +667,26 @@
   font-family: 'SF Mono', Monaco, Consolas, monospace;
 }
 
+.hf-cohort-drill-learner-link {
+  font-size: 11px;
+  color: var(--accent-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.hf-cohort-drill-learner-link:hover {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+}
+
+.hf-cohort-drill-learner-link:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
 .hf-cohort-drill-learner-evidence {
   display: flex;
   flex-direction: column;

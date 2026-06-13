@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   TrendingUp,
   AlertTriangle,
@@ -146,6 +147,11 @@ interface Props {
 }
 
 export function AttainmentTab({ callerId }: Props) {
+  const searchParams = useSearchParams();
+  const deepLinkSkillRef = searchParams?.get("skillRef") ?? null;
+  const skillRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const autoExpandedRef = useRef(false);
+
   const [data, setData] = useState<AttainmentResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -236,6 +242,28 @@ export function AttainmentTab({ callerId }: Props) {
     }
   };
 
+  // SP4-F deep-link receive — when arriving from the Cohort Heatmap
+  // (or any inbound `?skillRef=…` link) auto-expand the matching skill
+  // row and scroll it into view. Fires once per mount.
+  useEffect(() => {
+    if (autoExpandedRef.current) return;
+    if (!deepLinkSkillRef || !data) return;
+    const match = data.skillBands.find(
+      (b) => b.skillRef === deepLinkSkillRef,
+    );
+    if (!match) return;
+    autoExpandedRef.current = true;
+    void handleToggleSkill(deepLinkSkillRef);
+    requestAnimationFrame(() => {
+      const node = skillRowRefs.current[deepLinkSkillRef];
+      node?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    // handleToggleSkill is stable for this purpose — re-running only on
+    // data/deepLinkSkillRef change. The guard `autoExpandedRef.current`
+    // makes the effect idempotent across re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, deepLinkSkillRef]);
+
   if (loading) {
     return (
       <div className="hf-attainment-loading" role="status" aria-live="polite">
@@ -294,6 +322,7 @@ export function AttainmentTab({ callerId }: Props) {
         evidence={evidence}
         evidenceLoading={evidenceLoading}
         onToggleSkill={handleToggleSkill}
+        rowRefs={skillRowRefs}
       />
 
       <ModulesSection
@@ -325,12 +354,14 @@ function SkillBandsSection({
   evidence,
   evidenceLoading,
   onToggleSkill,
+  rowRefs,
 }: {
   bands: SkillBand[];
   expandedSkillRef: string | null;
   evidence: Record<string, SkillEvidenceItem[]>;
   evidenceLoading: string | null;
   onToggleSkill: (skillRef: string) => void;
+  rowRefs?: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 }) {
   if (bands.length === 0) {
     return (
@@ -359,7 +390,13 @@ function SkillBandsSection({
               : band.tier;
           const expanded = expandedSkillRef === band.skillRef;
           return (
-            <div key={band.skillRef} className="hf-attainment-skill-row">
+            <div
+              key={band.skillRef}
+              ref={(el) => {
+                if (rowRefs) rowRefs.current[band.skillRef] = el;
+              }}
+              className="hf-attainment-skill-row"
+            >
               <button
                 type="button"
                 className="hf-attainment-skill-header"
