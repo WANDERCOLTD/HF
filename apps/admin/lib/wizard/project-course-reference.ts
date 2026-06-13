@@ -149,6 +149,21 @@ export interface ProjectedParameter {
    * absent for skills with only tier descriptors (Emerging/Developing/Secure).
    */
   bandThresholds?: Record<number, string>;
+  /**
+   * Per-skill tier scheme (Sprint 2 SP2-B+ 2026-06-13). The parser detects
+   * this per-skill (see `KNOWN_TIER_SCHEMES`) and the applier persists it
+   * to `Parameter.config.tierScheme`. The runtime resolver
+   * `resolveSkillByLogicalId` reads it from there and falls back to the
+   * 3-tier default when absent.
+   */
+  tierScheme?: readonly string[];
+  /**
+   * Per-tier descriptor text (Sprint 2 SP2-B+ 2026-06-13). Map of tier name
+   * → descriptor prose from the course-ref doc. Written to
+   * `Parameter.config.tiers` so the Skills Framework Inspector lens can
+   * render the structural rubric without a second ContentAssertion read.
+   */
+  tiers?: Record<string, string>;
 }
 
 /**
@@ -699,6 +714,11 @@ function mapSkillsToAchieveAndTargets(skills: ParsedSkill[]): {
       // #500 PR-2 — pass band thresholds through; applier writes them into
       // Parameter.config.bandThresholds. Only present for graded-rubric skills.
       bandThresholds: skill.bandThresholds,
+      // Sprint 2 SP2-B+ — persist per-skill tierScheme + tier descriptors so
+      // the Skills Framework Inspector lens can render the rubric without a
+      // ContentAssertion-text fallback.
+      tierScheme: skill.tierScheme,
+      tiers: Object.keys(skill.tiers).length > 0 ? skill.tiers : undefined,
     });
 
     achieveGoals.push({
