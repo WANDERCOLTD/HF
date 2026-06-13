@@ -1,9 +1,7 @@
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import type { WizardToolExec } from "../_shared/types";
-import { validUuid } from "../_shared/valid-uuid";
 import { applyStudentExperienceConfig } from "../_shared/apply-student-experience";
-import { ensureInstitutionAndDomain } from "../_shared/ensure-institution-and-domain";
 
 export async function execute(
   input: Record<string, unknown>,
@@ -25,37 +23,13 @@ try {
   const slugify = (await import("slugify")).default;
   const { generateLessonPlan } = await import("@/lib/content-trust/lesson-planner");
 
-  // ── Resolve domainId — validate AI input, prefer setupData truth ──
-  // The AI frequently hallucinates domainId (slugs, prefixed IDs, etc.).
-  // Always prefer setupData (set by update_setup from real DB lookups),
-  // only use input.domainId if it's a real UUID AND setupData has nothing.
-  let domainId = validUuid(setupData?.existingDomainId)
-    || validUuid(setupData?.draftDomainId)
-    || validUuid(input.domainId);
-
-  // Last resort: if AI sent a slug/name, try to resolve it from the DB
-  if (!domainId && input.domainId && typeof input.domainId === "string") {
-    console.warn(`[wizard-tools] create_course: rejected invalid domainId from AI: "${input.domainId}" — attempting slug/name lookup`);
-    const domain = await prisma.domain.findFirst({
-      where: {
-        OR: [
-          { slug: input.domainId as string },
-          { name: { equals: input.domainId as string, mode: "insensitive" } },
-        ],
-      },
-      select: { id: true },
-    });
-    if (domain) {
-      domainId = domain.id;
-      console.log(`[wizard-tools] create_course: resolved slug/name "${input.domainId}" → ${domain.id}`);
-    }
-  }
+  // ── Discipline guard (#207) — runs before domain resolution so a missing ──
+  // subjectDiscipline never triggers the safety-net auto-create at
+  // `_resolve-domain.ts`. Behaviour-equivalent to the pre-#1544 inline
+  // order; the only observable difference is one DB read skipped on the
+  // unhappy path (see `_resolve-domain.ts` header).
   const courseName = input.courseName as string;
   const interactionPattern = input.interactionPattern as string;
-  // Discipline guard (#207): never let a placeholder name (e.g. "Course")
-  // become a Subject. If the AI calls create_course before the discipline
-  // is set and courseName is also generic, refuse to scaffold rather than
-  // create an orphan Subject row.
   const { isPlaceholderSubjectName } = await import("@/lib/knowledge/cleanup-placeholder-subjects");
   const rawSubjectDiscipline = (input.subjectDiscipline as string) || courseName;
   if (!rawSubjectDiscipline || isPlaceholderSubjectName(rawSubjectDiscipline)) {
@@ -74,26 +48,11 @@ try {
   const uploadSourceIds = (input.uploadSourceIds as string[] | undefined)
     || (setupData?.uploadSourceIds as string[] | undefined);
 
-  // ── Safety net: auto-create institution + domain if missing ──
-  // The AI sometimes skips create_institution and jumps straight to create_course.
-  if (!domainId && setupData?.institutionName) {
-    const result = await ensureInstitutionAndDomain(
-      setupData.institutionName as string,
-      userId,
-      setupData.typeSlug as string | undefined,
-    );
-    if (result) domainId = result.domainId;
-  }
-
-  if (!domainId) {
-    return {
-      content: JSON.stringify({
-        ok: false,
-        error: "No institution set up yet. Ask the user for their organisation name first, then retry.",
-      }),
-      is_error: true,
-    };
-  }
+  // ── Stage 2 — domain resolution (extracted #1544) ──
+  const { resolveDomainOrError } = await import("./create_course/_resolve-domain");
+  const domainResult = await resolveDomainOrError({ input, userId, setupData });
+  if (!domainResult.ok) return domainResult.earlyReturn;
+  const { domainId } = domainResult;
 
   // ── Guard: existing course resolved via entity resolution ──
   // If draftPlaybookId is already set, skip scaffolding — just apply config tweaks
