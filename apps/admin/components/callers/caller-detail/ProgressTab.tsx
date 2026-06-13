@@ -1,5 +1,7 @@
 "use client";
 
+// WILL_RETIRE — covered by Attainment (SP4-A/C/D): see docs/retirement-audit/attainment-sp4e.md
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BookOpen, CheckSquare, Layers, Target, Check, X } from "lucide-react";
 import { VerticalSlider, SliderGroup } from "@/components/shared/VerticalSlider";
@@ -1367,8 +1369,8 @@ export function TopLevelAgentBehaviorSection({ callerId, calls: propCalls, calle
     setLoading(true);
     try {
       // Use calls from props if available, otherwise fetch
-      let calls = propCalls;
-      if (!calls) {
+      let calls: NonNullable<typeof propCalls> = propCalls ?? [];
+      if (calls.length === 0 && !propCalls) {
         const res = await fetch(`/api/callers/${callerId}`);
         const data = await res.json();
         if (data.ok) {
