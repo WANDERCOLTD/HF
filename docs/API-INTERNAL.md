@@ -10095,6 +10095,12 @@ Parse a Course Reference markdown body for an author-declared
 
 ---
 
+### `POST` /api/courses/[courseId]/reproject-skills
+
+**Auth**: Session
+
+---
+
 ### `PUT` /api/courses/[courseId]/session-flow
 
 Partial update of Playbook.config — accepts a sessionFlow
@@ -10143,6 +10149,12 @@ Partial update of Playbook.config — accepts a sessionFlow
 ---
 
 ### `GET` /api/courses/[courseId]/skills-rubric-calibration
+
+**Auth**: Session
+
+---
+
+### `GET` /api/courses/[courseId]/skills-source-lineage
 
 **Auth**: Session
 
@@ -16062,8 +16074,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 522 |
-| Files with annotations | 510 |
+| Route files found | 524 |
+| Files with annotations | 512 |
 | Files missing annotations | 12 |
 | Coverage | 97.7% |
 

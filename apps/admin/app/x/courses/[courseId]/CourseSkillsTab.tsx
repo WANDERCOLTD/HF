@@ -8,6 +8,9 @@ import {
   Grid3X3,
   Users,
   Sliders,
+  FileText,
+  RefreshCw,
+  CheckCircle2,
   X,
 } from "lucide-react";
 
@@ -29,6 +32,7 @@ type LensId =
   | "framework-map"
   | "cohort-heatmap"
   | "rubric-calibration"
+  | "source-lineage"
   | "mastery-vs-skill";
 
 interface LensSpec {
@@ -56,6 +60,12 @@ const LENSES: LensSpec[] = [
     label: "Rubric Calibration",
     icon: <Sliders size={14} />,
     blurb: "What the AI tutor reads — per-skill MEASURE prompt + tuning knobs.",
+  },
+  {
+    id: "source-lineage",
+    label: "Source Lineage",
+    icon: <FileText size={14} />,
+    blurb: "Where this rubric came from — COURSE_REFERENCE source chain + Re-project.",
   },
   {
     id: "mastery-vs-skill",
@@ -193,6 +203,8 @@ export function CourseSkillsTab({ courseId }: Props) {
         <CohortHeatmapLens courseId={courseId} />
       ) : activeLens === "rubric-calibration" ? (
         <RubricCalibrationLens courseId={courseId} />
+      ) : activeLens === "source-lineage" ? (
+        <SourceLineageLens courseId={courseId} />
       ) : (
         <MasteryVsSkillExplainerLens />
       )}
@@ -1306,6 +1318,189 @@ function MasteryVsSkillExplainerLens() {
           </dd>
         </dl>
       </div>
+    </section>
+  );
+}
+
+// ── Lens: Source Lineage (SP3-B) ────────────────────────────────────────────
+
+interface SourceLineageEntry {
+  id: string;
+  name: string;
+  documentType: string;
+  updatedAt: string;
+  assertionCount: number;
+}
+
+interface SkillsSourceLineageResponse {
+  courseId: string;
+  playbookId: string | null;
+  sources: SourceLineageEntry[];
+  empty: boolean;
+}
+
+/**
+ * Source Lineage lens — shows the COURSE_REFERENCE sources currently
+ * feeding the Skills Framework projection for this course, with a
+ * "Re-project" button that triggers `runProjectionForPlaybook` so the
+ * educator can pull the latest source content through without leaving
+ * the page.
+ *
+ * The lens answers two operator questions repeatedly heard in support:
+ *   1. "Where did this rubric come from?" — the source rows.
+ *   2. "I edited the doc; why hasn't the rubric updated?" — the
+ *      Re-project button + the source's updatedAt vs last-projection
+ *      hint (when the projection layer surfaces that timestamp).
+ */
+function SourceLineageLens({ courseId }: { courseId: string }) {
+  const [data, setData] = useState<SkillsSourceLineageResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reprojectStatus, setReprojectStatus] = useState<
+    | { kind: "idle" }
+    | { kind: "running" }
+    | { kind: "success"; summary: string }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch(`/api/courses/${courseId}/skills-source-lineage`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then((payload: SkillsSourceLineageResponse) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  const handleReproject = async () => {
+    setReprojectStatus({ kind: "running" });
+    try {
+      const res = await fetch(`/api/courses/${courseId}/reproject-skills`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+      }
+      const body = (await res.json()) as { summary: string };
+      setReprojectStatus({ kind: "success", summary: body.summary });
+    } catch (err) {
+      setReprojectStatus({ kind: "error", message: (err as Error).message });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="hf-skills-lineage-loading" role="status" aria-live="polite">
+        Loading source lineage…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="hf-skills-lineage-error hf-banner-error" role="alert">
+        <AlertTriangle size={14} />
+        <span>{error}</span>
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  return (
+    <section className="hf-skills-lineage" role="region" aria-label="Source Lineage">
+      <header className="hf-skills-lineage-header">
+        <div>
+          <h3 className="hf-skills-lineage-title">Sources feeding this rubric</h3>
+          <p className="hf-skills-lineage-desc">
+            The COURSE_REFERENCE documents the Skills Framework projection
+            reads from. Re-projecting pulls the latest content from every
+            row below into the rubric + behaviour-target writes for this
+            course.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="hf-skills-lineage-reproject"
+          onClick={handleReproject}
+          disabled={reprojectStatus.kind === "running" || data.empty}
+        >
+          <RefreshCw
+            size={12}
+            className={
+              reprojectStatus.kind === "running"
+                ? "hf-skills-lineage-spin"
+                : undefined
+            }
+          />
+          {reprojectStatus.kind === "running" ? "Re-projecting…" : "Re-project"}
+        </button>
+      </header>
+
+      {reprojectStatus.kind === "success" ? (
+        <div
+          className="hf-skills-lineage-toast hf-skills-lineage-toast-success"
+          role="status"
+        >
+          <CheckCircle2 size={14} />
+          <span>{reprojectStatus.summary}</span>
+        </div>
+      ) : reprojectStatus.kind === "error" ? (
+        <div
+          className="hf-skills-lineage-toast hf-skills-lineage-toast-error"
+          role="alert"
+        >
+          <AlertTriangle size={14} />
+          <span>Re-project failed: {reprojectStatus.message}</span>
+        </div>
+      ) : null}
+
+      {data.empty ? (
+        <div className="hf-skills-lineage-empty">
+          <Info size={14} aria-hidden />
+          <span>
+            No COURSE_REFERENCE source linked to this course yet. Link a
+            course-reference document from the Course Settings tab to give
+            the projection something to read.
+          </span>
+        </div>
+      ) : (
+        <ul className="hf-skills-lineage-rows">
+          {data.sources.map((s) => (
+            <li key={s.id} className="hf-skills-lineage-row">
+              <FileText size={14} className="hf-skills-lineage-row-icon" />
+              <div className="hf-skills-lineage-row-body">
+                <div className="hf-skills-lineage-row-head">
+                  <strong className="hf-skills-lineage-row-name">{s.name}</strong>
+                  <span className="hf-skills-lineage-row-doctype">
+                    {s.documentType.replace(/_/g, " ").toLowerCase()}
+                  </span>
+                </div>
+                <div className="hf-skills-lineage-row-meta">
+                  Last updated {new Date(s.updatedAt).toLocaleDateString()} ·{" "}
+                  {s.assertionCount} assertion{s.assertionCount === 1 ? "" : "s"}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

@@ -869,3 +869,175 @@
 .hf-skills-explainer-link:hover {
   background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
 }
+
+/* ── SP3-B: Source Lineage lens ──────────────────────────────────────── */
+
+.hf-skills-lineage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.hf-skills-lineage-loading,
+.hf-skills-lineage-error {
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-skills-lineage-error {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.hf-skills-lineage-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hf-skills-lineage-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.hf-skills-lineage-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 60ch;
+}
+
+.hf-skills-lineage-reproject {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--surface-primary);
+  background: var(--accent-primary);
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hf-skills-lineage-reproject:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 85%, var(--text-primary));
+}
+
+.hf-skills-lineage-reproject:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.hf-skills-lineage-spin {
+  animation: hf-skills-lineage-spin 1s linear infinite;
+}
+
+@keyframes hf-skills-lineage-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hf-skills-lineage-toast {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.hf-skills-lineage-toast-success {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+
+.hf-skills-lineage-toast-error {
+  background: color-mix(in srgb, var(--status-error-text) 12%, transparent);
+  color: var(--status-error-text);
+}
+
+.hf-skills-lineage-empty {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.hf-skills-lineage-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hf-skills-lineage-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+}
+
+.hf-skills-lineage-row-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.hf-skills-lineage-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hf-skills-lineage-row-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hf-skills-lineage-row-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.hf-skills-lineage-row-doctype {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.hf-skills-lineage-row-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
