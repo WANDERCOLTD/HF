@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Award, AlertTriangle, Info } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Award, AlertTriangle, Info, Grid3X3, Users } from "lucide-react";
 
 import {
   ABOVE_TARGET,
@@ -11,6 +11,30 @@ import {
 import { tierLabel } from "@/lib/banding/tier-colors";
 
 import "./course-skills-tab.css";
+
+type LensId = "framework-map" | "cohort-heatmap";
+
+interface LensSpec {
+  id: LensId;
+  label: string;
+  icon: React.ReactNode;
+  blurb: string;
+}
+
+const LENSES: LensSpec[] = [
+  {
+    id: "framework-map",
+    label: "Framework Map",
+    icon: <Grid3X3 size={14} />,
+    blurb: "The structural rubric — Skills × Tiers grid.",
+  },
+  {
+    id: "cohort-heatmap",
+    label: "Cohort Heatmap",
+    icon: <Users size={14} />,
+    blurb: "Where the cohort sits — per-skill × per-tier learner count.",
+  },
+];
 
 /**
  * Course Detail → Skills Framework tab (`?tab=skills&v=3`).
@@ -56,6 +80,7 @@ export function CourseSkillsTab({ courseId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedSkillRef, setExpandedSkillRef] = useState<string | null>(null);
+  const [activeLens, setActiveLens] = useState<LensId>("framework-map");
 
   useEffect(() => {
     let cancelled = false;
@@ -113,8 +138,8 @@ export function CourseSkillsTab({ courseId }: Props) {
         </h2>
         <p className="hf-section-desc">
           The structural rubric this course measures learners against.
-          Each row is a Skill; each cell is a Tier in that skill's scheme.
-          The educator's target tier carries a ★ marker.
+          Each row is a Skill; each cell is a Tier in that skill&apos;s scheme.
+          The educator&apos;s target tier carries a ★ marker.
         </p>
         {data.playbookStatus === "DRAFT" ? (
           <div className="hf-skills-draft-watermark" aria-label="Course is in draft mode">
@@ -123,9 +148,11 @@ export function CourseSkillsTab({ courseId }: Props) {
         ) : null}
       </header>
 
+      <LensSwitcher active={activeLens} onChange={setActiveLens} />
+
       {data.empty ? (
         <EmptyState />
-      ) : (
+      ) : activeLens === "framework-map" ? (
         <FrameworkMapLens
           skills={data.skills}
           expandedSkillRef={expandedSkillRef}
@@ -133,9 +160,45 @@ export function CourseSkillsTab({ courseId }: Props) {
             setExpandedSkillRef((prev) => (prev === skillRef ? null : skillRef))
           }
         />
+      ) : (
+        <CohortHeatmapLens courseId={courseId} />
       )}
 
       <Legend />
+    </div>
+  );
+}
+
+// ── Lens switcher ───────────────────────────────────────────────────────────
+
+function LensSwitcher({
+  active,
+  onChange,
+}: {
+  active: LensId;
+  onChange: (id: LensId) => void;
+}) {
+  const activeSpec = LENSES.find((l) => l.id === active);
+  return (
+    <div className="hf-skills-lens-switcher" role="tablist" aria-label="Skills Framework lens">
+      {LENSES.map((lens) => (
+        <button
+          key={lens.id}
+          type="button"
+          role="tab"
+          aria-selected={active === lens.id}
+          className={`hf-skills-lens-tab ${
+            active === lens.id ? "hf-skills-lens-tab--active" : ""
+          }`}
+          onClick={() => onChange(lens.id)}
+        >
+          {lens.icon}
+          <span>{lens.label}</span>
+        </button>
+      ))}
+      {activeSpec ? (
+        <span className="hf-skills-lens-blurb">{activeSpec.blurb}</span>
+      ) : null}
     </div>
   );
 }
@@ -246,6 +309,156 @@ function FrameworkMapLens({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Cohort Heatmap lens (SP2-D) ─────────────────────────────────────────────
+
+interface CohortHeatmapRow {
+  skillRef: string;
+  parameterId: string;
+  parameterName: string;
+  tierScheme: string[];
+  targetTier: string | null;
+  targetValue: number;
+  buckets: Record<string, number>;
+}
+
+interface CohortHeatmapResponse {
+  courseId: string;
+  totalLearners: number;
+  rows: CohortHeatmapRow[];
+  empty: boolean;
+}
+
+function CohortHeatmapLens({ courseId }: { courseId: string }) {
+  const [data, setData] = useState<CohortHeatmapResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch(`/api/courses/${courseId}/skills-cohort-heatmap`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then((payload: CohortHeatmapResponse) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  if (loading) {
+    return (
+      <div className="hf-skills-loading" role="status" aria-live="polite">
+        Loading cohort heatmap…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="hf-skills-error hf-banner-error" role="alert">
+        <AlertTriangle size={16} />
+        <div>
+          <strong>Could not load the Cohort Heatmap.</strong>
+          <div>{error}</div>
+        </div>
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  if (data.empty) {
+    return <EmptyState />;
+  }
+
+  if (data.totalLearners === 0) {
+    return (
+      <div className="hf-skills-empty">
+        <Info size={20} aria-hidden />
+        <div>
+          <strong>No learners enrolled on this course yet.</strong>
+          <p>
+            Once learners enrol, this lens shows their distribution across
+            each skill&apos;s tiers — cold→hot, same colours as the
+            Framework Map and the per-learner Attainment view.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hf-skills-cohort">
+      <div className="hf-skills-cohort-meta">
+        Cohort: <strong>{data.totalLearners}</strong> learners enrolled
+      </div>
+      {data.rows.map((row) => (
+        <CohortHeatmapRowView
+          key={row.skillRef}
+          row={row}
+          totalLearners={data.totalLearners}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CohortHeatmapRowView({
+  row,
+  totalLearners,
+}: {
+  row: CohortHeatmapRow;
+  totalLearners: number;
+}) {
+  // Ordered render: AWAITING, scheme[0..n], ABOVE_TARGET
+  const orderedTiers = useMemo(() => {
+    const out: string[] = [AWAITING_EVIDENCE, ...row.tierScheme, ABOVE_TARGET];
+    return out;
+  }, [row.tierScheme]);
+
+  return (
+    <div className="hf-cohort-row">
+      <div className="hf-cohort-row-meta">
+        <span className="hf-skill-row-ref">{row.skillRef}</span>
+        <span className="hf-skill-row-name">{row.parameterName}</span>
+        <span className="hf-skill-row-target">
+          Target:{" "}
+          {row.targetTier ? tierLabel(row.targetTier) : "—"} · {(row.targetValue * 10).toFixed(1)}
+        </span>
+      </div>
+      <div className="hf-cohort-row-cells">
+        {orderedTiers.map((tier) => {
+          const count = row.buckets[tier] ?? 0;
+          const pct = totalLearners > 0 ? Math.round((count / totalLearners) * 100) : 0;
+          return (
+            <TierCell
+              key={`${row.skillRef}-${tier}`}
+              tier={tier}
+              target={tier === row.targetTier}
+              caption={`${count} · ${pct}%`}
+              size="default"
+            >
+              {count}
+            </TierCell>
+          );
+        })}
+      </div>
     </div>
   );
 }
