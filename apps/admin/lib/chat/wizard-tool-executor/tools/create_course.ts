@@ -23,25 +23,16 @@ try {
   const slugify = (await import("slugify")).default;
   const { generateLessonPlan } = await import("@/lib/content-trust/lesson-planner");
 
-  // ── Discipline guard (#207) — runs before domain resolution so a missing ──
-  // subjectDiscipline never triggers the safety-net auto-create at
-  // `_resolve-domain.ts`. Behaviour-equivalent to the pre-#1544 inline
-  // order; the only observable difference is one DB read skipped on the
-  // unhappy path (see `_resolve-domain.ts` header).
+  // ── Stage 3 — subject-discipline guard (extracted #1544) ──
+  // Runs before domain resolution so a missing subjectDiscipline never
+  // triggers the safety-net auto-create at `_resolve-domain.ts`.
+  const { resolveSubjectOrError } = await import("./create_course/_resolve-subject");
+  const subjectResult = await resolveSubjectOrError({ input, userId, setupData });
+  if (!subjectResult.ok) return subjectResult.earlyReturn;
+  const { subjectDiscipline } = subjectResult;
+
   const courseName = input.courseName as string;
   const interactionPattern = input.interactionPattern as string;
-  const { isPlaceholderSubjectName } = await import("@/lib/knowledge/cleanup-placeholder-subjects");
-  const rawSubjectDiscipline = (input.subjectDiscipline as string) || courseName;
-  if (!rawSubjectDiscipline || isPlaceholderSubjectName(rawSubjectDiscipline)) {
-    return {
-      content: JSON.stringify({
-        ok: false,
-        error: "Subject discipline is required. Ask the user what subject this course teaches (e.g. 'IELTS Speaking', 'Year 5 Maths', 'Food Safety') and pass it as subjectDiscipline.",
-      }),
-      is_error: true,
-    };
-  }
-  const subjectDiscipline = rawSubjectDiscipline;
   const packSubjectIds = (input.packSubjectIds as string[] | undefined)
     || (setupData?.packSubjectIds as string[] | undefined);
   // Phase 5: prefer sourceIds for direct PlaybookSource creation
