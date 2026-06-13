@@ -336,3 +336,95 @@
   color: var(--text-muted);
   padding-left: 24px;
 }
+
+/* ── SP5-D: next-call preview rows ───────────────────────────────────── */
+
+.hf-adaptations-next-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hf-adaptations-next-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+}
+
+.hf-adaptations-next-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.hf-adaptations-next-band {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  min-width: 44px;
+  text-align: center;
+}
+
+.hf-adaptations-next-band-low {
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+
+.hf-adaptations-next-band-mid {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+
+.hf-adaptations-next-band-high {
+  background: color-mix(in srgb, var(--status-success-text) 14%, transparent);
+  color: var(--status-success-text);
+}
+
+.hf-adaptations-next-type {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.hf-adaptations-next-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 100px;
+}
+
+.hf-adaptations-next-pct {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-adaptations-next-assessment {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.hf-adaptations-next-guidance {
+  margin: 0;
+  padding-left: 56px;
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}

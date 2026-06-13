@@ -84,12 +84,22 @@ export interface AdaptationReason {
   delta: number | null;
 }
 
-/** What the next call's adaptation will be — `goalAdaptationGuidance`
- *  with LOW / MID / HIGH bands. SP5-D fills this. */
-export interface NextAdaptationGuidance {
+/** What the next call's adaptation will be — one preview entry per
+ *  top-3 active goal, derived from `goalAdaptationGuidance` in
+ *  `lib/prompt/composition/transforms/instructions.ts`. The same band
+ *  thresholds (LOW <30% / MID <70% / HIGH ≥70%) the AI will see when
+ *  the next call's prompt is composed. */
+export interface NextAdaptationGuidanceEntry {
+  goalId: string;
+  goalName: string;
+  goalType: string;
+  /** 0–1 current progress on the goal. */
+  progress: number;
+  /** Derived from `progress` against the LOW/MID/HIGH thresholds. */
   band: "low" | "mid" | "high";
-  summary: string;
-  affectedParameterIds: string[];
+  /** The exact textual guidance that will land in the next prompt. */
+  guidance: string;
+  isAssessmentTarget: boolean;
 }
 
 export interface AdaptationsResponse {
@@ -99,7 +109,7 @@ export interface AdaptationsResponse {
   playbookName: string | null;
   whatWasAdapted: AdaptationOverride[];
   why: AdaptationReason[];
-  nextAdaptation: NextAdaptationGuidance | null;
+  nextAdaptation: NextAdaptationGuidanceEntry[];
   /** True when no enrolment + no overrides + no rewards exist. The UI
    *  branches on this for the empty-state copy. */
   empty: boolean;
@@ -305,6 +315,42 @@ export async function GET(
   }
   const whyTrimmed = why.slice(0, REWARD_REASONS_MAX);
 
+  // ── SP5-D "Next call's adaptation" ──────────────────────────────────────
+  // Preview the same bracket-derived guidance the AI will see when the next
+  // prompt is composed (replicates the LOW/MID/HIGH logic in
+  // `lib/prompt/composition/transforms/instructions.ts::goalAdaptationGuidance`
+  // — small table, low drift risk; ESM import would couple this read route
+  // to the composition layer for a one-time copy of 6 UX strings).
+  const topGoals = await prisma.goal.findMany({
+    where: { callerId, playbookId, status: { in: ["ACTIVE", "PAUSED"] } },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      progress: true,
+      isAssessmentTarget: true,
+    },
+    orderBy: [{ priority: "desc" }, { name: "asc" }],
+    take: 3,
+  });
+
+  const nextAdaptation: NextAdaptationGuidanceEntry[] = topGoals.map((g) => {
+    const band: "low" | "mid" | "high" =
+      g.progress < 0.3 ? "low" : g.progress < 0.7 ? "mid" : "high";
+    const bracketIndex = band === "low" ? 0 : band === "mid" ? 1 : 2;
+    const guidance =
+      (GOAL_ADAPTATION[g.type] ?? GOAL_ADAPTATION.LEARN)[bracketIndex];
+    return {
+      goalId: g.id,
+      goalName: g.name,
+      goalType: g.type,
+      progress: g.progress,
+      band,
+      guidance,
+      isAssessmentTarget: g.isAssessmentTarget,
+    };
+  });
+
   return NextResponse.json({
     callerId,
     callerName: caller.name,
@@ -312,10 +358,57 @@ export async function GET(
     playbookName: enrolment.playbook?.name ?? null,
     whatWasAdapted,
     why: whyTrimmed,
-    nextAdaptation: null,
-    empty: whatWasAdapted.length === 0 && whyTrimmed.length === 0,
+    nextAdaptation,
+    empty:
+      whatWasAdapted.length === 0 &&
+      whyTrimmed.length === 0 &&
+      nextAdaptation.length === 0,
   } satisfies AdaptationsResponse);
 }
+
+/**
+ * Mirror of `GOAL_ADAPTATION` in
+ * `lib/prompt/composition/transforms/instructions.ts`. **Canonical
+ * source is the composition transform** — that is the one the AI
+ * actually sees. This route renders a preview using the same table so
+ * the educator sees what the AI WILL see on the next call's prompt.
+ *
+ * If the canonical table changes, update this mirror in the same PR
+ * (search both paths). The drift surface is tiny (6 rows of UX copy)
+ * so a structural import is overkill.
+ */
+const GOAL_ADAPTATION: Record<string, [low: string, mid: string, high: string]> = {
+  LEARN: [
+    "Introduce concepts gently, check understanding frequently",
+    "Build on prior foundations, connect to what they already know",
+    "Challenge with application, prepare for mastery",
+  ],
+  ACHIEVE: [
+    "Clarify what success looks like, break into steps",
+    "Track milestones, celebrate progress",
+    "Focus on final steps, anticipate obstacles",
+  ],
+  CHANGE: [
+    "Explore motivation, validate feelings",
+    "Practice new behaviours, reflect on changes",
+    "Reinforce new habits, plan sustainability",
+  ],
+  CONNECT: [
+    "Build trust, find common ground",
+    "Deepen relationship, share openly",
+    "Maintain connection, mutual exchange",
+  ],
+  SUPPORT: [
+    "Listen actively, understand needs",
+    "Provide targeted support, check coping",
+    "Evaluate effectiveness, plan independence",
+  ],
+  CREATE: [
+    "Brainstorm freely, no judgment",
+    "Iterate and refine, give constructive feedback",
+    "Polish and finish, celebrate creation",
+  ],
+};
 
 /** Most-recent N RewardScore rows scanned for `targetUpdatesApplied`. */
 const REWARD_LOOKBACK = 12;
