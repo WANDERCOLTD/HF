@@ -220,3 +220,92 @@
   color: var(--text-muted);
   font-size: 11px;
 }
+
+/* ── Lens switcher ───────────────────────────────────────────────────────── */
+
+.hf-skills-lens-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  flex-wrap: wrap;
+}
+
+.hf-skills-lens-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 80ms ease-out, color 80ms ease-out;
+}
+
+.hf-skills-lens-tab:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.hf-skills-lens-tab--active {
+  background: var(--surface-primary);
+  color: var(--accent-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.hf-skills-lens-blurb {
+  margin-left: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ── Cohort Heatmap lens ─────────────────────────────────────────────────── */
+
+.hf-skills-cohort {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-skills-cohort-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.hf-skills-cohort-meta strong {
+  color: var(--text-primary);
+}
+
+.hf-cohort-row {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.hf-cohort-row-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hf-cohort-row-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
