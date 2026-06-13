@@ -10,29 +10,10 @@ export async function execute(
   userId: string,
   setupData?: Record<string, unknown>,
 ): Promise<WizardToolExec> {
-// ── Guard: graph must say "Can launch: YES" before creation ──
-const { evaluateGraph } = await import("@/lib/wizard/graph-evaluator");
-const graphCheck = evaluateGraph(setupData ?? {});
-if (!graphCheck.canLaunch) {
-  const labels = graphCheck.missingRequired.map((n) => n.label);
-  const keys = graphCheck.missingRequired.map((n) => n.key);
-  console.log(`[wizard-tools] create_course BLOCKED — missing required: ${labels.join(", ")}`);
-  // #317 follow-up: previously this returned a soft ack — the chat AI
-  // saw it as success and called mark_complete next, leaving the user
-  // on a fake "course created" card. Hard-fail so the AI must collect
-  // the missing fields and retry create_course.
-  return {
-    content: JSON.stringify({
-      ok: false,
-      error:
-        `Cannot create course yet — still missing required fields: ${labels.join(", ")}. ` +
-        `Collect these first, then call create_course again. Do NOT call mark_complete until create_course succeeds.`,
-      missingKeys: keys,
-      missingLabels: labels,
-    }),
-    is_error: true,
-  };
-}
+// ── Stage 1 — graph guard (extracted #1544) ──
+const { runGraphGuard } = await import("./create_course/_graph-guard");
+const graphGuard = await runGraphGuard(setupData);
+if (graphGuard.earlyReturn) return graphGuard.earlyReturn;
 // Server-side: full course creation with scaffolding (identity spec, playbook, system specs, publish, onboarding)
 try {
   const { prisma } = await import("@/lib/prisma");
