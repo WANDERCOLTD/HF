@@ -1,0 +1,11 @@
+.hf-cascade-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.hf-cascade-value-display {
+  font-weight: 600;
+  color: var(--text-primary);
+}

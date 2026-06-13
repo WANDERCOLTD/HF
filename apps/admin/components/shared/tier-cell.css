@@ -1,0 +1,65 @@
+.hf-tier-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  padding: 4px 8px;
+  min-width: 44px;
+  text-align: center;
+  position: relative;
+  line-height: 1.2;
+  user-select: none;
+}
+
+.hf-tier-cell--compact {
+  padding: 2px 6px;
+  min-width: 32px;
+  font-size: 11px;
+}
+
+.hf-tier-cell--default {
+  padding: 6px 10px;
+  min-width: 56px;
+  font-size: 13px;
+}
+
+.hf-tier-cell-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hf-tier-cell-caption {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.hf-tier-cell-target {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  font-size: 12px;
+  color: var(--status-success-text);
+}
+
+.hf-tier-cell--interactive {
+  cursor: pointer;
+  transition: transform 80ms ease-out, border-color 80ms ease-out;
+  background-clip: padding-box;
+  font-family: inherit;
+}
+
+.hf-tier-cell--interactive:hover {
+  transform: scale(1.02);
+  border-color: currentColor;
+}
+
+.hf-tier-cell--interactive:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
