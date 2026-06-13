@@ -88,10 +88,21 @@ export default function CallerDetailPage() {
     artifacts: "overview-v2",
   };
   const rawTab = searchParams.get("tab");
+  // S5 of #1555 — `?v=3` opens the Snapshot v3 beta tab when the
+  // environment flag is on. Two layers of opt-in: (1) build-time env
+  // var `NEXT_PUBLIC_SNAPSHOT_V3_ENABLED=true`, (2) explicit `?v=3` on
+  // the URL. The flag without the URL param leaves the existing
+  // experience untouched ("no regression" acceptance); the URL param
+  // without the flag is also a no-op so a bookmarked beta link can't
+  // leak across deploys.
+  const snapshotV3FlagEnabled =
+    process.env.NEXT_PUBLIC_SNAPSHOT_V3_ENABLED === "true";
+  const snapshotV3Requested = searchParams.get("v") === "3";
+  const snapshotV3Active = snapshotV3FlagEnabled && snapshotV3Requested;
   // Tabs that may render but DO NOT appear in the tab bar (legacy / hidden).
   // The validTabs list keeps render branches reachable via ?tab=<id>; the
   // tab bar itself is built from the VISIBLE_TABS subset below.
-  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow", "attainment", "adaptations"];
+  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow", "attainment", "adaptations", "snapshot-v3"];
   const VISIBLE_TABS = new Set<SectionId>([
     "overview-v2",
     "calls-prompts",
@@ -101,6 +112,7 @@ export default function CallerDetailPage() {
     "session-flow",
     "how",
     "ai-call",
+    ...(snapshotV3Active ? (["snapshot-v3"] as const) : []),
   ]);
   const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
   const lastTabKey = `hf.caller-tab.${callerId}`;
@@ -696,6 +708,12 @@ export default function CallerDetailPage() {
   const allSections = useMemo<{ id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[]>(() => {
     if (!data) return [];
     return [
+      // S5 of #1555 — Snapshot v3 beta tab. Only visible when
+      // `?v=3` + `NEXT_PUBLIC_SNAPSHOT_V3_ENABLED=true`; otherwise the
+      // entry is in allSections (so the render branch is reachable for
+      // URL-typed access) but not in VISIBLE_TABS (so the tab bar stays
+      // unchanged).
+      { id: "snapshot-v3", label: "Snapshot (beta)", icon: <span aria-hidden>✨</span>, group: "shared" },
       { id: "overview-v2", label: <TabWithHelp tabId="overview-v2">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
       { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
       { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
@@ -1137,6 +1155,24 @@ export default function CallerDetailPage() {
       {/* Section Content */}
       <div className="cdp-body">
       <div className="cdp-content">
+      {/* S5 of #1555 — Snapshot v3 beta placeholder. Renders only when
+          the flag + URL param align (see snapshotV3Active above). The
+          body is intentionally minimal "Coming soon" copy so a typed
+          ?tab=snapshot-v3 with the flag off lands somewhere coherent
+          rather than blank. Content lands in the follow-on epic. */}
+      {activeSection === "snapshot-v3" && (
+        <div className="hf-card" role="region" aria-label="Snapshot (beta)">
+          <h2 className="hf-section-title">Snapshot (beta)</h2>
+          <p className="hf-section-desc">
+            The unified per-learner Snapshot is being built — check back
+            next sprint. In the meantime, use the legacy tabs above
+            (Overview, Progress, Attainment, Adaptations) for the same
+            information across separate surfaces.
+          </p>
+        </div>
+      )}
+
+      {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
       {activeSection === "overview" && (
         <>
           {/* Domain & Onboarding Section - Collapsible */}
@@ -1211,6 +1247,7 @@ export default function CallerDetailPage() {
         </>
       )}
 
+      {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
       {activeSection === "overview-v2" && insights && (
         <OverviewV2Tab
           callerId={callerId}
@@ -1228,6 +1265,7 @@ export default function CallerDetailPage() {
         />
       )}
 
+      {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
       {activeSection === "uplift" && (
         <>
           <UpliftTab
@@ -1248,6 +1286,7 @@ export default function CallerDetailPage() {
         />
       )}
 
+      {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
       {activeSection === "progress-v2" && (
         <ProgressV2Tab
           callerId={callerId}
@@ -1267,6 +1306,7 @@ export default function CallerDetailPage() {
         <AdaptationsTab callerId={callerId} />
       )}
 
+      {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
       {activeSection === "calls-prompts" && (
         <>
           {/* #831 — surface compose-input staleness above the calls list.
@@ -1362,6 +1402,7 @@ export default function CallerDetailPage() {
         </div>
       )}
 
+      {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
       {activeSection === "how" && (
         <>
           {isProcessing && !data.counts.memories && !data.counts.observations && (
@@ -1424,6 +1465,7 @@ export default function CallerDetailPage() {
         </>
       )}
 
+      {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
       {activeSection === "what" && (
         <>
           {isProcessing && !data.scores?.length && !data.counts.measurements && (
@@ -1460,6 +1502,7 @@ export default function CallerDetailPage() {
         </>
       )}
 
+      {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
       {activeSection === "artifacts" && (
         <ArtifactsSection callerId={callerId} isProcessing={isProcessing} />
       )}
