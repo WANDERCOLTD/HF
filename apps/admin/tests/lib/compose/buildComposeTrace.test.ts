@@ -20,6 +20,10 @@ vi.mock("@/lib/config", () => ({
 }));
 
 import { buildComposeTrace } from "@/lib/prompt/composition/buildComposeTrace";
+import type {
+  LoadedDataContext,
+  ResolvedSpecs,
+} from "@/lib/prompt/composition/types";
 import {
   COMPOSE_SECTION_KEYS,
   COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS,
@@ -27,7 +31,10 @@ import {
   COMPOSE_AFFECTING_SPEC_FIELDS,
 } from "@/lib/compose";
 
-function minimalLoadedData(): any {
+// Cast through `unknown` rather than `any` — the trace builder reads a small
+// subset of LoadedDataContext fields, so a partial fixture covers the
+// observable shape without spelling out every field on the type.
+function minimalLoadedData(): LoadedDataContext {
   return {
     memories: [],
     personality: null,
@@ -48,11 +55,11 @@ function minimalLoadedData(): any {
     visualAids: [],
     caller: null,
     onboardingSpec: null,
-  };
+  } as unknown as LoadedDataContext;
 }
 
-function minimalResolvedSpecs(): any {
-  return {};
+function minimalResolvedSpecs(): ResolvedSpecs {
+  return {} as ResolvedSpecs;
 }
 
 describe("buildComposeTrace::sectionsAffectedByKey — #1556", () => {
