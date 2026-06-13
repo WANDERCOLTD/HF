@@ -120,3 +120,135 @@
   margin: 0;
   padding: 8px 0;
 }
+
+/* ── SP5-B: override rows ────────────────────────────────────────────── */
+
+.hf-adaptations-override-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-adaptations-override-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-primary);
+}
+
+.hf-adaptations-override-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hf-adaptations-override-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 140px;
+}
+
+.hf-adaptations-cascade-chip {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.hf-adaptations-cascade-chip-system {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+
+.hf-adaptations-cascade-chip-playbook {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--accent-primary);
+}
+
+.hf-adaptations-cascade-chip-caller {
+  background: color-mix(in srgb, var(--status-success-text) 14%, transparent);
+  color: var(--status-success-text);
+}
+
+.hf-adaptations-override-delta {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.hf-adaptations-override-delta-up {
+  color: var(--status-success-text);
+}
+
+.hf-adaptations-override-delta-down {
+  color: var(--status-error-text);
+}
+
+.hf-adaptations-override-delta-flat {
+  color: var(--text-muted);
+}
+
+.hf-adaptations-override-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hf-adaptations-override-bar-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 40px;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+}
+
+.hf-adaptations-override-bar-label {
+  color: var(--text-muted);
+}
+
+.hf-adaptations-override-bar {
+  display: block;
+  height: 6px;
+  background: var(--surface-secondary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hf-adaptations-override-bar-fill {
+  display: block;
+  height: 100%;
+}
+
+.hf-adaptations-override-bar-fill-default {
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+
+.hf-adaptations-override-bar-fill-now {
+  background: var(--status-success-text);
+}
+
+.hf-adaptations-override-bar-pct {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.hf-adaptations-override-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-top: 2px;
+}
