@@ -91,7 +91,7 @@ afterEach(() => {
 });
 
 describe("SnapshotTabContent — cold-load behaviour", () => {
-  it("fires parallel fetches on mount (attainment + skills-evidence + sub-skills + scheduler-decision + carry-over actions)", async () => {
+  it("fires parallel fetches on mount (attainment + skills-evidence + sub-skills + scheduler-decision + actions + personality)", async () => {
     const calls: string[] = [];
     const fetchMock = vi.fn(async (url: string | URL | Request) => {
       const u = typeof url === "string" ? url : url.toString();
@@ -102,17 +102,19 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
 
     render(<SnapshotTabContent callerId={CALLER_ID} />);
 
-    // 5 parallel fetches: 2 from the foundation (attainment +
+    // 6 parallel fetches: 2 from the foundation (attainment +
     // skills-evidence) + 1 from SnapshotSubSkills (#1662) + 1 from
     // SnapshotCarryOverActions (#1666) + 1 from SnapshotWhyThisCall
-    // (#1663 owns its own fetch now). Per-module lo-mastery fetches
-    // from SnapshotLoHeatmap (#1661) only fire AFTER attainment lands.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    // (#1663) + 1 from SnapshotPersonalityBlock (#1665). Per-module
+    // lo-mastery fetches from SnapshotLoHeatmap (#1661) only fire
+    // AFTER attainment lands.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
     expect(calls.some((u) => u.includes("/attainment"))).toBe(true);
     expect(calls.some((u) => u.includes("/skills-evidence"))).toBe(true);
     expect(calls.some((u) => u.includes("/sub-skills"))).toBe(true);
     expect(calls.some((u) => u.includes("/scheduler-decision"))).toBe(true);
     expect(calls.some((u) => u.includes("/actions"))).toBe(true);
+    expect(calls.some((u) => u.includes("/personality"))).toBe(true);
   });
 
   it("renders the trajectory card in the header slot", () => {
@@ -126,14 +128,15 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
 });
 
 describe("SnapshotTabContent — slot stubs (sibling stories not yet merged)", () => {
-  it("shows personality stub on render (A.7 not merged)", () => {
+  it("mounts SnapshotPersonalityBlock (#1665 shipped — component owns its own fetch + 404 → error state)", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 404 })),
     );
     render(<SnapshotTabContent callerId={CALLER_ID} />);
-    expect(screen.getByTestId("hf-snapshot-personality-stub")).toBeTruthy();
-    expect(screen.getByText(/coming in story A\.7/i)).toBeTruthy();
+    // Component renders its own section/testid; on 404 (non-OK) it
+    // shows the error state via the same testid.
+    expect(screen.getByTestId("hf-snapshot-personality")).toBeTruthy();
   });
 
   it("mounts SnapshotSubSkills component (#1662 shipped — component owns its own fetch + error state)", async () => {
