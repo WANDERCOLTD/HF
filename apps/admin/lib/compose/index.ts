@@ -37,3 +37,10 @@ export {
   composeAffectingSpecChanged,
 } from "./affecting-keys-spec";
 export type { ComposeAffectingSpecField } from "./affecting-keys-spec";
+
+// Section-grain staleness primitives (#1557)
+export {
+  bumpSectionHash,
+  getSectionStaleness,
+  hashSectionInputs,
+} from "./section-staleness";
