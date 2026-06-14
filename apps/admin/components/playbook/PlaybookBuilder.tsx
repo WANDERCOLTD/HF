@@ -1890,7 +1890,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
         title={
           <EditableTitle
             value={playbook.name}
-            as="span"
+            as="h1"
             disabled={playbook.status === "PUBLISHED"}
             onSave={async (newName) => {
               const res = await fetch(`/api/playbooks/${playbookId}`, {
