@@ -12,7 +12,7 @@
  * type-safety + dispatch; this hook just tracks "what is selected".
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
 
 import type { ComposeSectionKey } from "@/lib/compose";
 
@@ -21,7 +21,10 @@ export interface DesignerSelection {
 }
 
 export interface UseDesignerSelectionResult extends DesignerSelection {
-  setSelectedKey: (next: ComposeSectionKey | null) => void;
+  /** Accepts either a raw value or a `(prev) => next` updater — matches
+   *  React's `Dispatch<SetStateAction<T>>` so functional updates work in
+   *  callbacks without stale-closure pain. */
+  setSelectedKey: Dispatch<SetStateAction<ComposeSectionKey | null>>;
   clear: () => void;
 }
 

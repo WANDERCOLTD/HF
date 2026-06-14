@@ -42,9 +42,28 @@ import { getArchetypeLabel } from "@/lib/domain/generate-identity";
 import type { Effective, Layer } from "@/lib/cascade/layer-types";
 import { substituteGreetingTokens } from "@/lib/prompt/composition/defaults/substitute-greeting-tokens";
 import type { DemoAnnotation, DemoScript } from "@/lib/types/json-fields";
+import type { ComposeSectionKey } from "@/lib/compose";
+
+/** Map from PreviewLens sidetray lens id → `ComposeSectionKey` for B.13.
+ *  Only the 5 in-scope sections are listed; clicks on other lenses (e.g.
+ *  `moduleVisibility`) leave the Designer Inspector untouched. The
+ *  `stops` lens currently surfaces the NPS prompt — map to `nps`. */
+const SIDETRAY_LENS_TO_SECTION: Partial<Record<string, ComposeSectionKey>> = {
+  intake: "intake",
+  onboarding: "onboarding",
+  offboarding: "offboarding",
+  welcome: "welcome",
+  stops: "nps",
+};
 
 interface PreviewLensProps {
   courseId: string;
+  /** #1623 — Renderers v2 B.13. Optional. When supplied, PreviewLens
+   *  ALSO fires this callback alongside its existing `openSidetray`
+   *  flow on bubble click, so the Designer Inspector can render a
+   *  section-summary alongside the live edit sidetray. Pure addition
+   *  — no behaviour change when prop omitted (today's mount path). */
+  onSelectSection?: (section: ComposeSectionKey | null) => void;
 }
 
 interface SessionFlowResp {
@@ -129,7 +148,7 @@ const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
   moduleVisibility: "Module visibility — when modules get named",
 };
 
-export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement {
+export function PreviewLens({ courseId, onSelectSection }: PreviewLensProps): React.ReactElement {
   const { demoAnnotationsVisible } = useChatContext();
   const [mode, setMode] = useState<ViewMode>("educator");
   const [flow, setFlow] = useState<SessionFlowResp | null>(null);
@@ -194,7 +213,15 @@ export function PreviewLens({ courseId }: PreviewLensProps): React.ReactElement 
   const openSidetray = useCallback((lensId: string) => {
     const mapped = SIDETRAY_LENS_MAP[lensId];
     if (mapped) setSidetrayLens(mapped);
-  }, []);
+    // #1623 — Designer Inspector hook. The sidetray (edit affordance)
+    // and the Inspector (preview-summary surface) are independent: the
+    // sidetray stays the educator's "tweak this" entry; the Inspector
+    // mirrors which section was last clicked for the Designer rail.
+    if (onSelectSection) {
+      const section = SIDETRAY_LENS_TO_SECTION[lensId];
+      if (section) onSelectSection(section);
+    }
+  }, [onSelectSection]);
 
   const closeSidetray = useCallback(() => {
     setSidetrayLens(null);

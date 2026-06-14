@@ -39,6 +39,14 @@ beforeAll(() => {
       }),
     });
   }
+  // #1623 — DesignTab now fetches session-flow on mount for the B.13
+  // renderers. Stub a benign response so the A.1-only tests don't trip
+  // on the new side-effect. Returns the empty/null shape — the A.1
+  // renderer doesn't consume it.
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify({ ok: true, sessionFlow: null })),
+    )) as typeof globalThis.fetch;
 });
 
 import { DesignTab } from "@/app/x/courses/[courseId]/_tab/DesignTab";
