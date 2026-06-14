@@ -81,7 +81,7 @@ describe("buildPreTestForPlaybook — module-locked selection (#302)", () => {
           pre_test: { questionCount: 5, selectionStrategy: "random", questionTypes: ["MCQ"] },
         },
       },
-    } as Awaited<ReturnType<typeof ContractRegistry.getContract>>);
+    } as unknown as Awaited<ReturnType<typeof ContractRegistry.getContract>>);
     vi.mocked(domainSources.getSourceIdsForPlaybook).mockResolvedValue(["src-1"]);
   });
 
@@ -93,7 +93,7 @@ describe("buildPreTestForPlaybook — module-locked selection (#302)", () => {
       ), // 12 part1 questions
       ...["OUT-08", "OUT-10", "OUT-11", "OUT-25"].map((r) => mcq({ id: `other-${r}`, ref: r })),
     ];
-    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue(allMcqs);
+    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue(allMcqs as any);
 
     const res = await buildPreTestForPlaybook("pb-1", { lockedOutcomeRefs: part1Refs });
 
@@ -117,7 +117,7 @@ describe("buildPreTestForPlaybook — module-locked selection (#302)", () => {
       mcq({ id: "p3-a", ref: "OUT-15" }),
       mcq({ id: "p3-b", ref: "OUT-19" }),
     ];
-    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue([...lockedQs, ...otherQs]);
+    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue([...lockedQs, ...otherQs] as any);
 
     const res = await buildPreTestForPlaybook("pb-1", { lockedOutcomeRefs: part1Refs });
 
@@ -138,7 +138,7 @@ describe("buildPreTestForPlaybook — module-locked selection (#302)", () => {
       mcq({ id: "p3-b", ref: "OUT-19" }),
       mcq({ id: "mock-a", ref: "OUT-25" }),
     ];
-    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue(allMcqs);
+    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue(allMcqs as any);
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const res = await buildPreTestForPlaybook("pb-1", { lockedOutcomeRefs: ["OUT-99"] });
@@ -159,7 +159,7 @@ describe("buildPreTestForPlaybook — module-locked selection (#302)", () => {
       mcq({ id: "mock-a", ref: "OUT-25" }),
       mcq({ id: "p1-b", ref: "OUT-06" }),
     ];
-    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue(allMcqs);
+    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue(allMcqs as any);
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const res = await buildPreTestForPlaybook("pb-1");
@@ -175,7 +175,7 @@ describe("buildPreTestForPlaybook — module-locked selection (#302)", () => {
       mcq({ id: "p1-a", ref: "OUT-01" }),
       mcq({ id: "p2-a", ref: "OUT-08" }),
     ];
-    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue(allMcqs);
+    vi.mocked(prisma.contentQuestion.findMany).mockResolvedValue(allMcqs as any);
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const res = await buildPreTestForPlaybook("pb-1", { lockedOutcomeRefs: [] });
