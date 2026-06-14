@@ -22,6 +22,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { log } from "@/lib/logger";
+import { checkWriterCompletenessAfterPipeline } from "@/lib/pipeline/writer-completeness-invariant";
 
 // ── Public types ──────────────────────────────────────────
 
@@ -31,7 +32,11 @@ export type InvariantId =
   | "I-AL3"
   | "I-AL4"
   | "I-AL5"
-  | "I-AL6";
+  | "I-AL6"
+  // #1620 / #1621 — Writer-Completeness invariant (Epic #1618 Slices 3+4).
+  // I-WC1 fires when a registered per-call writer left its field NULL on
+  // a real (non-mock) call. See `writer-completeness-invariant.ts`.
+  | "I-WC1";
 
 export type InvariantSeverity = "info" | "warn" | "error";
 
@@ -89,6 +94,11 @@ const DEFAULT_SEVERITY: Record<InvariantId, InvariantSeverity> = {
   // script reports `unresolvable = 0` and the column is migrated to
   // NOT NULL (per ADR's migration plan).
   "I-AL6": "warn",
+  // #1620 / #1621 — soft-mode default. Promotion to `error` (which
+  // would halt the pipeline under `STRICT_PIPELINE_INVARIANTS=1`)
+  // happens after the silent-writer detector (Slice 1) confirms a
+  // steady-state of zero violations over a multi-week window.
+  "I-WC1": "warn",
 };
 
 export function defaultSeverityFor(invariant: InvariantId): InvariantSeverity {
@@ -151,12 +161,13 @@ export async function checkInvariantsAfterPipeline(
   const observedAt = new Date();
 
   try {
-    // Load just enough context to drive the two derived checks.
+    // Load just enough context to drive the derived checks.
     const call = await prisma.call.findUnique({
       where: { id: callId },
       select: {
         id: true,
         callerId: true,
+        playbookId: true,
         transcript: true,
         createdAt: true,
       },
@@ -198,6 +209,49 @@ export async function checkInvariantsAfterPipeline(
     if (al6) {
       violations.push(al6);
       await recordInvariantViolation(al6);
+    }
+
+    // I-WC1 — writer-completeness per-call invariant. For each
+    // registered per-call writer (WRITER_REGISTRY), check that this
+    // specific call's row has its expected field populated. Records
+    // one AppLog row per silent field; promotion to halt-the-pipeline
+    // happens after Slice 1's 24h detector confirms steady-state zero.
+    // #1620 / #1621 — Epic #1618 Slices 3+4.
+    let courseStyle: "structured" | "continuous" = "continuous";
+    if (call.playbookId) {
+      const pb = await prisma.playbook.findUnique({
+        where: { id: call.playbookId },
+        select: { config: true },
+      });
+      const pbConfig = (pb?.config ?? null) as { lessonPlanMode?: string } | null;
+      if (pbConfig?.lessonPlanMode === "structured") courseStyle = "structured";
+    }
+    const wcFindings = await checkWriterCompletenessAfterPipeline({
+      callId: call.id,
+      callerId: call.callerId,
+      playbookId: call.playbookId,
+      courseStyle,
+      // The Call schema doesn't currently store the engine choice; the
+      // invariant defaults to "claude" (real engine) and the mock-engine
+      // filter inside writer-completeness-invariant.ts is therefore
+      // currently a no-op. Test fixtures stay correct because mock
+      // fixtures don't land on production Call rows.
+      engine: "claude",
+    });
+    for (const f of wcFindings) {
+      if (f.populated || f.skipReason) continue;
+      const v: InvariantViolation = {
+        invariant: "I-WC1",
+        severity: defaultSeverityFor("I-WC1"),
+        callId: call.id,
+        callerId: call.callerId,
+        playbookId: call.playbookId ?? undefined,
+        context: { field: f.field, stage: f.stage, writer: f.writer },
+        observedAt,
+      };
+      violations.push(v);
+      // checkWriterCompletenessAfterPipeline already logged the AppLog
+      // row directly; recordInvariantViolation would double-log.
     }
   } catch {
     // Invariant runner never blocks. A genuine pipeline failure has already
@@ -425,6 +479,8 @@ function invariantEventTag(invariant: InvariantId): string {
       return "zero-targets";
     case "I-AL6":
       return "unspecced-callscore";
+    case "I-WC1":
+      return "writer-completeness";
   }
 }
 
