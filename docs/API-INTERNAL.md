@@ -10177,6 +10177,12 @@ Parse a Course Reference markdown body for an author-declared
 
 ---
 
+### `GET` /api/courses/[courseId]/memory-deltas-preview
+
+**Auth**: Session
+
+---
+
 ### `GET` /api/courses/[courseId]/proof-points
 
 **Auth**: OPERATOR+
