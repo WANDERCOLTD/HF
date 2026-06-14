@@ -158,7 +158,7 @@ export async function generateInstantCurriculum(
       console.log(`[instant-curriculum] assertion-based curriculum generated: ${result.moduleCount} modules from ${result.assertionCount} assertions`);
       return {
         ok: true,
-        contentSpecId: null,
+        contentSpecId: undefined,
         moduleCount: result.moduleCount,
         path: "assertions",
       };

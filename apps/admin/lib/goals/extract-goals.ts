@@ -526,6 +526,7 @@ If no signals, return: {"signals":[]}`;
             callerId,
             key: `goal_completion_signal:${signal.goalId}`,
             scope: "GOAL_EVENT",
+            valueType: "JSON",
             jsonValue: {
               goalId: signal.goalId,
               goalName: matchingGoal.name,

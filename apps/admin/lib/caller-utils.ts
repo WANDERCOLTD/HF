@@ -104,8 +104,9 @@ export function computeTriage(
     return "attention";
   }
 
-  // Ready to advance: high mastery AND good momentum
-  if (mastery !== null && mastery >= ADVANCE_THRESHOLD && momentum !== "slowing") {
+  // Ready to advance: high mastery. (Momentum already narrowed —
+  // "slowing" returned "attention" above, so it can't reach here.)
+  if (mastery !== null && mastery >= ADVANCE_THRESHOLD) {
     return "advancing";
   }
 
