@@ -24,10 +24,20 @@
  * This is the third step in the post-call reward loop.
  */
 
-import { PrismaClient, BehaviorTargetScope, BehaviorTargetSource, Prisma } from "@prisma/client";
+import { BehaviorTargetScope, BehaviorTargetSource, Prisma, PrismaClient } from "@prisma/client";
 import type { SpecConfig, ParameterDiff } from "@/lib/types/json-fields";
 
-const prisma = new PrismaClient();
+// #1609 — use the shared Prisma singleton from `@/lib/prisma` so the
+// per-call ADAPT executor's invocation of this module carries the
+// tenant-context injection wired in by #1395 RLS. Pre-fix this file
+// instantiated `new PrismaClient()` locally, which is why the
+// `hf-ops/no-ops-import-from-api` ESLint rule blocked API-route imports
+// of this module. The CLI self-invoke at the bottom of this file
+// still instantiates its own client because it runs outside the
+// Next.js singleton lifecycle.
+import { prisma as appPrisma } from "@/lib/prisma";
+
+const prisma = appPrisma;
 
 // Config loaded from TARGET_LEARN spec (with defaults)
 interface TargetLearnConfig {
@@ -415,7 +425,10 @@ export async function updateTargets(
   return result;
 }
 
-// CLI entry point
+// CLI entry point — runs outside the Next.js process so it needs its
+// own PrismaClient lifecycle. Disconnecting the shared `prisma`
+// singleton in the in-process path would tear down sibling routes;
+// the CLI's standalone client is fine to disconnect after the run.
 if (require.main === module) {
   const args = process.argv.slice(2);
   const options: UpdateTargetsOptions = {
@@ -426,6 +439,7 @@ if (require.main === module) {
     learningRate: parseFloat(args.find(a => a.startsWith("--rate="))?.split("=")[1] || "0.1"),
   };
 
+  const cliPrisma = new PrismaClient();
   updateTargets(options)
     .then(result => {
       console.log(JSON.stringify(result, null, 2));
@@ -435,5 +449,5 @@ if (require.main === module) {
       console.error("Fatal error:", err);
       process.exit(1);
     })
-    .finally(() => prisma.$disconnect());
+    .finally(() => cliPrisma.$disconnect());
 }

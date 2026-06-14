@@ -73,6 +73,7 @@ import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSp
 import { writeCallScore, MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
 import { normalizeScoreAgentEvidence } from "@/lib/pipeline/normalize-score-agent-evidence";
 import { logStageWriteCounts } from "@/lib/pipeline/write-count-logger";
+import { updateTargets } from "@/lib/ops/update-targets";
 import { buildParameterSpecMap, type ParameterWithSpec } from "@/lib/measurement/parameter-spec-map";
 import { buildBatchedMeasurePrompt } from "@/lib/measurement/build-batched-measure-prompt";
 import type { SpecConfig } from "@/lib/types/json-fields";
@@ -3663,7 +3664,7 @@ const stageExecutors: Record<string, StageExecutor> = {
       playbookId: ctx.call.playbookId ?? undefined,
       writeCounts: {
         personalityObservation: personalityResult.observationCreated ? 1 : 0,
-        callScore: primaryEvidence.created ?? 0,
+        callScore: primaryEvidence.created ? 1 : 0,
         callerModuleProgress: primaryMastery.statusFlipped ? 1 : 0,
         // CallerTarget + lo_mastery counts aren't returned by the inner runners
         // today — leave unset so detector reads "not measured here" instead
@@ -3821,14 +3822,66 @@ const stageExecutors: Record<string, StageExecutor> = {
       }
     }
 
+    // 8. Reward-loop target update (#1609 / Epic #1618) — closes the
+    //    per-call reward-feedback loop. Reads this call's RewardScore
+    //    row (written by REWARD stage 40) + ParameterDiff array,
+    //    computes BehaviorTarget adjustments via TARGET_LEARN spec
+    //    rules, writes new BehaviorTarget versions, AND stamps
+    //    `RewardScore.targetUpdatesApplied` with the applied updates
+    //    (or `[]` when no updates were needed). Pre-#1609 this
+    //    function was admin-ops/CLI-only — 73/73 RewardScore rows on
+    //    hf-dev sandbox 2026-06-14 had `targetUpdatesApplied = NULL`,
+    //    so the Adaptations tab's "Why" timeline (SP5-C) was always
+    //    empty. Slice 2 of #1609 wires it into the ADAPT executor as
+    //    its 8th sub-op (sequential AFTER the failure-adaptation
+    //    signal — ordering invariant: REWARD stage 40 must have
+    //    written the RewardScore before ADAPT stage 50 reads it).
+    //
+    //    Scoped to this call only via `{callId: ctx.callId, limit: 1}`
+    //    — never touches sibling RewardScore rows even if they exist
+    //    with NULL targetUpdatesApplied (those are the Slice 3
+    //    backfill's job, gated behind operator opt-in).
+    //
+    //    Non-blocking — errors are logged but never abort the rest of
+    //    the pipeline. Matches the pattern of every other ADAPT
+    //    sub-op (the loop should not fall apart because the reward
+    //    closer hit a Prisma timeout on one call).
+    let rewardLoopUpdates = 0;
+    let rewardLoopProcessed = 0;
+    try {
+      const targetsLoop = await updateTargets({
+        callId: ctx.callId,
+        limit: 1,
+        verbose: false,
+        plan: false,
+      });
+      rewardLoopProcessed = targetsLoop.rewardsProcessed;
+      rewardLoopUpdates = targetsLoop.updates.reduce((sum, u) => sum + u.updateCount, 0);
+      if (targetsLoop.errors.length > 0) {
+        ctx.log.error("Reward-loop target update failed (non-blocking)", {
+          errors: targetsLoop.errors,
+        });
+      } else {
+        ctx.log.info("Reward-loop targets updated", {
+          rewardsProcessed: rewardLoopProcessed,
+          updateCount: rewardLoopUpdates,
+        });
+      }
+    } catch (err: any) {
+      ctx.log.error("Reward-loop target update threw (non-blocking)", {
+        error: err?.message ?? String(err),
+      });
+    }
+
     ctx.log.info(`ADAPT parallel ops completed in ${Date.now() - startTime}ms`);
 
-    // #1622 — emit per-stage write counts for the seven ADAPT sub-ops.
+    // #1622 — emit per-stage write counts for the eight ADAPT sub-ops.
     // The Goal counters here are the #1614 fingerprint surface (goals
-    // get created/updated/progress-bumped but the .progress timeline
-    // append on `progressMetrics` is the silent gap the alarm will
-    // catch once #1614 ships). The callTarget/callerTarget counts
-    // surface #1609 once Slice 2 lands an `updateTargets` sub-op-8.
+    // get created/updated/progress-bumped + the .progress timeline
+    // append on `progressMetrics` from #1614). The callTarget /
+    // callerTarget counts surface #1609 — once the reward loop is wired
+    // (this PR's sub-op 8 above), the rewardLoopUpdates counter is the
+    // direct silent-writer signal for the Adaptations "Why" timeline.
     logStageWriteCounts({
       stage: "ADAPT",
       callId: ctx.callId,
@@ -3836,7 +3889,7 @@ const stageExecutors: Record<string, StageExecutor> = {
       playbookId: ctx.call.playbookId ?? undefined,
       writeCounts: {
         callTarget: adaptResult.targetsCreated,
-        callerTarget: ruleBasedResult.targetsCreated + ruleBasedResult.targetsUpdated,
+        callerTarget: ruleBasedResult.targetsCreated + ruleBasedResult.targetsUpdated + rewardLoopUpdates,
         goal: goalExtractionResult.goalsCreated + goalExtractionResult.goalsUpdated + goalResult.updated,
         failureLog: failureSignal ? 1 : 0,
       },
@@ -3856,6 +3909,13 @@ const stageExecutors: Record<string, StageExecutor> = {
       completionSignalsDetected: completionSignals.signalsDetected,
       assessmentAdaptations: assessmentAdapt.adjustments,
       failureSignal,
+      // #1609 — reward-loop closure counters surface in the response
+      // payload so the operator-facing pipeline diagnostic at /x/logs
+      // can render the per-call "targets nudged by reward feedback"
+      // line WITHOUT querying RewardScore.targetUpdatesApplied
+      // separately.
+      rewardLoopProcessed,
+      rewardLoopUpdates,
     };
   },
 

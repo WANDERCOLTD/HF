@@ -27,7 +27,12 @@ const BYPASS_FILES = new Set([
   "compute-reward",
   "knowledge-ingest",
   "transcripts-process",
-  "update-targets",
+  // "update-targets" REMOVED 2026-06-14 (#1609 Slice 2) — the file now
+  // imports the shared `prisma` singleton from `@/lib/prisma`; the CLI
+  // entry-point uses a local `cliPrisma` instance for its own
+  // `$disconnect()` lifecycle. In-process callers (the ADAPT executor
+  // at `app/api/calls/[callId]/pipeline/route.ts::stageExecutors.ADAPT`
+  // sub-op 8) now honour the singleton's tenant-context middleware.
 ]);
 
 // Paths allowed to import bypass files (the only legitimate ops surface).
