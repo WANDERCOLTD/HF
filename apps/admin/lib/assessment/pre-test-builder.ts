@@ -569,7 +569,9 @@ export async function buildPostTest(callerId: string): Promise<PreTestResult> {
 
   // Preserve original order
   const byId = new Map(questions.map((q) => [q.id, q]));
-  const ordered = questionIds.map((id) => byId.get(id)).filter((q): q is ContentQuestionRow => !!q);
+  const ordered = questionIds
+    .map((id) => byId.get(id))
+    .filter(Boolean) as unknown as ContentQuestionRow[];
 
   // #1067 — post-test reuses pre-test question IDs; shuffle with the same
   // (callerId, questionId) seed so the same learner sees the same option
