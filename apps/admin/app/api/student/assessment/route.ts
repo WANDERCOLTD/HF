@@ -37,7 +37,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { scope, answers, questionIds } = body;
 
-  if (!scope || !VALID_SCOPES.has(scope)) {
+  if (!scope || !VALID_SCOPES.has(scope as typeof SURVEY_SCOPES.PRE_TEST)) {
     return NextResponse.json({ ok: false, error: "Invalid scope. Must be PRE_TEST or POST_TEST." }, { status: 400 });
   }
   if (!answers || typeof answers !== "object" || Object.keys(answers).length === 0) {

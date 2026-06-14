@@ -3085,9 +3085,9 @@ async function updateTpMasteryAfterCall(
           if (score !== undefined) {
             const key = `playbook:${enrolledPbForAssess}:lo:${lo.ref}`;
             await prisma.callerAttribute.upsert({
-              where: { callerId_key: { callerId, key } },
-              update: { value: String(score), updatedAt: new Date() },
-              create: { callerId, key, value: String(score) },
+              where: { callerId_key_scope: { callerId, key, scope: "GLOBAL" } },
+              update: { stringValue: String(score), valueType: "STRING" },
+              create: { callerId, key, valueType: "STRING", stringValue: String(score) },
             });
           }
         }
