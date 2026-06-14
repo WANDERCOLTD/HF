@@ -11582,6 +11582,19 @@ Returns pipeline stage configuration for visualization and documentation.
 
 ---
 
+### `GET` /api/system/pipeline-health
+
+Returns the silent-writer-detector findings for a rolling
+
+**Auth**: session (OPERATOR+) · **Scope**: `system:read`
+
+**Response** `200`
+```json
+{ ok: true, windowHours, rowsScanned, alarmsFired, findings }
+```
+
+---
+
 ## Playbook
 
 ### `POST` /api/playbooks/:playbookId/reset-mcqs
@@ -16150,8 +16163,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 526 |
-| Files with annotations | 514 |
+| Route files found | 527 |
+| Files with annotations | 515 |
 | Files missing annotations | 12 |
 | Coverage | 97.7% |
 
