@@ -88,9 +88,11 @@ describe("compose-section contract — #1556", () => {
   });
 
   describe("deferred sections — scoped to follow-on epic Group A.5", () => {
-    it("artifacts is absent from COMPOSE_SECTION_KEYS (no backing composer section today)", () => {
+    // #1642 (Epic #1606 Group A.5) — `conversationArtifacts` shipped; lives in
+    // the union now. The legacy "artifacts" string was never a real key, so
+    // we still pin its absence to catch any rename regression.
+    it("legacy 'artifacts' string is absent from COMPOSE_SECTION_KEYS", () => {
       expect(COMPOSE_SECTION_KEYS).not.toContain("artifacts");
-      expect(COMPOSE_SECTION_KEYS).not.toContain("conversationArtifacts");
     });
 
     it("memoryDeltas is absent from COMPOSE_SECTION_KEYS (no diff loader today)", () => {
@@ -127,12 +129,11 @@ describe("compose-section contract — #1556", () => {
     });
   });
 
-  describe("union contains exactly the 14-member taxonomy from the epic", () => {
-    it("has 16 section keys total (2 config-kind + 14 runtime)", () => {
-      // Note: epic title says "14-member" referring to the union arms; in
-      // practice the discriminated union expands to 16 `section` string
-      // values (2 config + 14 runtime). Both readings are consistent.
-      expect(COMPOSE_SECTION_KEYS.length).toBe(16);
+  describe("union contains exactly the 15-member runtime taxonomy from the epic", () => {
+    it("has 17 section keys total (2 config-kind + 15 runtime)", () => {
+      // #1642 (Epic #1606 Group A.5) — added `conversationArtifacts` to
+      // runtime arm, taking runtime count from 14 → 15 and total from 16 → 17.
+      expect(COMPOSE_SECTION_KEYS.length).toBe(17);
     });
 
     it("includes the renamed sections (priorCallFeedback, contentTrust)", () => {

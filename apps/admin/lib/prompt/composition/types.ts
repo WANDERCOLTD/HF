@@ -132,6 +132,13 @@ export interface LoadedDataContext {
    * resolve a curriculum.
    */
   courseComplete?: CourseCompleteLoadedData | null;
+  /**
+   * #1642 (Epic #1606 Group A.5) — delivered/read ConversationArtifact rows
+   * from the most-recent prior call. `hasArtifacts: false` for Call 1 and
+   * for any prior call with zero DELIVERED+READ artifacts; the section is
+   * omitted from the final prompt in those cases.
+   */
+  conversationArtifacts?: import("./loaders/conversationArtifacts").ConversationArtifactsData;
 }
 
 /**

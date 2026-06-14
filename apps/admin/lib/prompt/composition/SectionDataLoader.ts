@@ -23,6 +23,10 @@ import { loadPriorCallFeedback } from "./loaders/priorCallFeedback";
 import { loadMockDiagnostic } from "./loaders/mockDiagnostic";
 import { loadInterleaveReview } from "./loaders/interleaveReview";
 import { loadCourseComplete } from "./loaders/courseComplete";
+import {
+  loadConversationArtifacts,
+  EMPTY_CONVERSATION_ARTIFACTS,
+} from "./loaders/conversationArtifacts";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import type {
   LoadedDataContext,
@@ -141,6 +145,7 @@ export async function loadAllData(
     priorCallFeedback,
     mockDiagnostic,
     interleaveReview,
+    conversationArtifacts,
   ] = await Promise.all([
     loaderRegistry.get("caller")!(callerId),
     loaderRegistry.get("memories")!(callerId, { limit: memoriesLimit }),
@@ -172,6 +177,9 @@ export async function loadAllData(
     }),
     loaderRegistry.get("interleaveReview")!(callerId, {
       currentModuleId: scope?.requestedModuleId ?? null,
+    }),
+    loaderRegistry.get("conversationArtifacts")!(callerId, {
+      currentCallId: scope?.currentCallId ?? null,
     }),
   ]);
 
@@ -255,6 +263,7 @@ export async function loadAllData(
       mastery: null,
       summary: null,
     },
+    conversationArtifacts: conversationArtifacts || EMPTY_CONVERSATION_ARTIFACTS,
     courseComplete,
   };
 }
@@ -1656,6 +1665,21 @@ registerLoader("visualAids", async (_callerId, loaderConfig) => {
     chapter: mediaChapterMap.get(sm.media.id) || null,
     mimeType: sm.media.mimeType,
   }));
+});
+
+/**
+ * #1642 (Epic #1606 Group A.5) — delivered ConversationArtifact rows from the
+ * caller's most-recent prior call. Reads existing AI-extracted rows; no new
+ * AI call at compose time. Failures degrade silently to the empty shape.
+ */
+registerLoader("conversationArtifacts", async (callerId, config) => {
+  const currentCallId = (config?.currentCallId as string | null | undefined) ?? null;
+  try {
+    return await loadConversationArtifacts(prisma, { callerId, currentCallId });
+  } catch (err) {
+    console.warn("[conversationArtifacts] loader failed — section will be omitted:", err);
+    return EMPTY_CONVERSATION_ARTIFACTS;
+  }
 });
 
 /**
