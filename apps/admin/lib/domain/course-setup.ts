@@ -193,7 +193,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
     // No-op for UI-only steps
   },
 
-  create_course: async (ctx) => {
+  create_course: async (ctx, step) => {
     // 1. Create or find Domain
     const domainSlug = (ctx.input.courseName)
       .toLowerCase()
@@ -699,7 +699,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
           if (playbookId) {
             await enrollCaller(callerId, playbookId, "course-setup");
           } else {
-            await enrollCallerInDomainPlaybooks(callerId, domainId);
+            await enrollCallerInDomainPlaybooks(callerId, domainId, "course-setup");
           }
           // Instantiate Goal rows from playbook.config.goals — without this the
           // caller has no reward signal and the adapt loop cannot progress.

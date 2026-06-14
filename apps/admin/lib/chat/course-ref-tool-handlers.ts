@@ -203,7 +203,7 @@ async function attachToExistingCourse(
     const newSubject = await prisma.subject.create({
       data: {
         name: playbook.name,
-        slug: slugify(`${playbook.domain.slug}-${playbook.slug}`, { lower: true, strict: true }),
+        slug: slugify(`${playbook.domain.slug}-${playbook.name}`, { lower: true, strict: true }),
         isActive: true,
       },
     });
@@ -220,9 +220,9 @@ async function attachToExistingCourse(
     const source = await tx.contentSource.create({
       data: {
         name: `Course Reference — ${playbook.name}`,
-        slug: slugify(`${playbook.slug}-ref-chat`, { lower: true, strict: true }),
+        slug: slugify(`${playbook.name}-ref-chat`, { lower: true, strict: true }),
         documentType: "COURSE_REFERENCE",
-        trustLevel: "EDUCATOR_AUTHORED",
+        trustLevel: "EXPERT_CURATED",
         textSample: markdown,
         contentHash,
         isActive: true,
@@ -299,14 +299,14 @@ async function createCourseFromRef(
 
     // 2. Find or create domain
     let domain = await tx.domain.findFirst({
-      where: { institutionId: institution.id, kind: "TEACHING" },
+      where: { institutionId: institution.id, kind: "INSTITUTION" },
     });
     if (!domain) {
       domain = await tx.domain.create({
         data: {
           name: institutionName,
           slug: instSlug,
-          kind: "TEACHING",
+          kind: "INSTITUTION",
           institutionId: institution.id,
         },
       });
@@ -316,20 +316,21 @@ async function createCourseFromRef(
     const playbook = await tx.playbook.create({
       data: {
         name: courseName,
-        slug: courseSlug,
         domainId: domain.id,
         status: "DRAFT",
       },
     });
 
-    // 4. Create default caller
+    // 4. Create default caller + enroll in this playbook (class roster model)
     const caller = await tx.caller.create({
       data: {
         name: "Default Learner",
-        slug: `${courseSlug}-learner`,
         domainId: domain.id,
-        playbookId: playbook.id,
       },
+    });
+    const { enrollCaller } = await import("@/lib/enrollment");
+    await enrollCaller(caller.id, playbook.id, "course-ref-tool", tx, {
+      skipAutoCompose: true,
     });
 
     // 5. Create a per-course subject (taxonomy node owned by this course).
@@ -355,7 +356,7 @@ async function createCourseFromRef(
         name: `Course Reference — ${courseName}`,
         slug: slugify(`${courseSlug}-ref-chat`, { lower: true, strict: true }),
         documentType: "COURSE_REFERENCE",
-        trustLevel: "EDUCATOR_AUTHORED",
+        trustLevel: "EXPERT_CURATED",
         textSample: markdown,
         contentHash,
         isActive: true,
