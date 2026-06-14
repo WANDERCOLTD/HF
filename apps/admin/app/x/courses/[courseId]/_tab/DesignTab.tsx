@@ -4,28 +4,20 @@
  * DesignTab — DesignerShell wiring for the course Design tab.
  *
  * S4 of #1555 shipped this as an unrouted scaffold. #1607 (Epic #1606
- * A.1 firstCallMode renderer) wires it into the live Design tab via
- * `CourseDesignTab.tsx`, and gives the Inspector slot a real first
- * renderer to mount.
- *
- * Responsibilities:
- *   - Own the `DesignerShell` three-slot layout for the live Design tab
- *   - Track section selection via `useDesignerSelection`
- *   - Render a header-banner entry point chip for `firstCallMode` (no
- *     canvas bubble exists for `kind: "config"` sections in PreviewLens
- *     today; this chip is the smoke-test entry point). Click to open the
- *     Inspector; click again to close.
- *   - Resolve per-section `data` for the Inspector renderer. Today: only
- *     `firstCallMode` is wired (from `playbookConfig.firstCallMode`).
- *     Group B (epic #1606 story #13) will add the rest as it migrates
- *     PreviewLens's inline sections into the registry.
+ * A.1 firstCallMode renderer) wired it into the live Design tab via
+ * `CourseDesignTab.tsx`, with a header-banner entry-point chip.
+ * #1623 (B.13) extends it to thread `onSelectSection` down to
+ * `PreviewLens` so the existing chat-bubble click handlers ALSO
+ * trigger the Inspector for 5 hand-wired sections (intake / welcome /
+ * onboarding / offboarding / nps), and fetches the session-flow data
+ * the new section renderers need.
  *
  * Side-effect: importing the preview-renderers barrel triggers all
  * `registerPreviewRenderer()` calls at module load, before the Inspector
  * attempts a lookup.
  */
 
-import { createElement, useMemo } from "react";
+import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   DesignerShell,
@@ -33,6 +25,7 @@ import {
   useDesignerSelection,
 } from "@/components/shared/designer-shell";
 import "@/components/shared/preview-renderers";
+import type { SessionFlowData } from "@/components/shared/preview-renderers";
 import type { ComposeSectionKey } from "@/lib/compose";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
@@ -52,18 +45,32 @@ const FIRST_CALL_MODE_LABEL: Record<
   baseline_assessment: "Baseline Assessment",
 };
 
+/** Sections whose data comes from the session-flow API (B.13). */
+const SESSION_FLOW_SECTIONS = new Set<ComposeSectionKey>([
+  "intake",
+  "welcome",
+  "onboarding",
+  "offboarding",
+  "nps",
+]);
+
 function resolveRendererData(
   selectedKey: ComposeSectionKey,
   pbConfig: PlaybookConfig,
+  sessionFlow: SessionFlowData | null,
 ): unknown {
   if (selectedKey === "firstCallMode") {
     return { firstCallMode: pbConfig.firstCallMode };
+  }
+  if (SESSION_FLOW_SECTIONS.has(selectedKey)) {
+    return { sessionFlow };
   }
   return undefined;
 }
 
 export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
   const { selectedKey, setSelectedKey } = useDesignerSelection();
+  const [sessionFlow, setSessionFlow] = useState<SessionFlowData | null>(null);
   const pbConfig = useMemo(
     () => (playbookConfig ?? {}) as PlaybookConfig,
     [playbookConfig],
@@ -75,15 +82,44 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
       : FIRST_CALL_MODE_LABEL[firstCallMode];
   const firstCallModeSelected = selectedKey === "firstCallMode";
 
+  // Fetch session-flow once on mount — feeds the 5 new B.13 renderers.
+  // PreviewLens fetches the same endpoint independently; that duplication
+  // is acceptable for V1 and can be deduped via lifted state in a
+  // follow-on cleanup.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/session-flow`)
+      .then((res) => res.json())
+      .then((j: { ok: boolean; sessionFlow?: SessionFlowData }) => {
+        if (!cancelled && j.ok && j.sessionFlow) {
+          setSessionFlow(j.sessionFlow);
+        }
+      })
+      .catch(() => {
+        // Renderer handles the null state gracefully — no need to surface
+        // the error in the Inspector slot.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
   const inspectorNode = useMemo(() => {
     if (!selectedKey) return null;
     const renderer = getPreviewRenderer(selectedKey);
     if (!renderer) return null;
     return createElement(renderer, {
-      data: resolveRendererData(selectedKey, pbConfig),
+      data: resolveRendererData(selectedKey, pbConfig, sessionFlow),
       selection: { selectedKey },
     });
-  }, [selectedKey, pbConfig]);
+  }, [selectedKey, pbConfig, sessionFlow]);
+
+  const onSelectSection = useCallback(
+    (section: ComposeSectionKey | null) => {
+      setSelectedKey((prev) => (prev === section ? null : section));
+    },
+    [setSelectedKey],
+  );
 
   const headerBanner = (
     <div className="hf-chip-row" data-testid="hf-designer-entry-points">
@@ -108,6 +144,7 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
         <CourseDesignConsole
           courseId={courseId}
           playbookConfig={playbookConfig}
+          onSelectSection={onSelectSection}
         />
       }
       inspector={inspectorNode}

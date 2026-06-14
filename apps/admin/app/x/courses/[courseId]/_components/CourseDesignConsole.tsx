@@ -113,6 +113,11 @@ interface LensProps {
    *  config). Bumps `staleRefreshTick` so `StalePromptPillForCourse`
    *  re-fetches without a page reload (#1478 Amendment A). */
   onComposeInputChange?: () => void;
+  /** #1623 — Renderers v2 B.13. PreviewLens calls this on a sidetray-
+   *  triggering bubble click so the Designer Inspector slot can mount
+   *  the section-summary renderer. Toggle semantics: clicking the same
+   *  section a second time should pass `null` to clear. */
+  onSelectSection?: (section: import("@/lib/compose").ComposeSectionKey | null) => void;
 }
 
 const ICON_SIZE = 14;
@@ -172,8 +177,8 @@ const ProgressSignalsLens: React.FC<LensProps> = ({ courseId, playbookConfig }) 
 );
 ProgressSignalsLens.displayName = "ProgressSignalsLens";
 
-const PreviewLensWrap: React.FC<LensProps> = ({ courseId }) => (
-  <PreviewLens courseId={courseId} />
+const PreviewLensWrap: React.FC<LensProps> = ({ courseId, onSelectSection }) => (
+  <PreviewLens courseId={courseId} onSelectSection={onSelectSection} />
 );
 PreviewLensWrap.displayName = "PreviewLensWrap";
 
@@ -313,11 +318,15 @@ const COMING_SOON_HELP = (
 export interface CourseDesignConsoleProps {
   courseId: string;
   playbookConfig?: PlaybookConfig | Record<string, unknown> | null;
+  /** #1623 — wired through to PreviewLens so chat-bubble clicks ALSO
+   *  drive the Designer Inspector slot in `DesignTab`. */
+  onSelectSection?: (section: import("@/lib/compose").ComposeSectionKey | null) => void;
 }
 
 export function CourseDesignConsole({
   courseId,
   playbookConfig,
+  onSelectSection,
 }: CourseDesignConsoleProps): React.ReactElement {
   const { view, setView } = useConsoleView<DesignLensId>({
     isValidId: isDesignLensId,
@@ -339,7 +348,7 @@ export function CourseDesignConsole({
       <ConsoleShell<DesignLensId, LensProps>
         lensOrder={DESIGN_LENS_ORDER}
         lenses={DESIGN_LENSES}
-        lensProps={{ courseId, playbookConfig, onComposeInputChange }}
+        lensProps={{ courseId, playbookConfig, onComposeInputChange, onSelectSection }}
         activeLensId={view}
         onLensChange={setView}
         ariaNavLabel="Course design lenses"
