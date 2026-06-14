@@ -72,6 +72,7 @@ import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
 import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile } from "@/lib/pipeline/specs-loader";
 import { writeCallScore, MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
 import { normalizeScoreAgentEvidence } from "@/lib/pipeline/normalize-score-agent-evidence";
+import { logStageWriteCounts } from "@/lib/pipeline/write-count-logger";
 import { buildParameterSpecMap, type ParameterWithSpec } from "@/lib/measurement/parameter-spec-map";
 import { buildBatchedMeasurePrompt } from "@/lib/measurement/build-batched-measure-prompt";
 import type { SpecConfig } from "@/lib/types/json-fields";
@@ -3479,7 +3480,21 @@ const stageExecutors: Record<string, StageExecutor> = {
       }
     }
 
+    const stageStart = Date.now();
     const agentResult = await runBatchedAgentAnalysis(ctx.call, ctx.callerId, ctx.engine, ctx.log, ctx.userName);
+    // #1622 — emit per-stage write counts so the silent-writer detector
+    // can flag SCORE_AGENT producing zero BehaviorMeasurement rows over a
+    // rolling 24h window (the #1608 fingerprint pre-fix).
+    logStageWriteCounts({
+      stage: "SCORE_AGENT",
+      callId: ctx.callId,
+      callerId: ctx.callerId,
+      playbookId: ctx.call.playbookId ?? undefined,
+      writeCounts: {
+        behaviorMeasurement: agentResult.measurementsCreated,
+      },
+      durationMs: Date.now() - stageStart,
+    });
     return {
       agentMeasurements: agentResult.measurementsCreated,
     };
@@ -3635,6 +3650,30 @@ const stageExecutors: Record<string, StageExecutor> = {
     );
     const diagnosticWritten = diagnosticResult.written;
 
+    // #1622 — emit per-stage write counts. AGGREGATE writes the four
+    // adaptive-loop state stores most-loaded by the audit (CallerTarget,
+    // CallerModuleProgress, lo_mastery on CallerAttribute, plus the per-call
+    // PersonalityObservation/CallScore rows). lo_mastery and moduleProgress
+    // are continuous-vs-structured-gated downstream — silent values here
+    // are the #1614/#1615 fingerprint.
+    logStageWriteCounts({
+      stage: "AGGREGATE",
+      callId: ctx.callId,
+      callerId: ctx.callerId,
+      playbookId: ctx.call.playbookId ?? undefined,
+      writeCounts: {
+        personalityObservation: personalityResult.observationCreated ? 1 : 0,
+        callScore: primaryEvidence.created ?? 0,
+        callerModuleProgress: primaryMastery.statusFlipped ? 1 : 0,
+        // CallerTarget + lo_mastery counts aren't returned by the inner runners
+        // today — leave unset so detector reads "not measured here" instead
+        // of "always zero". Follow-up: thread counts back from the writers
+        // (`accumulateSkillScores`, `updateCurriculumProgress`) so the alarm
+        // can resolve them. Tracked as a TODO inside Slice 1's PR.
+      },
+      durationMs: undefined,
+    });
+
     return {
       personalityObservationCreated: personalityResult.observationCreated,
       personalityProfileUpdated: personalityResult.profileUpdated,
@@ -3657,6 +3696,21 @@ const stageExecutors: Record<string, StageExecutor> = {
   REWARD: async (ctx, stage) => {
     ctx.log.info(`Stage ${stage.name}: ${stage.description}`);
     const rewardResult = await computeReward(ctx.callId, ctx.courseStyle, ctx.log);
+    // #1622 — REWARD writes exactly one RewardScore row per call. The
+    // `targetUpdatesApplied` field of that row stays NULL until #1609
+    // Slice 2 wires `updateTargets` per-call, so this counter alone
+    // won't surface #1609 — the detector wants a sibling count of
+    // "RewardScore rows with non-null targetUpdatesApplied" which
+    // #1609 Slice 2 should add as a separate `writeCount` key.
+    logStageWriteCounts({
+      stage: "REWARD",
+      callId: ctx.callId,
+      callerId: ctx.callerId,
+      playbookId: ctx.call.playbookId ?? undefined,
+      writeCounts: {
+        rewardScore: rewardResult.overallScore != null ? 1 : 0,
+      },
+    });
     return {
       rewardScore: rewardResult.overallScore,
     };
@@ -3769,6 +3823,26 @@ const stageExecutors: Record<string, StageExecutor> = {
 
     ctx.log.info(`ADAPT parallel ops completed in ${Date.now() - startTime}ms`);
 
+    // #1622 — emit per-stage write counts for the seven ADAPT sub-ops.
+    // The Goal counters here are the #1614 fingerprint surface (goals
+    // get created/updated/progress-bumped but the .progress timeline
+    // append on `progressMetrics` is the silent gap the alarm will
+    // catch once #1614 ships). The callTarget/callerTarget counts
+    // surface #1609 once Slice 2 lands an `updateTargets` sub-op-8.
+    logStageWriteCounts({
+      stage: "ADAPT",
+      callId: ctx.callId,
+      callerId: ctx.callerId,
+      playbookId: ctx.call.playbookId ?? undefined,
+      writeCounts: {
+        callTarget: adaptResult.targetsCreated,
+        callerTarget: ruleBasedResult.targetsCreated + ruleBasedResult.targetsUpdated,
+        goal: goalExtractionResult.goalsCreated + goalExtractionResult.goalsUpdated + goalResult.updated,
+        failureLog: failureSignal ? 1 : 0,
+      },
+      durationMs: Date.now() - startTime,
+    });
+
     return {
       callTargetsCreated: adaptResult.targetsCreated,
       callerTargetsCreated: ruleBasedResult.targetsCreated,
@@ -3801,6 +3875,18 @@ const stageExecutors: Record<string, StageExecutor> = {
 
     const validateResult = await validateTargets(ctx.callId, ctx.guardrails, ctx.log, audience);
     const callerTargetResult = await aggregateCallerTargets(ctx.callId, ctx.callerId, ctx.guardrails, ctx.log);
+    // #1622 — SUPERVISE adjusts existing CallerTarget rows (validation
+    // adjustments + aggregator updates) rather than creating new ones.
+    // Counter surfaces "supervise ran but did nothing" silent state.
+    logStageWriteCounts({
+      stage: "SUPERVISE",
+      callId: ctx.callId,
+      callerId: ctx.callerId,
+      playbookId: ctx.call.playbookId ?? undefined,
+      writeCounts: {
+        callerTarget: validateResult.adjustments + callerTargetResult.aggregated,
+      },
+    });
     return {
       targetsValidated: validateResult.adjustments,
       callerTargetsAggregated: callerTargetResult.aggregated,
@@ -3878,6 +3964,18 @@ const stageExecutors: Record<string, StageExecutor> = {
     });
 
     ctx.log.info(`COMPOSE complete: ${persisted.prompt.length} chars, id=${persisted.id}`);
+
+    // #1622 — COMPOSE writes exactly one ComposedPrompt per call (or
+    // carries through one via I-CT2 in minimal mode, handled above).
+    logStageWriteCounts({
+      stage: "COMPOSE",
+      callId: ctx.callId,
+      callerId: ctx.callerId,
+      playbookId: ctx.call.playbookId ?? undefined,
+      writeCounts: {
+        composedPrompt: persisted.prompt.length > 0 ? 1 : 0,
+      },
+    });
 
     return {
       promptId: persisted.id,
