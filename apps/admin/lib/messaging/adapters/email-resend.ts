@@ -1,3 +1,4 @@
+// @ts-expect-error — nodemailer ships no type declarations in this version
 import nodemailer from "nodemailer";
 import type {
   MessagingAdapter,
