@@ -25,29 +25,63 @@ interface BandingPickerProps {
   onSaved?: () => void;
 }
 
+type Mapping = NonNullable<PlaybookConfig["skillTierMapping"]>;
+type TierSlot = "approachingEmerging" | "emerging" | "developing" | "secure";
+const SLOTS: readonly TierSlot[] = [
+  "approachingEmerging",
+  "emerging",
+  "developing",
+  "secure",
+];
+
+function numbersMatch(mapping: Mapping, preset: TierPreset): boolean {
+  return SLOTS.every(
+    (s) =>
+      mapping.thresholds[s] === preset.mapping.thresholds[s] &&
+      mapping.tierBands[s] === preset.mapping.tierBands[s],
+  );
+}
+
+function labelsMatch(mapping: Mapping, preset: TierPreset): boolean {
+  if (!mapping.tierLabels || !preset.tierLabels) return false;
+  return SLOTS.every((s) => mapping.tierLabels![s] === preset.tierLabels![s]);
+}
+
 /**
- * Best-effort: detect which preset the current mapping matches. Used to
- * pre-select the radio. When custom thresholds are in use, falls back to
- * "custom".
+ * Detect which preset the current mapping matches. Used to pre-select the
+ * radio.
+ *
+ * Order matters:
+ *  - First match label-bearing presets (CEFR, 5-Level) on BOTH numbers and
+ *    labels. A mapping with cefr numbers but Foundation/Developing/... labels
+ *    must NOT collapse into the CEFR radio.
+ *  - Then match label-free presets (IELTS, custom) on numbers only when the
+ *    current mapping ALSO has no labels.
+ *  - If labels are present but didn't match any baked preset → "source-derived"
+ *    (the #1635 derivation path — labels parsed from the uploaded document).
+ *  - Otherwise fall through to "custom" (hand-edited mapping with no labels).
+ *
+ * Skips "source-derived" in the matching loop — its registry mapping is a
+ * placeholder; the live shape is read from `current` at render time.
  */
 function detectPresetId(mapping: PlaybookConfig["skillTierMapping"]): TierPresetId {
   if (!mapping) return "ielts-speaking";
-  for (const [id, p] of Object.entries(TIER_PRESETS)) {
-    const t = p.mapping.thresholds;
-    const b = p.mapping.tierBands;
-    if (
-      mapping.thresholds.approachingEmerging === t.approachingEmerging &&
-      mapping.thresholds.emerging === t.emerging &&
-      mapping.thresholds.developing === t.developing &&
-      mapping.thresholds.secure === t.secure &&
-      mapping.tierBands.approachingEmerging === b.approachingEmerging &&
-      mapping.tierBands.emerging === b.emerging &&
-      mapping.tierBands.developing === b.developing &&
-      mapping.tierBands.secure === b.secure
-    ) {
-      return id as TierPresetId;
-    }
+  const m = mapping as Mapping;
+
+  for (const [id, p] of Object.entries(TIER_PRESETS) as [TierPresetId, TierPreset][]) {
+    if (id === "source-derived") continue;
+    if (!p.tierLabels) continue;
+    if (numbersMatch(m, p) && labelsMatch(m, p)) return id;
   }
+
+  const hasLabels = !!m.tierLabels;
+  for (const [id, p] of Object.entries(TIER_PRESETS) as [TierPresetId, TierPreset][]) {
+    if (id === "source-derived") continue;
+    if (p.tierLabels) continue;
+    if (!hasLabels && numbersMatch(m, p)) return id;
+  }
+
+  if (hasLabels) return "source-derived";
   return "custom";
 }
 
@@ -64,6 +98,11 @@ export function BandingPicker({ courseId, current, onSaved }: BandingPickerProps
     setError(null);
     setSuccess(false);
     try {
+      if (selected === "source-derived") {
+        setSuccess(true);
+        onSaved?.();
+        return;
+      }
       const body =
         selected === "ielts-speaking"
           ? { skillTierMapping: null } // null = clear → fall back to contract default
@@ -100,44 +139,53 @@ export function BandingPicker({ courseId, current, onSaved }: BandingPickerProps
         course isn&apos;t an IELTS-style criterion exam.
       </div>
       <div className="hf-flex-col hf-gap-sm">
-        {(Object.values(TIER_PRESETS) as TierPreset[]).map((p) => (
-          <label key={p.id} className="hf-flex hf-gap-sm hf-items-start hf-cursor-pointer">
-            <input
-              type="radio"
-              name="banding-preset"
-              value={p.id}
-              checked={selected === p.id}
-              onChange={() => setSelected(p.id)}
-              disabled={saving}
-            />
-            <div className="hf-flex-1">
-              <div className="hf-text-sm hf-text-bold">{p.label}</div>
-              <div className="hf-text-xs hf-text-muted">{p.description}</div>
-              <div className="hf-text-xs hf-text-muted hf-mt-xs">
-                Tiers:{" "}
-                {(["approachingEmerging", "emerging", "developing", "secure"] as const).map(
-                  (slot, i) => {
-                    const label = p.tierLabels?.[slot] ?? (
-                      slot === "approachingEmerging"
+        {(Object.values(TIER_PRESETS) as TierPreset[]).map((p) => {
+          const isSourceDerived = p.id === "source-derived";
+          if (isSourceDerived && !current?.tierLabels) return null;
+          const sourceLabels = isSourceDerived ? current?.tierLabels : undefined;
+          const sourceBands = isSourceDerived ? current?.tierBands : undefined;
+          return (
+            <label
+              key={p.id}
+              className="hf-flex hf-gap-sm hf-items-start hf-cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="banding-preset"
+                value={p.id}
+                checked={selected === p.id}
+                onChange={() => setSelected(p.id)}
+                disabled={saving}
+              />
+              <div className="hf-flex-1">
+                <div className="hf-text-sm hf-text-bold">{p.label}</div>
+                <div className="hf-text-xs hf-text-muted">{p.description}</div>
+                <div className="hf-text-xs hf-text-muted hf-mt-xs">
+                  Tiers:{" "}
+                  {SLOTS.map((slot, i) => {
+                    const label =
+                      sourceLabels?.[slot] ??
+                      p.tierLabels?.[slot] ??
+                      (slot === "approachingEmerging"
                         ? "Approaching Emerging"
                         : slot === "emerging"
                           ? "Emerging"
                           : slot === "developing"
                             ? "Developing"
-                            : "Secure"
-                    );
+                            : "Secure");
+                    const band = sourceBands?.[slot] ?? p.mapping.tierBands[slot];
                     return (
                       <span key={slot}>
                         {i > 0 && " · "}
-                        <Acronym>{label}</Acronym> (band {p.mapping.tierBands[slot]})
+                        <Acronym>{label}</Acronym> (band {band})
                       </span>
                     );
-                  },
-                )}
+                  })}
+                </div>
               </div>
-            </div>
-          </label>
-        ))}
+            </label>
+          );
+        })}
       </div>
       <div className="hf-flex hf-gap-sm hf-items-center hf-mt-md">
         <button
