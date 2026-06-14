@@ -36,6 +36,8 @@ const SCHOOL_TERMS: TermMap = {
   teach_action: 'Teach',
   learning_noun: 'Learning',
   group: 'Department',
+  knowledge_area: 'Subject',
+  teaching_unit: 'Topic',
 };
 
 describe('lib/terminology (two-tier resolution)', () => {

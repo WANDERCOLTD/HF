@@ -49,7 +49,7 @@ describe('GET /api/terminology', () => {
       supervisor: 'Supervisor',
       teach_action: 'Teach',
       learning_noun: 'Learning',
-    });
+    } as any);
 
     const res = await GET();
     const data = await res.json();
@@ -80,7 +80,7 @@ describe('GET /api/terminology', () => {
       supervisor: 'My Teacher',
       teach_action: 'Teach',
       learning_noun: 'Learning',
-    });
+    } as any);
 
     const res = await GET();
     const data = await res.json();
@@ -115,7 +115,7 @@ describe('GET /api/terminology', () => {
       teach_action: 'Teach',
       learning_noun: 'Learning',
       group: 'Group',
-    });
+    } as any);
 
     const res = await GET();
     const data = await res.json();
