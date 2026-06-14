@@ -45,7 +45,7 @@ import { extractArtifacts } from "@/lib/artifacts/extract-artifacts";
 import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
 import { config as appConfig } from "@/lib/config";
-import { updateCurriculumProgress, getCurriculumProgress, completeModule, updateTpMasteryBatch } from "@/lib/curriculum/track-progress";
+import { updateCurriculumProgress, getCurriculumProgress, completeModule } from "@/lib/curriculum/track-progress";
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
@@ -3024,146 +3024,6 @@ async function trackOnboardingAfterCall(
   return true;
 }
 
-/**
- * Update per-TP mastery scores after a call.
- * Resolves LO assessment outcomes → individual TP mastery via FK chain.
- * Session advancement removed — scheduler owns pacing.
- */
-async function updateTpMasteryAfterCall(
-  callerId: string,
-  log: PipelineLogger,
-  learningAssessment?: {
-    specSlug: string;
-    moduleId: string;
-    overallMastery: number;
-    outcomes?: Record<string, number>;
-    masteryThreshold: number;
-  } | null,
-): Promise<boolean> {
-  if (!learningAssessment?.outcomes) return false;
-
-  const caller = await prisma.caller.findUnique({
-    where: { id: callerId },
-    select: { domainId: true },
-  });
-  if (!caller?.domainId) return false;
-
-  // Try playbook curriculum first (direct link)
-  const enrolledPbForAssess = await resolvePlaybookId(callerId);
-  if (enrolledPbForAssess) {
-    // #1034 — PlaybookCurriculum-first read with deprecated-column fallback.
-    const pbcLink = await prisma.playbookCurriculum.findFirst({
-      where: { playbookId: enrolledPbForAssess },
-      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
-      select: { curriculum: { select: { slug: true } } },
-    });
-    const pbCurr = pbcLink?.curriculum;
-    if (pbCurr) {
-      // #1008 (Finding C) — AI-returned masteryThreshold is authoritative when present;
-      // fall back to CURRICULUM_PROGRESS_V1 contract, hard literal only if registry empty.
-      // NOTE: threshold itself is not consumed by this branch (per-LO scores are
-      // persisted raw); the comparison happens at LO read time via the same cascade.
-      const assessedLoRefs = Object.keys(learningAssessment.outcomes);
-      const loRows = await prisma.learningObjective.findMany({
-        where: {
-          ref: { in: assessedLoRefs },
-          module: { curriculum: { slug: pbCurr.slug }, isActive: true },
-        },
-        select: { id: true, ref: true },
-      });
-      if (loRows.length > 0) {
-        // #1177 Slice 3 (partial — pipeline route hardcoded shape) — rekey to
-        // `playbook:{playbookId}:lo:{loRef}`. Variant Playbooks of the same
-        // Curriculum no longer collide on this key shape: each variant has
-        // its own playbookId, so per-LO assessment scores stay isolated.
-        // The 20260606152558 migration purges all legacy `curriculum:*:lo:*`
-        // rows in the same PR. (The lo_mastery:* contract-driven shape in
-        // track-progress.ts is its own rekey, deferred to a focused Slice 3
-        // ticket — see docs/CONTRACTS-PLAYBOOK-CURRICULUM.md §6.)
-        for (const lo of loRows) {
-          const score = learningAssessment.outcomes[lo.ref];
-          if (score !== undefined) {
-            const key = `playbook:${enrolledPbForAssess}:lo:${lo.ref}`;
-            await prisma.callerAttribute.upsert({
-              where: { callerId_key: { callerId, key } },
-              update: { value: String(score), updatedAt: new Date() },
-              create: { callerId, key, value: String(score) },
-            });
-          }
-        }
-        return true;
-      }
-    }
-  }
-
-  // Fallback: domain-wide Subject curriculum (legacy)
-  const subjectDomains = await prisma.subjectDomain.findMany({
-    where: { domainId: caller.domainId },
-    include: {
-      subject: {
-        include: {
-          curricula: {
-            orderBy: { updatedAt: "desc" },
-            take: 1,
-            select: { slug: true },
-          },
-        },
-      },
-    },
-  });
-
-  for (const sd of subjectDomains) {
-    const curriculum = sd.subject.curricula[0];
-    if (!curriculum) continue;
-
-    // #1008 (Finding C) — AI-returned masteryThreshold is authoritative when present;
-    // fall back to CURRICULUM_PROGRESS_V1 contract, hard literal only if registry empty.
-    const threshold =
-      learningAssessment.masteryThreshold ||
-      (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ||
-      0.7;
-
-    // Resolve LO ref strings → IDs, then query assertions by FK
-    const assessedLoRefs = Object.keys(learningAssessment.outcomes);
-    const loRows = await prisma.learningObjective.findMany({
-      where: {
-        ref: { in: assessedLoRefs },
-        module: { curriculum: { slug: curriculum.slug }, isActive: true },
-      },
-      select: { id: true, ref: true },
-    });
-    const assessedLoIds = loRows.map((lo) => lo.id);
-
-    const assessedTps = assessedLoIds.length > 0
-      ? await prisma.contentAssertion.findMany({
-          where: { learningObjectiveId: { in: assessedLoIds } },
-          select: { id: true, learningObjectiveId: true },
-        })
-      : [];
-
-    const loIdToRef = new Map(loRows.map((lo) => [lo.id, lo.ref]));
-
-    const updates: Record<string, { mastery: number; status: "not_started" | "in_progress" | "mastered" }> = {};
-    for (const tp of assessedTps) {
-      const loRef = tp.learningObjectiveId ? loIdToRef.get(tp.learningObjectiveId) : null;
-      const loScore = loRef ? learningAssessment.outcomes[loRef] ?? 0 : 0;
-      updates[tp.id] = {
-        mastery: loScore,
-        status: loScore >= threshold ? "mastered" : loScore > 0 ? "in_progress" : "not_started",
-      };
-    }
-
-    if (Object.keys(updates).length > 0) {
-      await updateTpMasteryBatch(callerId, curriculum.slug, updates);
-      log.info(`Updated ${Object.keys(updates).length} TP mastery scores`);
-      return true;
-    }
-
-    break;
-  }
-
-  return false;
-}
 
 // =====================================================
 // SPEC-DRIVEN PIPELINE EXECUTION
@@ -3300,8 +3160,17 @@ const stageExecutors: Record<string, StageExecutor> = {
     }
     const deltaResult = await computeAdapt(ctx.callId, ctx.callerId, ctx.log);
 
-    // Run all 5 non-blocking post-analysis ops in parallel
-    const [currSettled, onboardSettled, lessonSettled, artifactSettled, actionSettled] =
+    // Run all 4 non-blocking post-analysis ops in parallel.
+    // #1615 — TP-mastery sub-op (was sub-op 3) removed; the function
+    // `updateTpMasteryAfterCall` was dead in practice — both branches
+    // produced 0 rows DB-wide (Branch A's `playbook:*:lo:*` write +
+    // Branch B's `tp_status:*`/`tp_mastery:*` write). The active per-LO
+    // mastery store is `curriculum:{specSlug}:lo_mastery:{moduleSlug}:{loRef}`
+    // written by `updateCurriculumProgress` in the AGGREGATE stage above.
+    // Removing this op also closes the runtime crash filed as #1633
+    // (the dead Branch A's `CallerAttribute.upsert` was missing the
+    // `caller` relation).
+    const [currSettled, onboardSettled, artifactSettled, actionSettled] =
       await Promise.allSettled([
         // 1. Curriculum progress + CurriculumModule FK write
         // #1081 Slice 1 — `callerResult.playbookUsed` threaded through so the
@@ -3340,9 +3209,7 @@ const stageExecutors: Record<string, StageExecutor> = {
           }),
         // 2. Onboarding completion
         trackOnboardingAfterCall(ctx.callerId, ctx.callId, ctx.log),
-        // 3. TP mastery update (scheduler reads these next call)
-        updateTpMasteryAfterCall(ctx.callerId, ctx.log, callerResult.learningAssessment),
-        // 4. Artifact extraction + delivery
+        // 3. Artifact extraction + delivery
         appConfig.artifacts.enabled
           ? extractArtifacts(ctx.call, ctx.callerId, ctx.engine, ctx.log)
               .then(async (r) => {
@@ -3353,7 +3220,7 @@ const stageExecutors: Record<string, StageExecutor> = {
                 return r;
               })
           : Promise.resolve({ artifactsCreated: 0, artifactsSkipped: 0, errors: [] as string[] }),
-        // 5. Action extraction
+        // 4. Action extraction
         appConfig.actions.enabled
           ? extractActions(ctx.call, ctx.callerId, ctx.engine, ctx.log)
           : Promise.resolve({ actionsCreated: 0, actionsSkipped: 0, errors: [] as string[] }),
@@ -3369,11 +3236,10 @@ const stageExecutors: Record<string, StageExecutor> = {
     if (onboardSettled.status === "rejected") {
       ctx.log.warn(`Onboarding tracking failed (non-blocking): ${onboardSettled.reason?.message || String(onboardSettled.reason)}`);
     }
-
-    const sessionAdvanced = lessonSettled.status === "fulfilled" ? lessonSettled.value : false;
-    if (lessonSettled.status === "rejected") {
-      ctx.log.warn(`Lesson plan advancement failed (non-blocking): ${lessonSettled.reason?.message || String(lessonSettled.reason)}`);
-    }
+    // #1615 — sessionAdvanced was derived from the removed TP-mastery
+    // op's return; it was logged only on rejection and never consumed
+    // downstream. Dropped along with `lessonSettled`.
+    const sessionAdvanced = false;
 
     const artifactsExtracted = artifactSettled.status === "fulfilled" ? artifactSettled.value.artifactsCreated : 0;
     if (artifactSettled.status === "rejected") {
