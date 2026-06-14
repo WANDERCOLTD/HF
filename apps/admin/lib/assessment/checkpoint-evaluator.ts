@@ -73,7 +73,14 @@ export async function evaluateCheckpoints(
 
   const status = avgScore >= threshold ? "PASSED" as const : "NOT_MET" as const;
 
-  // Store result as CallerAttribute
+  // Store result as CallerAttribute. #1640 — use `caller: { connect }`
+  // instead of bare `callerId` so the generated Prisma input shape
+  // accepts the create. Bare-FK on a relation-required input was
+  // throwing at runtime ("Argument `caller` is missing") on every
+  // STRUCTURED call, aborting ADAPT before sub-op 8 (the #1609
+  // reward-loop writer) could fire. Discovered via live smoke after
+  // PR #1639 — same Prisma error class that previously hid in the
+  // deleted `updateTpMasteryAfterCall` function (#1633 / #1615 Phase 1).
   await prisma.callerAttribute.upsert({
     where: {
       callerId_key_scope: {
@@ -83,13 +90,12 @@ export async function evaluateCheckpoints(
       },
     },
     create: {
-      callerId,
+      caller: { connect: { id: callerId } },
       key: checkpointLabel,
       scope: "CHECKPOINT",
       valueType: "STRING",
       stringValue: status,
       numberValue: avgScore,
-      confidence: null,
     },
     update: {
       stringValue: status,
