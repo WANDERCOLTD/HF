@@ -3,7 +3,8 @@
   "version": "1.0",
   "status": "active",
   "_reverted_2026_06_06": "Prod values restored per audit G8 (#1151). Active values match SKILL-AGG-001 spec. Per-playbook overrides via Playbook.config.skillScoringEmaHalfLifeDays + Playbook.config.skillMinCallsToFull are the canonical mechanism for course-specific tuning.",
-  "description": "Contract for per-skill EMA scoring + ACHIEVE goal banding (#417). Defines the running-score thresholds, tier→band mapping, EMA half-life, and first-call cap used to translate CallerTarget.currentScore into a tier label and an IELTS-style band number for ACHIEVE goal progress + tutor feedback.",
+  "_reseeded_2026_06_14": "Flipped from IELTS-shape (3/4/5.5/7) to Generic 4-tier (1/2/3/4) per #1657. IELTS courses now carry explicit Playbook.config.skillTierMapping written by scripts/migrate-ielts-playbook-mapping.ts. The contract is now the institutional default for non-IELTS courses.",
+  "description": "Contract for per-skill EMA scoring + ACHIEVE goal banding (#417). Defines the running-score thresholds, tier→band mapping, EMA half-life, and first-call cap used to translate CallerTarget.currentScore into a tier label and a generic band number for ACHIEVE goal progress + tutor feedback. IELTS courses override via Playbook.config.skillTierMapping with IELTS-specific bands 3/4/5.5/7.",
 
   "appliesTo": {
     "specRoles": ["MEASURE", "CONTENT"],
@@ -11,17 +12,17 @@
   },
 
   "thresholds": {
-    "approachingEmerging": 0.3,
-    "emerging": 0.55,
-    "developing": 0.7,
+    "approachingEmerging": 0.25,
+    "emerging": 0.5,
+    "developing": 0.75,
     "secure": 1.0
   },
 
   "tierBands": {
-    "approachingEmerging": 3,
-    "emerging": 4,
-    "developing": 5.5,
-    "secure": 7
+    "approachingEmerging": 1,
+    "emerging": 2,
+    "developing": 3,
+    "secure": 4
   },
 
   "bandDescriptorsSource": {

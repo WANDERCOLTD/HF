@@ -28,19 +28,30 @@ export interface GoalProgressUpdate {
 
 // ── #417 Phase D — banding helper + ACHIEVE skill progress ────────────────
 
-/** Default banding when SKILL_MEASURE_V1 contract isn't seeded yet. */
+/**
+ * Default banding when SKILL_MEASURE_V1 contract isn't seeded yet.
+ *
+ * #1657 — flipped from IELTS-shape (3/4/5.5/7) to Generic 4-tier (1/2/3/4)
+ * so non-IELTS courses get meaningful band numbers by default. IELTS
+ * courses now carry an explicit per-Playbook `skillTierMapping` written
+ * by `scripts/migrate-ielts-playbook-mapping.ts`.
+ *
+ * Defence-in-depth only — the SKILL_MEASURE_V1 contract intercepts at
+ * layer 2 before this default fires. The contract was reseeded to match
+ * via `scripts/reseed-skill-measure-contract-generic.ts`.
+ */
 const SKILL_TIER_DEFAULTS = {
   thresholds: {
-    approachingEmerging: 0.3,
-    emerging: 0.55,
-    developing: 0.7,
+    approachingEmerging: 0.25,
+    emerging: 0.5,
+    developing: 0.75,
     secure: 1.0,
   },
   tierBands: {
-    approachingEmerging: 3,
-    emerging: 4,
-    developing: 5.5,
-    secure: 7,
+    approachingEmerging: 1,
+    emerging: 2,
+    developing: 3,
+    secure: 4,
   },
 };
 
@@ -61,9 +72,10 @@ export interface SkillTierMapping {
 
 /**
  * Pure-function tier classifier — exported for unit tests. Maps a 0-1
- * running skill score to a named tier and an IELTS-style band number.
- * Thresholds are inclusive at the upper end of each tier; see contract
- * notes for the IELTS band correspondence.
+ * running skill score to a named tier and a band number.
+ * Thresholds are inclusive at the upper end of each tier. Band-number
+ * semantics depend on the supplied `mapping` — IELTS courses pass an
+ * IELTS-shape mapping; Generic 4-tier courses get bands 1–4.
  */
 export function scoreToTier(
   score: number,

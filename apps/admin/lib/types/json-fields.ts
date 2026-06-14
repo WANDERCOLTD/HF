@@ -499,7 +499,7 @@ export interface PlaybookConfig {
    * `lib/banding/presets.ts::TierPresetId`. Type imported lazily there
    * to avoid a circular import via the JSON-shape file.
    */
-  tierPresetId?: "ielts-speaking" | "cefr" | "5-level" | "custom";
+  tierPresetId?: "generic" | "ielts-speaking" | "cefr" | "5-level" | "custom";
   /**
    * #779 — Felt Progress S1. Controls the `progressNarrative` composer
    * section that gives the AI evidence of LO mastery for mid-call

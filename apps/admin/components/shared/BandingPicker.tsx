@@ -8,7 +8,7 @@
  * Presets defined in `lib/banding/presets.ts`. Custom shape is hand-edited
  * JSON for now (advanced — preset names cover 90% of cases).
  *
- * #417 Story C.
+ * #417 Story C / #1647 Source-derived / #1657 Generic default.
  */
 import { useState } from "react";
 import {
@@ -52,11 +52,12 @@ function labelsMatch(mapping: Mapping, preset: TierPreset): boolean {
  * radio.
  *
  * Order matters:
- *  - First match label-bearing presets (CEFR, 5-Level) on BOTH numbers and
- *    labels. A mapping with cefr numbers but Foundation/Developing/... labels
- *    must NOT collapse into the CEFR radio.
- *  - Then match label-free presets (IELTS, custom) on numbers only when the
- *    current mapping ALSO has no labels.
+ *  - Null mapping → "generic" (the #1657 HF default).
+ *  - First match label-bearing presets (IELTS, CEFR, 5-Level) on BOTH
+ *    numbers and labels. A mapping with cefr numbers but Foundation/…
+ *    labels must NOT collapse into the CEFR radio.
+ *  - Then match label-free presets (generic, custom) on numbers only when
+ *    the current mapping ALSO has no labels.
  *  - If labels are present but didn't match any baked preset → "source-derived"
  *    (the #1635 derivation path — labels parsed from the uploaded document).
  *  - Otherwise fall through to "custom" (hand-edited mapping with no labels).
@@ -65,7 +66,7 @@ function labelsMatch(mapping: Mapping, preset: TierPreset): boolean {
  * placeholder; the live shape is read from `current` at render time.
  */
 function detectPresetId(mapping: PlaybookConfig["skillTierMapping"]): TierPresetId {
-  if (!mapping) return "ielts-speaking";
+  if (!mapping) return "generic";
   const m = mapping as Mapping;
 
   for (const [id, p] of Object.entries(TIER_PRESETS) as [TierPresetId, TierPreset][]) {
@@ -99,13 +100,14 @@ export function BandingPicker({ courseId, current, onSaved }: BandingPickerProps
     setSuccess(false);
     try {
       if (selected === "source-derived") {
+        // Banding is already set by the #1635 derivation; nothing to save.
         setSuccess(true);
         onSaved?.();
         return;
       }
       const body =
-        selected === "ielts-speaking"
-          ? { skillTierMapping: null } // null = clear → fall back to contract default
+        selected === "generic"
+          ? { skillTierMapping: null } // null = clear → fall back to contract default (Generic post-#1657)
           : {
               skillTierMapping: {
                 thresholds: preset.mapping.thresholds,
@@ -135,8 +137,10 @@ export function BandingPicker({ courseId, current, onSaved }: BandingPickerProps
     <div className="hf-card-compact">
       <div className="hf-text-xs hf-text-muted hf-mb-md">
         How <Acronym>SKILL-NN</Acronym> ACHIEVE goal progress maps to a tier
-        label + band number. Default is IELTS Speaking. Change this when the
-        course isn&apos;t an IELTS-style criterion exam.
+        label + band number. Default is HF&apos;s neutral 4-tier scheme.
+        Pick <span className="hf-text-bold">IELTS Speaking</span> or{" "}
+        <span className="hf-text-bold">CEFR</span> if your course uses one of
+        those frameworks.
       </div>
       <div className="hf-flex-col hf-gap-sm">
         {(Object.values(TIER_PRESETS) as TierPreset[]).map((p) => {
