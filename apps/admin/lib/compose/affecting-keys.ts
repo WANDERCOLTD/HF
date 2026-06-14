@@ -7,10 +7,9 @@
  * `lib/compose/staleness.ts::isPromptStale` correctly marks downstream
  * `ComposedPrompt` rows as stale.
  *
- * Keys NOT in this list (e.g. `welcome`, `nps`, `skillTierMapping`,
- * `surveys`) are read by the student portal at runtime, not baked into
- * the deterministic ComposedPrompt — they can change without triggering
- * a recompose.
+ * Keys NOT in this list (e.g. `nps`, `surveys`) are read by the student
+ * portal at runtime, not baked into the deterministic ComposedPrompt —
+ * they can change without triggering a recompose.
  *
  * Single source of truth — imported by `updatePlaybookConfig` and any
  * test that needs to assert the list. Do NOT inline this list anywhere
