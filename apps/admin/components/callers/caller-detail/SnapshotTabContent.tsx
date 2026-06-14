@@ -34,6 +34,7 @@ import { useEffect, useState } from "react";
 import { LearningTrajectoryCard } from "./cards/LearningTrajectoryCard";
 import { SnapshotLoHeatmap } from "./SnapshotLoHeatmap";
 import { SnapshotCarryOverActions } from "./SnapshotCarryOverActions";
+import { SnapshotSubSkills } from "./SnapshotSubSkills";
 
 import "./snapshot-tab.css";
 
@@ -89,14 +90,6 @@ interface SkillsEvidenceResponse {
   evidence: SkillsEvidenceEntry[];
 }
 
-interface SubSkillsResponse {
-  callerId: string;
-  groups: Array<{
-    domainGroup: string;
-    parameters: Array<{ parameterId: string; name: string; score: number | null; tier: string | null }>;
-  }>;
-}
-
 interface SchedulerDecisionResponse {
   callerId: string;
   decision: {
@@ -111,7 +104,6 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
   const [skillsEvidence, setSkillsEvidence] = useState<SkillsEvidenceResponse | null>(
     null,
   );
-  const [subSkills, setSubSkills] = useState<SubSkillsResponse | null | "missing">(null);
   const [schedulerDecision, setSchedulerDecision] = useState<
     SchedulerDecisionResponse | null | "missing"
   >(null);
@@ -139,17 +131,6 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
           if (!cancelled) setSkillsEvidence(j);
         })
         .catch(() => {}),
-      fetch(`/api/callers/${callerId}/sub-skills`)
-        .then((r) => {
-          if (r.status === 404) return "missing" as const;
-          return r.ok ? r.json() : null;
-        })
-        .then((j) => {
-          if (!cancelled) setSubSkills(j as SubSkillsResponse | null | "missing");
-        })
-        .catch(() => {
-          if (!cancelled) setSubSkills("missing");
-        }),
       fetch(`/api/callers/${callerId}/scheduler-decision`)
         .then((r) => {
           if (r.status === 404) return "missing" as const;
@@ -199,7 +180,7 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
         evidence={skillsEvidence?.evidence ?? null}
       />
 
-      <SnapshotSubSkillsStub subSkills={subSkills} />
+      <SnapshotSubSkills callerId={callerId} />
 
       {/* #1661 — real LO heatmap replaces the placeholder slot. The
        * heatmap owns its per-module lo-mastery fetches; the foundation
@@ -245,65 +226,6 @@ function SnapshotPersonalityStub() {
         <span className="hf-badge hf-badge-muted">
           Personality block — coming in story A.7
         </span>
-      </div>
-    </section>
-  );
-}
-
-function SnapshotSubSkillsStub({
-  subSkills,
-}: {
-  subSkills: SubSkillsResponse | null | "missing";
-}) {
-  if (subSkills === null) {
-    return (
-      <section
-        className="hf-snapshot-section hf-snapshot-stub"
-        data-testid="hf-snapshot-subskills-stub"
-      >
-        <div className="hf-card-compact">
-          <div className="hf-category-label">Sub-skills (DISC / COACH / COMP)</div>
-          <span className="hf-badge hf-badge-muted">Loading…</span>
-        </div>
-      </section>
-    );
-  }
-  if (subSkills === "missing") {
-    return (
-      <section
-        className="hf-snapshot-section hf-snapshot-stub"
-        data-testid="hf-snapshot-subskills-stub"
-      >
-        <div className="hf-card-compact">
-          <div className="hf-category-label">Sub-skills (DISC / COACH / COMP)</div>
-          <span className="hf-badge hf-badge-muted">
-            Sub-skill cards — coming in story #1662
-          </span>
-        </div>
-      </section>
-    );
-  }
-  // Minimal render — full cards land in #1662
-  const groups = Array.isArray(subSkills.groups) ? subSkills.groups : [];
-  return (
-    <section
-      className="hf-snapshot-section"
-      data-testid="hf-snapshot-subskills-stub"
-    >
-      <div className="hf-card-compact">
-        <div className="hf-category-label">Sub-skills</div>
-        {groups.length === 0 ? (
-          <span className="hf-badge hf-badge-muted">No sub-skills tracked yet</span>
-        ) : (
-          <ul className="hf-list-row">
-            {groups.map((g) => (
-              <li key={g.domainGroup}>
-                <strong>{g.domainGroup}</strong>: {g.parameters.length} parameter
-                {g.parameters.length === 1 ? "" : "s"}
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </section>
   );
