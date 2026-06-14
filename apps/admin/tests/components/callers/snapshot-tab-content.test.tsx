@@ -87,6 +87,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("SnapshotTabContent — cold-load behaviour", () => {
@@ -169,7 +170,7 @@ describe("SnapshotTabContent — slot stubs (sibling stories not yet merged)", (
     );
   });
 
-  it("shows heatmap placeholder with module count (#1661 not merged)", async () => {
+  it("mounts the SnapshotLoHeatmap component once attainment lands (#1661 shipped)", async () => {
     vi.stubGlobal(
       "fetch",
       mockFetch({
@@ -181,12 +182,38 @@ describe("SnapshotTabContent — slot stubs (sibling stories not yet merged)", (
           }),
         "/sub-skills": () => new Response(null, { status: 404 }),
         "/scheduler-decision": () => new Response(null, { status: 404 }),
+        "/lo-mastery": (url: string) => {
+          // Echo the moduleId param back so the heatmap renders one sticky
+          // header per requested module (not two duplicates of the same one).
+          const m = url.match(/moduleId=([^&]+)/);
+          const id = m ? decodeURIComponent(m[1]) : "?";
+          const slug = id === "m1" ? "limits" : "derivatives";
+          const title = id === "m1" ? "Limits" : "Derivatives";
+          return new Response(
+            JSON.stringify({
+              callerId: CALLER_ID,
+              playbookId: "pb-1",
+              moduleId: id,
+              moduleSlug: slug,
+              moduleTitle: title,
+              useFreshMastery: false,
+              scratchSourceCallId: null,
+              learningObjectives: [],
+            }),
+            { status: 200 },
+          );
+        },
       }),
     );
     render(<SnapshotTabContent callerId={CALLER_ID} />);
+    // The full wiring (attainment → heatmap → per-module lo-mastery →
+    // sticky module headers) only completes once the per-module fetches
+    // resolve. Wait on the deepest assertion directly.
     await waitFor(() =>
-      expect(screen.getByText(/coming in story #1661 \(2 modules\)/i)).toBeTruthy(),
+      expect(screen.getByTestId("hf-snapshot-lo-modhdr-limits")).toBeTruthy(),
     );
+    expect(screen.getByTestId("hf-snapshot-lo-modhdr-derivatives")).toBeTruthy();
+    expect(screen.getByTestId("hf-snapshot-lo-heatmap")).toBeTruthy();
   });
 
   it("shows carry-over actions stub (A.9 not merged)", () => {
@@ -230,11 +257,15 @@ describe("SnapshotTabContent — populated state from /attainment", () => {
     expect(screen.getByText(/EXPLICIT/)).toBeTruthy();
   });
 
-  it("renders the heatmap placeholder with the module count from /attainment", async () => {
+  it("hands attainment.modules to the SnapshotLoHeatmap which renders one sticky header per module", async () => {
     render(<SnapshotTabContent callerId={CALLER_ID} />);
+    // The populated-state /attainment fixture above carries two modules
+    // (m1=Limits, m2=Derivatives). SnapshotLoHeatmap should render a
+    // sticky module header for each.
     await waitFor(() =>
-      expect(screen.getByText(/2 modules/)).toBeTruthy(),
+      expect(screen.getByTestId("hf-snapshot-lo-modhdr-limits")).toBeTruthy(),
     );
+    expect(screen.getByTestId("hf-snapshot-lo-modhdr-derivatives")).toBeTruthy();
   });
 });
 

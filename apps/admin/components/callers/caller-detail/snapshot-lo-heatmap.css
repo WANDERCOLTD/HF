@@ -1,0 +1,120 @@
+/* SnapshotLoHeatmap — #1661 (Epic #1606 Group C).
+ *
+ * Fixed-grid layout per ADR docs/decisions/2026-06-14-caller-snapshot-heatmap-grid.md.
+ * Every row renders LO-label + N tier cells + score column with uniform
+ * column widths so horizontal scan property holds across modules.
+ *
+ * Reuses global design-system tokens (--surface-border, --text-muted)
+ * and the tier-colors palette via inline style on each cell. No
+ * hardcoded hex anywhere in this file.
+ */
+
+.hf-lo-heatmap-section {
+  position: relative;
+  display: flex;
+  gap: var(--gap-2, 12px);
+  align-items: flex-start;
+}
+
+.hf-lo-heatmap-section > .hf-card-compact {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hf-lo-heatmap-body {
+  margin-top: var(--gap-1, 4px);
+  row-gap: 4px;
+  column-gap: 6px;
+  align-items: center;
+}
+
+.hf-lo-heatmap-colhdr {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.hf-lo-heatmap-colhdr:first-child {
+  text-align: left;
+}
+
+.hf-lo-heatmap-modhdr {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 6px 4px 4px;
+  margin-top: 8px;
+  background: var(--surface-muted, transparent);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.hf-lo-heatmap-lolabel {
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 4px;
+}
+
+.hf-lo-heatmap-cell {
+  height: 22px;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  transition: outline-color 80ms ease;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+
+.hf-lo-heatmap-cell:hover {
+  outline-color: var(--accent-primary);
+}
+
+.hf-lo-heatmap-cell-selected {
+  outline-color: var(--accent-primary);
+}
+
+.hf-lo-heatmap-score {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding: 0 4px;
+}
+
+.hf-lo-heatmap-panel {
+  position: sticky;
+  top: 8px;
+  flex: 0 0 280px;
+  max-width: 320px;
+}
+
+.hf-lo-heatmap-close {
+  float: right;
+  background: transparent;
+  border: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+@media (max-width: 720px) {
+  .hf-lo-heatmap-section {
+    flex-direction: column;
+  }
+  .hf-lo-heatmap-panel {
+    position: relative;
+    flex-basis: auto;
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hf-lo-heatmap-cell {
+    transition: none;
+  }
+}

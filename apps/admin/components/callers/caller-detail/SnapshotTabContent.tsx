@@ -32,6 +32,7 @@
 import { useEffect, useState } from "react";
 
 import { LearningTrajectoryCard } from "./cards/LearningTrajectoryCard";
+import { SnapshotLoHeatmap } from "./SnapshotLoHeatmap";
 
 import "./snapshot-tab.css";
 
@@ -199,9 +200,14 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
 
       <SnapshotSubSkillsStub subSkills={subSkills} />
 
-      <SnapshotHeatmapPlaceholder
-        moduleCount={
-          Array.isArray(attainment?.modules) ? (attainment?.modules?.length ?? 0) : 0
+      {/* #1661 — real LO heatmap replaces the placeholder slot. The
+       * heatmap owns its per-module lo-mastery fetches; the foundation
+       * here just hands it the modules list + useFreshMastery flag from
+       * the already-fetched attainment response. */}
+      <SnapshotLoHeatmap
+        callerId={callerId}
+        modules={
+          Array.isArray(attainment?.modules) ? (attainment?.modules ?? []) : []
         }
         useFreshMastery={attainment?.useFreshMastery ?? false}
       />
@@ -296,40 +302,6 @@ function SnapshotSubSkillsStub({
               </li>
             ))}
           </ul>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function SnapshotHeatmapPlaceholder({
-  moduleCount,
-  useFreshMastery,
-}: {
-  moduleCount: number;
-  useFreshMastery: boolean;
-}) {
-  return (
-    <section
-      className="hf-snapshot-section hf-snapshot-stub"
-      data-testid="hf-snapshot-heatmap-placeholder"
-    >
-      <div className="hf-card-compact">
-        <div className="hf-category-label">LO mastery heatmap</div>
-        {moduleCount === 0 ? (
-          <span className="hf-badge hf-badge-muted">No modules in curriculum yet</span>
-        ) : (
-          <>
-            <span className="hf-badge hf-badge-muted">
-              Heatmap component — coming in story #1661 ({moduleCount} module
-              {moduleCount === 1 ? "" : "s"})
-            </span>
-            {useFreshMastery && (
-              <span className="hf-badge hf-badge-info" style={{ marginLeft: 8 }}>
-                Exam Assessment mode (scratch mastery)
-              </span>
-            )}
-          </>
         )}
       </div>
     </section>
