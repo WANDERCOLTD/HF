@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { BookOpen, Users, Plus, Trash2, X, BookMarked } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
+import type { TermKey } from '@/lib/terminology/types';
 import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
 import { FancySelect } from '@/components/shared/FancySelect';
 import { AdvancedBanner } from '@/components/shared/AdvancedBanner';
@@ -170,7 +171,7 @@ function CourseInsightBadges({ course }: { course: CourseListItem }) {
 
 function CourseCard({ course, plural, deleteMode, selected, onToggle, onArchive }: {
   course: CourseListItem;
-  plural: (k: string) => string;
+  plural: (k: TermKey) => string;
   deleteMode?: boolean;
   selected?: boolean;
   onToggle?: (id: string) => void;
