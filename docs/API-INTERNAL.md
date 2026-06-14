@@ -9942,6 +9942,54 @@ Returns the most recent COURSE_REFERENCE markdown document
 
 ---
 
+### `POST` /api/courses/:courseId/recompose-section
+
+Recompose one section across every active enrolled caller's
+
+**Auth**: session (OPERATOR+) · **Scope**: `courses:write`
+
+**Response** `200`
+```json
+(dryRun)
+```
+
+**Response** `200`
+```json
+(live, sync)
+```
+
+**Response** `200`
+```json
+(live, async)
+```
+
+**Response** `200`
+```json
+(no callers / no baseline)
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/courses/:courseId/section-staleness
 
 Returns the section-grain staleness map for the course.
@@ -16102,8 +16150,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 525 |
-| Files with annotations | 513 |
+| Route files found | 526 |
+| Files with annotations | 514 |
 | Files missing annotations | 12 |
 | Coverage | 97.7% |
 
