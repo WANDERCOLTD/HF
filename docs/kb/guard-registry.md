@@ -70,6 +70,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-bespoke-async-polling`](#guard-no-bespoke-async-polling) | Bespoke `setInterval`/`setTimeout` retry loops outside an allow-list; use `lib/async/wait-until-ready.ts` | G7 / 2026-06-11 | **meta** |
 | [`hf-security/no-secrets-in-client`](#guard-no-secrets-in-client) | Plaintext credentials / secret-shaped literals in `"use client"` files (they ship in the browser bundle) | HF-J / 2026-06-11 | **a** |
 | [`hf-config/no-hardcoded-spec-slug`](#guard-no-hardcoded-spec-slug) | Hardcoded spec-slug literals (`TUT-001`, `GOAL-001`, …) in `lib/`+`app/` runtime; use `config.specs.*`. **Active (error)** after HF-I sweep | HF-I / 2026-06-11 | **b** |
+| [`hf-goals/no-bare-strategy-key`](#guard-no-bare-strategy-key) | Bare string literals assigned to `Goal.progressStrategy` outside the canonical `StrategyKey` enum; allow-list covers the strategies registry alias map + test files | #1599 | **a** |
 
 ### Guard detail
 
@@ -191,6 +192,23 @@ discipline, applied to the measurement write path. Allow-list updates accompany 
 deliberate bypass (drain scripts, demo reset, manual ops) so the bypass stays
 documented. **Survives hardening:** spec-driven measurement is an architectural
 property of the pipeline; the builder pattern carries forward.
+
+<a id="guard-no-bare-strategy-key"></a>
+**`hf-goals/no-bare-strategy-key`** · class **(a) invariant** · born #1599 ·
+[rule source](../../apps/admin/eslint-rules/no-bare-strategy-key.mjs)
+
+`Goal.progressStrategy` is the dispatch key for the mastery-progress strategy registry
+(`lib/goals/strategies/registry.ts`). The canonical keys live in
+`lib/goals/strategies/types.ts::StrategyKey` (`skill_ema` / `lo_rollup` /
+`assessment_readiness` / `connect_warmth_avg` / `manual_only`). A bare string literal
+not in the enum either silently falls through to `manual_only` (cohort frozen at 0% —
+the #1554 / Cyrus fingerprint) or relies on the historical-aliases map (`lo_mastery →
+lo_rollup`) carrying a workaround forever. This rule fires on any object literal
+`Property` named `progressStrategy` whose value is a string `Literal` not in the
+canonical set. Allow-list: `lib/goals/strategies/registry.ts` (the alias map
+intentionally carries historical keys as MAP keys) + test files. **Survives hardening:**
+the strategy-dispatch contract is structural; new strategies extend the enum + the
+hardcoded mirror in the rule itself.
 
 <a id="guard-no-hardcoded-greeting-in-composition"></a>
 **`no-hardcoded-greeting-in-composition`** · class **(a) invariant** · born #1384 ·

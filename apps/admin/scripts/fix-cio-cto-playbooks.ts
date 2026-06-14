@@ -26,6 +26,8 @@
 
 import { PrismaClient } from "@prisma/client";
 
+import { StrategyKey } from "@/lib/goals/strategies/types";
+
 const prisma = new PrismaClient();
 
 const DOMAIN_SLUG = "the-standard-cio-cto";
@@ -219,7 +221,7 @@ async function loadLOGoalTemplates() {
     description: string;
     ref: string;
     priority: number;
-    progressStrategy: string;
+    progressStrategy: StrategyKey;
     isAssessmentTarget: boolean;
   }> = [];
 
@@ -231,7 +233,7 @@ async function loadLOGoalTemplates() {
         description: lo.description ?? `${m.title} ${lo.ref}`,
         ref: `${m.slug}::${lo.ref}`,                       // logical id, scoped by curriculum (#407)
         priority: 5,
-        progressStrategy: "LO_MASTERY",                    // standard learn-assess strategy
+        progressStrategy: StrategyKey.lo_rollup,           // #1599 — was "LO_MASTERY"; resolved via alias but bare literal blocked by hf-goals/no-bare-strategy-key
         isAssessmentTarget: false,                          // toggled to true for Exam Assessment downstream
       });
     }
