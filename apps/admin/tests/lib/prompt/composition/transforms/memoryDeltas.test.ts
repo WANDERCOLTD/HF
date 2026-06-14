@@ -6,10 +6,14 @@ import { describe, it, expect } from "vitest";
 import "@/lib/prompt/composition/transforms/memoryDeltas";
 import { getTransform } from "@/lib/prompt/composition/TransformRegistry";
 import type { MemoryDeltasData } from "@/lib/prompt/composition/loaders/memoryDeltas";
+import type {
+  AssembledContext,
+  CompositionSectionDef,
+} from "@/lib/prompt/composition/types";
 
 const transform = getTransform("renderMemoryDeltas");
-const ctx = {} as any;
-const def = {} as any;
+const ctx = {} as unknown as AssembledContext;
+const def = {} as unknown as CompositionSectionDef;
 
 const EMPTY: MemoryDeltasData = {
   hasDeltas: false,

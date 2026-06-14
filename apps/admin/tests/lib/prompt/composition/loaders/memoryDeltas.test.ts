@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+import type { PrismaClient } from "@prisma/client";
 import {
   EMPTY_MEMORY_DELTAS,
   loadMemoryDeltas,
@@ -26,12 +27,14 @@ type MockMemory = {
   supersedes: Array<{ id: string; value: string; callId: string | null }>;
 };
 
+type LoaderPrisma = Pick<PrismaClient, "call" | "callerMemory">;
+
 function makePrisma(opts: {
   priorCall?: MockCall | null;
   memoryRows?: MockMemory[];
   captureFindFirstArgs?: (args: unknown) => void;
   captureMemoryArgs?: (args: unknown) => void;
-}) {
+}): LoaderPrisma {
   return {
     call: {
       findFirst: vi.fn(async (args: unknown) => {
@@ -45,7 +48,7 @@ function makePrisma(opts: {
         return opts.memoryRows ?? [];
       }),
     },
-  } as any;
+  } as unknown as LoaderPrisma;
 }
 
 describe("loadMemoryDeltas", () => {
