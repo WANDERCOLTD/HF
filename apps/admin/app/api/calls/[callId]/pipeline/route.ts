@@ -1632,12 +1632,35 @@ async function computeReward(
     where: { scope: "SYSTEM" },
   });
 
+  // #1632 — REWARD compares the AI tutor's TUNABLE BEHAVIOR (BEH-* +
+  // skill_* params, `Parameter.isAdjustable === true`) against the
+  // SYSTEM-scope BehaviorTarget cascade. STATE-type measurements
+  // (`COMP-*`, `COACH_*`, `CONV_*`, `application_score`, etc.) are
+  // OBSERVATIONS the AI made about the conversation/learner — they
+  // have no target by design and feed AGGREGATE / CallerAttribute
+  // downstream, not the reward delta loop.
+  //
+  // Pre-#1632 the guard required every BehaviorMeasurement to have a
+  // matching SYSTEM BehaviorTarget. Because SCORE_AGENT measures
+  // dozens of STATE params per call (verified live on hf-dev: Freddy
+  // Starr's call produced 22 measurements vs 6 SYSTEM targets), the
+  // guard threw on every STRUCTURED call, REWARD bailed, the
+  // RewardScore row was never written, the #1609 reward-loop sub-op
+  // had no row to process, and the Adaptations "Why" timeline stayed
+  // empty.
+  //
+  // Fix: compute diff over MATCHED measurements only. The remaining
+  // unmatched STATE measurements are not a reward signal; their
+  // absence from `parameterDiffs` is correct. The previous guard's
+  // intent (refuse to silently fall back to 0.5) is preserved by the
+  // earlier `behaviorMeasurements.length === 0` throw and the new
+  // `diffs.length === 0` throw below.
   const diffs: Array<{ parameterId: string; target: number; actual: number; diff: number }> = [];
-  const missingTargetParams: string[] = [];
+  const unmatchedMeasurements: string[] = [];
   for (const measurement of call.behaviorMeasurements) {
     const target = targets.find((t) => t.parameterId === measurement.parameterId);
     if (!target) {
-      missingTargetParams.push(measurement.parameterId);
+      unmatchedMeasurements.push(measurement.parameterId);
       continue;
     }
     const diff = Math.abs(measurement.actualValue - target.targetValue);
@@ -1649,13 +1672,22 @@ async function computeReward(
     });
   }
 
-  if (missingTargetParams.length > 0) {
-    // Hard error — every MEASURE-emitted parameter must have a SYSTEM
-    // BehaviorTarget. The 0.5 fallback would have silently scored these
-    // against a guessed midpoint.
+  // #1632 — only flag the unmatched set when ZERO measurements matched a
+  // target. That's the "REWARD has nothing to score" condition the old
+  // guard was trying (and failing) to catch. Partial matches are
+  // expected — STATE measurements outnumber BEHAVIOR targets by ~3:1
+  // on a typical structured call. Log the unmatched set at debug level
+  // for forensics without spamming.
+  if (diffs.length === 0) {
     throw new Error(
-      `REWARD: STRUCTURED call ${callId} produced measurements for parameters with no SYSTEM BehaviorTarget — refusing silent 0.5 fallback (#1256). Missing: ${missingTargetParams.join(", ")}`,
+      `REWARD: STRUCTURED call ${callId} produced ${call.behaviorMeasurements.length} BehaviorMeasurement(s) but NONE matched a SYSTEM BehaviorTarget — refusing silent 0.5 fallback (#1256/#1632). Measured: ${call.behaviorMeasurements.map((m) => m.parameterId).slice(0, 10).join(", ")}${call.behaviorMeasurements.length > 10 ? "..." : ""}. Expected at least one BEH-* or skill_* parameter with a SYSTEM target.`,
     );
+  }
+  if (unmatchedMeasurements.length > 0) {
+    log.debug("REWARD: skipping STATE measurements without SYSTEM targets (expected)", {
+      count: unmatchedMeasurements.length,
+      sample: unmatchedMeasurements.slice(0, 5),
+    });
   }
 
   const avgDiff = diffs.length > 0 ? diffs.reduce((sum, d) => sum + d.diff, 0) / diffs.length : 0;
