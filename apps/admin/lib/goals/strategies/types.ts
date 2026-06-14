@@ -36,17 +36,39 @@ export type StrategyFn = (
   ctx: StrategyContext,
 ) => Promise<GoalProgressUpdate | null>;
 
-export type StrategyKey =
-  | "skill_ema"
-  | "lo_rollup"
-  | "assessment_readiness"
-  | "connect_warmth_avg"
-  | "manual_only";
+/**
+ * Canonical enum of every registered strategy key — #1599.
+ *
+ * Use `StrategyKey.lo_rollup` etc. when assigning `Goal.progressStrategy`
+ * from a new write site. The ESLint rule `hf-goals/no-bare-strategy-key`
+ * blocks bare string literals outside this enum in `lib/` and `scripts/`
+ * (registry alias map + test files are allow-listed) — same pattern as
+ * `hf-curriculum/no-unscoped-slug-lookup` (#411) and
+ * `hf-call/no-bare-call-create` (#1333).
+ *
+ * History: pre-#1599 the type was a bare string literal union, and a
+ * seed script wrote `progressStrategy: "LO_MASTERY"` (uppercase) — the
+ * registry resolved it via case-insensitive normalization, but only
+ * because `STRATEGY_ALIASES` carries an explicit `lo_mastery → lo_rollup`
+ * row. Without the alias, every LEARN goal on that playbook would have
+ * silently fallen through to `manual_only` and sat at 0% forever.
+ * #1554 added the alias to repair the live damage; #1599 ships the
+ * enum + ESLint rule so a future surface can't reintroduce a casing
+ * variant or a typo.
+ *
+ * If you add a new strategy: register it in `registry.ts` AND add it
+ * here. The rule's hardcoded valid set in
+ * `eslint-rules/no-bare-strategy-key.mjs` MUST be updated in the same
+ * PR (the rule cannot import this TS module at lint time).
+ */
+export const StrategyKey = {
+  skill_ema: "skill_ema",
+  lo_rollup: "lo_rollup",
+  assessment_readiness: "assessment_readiness",
+  connect_warmth_avg: "connect_warmth_avg",
+  manual_only: "manual_only",
+} as const;
 
-export const ALL_STRATEGY_KEYS: StrategyKey[] = [
-  "skill_ema",
-  "lo_rollup",
-  "assessment_readiness",
-  "connect_warmth_avg",
-  "manual_only",
-];
+export type StrategyKey = (typeof StrategyKey)[keyof typeof StrategyKey];
+
+export const ALL_STRATEGY_KEYS: StrategyKey[] = Object.values(StrategyKey);

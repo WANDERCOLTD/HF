@@ -19,6 +19,7 @@ import noBareCallScoreWrite from "./eslint-rules/no-bare-call-score-write.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
+import noBareStrategyKey from "./eslint-rules/no-bare-strategy-key.mjs";
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 
@@ -216,6 +217,15 @@ const eslintConfig = defineConfig([
           "no-hardcoded-spec-slug": noHardcodedSpecSlug,
         },
       },
+      // #1599 — Block bare string literals assigned to `progressStrategy`;
+      // require `StrategyKey.<member>` from lib/goals/strategies/types.ts.
+      // Same shape as hf-curriculum/no-unscoped-slug-lookup (#411) and
+      // hf-call/no-bare-call-create (#1333).
+      "hf-goals": {
+        rules: {
+          "no-bare-strategy-key": noBareStrategyKey,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -260,6 +270,14 @@ const eslintConfig = defineConfig([
       // must either route through `writeCallScore` or add to the
       // allow-list with documented bypass justification.
       "hf-measurement/no-bare-call-score-write": "error",
+
+      // #1599 — error severity from day 1. The one pre-existing offence
+      // (`scripts/fix-cio-cto-playbooks.ts:234` writing `"LO_MASTERY"`)
+      // is repaired in the same PR. Any new write site that hand-rolls
+      // a `progressStrategy: "<literal>"` outside the canonical
+      // `StrategyKey` enum fails CI. Allow-list (in the rule itself):
+      // `lib/goals/strategies/registry.ts` (the alias map) + test files.
+      "hf-goals/no-bare-strategy-key": "error",
 
       // #1395 / #1423 — Block app/api routes from importing the 5 lib/ops/*
       // files that instantiate their own PrismaClient (bypass the singleton).
