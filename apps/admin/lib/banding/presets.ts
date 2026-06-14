@@ -12,7 +12,12 @@
  */
 import type { SkillTierMapping } from "@/lib/goals/track-progress";
 
-export type TierPresetId = "ielts-speaking" | "cefr" | "5-level" | "custom";
+export type TierPresetId =
+  | "ielts-speaking"
+  | "cefr"
+  | "5-level"
+  | "source-derived"
+  | "custom";
 
 export interface TierPreset {
   id: TierPresetId;
@@ -110,6 +115,26 @@ export const TIER_PRESETS: Record<TierPresetId, TierPreset> = {
       emerging: "Beginner",
       developing: "Intermediate",
       secure: "Advanced",
+    },
+  },
+  "source-derived": {
+    id: "source-derived",
+    label: "Source-derived",
+    description:
+      "Parsed from your uploaded course document by the rubric extractor (#1635). The actual labels + bands below come from your source — this registry entry is a placeholder so the picker can list it alongside the baked presets.",
+    mapping: {
+      thresholds: {
+        approachingEmerging: 0.25,
+        emerging: 0.5,
+        developing: 0.75,
+        secure: 1.0,
+      },
+      tierBands: {
+        approachingEmerging: 1,
+        emerging: 2,
+        developing: 3,
+        secure: 4,
+      },
     },
   },
   custom: {
