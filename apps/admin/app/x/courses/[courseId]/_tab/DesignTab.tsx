@@ -3,18 +3,18 @@
 /**
  * DesignTab — DesignerShell wiring for the course Design tab.
  *
- * S4 of #1555 shipped this as an unrouted scaffold. #1607 (Epic #1606
- * A.1 firstCallMode renderer) wired it into the live Design tab via
- * `CourseDesignTab.tsx`, with a header-banner entry-point chip.
- * #1623 (B.13) extends it to thread `onSelectSection` down to
- * `PreviewLens` so the existing chat-bubble click handlers ALSO
- * trigger the Inspector for 5 hand-wired sections (intake / welcome /
- * onboarding / offboarding / nps), and fetches the session-flow data
- * the new section renderers need.
+ * S4 of #1555 shipped this as an unrouted scaffold. #1607 (A.1) wired
+ * it into the live Design tab via `CourseDesignTab.tsx`, with a
+ * header-banner entry-point chip. #1623 (B.13) threaded
+ * `onSelectSection` down to `PreviewLens` so the existing chat-bubble
+ * click handlers ALSO trigger the Inspector for the 5 hand-wired
+ * sections. #1628 (A.2) added the modePolicy chip. #1634 (A.4 + A.8)
+ * closes out the Inspector pattern with the goal-adaptation guidance
+ * template and the content-trust freshness renderer.
  *
  * Side-effect: importing the preview-renderers barrel triggers all
- * `registerPreviewRenderer()` calls at module load, before the Inspector
- * attempts a lookup.
+ * `registerPreviewRenderer()` calls at module load, before the
+ * Inspector attempts a lookup.
  */
 
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
@@ -25,7 +25,11 @@ import {
   useDesignerSelection,
 } from "@/components/shared/designer-shell";
 import "@/components/shared/preview-renderers";
-import type { SessionFlowData } from "@/components/shared/preview-renderers";
+import type {
+  FreshnessWarning,
+  GoalType,
+  SessionFlowData,
+} from "@/components/shared/preview-renderers";
 import type { ComposeSectionKey } from "@/lib/compose";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
@@ -45,7 +49,6 @@ const FIRST_CALL_MODE_LABEL: Record<
   baseline_assessment: "Baseline Assessment",
 };
 
-/** Sections whose data comes from the session-flow API (B.13). */
 const SESSION_FLOW_SECTIONS = new Set<ComposeSectionKey>([
   "intake",
   "welcome",
@@ -54,10 +57,17 @@ const SESSION_FLOW_SECTIONS = new Set<ComposeSectionKey>([
   "nps",
 ]);
 
+interface ContentTrustData {
+  warnings: FreshnessWarning[];
+  sourceCount: number;
+}
+
 function resolveRendererData(
   selectedKey: ComposeSectionKey,
   pbConfig: PlaybookConfig,
   sessionFlow: SessionFlowData | null,
+  contentTrust: ContentTrustData | null,
+  goalTypesInUse: GoalType[] | undefined,
 ): unknown {
   if (selectedKey === "firstCallMode") {
     return { firstCallMode: pbConfig.firstCallMode };
@@ -70,6 +80,12 @@ function resolveRendererData(
       maxMasteryTier: (pbConfig as { maxMasteryTier?: string }).maxMasteryTier,
     };
   }
+  if (selectedKey === "instructions") {
+    return { goalTypesInUse };
+  }
+  if (selectedKey === "contentTrust") {
+    return contentTrust ?? { warnings: [], sourceCount: 0 };
+  }
   if (SESSION_FLOW_SECTIONS.has(selectedKey)) {
     return { sessionFlow };
   }
@@ -79,6 +95,9 @@ function resolveRendererData(
 export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
   const { selectedKey, setSelectedKey } = useDesignerSelection();
   const [sessionFlow, setSessionFlow] = useState<SessionFlowData | null>(null);
+  const [contentTrust, setContentTrust] = useState<ContentTrustData | null>(
+    null,
+  );
   const pbConfig = useMemo(
     () => (playbookConfig ?? {}) as PlaybookConfig,
     [playbookConfig],
@@ -89,17 +108,20 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
       ? "Onboarding (default — unset)"
       : FIRST_CALL_MODE_LABEL[firstCallMode];
   const firstCallModeSelected = selectedKey === "firstCallMode";
-  // A.2 — modePolicy header chip. Same shape as firstCallMode but
-  // surfaces the teachingMode literal (or "default" when unset).
   const teachingMode = pbConfig.teachingMode;
   const modePolicyLabel =
     teachingMode === undefined ? "default" : teachingMode;
   const modePolicySelected = selectedKey === "modePolicy";
+  const instructionsSelected = selectedKey === "instructions";
+  const contentTrustSelected = selectedKey === "contentTrust";
 
-  // Fetch session-flow once on mount — feeds the 5 new B.13 renderers.
-  // PreviewLens fetches the same endpoint independently; that duplication
-  // is acceptable for V1 and can be deduped via lifted state in a
-  // follow-on cleanup.
+  // A.4: Goal types currently in use on this course. The playbook config
+  // doesn't carry this directly today — read it from session-flow OR
+  // skip dimming when unknown. For V1 we surface ALL types at full
+  // strength; the dimming logic is wired but inactive until a future
+  // story plumbs `goals.types[]` through the API.
+  const goalTypesInUse = undefined;
+
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/courses/${courseId}/session-flow`)
@@ -109,10 +131,27 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
           setSessionFlow(j.sessionFlow);
         }
       })
-      .catch(() => {
-        // Renderer handles the null state gracefully — no need to surface
-        // the error in the Inspector slot.
-      });
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  // A.8: content-trust freshness. Fires on mount alongside session-flow;
+  // the renderer handles the null state.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/content-trust`)
+      .then((res) => res.json())
+      .then((j: { ok: boolean; warnings: FreshnessWarning[]; sourceCount: number }) => {
+        if (!cancelled && j.ok) {
+          setContentTrust({
+            warnings: j.warnings ?? [],
+            sourceCount: j.sourceCount ?? 0,
+          });
+        }
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -123,10 +162,16 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
     const renderer = getPreviewRenderer(selectedKey);
     if (!renderer) return null;
     return createElement(renderer, {
-      data: resolveRendererData(selectedKey, pbConfig, sessionFlow),
+      data: resolveRendererData(
+        selectedKey,
+        pbConfig,
+        sessionFlow,
+        contentTrust,
+        goalTypesInUse,
+      ),
       selection: { selectedKey },
     });
-  }, [selectedKey, pbConfig, sessionFlow]);
+  }, [selectedKey, pbConfig, sessionFlow, contentTrust, goalTypesInUse]);
 
   const onSelectSection = useCallback(
     (section: ComposeSectionKey | null) => {
@@ -158,6 +203,35 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
       >
         <span className="hf-category-label">Mode policy:</span>{" "}
         {modePolicyLabel}
+      </button>
+      <button
+        type="button"
+        className={`hf-chip ${instructionsSelected ? "hf-chip-selected" : ""}`}
+        aria-pressed={instructionsSelected}
+        onClick={() =>
+          setSelectedKey(instructionsSelected ? null : "instructions")
+        }
+      >
+        <span className="hf-category-label">Guidance template</span>
+      </button>
+      <button
+        type="button"
+        className={`hf-chip ${contentTrustSelected ? "hf-chip-selected" : ""}`}
+        aria-pressed={contentTrustSelected}
+        onClick={() =>
+          setSelectedKey(contentTrustSelected ? null : "contentTrust")
+        }
+      >
+        <span className="hf-category-label">Content trust:</span>{" "}
+        {contentTrust === null
+          ? "loading…"
+          : contentTrust.sourceCount === 0
+            ? "no sources"
+            : contentTrust.warnings.length === 0
+              ? "all fresh"
+              : `${contentTrust.warnings.length} warning${
+                  contentTrust.warnings.length === 1 ? "" : "s"
+                }`}
       </button>
     </div>
   );

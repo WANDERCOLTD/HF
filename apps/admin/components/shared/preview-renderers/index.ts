@@ -28,4 +28,19 @@ export type { OffboardingRendererData } from "./OffboardingRenderer";
 export { NpsRenderer } from "./NpsRenderer";
 export type { NpsRendererData } from "./NpsRenderer";
 
+export {
+  InstructionsRenderer,
+  GOAL_ADAPTATION_GUIDANCE,
+} from "./InstructionsRenderer";
+export type {
+  InstructionsRendererData,
+  GoalType,
+} from "./InstructionsRenderer";
+
+export { ContentTrustRenderer } from "./ContentTrustRenderer";
+export type {
+  ContentTrustRendererData,
+  FreshnessWarning,
+} from "./ContentTrustRenderer";
+
 export type { SessionFlowData } from "./types";
