@@ -24,6 +24,31 @@ import type {
   CompositionResult,
   CompositionSectionDef,
 } from "./types";
+import type { ComposeSectionKey } from "@/lib/compose/section";
+import { getOutputKeysForSections } from "@/lib/compose/section-loaders";
+
+/**
+ * Optional invocation options for `executeComposition` — #1558 (S3 of EPIC #1555).
+ *
+ * `sectionsOnly`: when supplied, post-process `llmPrompt` to KEEP ONLY the
+ * outputKeys that carry text for the listed sections (plus structural
+ * fields `_version`, `_format`, `agentIdentitySummary`). All transforms
+ * still run; this is a **result filter**, not a transform skip — siblings
+ * stay byte-identical to a full compose by construction.
+ *
+ * Why a filter instead of a transform-skip: the assembled-section graph
+ * (`dependsOn` + `_assembled` collectors) has many cross-section reads
+ * (`instructions` depends on `memories`, `personality`, `behaviorTargets`,
+ * `curriculum`, `learner_goals`, `identity`, `content_trust`,
+ * `teaching_content`, `course_instructions`, `instructions_pedagogy`,
+ * `instructions_voice`). Skipping a transform whose output is read by
+ * another active transform would produce undefined behaviour. A future
+ * optimization pass can introduce a dependency-graph traversal; this
+ * option ships the contract surface today without that risk.
+ */
+export interface ExecuteCompositionOptions {
+  sectionsOnly?: readonly ComposeSectionKey[];
+}
 
 // Import all transform files to trigger self-registration
 import "./transforms/personality";
@@ -79,6 +104,7 @@ export async function executeComposition(
   triggerType?: string,
   requestedModuleId?: string | null,
   currentCallId?: string | null,
+  options?: ExecuteCompositionOptions,
 ): Promise<CompositionResult> {
   const loadStart = Date.now();
 
@@ -232,6 +258,27 @@ export async function executeComposition(
 
   // Add agent identity summary
   llmPrompt.agentIdentitySummary = buildAgentIdentitySummary(resolvedSpecs);
+
+  // #1558 S3 — sectionsOnly result filter. When the caller asks for a
+  // section-scoped recompose, strip outputKeys that don't belong to the
+  // requested sections. Structural fields (`_*`, `agentIdentitySummary`)
+  // are always preserved so the result still validates against the
+  // CompositionResult contract; downstream consumers (e.g. the
+  // recompose-section route) pluck only the section's outputKeys to
+  // patch into stored prompts.
+  if (options?.sectionsOnly && options.sectionsOnly.length > 0) {
+    const keep = new Set<string>([
+      ...getOutputKeysForSections(options.sectionsOnly),
+      "_version",
+      "_format",
+      "_quickStart",
+      "_preamble",
+      "agentIdentitySummary",
+    ]);
+    for (const key of Object.keys(llmPrompt)) {
+      if (!keep.has(key)) delete llmPrompt[key];
+    }
+  }
 
   // #479 — per-section character-count observability. The composed prompt
   // grew from 86K → 119K across 6 calls on hf-dev IELTS Speaking, sitting
