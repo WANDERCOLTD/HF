@@ -40,7 +40,7 @@ interface Template {
 interface GeneratedGroup {
   name: string;
   groupType: string;
-  styleNotes?: string;
+  styleNotes?: string | null;
 }
 
 interface ClarifyingQuestion {
