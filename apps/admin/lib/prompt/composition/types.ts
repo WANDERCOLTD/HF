@@ -139,6 +139,13 @@ export interface LoadedDataContext {
    * omitted from the final prompt in those cases.
    */
   conversationArtifacts?: import("./loaders/conversationArtifacts").ConversationArtifactsData;
+  /**
+   * #1644 (Epic #1606 Group A.5) — CallerMemory diff between the
+   * most-recent prior call and its predecessor (via `Call.previousCallId`).
+   * `hasDeltas: false` for Call 1, calls with no predecessor, and calls
+   * with no added/updated memories.
+   */
+  memoryDeltas?: import("./loaders/memoryDeltas").MemoryDeltasData;
 }
 
 /**

@@ -738,6 +738,20 @@
       "outputKey": "conversationArtifacts"
     },
     {
+      "id": "memory_deltas",
+      "name": "Memory Deltas",
+      "priority": 7.75,
+      "dataSource": "memoryDeltas",
+      "activateWhen": {
+        "condition": "memoryDeltasExist"
+      },
+      "fallback": {
+        "action": "omit"
+      },
+      "transform": "renderMemoryDeltas",
+      "outputKey": "memoryDeltas"
+    },
+    {
       "id": "interleave_review",
       "name": "Review Opportunity (Spaced Retrieval)",
       "priority": 7.8,

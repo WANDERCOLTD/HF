@@ -24,14 +24,13 @@
  * implementation time is the safeguard. If you add a new loader / outputKey /
  * pipeline section, extend this union AND the matching loader map below.
  *
- * Sections deliberately NOT in this union, scoped to follow-on epic Group A.5
- * (require loader + transform + COMP-001 seed-sync before they can be a section):
- *   - `memoryDeltas` — CallerMemory exists, no diff loader today
- *
  * Caller-scoped sections (staleness via `bumpCallerComposeTimestamp`, NOT
  * `PlaybookSectionStaleness` — playbook-grain would mark every caller stale
  * on every other caller's call):
  *   - `conversationArtifacts` — #1642 (Group A.5)
+ *   - `memoryDeltas` — #1644 (Group A.5)
+ *
+ * Group A.5 is structurally complete; renderer sides ship as #1643 + #1645.
  */
 
 export type ComposeSection =
@@ -53,7 +52,8 @@ export type ComposeSection =
         | "contentTrust"
         | "carryOverActions"
         | "priorCallFeedback"
-        | "conversationArtifacts";
+        | "conversationArtifacts"
+        | "memoryDeltas";
     };
 
 /**
@@ -90,6 +90,7 @@ export const COMPOSE_SECTION_KEYS = [
   "carryOverActions",
   "priorCallFeedback",
   "conversationArtifacts",
+  "memoryDeltas",
 ] as const satisfies readonly ComposeSectionKey[];
 
 /**
@@ -134,4 +135,5 @@ export const PIPELINE_STATE_SECTION_LOADERS: Record<
   carryOverActions: ["openActions"],
   priorCallFeedback: ["priorCallFeedback"],
   conversationArtifacts: ["conversationArtifacts"], // #1642 — staleness via bumpCallerComposeTimestamp (caller-scoped)
+  memoryDeltas: ["memoryDeltas"], // #1644 — caller-scoped, same staleness contract
 };

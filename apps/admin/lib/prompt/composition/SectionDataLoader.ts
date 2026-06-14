@@ -27,6 +27,7 @@ import {
   loadConversationArtifacts,
   EMPTY_CONVERSATION_ARTIFACTS,
 } from "./loaders/conversationArtifacts";
+import { loadMemoryDeltas, EMPTY_MEMORY_DELTAS } from "./loaders/memoryDeltas";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import type {
   LoadedDataContext,
@@ -146,6 +147,7 @@ export async function loadAllData(
     mockDiagnostic,
     interleaveReview,
     conversationArtifacts,
+    memoryDeltas,
   ] = await Promise.all([
     loaderRegistry.get("caller")!(callerId),
     loaderRegistry.get("memories")!(callerId, { limit: memoriesLimit }),
@@ -179,6 +181,9 @@ export async function loadAllData(
       currentModuleId: scope?.requestedModuleId ?? null,
     }),
     loaderRegistry.get("conversationArtifacts")!(callerId, {
+      currentCallId: scope?.currentCallId ?? null,
+    }),
+    loaderRegistry.get("memoryDeltas")!(callerId, {
       currentCallId: scope?.currentCallId ?? null,
     }),
   ]);
@@ -264,6 +269,7 @@ export async function loadAllData(
       summary: null,
     },
     conversationArtifacts: conversationArtifacts || EMPTY_CONVERSATION_ARTIFACTS,
+    memoryDeltas: memoryDeltas || EMPTY_MEMORY_DELTAS,
     courseComplete,
   };
 }
@@ -1679,6 +1685,22 @@ registerLoader("conversationArtifacts", async (callerId, config) => {
   } catch (err) {
     console.warn("[conversationArtifacts] loader failed — section will be omitted:", err);
     return EMPTY_CONVERSATION_ARTIFACTS;
+  }
+});
+
+/**
+ * #1644 (Epic #1606 Group A.5) — CallerMemory diff between the most-recent
+ * prior call and its predecessor (via `Call.previousCallId`). Caller-scoped
+ * staleness (same as `conversationArtifacts`). Failures degrade silently to
+ * the empty shape.
+ */
+registerLoader("memoryDeltas", async (callerId, config) => {
+  const currentCallId = (config?.currentCallId as string | null | undefined) ?? null;
+  try {
+    return await loadMemoryDeltas(prisma, { callerId, currentCallId });
+  } catch (err) {
+    console.warn("[memoryDeltas] loader failed — section will be omitted:", err);
+    return EMPTY_MEMORY_DELTAS;
   }
 });
 

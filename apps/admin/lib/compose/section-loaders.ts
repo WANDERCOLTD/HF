@@ -82,6 +82,7 @@ export const SECTION_OUTPUT_KEYS: Record<ComposeSectionKey, readonly string[]> =
   carryOverActions: ["_quickStart", "instructions"],
   priorCallFeedback: ["priorCallFeedback"],
   conversationArtifacts: ["conversationArtifacts"],
+  memoryDeltas: ["memoryDeltas"],
 };
 
 /**
