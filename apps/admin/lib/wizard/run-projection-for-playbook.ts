@@ -24,8 +24,11 @@ import {
   type ApplyProjectionResult,
   type RubricBandMap,
 } from "./apply-projection";
-import { projectCourseReference } from "./project-course-reference";
+import { projectCourseReference, type ParsedSkill } from "./project-course-reference";
 import { parseRubricBands } from "./parse-rubric-bands";
+import { deriveSkillTierMappingFromSkills } from "@/lib/banding/derive-skill-tier-mapping-from-source";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+import { resolveMasteryPolicyKnob } from "@/lib/cascade/resolvers/mastery-policy";
 
 export interface RunProjectionResult {
   playbookId: string;
@@ -61,6 +64,19 @@ export interface RunProjectionResult {
     sourceName?: string;
     message: string;
   }>;
+  /**
+   * #1630 — Source-derived `Playbook.config.skillTierMapping` outcome.
+   * Populated AFTER both projection passes run, on the union of parsed
+   * skills. `derivedScheme: null` means no write fired (no skills, skills
+   * disagreed, or scheme unrecognised). `reason` carries the operator-
+   * facing rationale when a derived candidate was suppressed by the
+   * cascade gate (Domain or Playbook layer already pinned the mapping).
+   */
+  skillTierMappingDerived: {
+    derivedScheme: "cto" | "cefr" | null;
+    written: boolean;
+    reason?: string;
+  };
 }
 
 /**
@@ -116,12 +132,14 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
             "No COURSE_REFERENCE source linked. Upload at least one course-ref doc before launching.",
         },
       ],
+      skillTierMappingDerived: { derivedScheme: null, written: false },
     };
   }
 
   const appliedSources: RunProjectionResult["appliedSources"] = [];
   const skippedSources: RunProjectionResult["skippedSources"] = [];
   const launchBlockers: RunProjectionResult["launchBlockers"] = [];
+  const allParsedSkills: ParsedSkill[] = [];
   const storage = getStorageAdapter();
 
   for (const link of links) {
@@ -209,6 +227,7 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
       sourceName: source.name,
       result,
     });
+    allParsedSkills.push(...projection.skills);
   }
 
   // ── #564 — Rubric-only second pass ───────────────────────────────────────
@@ -322,6 +341,62 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
     ? launchBlockers.filter((b) => b.code !== "PROJECTION_NO_SKILLS_FRAMEWORK")
     : launchBlockers;
 
+  // ── #1630 — Source-derived skill banding ────────────────────────────────
+  //
+  // Bridge per-skill `tierScheme` (parsed by `project-course-reference.ts`,
+  // persisted to `Parameter.config.tierScheme` by the applier) up to the
+  // course-level `Playbook.config.skillTierMapping` shape consumed by
+  // `BandingPicker.tsx` and `scoreToTier()`. The picker defaults to IELTS
+  // when `skillTierMapping` is null, so non-IELTS courses (e.g. CIO/CTO)
+  // silently show "IELTS Speaking" as the selected preset until an operator
+  // intervenes. This block seeds the picker when the cascade is SYSTEM-only.
+  //
+  // Cascade gate: respects Domain governance. If an institution has pinned
+  // `Domain.config.skillTierMapping` (e.g. "all our language courses use
+  // CEFR"), the derivation is suppressed — institutional policy beats
+  // document signal. See TL ruling on #1630 (Q3).
+  const skillTierMappingDerived: RunProjectionResult["skillTierMappingDerived"] =
+    { derivedScheme: null, written: false };
+  const derived = deriveSkillTierMappingFromSkills(allParsedSkills);
+  if (derived) {
+    skillTierMappingDerived.derivedScheme = derived.derivedFromScheme;
+    try {
+      const effective = await resolveMasteryPolicyKnob(
+        { playbookId },
+        "skillTierMapping",
+      );
+      if (effective.source === "SYSTEM") {
+        await updatePlaybookConfig(
+          playbookId,
+          (cfg) => ({
+            ...cfg,
+            skillTierMapping: {
+              thresholds: derived.mapping.thresholds,
+              tierBands: derived.mapping.tierBands,
+              tierLabels: derived.tierLabels,
+            },
+          }),
+          { reason: `source-derived (${derived.derivedFromScheme})` },
+        );
+        skillTierMappingDerived.written = true;
+        console.log(
+          `[projection] #1630 seeded source-derived skillTierMapping (${derived.derivedFromScheme}) on playbook=${playbookId}`,
+        );
+      } else {
+        skillTierMappingDerived.reason = `skillTierMapping already set at ${effective.source} layer`;
+        console.log(
+          `[projection] #1630 derivation skipped on playbook=${playbookId}: ${skillTierMappingDerived.reason}`,
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      skillTierMappingDerived.reason = `cascade-read-failed: ${msg}`;
+      console.warn(
+        `[projection] #1630 derivation skipped on playbook=${playbookId}: ${msg}`,
+      );
+    }
+  }
+
   return {
     playbookId,
     appliedSources,
@@ -329,5 +404,6 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
     degenerate: false,
     rubricBandsApplied,
     launchBlockers: filteredBlockers,
+    skillTierMappingDerived,
   };
 }
