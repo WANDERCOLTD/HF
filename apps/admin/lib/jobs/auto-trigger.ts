@@ -161,7 +161,7 @@ export async function checkAutoTriggerCurriculum(
           }
           break;
         }
-        if (task.status === "abandoned" || task.status === "failed") {
+        if (task.status === "abandoned") {
           console.error(
             `[auto-trigger] 🚨 task ${taskId} (subject ${subjectId}) ${task.status}. ` +
               `Blockers: ${JSON.stringify(task.blockers)}. ` +

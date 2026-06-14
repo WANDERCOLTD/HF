@@ -15,7 +15,7 @@ import "./help-overlay.css";
 // from lib/chat/commands.ts — kept as a static mirror here because that file
 // is server-side (imports prisma). Update both if you add or remove commands.
 const CHAT_COMMAND_HELP: Record<ChatMode, Array<{ name: string; description: string }>> = {
-  DATA: [
+  ASSISTANT: [
     { name: "/help", description: "Show available commands" },
     { name: "/clear", description: "Clear chat history for this mode" },
     { name: "/context", description: "Show current entity context" },
@@ -23,12 +23,10 @@ const CHAT_COMMAND_HELP: Record<ChatMode, Array<{ name: string; description: str
     { name: "/buildprompt", description: "Show the composed prompt for current caller" },
     { name: "/caller", description: "Show information about the current caller" },
   ],
-  TUNING: [
+  DEMO: [
     { name: "/help", description: "Show available commands" },
     { name: "/clear", description: "Clear chat history for this mode" },
     { name: "/context", description: "Show current entity context" },
-    { name: "/scope", description: "Show current tuning scope (LEARNER or PLAYBOOK)" },
-    { name: "/params", description: "List tunable parameters for current context" },
   ],
 };
 

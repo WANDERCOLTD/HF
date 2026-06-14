@@ -118,7 +118,7 @@ export async function syncModulesToDB(
   modules: LegacyCurriculumModuleJSON[],
   options?: SyncModulesOptions,
 ): Promise<{ count: number; reconcile: ReconcileResult | null; warnings: string[]; classification: ReclassifyLosResult | null }> {
-  if (!modules || modules.length === 0) return { count: 0, reconcile: null, warnings: [] };
+  if (!modules || modules.length === 0) return { count: 0, reconcile: null, warnings: [], classification: null };
 
   const mode: SyncModulesMode = options?.mode ?? "merge";
   const warnings: string[] = [];
