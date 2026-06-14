@@ -1,6 +1,6 @@
 'use client';
 
-import { CourseDesignConsole } from './_components/CourseDesignConsole';
+import { DesignTab } from './_tab/DesignTab';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 import type { PlaybookConfig } from '@/lib/types/json-fields';
 import type { SetupStatusInput } from '@/hooks/useCourseSetupStatus';
@@ -53,7 +53,7 @@ export function CourseDesignTab({
   return (
     <div className="hf-mt-lg">
       <div className="hf-mb-lg">
-        <CourseDesignConsole courseId={courseId} playbookConfig={pbConfig} />
+        <DesignTab courseId={courseId} playbookConfig={pbConfig} />
       </div>
 
       {/* ── Setup Tracker (bottom — readiness reported to hero via callback) ── */}
