@@ -56,6 +56,8 @@
     "check:uplift": "tsx scripts/check-uplift-visual.ts",
     "check:uplift:update": "tsx scripts/check-uplift-visual.ts --update",
     "check:fk": "tsx scripts/check-fk-consistency.ts",
+    "check:writer-registry": "tsx scripts/check-writer-registry.ts",
+    "kb:writer-coverage": "tsx scripts/generate-writer-coverage-doc.ts",
     "kb:model-map": "tsx scripts/capture/model-map.ts",
     "kb:routes": "tsx scripts/capture/route-inventory.ts",
     "kb:coupling": "tsx scripts/capture/coupling-graph.ts",
