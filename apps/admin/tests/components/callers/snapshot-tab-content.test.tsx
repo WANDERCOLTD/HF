@@ -102,11 +102,11 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
 
     render(<SnapshotTabContent callerId={CALLER_ID} />);
 
-    // 5 parallel fetches: 3 from the foundation (attainment,
-    // skills-evidence, scheduler-decision) + 1 from SnapshotSubSkills
-    // (#1662 owns its own fetch now) + 1 from SnapshotCarryOverActions
-    // (#1666). Per-module lo-mastery fetches from SnapshotLoHeatmap
-    // (#1661) only fire AFTER attainment lands.
+    // 5 parallel fetches: 2 from the foundation (attainment +
+    // skills-evidence) + 1 from SnapshotSubSkills (#1662) + 1 from
+    // SnapshotCarryOverActions (#1666) + 1 from SnapshotWhyThisCall
+    // (#1663 owns its own fetch now). Per-module lo-mastery fetches
+    // from SnapshotLoHeatmap (#1661) only fire AFTER attainment lands.
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
     expect(calls.some((u) => u.includes("/attainment"))).toBe(true);
     expect(calls.some((u) => u.includes("/skills-evidence"))).toBe(true);
@@ -158,7 +158,7 @@ describe("SnapshotTabContent — slot stubs (sibling stories not yet merged)", (
     );
   });
 
-  it("shows scheduler stub when route returns 404 (#1663 not merged)", async () => {
+  it("mounts SnapshotWhyThisCall component (#1663 shipped — component owns its own fetch + 404 → no-decision badge)", async () => {
     vi.stubGlobal(
       "fetch",
       mockFetch({
@@ -173,8 +173,10 @@ describe("SnapshotTabContent — slot stubs (sibling stories not yet merged)", (
       }),
     );
     render(<SnapshotTabContent callerId={CALLER_ID} />);
+    // SnapshotWhyThisCall renders its own section/testid; on 404 it
+    // shows the "no decision recorded" muted badge (not an error).
     await waitFor(() =>
-      expect(screen.getByText(/coming in story #1663/i)).toBeTruthy(),
+      expect(screen.getByTestId("hf-snapshot-why-this-call")).toBeTruthy(),
     );
   });
 
