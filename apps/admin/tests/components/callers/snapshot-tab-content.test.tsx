@@ -102,9 +102,11 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
 
     render(<SnapshotTabContent callerId={CALLER_ID} />);
 
-    // 5 parallel fetches: 4 from the foundation + 1 from
-    // SnapshotCarryOverActions (#1666). Per-module lo-mastery fetches
-    // from SnapshotLoHeatmap (#1661) only fire AFTER attainment lands.
+    // 5 parallel fetches: 3 from the foundation (attainment,
+    // skills-evidence, scheduler-decision) + 1 from SnapshotSubSkills
+    // (#1662 owns its own fetch now) + 1 from SnapshotCarryOverActions
+    // (#1666). Per-module lo-mastery fetches from SnapshotLoHeatmap
+    // (#1661) only fire AFTER attainment lands.
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
     expect(calls.some((u) => u.includes("/attainment"))).toBe(true);
     expect(calls.some((u) => u.includes("/skills-evidence"))).toBe(true);
@@ -134,7 +136,7 @@ describe("SnapshotTabContent — slot stubs (sibling stories not yet merged)", (
     expect(screen.getByText(/coming in story A\.7/i)).toBeTruthy();
   });
 
-  it("shows sub-skills stub when route returns 404 (#1662 not merged)", async () => {
+  it("mounts SnapshotSubSkills component (#1662 shipped — component owns its own fetch + error state)", async () => {
     vi.stubGlobal(
       "fetch",
       mockFetch({
@@ -149,8 +151,10 @@ describe("SnapshotTabContent — slot stubs (sibling stories not yet merged)", (
       }),
     );
     render(<SnapshotTabContent callerId={CALLER_ID} />);
+    // Sub-skills component renders its own section/testid; on 404 it shows
+    // the error state.
     await waitFor(() =>
-      expect(screen.getByText(/coming in story #1662/i)).toBeTruthy(),
+      expect(screen.getByTestId("hf-snapshot-subskills")).toBeTruthy(),
     );
   });
 
