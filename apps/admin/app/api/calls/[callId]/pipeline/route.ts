@@ -3664,7 +3664,7 @@ const stageExecutors: Record<string, StageExecutor> = {
       playbookId: ctx.call.playbookId ?? undefined,
       writeCounts: {
         personalityObservation: personalityResult.observationCreated ? 1 : 0,
-        callScore: primaryEvidence.created ?? 0,
+        callScore: primaryEvidence.created ? 1 : 0,
         callerModuleProgress: primaryMastery.statusFlipped ? 1 : 0,
         // CallerTarget + lo_mastery counts aren't returned by the inner runners
         // today — leave unset so detector reads "not measured here" instead
