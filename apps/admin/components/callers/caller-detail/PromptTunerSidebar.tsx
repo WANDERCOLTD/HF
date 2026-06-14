@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { X, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import "./prompt-tuner.css";
 import { usePendingChangesTray } from "@/hooks/use-pending-changes-tray";
+import { useIsOperatorOrAbove } from "@/hooks/useIsOperatorOrAbove";
 // #911 — type-only import (stripped at build) signals to the audit-epic-100
 // `authoringBehTargetBypassCount` static check that this component now reads
 // the SYSTEM→PLAYBOOK→CALLER cascade through the canonical bulk helper. The
@@ -196,6 +197,11 @@ export function PromptTunerSidebar({
   onClose,
   inline,
 }: PromptTunerSidebarProps): React.ReactElement | null {
+  // #1664 Decision 5 — tooltip interpretation lines + low/high labels
+  // are OPERATOR-only. The PromptTuner sits inside the caller's Tune
+  // tab which is OPERATOR-gated at the route level today, but the
+  // hook is belt-and-suspenders.
+  const operatorOrBetter = useIsOperatorOrAbove();
   // --- Fetch real parameters from the targets API ---
   const [parameters, setParameters] = useState<TunerParameter[]>([]);
   const [paramsLoading, setParamsLoading] = useState(false);
@@ -1040,14 +1046,18 @@ export function PromptTunerSidebar({
                     const changed = Math.abs(p.effectiveValue - draft) > 0.01;
                     const displayName = p.name || humanise(p.parameterId);
                     const abbr = abbreviate(displayName);
-                    const lowLabel = p.interpretationLow?.split(":")[0] || "Low";
-                    const highLabel = p.interpretationHigh?.split(":")[0] || "High";
+                    const lowLabel = operatorOrBetter
+                      ? (p.interpretationLow?.split(":")[0] || "Low")
+                      : "Low";
+                    const highLabel = operatorOrBetter
+                      ? (p.interpretationHigh?.split(":")[0] || "High")
+                      : "High";
                     const tooltipLines = [
                       displayName,
                       p.definition || "",
                       "",
-                      p.interpretationHigh ? `High: ${p.interpretationHigh}` : "",
-                      p.interpretationLow ? `Low: ${p.interpretationLow}` : "",
+                      operatorOrBetter && p.interpretationHigh ? `High: ${p.interpretationHigh}` : "",
+                      operatorOrBetter && p.interpretationLow ? `Low: ${p.interpretationLow}` : "",
                     ].filter(Boolean).join("\n");
 
                     return (

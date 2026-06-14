@@ -6,6 +6,13 @@ import React from "react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 
+// #1664 — PersonalityRadar now calls useSession to gate interpretation
+// tooltips. Default to STUDENT (no interpretation text) so these lens
+// smoke tests don't depend on operator UI surface.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { role: "STUDENT" } } }),
+}));
+
 import { GoalsLens } from "@/components/callers/caller-detail/caller-detail-v2/lenses/GoalsLens";
 import { TopicsLens } from "@/components/callers/caller-detail/caller-detail-v2/lenses/TopicsLens";
 import { ExamLens } from "@/components/callers/caller-detail/caller-detail-v2/lenses/ExamLens";

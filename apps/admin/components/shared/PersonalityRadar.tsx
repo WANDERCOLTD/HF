@@ -6,6 +6,8 @@
 // Two modes: hero (280px, labels + grid) and compact (56px, shape only)
 // =====================================================
 
+import { useIsOperatorOrAbove } from "@/hooks/useIsOperatorOrAbove";
+
 export interface RadarTrait {
   id: string;           // e.g., "B5-O"
   label: string;        // e.g., "Openness"
@@ -79,6 +81,10 @@ export function PersonalityRadar({
   compact = false,
   animated = true,
 }: PersonalityRadarProps) {
+  // #1664 Decision 5 — interpretation strings are OPERATOR-only. The
+  // radar tooltip suppresses interpretationHigh/Low text for
+  // STUDENT-level sessions; numeric value + label still render.
+  const operatorOrBetter = useIsOperatorOrAbove();
   const n = traits.length;
   if (n < 3) return null;
 
@@ -264,10 +270,14 @@ export function PersonalityRadar({
           >
             <title>
               {traits[i].label}: {(traits[i].value * 100).toFixed(0)}%
-              {traits[i].interpretationHigh && traits[i].value >= 0.6
+              {operatorOrBetter &&
+              traits[i].interpretationHigh &&
+              traits[i].value >= 0.6
                 ? `\n${traits[i].interpretationHigh}`
                 : ""}
-              {traits[i].interpretationLow && traits[i].value < 0.4
+              {operatorOrBetter &&
+              traits[i].interpretationLow &&
+              traits[i].value < 0.4
                 ? `\n${traits[i].interpretationLow}`
                 : ""}
             </title>

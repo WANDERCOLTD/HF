@@ -7,8 +7,15 @@
  */
 
 import React from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
+
+// #1664 — PersonalityRadar now calls useSession to gate interpretation
+// tooltips. Default to STUDENT (no interpretation text) so these smoke
+// tests don't depend on operator UI surface.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { role: "STUDENT" } } }),
+}));
 
 import {
   CardGrid,

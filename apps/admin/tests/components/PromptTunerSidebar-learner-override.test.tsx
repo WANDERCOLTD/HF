@@ -28,6 +28,14 @@ vi.mock("@/hooks/use-pending-changes-tray", () => ({
   }),
 }));
 
+// #1664 — PromptTunerSidebar now consults useIsOperatorOrAbove (via
+// useSession) to gate the interpretation tooltip text. Default to an
+// OPERATOR session so existing slider assertions keep their current
+// shape; this test isn't checking interpretation strings.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { role: "OPERATOR" } } }),
+}));
+
 import { PromptTunerSidebar } from "@/components/callers/caller-detail/PromptTunerSidebar";
 
 // Sample SYSTEM+PLAYBOOK response from /api/playbooks/[id]/targets.
