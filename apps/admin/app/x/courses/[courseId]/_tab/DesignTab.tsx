@@ -26,6 +26,7 @@ import {
 } from "@/components/shared/designer-shell";
 import "@/components/shared/preview-renderers";
 import type {
+  ConversationArtifactsRendererData,
   FreshnessWarning,
   GoalType,
   SessionFlowData,
@@ -67,6 +68,7 @@ function resolveRendererData(
   pbConfig: PlaybookConfig,
   sessionFlow: SessionFlowData | null,
   contentTrust: ContentTrustData | null,
+  conversationArtifacts: ConversationArtifactsRendererData | null,
   goalTypesInUse: GoalType[] | undefined,
 ): unknown {
   if (selectedKey === "firstCallMode") {
@@ -86,6 +88,17 @@ function resolveRendererData(
   if (selectedKey === "contentTrust") {
     return contentTrust ?? { warnings: [], sourceCount: 0 };
   }
+  if (selectedKey === "conversationArtifacts") {
+    return (
+      conversationArtifacts ?? {
+        loading: true,
+        hasArtifacts: false,
+        lastCallId: null,
+        lastCallAt: null,
+        artifacts: [],
+      }
+    );
+  }
   if (SESSION_FLOW_SECTIONS.has(selectedKey)) {
     return { sessionFlow };
   }
@@ -98,6 +111,8 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
   const [contentTrust, setContentTrust] = useState<ContentTrustData | null>(
     null,
   );
+  const [conversationArtifacts, setConversationArtifacts] =
+    useState<ConversationArtifactsRendererData | null>(null);
   const pbConfig = useMemo(
     () => (playbookConfig ?? {}) as PlaybookConfig,
     [playbookConfig],
@@ -114,6 +129,7 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
   const modePolicySelected = selectedKey === "modePolicy";
   const instructionsSelected = selectedKey === "instructions";
   const contentTrustSelected = selectedKey === "contentTrust";
+  const conversationArtifactsSelected = selectedKey === "conversationArtifacts";
 
   // A.4: Goal types currently in use on this course. The playbook config
   // doesn't carry this directly today — read it from session-flow OR
@@ -157,6 +173,43 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
     };
   }, [courseId]);
 
+  // #1643 (A.5): conversation-artifacts preview. Caller-scoped data
+  // sampled from the course's most-recent active enrollment. The
+  // renderer handles loading + null-caller + empty + populated states.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/conversation-artifacts-preview`)
+      .then((res) => res.json())
+      .then(
+        (j: {
+          ok: boolean;
+          previewCallerName: string | null;
+          data: {
+            hasArtifacts: boolean;
+            lastCallId: string | null;
+            lastCallAt: string | null;
+            artifacts: ConversationArtifactsRendererData["artifacts"];
+          };
+        }) => {
+          if (!cancelled && j.ok) {
+            setConversationArtifacts({
+              loading: false,
+              previewCallerName: j.previewCallerName,
+              hasArtifacts: j.data.hasArtifacts,
+              lastCallId: j.data.lastCallId,
+              lastCallAt: j.data.lastCallAt,
+              totalCount: j.data.artifacts.length,
+              artifacts: j.data.artifacts,
+            });
+          }
+        },
+      )
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
   const inspectorNode = useMemo(() => {
     if (!selectedKey) return null;
     const renderer = getPreviewRenderer(selectedKey);
@@ -167,11 +220,19 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
         pbConfig,
         sessionFlow,
         contentTrust,
+        conversationArtifacts,
         goalTypesInUse,
       ),
       selection: { selectedKey },
     });
-  }, [selectedKey, pbConfig, sessionFlow, contentTrust, goalTypesInUse]);
+  }, [
+    selectedKey,
+    pbConfig,
+    sessionFlow,
+    contentTrust,
+    conversationArtifacts,
+    goalTypesInUse,
+  ]);
 
   const onSelectSection = useCallback(
     (section: ComposeSectionKey | null) => {
@@ -232,6 +293,25 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
               : `${contentTrust.warnings.length} warning${
                   contentTrust.warnings.length === 1 ? "" : "s"
                 }`}
+      </button>
+      <button
+        type="button"
+        className={`hf-chip ${conversationArtifactsSelected ? "hf-chip-selected" : ""}`}
+        aria-pressed={conversationArtifactsSelected}
+        onClick={() =>
+          setSelectedKey(
+            conversationArtifactsSelected ? null : "conversationArtifacts",
+          )
+        }
+      >
+        <span className="hf-category-label">Artifacts:</span>{" "}
+        {conversationArtifacts === null
+          ? "loading…"
+          : conversationArtifacts.previewCallerName === null
+            ? "no learners"
+            : !conversationArtifacts.hasArtifacts
+              ? "none from last call"
+              : `${conversationArtifacts.totalCount ?? conversationArtifacts.artifacts.length} from last call`}
       </button>
     </div>
   );

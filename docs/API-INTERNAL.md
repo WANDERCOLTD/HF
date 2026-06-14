@@ -10065,6 +10065,12 @@ List all classrooms (cohort groups) assigned to a course (playbook).
 
 ---
 
+### `GET` /api/courses/[courseId]/conversation-artifacts-preview
+
+**Auth**: Session
+
+---
+
 ### `GET` /api/courses/[courseId]/demo-script
 
 Returns the operator-only demo script for a course. This
@@ -16169,8 +16175,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 528 |
-| Files with annotations | 516 |
+| Route files found | 529 |
+| Files with annotations | 517 |
 | Files missing annotations | 12 |
 | Coverage | 97.7% |
 

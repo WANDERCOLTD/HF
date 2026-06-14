@@ -43,4 +43,10 @@ export type {
   FreshnessWarning,
 } from "./ContentTrustRenderer";
 
+export { ConversationArtifactsRenderer } from "./ConversationArtifactsRenderer";
+export type {
+  ConversationArtifactsRendererData,
+  ConversationArtifactsRendererArtifact,
+} from "./ConversationArtifactsRenderer";
+
 export type { SessionFlowData } from "./types";
