@@ -4,9 +4,9 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-06-10T16:44:38.808Z
+> Last generated: 2026-06-14T10:37:20.606Z
 > Surfaces: 4
-> Total tools: 67 (61 live, 6 roadmap stubs)
+> Total tools: 72 (66 live, 6 roadmap stubs)
 
 ## Contract
 
@@ -22,18 +22,20 @@ Per `docs/CHAIN-CONTRACTS.md` §3 Link 3:
 
 Source: `apps/admin/lib/chat/admin-tools.ts`
 
-36 live, 6 stubs.
+41 live, 6 stubs.
 
 ### Live tools
 
 | Tool | Min role | Required | Optional | Summary |
 |------|----------|----------|----------|---------|
 | `add_content_assertions` | OPERATOR | `source_id`, `assertions` | — | Add teaching points (ContentAssertions) to a content source. |
+| `apply_demo_preset` | OPERATOR | `playbook_id`, `reason` | `welcome_message` | Set the four 'good demo defaults' on a course in one batch: `firstCallMode='teach_immediately'`, `welcome. |
 | `attach_linked_curriculum` | OPERATOR | `playbook_id`, `curriculum_id`, `reason` | — | Attach a Curriculum to a Playbook as a 'linked' (variant) reference. |
 | `confirm_goal` | OPERATOR | `goal_id`, `reason` | — | Mark a Goal as COMPLETED. |
 | `create_subject_with_source` | OPERATOR | `subject_slug`, `subject_name`, `source_slug`, `source_name` | `subject_description`, `source_description`, `tags` | Create a new Subject and its primary ContentSource in one step. |
 | `detach_linked_curriculum` | OPERATOR | `playbook_id`, `curriculum_id`, `reason` | — | Remove a 'linked' Curriculum from a Playbook. |
 | `dismiss_goal` | OPERATOR | `goal_id`, `reason` | — | Dismiss a pending completion signal on a Goal without marking the goal COMPLETED. |
+| `dry_run_prompt` | SUPER_TESTER | `course_id` | `call_sequence` | Compose the prompt that would fire if a learner started a call on this course right now, WITHOUT persisting a Call or ComposedPrompt row. |
 | `explain_voice_cascade` | OPERATOR | `callerId` | — | Read-only. |
 | `generate_curriculum` | OPERATOR | `subject_id` | — | Trigger async AI curriculum generation for a subject. |
 | `get_caller_detail` | OPERATOR | `caller_id` | — | Get the full caller profile — same data the caller detail page shows. |
@@ -45,6 +47,8 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 | `list_behavior_targets` | OPERATOR | — | `playbook_id`, `caller_id` | List active BehaviorTargets. |
 | `list_curriculum_modules` | OPERATOR | — | `curriculum_id`, `playbook_id` | List CurriculumModule rows. |
 | `list_goals_for_caller` | OPERATOR | `caller_id` | `status` | List a caller's Goal rows. |
+| `open_sim` | VIEWER | `caller_id` | — | Return a navigation hint pointing at `/x/sim/<callerId>` so the operator can jump straight into the chat surface with a specific caller. |
+| `precompose_for_fresh_learner` | OPERATOR | `playbook_id`, `reason` | — | Pre-warm a demo caller's prompt so the next live call on this course starts instantly. |
 | `query_callers` | OPERATOR | — | `name`, `domain_id`, `domain_name`, `limit` | Search callers by name or domain. |
 | `query_specs` | OPERATOR | — | `name`, `spec_role`, `slug`, `is_active`, `limit` | Search and list analysis specs. |
 | `recompose_caller_prompt` | OPERATOR | `caller_id`, `reason` | — | Force a fresh compose of a caller's prompt RIGHT NOW (rather than waiting for their next call). |
@@ -52,6 +56,7 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 | `reprompt_playbook` | ADMIN | `playbook_id`, `reason` | — | Force a fresh compose RIGHT NOW for EVERY active caller on the course — including production learners. |
 | `swap_primary_curriculum` | OPERATOR | `playbook_id`, `curriculum_id`, `reason` | — | Promote a Curriculum to be the PRIMARY for a Playbook (course). |
 | `system_ini_check` | SUPERADMIN | — | — | Run a full system initialization check. |
+| `test_voice` | SUPER_TESTER | `playbook_id` | `text` | Play a short TTS sample of the course's current voice config so the operator can hear how the voice will sound. |
 | `update_assertion_lo_link` | OPERATOR | `assertion_id`, `reason` | `learning_objective_id` | Link (or clear) the LearningObjective FK on a ContentAssertion. |
 | `update_behavior_target` | OPERATOR | `scope`, `parameter_id`, `target_value`, `reason` | `playbook_id`, `caller_id` | Set a behaviour target at one of two scopes: LEARNER (only this caller) or PLAYBOOK (every learner on the course). |
 | `update_caller` | OPERATOR | `caller_id`, `reason` | `name`, `email`, `phone`, `externalId`, `cohortGroupId`, `archive` | Update a caller's profile fields by merging values. |
