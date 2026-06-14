@@ -10,7 +10,10 @@
  * click handlers ALSO trigger the Inspector for the 5 hand-wired
  * sections. #1628 (A.2) added the modePolicy chip. #1634 (A.4 + A.8)
  * closes out the Inspector pattern with the goal-adaptation guidance
- * template and the content-trust freshness renderer.
+ * template and the content-trust freshness renderer. #1643 + #1645
+ * (Group A.5) added conversationArtifacts + memoryDeltas chips for
+ * caller-scoped composer sections — both fetched from per-course
+ * preview routes that sample the most-recent active learner.
  *
  * Side-effect: importing the preview-renderers barrel triggers all
  * `registerPreviewRenderer()` calls at module load, before the
@@ -29,6 +32,7 @@ import type {
   ConversationArtifactsRendererData,
   FreshnessWarning,
   GoalType,
+  MemoryDeltasRendererData,
   SessionFlowData,
 } from "@/components/shared/preview-renderers";
 import type { ComposeSectionKey } from "@/lib/compose";
@@ -69,6 +73,7 @@ function resolveRendererData(
   sessionFlow: SessionFlowData | null,
   contentTrust: ContentTrustData | null,
   conversationArtifacts: ConversationArtifactsRendererData | null,
+  memoryDeltas: MemoryDeltasRendererData | null,
   goalTypesInUse: GoalType[] | undefined,
 ): unknown {
   if (selectedKey === "firstCallMode") {
@@ -99,6 +104,18 @@ function resolveRendererData(
       }
     );
   }
+  if (selectedKey === "memoryDeltas") {
+    return (
+      memoryDeltas ?? {
+        loading: true,
+        hasDeltas: false,
+        priorCallId: null,
+        priorPriorCallId: null,
+        added: [],
+        updated: [],
+      }
+    );
+  }
   if (SESSION_FLOW_SECTIONS.has(selectedKey)) {
     return { sessionFlow };
   }
@@ -113,6 +130,8 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
   );
   const [conversationArtifacts, setConversationArtifacts] =
     useState<ConversationArtifactsRendererData | null>(null);
+  const [memoryDeltas, setMemoryDeltas] =
+    useState<MemoryDeltasRendererData | null>(null);
   const pbConfig = useMemo(
     () => (playbookConfig ?? {}) as PlaybookConfig,
     [playbookConfig],
@@ -130,6 +149,7 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
   const instructionsSelected = selectedKey === "instructions";
   const contentTrustSelected = selectedKey === "contentTrust";
   const conversationArtifactsSelected = selectedKey === "conversationArtifacts";
+  const memoryDeltasSelected = selectedKey === "memoryDeltas";
 
   // A.4: Goal types currently in use on this course. The playbook config
   // doesn't carry this directly today — read it from session-flow OR
@@ -210,6 +230,44 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
     };
   }, [courseId]);
 
+  // #1645 (A.5): memory-deltas preview. Caller-scoped data sampled
+  // from the course's most-recent active enrollment. Renderer handles
+  // loading + null-caller + Call 1 + empty + populated states.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/memory-deltas-preview`)
+      .then((res) => res.json())
+      .then(
+        (j: {
+          ok: boolean;
+          previewCallerName: string | null;
+          data: {
+            hasDeltas: boolean;
+            priorCallId: string | null;
+            priorPriorCallId: string | null;
+            added: MemoryDeltasRendererData["added"];
+            updated: MemoryDeltasRendererData["updated"];
+          };
+        }) => {
+          if (!cancelled && j.ok) {
+            setMemoryDeltas({
+              loading: false,
+              previewCallerName: j.previewCallerName,
+              hasDeltas: j.data.hasDeltas,
+              priorCallId: j.data.priorCallId,
+              priorPriorCallId: j.data.priorPriorCallId,
+              added: j.data.added,
+              updated: j.data.updated,
+            });
+          }
+        },
+      )
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
   const inspectorNode = useMemo(() => {
     if (!selectedKey) return null;
     const renderer = getPreviewRenderer(selectedKey);
@@ -221,6 +279,7 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
         sessionFlow,
         contentTrust,
         conversationArtifacts,
+        memoryDeltas,
         goalTypesInUse,
       ),
       selection: { selectedKey },
@@ -231,6 +290,7 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
     sessionFlow,
     contentTrust,
     conversationArtifacts,
+    memoryDeltas,
     goalTypesInUse,
   ]);
 
@@ -312,6 +372,23 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
             : !conversationArtifacts.hasArtifacts
               ? "none from last call"
               : `${conversationArtifacts.totalCount ?? conversationArtifacts.artifacts.length} from last call`}
+      </button>
+      <button
+        type="button"
+        className={`hf-chip ${memoryDeltasSelected ? "hf-chip-selected" : ""}`}
+        aria-pressed={memoryDeltasSelected}
+        onClick={() =>
+          setSelectedKey(memoryDeltasSelected ? null : "memoryDeltas")
+        }
+      >
+        <span className="hf-category-label">Memory deltas:</span>{" "}
+        {memoryDeltas === null
+          ? "loading…"
+          : memoryDeltas.previewCallerName === null
+            ? "no learners"
+            : !memoryDeltas.hasDeltas
+              ? "none since last call"
+              : `${memoryDeltas.added.length}+ / ${memoryDeltas.updated.length}↑`}
       </button>
     </div>
   );

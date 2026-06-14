@@ -49,4 +49,11 @@ export type {
   ConversationArtifactsRendererArtifact,
 } from "./ConversationArtifactsRenderer";
 
+export { MemoryDeltasRenderer } from "./MemoryDeltasRenderer";
+export type {
+  MemoryDeltasRendererData,
+  MemoryDeltaAddedEntry,
+  MemoryDeltaUpdatedEntry,
+} from "./MemoryDeltasRenderer";
+
 export type { SessionFlowData } from "./types";
