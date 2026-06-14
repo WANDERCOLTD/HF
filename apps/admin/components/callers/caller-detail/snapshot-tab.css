@@ -1,0 +1,30 @@
+/* Snapshot v3 landing tab — #1660 (Group C foundation of Epic #1606).
+ *
+ * Vertical stack of section cards. Each section is independently rendered
+ * so the foundation can ship before sibling stories fill the stub slots.
+ * The compact cards reuse the global `hf-card-compact` / `hf-badge` /
+ * `hf-list-row` design-system primitives — no new visual vocabulary.
+ */
+
+.hf-snapshot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-2, 12px);
+}
+
+.hf-snapshot-section {
+  width: 100%;
+}
+
+.hf-snapshot-header {
+  /* Trajectory sparklines are visually loud; sit them at the top with a
+   * small bottom-margin to separate from the section stack below. */
+  margin-bottom: var(--gap-1, 4px);
+}
+
+.hf-snapshot-stub .hf-card-compact {
+  /* Stubs render in a muted state so the operator can see the slot
+   * waiting for its sibling story without confusing it for live data. */
+  border-style: dashed;
+  background: var(--surface-muted, transparent);
+}

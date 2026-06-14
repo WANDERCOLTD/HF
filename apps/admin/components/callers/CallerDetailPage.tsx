@@ -28,6 +28,7 @@ import { MemoriesSection, PersonalitySection, CallerSlugsSection, CallerEnrollme
 import { SurveySection } from "./caller-detail/SurveySection";
 import { ScoresSection, LearningSection, AssessmentTargetsCard, TopicsCoveredSection, ExamReadinessSection, TopLevelAgentBehaviorSection, PlanProgressSection, ModuleProgressView } from "./caller-detail/ProgressTab";
 import { LearningTrajectoryCard } from "./caller-detail/cards/LearningTrajectoryCard";
+import { SnapshotTabContent } from "./caller-detail/SnapshotTabContent";
 import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
 import { PromptTimelineRows } from "./caller-detail/PromptTimelineRows";
 import { CallsPromptsTab, type BulkActions } from "./caller-detail/CallsPromptsTab";
@@ -1155,21 +1156,14 @@ export default function CallerDetailPage() {
       {/* Section Content */}
       <div className="cdp-body">
       <div className="cdp-content">
-      {/* S5 of #1555 — Snapshot v3 beta placeholder. Renders only when
-          the flag + URL param align (see snapshotV3Active above). The
-          body is intentionally minimal "Coming soon" copy so a typed
-          ?tab=snapshot-v3 with the flag off lands somewhere coherent
-          rather than blank. Content lands in the follow-on epic. */}
+      {/* S5 of #1555 + #1660 (Epic #1606 Group C foundation) — Snapshot v3
+          beta. Renders only when the flag + URL param align (see
+          snapshotV3Active above). The S5 "Coming soon" placeholder is
+          replaced by the SnapshotTabContent composer, which mounts 5
+          sections + 3 stub slots that sibling stories #1661 / #1662 /
+          #1663 / #1665 / #1666 will fill. */}
       {activeSection === "snapshot-v3" && (
-        <div className="hf-card" role="region" aria-label="Snapshot (beta)">
-          <h2 className="hf-section-title">Snapshot (beta)</h2>
-          <p className="hf-section-desc">
-            The unified per-learner Snapshot is being built — check back
-            next sprint. In the meantime, use the legacy tabs above
-            (Overview, Progress, Attainment, Adaptations) for the same
-            information across separate surfaces.
-          </p>
-        </div>
+        <SnapshotTabContent callerId={data.caller.id} />
       )}
 
       {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
