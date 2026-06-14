@@ -1627,10 +1627,40 @@ async function computeReward(
     );
   }
 
-  // Load system targets
-  const targets = await prisma.behaviorTarget.findMany({
-    where: { scope: "SYSTEM" },
+  // #1641 — Load BOTH SYSTEM-scope and PLAYBOOK-scope targets, then
+  // cascade-merge: PLAYBOOK row wins over SYSTEM row on parameterId
+  // collision. This matches the BehaviorTarget cascade contract
+  // (`loadBehaviorTargetsWithCascade` for the SCORE_AGENT read side)
+  // and unblocks STRUCTURED courses that measure `skill_*` params with
+  // PLAYBOOK-scope targets but no SYSTEM-scope target (e.g. IELTS
+  // Speaking V1.0 / PAW / PLS USE NEW V1.0 — verified 2026-06-14:
+  // SCORE_AGENT measured `skill_fluency_and_coherence_fc` against a
+  // PLAYBOOK target of 0.70, but REWARD's SYSTEM-only findMany missed
+  // it and the #1632 guard threw "0 measurements matched").
+  //
+  // Pre-#1641 the cascade was effectively SYSTEM-only at REWARD; this
+  // PR adds the PLAYBOOK overlay. CALLER-scope overrides are still
+  // out of scope here — those flow through ADAPT's `updateTargets`
+  // sub-op (#1609) once REWARD writes a RewardScore row.
+  const rawTargets = await prisma.behaviorTarget.findMany({
+    where: call.playbookId
+      ? {
+          OR: [
+            { scope: "SYSTEM" },
+            { scope: "PLAYBOOK", playbookId: call.playbookId },
+          ],
+        }
+      : { scope: "SYSTEM" },
   });
+
+  // Cascade merge: PLAYBOOK overrides SYSTEM on parameterId collision.
+  const targetByParam = new Map<string, (typeof rawTargets)[number]>();
+  for (const t of rawTargets) {
+    if (t.scope === "SYSTEM") targetByParam.set(t.parameterId, t);
+  }
+  for (const t of rawTargets) {
+    if (t.scope === "PLAYBOOK") targetByParam.set(t.parameterId, t);
+  }
 
   // #1632 — REWARD compares the AI tutor's TUNABLE BEHAVIOR (BEH-* +
   // skill_* params, `Parameter.isAdjustable === true`) against the
@@ -1655,10 +1685,10 @@ async function computeReward(
   // intent (refuse to silently fall back to 0.5) is preserved by the
   // earlier `behaviorMeasurements.length === 0` throw and the new
   // `diffs.length === 0` throw below.
-  const diffs: Array<{ parameterId: string; target: number; actual: number; diff: number }> = [];
+  const diffs: Array<{ parameterId: string; target: number; actual: number; diff: number; scope: string }> = [];
   const unmatchedMeasurements: string[] = [];
   for (const measurement of call.behaviorMeasurements) {
-    const target = targets.find((t) => t.parameterId === measurement.parameterId);
+    const target = targetByParam.get(measurement.parameterId);
     if (!target) {
       unmatchedMeasurements.push(measurement.parameterId);
       continue;
@@ -1669,6 +1699,11 @@ async function computeReward(
       target: target.targetValue,
       actual: measurement.actualValue,
       diff,
+      // #1641 — stamp which scope's target won the cascade. Lets the
+      // operator-facing pipeline diagnostic at /x/logs distinguish
+      // "scored against the SYSTEM default" (suggests an unset playbook
+      // target) from "scored against an explicit PLAYBOOK override".
+      scope: target.scope,
     });
   }
 
@@ -1680,15 +1715,24 @@ async function computeReward(
   // for forensics without spamming.
   if (diffs.length === 0) {
     throw new Error(
-      `REWARD: STRUCTURED call ${callId} produced ${call.behaviorMeasurements.length} BehaviorMeasurement(s) but NONE matched a SYSTEM BehaviorTarget — refusing silent 0.5 fallback (#1256/#1632). Measured: ${call.behaviorMeasurements.map((m) => m.parameterId).slice(0, 10).join(", ")}${call.behaviorMeasurements.length > 10 ? "..." : ""}. Expected at least one BEH-* or skill_* parameter with a SYSTEM target.`,
+      `REWARD: STRUCTURED call ${callId} produced ${call.behaviorMeasurements.length} BehaviorMeasurement(s) but NONE matched a SYSTEM or PLAYBOOK BehaviorTarget — refusing silent 0.5 fallback (#1256/#1632/#1641). Measured: ${call.behaviorMeasurements.map((m) => m.parameterId).slice(0, 10).join(", ")}${call.behaviorMeasurements.length > 10 ? "..." : ""}. Targets loaded: ${targetByParam.size} (SYSTEM + PLAYBOOK for playbook ${call.playbookId ?? "(null)"}). Expected at least one BEH-* or skill_* parameter with a target at either scope.`,
     );
   }
   if (unmatchedMeasurements.length > 0) {
-    log.debug("REWARD: skipping STATE measurements without SYSTEM targets (expected)", {
+    log.debug("REWARD: skipping STATE measurements without cascade targets (expected)", {
       count: unmatchedMeasurements.length,
       sample: unmatchedMeasurements.slice(0, 5),
     });
   }
+  // #1641 — log the cascade composition for operator-facing diagnostics.
+  const systemHits = diffs.filter((d) => d.scope === "SYSTEM").length;
+  const playbookHits = diffs.filter((d) => d.scope === "PLAYBOOK").length;
+  log.info("REWARD cascade composition", {
+    totalMatched: diffs.length,
+    bySystemTarget: systemHits,
+    byPlaybookOverride: playbookHits,
+    unmatchedCount: unmatchedMeasurements.length,
+  });
 
   const avgDiff = diffs.length > 0 ? diffs.reduce((sum, d) => sum + d.diff, 0) / diffs.length : 0;
   const behaviorScore = Math.max(0, 1 - avgDiff);
