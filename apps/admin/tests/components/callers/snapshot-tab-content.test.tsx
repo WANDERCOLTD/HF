@@ -91,7 +91,7 @@ afterEach(() => {
 });
 
 describe("SnapshotTabContent — cold-load behaviour", () => {
-  it("fires 4 parallel fetches on mount (attainment, skills-evidence, sub-skills, scheduler-decision)", async () => {
+  it("fires parallel fetches on mount (attainment + skills-evidence + sub-skills + scheduler-decision + carry-over actions)", async () => {
     const calls: string[] = [];
     const fetchMock = vi.fn(async (url: string | URL | Request) => {
       const u = typeof url === "string" ? url : url.toString();
@@ -102,11 +102,15 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
 
     render(<SnapshotTabContent callerId={CALLER_ID} />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    // 5 parallel fetches: 4 from the foundation + 1 from
+    // SnapshotCarryOverActions (#1666). Per-module lo-mastery fetches
+    // from SnapshotLoHeatmap (#1661) only fire AFTER attainment lands.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
     expect(calls.some((u) => u.includes("/attainment"))).toBe(true);
     expect(calls.some((u) => u.includes("/skills-evidence"))).toBe(true);
     expect(calls.some((u) => u.includes("/sub-skills"))).toBe(true);
     expect(calls.some((u) => u.includes("/scheduler-decision"))).toBe(true);
+    expect(calls.some((u) => u.includes("/actions"))).toBe(true);
   });
 
   it("renders the trajectory card in the header slot", () => {
@@ -216,13 +220,15 @@ describe("SnapshotTabContent — slot stubs (sibling stories not yet merged)", (
     expect(screen.getByTestId("hf-snapshot-lo-heatmap")).toBeTruthy();
   });
 
-  it("shows carry-over actions stub (A.9 not merged)", () => {
+  it("mounts the SnapshotCarryOverActions component (#1666 shipped)", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 404 })),
     );
     render(<SnapshotTabContent callerId={CALLER_ID} />);
-    expect(screen.getByTestId("hf-snapshot-actions-stub")).toBeTruthy();
+    // Component renders its own loading/error states via the
+    // hf-snapshot-carryover-actions testid; the stub testid is retired.
+    expect(screen.getByTestId("hf-snapshot-carryover-actions")).toBeTruthy();
   });
 });
 
