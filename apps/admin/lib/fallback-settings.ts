@@ -187,6 +187,8 @@ export async function getTranscriptLimitsFallback(): Promise<FallbackTranscriptL
 export interface FallbackAIModelConfig {
   provider: string;
   model: string;
+  maxTokens?: number;
+  temperature?: number;
 }
 
 export const DEFAULT_AI_MODEL_CONFIGS: Record<string, FallbackAIModelConfig> = {

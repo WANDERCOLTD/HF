@@ -149,7 +149,6 @@ export async function POST(
       const identitiesCleared = await tx.callerIdentity.updateMany({
         where: { callerId },
         data: {
-          promptStackId: null,
           nextPrompt: null,
           nextPromptComposedAt: null,
           nextPromptInputs: Prisma.DbNull,

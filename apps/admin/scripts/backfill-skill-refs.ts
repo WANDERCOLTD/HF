@@ -49,16 +49,16 @@ async function main() {
   for (const [sourceContentId, batch] of bySource) {
     const source = await prisma.contentSource.findUnique({
       where: { id: sourceContentId },
-      select: { id: true, fileName: true, contentText: true },
+      select: { id: true, name: true, textSample: true },
     });
-    if (!source?.contentText) {
-      console.warn(`  [skip] source ${sourceContentId} (${source?.fileName ?? "?"}) has no contentText`);
+    if (!source?.textSample) {
+      console.warn(`  [skip] source ${sourceContentId} (${source?.name ?? "?"}) has no textSample`);
       skipped += batch.length;
       continue;
     }
 
     // Re-parse the doc to get the canonical skills list
-    const projection = projectCourseReference(source.contentText, { sourceContentId });
+    const projection = projectCourseReference(source.textSample, { sourceContentId });
     const refByParamName = new Map<string, string>();
     for (const skill of projection.skills) {
       refByParamName.set(skillNameToParameterName(skill.name), skill.ref);

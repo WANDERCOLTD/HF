@@ -31,9 +31,8 @@ const PAGE_ROLES = new Map<string, string>();
 for (const section of manifest) {
   if (!section.requiredRole) continue;
   const role = section.requiredRole;
-  // Section-level href
-  if (section.href) PAGE_ROLES.set(section.href, role);
-  // All item hrefs in this section inherit the section's requiredRole
+  // All item hrefs in this section inherit the section's requiredRole.
+  // (No section-level href — section is a grouping container; items carry the URLs.)
   for (const item of section.items) {
     PAGE_ROLES.set(item.href, role);
   }

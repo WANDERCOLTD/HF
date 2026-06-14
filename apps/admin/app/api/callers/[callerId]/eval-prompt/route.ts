@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { getPromptTemplate } from "@/lib/prompts/prompt-settings";
@@ -188,7 +189,7 @@ ${JSON.stringify(llmPrompt, null, 2)}`;
     // Persist eval result on the composed prompt
     await prisma.composedPrompt.update({
       where: { id: composedPromptId },
-      data: { evalResult: evalPayload, evalAt: new Date() },
+      data: { evalResult: evalPayload as unknown as Prisma.InputJsonValue, evalAt: new Date() },
     });
 
     return NextResponse.json({ ok: true, eval: evalPayload });

@@ -594,9 +594,10 @@ export async function GET(
       // Group by (playbookId, ref) — one BehaviorTarget lookup per pair.
       const byPlaybook = new Map<string, Set<string>>();
       for (const g of skillGoals) {
-        const set = byPlaybook.get(g.playbookId) ?? new Set<string>();
+        const pbId = g.playbookId as string; // filter at L590 guarantees non-null
+        const set = byPlaybook.get(pbId) ?? new Set<string>();
         set.add(g.ref as string);
-        byPlaybook.set(g.playbookId, set);
+        byPlaybook.set(pbId, set);
       }
       // Resolve skillRef → parameterId per playbook.
       const refToParam = new Map<string, string>(); // key = `${playbookId}::${ref}`
@@ -676,9 +677,10 @@ export async function GET(
     if (learnGoalsWithRef.length > 0) {
       const refsByPlaybook = new Map<string, Set<string>>();
       for (const g of learnGoalsWithRef) {
-        const set = refsByPlaybook.get(g.playbookId) ?? new Set<string>();
+        const pbId = g.playbookId as string; // filter at L674 guarantees non-null
+        const set = refsByPlaybook.get(pbId) ?? new Set<string>();
         set.add(g.ref as string);
-        refsByPlaybook.set(g.playbookId, set);
+        refsByPlaybook.set(pbId, set);
       }
       for (const [pbId, refs] of refsByPlaybook) {
         const los = await prisma.learningObjective.findMany({

@@ -47,9 +47,9 @@ function ScoreBar({ score, label }: { score: number; label?: string }): JSX.Elem
   );
 }
 
-function formatDate(iso: string | number | null): string {
-  if (!iso) return "";
-  const d = new Date(typeof iso === "number" ? iso : iso);
+function formatDate(iso: string | number | boolean | null | undefined): string {
+  if (iso == null || typeof iso === "boolean") return "";
+  const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 

@@ -886,7 +886,10 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
 
         {/* Effective settings (read-only summary) */}
         {(() => {
-          const resolved = resolveTeachingProfile(subject);
+          const resolved = resolveTeachingProfile({
+            teachingProfile: subject.teachingProfile,
+            teachingOverrides: subject.teachingOverrides as Record<string, unknown> | null,
+          });
           if (!resolved || (!resolved.teachingMode && !resolved.interactionPattern)) return null;
           return (
             <div className="hf-mb-md" style={{ padding: 12, background: "var(--surface-secondary)", borderRadius: 8 }}>
@@ -1041,8 +1044,8 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
               onClick={async () => {
                 setSavingOverrides(true);
                 const overrides: TeachingOverrides = {};
-                if (overrideMode) overrides.teachingMode = overrideMode;
-                if (overridePattern) overrides.interactionPattern = overridePattern;
+                if (overrideMode) overrides.teachingMode = overrideMode as TeachingOverrides["teachingMode"];
+                if (overridePattern) overrides.interactionPattern = overridePattern as TeachingOverrides["interactionPattern"];
                 if (overrideFocus.trim()) overrides.teachingFocus = overrideFocus.trim();
                 if (overrideHints.length > 0) overrides.deliveryHints = overrideHints;
                 const hasOverrides = Object.keys(overrides).length > 0;
@@ -1772,11 +1775,11 @@ function CurriculumView({ modules, name, description }: { modules: CurriculumMod
               {mod.description && (
                 <p className="hf-text-sm hf-text-muted" style={{ margin: "0 0 6px" }}>{mod.description}</p>
               )}
-              {mod.learningOutcomes.length > 0 && (
+              {(mod.learningOutcomes?.length ?? 0) > 0 && (
                 <div className="hf-text-xs">
                   <span className="hf-category-label">Learning Outcomes</span>
                   <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
-                    {mod.learningOutcomes.map((lo, i) => (
+                    {mod.learningOutcomes!.map((lo, i) => (
                       <li key={i} className="hf-text-primary" style={{ marginBottom: 2 }}>{lo}</li>
                     ))}
                   </ul>

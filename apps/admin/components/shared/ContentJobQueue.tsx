@@ -31,6 +31,12 @@ interface TaskProgress {
   totalTables?: number;
   progress?: number;         // 0-100
   totalRows?: number;
+  // Bulk-delete fields (from context — written by app/api/admin/bulk-delete/job/route.ts)
+  entityType?: string;
+  totalCount?: number;
+  deletedCount?: number;
+  failedCount?: number;
+  currentEntity?: string;
   // Common
   warnings?: string[];
   error?: string;

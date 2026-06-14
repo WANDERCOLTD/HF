@@ -7,6 +7,7 @@
  */
 
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
+import type { LegacyCurriculumModuleJSON as CurriculumModule } from "@/lib/types/json-fields";
 import type { ExtractedAssertion } from "./extract-assertions";
 import { getPromptTemplate } from "@/lib/prompts/prompt-settings";
 import { sanitizeModuleTitle } from "./sanitize-module";
@@ -456,7 +457,7 @@ export async function extractSkeletonFromAssertions(
         keyTerms: [],
         estimatedDurationMinutes: null,
         sortOrder: m.sortOrder || i + 1,
-      })),
+      })) as unknown as CurriculumModule[],
       assertionTags: [],
       deliveryConfig: {},
       warnings: skeletonWarnings,

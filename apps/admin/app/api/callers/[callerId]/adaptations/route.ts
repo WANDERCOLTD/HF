@@ -154,7 +154,7 @@ export async function GET(
       playbookName: null,
       whatWasAdapted: [],
       why: [],
-      nextAdaptation: null,
+      nextAdaptation: [],
       empty: true,
     } satisfies AdaptationsResponse);
   }

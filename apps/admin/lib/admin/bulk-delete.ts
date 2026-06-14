@@ -149,7 +149,7 @@ export async function previewCallerDelete(callerIds: string[]): Promise<BulkDele
     items,
     totals,
     recommendBackground: deletableCount > SYNC_CALLER_LIMIT || totalAffected(totals) > TOTAL_RECORDS_THRESHOLD,
-    blocked: items.filter((i) => !i.canDelete).map((i) => ({ id: i.id, name: i.name, reason: i.blockReason! })),
+    blocked: items.filter((i) => !i.canDelete).map((i) => ({ id: i.id, name: i.name ?? "(unnamed)", reason: i.blockReason! })),
   };
 }
 
@@ -228,7 +228,7 @@ export async function previewPlaybookDelete(playbookIds: string[]): Promise<Bulk
     items,
     totals,
     recommendBackground: deletableCount > SYNC_PLAYBOOK_LIMIT || totalAffected(totals) > TOTAL_RECORDS_THRESHOLD,
-    blocked: items.filter((i) => !i.canDelete).map((i) => ({ id: i.id, name: i.name, reason: i.blockReason! })),
+    blocked: items.filter((i) => !i.canDelete).map((i) => ({ id: i.id, name: i.name ?? "(unnamed)", reason: i.blockReason! })),
   };
 }
 
@@ -295,7 +295,7 @@ export async function previewDomainDeactivate(domainIds: string[]): Promise<Bulk
     items,
     totals,
     recommendBackground: false, // Soft-delete is always fast
-    blocked: items.filter((i) => !i.canDelete).map((i) => ({ id: i.id, name: i.name, reason: i.blockReason! })),
+    blocked: items.filter((i) => !i.canDelete).map((i) => ({ id: i.id, name: i.name ?? "(unnamed)", reason: i.blockReason! })),
   };
 }
 
@@ -357,7 +357,7 @@ export async function previewSubjectDelete(subjectIds: string[]): Promise<BulkDe
     items,
     totals,
     recommendBackground: deletableCount > SYNC_SUBJECT_LIMIT || totalAffected(totals) > TOTAL_RECORDS_THRESHOLD,
-    blocked: items.filter((i) => !i.canDelete).map((i) => ({ id: i.id, name: i.name, reason: i.blockReason! })),
+    blocked: items.filter((i) => !i.canDelete).map((i) => ({ id: i.id, name: i.name ?? "(unnamed)", reason: i.blockReason! })),
   };
 }
 

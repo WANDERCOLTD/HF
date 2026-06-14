@@ -8,8 +8,8 @@ import type { CapturedError } from "@/contexts/ErrorCaptureContext";
 export interface BugContextPayload {
   url: string;
   timestamp: number;
-  viewport: string;
-  browser: string;
+  viewport: string | null;
+  browser: string | null;
   userRole?: string;
   institution?: string;
   entityBreadcrumbs: string;

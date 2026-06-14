@@ -24,7 +24,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (isStudentAuthError(auth)) return auth.error;
 
   const scope = request.nextUrl.searchParams.get("scope");
-  if (!scope || !VALID_SCOPES.has(scope)) {
+  if (!scope || !VALID_SCOPES.has(scope as typeof SURVEY_SCOPES[keyof typeof SURVEY_SCOPES])) {
     return NextResponse.json(
       { ok: false, error: "Invalid or missing scope parameter" },
       { status: 400 },
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { scope, answers } = body;
 
-  if (!scope || !VALID_SCOPES.has(scope)) {
+  if (!scope || !VALID_SCOPES.has(scope as typeof SURVEY_SCOPES[keyof typeof SURVEY_SCOPES])) {
     return NextResponse.json(
       { ok: false, error: "Invalid or missing scope" },
       { status: 400 },

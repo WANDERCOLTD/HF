@@ -728,7 +728,6 @@ export default function CourseDetailPage() {
         if (data.skipped) {
           const skipPreview = { questions: [] as SurveyStepConfig[], skipped: true, skipReason: data.skipReason ?? "generation_skipped" };
           setMcqPreview(skipPreview);
-          setMidTestMcqPreview(skipPreview);
           setPostTestMcqPreview(skipPreview);
         } else {
           await refreshAllPreviews();

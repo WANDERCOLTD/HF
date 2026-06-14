@@ -76,7 +76,11 @@ vi.mock("@/lib/system-ini", () => ({
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
 import { prisma } from "@/lib/prisma";
 
-const mockPrisma = vi.mocked(prisma);
+// vi.mocked() doesn't deep-mock nested members in current vitest;
+// cast to any so chained `.mockResolvedValue` / `.mockRejectedValue`
+// type-check across the file. The factory above replaces every Prisma
+// method with `vi.fn()` so this is correct at runtime.
+const mockPrisma = vi.mocked(prisma) as any;
 
 beforeEach(() => {
   vi.clearAllMocks();

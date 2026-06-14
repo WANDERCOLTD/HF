@@ -78,6 +78,11 @@ export interface CourseRefData {
     tutorBehaviour?: string[];
     skillFocusPerSession?: string[];
     exitCriteria?: string[];
+    checkpoints?: Array<{
+      label: string;
+      criteria: string;
+      consequence?: string;
+    }>;
   }>;
   edgeCases?: Array<{
     scenario: string;
