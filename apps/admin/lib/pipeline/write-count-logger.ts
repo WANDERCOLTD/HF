@@ -48,8 +48,6 @@ export interface PipelineStageWriteCounts {
   callerTarget?: number;
   /** AGGREGATE, monotonic per-LO mastery ratchet (curriculum:{spec}:lo_mastery:{module}:{lo}) */
   callerAttribute_lo_mastery?: number;
-  /** AGGREGATE / enrollment, per-teaching-point continuous-mode status (curriculum:{spec}:tp_status:{assertion}) */
-  callerAttribute_tp_status?: number;
   /** AGGREGATE, per-module rolled-up mastery (structured courses only) */
   callerModuleProgress?: number;
   /** REWARD, overall call quality */

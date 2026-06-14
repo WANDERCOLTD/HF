@@ -1195,70 +1195,17 @@ export async function getTpProgressSummaryBatch(
   return result;
 }
 
-/**
- * Batch-write TP mastery for multiple assertions.
- * Used by pipeline after continuous-mode assessment.
- */
-export async function updateTpMasteryBatch(
-  callerId: string,
-  specSlug: string,
-  updates: Record<string, TpProgress>,
-): Promise<void> {
-  const keyPattern = await ContractRegistry.getKeyPattern('CURRICULUM_PROGRESS_V1');
-  if (!keyPattern) throw new Error('CURRICULUM_PROGRESS_V1 contract not loaded');
-
-  const prefix = keyPattern
-    .replace('{specSlug}', specSlug)
-    .replace(':{key}', ':');
-
-  const writes: Promise<unknown>[] = [];
-
-  for (const [assertionId, progress] of Object.entries(updates)) {
-    const statusKey = `${prefix}tp_status:${assertionId}`;
-    const masteryKey = `${prefix}tp_mastery:${assertionId}`;
-
-    writes.push(
-      prisma.callerAttribute.upsert({
-        where: { callerId_key_scope: { callerId, key: statusKey, scope: 'CURRICULUM' } },
-        create: { callerId, key: statusKey, scope: 'CURRICULUM', valueType: 'STRING', stringValue: progress.status },
-        update: { stringValue: progress.status },
-      }),
-      prisma.callerAttribute.upsert({
-        where: { callerId_key_scope: { callerId, key: masteryKey, scope: 'CURRICULUM' } },
-        create: { callerId, key: masteryKey, scope: 'CURRICULUM', valueType: 'NUMBER', numberValue: progress.mastery },
-        update: { numberValue: progress.mastery },
-      }),
-    );
-  }
-
-  await Promise.all(writes);
-}
-
-/**
- * Initialize TP tracking for all assertions in a continuous-mode curriculum.
- * Creates tp_status = "not_started" for each assertion that doesn't already have a status.
- * Called once when a learner first enters a continuous-mode course.
- */
-export async function initializeTpTracking(
-  callerId: string,
-  specSlug: string,
-  assertionIds: string[],
-): Promise<void> {
-  if (assertionIds.length === 0) return;
-
-  const existing = await getTpProgressBatch(callerId, specSlug, assertionIds);
-  const toInit: Record<string, TpProgress> = {};
-
-  for (const id of assertionIds) {
-    if (!existing[id] || existing[id].status === "not_started") {
-      toInit[id] = { mastery: 0, status: "not_started" };
-    }
-  }
-
-  if (Object.keys(toInit).length > 0) {
-    await updateTpMasteryBatch(callerId, specSlug, toInit);
-  }
-}
+// #1615 Phase 1 — `updateTpMasteryBatch` and `initializeTpTracking` deleted.
+// `updateTpMasteryBatch` was reached only by the legacy fallback branch of
+// `updateTpMasteryAfterCall` (now also removed in `app/api/calls/[callId]/pipeline/route.ts`),
+// which produced 0 rows DB-wide across the entire system. `initializeTpTracking`
+// had zero callers anywhere in the codebase. The readers
+// (`getTpProgressBatch`, `getTpProgressSummary`, `getTpProgressSummaryBatch`)
+// remain temporarily for backwards compatibility with their external call
+// sites; they now always return the default-empty shape. Phase 2 (separate
+// PR) will refactor those reader sites and delete the readers + the
+// `TpProgress` type along with the continuous-mode working-set-selector
+// branch that consumes them.
 
 export async function storeTrustWeightedProgress(
   callerId: string,
