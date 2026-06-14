@@ -9,7 +9,7 @@ export async function ensureInstitutionAndDomain(
 ): Promise<{ domainId: string; institutionId: string; domainKind: "INSTITUTION" | "COMMUNITY" } | null> {
   const resolved = await resolveInstitutionByName(institutionName);
   if (resolved) {
-    return { domainId: resolved.domainId, institutionId: resolved.institutionId, domainKind: resolved.domainKind };
+    return { domainId: resolved.domainId, institutionId: resolved.institutionId, domainKind: resolved.domainKind as "INSTITUTION" | "COMMUNITY" };
   }
 
   try {
