@@ -1758,13 +1758,59 @@ async function computeReward(
     log.info(`Goal progress reward`, { goalProgressScore, assessmentGoals: assessmentGoals.length });
   }
 
+  // #1641 follow-up — snapshot the merged target cascade onto
+  // `RewardScore.effectiveTargets` so the downstream ADAPT sub-op 8
+  // (`updateTargets` from `lib/ops/update-targets.ts`) can read the
+  // per-parameter `{target, confidence, scope}` triple. Pre-fix
+  // `effectiveTargets` was NEVER written (every RewardScore had NULL),
+  // so `updateTargets`'s findMany filter `effectiveTargets: { not:
+  // Prisma.DbNull }` returned zero rows and the reward-loop sub-op
+  // logged `rewardsProcessed: 0` for every call. The fanout-by-callerIdentity
+  // logic in update-targets.ts at line ~261 also requires this snapshot
+  // shape — see #836 fanout discipline.
+  //
+  // Shape per `update-targets.ts:281-285`:
+  //   { [parameterId]: { target: number, confidence: number, scope: string } }
+  const effectiveTargets: Record<string, { target: number; confidence: number; scope: string }> = {};
+  for (const [parameterId, target] of targetByParam.entries()) {
+    effectiveTargets[parameterId] = {
+      target: target.targetValue,
+      // BehaviorTarget.confidence is 0..1 from the cascade writer.
+      // Default 0.7 when the cascade row left it null (typical for
+      // hand-seeded SYSTEM rows). `update-targets.ts` filters at
+      // `minConfidence` (default 0.2) so an explicit 0.7 default is
+      // well above the floor.
+      confidence: target.confidence ?? 0.7,
+      scope: target.scope,
+    };
+  }
+
   await prisma.rewardScore.upsert({
     where: { callId },
-    create: { callId, overallScore, goalProgressScore, modelVersion: "batched_v1", parameterDiffs: diffs },
-    update: { overallScore, goalProgressScore, parameterDiffs: diffs, scoredAt: new Date() },
+    create: {
+      callId,
+      overallScore,
+      goalProgressScore,
+      modelVersion: "batched_v1",
+      parameterDiffs: diffs,
+      effectiveTargets,
+    },
+    update: {
+      overallScore,
+      goalProgressScore,
+      parameterDiffs: diffs,
+      effectiveTargets,
+      scoredAt: new Date(),
+    },
   });
 
-  log.info(`Reward computed`, { overallScore, behaviorScore, goalProgressScore, diffs: diffs.length });
+  log.info(`Reward computed`, {
+    overallScore,
+    behaviorScore,
+    goalProgressScore,
+    diffs: diffs.length,
+    effectiveTargetsCount: Object.keys(effectiveTargets).length,
+  });
   return { overallScore };
 }
 
