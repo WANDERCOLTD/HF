@@ -87,16 +87,13 @@ describe("compose-section contract — #1556", () => {
     });
   });
 
-  describe("deferred sections — scoped to follow-on epic Group A.5", () => {
-    // #1642 (Epic #1606 Group A.5) — `conversationArtifacts` shipped; lives in
-    // the union now. The legacy "artifacts" string was never a real key, so
-    // we still pin its absence to catch any rename regression.
-    it("legacy 'artifacts' string is absent from COMPOSE_SECTION_KEYS", () => {
+  describe("legacy section-key strings should never leak in", () => {
+    // #1642 / #1644 (Epic #1606 Group A.5) — both A.5 sections now live in
+    // the union. The legacy short-form strings ("artifacts", "deltas") were
+    // never real keys; these pins catch any rename regression.
+    it("legacy 'artifacts' / 'deltas' strings are absent from COMPOSE_SECTION_KEYS", () => {
       expect(COMPOSE_SECTION_KEYS).not.toContain("artifacts");
-    });
-
-    it("memoryDeltas is absent from COMPOSE_SECTION_KEYS (no diff loader today)", () => {
-      expect(COMPOSE_SECTION_KEYS).not.toContain("memoryDeltas");
+      expect(COMPOSE_SECTION_KEYS).not.toContain("deltas");
     });
   });
 
@@ -129,11 +126,11 @@ describe("compose-section contract — #1556", () => {
     });
   });
 
-  describe("union contains exactly the 15-member runtime taxonomy from the epic", () => {
-    it("has 17 section keys total (2 config-kind + 15 runtime)", () => {
-      // #1642 (Epic #1606 Group A.5) — added `conversationArtifacts` to
-      // runtime arm, taking runtime count from 14 → 15 and total from 16 → 17.
-      expect(COMPOSE_SECTION_KEYS.length).toBe(17);
+  describe("union contains exactly the 16-member runtime taxonomy from the epic", () => {
+    it("has 18 section keys total (2 config-kind + 16 runtime)", () => {
+      // #1642 / #1644 (Epic #1606 Group A.5) — both A.5 sections now live in
+      // the union. Runtime count = 16, total = 18.
+      expect(COMPOSE_SECTION_KEYS.length).toBe(18);
     });
 
     it("includes the renamed sections (priorCallFeedback, contentTrust)", () => {

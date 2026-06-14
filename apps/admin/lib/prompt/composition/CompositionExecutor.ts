@@ -81,6 +81,7 @@ import "./transforms/mockDiagnostic";
 import "./transforms/interleaveReview";
 import "./transforms/courseComplete";
 import "./transforms/conversationArtifacts";
+import "./transforms/memoryDeltas";
 
 /**
  * Execute the full composition pipeline.
@@ -505,6 +506,21 @@ function checkActivationWithReason(
       return { activated: false, reason: "No delivered artifacts on prior call (or first call)" };
     }
 
+    case "memoryDeltasExist": {
+      // #1644 (Epic #1606 Group A.5) — activate only when the loader found
+      // at least one added or updated CallerMemory landing in the most-recent
+      // prior call. Call 1 / no-predecessor / no-deltas paths all collapse
+      // to false → fallback: "omit" drops the section.
+      const data = (context.loadedData as any).memoryDeltas;
+      if (data && data.hasDeltas === true && (data.added.length > 0 || data.updated.length > 0)) {
+        return {
+          activated: true,
+          reason: `Prior call added ${data.added.length}, updated ${data.updated.length}`,
+        };
+      }
+      return { activated: false, reason: "No memory deltas to surface (first call, no predecessor, or unchanged)" };
+    }
+
     default:
       return { activated: true, reason: `Custom condition: ${condition}` };
   }
@@ -901,6 +917,22 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "omit" },
       transform: "renderConversationArtifacts",
       outputKey: "conversationArtifacts",
+    },
+    {
+      // #1644 (Epic #1606 Group A.5) — added + updated CallerMemory rows
+      // from the most-recent prior call (vs. its predecessor via
+      // Call.previousCallId). Sibling shape to conversation_artifacts;
+      // priority 7.75 keeps both caller-scoped sections adjacent in the
+      // emitted prompt. Gates via memoryDeltasExist so Call 1, no-predecessor,
+      // and unchanged-memory paths all collapse to omitted.
+      id: "memory_deltas",
+      name: "Memory Deltas",
+      priority: 7.75,
+      dataSource: "memoryDeltas",
+      activateWhen: { condition: "memoryDeltasExist" },
+      fallback: { action: "omit" },
+      transform: "renderMemoryDeltas",
+      outputKey: "memoryDeltas",
     },
     {
       // #492 E3 Slice 3.3 — spaced-review nudge for mastered modules. Slots
