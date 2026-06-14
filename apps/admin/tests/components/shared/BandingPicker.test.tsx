@@ -1,12 +1,18 @@
 /**
  * Tests for `<BandingPicker>` — the per-playbook skill-tier-mapping picker.
  *
+ * Combines coverage from #1647 (source-derived preset) and #1657 (Generic
+ * SYSTEM-default flip).
+ *
  * Pins:
- *   1. detectPresetId — IELTS / CEFR / 5-Level / Custom / Source-derived
+ *   1. detectPresetId — Generic (null) / IELTS / CEFR / 5-Level / Custom / Source-derived
  *   2. Source-derived render branch shows `current.tierLabels` + `current.tierBands`
  *   3. Source-derived radio is hidden when `current.tierLabels` is absent
  *   4. Save handler short-circuits (no fetch) when source-derived is selected
- *   5. CTO mapping with 5-Level numbers + Foundation labels detects as
+ *   5. Save handler writes null when Generic is selected (the new clear-to-fallback)
+ *   6. Save handler writes explicit IELTS mapping when IELTS is selected
+ *   7. Microcopy mentions HF's neutral 4-tier scheme (post-#1657)
+ *   8. CTO mapping with 5-Level numbers + Foundation labels detects as
  *      source-derived, NOT 5-Level — pins the #1647 / #1635 fingerprint
  */
 
@@ -46,8 +52,28 @@ describe("<BandingPicker> detectPresetId via initial radio selection", () => {
     global.fetch = vi.fn();
   });
 
-  it("ielts-speaking preset selected when current is null", () => {
+  it("generic preset selected when current is null (post-#1657)", () => {
     render(<BandingPicker courseId="c1" current={undefined} />);
+    expect(
+      (screen.getByDisplayValue("generic") as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(
+      (screen.getByDisplayValue("ielts-speaking") as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
+  it("ielts-speaking preset selected when current matches IELTS numbers + labels", () => {
+    const ielts = TIER_PRESETS["ielts-speaking"];
+    render(
+      <BandingPicker
+        courseId="c1"
+        current={{
+          thresholds: ielts.mapping.thresholds,
+          tierBands: ielts.mapping.tierBands,
+          tierLabels: ielts.tierLabels,
+        }}
+      />,
+    );
     expect(
       (screen.getByDisplayValue("ielts-speaking") as HTMLInputElement).checked,
     ).toBe(true);
@@ -166,11 +192,50 @@ describe("<BandingPicker> save handler", () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
-  it("calls fetch for non-source-derived selections", async () => {
+  it("writes skillTierMapping: null when Generic is selected (clear-to-fallback)", async () => {
+    render(<BandingPicker courseId="c1" current={undefined} />);
+    fireEvent.click(screen.getByText(/save banding/i));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body).toEqual({ skillTierMapping: null });
+  });
+
+  it("writes explicit IELTS mapping with Band 7 label when IELTS is selected", async () => {
+    render(<BandingPicker courseId="c1" current={undefined} />);
+    fireEvent.click(screen.getByDisplayValue("ielts-speaking"));
+    fireEvent.click(screen.getByText(/save banding/i));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.skillTierMapping).toBeTruthy();
+    expect(body.skillTierMapping.tierBands.secure).toBe(7);
+    expect(body.skillTierMapping.tierLabels.secure).toBe("Band 7");
+  });
+
+  it("calls fetch for CEFR selections too", async () => {
     render(<BandingPicker courseId="c1" current={CTO_MAPPING} />);
     fireEvent.click(screen.getByDisplayValue("cefr"));
     fireEvent.click(screen.getByText(/save banding/i));
     await new Promise((r) => setTimeout(r, 0));
     expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("<BandingPicker> #1657 microcopy", () => {
+  beforeEach(() => {
+    global.fetch = vi.fn();
+  });
+
+  it("mentions HF's neutral 4-tier scheme (not 'Default is IELTS')", () => {
+    const { container } = render(<BandingPicker courseId="c1" current={undefined} />);
+    const text = container.textContent ?? "";
+    expect(text).toContain("HF");
+    expect(text).toContain("neutral 4-tier");
+    expect(text).not.toContain("Default is IELTS Speaking");
   });
 });

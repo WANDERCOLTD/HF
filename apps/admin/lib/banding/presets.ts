@@ -1,18 +1,22 @@
 /**
- * Per-playbook tier-mapping presets (#417 / Story C).
+ * Per-playbook tier-mapping presets (#417 / Story C / #1647 / #1657).
  *
- * Three presets out of the box plus a "custom" escape hatch. The shape
- * matches `SkillTierMapping` from `lib/goals/track-progress.ts` so
- * `scoreToTier()` consumes them directly.
+ * The shape matches `SkillTierMapping` from `lib/goals/track-progress.ts`
+ * so `scoreToTier()` consumes them directly.
  *
  * Selection mechanism (highest precedence first):
  *   1. `Playbook.config.skillTierMapping` (full mapping override)
  *   2. `SKILL_MEASURE_V1` contract thresholds / tierBands
  *   3. Built-in defaults inside `scoreToTier`
+ *
+ * Default is **Generic 4-tier** (#1657). IELTS Speaking, CEFR, and 5-Level
+ * are framework-specific explicit picks. `source-derived` is the synthetic
+ * 5th entry (#1647) that surfaces #1635's auto-derived mapping in the picker.
  */
 import type { SkillTierMapping } from "@/lib/goals/track-progress";
 
 export type TierPresetId =
+  | "generic"
   | "ielts-speaking"
   | "cefr"
   | "5-level"
@@ -27,8 +31,8 @@ export interface TierPreset {
    * The mapping itself. NOTE: `scoreToTier` uses 4 tiers in fixed slots
    * (`approachingEmerging` / `emerging` / `developing` / `secure`).
    * Custom band labels surface via `tierLabels` (consumer UI override),
-   * but the threshold slots stay the same. CEFR / 5-Level map their
-   * native labels onto these 4 slots.
+   * but the threshold slots stay the same. CEFR / 5-Level / IELTS map
+   * their native labels onto these 4 slots.
    */
   mapping: SkillTierMapping;
   /**
@@ -45,11 +49,31 @@ export interface TierPreset {
 }
 
 export const TIER_PRESETS: Record<TierPresetId, TierPreset> = {
+  generic: {
+    id: "generic",
+    label: "Generic 4-tier (HF default)",
+    description:
+      "Neutral 4-tier scheme for any course. Tiers map to bands 1 / 2 / 3 / 4. Pick a framework-specific preset (IELTS, CEFR) if your course uses one.",
+    mapping: {
+      thresholds: {
+        approachingEmerging: 0.25,
+        emerging: 0.5,
+        developing: 0.75,
+        secure: 1.0,
+      },
+      tierBands: {
+        approachingEmerging: 1,
+        emerging: 2,
+        developing: 3,
+        secure: 4,
+      },
+    },
+  },
   "ielts-speaking": {
     id: "ielts-speaking",
     label: "IELTS Speaking",
     description:
-      "Default IELTS Speaking criterion banding (Approaching Emerging / Emerging / Developing / Secure mapping to bands 3 / 4 / 5.5 / 7).",
+      "IELTS Speaking criterion banding. Tiers map to IELTS bands 3 / 4 / 5.5 / 7. Pick this for IELTS preparation courses.",
     mapping: {
       thresholds: {
         approachingEmerging: 0.3,
@@ -63,6 +87,12 @@ export const TIER_PRESETS: Record<TierPresetId, TierPreset> = {
         developing: 5.5,
         secure: 7,
       },
+    },
+    tierLabels: {
+      approachingEmerging: "Band 3",
+      emerging: "Band 4",
+      developing: "Band 5.5",
+      secure: "Band 7",
     },
   },
   cefr: {
@@ -144,23 +174,23 @@ export const TIER_PRESETS: Record<TierPresetId, TierPreset> = {
       "Educator-defined thresholds + band numbers + tier labels. Set via `Playbook.config.skillTierMapping`.",
     mapping: {
       thresholds: {
-        approachingEmerging: 0.3,
-        emerging: 0.55,
-        developing: 0.7,
+        approachingEmerging: 0.25,
+        emerging: 0.5,
+        developing: 0.75,
         secure: 1.0,
       },
       tierBands: {
-        approachingEmerging: 3,
-        emerging: 4,
-        developing: 5.5,
-        secure: 7,
+        approachingEmerging: 1,
+        emerging: 2,
+        developing: 3,
+        secure: 4,
       },
     },
   },
 };
 
-/** Resolve a preset by id; defaults to IELTS Speaking if no match. */
+/** Resolve a preset by id; defaults to Generic 4-tier when no match. */
 export function getPreset(id: TierPresetId | string | undefined | null): TierPreset {
-  if (!id) return TIER_PRESETS["ielts-speaking"];
-  return TIER_PRESETS[id as TierPresetId] ?? TIER_PRESETS["ielts-speaking"];
+  if (!id) return TIER_PRESETS.generic;
+  return TIER_PRESETS[id as TierPresetId] ?? TIER_PRESETS.generic;
 }

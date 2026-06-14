@@ -58,8 +58,10 @@ describe("getSkillTierMapping — SKILL_MEASURE_V1 contract resolution", () => {
 
     const mapping = await getSkillTierMapping(null);
 
-    // SKILL_TIER_DEFAULTS.thresholds.emerging is 0.55 — distinct from the tuned 0.45.
-    expect(mapping.thresholds.emerging).toBe(0.55);
+    // Post-#1657: SKILL_TIER_DEFAULTS.thresholds.emerging is 0.5 (Generic 4-tier),
+    // not 0.55 (legacy IELTS). Distinct from the tuned 0.45.
+    expect(mapping.thresholds.emerging).toBe(0.5);
+    expect(mapping.tierBands.secure).toBe(4);
   });
 
   it("falls back to defaults (does not throw) when the contract read errors", async () => {
@@ -67,7 +69,8 @@ describe("getSkillTierMapping — SKILL_MEASURE_V1 contract resolution", () => {
 
     const mapping = await getSkillTierMapping(null);
 
-    expect(mapping.thresholds.emerging).toBe(0.55);
+    expect(mapping.thresholds.emerging).toBe(0.5);
+    expect(mapping.tierBands.secure).toBe(4);
   });
 
   it("playbook config override takes precedence over the contract", async () => {
