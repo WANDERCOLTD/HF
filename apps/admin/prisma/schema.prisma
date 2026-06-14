@@ -3229,11 +3229,56 @@ model Playbook {
   // a Session has been scoped to this playbook at create-time.
   sessions Session[]
 
+  // #1557 — section-grain staleness rows (one per ComposeSectionKey).
+  // Decoupled from composeInputsUpdatedAt (separate clocks).
+  sectionStaleness PlaybookSectionStaleness[]
+
   @@index([domainId])
   @@index([domainId, sortOrder])
   @@index([status])
   @@index([parentVersionId])
   @@index([groupId])
+}
+
+/// #1557 — Section-grain staleness primitives (Story 2 of EPIC #1555).
+///
+/// One row per (playbookId, sectionKey). Bumped by
+/// `lib/compose/section-staleness.ts::bumpSectionHash` when a compose-affecting
+/// write changes a key in that section. Decoupled from
+/// `Playbook.composeInputsUpdatedAt` (page-level clock) — section bumps DO NOT
+/// move the playbook timestamp.
+///
+/// Storage decision (TL Q1, taken in PR body — sibling table over Json column):
+///   - Playbook-grain (not per-active-prompt) → `ComposedPrompt.inputs.sectionHashes`
+///     would require touching every active row on every config write.
+///   - Sorted-key `JSON.stringify` → hash → atomic upsert on
+///     `(playbookId, sectionKey)` allows row-level locking per section under
+///     concurrent saves.
+///   - `staleSince` needs to be a distinct queryable column for the API
+///     `{ sectionKey, sectionHash, staleSince, affectedCallerCount }` shape.
+///   - `affectedCallerCount` joins cleanly via Playbook → CallerPlaybook (S2 AC).
+model PlaybookSectionStaleness {
+  id         String @id @default(uuid())
+  playbookId String
+  sectionKey String // ComposeSectionKey value — see lib/compose/section.ts
+
+  // Hex digest of the inputs that produced this section the last time it was
+  // bumped. Sorted-key `JSON.stringify` → SHA-256 → first 16 hex chars.
+  // Produced by `lib/compose/section-staleness.ts::hashSectionInputs`.
+  sectionHash String
+
+  // Wall-clock when `sectionHash` last changed. Distinct from `updatedAt` so
+  // we can answer "how long has this section been stale" without diffing.
+  staleSince DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  playbook Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+
+  @@unique([playbookId, sectionKey])
+  @@index([playbookId])
+  @@index([staleSince])
 }
 
 // Item in a Playbook - either a Spec or a PromptTemplate
