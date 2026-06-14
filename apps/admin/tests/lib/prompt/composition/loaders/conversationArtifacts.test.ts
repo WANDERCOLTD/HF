@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+import type { PrismaClient } from "@prisma/client";
 import {
   EMPTY_CONVERSATION_ARTIFACTS,
   loadConversationArtifacts,
@@ -23,12 +24,14 @@ type MockArtifact = {
   deliveredAt: Date | null;
 };
 
+type LoaderPrisma = Pick<PrismaClient, "call" | "conversationArtifact">;
+
 function makePrisma(opts: {
   priorCall?: MockCall | null;
   artifactRows?: MockArtifact[];
   captureFindFirstArgs?: (args: unknown) => void;
   captureArtifactArgs?: (args: unknown) => void;
-}) {
+}): LoaderPrisma {
   return {
     call: {
       findFirst: vi.fn(async (args: unknown) => {
@@ -42,7 +45,7 @@ function makePrisma(opts: {
         return opts.artifactRows ?? [];
       }),
     },
-  } as any;
+  } as unknown as LoaderPrisma;
 }
 
 describe("loadConversationArtifacts", () => {

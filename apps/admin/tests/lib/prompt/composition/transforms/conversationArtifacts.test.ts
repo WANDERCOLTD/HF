@@ -11,11 +11,15 @@ import { describe, it, expect } from "vitest";
 import "@/lib/prompt/composition/transforms/conversationArtifacts";
 import { getTransform } from "@/lib/prompt/composition/TransformRegistry";
 import type { ConversationArtifactsData } from "@/lib/prompt/composition/loaders/conversationArtifacts";
+import type {
+  AssembledContext,
+  CompositionSectionDef,
+} from "@/lib/prompt/composition/types";
 
 const transform = getTransform("renderConversationArtifacts");
 
-const dummyContext = {} as any;
-const dummySection = {} as any;
+const dummyContext = {} as unknown as AssembledContext;
+const dummySection = {} as unknown as CompositionSectionDef;
 
 describe("renderConversationArtifacts transform", () => {
   it("registers under the name 'renderConversationArtifacts'", () => {
