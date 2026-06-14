@@ -60,7 +60,7 @@ export async function loadResolvedVoiceConfig(args: LoadArgs): Promise<ResolvedV
       return {
         slug: enabledSlug,
         getConfigSchema: () => ({ fields: [] }),
-      } as Awaited<ReturnType<typeof getVoiceProvider>>;
+      } as unknown as Awaited<ReturnType<typeof getVoiceProvider>>;
     }),
     args.callerId ? loadDomainVoice(args.callerId) : Promise.resolve(null),
     args.playbookId ? loadPlaybookVoice(args.playbookId) : Promise.resolve(null),
