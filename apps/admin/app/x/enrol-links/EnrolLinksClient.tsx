@@ -31,7 +31,7 @@ interface CohortsResponse {
 }
 
 export function EnrolLinksClient() {
-  const { data, isLoading, error } = useApi<CohortsResponse>(
+  const { data, loading, error } = useApi<CohortsResponse>(
     "/api/cohorts?isActive=true&limit=500",
   );
   const { copiedKey, copy } = useCopyToClipboard();
@@ -100,7 +100,7 @@ export function EnrolLinksClient() {
         starts clean.
       </div>
 
-      {isLoading && (
+      {loading && (
         <div className="hf-section-desc">Loading cohorts…</div>
       )}
 
@@ -114,7 +114,7 @@ export function EnrolLinksClient() {
         </div>
       )}
 
-      {!isLoading && !error && rows.length === 0 && (
+      {!loading && !error && rows.length === 0 && (
         <div className="hf-section-desc">
           No active cohorts with enrolment tokens were found in your scope.
         </div>

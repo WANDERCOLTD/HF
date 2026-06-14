@@ -53,6 +53,7 @@ export interface IngestEvent {
     images?: number;
     // Complete event
     subjects?: Array<{ id: string; name: string }>;
+    sourceIds?: string[]; // Phase 5: wizard uses sourceIds instead of packSubjectIds
     sourceCount?: number;
     totalAssertions?: number;
     totalQuestions?: number;
@@ -62,6 +63,7 @@ export interface IngestEvent {
     categoryCounts?: Record<string, number>;
     // Dedup
     reused?: boolean;
+    cached?: boolean;
     // Error
     error?: string;
   };

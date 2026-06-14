@@ -120,7 +120,7 @@ export async function GET(
     if (!s.callerId) continue;
     if (!callerMap.has(s.callerId)) {
       callerMap.set(s.callerId, {
-        name: s.call?.caller?.name ?? null,
+        name: s.call?.caller?.name ?? "(unnamed)",
         scores: [],
         callCount: new Set(),
       });

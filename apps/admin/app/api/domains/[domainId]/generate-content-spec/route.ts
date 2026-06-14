@@ -92,7 +92,6 @@ async function runTwoPhaseGeneration(
 ): Promise<void> {
   await updateTaskProgress(taskId, {
     currentStep: 1,
-    totalSteps: 3,
     context: { phase: "loading", message: "Loading teaching points..." },
   });
 
@@ -108,7 +107,6 @@ async function runTwoPhaseGeneration(
 
     await updateTaskProgress(taskId, {
       currentStep: 1,
-      totalSteps: 3,
       context: { phase: "skeleton", message: `Organising ${assertions.length} teaching points into modules...` },
     });
 
@@ -124,7 +122,6 @@ async function runTwoPhaseGeneration(
       // Push skeleton to task context — UI shows modules immediately
       await updateTaskProgress(taskId, {
         currentStep: 2,
-        totalSteps: 3,
         context: {
           skeletonReady: true,
           skeletonModules: skeleton.modules,
@@ -147,7 +144,6 @@ async function runTwoPhaseGeneration(
   if (!skeletonShown) {
     await updateTaskProgress(taskId, {
       currentStep: 2,
-      totalSteps: 3,
       context: { phase: "generating", message: "Generating full curriculum (this may take 30-60 seconds)..." },
     });
   }
@@ -163,7 +159,6 @@ async function runTwoPhaseGeneration(
   // Store enriched result in task context
   await updateTaskProgress(taskId, {
     currentStep: 3,
-    totalSteps: 3,
     context: {
       skeletonReady: true, // Preserve flag so UI doesn't flash
       result,
