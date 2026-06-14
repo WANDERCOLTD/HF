@@ -33,6 +33,7 @@ import { useEffect, useState } from "react";
 
 import { LearningTrajectoryCard } from "./cards/LearningTrajectoryCard";
 import { SnapshotLoHeatmap } from "./SnapshotLoHeatmap";
+import { SnapshotCarryOverActions } from "./SnapshotCarryOverActions";
 
 import "./snapshot-tab.css";
 
@@ -224,7 +225,7 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
         }
       />
 
-      <SnapshotCarryOverActionsStub />
+      <SnapshotCarryOverActions callerId={callerId} />
     </div>
   );
 }
@@ -362,22 +363,6 @@ function SnapshotSchedulerStub({
         <div className="hf-text-sm">
           <strong>{decision.mode}</strong> — {decision.reason}
         </div>
-      </div>
-    </section>
-  );
-}
-
-function SnapshotCarryOverActionsStub() {
-  return (
-    <section
-      className="hf-snapshot-section hf-snapshot-stub"
-      data-testid="hf-snapshot-actions-stub"
-    >
-      <div className="hf-card-compact">
-        <div className="hf-category-label">Carry-over actions</div>
-        <span className="hf-badge hf-badge-muted">
-          Carry-over actions — coming in story A.9
-        </span>
       </div>
     </section>
   );
