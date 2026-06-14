@@ -80,6 +80,7 @@ import "./transforms/priorCallFeedback";
 import "./transforms/mockDiagnostic";
 import "./transforms/interleaveReview";
 import "./transforms/courseComplete";
+import "./transforms/conversationArtifacts";
 
 /**
  * Execute the full composition pipeline.
@@ -489,6 +490,21 @@ function checkActivationWithReason(
       return { activated: false, reason: "Course not yet complete" };
     }
 
+    case "conversationArtifactsExists": {
+      // #1642 (Epic #1606 Group A.5) — activate only when the loader found
+      // at least one DELIVERED/READ artifact on the most-recent prior call.
+      // Call 1 path and zero-DELIVERED path collapse into the same false
+      // verdict; fallback.action: "omit" drops the section entirely.
+      const data = (context.loadedData as any).conversationArtifacts;
+      if (data && data.hasArtifacts === true && Array.isArray(data.artifacts) && data.artifacts.length > 0) {
+        return {
+          activated: true,
+          reason: `Prior call has ${data.artifacts.length} delivered artifact${data.artifacts.length === 1 ? "" : "s"}`,
+        };
+      }
+      return { activated: false, reason: "No delivered artifacts on prior call (or first call)" };
+    }
+
     default:
       return { activated: true, reason: `Custom condition: ${condition}` };
   }
@@ -866,6 +882,25 @@ export function getDefaultSections(): CompositionSectionDef[] {
       transform: "renderMockDiagnostic",
       outputKey: "mockDiagnostic",
       dependsOn: ["curriculum"],
+    },
+    {
+      // #1642 (Epic #1606 Group A.5) — quote-worthy artifacts the AI already
+      // delivered after the most-recent prior call. Slots between
+      // mock_diagnostic (7.6) and interleave_review (7.8) so the tutor's
+      // "what happened last time on this module" → "what the Mock showed" →
+      // "what we shared after the last call" narrative flows naturally.
+      // activateWhen=conversationArtifactsExists gates on
+      // loadedData.conversationArtifacts.hasArtifacts === true so the
+      // section is OMITTED on Call 1 and on calls with no DELIVERED/READ
+      // artifacts on the prior call.
+      id: "conversation_artifacts",
+      name: "Conversation Artifacts",
+      priority: 7.7,
+      dataSource: "conversationArtifacts",
+      activateWhen: { condition: "conversationArtifactsExists" },
+      fallback: { action: "omit" },
+      transform: "renderConversationArtifacts",
+      outputKey: "conversationArtifacts",
     },
     {
       // #492 E3 Slice 3.3 — spaced-review nudge for mastered modules. Slots

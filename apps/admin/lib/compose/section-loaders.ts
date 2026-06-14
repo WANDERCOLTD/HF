@@ -81,6 +81,7 @@ export const SECTION_OUTPUT_KEYS: Record<ComposeSectionKey, readonly string[]> =
   contentTrust: ["contentTrust"],
   carryOverActions: ["_quickStart", "instructions"],
   priorCallFeedback: ["priorCallFeedback"],
+  conversationArtifacts: ["conversationArtifacts"],
 };
 
 /**

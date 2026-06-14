@@ -724,6 +724,20 @@
       "dependsOn": ["curriculum"]
     },
     {
+      "id": "conversation_artifacts",
+      "name": "Conversation Artifacts",
+      "priority": 7.7,
+      "dataSource": "conversationArtifacts",
+      "activateWhen": {
+        "condition": "conversationArtifactsExists"
+      },
+      "fallback": {
+        "action": "omit"
+      },
+      "transform": "renderConversationArtifacts",
+      "outputKey": "conversationArtifacts"
+    },
+    {
       "id": "interleave_review",
       "name": "Review Opportunity (Spaced Retrieval)",
       "priority": 7.8,

@@ -26,8 +26,12 @@
  *
  * Sections deliberately NOT in this union, scoped to follow-on epic Group A.5
  * (require loader + transform + COMP-001 seed-sync before they can be a section):
- *   - `conversationArtifacts` — ConversationArtifact table exists, no loader/transform today
  *   - `memoryDeltas` — CallerMemory exists, no diff loader today
+ *
+ * Caller-scoped sections (staleness via `bumpCallerComposeTimestamp`, NOT
+ * `PlaybookSectionStaleness` — playbook-grain would mark every caller stale
+ * on every other caller's call):
+ *   - `conversationArtifacts` — #1642 (Group A.5)
  */
 
 export type ComposeSection =
@@ -48,7 +52,8 @@ export type ComposeSection =
         | "personality"
         | "contentTrust"
         | "carryOverActions"
-        | "priorCallFeedback";
+        | "priorCallFeedback"
+        | "conversationArtifacts";
     };
 
 /**
@@ -84,6 +89,7 @@ export const COMPOSE_SECTION_KEYS = [
   "contentTrust",
   "carryOverActions",
   "priorCallFeedback",
+  "conversationArtifacts",
 ] as const satisfies readonly ComposeSectionKey[];
 
 /**
@@ -127,4 +133,5 @@ export const PIPELINE_STATE_SECTION_LOADERS: Record<
   contentTrust: ["subjectSources"], // checkFreshness runs at compose time via transforms/trust.ts
   carryOverActions: ["openActions"],
   priorCallFeedback: ["priorCallFeedback"],
+  conversationArtifacts: ["conversationArtifacts"], // #1642 — staleness via bumpCallerComposeTimestamp (caller-scoped)
 };
