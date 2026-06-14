@@ -162,7 +162,7 @@ async function loadCourseSetupSteps(): Promise<CourseSetupStep[]> {
       name: step.label,
       operation: mapStepToOperation(step.id),
       order: step.order,
-      onError: "continue", // course setup is forgiving
+      onError: "continue" as const, // course setup is forgiving
       progressMessage: step.activeLabel,
       args: step.args,
     }))
@@ -613,7 +613,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
 
     // Resolve flow phases: prefer user-edited phases, fall back to persona defaults
     const customPhases = ctx.input.onboardingFlowPhases;
-    const resolvedFlowPhases = customPhases && customPhases.length > 0
+    const resolvedFlowPhases: Record<string, any> | null = customPhases && customPhases.length > 0
       ? { phases: customPhases }
       : await loadPersonaFlowPhases(ctx.input.teachingStyle);
 
@@ -630,7 +630,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
       (d) => ({
         ...d,
         onboardingWelcome: resolvedWelcome,
-        onboardingFlowPhases: resolvedFlowPhases,
+        ...(resolvedFlowPhases && { onboardingFlowPhases: resolvedFlowPhases }),
         ...(Object.keys(mergedForDomain).length > 0 && {
           onboardingDefaultTargets: mergedForDomain,
         }),
