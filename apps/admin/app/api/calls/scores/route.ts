@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
  * @scope calls:read
  * @auth session
  * @tags calls, scores
- * @description List call scores across all calls, ordered by most recent. Includes parameter details, call source/transcript, and run status.
+ * @description List call scores across all calls, ordered by most recent. Includes parameter details and call source/transcript.
  * @query limit number - Max number of scores to return (default: 100)
  * @response 200 { ok: true, scores: CallScore[], count: number }
  * @response 500 { ok: false, error: "Failed to fetch call scores" }
@@ -32,9 +32,6 @@ export async function GET(req: Request) {
         },
         parameter: {
           select: { name: true, parameterId: true },
-        },
-        run: {
-          select: { status: true },
         },
       },
     });

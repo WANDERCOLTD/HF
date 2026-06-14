@@ -52,7 +52,7 @@ export async function POST(
     body = bodySchema.parse(raw);
   } catch (e: unknown) {
     const message = e instanceof z.ZodError
-      ? e.errors.map((issue) => issue.message).join("; ")
+      ? e.issues.map((issue) => issue.message).join("; ")
       : (e instanceof Error ? e.message : "Invalid JSON body");
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }

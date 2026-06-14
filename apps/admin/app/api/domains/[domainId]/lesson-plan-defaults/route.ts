@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import {
@@ -108,7 +109,7 @@ export async function PUT(
 
     await prisma.domain.update({
       where: { id: domainId },
-      data: { lessonPlanDefaults: hasOverrides ? overrides : null },
+      data: { lessonPlanDefaults: hasOverrides ? (overrides as Prisma.InputJsonValue) : Prisma.DbNull },
     });
 
     // Return updated cascade

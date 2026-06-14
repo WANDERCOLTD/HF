@@ -1315,7 +1315,7 @@ List reward scores across all calls, ordered by most recent. Includes associated
 
 ### `GET` /api/v1/calls/scores
 
-List call scores across all calls, ordered by most recent. Includes parameter details, call source/transcript, and run status.
+List call scores across all calls, ordered by most recent. Includes parameter details and call source/transcript.
 
 **Auth**: Session · **Scope**: `calls:read`
 

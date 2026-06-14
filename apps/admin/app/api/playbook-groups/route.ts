@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import slugify from "slugify";
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
               slug: slugify(item.name, { lower: true, strict: true }),
               description: item.description || null,
               groupType: (item.groupType as any) || "DEPARTMENT",
-              identityOverride: item.identityOverride || null,
+              identityOverride: item.identityOverride ? (item.identityOverride as Prisma.InputJsonValue) : Prisma.DbNull,
               sortOrder: item.sortOrder ?? index,
             },
           })

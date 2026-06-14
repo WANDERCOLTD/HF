@@ -16,6 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { loadResolvedVoiceConfig } from "@/lib/voice/load-voice-config";
@@ -140,7 +141,7 @@ export async function PATCH(
 
   await prisma.domain.update({
     where: { id: domainId },
-    data: { config: nextConfig },
+    data: { config: nextConfig as Prisma.InputJsonValue },
   });
 
   return NextResponse.json({ ok: true, key, applied: value === null ? "cleared" : "set" });
