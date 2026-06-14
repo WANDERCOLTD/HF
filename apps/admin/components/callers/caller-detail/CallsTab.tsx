@@ -5,6 +5,7 @@ import { VerticalSlider } from "@/components/shared/VerticalSlider";
 import { AIConfigButton } from "@/components/shared/AIConfigButton";
 import { DraggableTabs } from "@/components/shared/DraggableTabs";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
+import { useIsOperatorOrAbove } from "@/hooks/useIsOperatorOrAbove";
 import { FileText as FileTextIcon, FileSearch, Brain, MessageCircle, BarChart3, Target, ClipboardCheck, CheckSquare, Gauge } from "lucide-react";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useTerminology } from "@/contexts/TerminologyContext";
@@ -2030,6 +2031,8 @@ export function TwoColumnTargetsDisplay({
 }) {
   const { isAdvanced } = useViewMode();
   const [expandedTarget, setExpandedTarget] = useState<string | null>(null);
+  // #1664 Decision 5 — interpretation chips OPERATOR-only.
+  const operatorOrBetter = useIsOperatorOrAbove();
 
   // Create measurement lookup
   const measurementMap = new Map(measurements.map((m: any) => [m.parameterId, m.actualValue]));
@@ -2247,8 +2250,8 @@ export function TwoColumnTargetsDisplay({
               ))}
             </div>
 
-            {/* Interpretation hints */}
-            {(target.parameter?.interpretationHigh || target.parameter?.interpretationLow) && (
+            {/* Interpretation hints — OPERATOR-only per #1664 Decision 5. */}
+            {operatorOrBetter && (target.parameter?.interpretationHigh || target.parameter?.interpretationLow) && (
               <div className="hf-mt-sm hf-text-xxs" style={{ borderTop: "1px solid var(--border-default)", paddingTop: 8 }}>
                 <div className="hf-text-muted hf-mb-xs hf-text-500">Interpretation:</div>
                 {target.parameter?.interpretationHigh && (

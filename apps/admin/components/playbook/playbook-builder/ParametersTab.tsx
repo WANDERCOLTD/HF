@@ -1,5 +1,7 @@
 "use client";
 
+import { useIsOperatorOrAbove } from "@/hooks/useIsOperatorOrAbove";
+
 import "./parameters-tab.css";
 
 export type ParameterCategory = {
@@ -67,6 +69,12 @@ export function ParametersTabContent({
   expandedParams,
   toggleParamExpand,
 }: ParametersTabContentProps) {
+  // #1664 Decision 5 — interpretation chips are OPERATOR-only.
+  // PlaybookBuilder is OPERATOR-gated at the route level today; the
+  // hook is belt-and-suspenders defence-in-depth so the chips don't
+  // leak if this component is ever reused inside a STUDENT-visible
+  // surface.
+  const operatorOrBetter = useIsOperatorOrAbove();
   return (
         <div className="pt-root">
           {parametersLoading ? (
@@ -190,7 +198,7 @@ export function ParametersTabContent({
                                     <span className="pt-param-meta-value">{param.parameterType}</span>
                                   </div>
                                 </div>
-                                {(param.interpretationHigh || param.interpretationLow) && (
+                                {operatorOrBetter && (param.interpretationHigh || param.interpretationLow) && (
                                   <div className="pt-interpretation">
                                     {param.interpretationHigh && (
                                       <div className="pt-interpretation-row">

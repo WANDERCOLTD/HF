@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useIsOperatorOrAbove } from "@/hooks/useIsOperatorOrAbove";
 import { SourcePageHeader } from "@/components/shared/SourcePageHeader";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { VerticalSlider, SliderGroup } from "@/components/shared/VerticalSlider";
@@ -29,6 +30,8 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
   const router = useRouter();
   const { pushEntity } = useEntityContext();
   const { terms, plural } = useTerminology();
+  // #1664 Decision 5 — interpretation chips are OPERATOR-only.
+  const operatorOrBetter = useIsOperatorOrAbove();
 
   const [playbook, setPlaybook] = useState<Playbook | null>(null);
   const [availableItems, setAvailableItems] = useState<AvailableItems | null>(null);
@@ -2585,20 +2588,22 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
                                                         {action.parameter.definition}
                                                       </div>
                                                     )}
-                                                    <div className="hf-flex hf-gap-lg hf-text-xs hf-mt-sm">
-                                                      {action.parameter.interpretationHigh && (
-                                                        <div>
-                                                          <span className="hf-text-bold" style={{ color: "var(--status-success-text)" }}>High:</span>{" "}
-                                                          <span className="hf-text-muted">{action.parameter.interpretationHigh}</span>
-                                                        </div>
-                                                      )}
-                                                      {action.parameter.interpretationLow && (
-                                                        <div>
-                                                          <span className="hf-text-bold" style={{ color: "var(--status-error-text)" }}>Low:</span>{" "}
-                                                          <span className="hf-text-muted">{action.parameter.interpretationLow}</span>
-                                                        </div>
-                                                      )}
-                                                    </div>
+                                                    {operatorOrBetter && (
+                                                      <div className="hf-flex hf-gap-lg hf-text-xs hf-mt-sm">
+                                                        {action.parameter.interpretationHigh && (
+                                                          <div>
+                                                            <span className="hf-text-bold" style={{ color: "var(--status-success-text)" }}>High:</span>{" "}
+                                                            <span className="hf-text-muted">{action.parameter.interpretationHigh}</span>
+                                                          </div>
+                                                        )}
+                                                        {action.parameter.interpretationLow && (
+                                                          <div>
+                                                            <span className="hf-text-bold" style={{ color: "var(--status-error-text)" }}>Low:</span>{" "}
+                                                            <span className="hf-text-muted">{action.parameter.interpretationLow}</span>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    )}
                                                   </div>
 
                                                   {/* Scoring Anchors */}
