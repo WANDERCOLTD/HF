@@ -35,6 +35,7 @@ import { LearningTrajectoryCard } from "./cards/LearningTrajectoryCard";
 import { SnapshotLoHeatmap } from "./SnapshotLoHeatmap";
 import { SnapshotCarryOverActions } from "./SnapshotCarryOverActions";
 import { SnapshotSubSkills } from "./SnapshotSubSkills";
+import { SnapshotWhyThisCall } from "./SnapshotWhyThisCall";
 
 import "./snapshot-tab.css";
 
@@ -90,32 +91,20 @@ interface SkillsEvidenceResponse {
   evidence: SkillsEvidenceEntry[];
 }
 
-interface SchedulerDecisionResponse {
-  callerId: string;
-  decision: {
-    mode: string;
-    reason: string;
-    writtenAt: string;
-  } | null;
-}
-
 export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
   const [attainment, setAttainment] = useState<AttainmentResponse | null>(null);
   const [skillsEvidence, setSkillsEvidence] = useState<SkillsEvidenceResponse | null>(
     null,
   );
-  const [schedulerDecision, setSchedulerDecision] = useState<
-    SchedulerDecisionResponse | null | "missing"
-  >(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setError(null);
 
-    // 4 parallel fetches — sibling routes that don't exist yet (sub-skills,
-    // scheduler-decision) return 404; we mark them "missing" and render
-    // their stubs so the foundation isn't blocked on the sibling stories.
+    // Foundation fires 2 parallel fetches; each sibling slot component
+    // (SnapshotSubSkills #1662, SnapshotCarryOverActions #1666,
+    // SnapshotWhyThisCall #1663) owns its own fetch.
     const tasks: Promise<unknown>[] = [
       fetch(`/api/callers/${callerId}/attainment`)
         .then((r) => (r.ok ? r.json() : null))
@@ -131,18 +120,6 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
           if (!cancelled) setSkillsEvidence(j);
         })
         .catch(() => {}),
-      fetch(`/api/callers/${callerId}/scheduler-decision`)
-        .then((r) => {
-          if (r.status === 404) return "missing" as const;
-          return r.ok ? r.json() : null;
-        })
-        .then((j) => {
-          if (!cancelled)
-            setSchedulerDecision(j as SchedulerDecisionResponse | null | "missing");
-        })
-        .catch(() => {
-          if (!cancelled) setSchedulerDecision("missing");
-        }),
     ];
 
     Promise.all(tasks).catch(() => {});
@@ -194,7 +171,7 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
         useFreshMastery={attainment?.useFreshMastery ?? false}
       />
 
-      <SnapshotSchedulerStub schedulerDecision={schedulerDecision} />
+      <SnapshotWhyThisCall callerId={callerId} />
 
       <SnapshotGoalsSection
         goals={
@@ -226,65 +203,6 @@ function SnapshotPersonalityStub() {
         <span className="hf-badge hf-badge-muted">
           Personality block — coming in story A.7
         </span>
-      </div>
-    </section>
-  );
-}
-
-function SnapshotSchedulerStub({
-  schedulerDecision,
-}: {
-  schedulerDecision: SchedulerDecisionResponse | null | "missing";
-}) {
-  if (schedulerDecision === null) {
-    return (
-      <section
-        className="hf-snapshot-section hf-snapshot-stub"
-        data-testid="hf-snapshot-scheduler-stub"
-      >
-        <div className="hf-card-compact">
-          <div className="hf-category-label">Why this call?</div>
-          <span className="hf-badge hf-badge-muted">Loading…</span>
-        </div>
-      </section>
-    );
-  }
-  if (schedulerDecision === "missing") {
-    return (
-      <section
-        className="hf-snapshot-section hf-snapshot-stub"
-        data-testid="hf-snapshot-scheduler-stub"
-      >
-        <div className="hf-card-compact">
-          <div className="hf-category-label">Why this call?</div>
-          <span className="hf-badge hf-badge-muted">
-            Scheduler reasoning — coming in story #1663
-          </span>
-        </div>
-      </section>
-    );
-  }
-  if (!schedulerDecision.decision) {
-    return (
-      <section
-        className="hf-snapshot-section"
-        data-testid="hf-snapshot-scheduler-stub"
-      >
-        <div className="hf-card-compact">
-          <div className="hf-category-label">Why this call?</div>
-          <span className="hf-badge hf-badge-muted">No scheduler decision recorded yet</span>
-        </div>
-      </section>
-    );
-  }
-  const { decision } = schedulerDecision;
-  return (
-    <section className="hf-snapshot-section" data-testid="hf-snapshot-scheduler-stub">
-      <div className="hf-card-compact">
-        <div className="hf-category-label">Why this call?</div>
-        <div className="hf-text-sm">
-          <strong>{decision.mode}</strong> — {decision.reason}
-        </div>
       </div>
     </section>
   );
