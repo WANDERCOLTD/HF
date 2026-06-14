@@ -45,7 +45,7 @@ import { extractArtifacts } from "@/lib/artifacts/extract-artifacts";
 import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
 import { config as appConfig } from "@/lib/config";
-import { updateCurriculumProgress, getCurriculumProgress, completeModule, updateTpMasteryBatch } from "@/lib/curriculum/track-progress";
+import { updateCurriculumProgress, getCurriculumProgress, completeModule } from "@/lib/curriculum/track-progress";
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
@@ -1627,17 +1627,70 @@ async function computeReward(
     );
   }
 
-  // Load system targets
-  const targets = await prisma.behaviorTarget.findMany({
-    where: { scope: "SYSTEM" },
+  // #1641 — Load BOTH SYSTEM-scope and PLAYBOOK-scope targets, then
+  // cascade-merge: PLAYBOOK row wins over SYSTEM row on parameterId
+  // collision. This matches the BehaviorTarget cascade contract
+  // (`loadBehaviorTargetsWithCascade` for the SCORE_AGENT read side)
+  // and unblocks STRUCTURED courses that measure `skill_*` params with
+  // PLAYBOOK-scope targets but no SYSTEM-scope target (e.g. IELTS
+  // Speaking V1.0 / PAW / PLS USE NEW V1.0 — verified 2026-06-14:
+  // SCORE_AGENT measured `skill_fluency_and_coherence_fc` against a
+  // PLAYBOOK target of 0.70, but REWARD's SYSTEM-only findMany missed
+  // it and the #1632 guard threw "0 measurements matched").
+  //
+  // Pre-#1641 the cascade was effectively SYSTEM-only at REWARD; this
+  // PR adds the PLAYBOOK overlay. CALLER-scope overrides are still
+  // out of scope here — those flow through ADAPT's `updateTargets`
+  // sub-op (#1609) once REWARD writes a RewardScore row.
+  const rawTargets = await prisma.behaviorTarget.findMany({
+    where: call.playbookId
+      ? {
+          OR: [
+            { scope: "SYSTEM" },
+            { scope: "PLAYBOOK", playbookId: call.playbookId },
+          ],
+        }
+      : { scope: "SYSTEM" },
   });
 
-  const diffs: Array<{ parameterId: string; target: number; actual: number; diff: number }> = [];
-  const missingTargetParams: string[] = [];
+  // Cascade merge: PLAYBOOK overrides SYSTEM on parameterId collision.
+  const targetByParam = new Map<string, (typeof rawTargets)[number]>();
+  for (const t of rawTargets) {
+    if (t.scope === "SYSTEM") targetByParam.set(t.parameterId, t);
+  }
+  for (const t of rawTargets) {
+    if (t.scope === "PLAYBOOK") targetByParam.set(t.parameterId, t);
+  }
+
+  // #1632 — REWARD compares the AI tutor's TUNABLE BEHAVIOR (BEH-* +
+  // skill_* params, `Parameter.isAdjustable === true`) against the
+  // SYSTEM-scope BehaviorTarget cascade. STATE-type measurements
+  // (`COMP-*`, `COACH_*`, `CONV_*`, `application_score`, etc.) are
+  // OBSERVATIONS the AI made about the conversation/learner — they
+  // have no target by design and feed AGGREGATE / CallerAttribute
+  // downstream, not the reward delta loop.
+  //
+  // Pre-#1632 the guard required every BehaviorMeasurement to have a
+  // matching SYSTEM BehaviorTarget. Because SCORE_AGENT measures
+  // dozens of STATE params per call (verified live on hf-dev: Freddy
+  // Starr's call produced 22 measurements vs 6 SYSTEM targets), the
+  // guard threw on every STRUCTURED call, REWARD bailed, the
+  // RewardScore row was never written, the #1609 reward-loop sub-op
+  // had no row to process, and the Adaptations "Why" timeline stayed
+  // empty.
+  //
+  // Fix: compute diff over MATCHED measurements only. The remaining
+  // unmatched STATE measurements are not a reward signal; their
+  // absence from `parameterDiffs` is correct. The previous guard's
+  // intent (refuse to silently fall back to 0.5) is preserved by the
+  // earlier `behaviorMeasurements.length === 0` throw and the new
+  // `diffs.length === 0` throw below.
+  const diffs: Array<{ parameterId: string; target: number; actual: number; diff: number; scope: string }> = [];
+  const unmatchedMeasurements: string[] = [];
   for (const measurement of call.behaviorMeasurements) {
-    const target = targets.find((t) => t.parameterId === measurement.parameterId);
+    const target = targetByParam.get(measurement.parameterId);
     if (!target) {
-      missingTargetParams.push(measurement.parameterId);
+      unmatchedMeasurements.push(measurement.parameterId);
       continue;
     }
     const diff = Math.abs(measurement.actualValue - target.targetValue);
@@ -1646,17 +1699,40 @@ async function computeReward(
       target: target.targetValue,
       actual: measurement.actualValue,
       diff,
+      // #1641 — stamp which scope's target won the cascade. Lets the
+      // operator-facing pipeline diagnostic at /x/logs distinguish
+      // "scored against the SYSTEM default" (suggests an unset playbook
+      // target) from "scored against an explicit PLAYBOOK override".
+      scope: target.scope,
     });
   }
 
-  if (missingTargetParams.length > 0) {
-    // Hard error — every MEASURE-emitted parameter must have a SYSTEM
-    // BehaviorTarget. The 0.5 fallback would have silently scored these
-    // against a guessed midpoint.
+  // #1632 — only flag the unmatched set when ZERO measurements matched a
+  // target. That's the "REWARD has nothing to score" condition the old
+  // guard was trying (and failing) to catch. Partial matches are
+  // expected — STATE measurements outnumber BEHAVIOR targets by ~3:1
+  // on a typical structured call. Log the unmatched set at debug level
+  // for forensics without spamming.
+  if (diffs.length === 0) {
     throw new Error(
-      `REWARD: STRUCTURED call ${callId} produced measurements for parameters with no SYSTEM BehaviorTarget — refusing silent 0.5 fallback (#1256). Missing: ${missingTargetParams.join(", ")}`,
+      `REWARD: STRUCTURED call ${callId} produced ${call.behaviorMeasurements.length} BehaviorMeasurement(s) but NONE matched a SYSTEM or PLAYBOOK BehaviorTarget — refusing silent 0.5 fallback (#1256/#1632/#1641). Measured: ${call.behaviorMeasurements.map((m) => m.parameterId).slice(0, 10).join(", ")}${call.behaviorMeasurements.length > 10 ? "..." : ""}. Targets loaded: ${targetByParam.size} (SYSTEM + PLAYBOOK for playbook ${call.playbookId ?? "(null)"}). Expected at least one BEH-* or skill_* parameter with a target at either scope.`,
     );
   }
+  if (unmatchedMeasurements.length > 0) {
+    log.debug("REWARD: skipping STATE measurements without cascade targets (expected)", {
+      count: unmatchedMeasurements.length,
+      sample: unmatchedMeasurements.slice(0, 5),
+    });
+  }
+  // #1641 — log the cascade composition for operator-facing diagnostics.
+  const systemHits = diffs.filter((d) => d.scope === "SYSTEM").length;
+  const playbookHits = diffs.filter((d) => d.scope === "PLAYBOOK").length;
+  log.info("REWARD cascade composition", {
+    totalMatched: diffs.length,
+    bySystemTarget: systemHits,
+    byPlaybookOverride: playbookHits,
+    unmatchedCount: unmatchedMeasurements.length,
+  });
 
   const avgDiff = diffs.length > 0 ? diffs.reduce((sum, d) => sum + d.diff, 0) / diffs.length : 0;
   const behaviorScore = Math.max(0, 1 - avgDiff);
@@ -1682,13 +1758,59 @@ async function computeReward(
     log.info(`Goal progress reward`, { goalProgressScore, assessmentGoals: assessmentGoals.length });
   }
 
+  // #1641 follow-up — snapshot the merged target cascade onto
+  // `RewardScore.effectiveTargets` so the downstream ADAPT sub-op 8
+  // (`updateTargets` from `lib/ops/update-targets.ts`) can read the
+  // per-parameter `{target, confidence, scope}` triple. Pre-fix
+  // `effectiveTargets` was NEVER written (every RewardScore had NULL),
+  // so `updateTargets`'s findMany filter `effectiveTargets: { not:
+  // Prisma.DbNull }` returned zero rows and the reward-loop sub-op
+  // logged `rewardsProcessed: 0` for every call. The fanout-by-callerIdentity
+  // logic in update-targets.ts at line ~261 also requires this snapshot
+  // shape — see #836 fanout discipline.
+  //
+  // Shape per `update-targets.ts:281-285`:
+  //   { [parameterId]: { target: number, confidence: number, scope: string } }
+  const effectiveTargets: Record<string, { target: number; confidence: number; scope: string }> = {};
+  for (const [parameterId, target] of targetByParam.entries()) {
+    effectiveTargets[parameterId] = {
+      target: target.targetValue,
+      // BehaviorTarget.confidence is 0..1 from the cascade writer.
+      // Default 0.7 when the cascade row left it null (typical for
+      // hand-seeded SYSTEM rows). `update-targets.ts` filters at
+      // `minConfidence` (default 0.2) so an explicit 0.7 default is
+      // well above the floor.
+      confidence: target.confidence ?? 0.7,
+      scope: target.scope,
+    };
+  }
+
   await prisma.rewardScore.upsert({
     where: { callId },
-    create: { callId, overallScore, goalProgressScore, modelVersion: "batched_v1", parameterDiffs: diffs },
-    update: { overallScore, goalProgressScore, parameterDiffs: diffs, scoredAt: new Date() },
+    create: {
+      callId,
+      overallScore,
+      goalProgressScore,
+      modelVersion: "batched_v1",
+      parameterDiffs: diffs,
+      effectiveTargets,
+    },
+    update: {
+      overallScore,
+      goalProgressScore,
+      parameterDiffs: diffs,
+      effectiveTargets,
+      scoredAt: new Date(),
+    },
   });
 
-  log.info(`Reward computed`, { overallScore, behaviorScore, goalProgressScore, diffs: diffs.length });
+  log.info(`Reward computed`, {
+    overallScore,
+    behaviorScore,
+    goalProgressScore,
+    diffs: diffs.length,
+    effectiveTargetsCount: Object.keys(effectiveTargets).length,
+  });
   return { overallScore };
 }
 
@@ -3024,146 +3146,6 @@ async function trackOnboardingAfterCall(
   return true;
 }
 
-/**
- * Update per-TP mastery scores after a call.
- * Resolves LO assessment outcomes → individual TP mastery via FK chain.
- * Session advancement removed — scheduler owns pacing.
- */
-async function updateTpMasteryAfterCall(
-  callerId: string,
-  log: PipelineLogger,
-  learningAssessment?: {
-    specSlug: string;
-    moduleId: string;
-    overallMastery: number;
-    outcomes?: Record<string, number>;
-    masteryThreshold: number;
-  } | null,
-): Promise<boolean> {
-  if (!learningAssessment?.outcomes) return false;
-
-  const caller = await prisma.caller.findUnique({
-    where: { id: callerId },
-    select: { domainId: true },
-  });
-  if (!caller?.domainId) return false;
-
-  // Try playbook curriculum first (direct link)
-  const enrolledPbForAssess = await resolvePlaybookId(callerId);
-  if (enrolledPbForAssess) {
-    // #1034 — PlaybookCurriculum-first read with deprecated-column fallback.
-    const pbcLink = await prisma.playbookCurriculum.findFirst({
-      where: { playbookId: enrolledPbForAssess },
-      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
-      select: { curriculum: { select: { slug: true } } },
-    });
-    const pbCurr = pbcLink?.curriculum;
-    if (pbCurr) {
-      // #1008 (Finding C) — AI-returned masteryThreshold is authoritative when present;
-      // fall back to CURRICULUM_PROGRESS_V1 contract, hard literal only if registry empty.
-      // NOTE: threshold itself is not consumed by this branch (per-LO scores are
-      // persisted raw); the comparison happens at LO read time via the same cascade.
-      const assessedLoRefs = Object.keys(learningAssessment.outcomes);
-      const loRows = await prisma.learningObjective.findMany({
-        where: {
-          ref: { in: assessedLoRefs },
-          module: { curriculum: { slug: pbCurr.slug }, isActive: true },
-        },
-        select: { id: true, ref: true },
-      });
-      if (loRows.length > 0) {
-        // #1177 Slice 3 (partial — pipeline route hardcoded shape) — rekey to
-        // `playbook:{playbookId}:lo:{loRef}`. Variant Playbooks of the same
-        // Curriculum no longer collide on this key shape: each variant has
-        // its own playbookId, so per-LO assessment scores stay isolated.
-        // The 20260606152558 migration purges all legacy `curriculum:*:lo:*`
-        // rows in the same PR. (The lo_mastery:* contract-driven shape in
-        // track-progress.ts is its own rekey, deferred to a focused Slice 3
-        // ticket — see docs/CONTRACTS-PLAYBOOK-CURRICULUM.md §6.)
-        for (const lo of loRows) {
-          const score = learningAssessment.outcomes[lo.ref];
-          if (score !== undefined) {
-            const key = `playbook:${enrolledPbForAssess}:lo:${lo.ref}`;
-            await prisma.callerAttribute.upsert({
-              where: { callerId_key_scope: { callerId, key, scope: "GLOBAL" } },
-              update: { stringValue: String(score), valueType: "STRING" },
-              create: { callerId, key, valueType: "STRING", stringValue: String(score) },
-            });
-          }
-        }
-        return true;
-      }
-    }
-  }
-
-  // Fallback: domain-wide Subject curriculum (legacy)
-  const subjectDomains = await prisma.subjectDomain.findMany({
-    where: { domainId: caller.domainId },
-    include: {
-      subject: {
-        include: {
-          curricula: {
-            orderBy: { updatedAt: "desc" },
-            take: 1,
-            select: { slug: true },
-          },
-        },
-      },
-    },
-  });
-
-  for (const sd of subjectDomains) {
-    const curriculum = sd.subject.curricula[0];
-    if (!curriculum) continue;
-
-    // #1008 (Finding C) — AI-returned masteryThreshold is authoritative when present;
-    // fall back to CURRICULUM_PROGRESS_V1 contract, hard literal only if registry empty.
-    const threshold =
-      learningAssessment.masteryThreshold ||
-      (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ||
-      0.7;
-
-    // Resolve LO ref strings → IDs, then query assertions by FK
-    const assessedLoRefs = Object.keys(learningAssessment.outcomes);
-    const loRows = await prisma.learningObjective.findMany({
-      where: {
-        ref: { in: assessedLoRefs },
-        module: { curriculum: { slug: curriculum.slug }, isActive: true },
-      },
-      select: { id: true, ref: true },
-    });
-    const assessedLoIds = loRows.map((lo) => lo.id);
-
-    const assessedTps = assessedLoIds.length > 0
-      ? await prisma.contentAssertion.findMany({
-          where: { learningObjectiveId: { in: assessedLoIds } },
-          select: { id: true, learningObjectiveId: true },
-        })
-      : [];
-
-    const loIdToRef = new Map(loRows.map((lo) => [lo.id, lo.ref]));
-
-    const updates: Record<string, { mastery: number; status: "not_started" | "in_progress" | "mastered" }> = {};
-    for (const tp of assessedTps) {
-      const loRef = tp.learningObjectiveId ? loIdToRef.get(tp.learningObjectiveId) : null;
-      const loScore = loRef ? learningAssessment.outcomes[loRef] ?? 0 : 0;
-      updates[tp.id] = {
-        mastery: loScore,
-        status: loScore >= threshold ? "mastered" : loScore > 0 ? "in_progress" : "not_started",
-      };
-    }
-
-    if (Object.keys(updates).length > 0) {
-      await updateTpMasteryBatch(callerId, curriculum.slug, updates);
-      log.info(`Updated ${Object.keys(updates).length} TP mastery scores`);
-      return true;
-    }
-
-    break;
-  }
-
-  return false;
-}
 
 // =====================================================
 // SPEC-DRIVEN PIPELINE EXECUTION
@@ -3300,8 +3282,17 @@ const stageExecutors: Record<string, StageExecutor> = {
     }
     const deltaResult = await computeAdapt(ctx.callId, ctx.callerId, ctx.log);
 
-    // Run all 5 non-blocking post-analysis ops in parallel
-    const [currSettled, onboardSettled, lessonSettled, artifactSettled, actionSettled] =
+    // Run all 4 non-blocking post-analysis ops in parallel.
+    // #1615 — TP-mastery sub-op (was sub-op 3) removed; the function
+    // `updateTpMasteryAfterCall` was dead in practice — both branches
+    // produced 0 rows DB-wide (Branch A's `playbook:*:lo:*` write +
+    // Branch B's `tp_status:*`/`tp_mastery:*` write). The active per-LO
+    // mastery store is `curriculum:{specSlug}:lo_mastery:{moduleSlug}:{loRef}`
+    // written by `updateCurriculumProgress` in the AGGREGATE stage above.
+    // Removing this op also closes the runtime crash filed as #1633
+    // (the dead Branch A's `CallerAttribute.upsert` was missing the
+    // `caller` relation).
+    const [currSettled, onboardSettled, artifactSettled, actionSettled] =
       await Promise.allSettled([
         // 1. Curriculum progress + CurriculumModule FK write
         // #1081 Slice 1 — `callerResult.playbookUsed` threaded through so the
@@ -3340,9 +3331,7 @@ const stageExecutors: Record<string, StageExecutor> = {
           }),
         // 2. Onboarding completion
         trackOnboardingAfterCall(ctx.callerId, ctx.callId, ctx.log),
-        // 3. TP mastery update (scheduler reads these next call)
-        updateTpMasteryAfterCall(ctx.callerId, ctx.log, callerResult.learningAssessment),
-        // 4. Artifact extraction + delivery
+        // 3. Artifact extraction + delivery
         appConfig.artifacts.enabled
           ? extractArtifacts(ctx.call, ctx.callerId, ctx.engine, ctx.log)
               .then(async (r) => {
@@ -3353,7 +3342,7 @@ const stageExecutors: Record<string, StageExecutor> = {
                 return r;
               })
           : Promise.resolve({ artifactsCreated: 0, artifactsSkipped: 0, errors: [] as string[] }),
-        // 5. Action extraction
+        // 4. Action extraction
         appConfig.actions.enabled
           ? extractActions(ctx.call, ctx.callerId, ctx.engine, ctx.log)
           : Promise.resolve({ actionsCreated: 0, actionsSkipped: 0, errors: [] as string[] }),
@@ -3369,11 +3358,10 @@ const stageExecutors: Record<string, StageExecutor> = {
     if (onboardSettled.status === "rejected") {
       ctx.log.warn(`Onboarding tracking failed (non-blocking): ${onboardSettled.reason?.message || String(onboardSettled.reason)}`);
     }
-
-    const sessionAdvanced = lessonSettled.status === "fulfilled" ? lessonSettled.value : false;
-    if (lessonSettled.status === "rejected") {
-      ctx.log.warn(`Lesson plan advancement failed (non-blocking): ${lessonSettled.reason?.message || String(lessonSettled.reason)}`);
-    }
+    // #1615 — sessionAdvanced was derived from the removed TP-mastery
+    // op's return; it was logged only on rejection and never consumed
+    // downstream. Dropped along with `lessonSettled`.
+    const sessionAdvanced = false;
 
     const artifactsExtracted = artifactSettled.status === "fulfilled" ? artifactSettled.value.artifactsCreated : 0;
     if (artifactSettled.status === "rejected") {
