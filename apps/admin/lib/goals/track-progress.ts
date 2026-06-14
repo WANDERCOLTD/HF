@@ -6,7 +6,11 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { GoalStatus } from "@prisma/client";
+import { GoalStatus, Prisma } from "@prisma/client";
+import {
+  appendGoalProgressEntry,
+  type GoalProgressMetricsShape,
+} from "@/lib/goals/append-progress-entry";
 import { PARAMS } from "@/lib/registry";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import {
@@ -14,6 +18,7 @@ import {
   loadGoalProgressSpec,
   resolveStrategyKey,
 } from "./strategies";
+import type { StrategyKey } from "./strategies/types";
 
 export interface GoalProgressUpdate {
   goalId: string;
@@ -231,10 +236,35 @@ export async function trackGoalProgress(
       const newProgress = Math.min(1.0, goal.progress + progressUpdate.progressDelta);
       const shouldAutoComplete = newProgress >= 1.0 && !goal.isAssessmentTarget;
 
+      // #1614 — append a per-call entry to progressMetrics so the
+      // Attainment tab's goal evidence trail accumulates. Pre-fix the
+      // writer only bumped `progress` (the scalar); progressMetrics
+      // stayed frozen at extraction-time metadata (113 rows on hf-dev
+      // sandbox) or NULL (1,000 rows), so the trail never advanced.
+      // Idempotent on (goal, callId): pipeline retry against the same
+      // call replays in place, never double-counts mentionCount or
+      // duplicates evidence.
+      const nextProgressMetrics = appendGoalProgressEntry(
+        goal.progressMetrics as GoalProgressMetricsShape | null,
+        {
+          callId,
+          at: new Date().toISOString(),
+          evidence: progressUpdate.evidence,
+          // strategyKey carries the resolved StrategyKey union here — the
+          // `??` left-hand `goal.progressStrategy` is `string | null` from
+          // Prisma but the resolver branch returns a canonical
+          // StrategyKey. The cast is safe because the dispatch at
+          // `getStrategy(strategyKey)` would have thrown above on an
+          // invalid string before we reach this write site.
+          sourceStrategy: strategyKey as StrategyKey,
+        },
+      );
+
       await prisma.goal.update({
         where: { id: goal.id },
         data: {
           progress: newProgress,
+          progressMetrics: nextProgressMetrics as Prisma.InputJsonValue,
           updatedAt: new Date(),
           ...(shouldAutoComplete && {
             status: GoalStatus.COMPLETED,
