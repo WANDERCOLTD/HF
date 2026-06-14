@@ -10,6 +10,9 @@
 export { FirstCallModeRenderer } from "./FirstCallModeRenderer";
 export type { FirstCallModeRendererData } from "./FirstCallModeRenderer";
 
+export { ModePolicyRenderer } from "./ModePolicyRenderer";
+export type { ModePolicyRendererData } from "./ModePolicyRenderer";
+
 export { WelcomeRenderer } from "./WelcomeRenderer";
 export type { WelcomeRendererData } from "./WelcomeRenderer";
 
