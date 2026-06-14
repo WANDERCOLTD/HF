@@ -71,6 +71,7 @@ import { shouldRunCallerAnalysis } from "@/lib/pipeline/event-gate";
 import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
 import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile } from "@/lib/pipeline/specs-loader";
 import { writeCallScore, MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
+import { normalizeScoreAgentEvidence } from "@/lib/pipeline/normalize-score-agent-evidence";
 import { buildParameterSpecMap, type ParameterWithSpec } from "@/lib/measurement/parameter-spec-map";
 import { buildBatchedMeasurePrompt } from "@/lib/measurement/build-batched-measure-prompt";
 import type { SpecConfig } from "@/lib/types/json-fields";
@@ -514,6 +515,11 @@ function buildBatchedAgentPrompt(
 ): string {
   const paramList = agentParams.map(p => `${p.parameterId}:${p.name}`).join("|");
 
+  // #1608 — request `e` (evidence) as a short verbatim-quote array per param.
+  // Pre-fix the prompt asked for {s, c} only and the parser at the
+  // BehaviorMeasurement write loop fell through to `["AI analysis"]` for every
+  // row (4259 universal rows). Evidence quotes are what feed the Attainment
+  // tab's per-skill evidence trail (SP4-A).
   return `Score AGENT behavior 0-1 (0=poor, 1=excellent).
 
 TRANSCRIPT:
@@ -521,8 +527,10 @@ ${transcript.slice(0, transcriptLimit)}
 
 BEHAVIORS: ${paramList}
 
+For each behavior, also return 1-2 short verbatim learner quotes (≤100 chars each) from the TRANSCRIPT supporting the score, in field "e". If the transcript has no learner contribution for a behavior, return "e":[].
+
 Return compact JSON:
-{"scores":{"PARAM-ID":{"s":0.75,"c":0.8},...}}`;
+{"scores":{"PARAM-ID":{"s":0.75,"c":0.8,"e":["short quote","another short quote"]},...}}`;
 }
 
 /**
@@ -1499,10 +1507,12 @@ async function runBatchedAgentAnalysis(
     const prompt = buildBatchedAgentPrompt(transcript, agentParams, transcriptLimit);
 
     try {
-      // More tokens for agent analysis with many parameters
-      // ~100 tokens per param (score + confidence + evidence array)
-      // Add 25% buffer to prevent truncation
-      const estimatedTokens = Math.max(2048, Math.ceil(agentParams.length * 150));
+      // #1608 — bumped from 150 → 250 tokens/param so two short verbatim quotes
+      // per param fit without truncation. Context-window safety: for a worst-case
+      // 60-param playbook this is +6k tokens vs the previous budget; well inside
+      // the configured model's window after the transcript (sliced to
+      // transcriptLimit ≤ 4000) and the system prompt are accounted for.
+      const estimatedTokens = Math.max(2048, Math.ceil(agentParams.length * 250));
 
       const agentTimeouts = await getAITimeoutSettings();
       const result = await getConfiguredMeteredAICompletion({
@@ -1529,8 +1539,11 @@ async function runBatchedAgentAnalysis(
           // Handle both full and compact keys: score/s, confidence/c, evidence/e
           const actualValue = Math.max(0, Math.min(1, scoreData.score ?? scoreData.s ?? 0.5));
           const confidence = Math.max(0, Math.min(confidenceCap, scoreData.confidence ?? scoreData.c ?? 0.7));
-          const rawEvidence = scoreData.evidence ?? scoreData.e;
-          const evidence = Array.isArray(rawEvidence) ? rawEvidence : [rawEvidence || "AI analysis"];
+          // #1608 — extracted into `normalizeScoreAgentEvidence` for testability.
+          // Empty array (model omitted `e`) is now preserved as `[]` rather than
+          // overwritten with the legacy `["AI analysis"]` placeholder; reader
+          // (SkillEvidencePanel) renders "No evidence captured" — honest fail.
+          const evidence: string[] = normalizeScoreAgentEvidence(scoreData);
 
           const existing = await prisma.behaviorMeasurement.findFirst({
             where: { callId: call.id, parameterId },
