@@ -36,6 +36,7 @@ import { SnapshotLoHeatmap } from "./SnapshotLoHeatmap";
 import { SnapshotCarryOverActions } from "./SnapshotCarryOverActions";
 import { SnapshotSubSkills } from "./SnapshotSubSkills";
 import { SnapshotWhyThisCall } from "./SnapshotWhyThisCall";
+import { SnapshotPersonalityBlock } from "./SnapshotPersonalityBlock";
 
 import "./snapshot-tab.css";
 
@@ -144,7 +145,7 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
         <LearningTrajectoryCard callerId={callerId} />
       </section>
 
-      <SnapshotPersonalityStub />
+      <SnapshotPersonalityBlock callerId={callerId} />
 
       <SnapshotSkillBandsSection
         skillBands={
@@ -185,26 +186,6 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
 
       <SnapshotCarryOverActions callerId={callerId} />
     </div>
-  );
-}
-
-// =============================================================
-// Stubs — sibling stories replace these
-// =============================================================
-
-function SnapshotPersonalityStub() {
-  return (
-    <section
-      className="hf-snapshot-section hf-snapshot-stub"
-      data-testid="hf-snapshot-personality-stub"
-    >
-      <div className="hf-card-compact">
-        <div className="hf-category-label">Who we think they are</div>
-        <span className="hf-badge hf-badge-muted">
-          Personality block — coming in story A.7
-        </span>
-      </div>
-    </section>
   );
 }
 
