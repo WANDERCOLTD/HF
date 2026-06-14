@@ -62,6 +62,14 @@ function resolveRendererData(
   if (selectedKey === "firstCallMode") {
     return { firstCallMode: pbConfig.firstCallMode };
   }
+  if (selectedKey === "modePolicy") {
+    return {
+      teachingMode: pbConfig.teachingMode,
+      useFreshMastery: (pbConfig as { useFreshMastery?: boolean })
+        .useFreshMastery,
+      maxMasteryTier: (pbConfig as { maxMasteryTier?: string }).maxMasteryTier,
+    };
+  }
   if (SESSION_FLOW_SECTIONS.has(selectedKey)) {
     return { sessionFlow };
   }
@@ -81,6 +89,12 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
       ? "Onboarding (default — unset)"
       : FIRST_CALL_MODE_LABEL[firstCallMode];
   const firstCallModeSelected = selectedKey === "firstCallMode";
+  // A.2 — modePolicy header chip. Same shape as firstCallMode but
+  // surfaces the teachingMode literal (or "default" when unset).
+  const teachingMode = pbConfig.teachingMode;
+  const modePolicyLabel =
+    teachingMode === undefined ? "default" : teachingMode;
+  const modePolicySelected = selectedKey === "modePolicy";
 
   // Fetch session-flow once on mount — feeds the 5 new B.13 renderers.
   // PreviewLens fetches the same endpoint independently; that duplication
@@ -133,6 +147,17 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
       >
         <span className="hf-category-label">Call 1 mode:</span>{" "}
         {firstCallModeLabel}
+      </button>
+      <button
+        type="button"
+        className={`hf-chip ${modePolicySelected ? "hf-chip-selected" : ""}`}
+        aria-pressed={modePolicySelected}
+        onClick={() =>
+          setSelectedKey(modePolicySelected ? null : "modePolicy")
+        }
+      >
+        <span className="hf-category-label">Mode policy:</span>{" "}
+        {modePolicyLabel}
       </button>
     </div>
   );
