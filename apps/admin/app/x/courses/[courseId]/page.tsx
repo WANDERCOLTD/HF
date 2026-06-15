@@ -12,7 +12,7 @@ import {
   Mic, Award,
 } from 'lucide-react';
 import { CourseSkillsTab } from './CourseSkillsTab';
-import { VoiceConfigSection } from '@/components/voice/VoiceConfigSection';
+import { SettingsTabVoiceLens } from '@/components/journey-tab/SettingsTabVoiceLens';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-trust/resolve-config';
 import { CourseOverviewTab } from './CourseOverviewTab';
@@ -1759,7 +1759,9 @@ export default function CourseDetailPage() {
       {activeTab === 'voice' && (
         <div className="hf-mt-lg">
           {isOperator ? (
-            <VoiceConfigSection scope="course" scopeId={courseId} />
+            // #1708 Phase 6 — voice settings now live behind a lens
+            // shell (formerly mounted on Design > Voice Flow).
+            <SettingsTabVoiceLens courseId={courseId!} />
           ) : (
             <div className="hf-banner hf-banner-info">
               You do not have permission to manage course voice settings.
