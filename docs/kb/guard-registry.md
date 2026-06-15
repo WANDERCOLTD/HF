@@ -415,6 +415,7 @@ data-safety invariant.
 | [`scripts/check-reciprocal-edit.sh`](../../scripts/check-reciprocal-edit.sh) (pre-push) | **AP-1 reciprocal-edit** — commit N+1 undoes ≥50% of commit N. | `ALLOW_RECIPROCAL_EDIT=1 git push` (document intent in body) |
 | [`scripts/gh-pr-create.sh`](../../scripts/gh-pr-create.sh) (wrapper around `gh pr create`) | **AP-4 verify-before-fix** — PR body without `## Verified by` section + DB query / test name / log / Playwright trace evidence. | `--no-verify-section` flag (warn-only) |
 | [`scripts/check-fix-refactor-inversion.ts`](../../scripts/check-fix-refactor-inversion.ts) (PR comment, warn-only) | **AP-5 fix-before-refactor** — `fix:` commit on a file later cleanly refactored on the same branch. | none — report only |
+| [`.claude/rules/agent-report-verification.md`](../../.claude/rules/agent-report-verification.md) (orchestrator discipline) | **Agent-report negatives** — sub-agent brief asserts "X doesn't exist" / "no callers" / "dead code" without an inverse-probe corroboration. | label `[unverified]` when not consequential |
 
 <a id="guard-fix-chain"></a>
 **`check-fix-chain.sh`** · class **meta** · born 2026-06-11 ·
@@ -474,6 +475,32 @@ checks whether a later `feat:`/`refactor:` commit on the same branch
 substantially overlaps the same files. If yes, the `fix:` was a band-aid the
 structural cleanup would have eliminated. Reports as a PR comment, never
 blocks. **Survives hardening:** AP-5 fitness function — architecture-independent.
+
+<a id="guard-agent-report-verification"></a>
+**`agent-report-verification.md`** · class **meta** · born 2026-06-15 ·
+[rule source](../../.claude/rules/agent-report-verification.md) ·
+ADR → [agent-report verification](../decisions/2026-06-15-agent-report-verification.md)
+
+Rule-based (no script today). Orchestrator-side discipline applied when a
+sub-agent (any type in [`.claude/agents/`](../../.claude/agents/)) returns a
+brief containing claims of the *absence* form — "X doesn't exist", "Y has no
+callers", "Z is dead code", "no test pins this". For each consequential
+negative claim, the orchestrator either runs an inverse probe (name-form,
+directory, schema-aware, dynamic-dispatch, single-tree, test-namespace — see
+the rule's taxonomy) in the same turn before relaying, or labels the claim
+`[unverified]` to the user. Spawned-agent prompts must instruct the agent to
+run its own inverse probe before asserting a negative.
+
+The 2026-06-15 fingerprint: a four-agent parallel audit returned 8 specific
+claims; 6 were wrong, all unverified negatives that failed because the agent
+searched one name form and missed the actual form (`reuse-path.ts` →
+`_reuse-path.ts`; `Call.loScoresJson` → `CallerModuleProgress.loScoresJson`;
+direct join table → `BehaviorTarget.skillRef` provenance chain).
+
+**Survives hardening:** the rule covers AI-orchestrator discipline —
+architecture-independent. When a `PostAgentResult` hook surface lands in the
+harness, the rule's probe-then-relay pattern is the natural enforcement
+target; until then the rule stays valid as convention.
 
 ## Drain guards (class c — terminal state, delete when zero)
 
