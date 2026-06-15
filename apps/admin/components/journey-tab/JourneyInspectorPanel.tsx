@@ -64,6 +64,7 @@ export function JourneyInspectorPanel({
       <JourneyField
         contract={contract}
         value={value}
+        options={contract.options}
         onSave={(next) => ctx.saveSetting(selectedSettingId, next)}
       />
       <div className="hf-journey-inspector-actions">

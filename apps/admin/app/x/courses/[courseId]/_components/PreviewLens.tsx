@@ -64,6 +64,11 @@ interface PreviewLensProps {
    *  section-summary alongside the live edit sidetray. Pure addition
    *  — no behaviour change when prop omitted (today's mount path). */
   onSelectSection?: (section: ComposeSectionKey | null) => void;
+  /** Journey tab Phase 4 — when true, suppress the legacy click-to-edit
+   *  sidetray and route bubble clicks only through `onSelectSection`
+   *  (which the Journey tab uses to mount editors in the Inspector pane).
+   *  Default false preserves the existing Design-tab behaviour. */
+  suppressSidetray?: boolean;
 }
 
 interface SessionFlowResp {
@@ -148,7 +153,7 @@ const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
   moduleVisibility: "Module visibility — when modules get named",
 };
 
-export function PreviewLens({ courseId, onSelectSection }: PreviewLensProps): React.ReactElement {
+export function PreviewLens({ courseId, onSelectSection, suppressSidetray = false }: PreviewLensProps): React.ReactElement {
   const { demoAnnotationsVisible } = useChatContext();
   const [mode, setMode] = useState<ViewMode>("educator");
   const [flow, setFlow] = useState<SessionFlowResp | null>(null);
@@ -212,7 +217,10 @@ export function PreviewLens({ courseId, onSelectSection }: PreviewLensProps): Re
 
   const openSidetray = useCallback((lensId: string) => {
     const mapped = SIDETRAY_LENS_MAP[lensId];
-    if (mapped) setSidetrayLens(mapped);
+    // Journey tab (Phase 4) suppresses the sidetray so the educator
+    // doesn't see two overlapping editors — the bubble click routes
+    // only through the Inspector pane via onSelectSection.
+    if (mapped && !suppressSidetray) setSidetrayLens(mapped);
     // #1623 — Designer Inspector hook. The sidetray (edit affordance)
     // and the Inspector (preview-summary surface) are independent: the
     // sidetray stays the educator's "tweak this" entry; the Inspector
@@ -221,7 +229,7 @@ export function PreviewLens({ courseId, onSelectSection }: PreviewLensProps): Re
       const section = SIDETRAY_LENS_TO_SECTION[lensId];
       if (section) onSelectSection(section);
     }
-  }, [onSelectSection]);
+  }, [onSelectSection, suppressSidetray]);
 
   const closeSidetray = useCallback(() => {
     setSidetrayLens(null);

@@ -148,6 +148,11 @@ const G2_FIRST_CALL_MODE: JourneySettingContract = {
         "Baseline Assessment mode runs the pre-test stop at the top of Call 1.",
     },
   ],
+  options: [
+    { value: "onboarding", label: "Onboarding (default)" },
+    { value: "teach_immediately", label: "Teach Immediately" },
+    { value: "baseline_assessment", label: "Baseline Assessment" },
+  ],
 };
 
 const G2_WELCOME_MESSAGE: JourneySettingContract = {
@@ -239,6 +244,11 @@ const G2_BASELINE_ASSESSMENT_DEPTH: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "firstCallMode", hint: "assessment depth" }],
+  options: [
+    { value: "light", label: "Light — 3 questions" },
+    { value: "standard", label: "Standard — 5 questions" },
+    { value: "deep", label: "Deep — 8 questions" },
+  ],
 };
 
 // =============================================================
@@ -261,6 +271,11 @@ const G3_TEACHING_STYLE: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "modePolicy" }],
+  options: [
+    { value: "socratic", label: "Socratic — ask, don't tell" },
+    { value: "direct", label: "Direct — explain and check" },
+    { value: "adaptive", label: "Adaptive — read the room" },
+  ],
 };
 
 const G3_MODULE_SEQUENCE_POLICY: JourneySettingContract = {
@@ -277,6 +292,11 @@ const G3_MODULE_SEQUENCE_POLICY: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "modulesGate", hint: "module ordering" }],
+  options: [
+    { value: "strict", label: "Strict prerequisites" },
+    { value: "interleaved", label: "Interleaved review" },
+    { value: "learner_led", label: "Learner picks next" },
+  ],
 };
 
 const G3_FIRST_CALL_CURRICULUM_FOCUS: JourneySettingContract = {
@@ -329,6 +349,11 @@ const G4_MODE_POLICY: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "modePolicy" }],
+  options: [
+    { value: "teach", label: "Teach — explain & ask" },
+    { value: "quiz", label: "Quiz — drill & test" },
+    { value: "mix", label: "Mix — adaptive ratio" },
+  ],
 };
 
 const G4_TOLERANCE_ACCURACY: JourneySettingContract = {
@@ -446,6 +471,12 @@ const G4_MAX_MASTERY_TIER: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "moduleMastery" }],
+  options: [
+    { value: "FOUNDATION", label: "Foundation" },
+    { value: "DEVELOPING", label: "Developing" },
+    { value: "PRACTITIONER", label: "Practitioner" },
+    { value: "DISTINCTION", label: "Distinction" },
+  ],
 };
 
 const G4_USE_FRESH_MASTERY: JourneySettingContract = {
@@ -479,6 +510,11 @@ const G4_SCORING_MODE: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "instructions" }],
+  options: [
+    { value: "strict", label: "Strict" },
+    { value: "lenient", label: "Lenient" },
+    { value: "adaptive", label: "Adaptive" },
+  ],
 };
 
 const G4_RECAP_ENABLED: JourneySettingContract = {
@@ -632,6 +668,10 @@ const G5_MID_JOURNEY_STOP_TRIGGER: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "modulesGate" }],
+  options: [
+    { value: "mastery_threshold", label: "Mastery threshold reached" },
+    { value: "session_count", label: "After N sessions" },
+  ],
 };
 
 const G5_NPS_STOP: JourneySettingContract = {
@@ -719,6 +759,11 @@ const G6_COMPLETION_CRITERIA: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "offboarding" }],
+  options: [
+    { value: "all_modules", label: "All modules mastered" },
+    { value: "any_module", label: "Any module mastered" },
+    { value: "mastery_threshold", label: "Overall mastery threshold" },
+  ],
 };
 
 // =============================================================
@@ -739,6 +784,11 @@ const G7_MODULE_VISIBILITY: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "modulesGate", hint: "module naming" }],
+  options: [
+    { value: "mention_from_call_1", label: "Mention module names from Call 1" },
+    { value: "hide_until_call_2", label: "Hide until Call 2" },
+    { value: "hide_until_learner_picks", label: "Hide until learner picks" },
+  ],
 };
 
 const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
@@ -771,6 +821,11 @@ const G7_CALL_COUNT_POLICY: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  options: [
+    { value: "hard_cap", label: "Hard cap — refuse after limit" },
+    { value: "soft_cap", label: "Soft cap — warn but allow" },
+    { value: "unlimited", label: "Unlimited" },
+  ],
 };
 
 const G7_MAX_CALLS_PER_DAY: JourneySettingContract = {
@@ -820,6 +875,11 @@ const G7_REWARD_STRATEGY: JourneySettingContract = {
   },
   previewLocators: [{ section: "instructions" }],
   writeGate: "operator-only",
+  options: [
+    { value: "learner_mastery", label: "Learner mastery growth" },
+    { value: "educator_drift", label: "Educator-target drift" },
+    { value: "blended", label: "Blended (mastery + drift)" },
+  ],
 };
 
 // =============================================================
