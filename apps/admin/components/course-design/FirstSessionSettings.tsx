@@ -59,6 +59,15 @@ interface FirstSessionSettingsProps {
   courseId: string;
   playbookConfig?: PlaybookConfig | Record<string, unknown> | null;
   onSaved?: () => void;
+  /** Hide the signpost summary list (Goals / About You / Knowledge Check
+   *  / AI Intro Call / Welcome / Onboarding phases). Used by the Journey
+   *  tab where those settings already have their own LH menu entries —
+   *  the duplication is confusing. Default false preserves the existing
+   *  Design-tab full-panel behaviour. */
+  hideSignposts?: boolean;
+  /** Hide the Call 1 mode picker. Used by the Journey tab where Call 1
+   *  mode is its own G2 setting. Default false. */
+  hideModePicker?: boolean;
 }
 
 type FirstCallMode = "onboarding" | "teach_immediately" | "baseline_assessment";
@@ -143,6 +152,8 @@ export function FirstSessionSettings({
   courseId,
   playbookConfig,
   onSaved,
+  hideSignposts = false,
+  hideModePicker = false,
 }: FirstSessionSettingsProps): React.ReactElement {
   const cfg = (playbookConfig ?? {}) as PlaybookConfig;
 
@@ -317,24 +328,27 @@ export function FirstSessionSettings({
       </div>
 
       {/* ── Signpost: read-only summary of SessionFlowEditor state ───────── */}
-      <div className="hf-mb-lg">
-        <div className="hf-text-xs hf-text-muted hf-mb-xs">
-          Owned by Session Flow editor — scroll up to edit
+      {hideSignposts ? null : (
+        <div className="hf-mb-lg">
+          <div className="hf-text-xs hf-text-muted hf-mb-xs">
+            Owned by Session Flow editor — scroll up to edit
+          </div>
+          <div className="hf-card-compact">
+            {signpost.map((row) => (
+              <div
+                key={row.label}
+                className="hf-flex hf-gap-sm hf-items-center hf-list-row"
+              >
+                <div className="hf-flex-1 hf-text-sm">{row.label}</div>
+                <div className="hf-text-xs hf-text-muted">{row.value}</div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="hf-card-compact">
-          {signpost.map((row) => (
-            <div
-              key={row.label}
-              className="hf-flex hf-gap-sm hf-items-center hf-list-row"
-            >
-              <div className="hf-flex-1 hf-text-sm">{row.label}</div>
-              <div className="hf-text-xs hf-text-muted">{row.value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* ── firstCallMode radio group (#790 S8) ───────────────────────────── */}
+      {hideModePicker ? null : (
       <div className="hf-mb-lg">
         <div className="hf-text-sm hf-text-bold hf-mb-xs">
           How should the AI approach the learner&apos;s first call?
@@ -361,6 +375,7 @@ export function FirstSessionSettings({
           ))}
         </div>
       </div>
+      )}
 
       {/* ── firstSessionTargets repeater (#784 S6) ────────────────────────── */}
       <div className="hf-mb-lg">
