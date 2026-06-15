@@ -18,6 +18,8 @@ import { useJourneySetting } from "@/components/shared/preview-renderers/_journe
 import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
 import { VOICE_SETTINGS_BY_ID } from "@/lib/settings/voice-setting-contracts";
 
+import { CascadeTraceBreadcrumb } from "./CascadeTraceBreadcrumb";
+import { EditAsJsonButton } from "./EditAsJsonButton";
 import { resolveValueAtPath } from "./resolve-value-at-path";
 
 interface JourneyInspectorPanelProps {
@@ -58,11 +60,15 @@ export function JourneyInspectorPanel({
 
   return (
     <div data-testid={`hf-journey-inspector-${selectedSettingId}`}>
+      <CascadeTraceBreadcrumb contract={contract} />
       <JourneyField
         contract={contract}
         value={value}
         onSave={(next) => ctx.saveSetting(selectedSettingId, next)}
       />
+      <div className="hf-journey-inspector-actions">
+        <EditAsJsonButton contract={contract} value={value} />
+      </div>
     </div>
   );
 }
