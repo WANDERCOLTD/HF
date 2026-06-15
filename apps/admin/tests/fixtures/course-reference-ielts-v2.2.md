@@ -2,7 +2,7 @@
 
 > **Document type:** COURSE_REFERENCE
 > **Built from:** HumanFirst Course Reference Template v5.1 — seed fixture
-> **Version:** 2.2-seed
+> **Version:** 2.3-seed (voice configuration section added 2026-06-15)
 > **Status:** Seeded
 > **Modules authored:** Yes — see `## Modules` below. The Module list is authoritative.
 
@@ -27,6 +27,27 @@ Directive correction-retry cycle with optional Socratic mode for self-diagnostic
 Practice over theory. Spoken performance with correction, repeated many times, against the four IELTS criteria.
 
 ---
+
+## Voice Configuration
+
+> **Wizard compatibility note (added 2026-06-15):** this section documents the voice scoring intent in the course reference itself so a future wizard parser can extract `Playbook.config.voice.*` from the source doc rather than requiring it to be set separately in a seed script. The current `projectCourseReference` parser does NOT read this section — values are set by `prisma/seed-ielts-course.ts` and `scripts/seed-ielts-prosody.ts`. When the wizard parser is extended (see `docs/draft-issues/prosody-skill-mapping.md`), the same values should land directly from the markdown.
+
+- **`tierPresetId`:** `ielts-speaking` — the IELTS Speaking 4-band rubric (Bands 3, 4, 5.5, 7) anchored by `lib/banding/presets.ts::TIER_PRESETS["ielts-speaking"]`.
+- **`voice.prosodyMode`:** `ielts` — explicit operator choice. With the tier preset set, the prosody runner's heuristic also lands on IELTS, but the explicit field documents intent and protects against tier-preset drift.
+- **Speech assessment provider:** any vendor in `lib/speech-assessment/adapter-registry.ts` (today: SpeechAce or SpeechSuper). The course doesn't pin a specific vendor — the system-default provider (`SpeechAssessmentProvider.isDefault: true`) handles the cascade.
+
+## Voice Signals — CallScore slot routing (post 2026-06-15)
+
+Vendor-derived signals from a connected speech-assessment provider land on the 4 dedicated IELTS skill parameters listed under `## Skills Framework` below, NOT on the generic conversational params (`CONV_PACE`, `pace_indicators`) which are reserved for EXTRACT's AI-judged transcript analysis. The slot routing for this IELTS course:
+
+| Vendor sub-band | CallScore parameter | Written by |
+|---|---|---|
+| Fluency and Coherence (Band 0–9) | `skill_fluency_and_coherence_fc` | `lib/pipeline/prosody-consumer.ts::writeIeltsCallScores` (PROSODY → AGGREGATE step 2.5) |
+| Pronunciation (Band 0–9) | `skill_pronunciation_p` | same |
+| Lexical Resource (Band 0–9) | `skill_lexical_resource_lr` | same |
+| Grammatical Range and Accuracy (Band 0–9) | `skill_grammatical_range_and_accuracy_gra` | same |
+
+Score normalisation: `band / 9 → 0–1`. Confidence: 0.9 (vendor-derived signals are higher-trust than AI inference).
 
 ## Skills Framework
 
