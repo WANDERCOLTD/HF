@@ -20,6 +20,8 @@ import {
 } from "@/components/shared/TierCell";
 import { tierLabel } from "@/lib/banding/tier-colors";
 
+import { AttainmentCertProgressSection } from "./AttainmentCertProgressSection";
+
 import "./attainment-tab.css";
 
 /**
@@ -104,6 +106,15 @@ interface SkillEvidenceItem {
   score: number;
   confidence: number;
   excerpts: string[];
+  // Wave A2 — score-provenance fields from CallScore via (callId,
+  // parameterId). Surface the AI's reasoning + spec + #566 badges so
+  // ProgressTab v1's ScoresSection can retire without losing this
+  // detail. All optional — legacy paths leave them null.
+  reasoning?: string | null;
+  analysisSpecName?: string | null;
+  hasLearnerEvidence?: boolean | null;
+  evidenceQuality?: number | null;
+  scoredBy?: string | null;
 }
 
 interface SkillEvidenceRow {
@@ -342,6 +353,12 @@ export function AttainmentTab({ callerId }: Props) {
           setExpandedGoalId((current) => (current === id ? null : id))
         }
       />
+
+      {/* Wave A2 — lifted from ProgressTab v1's TrustProgressSection.
+       * Renders trust-weighted certification readiness + per-module
+       * L0–L5 chips so progress-v2 + v1 can retire without losing the
+       * cert-readiness signal educators rely on. */}
+      <AttainmentCertProgressSection callerId={callerId} />
     </div>
   );
 }
@@ -478,6 +495,43 @@ function SkillEvidencePanel({
               Score {(item.score * 10).toFixed(1)} · conf{" "}
               {(item.confidence * 100).toFixed(0)}%
             </span>
+            {/* Wave A2 — score-provenance badges (#566 + analysis spec
+              + scoredBy) lifted from ProgressTab v1 detail-expand. */}
+            {item.hasLearnerEvidence === true && (
+              <span
+                className="hf-badge hf-badge-success"
+                style={{ marginLeft: 4 }}
+                title="Score backed by learner transcript"
+              >
+                learner-backed
+              </span>
+            )}
+            {item.hasLearnerEvidence === false && (
+              <span
+                className="hf-badge hf-badge-warning"
+                style={{ marginLeft: 4 }}
+                title="Score derived from tutor prose only (#566)"
+              >
+                tutor-only
+              </span>
+            )}
+            {typeof item.evidenceQuality === "number" && (
+              <span
+                className="hf-badge hf-badge-muted"
+                style={{ marginLeft: 4 }}
+                title="Scorer's evidence-quality judgment (0..1, #566)"
+              >
+                evidence q {(item.evidenceQuality * 100).toFixed(0)}%
+              </span>
+            )}
+            {item.scoredBy && (
+              <span
+                className="hf-text-sm hf-text-muted"
+                style={{ marginLeft: 4 }}
+              >
+                via {item.scoredBy}
+              </span>
+            )}
           </div>
           {item.excerpts.length > 0 ? (
             <ul className="hf-attainment-evidence-quotes">
@@ -489,6 +543,24 @@ function SkillEvidencePanel({
             <em className="hf-attainment-evidence-quote-empty">
               No transcript excerpts recorded for this measurement.
             </em>
+          )}
+          {item.reasoning && (
+            <div
+              className="hf-text-sm hf-text-muted"
+              style={{ marginTop: 4 }}
+              data-testid="hf-attainment-evidence-reasoning"
+            >
+              <strong>Reasoning:</strong> {item.reasoning}
+            </div>
+          )}
+          {item.analysisSpecName && (
+            <div
+              className="hf-text-sm hf-text-muted"
+              style={{ marginTop: 2 }}
+              data-testid="hf-attainment-evidence-spec"
+            >
+              Spec: {item.analysisSpecName}
+            </div>
           )}
         </div>
       ))}
