@@ -108,7 +108,7 @@ afterEach(() => {
 });
 
 describe("SnapshotTabContent — cold-load behaviour", () => {
-  it("fires parallel fetches on mount (attainment + skills-evidence + sub-skills + scheduler-decision + actions + personality + memories + enrollments)", async () => {
+  it("fires parallel fetches on mount (attainment + skills-evidence + sub-skills + scheduler-decision + actions + personality + memories + enrollments + insights)", async () => {
     const calls: string[] = [];
     const fetchMock = vi.fn(async (url: string | URL | Request) => {
       const u = typeof url === "string" ? url : url.toString();
@@ -119,13 +119,12 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
 
     render(<SnapshotTabContent callerId={CALLER_ID} domainId="d1" />);
 
-    // 8 parallel fetches: 2 from the foundation (attainment +
-    // skills-evidence) + 1 SubSkills + 1 CarryOverActions + 1
-    // WhyThisCall + 1 PersonalityBlock + 1 MemoryBlock (Wave A1) + 1
-    // EnrollmentBlock's inner CallerEnrollmentsSection (Wave A1).
+    // 9 parallel fetches at mount: 2 foundation + 1 each of SubSkills,
+    // CarryOverActions, WhyThisCall, PersonalityBlock, MemoryBlock,
+    // EnrollmentBlock (inner section), InsightsBlock (Wave B).
     // Per-module lo-mastery fetches from SnapshotLoHeatmap only fire
     // AFTER attainment lands.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(8));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(9));
     expect(calls.some((u) => u.includes("/attainment"))).toBe(true);
     expect(calls.some((u) => u.includes("/skills-evidence"))).toBe(true);
     expect(calls.some((u) => u.includes("/sub-skills"))).toBe(true);
@@ -134,6 +133,7 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
     expect(calls.some((u) => u.includes("/personality"))).toBe(true);
     expect(calls.some((u) => u.includes("/memories"))).toBe(true);
     expect(calls.some((u) => u.includes("/enrollments"))).toBe(true);
+    expect(calls.some((u) => u.includes("/insights"))).toBe(true);
   });
 
   it("renders the trajectory card in the header slot", () => {

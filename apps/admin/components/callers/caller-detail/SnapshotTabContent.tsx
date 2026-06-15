@@ -39,6 +39,7 @@ import { SnapshotWhyThisCall } from "./SnapshotWhyThisCall";
 import { SnapshotPersonalityBlock } from "./SnapshotPersonalityBlock";
 import { SnapshotMemoryBlock } from "./SnapshotMemoryBlock";
 import { SnapshotEnrollmentBlock } from "./SnapshotEnrollmentBlock";
+import { SnapshotInsightsBlock } from "./SnapshotInsightsBlock";
 
 import "./snapshot-tab.css";
 
@@ -153,6 +154,13 @@ export function SnapshotTabContent({ callerId, domainId }: SnapshotTabContentPro
       <section className="hf-snapshot-section hf-snapshot-header">
         <LearningTrajectoryCard callerId={callerId} />
       </section>
+
+      {/* Wave B — computed signals (Momentum + Achievements +
+       * Focus areas) lifted from OverviewV2Tab's At-a-Glance card,
+       * Achievements card, and FocusAreas card. Sits high so the
+       * operator gets the "what shape is this learner in right now"
+       * signal before scrolling. */}
+      <SnapshotInsightsBlock callerId={callerId} />
 
       <SnapshotPersonalityBlock callerId={callerId} />
 
