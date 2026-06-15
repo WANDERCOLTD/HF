@@ -60,6 +60,10 @@ interface PatchResponse {
   autoEnabled: Array<{ targetId: string; enforce: unknown }>;
   /** Compose sections whose staleness hash was bumped. */
   bumpedSections: string[];
+  /** Phase 3 (#1693): true when the storage root is `behaviorTargets` —
+   *  the wrapped compound editor (FirstSessionSettings) owns the save
+   *  via its own internal save loop. */
+  compoundOwnedSave?: boolean;
 }
 
 interface PatchError {
@@ -128,9 +132,26 @@ export async function PATCH(
 
   // Resolve storage root
   const resolved = resolveStoragePath(contract.storagePath);
+
+  // Phase 3 (#1693): behaviorTargets is a separate model — the storage
+  // path applier doesn't write to it. The existing FirstSessionSettings
+  // editor mounted via JourneyTargets has its own internal save loop
+  // hitting /api/courses/[courseId]/first-session route, so the journey-
+  // setting PATCH route SHOULDN'T intercept it. Return a documented
+  // 200 + nothing-applied response so the client can detect this code
+  // path and let the compound editor own the save.
+  if (resolved.root === "behaviorTargets") {
+    return NextResponse.json({
+      ok: true,
+      effectiveValue: value,
+      autoEnabled: [],
+      bumpedSections: [],
+      compoundOwnedSave: true,
+    });
+  }
+
   if (
     resolved.root === "domain" ||
-    resolved.root === "behaviorTargets" ||
     resolved.root === "unknown"
   ) {
     return NextResponse.json(

@@ -395,7 +395,10 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
   );
 
   return (
-    <JourneySettingMutatorProvider courseId={courseId}>
+    <JourneySettingMutatorProvider
+      courseId={courseId}
+      playbookConfig={pbConfig as Record<string, unknown> | null}
+    >
       <DesignerShell
         nav={null}
         canvas={

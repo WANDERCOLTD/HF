@@ -154,12 +154,16 @@ describe("PATCH /api/courses/[courseId]/journey-setting — Phase 2 #1687", () =
     expect(body.code).toBe("STORAGE_ROOT_NOT_SUPPORTED");
   });
 
-  it("501s when storage root is behaviorTargets (Phase 3 work)", async () => {
+  it("Phase 3 #1693: behaviorTargets returns 200 with compoundOwnedSave flag", async () => {
     const { PATCH } = await loadRoute();
     const res = await PATCH(
       makeReq({ settingId: "firstCallTargets", value: {} }) as never,
       PARAMS as never,
     );
-    expect(res.status).toBe(501);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.compoundOwnedSave).toBe(true);
+    expect(body.bumpedSections).toEqual([]);
   });
 });
