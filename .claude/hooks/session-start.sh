@@ -29,40 +29,69 @@ if [ -n "$GIT_DIR" ] && [ -n "$GIT_COMMON_DIR" ]; then
   fi
 fi
 
-# Hard block (#904): worktree isolation is now the structural default.
-# Background: between 2026-05-25 and 2026-05-26 we shipped a five-commit
-# fix chain (#841 → #849 → #861 → #870 → #899) bolting a PreToolUse
-# enforcer onto the shared-.git problem. Every retrofit had a subtle
-# semantic bug that ran live for hours before being noticed. The
-# systemic fix is to refuse the dangerous state at startup so the
-# enforcer becomes a defence-in-depth fallback, not the primary gate.
+# Hard block (#904, hardened 2026-06-15): worktree isolation is the
+# structural default for EVERY session in the main repo tree, regardless
+# of peer count.
 #
-# We only block when a peer is already live (PEER_COUNT > 1). A solo
-# session in the main tree is safe — nobody else can swap HEAD under it.
+# Pre-2026-06-15 the block only fired when `PEER_COUNT > 1` on the theory
+# that "a solo session in the main tree is safe — nobody else can swap
+# HEAD under it." That assumption held only until a SECOND session
+# started. Real-world race: peers spawned via IDE integrations
+# (Cursor / VS Code Claude / web-app) bypass the `claude()` zsh wrapper
+# that auto-worktrees interactive shells. Those peers landed solo in the
+# main tree (block passed), then a subsequent session opened, raced, and
+# destroyed work on `git pull --rebase` / `git checkout`. Twice in one
+# session 2026-06-15 — the same workflow lost 5 commits via reset, was
+# manually recovered via cherry-pick from reflog, lost 2 more on the
+# next push attempt, recovered again. Untenable.
+#
+# New invariant: the main tree is a hands-off branch-management workspace,
+# never a session workspace. Every session — first, solo, or 17th —
+# starts in a worktree. The wrapper handles the friendly path
+# (interactive zsh); this hook handles the IDE-spawn-bypass path.
 echo "/standup"
 PEER_COUNT=$(pgrep -x claude 2>/dev/null | wc -l | tr -d ' ')
-if [ "$PEER_COUNT" -gt 1 ] && [ "$IS_WORKTREE" != "true" ] && [ -z "$HF_FORCE_SHARED_TREE" ]; then
+if [ "$IS_WORKTREE" != "true" ] && [ -z "$HF_FORCE_SHARED_TREE" ]; then
+  # Suggest a safe branch slug from the current HEAD so the instruction
+  # is copy-paste runnable. Fallback to "main" if not on a branch.
+  SUGGEST_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+  SUGGEST_SLUG=$(printf '%s' "$SUGGEST_BRANCH" | tr '/' '-' | tr -c 'A-Za-z0-9-' '-')
+  SUGGEST_PATH="$TREE_TOPLEVEL-wt-$SUGGEST_SLUG"
   cat >&2 <<EOF
-🛑 BLOCKED: shared-tree claude session refused (#904).
+🛑 BLOCKED: shared-tree claude session refused (#904, hardened 2026-06-15).
 
-$PEER_COUNT concurrent claude processes are live and this session is
-opening in the main repo working tree (\`$TREE_TOPLEVEL\`). All concurrent
-sessions MUST run in isolated git worktrees — peer \`git checkout\` calls
-on a shared .git silently swap HEAD under live sessions (incident
-2026-05-25, fix chain #841 → #849 → #861 → #870 → #899).
+This session is opening in the main repo working tree (\`$TREE_TOPLEVEL\`).
+The main tree is reserved for branch management — every claude session
+must run in an isolated git worktree so peer sessions can't swap HEAD
+under each other via the shared \`.git\` directory. ($PEER_COUNT claude
+process(es) currently live.)
 
-Start safely:
+Start safely (copy-paste):
 
-  git worktree add ../HF-myrole feat/your-branch && cd ../HF-myrole
+  git worktree add "$SUGGEST_PATH" $SUGGEST_BRANCH
+  cd "$SUGGEST_PATH"
   claude
 
-Operator override (per-session, conscious risk):
+Or for a fresh feature branch:
+
+  git worktree add -b feat/your-task "$TREE_TOPLEVEL-wt-feat-your-task" main
+  cd "$TREE_TOPLEVEL-wt-feat-your-task"
+  claude
+
+Operator override (per-session, conscious risk — destructive git ops
+from peers can still destroy work in this tree):
 
   HF_FORCE_SHARED_TREE=1 claude
 
 The override parallels the per-command \`HF_FORCE_GIT=1\` escape. Use
-only when you have confirmed the peer is finished or accept the
-HEAD-swap risk.
+only for hands-off branch management (status / log / diff) or when you
+have confirmed every other claude process is finished. For real work,
+ALWAYS use a worktree.
+
+Why this is mandatory: peer sessions spawned via IDE integrations
+(Cursor / VS Code Claude / web-app) bypass the \`claude()\` zsh wrapper
+that normally handles auto-worktree. The wrapper + this hook are the
+two-layer defence; bypassing one means the other catches you.
 EOF
   exit 2
 fi
