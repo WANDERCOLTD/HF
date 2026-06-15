@@ -225,6 +225,12 @@ export interface JourneySettingContract {
   /** Power-user only — JSON path the "Edit as JSON" fallback opens to.
    *  Defaults to `storagePath` when omitted. */
   jsonFallbackPath?: string;
+
+  /** Enum values for `select` / `multi-select` / `radio` controls.
+   *  When present, the Inspector mounts these as the dropdown options.
+   *  Absent for free-form selects whose options come from a runtime
+   *  fetch (e.g. voiceId — needs the provider's voice catalog). */
+  options?: ReadonlyArray<{ value: string; label: string }>;
 }
 
 // Re-export for sibling registries (Settings tab Voice subset).

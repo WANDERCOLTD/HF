@@ -61,13 +61,13 @@ export function JourneySelect({
             id={`hf-jf-${contract.id}`}
             className="hf-input hf-jf-input"
             value={f.draftValue}
-            disabled={disabled || f.isSaving}
+            disabled={disabled || f.isSaving || opts.length === 0}
             data-testid={`hf-jf-select-${contract.id}`}
             onChange={(e) => void onPick(e.target.value)}
           >
             {opts.length === 0 ? (
               <option value="" disabled>
-                no options
+                Options load at runtime — use the JSON button to set
               </option>
             ) : (
               opts.map((o) => (

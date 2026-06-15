@@ -18,6 +18,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
 import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
+import type { ComposeSectionKey } from "@/lib/compose";
+import { getSettingsForSection } from "@/lib/journey/section-staleness-bridge";
 
 import { CommandPalette } from "./CommandPalette";
 import { JourneyInspectorPanel } from "./JourneyInspectorPanel";
@@ -57,6 +59,23 @@ export function CourseJourneyTab({
     [selection],
   );
 
+  // Bubble click in PreviewLens → mount the first matching setting in
+  // the Inspector pane. Replaces the legacy click-to-edit sidetray
+  // (which we also suppress on PreviewLens below) so the educator
+  // never sees two overlapping editors.
+  const handlePreviewSectionSelect = useCallback(
+    (section: ComposeSectionKey | null) => {
+      if (!section) {
+        selection.setSettingId(null);
+        return;
+      }
+      const settings = getSettingsForSection(section);
+      const first = settings[0];
+      if (first) selection.setSettingId(first.id);
+    },
+    [selection],
+  );
+
   return (
     <JourneySettingMutatorProvider
       courseId={courseId}
@@ -79,7 +98,11 @@ export function CourseJourneyTab({
           />
         </aside>
         <main className="hf-journey-pane hf-journey-canvas">
-          <PreviewLens courseId={courseId} />
+          <PreviewLens
+            courseId={courseId}
+            onSelectSection={handlePreviewSectionSelect}
+            suppressSidetray
+          />
         </main>
         <aside
           className="hf-journey-pane hf-journey-inspector"
