@@ -1,0 +1,906 @@
+/**
+ * Journey setting registry — authoritative entries for all 45 journey-
+ * affecting settings. Voice settings live in
+ * `lib/settings/voice-setting-contracts.ts`.
+ *
+ * AUTHORING PROCESS:
+ *   1. Each entry is hand-curated. TypeScript can't infer
+ *      educatorLabel / group / control / preview locators from the
+ *      storage type alone.
+ *   2. The completeness vitest (`tests/lib/journey/registry-completeness.test.ts`)
+ *      catches typos in section keys, dangling auto-enable targets,
+ *      duplicate ids, and group-count mismatches.
+ *   3. Order entries by `group` then by their journey-time anchor.
+ *   4. composeImpact.requiresReprompt: TRUE only when the setting feeds
+ *      a section that recomposes via an AI step (priorCallRecap, etc.).
+ *      Live diff in Preview is the default.
+ *
+ * The 45 entries map 1:1 to the table in issue #1676. See
+ * `docs/CONTRACTS-JOURNEY.md` for the chain (setting → composer-section
+ * → preview-bubble).
+ */
+
+import type {
+  JourneySettingContract,
+} from "./setting-contracts";
+import type { JourneyGroup } from "./setting-groups";
+
+// =============================================================
+// G1 — Sign-up & Intake (5)
+// =============================================================
+
+const G1_INTAKE_SPEC_ID: JourneySettingContract = {
+  id: "intakeSpecId",
+  group: "G1",
+  educatorLabel: "Intake form",
+  helpText: "Which IntakeSpec the learner fills in before Call 1.",
+  storagePath: "domain.onboardingIdentitySpecId",
+  control: "select",
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.onboardingIdentitySpecId" },
+  ],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    // operator-only with compose impact → must reprompt (AC §6 rule 11)
+    requiresReprompt: true,
+  },
+  previewLocators: [{ section: "intake", hint: "intake spec questions" }],
+  writeGate: "operator-only",
+};
+
+const G1_INTAKE_KNOWLEDGE_CHECK: JourneySettingContract = {
+  id: "intakeKnowledgeCheck",
+  group: "G1",
+  educatorLabel: "Knowledge check on sign-up",
+  helpText: "Brief MCQ or Socratic probe in the sign-up form.",
+  storagePath: "sessionFlow.intake.knowledgeCheck",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "knowledge check block" }],
+};
+
+const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
+  id: "intakeAboutYou",
+  group: "G1",
+  educatorLabel: '"About you" questions',
+  helpText: 'Show the "About you" block in the sign-up form.',
+  storagePath: "sessionFlow.intake.aboutYou",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "about-you block" }],
+};
+
+const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
+  id: "intakeSkipIfReturning",
+  group: "G1",
+  educatorLabel: "Skip intake for returning learners",
+  helpText: "When true, learners who completed intake before are bypassed.",
+  storagePath: "config.skipIntakeIfReturning",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G1_INTAKE_CONSENT_FLOW: JourneySettingContract = {
+  id: "intakeConsentFlow",
+  group: "G1",
+  educatorLabel: "Consent / disclosure flow",
+  helpText: "Which consent gates run before the learner reaches Call 1.",
+  storagePath: "config.intakeConsentFlow",
+  control: "select",
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.consentFlowDefault" },
+  ],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content", "section-enable"],
+    requiresReprompt: true, // operator-only + compose impact (AC §6 rule 11)
+  },
+  previewLocators: [{ section: "intake", hint: "consent gates" }],
+  writeGate: "operator-only",
+};
+
+// =============================================================
+// G2 — Call 1 — opening & assessment (6)
+// =============================================================
+
+const G2_FIRST_CALL_MODE: JourneySettingContract = {
+  id: "firstCallMode",
+  group: "G2",
+  educatorLabel: "Call 1 mode",
+  helpText:
+    "Onboarding / Teach Immediately / Baseline Assessment — overall shape of Call 1.",
+  storagePath: "config.firstCallMode",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["firstCallMode", "welcome", "onboarding"],
+    kinds: ["section-content", "section-enable", "persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [
+    { section: "firstCallMode" },
+    { section: "welcome", hint: "first bubble" },
+  ],
+  autoEnableLinks: [
+    {
+      targetId: "preTestStop",
+      whenValue: "baseline_assessment",
+      enforce: true,
+      decoupleAllowed: true,
+      reason:
+        "Baseline Assessment mode runs the pre-test stop at the top of Call 1.",
+    },
+  ],
+};
+
+const G2_WELCOME_MESSAGE: JourneySettingContract = {
+  id: "welcomeMessage",
+  group: "G2",
+  educatorLabel: "Opening line",
+  helpText: "First line the learner hears on Call 1.",
+  storagePath: "sessionFlow.welcomeMessage",
+  control: "text",
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.welcomeMessage" },
+  ],
+  composeImpact: {
+    sections: ["welcome"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "welcome", hint: "first paragraph" }],
+};
+
+const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
+  id: "onboardingFlowPhases",
+  group: "G2",
+  educatorLabel: "Onboarding flow phases",
+  helpText: "Phases the AI walks through after the welcome line on Call 1.",
+  storagePath: "domain.onboardingFlowPhases",
+  control: "phases",
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.onboardingFlowPhases" },
+  ],
+  composeImpact: {
+    sections: ["onboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "onboarding", hint: "phase list" }],
+};
+
+const G2_FIRST_CALL_TARGETS: JourneySettingContract = {
+  id: "firstCallTargets",
+  group: "G2",
+  educatorLabel: "Call 1 skill targets",
+  helpText: "Per-parameter targets applied only to Call 1.",
+  storagePath: {
+    path: "behaviorTargets[]",
+    arrayKey: "scope",
+    selectorValue: "firstCall",
+    writeMode: "merge",
+  },
+  control: "targets",
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.firstCallTargetsDefault" },
+  ],
+  composeImpact: {
+    sections: ["behaviorTargets"],
+    kinds: ["scoring-weight", "cascade-override"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "behaviorTargets", hint: "first-call slider block" }],
+};
+
+const G2_PRE_TEST_STOP: JourneySettingContract = {
+  id: "preTestStop",
+  group: "G2",
+  educatorLabel: "Pre-test stop",
+  helpText: "Gate the start of Call 1 with a quick assessment.",
+  storagePath: "sessionFlow.stops.preTest",
+  control: "stop",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate", "instructions"],
+    kinds: ["section-enable", "stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate", hint: "pre-test block" }],
+};
+
+const G2_BASELINE_ASSESSMENT_DEPTH: JourneySettingContract = {
+  id: "baselineAssessmentDepth",
+  group: "G2",
+  educatorLabel: "Baseline assessment depth",
+  helpText: "How thorough the baseline assessment is (light / standard / deep).",
+  storagePath: "config.baselineAssessmentDepth",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["firstCallMode", "instructions"],
+    kinds: ["section-content", "scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "firstCallMode", hint: "assessment depth" }],
+};
+
+// =============================================================
+// G3 — Call 1 — teaching (4)
+// =============================================================
+
+const G3_TEACHING_STYLE: JourneySettingContract = {
+  id: "teachingStyle",
+  group: "G3",
+  educatorLabel: "Teaching style",
+  helpText: "Socratic / Direct / Adaptive — how the AI explains things on Call 1.",
+  storagePath: "config.teachingStyle",
+  control: "select",
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.teachingStyleDefault" },
+  ],
+  composeImpact: {
+    sections: ["instructions", "modePolicy"],
+    kinds: ["persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modePolicy" }],
+};
+
+const G3_MODULE_SEQUENCE_POLICY: JourneySettingContract = {
+  id: "moduleSequencePolicy",
+  group: "G3",
+  educatorLabel: "Module sequence policy",
+  helpText: "Strict prerequisites / interleaved / learner-led on Call 1.",
+  storagePath: "config.moduleSequencePolicy",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate", hint: "module ordering" }],
+};
+
+const G3_FIRST_CALL_CURRICULUM_FOCUS: JourneySettingContract = {
+  id: "firstCallCurriculumFocus",
+  group: "G3",
+  educatorLabel: "Call 1 curriculum focus",
+  helpText: "Which modules can be taught on Call 1.",
+  storagePath: "config.firstCallCurriculumFocus",
+  control: "multi-select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["firstCallMode", "modulesGate"],
+    kinds: ["section-content", "sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "firstCallMode" }],
+};
+
+const G3_OPENING_RECAP_ENABLED: JourneySettingContract = {
+  id: "openingRecapEnabled",
+  group: "G3",
+  educatorLabel: "Opening recap (Call 1)",
+  helpText: "Brief recap of intake answers at the top of Call 1.",
+  storagePath: "config.openingRecapEnabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["welcome", "priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "welcome", hint: "after greeting" }],
+};
+
+// =============================================================
+// G4 — Every call — teaching style (17)
+// =============================================================
+
+const G4_MODE_POLICY: JourneySettingContract = {
+  id: "modePolicy",
+  group: "G4",
+  educatorLabel: "Mode policy (teach / quiz / mix)",
+  helpText: "Default mode for calls 2+ — teach, quiz, or mixed.",
+  storagePath: "config.modePolicy",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modePolicy", "instructions"],
+    kinds: ["persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modePolicy" }],
+};
+
+const G4_TOLERANCE_ACCURACY: JourneySettingContract = {
+  id: "toleranceAccuracy",
+  group: "G4",
+  educatorLabel: "Accuracy tolerance",
+  helpText: "How much slack the AI gives on factual accuracy.",
+  storagePath: "tolerances.accuracy",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions" }],
+};
+
+const G4_TOLERANCE_FLUENCY: JourneySettingContract = {
+  id: "toleranceFluency",
+  group: "G4",
+  educatorLabel: "Fluency tolerance",
+  helpText: "How much slack the AI gives on phrasing fluency.",
+  storagePath: "tolerances.fluency",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions" }],
+};
+
+const G4_TOLERANCE_CONFIDENCE: JourneySettingContract = {
+  id: "toleranceConfidence",
+  group: "G4",
+  educatorLabel: "Confidence tolerance",
+  helpText: "How much slack the AI gives on confident-sounding answers.",
+  storagePath: "tolerances.confidence",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions" }],
+};
+
+const G4_TOLERANCE_ENGAGEMENT: JourneySettingContract = {
+  id: "toleranceEngagement",
+  group: "G4",
+  educatorLabel: "Engagement tolerance",
+  helpText: "How much slack the AI gives on learner engagement signals.",
+  storagePath: "tolerances.engagement",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions" }],
+};
+
+const G4_SKILL_TIER_MAPPING: JourneySettingContract = {
+  id: "skillTierMapping",
+  group: "G4",
+  educatorLabel: "Skill tier mapping",
+  helpText: "Tier labels + thresholds for skill bands.",
+  storagePath: "config.skillTierMapping",
+  control: "banding",
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.skillTierMappingDefault" },
+  ],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight", "section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [
+    { section: "moduleMastery", hint: "tier badge" },
+    { section: "loMastery", hint: "tier badge" },
+  ],
+};
+
+const G4_SKILL_SCORING_EMA_HALF_LIFE: JourneySettingContract = {
+  id: "skillScoringEmaHalfLife",
+  group: "G4",
+  educatorLabel: "Scoring EMA half-life",
+  helpText: "Days for the per-skill EMA to decay to half-weight.",
+  storagePath: "config.skillScoringEmaHalfLifeDays",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G4_MAX_MASTERY_TIER: JourneySettingContract = {
+  id: "maxMasteryTier",
+  group: "G4",
+  educatorLabel: "Max mastery tier",
+  helpText: "Highest tier the AI will award without operator override.",
+  storagePath: "config.maxMasteryTier",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "moduleMastery" }],
+};
+
+const G4_USE_FRESH_MASTERY: JourneySettingContract = {
+  id: "useFreshMastery",
+  group: "G4",
+  educatorLabel: "Use fresh mastery (per-call)",
+  helpText:
+    "When true, mastery resets per call (exam mode); otherwise rolling.",
+  storagePath: "config.useFreshMastery",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "moduleMastery" }],
+};
+
+const G4_SCORING_MODE: JourneySettingContract = {
+  id: "scoringMode",
+  group: "G4",
+  educatorLabel: "Scoring mode",
+  helpText: "Strict / Lenient / Adaptive — how the AI grades answers.",
+  storagePath: "config.scoringMode",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions" }],
+};
+
+const G4_RECAP_ENABLED: JourneySettingContract = {
+  id: "recapEnabled",
+  group: "G4",
+  educatorLabel: "Recap at call start",
+  helpText: "Brief recap of the prior call at the top of calls 2+.",
+  storagePath: "config.recapEnabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_RECAP_SYNTHESIS_ENABLED: JourneySettingContract = {
+  id: "recapSynthesisEnabled",
+  group: "G4",
+  educatorLabel: "AI recap synthesis",
+  helpText: "When true, the recap is AI-synthesised (cost per call).",
+  storagePath: "config.recapSynthesisEnabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-content"],
+    requiresReprompt: true, // AI-touching → Save & reprompt CTA
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_PRIOR_CALL_FEEDBACK_ENABLED: JourneySettingContract = {
+  id: "priorCallFeedbackEnabled",
+  group: "G4",
+  educatorLabel: "Show prior-call feedback",
+  helpText: "Show the educator's last-call feedback to the learner.",
+  storagePath: "config.priorCallFeedbackEnabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_AGENT_TUNER_NLP_ENABLED: JourneySettingContract = {
+  id: "agentTunerNlpEnabled",
+  group: "G4",
+  educatorLabel: "NLP agent tuner",
+  helpText: "Enable the NLP agent-tuner side panel (operator-only).",
+  storagePath: "config.agentTunerNlpEnabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+  writeGate: "operator-only",
+};
+
+const G4_PROGRESS_SIGNAL_LOW_WATER: JourneySettingContract = {
+  id: "progressSignalLowWater",
+  group: "G4",
+  educatorLabel: "Progress signal — low-water mark",
+  helpText: "Below this mastery, the AI emphasises encouragement.",
+  storagePath: "config.progressSignals.lowWater",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions", "moduleMastery"],
+    kinds: ["scoring-weight", "persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions" }],
+};
+
+const G4_PROGRESS_SIGNAL_HIGH_WATER: JourneySettingContract = {
+  id: "progressSignalHighWater",
+  group: "G4",
+  educatorLabel: "Progress signal — high-water mark",
+  helpText: "Above this mastery, the AI moves toward review / stretch.",
+  storagePath: "config.progressSignals.highWater",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions", "moduleMastery"],
+    kinds: ["scoring-weight", "persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions" }],
+};
+
+/** Cross-registry: this setting also appears in the Voice registry —
+ *  documented in `docs/CONTRACTS-JOURNEY.md` §7. Both registries' entries
+ *  share the same `storagePath` (pinned by the completeness vitest). */
+const G4_INTERRUPT_SENSITIVITY: JourneySettingContract = {
+  id: "interruptSensitivity",
+  group: "G4",
+  educatorLabel: "Interrupt sensitivity",
+  helpText:
+    "How quickly the AI yields when the learner starts speaking. Mirror copy lives in Voice settings.",
+  storagePath: "config.interruptSensitivity",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["personality"],
+    kinds: ["persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "personality" }],
+};
+
+// =============================================================
+// G5 — Mid-journey stops (3)
+// =============================================================
+
+const G5_MID_JOURNEY_STOP: JourneySettingContract = {
+  id: "midJourneyStop",
+  group: "G5",
+  educatorLabel: "Mid-journey stop",
+  helpText: "Mid-test or check-in stop between teaching calls.",
+  storagePath: "sessionFlow.stops.midJourney",
+  control: "stop",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["section-enable", "stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate", hint: "mid-journey block" }],
+};
+
+const G5_MID_JOURNEY_STOP_TRIGGER: JourneySettingContract = {
+  id: "midJourneyStopTrigger",
+  group: "G5",
+  educatorLabel: "Mid-journey stop trigger",
+  helpText: "Mastery threshold / session count that fires the stop.",
+  storagePath: "sessionFlow.stops.midJourney.trigger",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate" }],
+};
+
+const G5_NPS_STOP: JourneySettingContract = {
+  id: "npsStop",
+  group: "G5",
+  educatorLabel: "NPS stop",
+  helpText: "Net Promoter Score survey at a mid-journey moment.",
+  storagePath: "sessionFlow.stops.nps",
+  control: "stop",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["nps"],
+    kinds: ["section-enable", "stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "nps" }],
+};
+
+// =============================================================
+// G6 — End of course / offboarding (4)
+// =============================================================
+
+const G6_OFFBOARDING_FLOW_PHASES: JourneySettingContract = {
+  id: "offboardingFlowPhases",
+  group: "G6",
+  educatorLabel: "Offboarding flow phases",
+  helpText: "Phases the AI walks through on the final call.",
+  storagePath: "sessionFlow.offboarding",
+  control: "phases",
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.offboardingFlowPhases" },
+  ],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "phase list" }],
+};
+
+const G6_OFFBOARDING_CERTIFICATE: JourneySettingContract = {
+  id: "offboardingCertificate",
+  group: "G6",
+  educatorLabel: "Certificate on completion",
+  helpText: "Issue a completion certificate at the end.",
+  storagePath: "config.offboardingCertificate",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "certificate mention" }],
+};
+
+const G6_POST_TEST_STOP: JourneySettingContract = {
+  id: "postTestStop",
+  group: "G6",
+  educatorLabel: "Post-test stop",
+  helpText: "Final assessment before offboarding.",
+  storagePath: "sessionFlow.stops.postTest",
+  control: "stop",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate", "offboarding"],
+    kinds: ["section-enable", "stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate", hint: "post-test block" }],
+};
+
+const G6_COMPLETION_CRITERIA: JourneySettingContract = {
+  id: "completionCriteria",
+  group: "G6",
+  educatorLabel: "Completion criteria",
+  helpText:
+    "All modules mastered / any module mastered / mastery threshold reached.",
+  storagePath: "config.completionCriteria",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding", "modulesGate"],
+    kinds: ["section-enable", "sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+};
+
+// =============================================================
+// G7 — Scoring & sequencing (6)
+// =============================================================
+
+const G7_MODULE_VISIBILITY: JourneySettingContract = {
+  id: "moduleVisibility",
+  group: "G7",
+  educatorLabel: "Module visibility rules",
+  helpText: "When the AI starts naming modules in framing.",
+  storagePath: "config.moduleVisibility",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy", "section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate", hint: "module naming" }],
+};
+
+const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
+  id: "loMasteryThreshold",
+  group: "G7",
+  educatorLabel: "LO mastery pass threshold",
+  helpText: "Mastery score required to mark a Learning Objective as passed.",
+  storagePath: "config.loMasteryThreshold",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "loMastery" }],
+};
+
+const G7_CALL_COUNT_POLICY: JourneySettingContract = {
+  id: "callCountPolicy",
+  group: "G7",
+  educatorLabel: "Call count policy",
+  helpText: "Hard cap / Soft cap / Unlimited — total call budget per learner.",
+  storagePath: "config.callCountPolicy",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G7_MAX_CALLS_PER_DAY: JourneySettingContract = {
+  id: "maxCallsPerDay",
+  group: "G7",
+  educatorLabel: "Max calls per day",
+  helpText: "Throttle to N calls per day per learner.",
+  storagePath: "config.maxCallsPerDay",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G7_ASSESSMENT_READINESS_THRESHOLD: JourneySettingContract = {
+  id: "assessmentReadinessThreshold",
+  group: "G7",
+  educatorLabel: "Assessment readiness threshold",
+  helpText: "Mastery the learner must reach before the post-test fires.",
+  storagePath: "config.assessmentReadinessThreshold",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy", "stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate" }],
+};
+
+const G7_REWARD_STRATEGY: JourneySettingContract = {
+  id: "rewardStrategy",
+  group: "G7",
+  educatorLabel: "Reward strategy",
+  helpText: "Which reward signal the adaptive loop optimises for.",
+  storagePath: "config.rewardStrategy",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["scoring-weight", "sequence-policy"],
+    requiresReprompt: true, // operator-only + compose impact (AC §6 rule 11)
+  },
+  previewLocators: [{ section: "instructions" }],
+  writeGate: "operator-only",
+};
+
+// =============================================================
+// Registry
+// =============================================================
+
+export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
+  // G1 (5)
+  G1_INTAKE_SPEC_ID,
+  G1_INTAKE_KNOWLEDGE_CHECK,
+  G1_INTAKE_ABOUT_YOU,
+  G1_INTAKE_SKIP_IF_RETURNING,
+  G1_INTAKE_CONSENT_FLOW,
+  // G2 (6)
+  G2_FIRST_CALL_MODE,
+  G2_WELCOME_MESSAGE,
+  G2_ONBOARDING_FLOW_PHASES,
+  G2_FIRST_CALL_TARGETS,
+  G2_PRE_TEST_STOP,
+  G2_BASELINE_ASSESSMENT_DEPTH,
+  // G3 (4)
+  G3_TEACHING_STYLE,
+  G3_MODULE_SEQUENCE_POLICY,
+  G3_FIRST_CALL_CURRICULUM_FOCUS,
+  G3_OPENING_RECAP_ENABLED,
+  // G4 (17)
+  G4_MODE_POLICY,
+  G4_TOLERANCE_ACCURACY,
+  G4_TOLERANCE_FLUENCY,
+  G4_TOLERANCE_CONFIDENCE,
+  G4_TOLERANCE_ENGAGEMENT,
+  G4_SKILL_TIER_MAPPING,
+  G4_SKILL_SCORING_EMA_HALF_LIFE,
+  G4_MAX_MASTERY_TIER,
+  G4_USE_FRESH_MASTERY,
+  G4_SCORING_MODE,
+  G4_RECAP_ENABLED,
+  G4_RECAP_SYNTHESIS_ENABLED,
+  G4_PRIOR_CALL_FEEDBACK_ENABLED,
+  G4_AGENT_TUNER_NLP_ENABLED,
+  G4_PROGRESS_SIGNAL_LOW_WATER,
+  G4_PROGRESS_SIGNAL_HIGH_WATER,
+  G4_INTERRUPT_SENSITIVITY,
+  // G5 (3)
+  G5_MID_JOURNEY_STOP,
+  G5_MID_JOURNEY_STOP_TRIGGER,
+  G5_NPS_STOP,
+  // G6 (4)
+  G6_OFFBOARDING_FLOW_PHASES,
+  G6_OFFBOARDING_CERTIFICATE,
+  G6_POST_TEST_STOP,
+  G6_COMPLETION_CRITERIA,
+  // G7 (6)
+  G7_MODULE_VISIBILITY,
+  G7_LO_MASTERY_THRESHOLD,
+  G7_CALL_COUNT_POLICY,
+  G7_MAX_CALLS_PER_DAY,
+  G7_ASSESSMENT_READINESS_THRESHOLD,
+  G7_REWARD_STRATEGY,
+];
+
+export const JOURNEY_SETTINGS_BY_ID: Readonly<
+  Record<string, JourneySettingContract>
+> = Object.fromEntries(JOURNEY_SETTINGS.map((s) => [s.id, s]));
+
+export const JOURNEY_SETTINGS_BY_GROUP: Readonly<
+  Record<JourneyGroup, readonly JourneySettingContract[]>
+> = (() => {
+  const groups = ["G1", "G2", "G3", "G4", "G5", "G6", "G7"] as const;
+  const out: Record<JourneyGroup, JourneySettingContract[]> = {
+    G1: [], G2: [], G3: [], G4: [], G5: [], G6: [], G7: [],
+  };
+  for (const s of JOURNEY_SETTINGS) {
+    // Settings-group entries should not appear in JOURNEY_SETTINGS — the
+    // completeness vitest enforces this. Narrow defensively here.
+    if (s.group in out) {
+      out[s.group as JourneyGroup].push(s);
+    }
+  }
+  return Object.fromEntries(groups.map((g) => [g, out[g]])) as unknown as Record<
+    JourneyGroup,
+    readonly JourneySettingContract[]
+  >;
+})();
