@@ -57,7 +57,7 @@ export async function GET(
 
   const enrollment = await prisma.callerPlaybook.findFirst({
     where: { playbookId: courseId, status: "ACTIVE" },
-    orderBy: { startedAt: "desc" },
+    orderBy: { enrolledAt: "desc" },
     select: {
       caller: { select: { id: true, name: true } },
     },
