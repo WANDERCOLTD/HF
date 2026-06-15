@@ -26,7 +26,7 @@ const { mockPrisma, mockStudentAllowed, mockGetCourseStyle } = vi.hoisted(
       callerModuleProgress: { findMany: vi.fn() },
     },
     mockStudentAllowed: vi.fn(),
-    mockGetCourseStyle: vi.fn(() => "structured" as const),
+    mockGetCourseStyle: vi.fn<() => "structured" | "continuous">(() => "structured"),
   }),
 );
 
