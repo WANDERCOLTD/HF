@@ -132,6 +132,8 @@ export const PARAMS = {
   context_setting_quality: "context_setting_quality",
   CONV_DOM: "CONV_DOM",
   CONV_PACE: "CONV_PACE",
+  prosody_pace_wpm: "prosody_pace_wpm",
+  prosody_hesitation_rate: "prosody_hesitation_rate",
   CP_004: "CP-004",
   crisis_detection_score: "crisis_detection_score",
   default_targets_quality: "default_targets_quality",

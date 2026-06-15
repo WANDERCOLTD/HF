@@ -45,7 +45,10 @@ interface CourseSnapshot {
    * "which scoring mode is this course using?".
    *
    *   "ielts"   — 4-band rubric (FC, P, LR, GRA) writes 4 CallScore rows
-   *   "general" — pace + filler writes CONV_PACE + pace_indicators
+   *   "general" — pace + hesitation writes prosody_pace_wpm + prosody_hesitation_rate
+   *               (split from CONV_PACE + pace_indicators on 2026-06-15 so the
+   *               vendor-derived signals don't overwrite EXTRACT's AI-judged
+   *               scores — see lib/pipeline/prosody-consumer.ts header)
    *
    * Source: explicit `config.voice.prosodyMode` → legacy `tierPresetId
    * === "ielts-speaking"` → default "general". See

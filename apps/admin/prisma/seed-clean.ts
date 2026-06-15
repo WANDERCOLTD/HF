@@ -20,6 +20,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { seedFromSpecs, loadSpecFiles, setPrismaClient } from "./seed-from-specs";
 import { seedToleranceParameters } from "./seed-tolerance-parameters";
+import { seedProsodyParameters } from "./seed-prosody-parameters";
 import { seedCioCtoBehTargets } from "./seed-cio-cto-beh-targets";
 import { config } from "../lib/config";
 
@@ -465,6 +466,15 @@ export async function main(externalPrisma?: PrismaClient, opts?: { reset?: boole
   const toleranceResult = await seedToleranceParameters(prisma);
   console.log(
     `   ✓ Tolerance parameters: ${toleranceResult.created} created, ${toleranceResult.updated} updated`,
+  );
+
+  // 1b'. Seed prosody parameter slots (2026-06-15 audit follow-on). Splits
+  // vendor-derived voice signals into their own param IDs so they don't
+  // overwrite EXTRACT's AI-judged CONV_PACE / pace_indicators. See the
+  // seed file's header for the full rationale.
+  const prosodyResult = await seedProsodyParameters(prisma);
+  console.log(
+    `   ✓ Prosody parameters: ${prosodyResult.created} created, ${prosodyResult.updated} updated`,
   );
 
   // 1c. Seed CIO/CTO variant-trio BEH-* BehaviorTarget overlays (G4 / #1145).

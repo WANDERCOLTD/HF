@@ -47,11 +47,24 @@ const IELTS_PARAM_IDS = {
   grammaticalRange: "skill_grammatical_range_and_accuracy_gra",
 } as const;
 
-/** Parameter IDs targeted by the general-mode write. Confirmed at TL
- *  review against the existing parameter registry. */
+/** Parameter IDs targeted by the general-mode write.
+ *
+ *  Split from `CONV_PACE` / `pace_indicators` on 2026-06-15 — those slots
+ *  are written by EXTRACT (AI-judged from transcript) and pre-split this
+ *  consumer ran AFTER EXTRACT and overwrote them via
+ *  `writeCallScore`'s `(callId, parameterId, moduleId)` idempotency.
+ *  AI's qualitative pace judgment was silently destroyed by the vendor-
+ *  derived zero. Separate parameter IDs keep both writers' surfaces
+ *  alive; see `prisma/seed-prosody-parameters.ts` header for the full
+ *  rationale.
+ *
+ *  Note: until the vendor adapter exposes real general-mode signals
+ *  (`prosody-runner.ts:367-373` hardcodes 0), these slots receive
+ *  0-scored CallScore rows. Isolated to their own params, not polluting
+ *  CONV_PACE. */
 const GENERAL_PARAM_IDS = {
-  paceWpm: "CONV_PACE",
-  hesitationRate: "pace_indicators",
+  paceWpm: "prosody_pace_wpm",
+  hesitationRate: "prosody_hesitation_rate",
 } as const;
 
 export interface ApplyProsodyResult {

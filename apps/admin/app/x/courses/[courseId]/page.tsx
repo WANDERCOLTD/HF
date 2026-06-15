@@ -2091,7 +2091,7 @@ function ProsodyModePill({
       title={
         isIelts
           ? `Voice scoring: IELTS rubric (FC, P, LR, GRA)${isExplicit ? "" : " — auto-detected from tier preset"}. Click to chat-edit via Cmd+K.`
-          : `Voice scoring: General conversational (CONV_PACE, pace_indicators)${isExplicit ? "" : " — default"}. Click to chat-edit via Cmd+K.`
+          : `Voice scoring: General conversational (prosody_pace_wpm, prosody_hesitation_rate)${isExplicit ? "" : " — default"}. Click to chat-edit via Cmd+K.`
       }
     >
       Voice scoring: {isIelts ? "IELTS" : "General"}{labelSuffix}
