@@ -1,0 +1,190 @@
+/**
+ * Journey-controls shared CSS — Phase 1 of epic #1675.
+ *
+ * Tokens only — no hardcoded hex. `color-mix()` for alpha. Co-located
+ * convention follows `BandingPicker` precedent.
+ *
+ * Visual hierarchy:
+ *   .hf-jf-row     — wraps one control (label + control + cascade chip + glow)
+ *   .hf-jf-label   — educator-facing label
+ *   .hf-jf-control — the actual control surface (input/select/etc.)
+ *   .hf-jf-meta    — cascade chip + dirty indicator
+ *   .hf-jf-hint    — slot for FieldHint
+ */
+
+.hf-jf-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.hf-jf-row:hover {
+  background: color-mix(in srgb, var(--surface-secondary) 60%, transparent);
+}
+
+.hf-jf-row.hf-glow-active {
+  border-color: color-mix(in srgb, var(--status-success-text) 40%, transparent);
+  background: color-mix(in srgb, var(--status-success-text) 8%, transparent);
+}
+
+.hf-jf-row-dirty {
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+.hf-jf-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hf-jf-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.hf-jf-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-jf-dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.hf-jf-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.hf-jf-help {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Toggle */
+
+.hf-jf-toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border-default);
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.hf-jf-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface-primary);
+  transition: transform 0.15s ease;
+}
+
+.hf-jf-toggle[aria-checked="true"] {
+  background: var(--accent-primary);
+}
+
+.hf-jf-toggle[aria-checked="true"]::after {
+  transform: translateX(16px);
+}
+
+.hf-jf-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Slider */
+
+.hf-jf-slider {
+  flex: 1;
+  cursor: pointer;
+}
+
+.hf-jf-slider-value {
+  min-width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+/* Number / Text */
+
+.hf-jf-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Radio / Select group buttons */
+
+.hf-jf-segment {
+  display: inline-flex;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.hf-jf-segment button {
+  background: transparent;
+  border: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-right: 1px solid var(--border-default);
+}
+
+.hf-jf-segment button:last-child {
+  border-right: 0;
+}
+
+.hf-jf-segment button[aria-pressed="true"] {
+  background: var(--accent-primary);
+  color: var(--surface-primary);
+}
+
+/* JSON fallback — opens a modal; chip indicates fallback mode */
+
+.hf-jf-json-chip {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+/* Placeholder pane for compound controls (Phase 2 wires real ones) */
+
+.hf-jf-compound-placeholder {
+  padding: 12px;
+  border: 1px dashed var(--border-default);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
