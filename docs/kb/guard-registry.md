@@ -481,15 +481,28 @@ blocks. **Survives hardening:** AP-5 fitness function — architecture-independe
 [rule source](../../.claude/rules/agent-report-verification.md) ·
 ADR → [agent-report verification](../decisions/2026-06-15-agent-report-verification.md)
 
-Rule-based (no script today). Orchestrator-side discipline applied when a
-sub-agent (any type in [`.claude/agents/`](../../.claude/agents/)) returns a
-brief containing claims of the *absence* form — "X doesn't exist", "Y has no
-callers", "Z is dead code", "no test pins this". For each consequential
-negative claim, the orchestrator either runs an inverse probe (name-form,
-directory, schema-aware, dynamic-dispatch, single-tree, test-namespace — see
-the rule's taxonomy) in the same turn before relaying, or labels the claim
-`[unverified]` to the user. Spawned-agent prompts must instruct the agent to
-run its own inverse probe before asserting a negative.
+Two-layer enforcement (rule + script gate):
+
+**Layer 1 — orchestrator discipline.** When a sub-agent (any type in
+[`.claude/agents/`](../../.claude/agents/)) returns a brief containing claims
+of the *absence* form — "X doesn't exist", "Y has no callers", "Z is dead
+code", "no test pins this" — for each consequential negative claim, the
+orchestrator either runs an inverse probe (name-form, directory, schema-aware,
+dynamic-dispatch, single-tree, test-namespace — see the rule's taxonomy) in
+the same turn before relaying, or labels the claim `[unverified]` to the user.
+Spawned-agent prompts must instruct the agent to run its own inverse probe
+before asserting a negative.
+
+**Layer 2 — commit-time gate (born 2026-06-15).**
+[`scripts/gh-pr-create.sh::verify_no_unverified_negatives()`](../../scripts/gh-pr-create.sh)
+scans the PR body for negative-shaped phrases and rejects the PR if any
+negative line lacks an inverse-probe marker within ±1 line. Acceptable markers:
+file:line citation (`.ts` / `.tsx` / `.sh` / `.mjs` / `.md` / `.json` /
+`.prisma` / `.sql`), `[verified]`, `[probed]`, `[inverse-probe:…]`,
+`[unverified]` (explicit demote — admits no probe, warns the reader),
+`[skip-claim-check]` (per-line escape hatch). PR-wide bypass: `--no-agent-claim-check`.
+Pinned by 8-case vitest at
+[`apps/admin/tests/scripts/gh-pr-create-agent-claim.test.ts`](../../apps/admin/tests/scripts/gh-pr-create-agent-claim.test.ts).
 
 The 2026-06-15 fingerprint: a four-agent parallel audit returned 8 specific
 claims; 6 were wrong, all unverified negatives that failed because the agent
@@ -498,9 +511,11 @@ searched one name form and missed the actual form (`reuse-path.ts` →
 direct join table → `BehaviorTarget.skillRef` provenance chain).
 
 **Survives hardening:** the rule covers AI-orchestrator discipline —
-architecture-independent. When a `PostAgentResult` hook surface lands in the
-harness, the rule's probe-then-relay pattern is the natural enforcement
-target; until then the rule stays valid as convention.
+architecture-independent. The 2026-06-15 PR-time gate is the
+repo-native enforcement; if a `PostAgentResult` hook surface lands in the
+harness later, the same probe-then-relay pattern is the natural in-process
+target. The rule itself is the durable artifact; gates are the
+mechanism-of-the-day.
 
 ## Drain guards (class c — terminal state, delete when zero)
 

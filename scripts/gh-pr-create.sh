@@ -28,6 +28,7 @@
 set -u
 
 NO_VERIFY=0
+NO_AGENT_CLAIM_CHECK=0
 ARGS=()
 BODY_TEXT=""
 BODY_FILE=""
@@ -38,6 +39,9 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --no-verify-section)
       NO_VERIFY=1
+      ;;
+    --no-agent-claim-check)
+      NO_AGENT_CLAIM_CHECK=1
       ;;
     --body)
       shift
@@ -106,6 +110,103 @@ verify_body() {
   fi
   return 2
 }
+
+# Agent-report verification — scan the body for negative-shaped claims
+# without an inverse-probe citation within a 3-line window.
+#
+# Why: 2026-06-15 session — 8 of 9 confidently-asserted agent negatives
+# were wrong (name-form misses, schema-column confusion, missed provenance
+# chains). The pattern recurs whenever a negative ("X doesn't exist",
+# "no callers", "dead code") ships without a probe citation. This gate
+# turns `.claude/rules/agent-report-verification.md` from convention into
+# a commit-time block.
+#
+# A negative-claim line passes when it has, within ±3 lines:
+#   - a file:line citation: `path/file.ext` or `path/file.ext:NNN`
+#     for ext in ts/tsx/sh/mjs/md/json/prisma/sql
+#   - an explicit marker: [verified] / [probed] / [inverse-probe:...]
+#     / [unverified] / [skip-claim-check]
+#   - a `## Verified by` or `## Verification` heading
+verify_no_unverified_negatives() {
+  local body="$1"
+  local NEG='(does(n.t)? *not *exist|doesn.t *exist|has *no *callers?|no *callers?|dead *code|not *wired|not *implemented|isn.t *there|not *in *the *(codebase|tree|repo)|missing *from)'
+  # Marker satisfies a single negative claim. Does NOT include
+  # `## Verified by` — that heading satisfies the SIBLING verify-before-fix
+  # gate (overall fix evidence) but is too coarse for per-claim probes.
+  # Each negative needs its OWN citation (file:line) or an explicit marker.
+  # Avoid `\b` — unreliable across BSD/GNU grep variants.
+  local MARK='(\[(verified|probed|inverse-probe|unverified|skip-claim-check)|[a-zA-Z0-9_./-]+\.(ts|tsx|sh|mjs|md|json|prisma|sql)(:[0-9]+)?)'
+
+  local neg_lines
+  neg_lines=$(printf '%s\n' "$body" | grep -niE "$NEG" 2>/dev/null | cut -d: -f1 || true)
+  [ -z "$neg_lines" ] && return 0
+
+  local total
+  total=$(printf '%s\n' "$body" | wc -l | tr -d ' ')
+
+  # Window = ±1 line (same line, line immediately above, line immediately
+  # below). ±1 is the natural co-location boundary for an author who has
+  # actually probed the claim: the citation lands on the same line or
+  # the next. Wider windows let a marker for ONE claim accidentally
+  # satisfy an unrelated claim a few lines away.
+  local offenders=""
+  local ln start stop window line
+  for ln in $neg_lines; do
+    start=$((ln - 1))
+    [ "$start" -lt 1 ] && start=1
+    stop=$((ln + 1))
+    [ "$stop" -gt "$total" ] && stop="$total"
+    window=$(printf '%s\n' "$body" | sed -n "${start},${stop}p")
+    if ! printf '%s' "$window" | grep -qE "$MARK"; then
+      line=$(printf '%s\n' "$body" | sed -n "${ln}p")
+      offenders="${offenders}  Line ${ln}: ${line}"$'\n'
+    fi
+  done
+  if [ -n "$offenders" ]; then
+    cat >&2 <<EOF
+[gh-pr-create] ✖ PR body contains negative claim(s) without inverse-probe evidence.
+
+Why: 2026-06-15 session found 8 of 9 confidently-asserted agent
+negatives were wrong — name-form misses, schema-column confusion,
+missed provenance chains. The pattern recurs whenever a negative
+('X doesn't exist', 'no callers', 'dead code') ships without a probe
+citation.
+
+Rule: .claude/rules/agent-report-verification.md
+ADR:  docs/decisions/2026-06-15-agent-report-verification.md
+
+Offending line(s):
+${offenders}
+For each, do ONE of:
+  (a) Add a file:line citation showing the inverse probe (e.g.
+      lib/foo.ts:42 or eslint-rules/no-bare-strategy-key.mjs)
+  (b) Add an explicit marker on the same line: [verified] / [probed] /
+      [inverse-probe: <command-or-finding>]
+  (c) Demote to [unverified] to admit you didn't probe — the reader is
+      then explicitly warned not to act on the claim
+  (d) Reword to remove the negative claim entirely
+
+Bypass for trivial / docs-only PRs: --no-agent-claim-check
+Anchor: docs/kb/guard-registry.md#guard-agent-report-verification
+EOF
+    return 3
+  fi
+  return 0
+}
+
+# Run the agent-claim check FIRST (it scans the whole body, not just the
+# Verified-by section). If the verify-section gate also fires below, the
+# operator sees both errors in one pass.
+if [ "$NO_AGENT_CLAIM_CHECK" -eq 1 ]; then
+  echo "[gh-pr-create] --no-agent-claim-check: skipping agent-claim verification gate." >&2
+elif [ -n "$BODY" ]; then
+  verify_no_unverified_negatives "$BODY"
+  agent_rc=$?
+  if [ "$agent_rc" -eq 3 ]; then
+    exit 1
+  fi
+  echo "[gh-pr-create] ✔ agent-report verification gate passed." >&2
+fi
 
 if [ "$NO_VERIFY" -eq 1 ]; then
   echo "[gh-pr-create] --no-verify-section: skipping verification gate." >&2
