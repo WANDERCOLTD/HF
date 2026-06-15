@@ -105,6 +105,22 @@ discriminator, NOT on its own copy of the user role. Two reasons:
 |---|---|---|---|
 | Adaptations | `lib/rbac/policies/adaptations.ts::redactAdaptationsForTier` | `/api/callers/[callerId]/adaptations` | `tests/lib/rbac/policies/adaptations-redact.test.ts` + `tests/api/callers/adaptations-route.test.ts` |
 
+## Lint enforcement (Wave C5 of #1685)
+
+`eslint-rules/require-tiered-redactor.mjs` (rule `hf-rbac/require-tiered-redactor`, error severity from day 1) makes the pattern self-enforcing once a route opts in:
+
+1. Add `@tieredVisibility` to the route's JSDoc header.
+2. The rule then asserts the file imports `visibilityTierForRole` from `@/lib/rbac/visibility` AND imports a `redact<Resource>ForTier` function from `@/lib/rbac/policies/*`.
+3. The rule also asserts both helpers are actually invoked in the handler — not just imported.
+
+The rule is **opt-in** because tier-sensitivity isn't reliably detectable from AST alone. Once a route opts in by adding the tag, the rule keeps it honest forever — refactors that accidentally drop the import or the call fail CI.
+
+**Allow-list:** test files, the rule source itself, and KB docs are exempt — they legitimately mention `@tieredVisibility` as data (fixtures, examples). New route templates that include the tag in a code-fence example must live under one of the exempt paths.
+
+**Cascade behaviour:** when an import is missing, the corresponding "call missing" error is suppressed — the dev fixes one issue at a time. Once the import lands, the call-missing error surfaces on the next lint pass.
+
+**Catalogued:** [`docs/kb/guard-registry.md#guard-require-tiered-redactor`](../../docs/kb/guard-registry.md#guard-require-tiered-redactor).
+
 ## When NOT to apply
 
 - Routes where everyone sees the same shape (most reads).
