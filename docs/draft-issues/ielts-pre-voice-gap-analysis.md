@@ -16,6 +16,8 @@ Mapped against existing Journey/Voice registries (`lib/journey/setting-contracts
 |---|---|---|
 | Learner has completed registration; selected tutor voice; read trial explanation; this is first session | Backgrounded by `firstCallMode = "baseline_assessment"` + voice/intake registration | **SET** — `setting-contracts.entries.ts::firstCallMode` (G2); voice picker `voice-setting-contracts.ts::voiceId` (S1) |
 | Tutor introduces itself warmly; says once "If you're ever unsure — just ask me." | Opening line + one-shot reassurance template | **SET** — `setting-contracts.entries.ts::welcomeMessage` (G2). Reassurance line can be appended via `onboardingFlowPhases` first-phase prompt |
+| Transition from Part A to Part B is **seamless** (no announcement / no break) | Persona directive — single conversational arc spanning context + assessment phases | **PARTIAL (Theme 1)** — same `baselineAssessment.silentMode` knob also carries a "no-phase-break" directive into the prompt's persona section. ~5 extra lines on the same flag. |
+| Questions **designed to provoke extended answers** | Question-style hint to LLM (open-ended vs yes/no) | **PARTIAL (Theme 1)** — module-scoped `instructions` template adds an "open-ended only" directive. ~5 lines on the same template. |
 | Collects through natural conversation: Reason / Target band / Timeline / Self-assessed level | Conversational profile capture → typed CallerAttribute keys | **PARTIAL (Theme 10)** — extend `lib/pipeline/extract-callerMemory` to recognise 4 typed keys: `ielts:reason`, `ielts:targetBand`, `ielts:timeline`, `ielts:selfLevel`. Composer reads via existing `CallerAttribute` reader. ~30 lines, no schema. |
 | All collected info persisted to learner profile | CallerAttribute write at end of EXTRACT stage | **SET** — `lib/pipeline/extract-callerMemory.ts` (existing AGGREGATE-stage writer). Theme 10 wires the keys. |
 | Part B feels like natural conversation, not a test (no test announcement, seamless transition) | Persona/instruction directive baked into prompt for `firstCallMode = baseline_assessment` | **PARTIAL** — `lib/prompt/composition/transforms/pedagogy.ts` branches on baseline_assessment but doesn't carry a configurable "do not announce" knob. **GAP-thin:** new `baselineAssessment.silentMode: boolean` on `Playbook.config` → render directive into instructions section. ~15 lines. |
@@ -57,6 +59,8 @@ Mapped against existing Journey/Voice registries (`lib/journey/setting-contracts
 | Tutor doesn't speak >30s continuously | Same as Assessment | **GAP (Theme 7)** — post-call only |
 | Tutor speaking ≤20% of total session | Talk-ratio monitor | **GAP (Theme 7)** — same helper |
 | One specific observation + one concrete improvement at close | Closing template with structured slots | **GAP-thin (Theme 1)** — `AuthoredModule.settings.closingTemplate` with `{observation, improvement}` placeholders. ~15 lines. |
+| Learner lands on home screen | Sim post-call redirect | **SET** — `sim/PostCallProgressCard.tsx` + module picker page (same primitive as Assessment) |
+| Next recommended session highlighted | Recommendation engine output | **SET** — `lib/curriculum/recommend-next-module.ts` (same as Assessment) |
 | Pipeline produces 4 per-criterion scores | PROSODY output | **SET** — `lib/pipeline/prosody-consumer.ts` |
 | No scores shown to learner | Suppress flag | **PARTIAL** — same as Assessment |
 | Score delta vs previous Part 1 session viewable | Tester review surface | **PARTIAL (Theme 11)** — extend AttainmentTab + Snapshot to show per-criterion delta by querying ordered CallScore. ~40 lines, read-only. |
@@ -88,6 +92,8 @@ Mapped against existing Journey/Voice registries (`lib/journey/setting-contracts
 | Monologue ends at natural stop OR 2-min timer | Hard cutoff | **PARTIAL (Theme 2)** — VAPI `maxDurationSeconds` per-session can be set; needs override to be module-scoped (Theme 1). |
 | Tutor gives 1–3 lines feedback based on actual monologue | Post-monologue feedback generation | **SET** — composer's `feedback` section runs at end-of-call. Module-scoped instruction template (Theme 1) tunes length. |
 | Tutor offers re-speak, system records 60s silently, tutor closes verbally | Re-speak sub-phase | **GAP (Theme 2)** — new phase `respeakRecord` (60s) → close. Adds phase to client state machine. ~40 lines. |
+| Tutor **closes warmly** at end of session | Closing tone directive (distinct from verbatim closingLine) | **PARTIAL (Theme 1)** — module-scoped `closingTone: "warm" \| "neutral" \| "examiner"` flag rendered into the offboarding section. ~5 lines on existing Theme 1 registry. |
+| Learner returned to home screen + next recommended highlighted | Sim post-call redirect + recommendation | **SET** — `sim/PostCallProgressCard.tsx` + `recommend-next-module.ts` (same as Assessment) |
 | <60s monologue → LLM-only feedback, no external scoring | Duration gate on PROSODY | **GAP (Theme 6 variant)** — `lib/pipeline/prosody-consumer.ts` skips IELTS CallScore writes when `monologueDurationSec < 60`; composer still runs feedback prose. ~15 lines. |
 | 90s monologue threshold = incomplete-first gate | Incomplete-attempt counter | **GAP (Theme 9)** — `AuthoredModule.settings.incompleteThresholdSec = 90` overrides `minSpeakingSec` for monologue-shaped sessions. |
 | Pipeline produces 4 scores, learning plan updated | Standard pipeline output | **SET / PARTIAL** — same as Part 1 (plan update is wired-up gap) |
@@ -110,9 +116,12 @@ Mapped against existing Journey/Voice registries (`lib/journey/setting-contracts
 | 4–6 questions total | Question count target | **GAP (Theme 8)** — `questionTarget = {min: 4, target: 5}` |
 | Learner speaking time 7–10 min | Module-scoped completion gate | **GAP (Theme 1 + Theme 9)** — `minSpeakingSec = 420` |
 | Tutor asks follow-up / challenges / moves forward based on answer | Tutor reactive logic | **SET** — default LLM behaviour with `teachingStyle = "socratic"` |
+| Tutor **does not interrupt or correct mid-answer** | Persona directive (no barge-in) | **PARTIAL (Theme 1)** — module-scoped `instructions` template adds an explicit "wait for natural turn-end" directive. Voice-side barge-in suppression is a provider knob (VAPI `endpointing` / no interruption) — covered when Theme 2 server-tools land. ~5 lines prompt + provider config note. |
 | Silent 10s OR "I don't know" → scaffolding prompt | Stall-recovery branch | **GAP (Theme 2 — stall variant)** — client-side silence detector + transcript-side "I don't know" matcher → invoke a pre-baked scaffold message from `AuthoredModule.settings.scaffoldPool`. ~40 lines. |
 | Does not rephrase/repeat unless silent another 10s | Cooldown on stall recovery | **GAP (Theme 2)** — same detector with 10s cooldown between scaffolds |
 | One specific observation + one concrete gain at close | Structured closing template | **GAP-thin (Theme 1)** — same as Part 1 closingTemplate |
+| Closes **warmly and briefly** | Closing tone + length directive | **PARTIAL (Theme 1)** — module-scoped `closingTone: "warm"` + `closingMaxLines: 2` (same Theme 1 registry as Part 2). ~3 lines. |
+| Learner returned to home screen | Sim post-call redirect | **SET** — `sim/PostCallProgressCard.tsx` (same as Assessment) |
 | Pipeline produces 4 scores; focus area performance tracked; plan updated | Standard pipeline + focus delta | **PARTIAL (Theme 11)** — CallScore writes 4 criteria. Focus-area delta = compute pre/post score on the focus parameter; write to `Session.metadata.focusDelta`. ~15 lines. |
 | No scores shown to learner | Suppress flag | **PARTIAL** — same as Assessment |
 | Incomplete first / second attempt policy | Same | **GAP (Theme 9)** |
@@ -149,10 +158,14 @@ Mapped against existing Journey/Voice registries (`lib/journey/setting-contracts
 | At 2min examiner closes "Thank you", cue card removed | Phase end + pin clear | **GAP (Theme 2 + Theme 3)** — scheduler emits `subPhaseEnd`; PinnedCardSlot clears |
 | Transitions directly to Part 3 | Sub-phase transition | **GAP (sub-modules)** — same client state machine |
 | Asks 4–6 abstract questions linked to Part 2 topic (P3) | Question count + cross-subphase context | **GAP (Theme 8)** — per-subphase `questionTarget`; composer reads previous subPhase's `pinnedCard.topic` for linkage |
+| P3 minimal acknowledgments only ("Thank you" / "I see") | Examiner vocab lexicon (P3 mirror of P1) | **GAP-thin (Theme 1)** — same `acknowledgementVocab` knob applied to P3 subPhase. ~0 lines beyond P1 row (subPhase config already passes it through). |
+| P3 silent 10s → "Take your time"; further 10s → next question | Stall-recovery sequence (P3 mirror) | **GAP (Theme 2)** — same scheduler + scaffold pool keyed to `subPhase=p3`. ~0 lines beyond Theme 2 generic dispatch. |
 | Closes "That's the end of the speaking test. Thank you." | Scripted close | **GAP-thin (Theme 1)** — module-scoped `closingLine` |
 | Examiner says "Give me a moment while I review your exam." | Processing-screen handoff line | **GAP (Theme 13)** — pre-baked TTS at session end + `<ProcessingScreen>` |
 | Screen shows "Reviewing your exam…", dual waveform removed | Processing screen | **GAP (Theme 13)** — new component, ~40 lines |
 | System processes async: per-criterion scores per part / overall band / strengths-weaknesses / updated plan | Per-part pipeline + aggregation | **GAP (Theme 6)** — `CallScore.segmentKey` column; PROSODY iterates segments via existing `segment-mock-transcript.ts` helper. ~40 lines + migration. |
+| Overall band estimate is **calculated** (distinct from "rendered") | Aggregation of 12 per-part criteria into single band | **PARTIAL (Theme 6)** — extend PROSODY consumer to write `Session.metadata.overallBand: number` after per-part scores land. Mean-of-12 with rounding-to-nearest-half-band per IELTS convention. ~10 lines. |
+| Learning plan is **updated** after Mock | Lesson plan regen trigger on Mock complete | **PARTIAL** — same hook as Assessment plan-trigger; fires when `mode = examiner` + status = complete. ~5 lines beyond Assessment row. |
 | Learner taken to Results screen when processing complete | Async hand-off | **GAP (Theme 13)** — poll/subscribe on `Session.status`; redirect on done |
 | Results: Overall band / Per-criterion FC/LR/GRA/P / 1 strength / 1 area to work on | Results renderer | **GAP (Theme 13)** — new `/x/student/[courseId]/results/[sessionId]` route. Strength = max-criterion; area = min-criterion. Reuses Snapshot v3 block primitives. ~80 lines. |
 | Primary CTA: "Continue with [next session] →" OR "Tell us what you think →" | Trial-state-dependent CTA | **PARTIAL** — `Playbook.config.trialPolicy` (does this exist?) — **probe needed**. Likely **GAP-thin** — new flag + survey link slot. |
