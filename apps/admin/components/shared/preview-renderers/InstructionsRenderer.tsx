@@ -10,6 +10,11 @@
  * course has goals, the in-use types are highlighted and the rest
  * are dimmed.
  *
+ * Read-only by design (epic #1675 Slice B note): the goal-adaptation
+ * matrix is a static reference table, not an educator-tunable setting.
+ * No journey-contract entry exists; this renderer remains a read-only
+ * display regardless of the JourneySettingMutatorProvider context.
+ *
  * Source of truth for the labels: GOAL_ADAPTATION in
  * `lib/prompt/composition/transforms/instructions.ts`. Mirroring here
  * keeps the renderer free of a server import and free of a fetch —

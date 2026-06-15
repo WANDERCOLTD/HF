@@ -10,6 +10,11 @@
  * Section: `nps` (kind: "runtime" config-sourced). Surfaces in
  * PreviewLens via the `stops` sidetray lens; the registry section key
  * is `nps` (the actual stop type).
+ *
+ * Editability deferred to Phase 3 of epic #1675: npsStop uses the
+ * `stop` compound control, which Phase 1 ships as a placeholder.
+ * Phase 3 wraps the existing SurveyStopDetail-style editor. Until then
+ * this renderer stays read-only regardless of provider context.
  */
 
 import { registerPreviewRenderer } from "@/components/shared/designer-shell/section-registry";

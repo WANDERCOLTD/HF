@@ -13,6 +13,10 @@
  * no-learner + Call 1 + empty + populated states, but the populated
  * block distinguishes ADDED rows (full chip) from UPDATED rows
  * (chip + diff arrow showing prior → new value).
+ *
+ * Read-only by design (epic #1675 Slice B note): memory deltas are
+ * computed from CallerMemory diffs, not educator settings. This
+ * renderer remains a read-only display.
  */
 
 import { registerPreviewRenderer } from "@/components/shared/designer-shell/section-registry";

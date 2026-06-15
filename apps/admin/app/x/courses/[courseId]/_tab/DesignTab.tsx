@@ -28,6 +28,7 @@ import {
   useDesignerSelection,
 } from "@/components/shared/designer-shell";
 import "@/components/shared/preview-renderers";
+import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
 import type {
   ConversationArtifactsRendererData,
   FreshnessWarning,
@@ -394,17 +395,19 @@ export function DesignTab({ courseId, playbookConfig }: DesignTabProps) {
   );
 
   return (
-    <DesignerShell
-      nav={null}
-      canvas={
-        <CourseDesignConsole
-          courseId={courseId}
-          playbookConfig={playbookConfig}
-          onSelectSection={onSelectSection}
-        />
-      }
-      inspector={inspectorNode}
-      headerBanner={headerBanner}
-    />
+    <JourneySettingMutatorProvider courseId={courseId}>
+      <DesignerShell
+        nav={null}
+        canvas={
+          <CourseDesignConsole
+            courseId={courseId}
+            playbookConfig={playbookConfig}
+            onSelectSection={onSelectSection}
+          />
+        }
+        inspector={inspectorNode}
+        headerBanner={headerBanner}
+      />
+    </JourneySettingMutatorProvider>
   );
 }
