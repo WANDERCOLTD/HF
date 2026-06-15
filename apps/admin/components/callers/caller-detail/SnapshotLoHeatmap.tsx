@@ -334,9 +334,9 @@ export function SnapshotLoHeatmap({
           ))}
           <div className="hf-lo-heatmap-colhdr">Score</div>
 
-          {perModule.map((module) => (
+          {perModule.map((module, idx) => (
             <ModuleRows
-              key={module.moduleId}
+              key={module.moduleId || `module-idx-${idx}`}
               module={module}
               tierScheme={tierScheme}
               selected={selected}
@@ -441,9 +441,9 @@ function ModuleRows({
           No learning objectives in this module.
         </div>
       )}
-      {module.learningObjectives.map((lo) => (
+      {module.learningObjectives.map((lo, idx) => (
         <LoRow
-          key={`${module.moduleId}-${lo.ref}`}
+          key={`${module.moduleId}-${lo.ref || `lo-idx-${idx}`}`}
           module={module}
           lo={lo}
           tierScheme={tierScheme}
