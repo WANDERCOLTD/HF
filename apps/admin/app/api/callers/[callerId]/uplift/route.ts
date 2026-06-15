@@ -153,6 +153,7 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
         preferenceCount: true,
         eventCount: true,
         topicCount: true,
+        topTopics: true,
       },
     }),
   ]);
@@ -266,6 +267,13 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
            (memorySummary?.eventCount ?? 0) + (memorySummary?.topicCount ?? 0),
   };
 
+  // Wave C2 — TopicCloud chip source. `topTopics` is stored on
+  // CallerMemorySummary as JSON; passthrough as an array (defensive: any
+  // shape that isn't a plain array is normalised to []).
+  const topTopics = Array.isArray(memorySummary?.topTopics)
+    ? (memorySummary.topTopics as Array<{ topic: string; lastMentioned?: string }>)
+    : [];
+
   return NextResponse.json({
     ok: true,
     uplift: {
@@ -285,6 +293,7 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
       scoreTrends,
       adaptationEvidence,
       memoryCounts,
+      topTopics,
       callFrequencyPerWeek,
       callDates,
     },

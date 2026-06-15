@@ -326,6 +326,15 @@ export type UpliftData = {
     topics: number;
     total: number;
   };
+  /**
+   * Top-N covered topics with last-mention timestamps. Sourced from
+   * `CallerMemorySummary.topTopics` (Wave C2 — passed through from the
+   * /uplift route so TopicCloud doesn't need a sibling fetch).
+   *
+   * Optional in the type because legacy fixtures predating Wave C2
+   * don't include the field; the route always returns at least `[]`.
+   */
+  topTopics?: { topic: string; lastMentioned?: string }[];
   callFrequencyPerWeek: number;
   /**
    * Ordered ISO timestamps of every call, oldest first. Powers the

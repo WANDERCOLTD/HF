@@ -44,6 +44,9 @@ import { SnapshotHeroBlock } from "./SnapshotHeroBlock";
 import { SnapshotEngagementBlock } from "./SnapshotEngagementBlock";
 import { SnapshotMockResultsBlock } from "./SnapshotMockResultsBlock";
 import { SnapshotRecentCallsBlock } from "./SnapshotRecentCallsBlock";
+import { SnapshotScoreTrendsBlock } from "./SnapshotScoreTrendsBlock";
+import { SnapshotSkillChartBlock } from "./SnapshotSkillChartBlock";
+import { SnapshotTopicsBlock } from "./SnapshotTopicsBlock";
 
 import "./snapshot-tab.css";
 
@@ -196,6 +199,16 @@ export function SnapshotTabContent({ callerId, domainId }: SnapshotTabContentPro
       />
 
       <SnapshotSubSkills callerId={callerId} />
+
+      {/* Wave C2 — Per-parameter sparkline grid + Skill radar + Topic
+       * cloud lifted from uplift-v2's ScoreTrendsSection, SkillChartSection,
+       * and TopicsSection. Sits between sub-skills (broad shape) and the
+       * LO heatmap (granular) to preserve the uplift-v2 ordering. */}
+      <SnapshotScoreTrendsBlock callerId={callerId} />
+
+      <SnapshotSkillChartBlock callerId={callerId} />
+
+      <SnapshotTopicsBlock callerId={callerId} />
 
       {/* #1661 — real LO heatmap replaces the placeholder slot. The
        * heatmap owns its per-module lo-mastery fetches; the foundation
