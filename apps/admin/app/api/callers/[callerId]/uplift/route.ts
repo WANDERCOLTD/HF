@@ -58,12 +58,17 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
     }),
 
     // 2. Call scores with call dates for trend sparklines
+    //    `hasLearnerEvidence` (Wave C3 — #566 evidence-aware scoring)
+    //    powers TrustFooterV2's Evidence-backed / Goodhart-drops tiles
+    //    + per-call evidence-ratio sparkline.
     prisma.callScore.findMany({
       where: { call: { callerId } },
       select: {
+        callId: true,
         parameterId: true,
         score: true,
         confidence: true,
+        hasLearnerEvidence: true,
         scoredAt: true,
         parameter: {
           select: {
@@ -97,9 +102,11 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
     }),
 
     // 4. Call dates for engagement metrics
+    //    `id` (Wave C3) lets TrustFooterV2 join against `callScores`
+    //    by `callId` to compute the per-call evidence-ratio sparkline.
     prisma.call.findMany({
       where: { callerId },
-      select: { createdAt: true },
+      select: { id: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     }),
 
@@ -274,6 +281,21 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
     ? (memorySummary.topTopics as Array<{ topic: string; lastMentioned?: string }>)
     : [];
 
+  // Wave C3 — TrustFooterV2 row shape (#566 evidence-aware scoring).
+  // Flattens `callScores` to (callId, score, hasLearnerEvidence) so the
+  // footer can compute Evidence-backed / Goodhart-drops tiles + the
+  // per-call evidence-ratio sparkline. Self-hides when all rows have
+  // `hasLearnerEvidence` null (older callers predating #566).
+  const trustScores = callScores.map((s) => ({
+    callId: s.callId,
+    score: s.score,
+    hasLearnerEvidence: s.hasLearnerEvidence,
+  }));
+  const trustCalls = calls.map((c) => ({
+    id: c.id,
+    createdAt: c.createdAt.toISOString(),
+  }));
+
   return NextResponse.json({
     ok: true,
     uplift: {
@@ -294,6 +316,8 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
       adaptationEvidence,
       memoryCounts,
       topTopics,
+      trustScores,
+      trustCalls,
       callFrequencyPerWeek,
       callDates,
     },
