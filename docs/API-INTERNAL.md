@@ -16211,14 +16211,15 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 535 |
+| Route files found | 536 |
 | Files with annotations | 523 |
-| Files missing annotations | 12 |
-| Coverage | 97.8% |
+| Files missing annotations | 13 |
+| Coverage | 97.6% |
 
 ### Files missing `@api` annotations
 
 - `app/api/callers/[callerId]/last-selected-module/route.ts`
+- `app/api/courses/[courseId]/journey-setting/route.ts`
 - `app/api/demonstrate/suggest/route.ts`
 - `app/api/intake/audit-bundle/[intentId]/route.ts`
 - `app/api/intake/audit-bundle/download/route.ts`
