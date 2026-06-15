@@ -391,6 +391,7 @@ data-safety invariant.
 | `lib/contracts/registry.ts` (+ `types.ts`) | DB-backed `DataContract` registry (30s TTL) — producer/consumer shape agreement | **a** |
 | `lib/prompt/composition/compose-invariants.ts` | Runtime COMPOSE-stage invariants | **a** |
 | `.claude/rules/ai-to-db-guard.md` catalogue | ~15 AI-to-DB structural guards (validate-then-write) | **a** (see `invariants.md`) |
+| `.claude/rules/response-redaction.md` + `lib/rbac/visibility.ts` + `lib/rbac/policies/<resource>.ts` | Role-tiered field-level redaction at route boundary — `redacted` / `full` / `diagnostic` tiers; whitelist-default-safe. First wired on `/api/callers/[callerId]/adaptations` (Wave C3b — #1577 visibility-policy revision). | **a** |
 
 ## Plan-guard agents — `.claude/agents/`
 
