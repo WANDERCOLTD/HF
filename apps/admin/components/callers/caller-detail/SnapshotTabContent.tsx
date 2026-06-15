@@ -40,6 +40,10 @@ import { SnapshotPersonalityBlock } from "./SnapshotPersonalityBlock";
 import { SnapshotMemoryBlock } from "./SnapshotMemoryBlock";
 import { SnapshotEnrollmentBlock } from "./SnapshotEnrollmentBlock";
 import { SnapshotInsightsBlock } from "./SnapshotInsightsBlock";
+import { SnapshotHeroBlock } from "./SnapshotHeroBlock";
+import { SnapshotEngagementBlock } from "./SnapshotEngagementBlock";
+import { SnapshotMockResultsBlock } from "./SnapshotMockResultsBlock";
+import { SnapshotRecentCallsBlock } from "./SnapshotRecentCallsBlock";
 
 import "./snapshot-tab.css";
 
@@ -155,12 +159,28 @@ export function SnapshotTabContent({ callerId, domainId }: SnapshotTabContentPro
         <LearningTrajectoryCard callerId={callerId} />
       </section>
 
+      {/* Wave C1 — Hero proof points (Mastery + Confidence + Knowledge
+       * donuts with pre/post markers + Calls + Days-active StatTiles +
+       * mastery micro-sparkline) lifted from Uplift v2 HeroSection so
+       * the uplift-v2 tab can retire without losing the headline
+       * deltas. Sits at the top so the operator sees the donuts first. */}
+      <SnapshotHeroBlock callerId={callerId} />
+
       {/* Wave B — computed signals (Momentum + Achievements +
        * Focus areas) lifted from OverviewV2Tab's At-a-Glance card,
        * Achievements card, and FocusAreas card. Sits high so the
        * operator gets the "what shape is this learner in right now"
        * signal before scrolling. */}
       <SnapshotInsightsBlock callerId={callerId} />
+
+      {/* Wave C1 — Recent calls TimelineRibbon (last 5 calls with
+       * click-through) lifted from overview-v2's RecentCallsV2 so the
+       * at-a-glance call history survives the legacy-tab retirement. */}
+      <SnapshotRecentCallsBlock callerId={callerId} />
+
+      {/* Wave C1 — Mock results card (latest Mock score donut + delta
+       * vs prior Mock). Self-hides for callers with no Mock calls. */}
+      <SnapshotMockResultsBlock callerId={callerId} />
 
       <SnapshotPersonalityBlock callerId={callerId} />
 
@@ -209,6 +229,12 @@ export function SnapshotTabContent({ callerId, domainId }: SnapshotTabContentPro
        * / Actions) so the operator-state sections sit higher; these
        * two are caller-administrative and natural to scroll down to. */}
       <SnapshotMemoryBlock callerId={callerId} />
+
+      {/* Wave C1 — Engagement (memories slice donut + Calls/week
+       * StatTile + 14-day CalendarStrip) lifted from Uplift v2
+       * EngagementSection. Sits next to MemoryBlock since both surface
+       * memory + cadence signals. */}
+      <SnapshotEngagementBlock callerId={callerId} />
 
       <SnapshotEnrollmentBlock callerId={callerId} domainId={domainId} />
     </div>
