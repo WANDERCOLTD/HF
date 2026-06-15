@@ -910,6 +910,14 @@ model Session {
   // Shape: `VoiceConfig` from lib/voice/types.ts (#1269 / #1270).
   voiceConfigSnapshot Json?
 
+  // Epic #1700 Migration A — general-purpose per-session metadata bag.
+  // Shape declared at `lib/types/json-fields.ts::SessionMetadata` (added
+  // alongside this column). Known keys today: `pinnedCard` (Theme 3),
+  // `segmentLabels` (Theme 6), `focusDelta` / `overallBand` (Theme 11).
+  // Distinct from `voiceConfigSnapshot` (voice-specific, set once at
+  // session-start). Write path: section-loaders + pipeline post-write.
+  metadata Json?
+
   startedAt DateTime  @default(now())
   endedAt   DateTime?
 
@@ -1862,6 +1870,16 @@ model CallScore {
   // the same (callId, parameterId) pair can produce SEPARATE scores per
   // sub-module — see the unique constraint below.
   moduleId String?
+
+  // Epic #1700 Migration D (Theme 6, story #1702) — annotation column
+  // recording which transcript segment produced this score. Free-text,
+  // course-agnostic (IELTS uses "p1" / "p2" / "p3"; future courses may
+  // use other labels via `Session.metadata.segmentLabels`). The
+  // `@@unique([callId, parameterId, moduleId])` key is INTENTIONALLY NOT
+  // widened — segmentKey is annotation, not idempotence key (see epic
+  // #1700 decision 1). PROSODY iterates segments via the existing
+  // `lib/curriculum/segment-mock-transcript.ts` helper.
+  segmentKey String?
 
   // Scoring result
   score      Float
@@ -2893,12 +2911,26 @@ model CallerModuleProgress {
   module   CurriculumModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   mastery     Float     @default(0) // 0.0-1.0
-  status      String    @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLETED
+  // Free-text status. Values currently in use:
+  //   NOT_STARTED | IN_PROGRESS | COMPLETED | MASTERED
+  // Epic #1700 Migration C — `LOCKED` added (Theme 5 unlock-gate state).
+  // Doc-only entry — the column stays plain String for backwards-compat;
+  // a CHECK constraint would reject pre-existing rows. Theme 5 enforces
+  // role-bypassed read-side gating; Theme 9 sets MASTERED on incomplete
+  // waiver (story #1703).
+  status      String    @default("NOT_STARTED")
   startedAt   DateTime?
   completedAt DateTime?
 
   lastCallId String? // Most recent call that updated this
   callCount  Int     @default(0) // How many calls touched this module
+
+  // Epic #1700 Migration B (Theme 9, story #1703) — count of incomplete
+  // session exits (< `moduleSettings.minSpeakingSec` or terminated
+  // GHOST/FAILED) recorded per (caller, module). `markModuleIncomplete`
+  // increments atomically; second exit (>= 1 prior) triggers the waiver
+  // policy — sets `status = "MASTERED"` regardless of mastery score.
+  incompleteAttempts Int @default(0)
 
   // #397 Phase 1 — per-LO running average. Shape:
   //   { [loRef: string]: { mastery: number; callCount: number } }
