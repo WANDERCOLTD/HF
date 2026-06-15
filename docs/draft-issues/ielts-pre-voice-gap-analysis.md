@@ -356,3 +356,79 @@ What you LOSE at the floor:
 | **Tester role bypass on Theme 5 unlock gate creates "works on tester / breaks on learner" risk** | Low | Real-learner regression | Add a vitest pinning the STUDENT role gets blocked when prereqs unmet, and OPERATOR+ does not. |
 | **Email infra (Theme 13c) assumes a working `MessagingProvider` row for IELTS results** | Low | Email silent-fails | Reuse the row already used by `issueFirstCallPin` if no IELTS-specific provider needed; document the row key in the story. |
 | **Per-LO mastery NOT shown in IELTS Attainment tab might confuse testers used to other courses** | Low | "Where's the LO grid?" — minor confusion | Add a single helper-text line: "IELTS scores at criterion grain; no per-LO drill." Save the ~0 d on the deferral. |
+
+---
+
+## Self-audit: robustness + reuse of existing chains
+
+Added 2026-06-15 after a self-audit pass. The 14 themes were re-checked against existing HF reusable patterns (compose chain, ESLint rule family, messaging adapter, setting contracts, Snapshot v3 blocks). 4 themes were caught with IELTS-shaped corners; all 14 were re-mapped to lean harder on existing primitives.
+
+### Robustness audit — IELTS-shaped corners found and fixed
+
+| # | Theme | Original shape | Robust shape | Cost delta |
+|---|---|---|---|---|
+| 6 | Per-part Mock scoring | `CallScore.segmentKey ENUM('p1','p2','p3')` — IELTS labels in Postgres | `CallScore.segmentKey String?` (nullable text) + `Session.metadata.segmentLabels: Array<{key,label,ordinal}>` so labels are data | 0 d — same migration |
+| 10 | IELTS profile capture | Hand-coded `ielts:reason` / `ielts:targetBand` keys in `extract-callerMemory` | Generic `AuthoredModule.settings.profileFieldsToCapture: Array<{key,prompt,type}>` walked by a generic EXTRACT routine | +1 d (0.5 → 1.5) — every future course reuses |
+| 12 | Tester direct link | `/x/test/ielts/[session]` — IELTS in URL | `/x/test/[playbookSlug]/[moduleSlug]?learnerMode=fresh\|return` | 0 d — pure refactor |
+| 7 | Talk-time stats | Hardcoded 30s / 20% thresholds in chip | `Playbook.config.talkTimeBudgets: {maxTutorTurnSec, maxTutorRatio}` knobs | +0.25 d |
+| 2 | Cue scheduler | Phase 1 client-side `useEffect` + browser TTS | Skip Phase 1 hack — do VAPI server-tool dispatcher from day 1 | +2 d (2 → 4) — but ships zero debt |
+
+Net delta to full scope after robustness fixes: **+3.25 d → ~20 d full scope**.
+
+### Reusable patterns + extendable chains leveraged per theme
+
+A theme is "robust" only when it plugs into chains other features already extend. The grid below shows what each theme picks up from existing infrastructure — not what it has to build from scratch.
+
+| # | Theme | Existing chain / pattern leveraged |
+|---|---|---|
+| **1** | Module-scoped settings (G8) | Setting-contracts registry (#1676/#1679/#1684/#1690/#1692) — Phase 1 control library shipped, Slice A storage applier + staleness bridge shipped, Slice B Inspector renderers shipped. `composeImpact.sections` auto-derives via `lib/compose/affecting-keys.ts`. Writes call `bumpPlaybookComposeTimestamp` (`lib/compose/bump-timestamp.ts`); cross-Curriculum fanout via `bumpCurriculumComposeFanout`. `writeGate: "operator-only"` honored by PATCH route. **G8 entries plug into all of this for free.** |
+| **2** | Cue scheduler | `lib/voice/providers/vapi/` provider adapter is the right home for server-tool dispatch. No existing scheduler primitive — Theme 2 builds + registers. **New chain — but registers under the existing voice-provider adapter shape.** |
+| **3** | Pinned chat card | `Session.metadata Json?` (new column following `voiceConfigSnapshot Json?` pattern). Render uses Snapshot v3 block primitives (Wave A/B/C — Hero proof points, Engagement, Mock card all use the same shape). |
+| **4** | Mock exam shell | Discriminator already exists: `AuthoredModule.mode === "examiner" && sessionTerminal`. Wraps `useVoiceMode` hook (existing). |
+| **5** | Unlock gates | `recommend-next-module.ts` already loads `CallerModuleProgress`. STUDENT-scope guard pattern (`resolveCallerScopeForReading`) is the sibling primitive for role-based bypass. |
+| **6** | Per-part scoring | `lib/curriculum/segment-mock-transcript.ts` already segments. `writeCallScore` from `lib/measurement/write-call-score` is the canonical writer (extends with `segmentKey` arg). **ESLint `no-bare-call-score-write.mjs` already exists** (#1539) — blocks bypass automatically. |
+| **7** | Talk-time stats | AppLog "loud-skip" pattern (just shipped — `feat(curriculum): promote silent lo_mastery skip to AppLog`). Write `voice.talk_time.over_budget` AppLog when threshold exceeded. Setting-contracts G7 entry for thresholds. |
+| **8** | Question count target | `AuthoredModule.settings.questionTarget` via Theme 1. Composer template renders into INSTRUCTIONS section. EXTRACT counter is a generic interrogative-form detector. |
+| **9** | Incomplete-attempt counter | `endSession` builder (#1342) — extend with module-scope incomplete eval (it already evaluates `DEFAULT_MIN_LEARNER_DURATION_SECONDS`). Pattern of `no-bare-call-create.mjs`: introduce `markModuleIncomplete()` helper + paired ESLint rule blocking bare `prisma.callerModuleProgress.update`. |
+| **10** | Profile capture (generic) | `extract-callerMemory` extension. `validate-manifest.ts` pattern (ai-to-db-guard) validates AI output before write. **arch-checker Class B classification** (`@ai-call` annotation) since this extends EXTRACT-stage AI work. |
+| **11** | Score-delta narrator | `loadPriorCallFeedback` already runs in composer — extends to emit `priorCriterionScores`. Reads `tierPresetId` for criterion naming. AttainmentTab block primitive for the delta UI. |
+| **12** | Tester direct link | Existing sim-runner (`lib/test-harness/sim-runner.ts`). `cloneDemoCaller` follows existing demo-caller pattern. OPERATOR+ role gate via `requireAuth`. |
+| **13a** | Results screen | Snapshot v3 block primitives (Wave A1 folds, Wave B insights, Wave C1 hero/engagement) — same render shape. `useTaskPoll` for async-pipeline progress (blocked-by-`no-bespoke-async-polling.mjs` — already enforced). |
+| **13b** | Trial-state CTA | `Playbook.config` Json + setting-contracts entry. Blocked from drift by `no-direct-playbook-config-write.mjs` (already enforced). |
+| **13c** | Results email | `MessagingAdapter.send()` interface (`lib/messaging/`) + `email-resend.ts` adapter. `issueFirstCallPin` is the working precedent. Best-effort don't-break-on-fail contract (#1101 pattern). |
+| **14** | scoreVisibilityToLearner | Setting-contracts G7 entry with `writeGate: "operator-only"`. Composer pedagogy + offboarding transforms read it. `composeImpact.sections` auto-bumps staleness. |
+
+### Cross-cutting reuse opportunities
+
+These are patterns every theme should respect — not theme-specific, but discipline-enforcing.
+
+1. **ESLint rule sibling discipline.** Every new shared helper (Theme 6 `writeCallScore` extension, Theme 9 `markModuleIncomplete`, Theme 10 generic profile-capture writer) ships **with** its paired ESLint rule blocking bare-write competitors. Pattern is durable: `no-bare-call-create.mjs` (#1333), `no-bare-call-score-write.mjs` (#1539), `no-bare-strategy-key.mjs` (#1599), `no-direct-playbook-config-write.mjs`, `no-direct-spec-config-write.mjs`. **Cost: +0.25 d per new helper.**
+
+2. **Section-staleness derivation contract.** Every Theme 1 G8 entry whose `composeImpact.sections[]` is non-empty triggers automatic staleness bumping via `lib/compose/affecting-keys.ts`. No hand-rolled cache invalidation — register in the affecting-keys map and the rest is free. Sister-shipped via #1690/#1692.
+
+3. **Loud-skip AppLog pattern.** Where a theme has a "silent skip" branch (Theme 6 missing-segment, Theme 8 question-count-undershoot, Theme 9 incomplete-attempt, Theme 14 score-suppress-overridden), promote to AppLog write. Pattern matches today's `feat(curriculum): promote silent lo_mastery skip to AppLog`. **Cost: ~5 lines per branch.**
+
+4. **`arch-checker @ai-call` Class B classification.** Theme 10's generic profile-capture EXTRACT extension qualifies as Class B (transcript analysis producing AI-derived structured data). Needs grounding contract in system prompt + the classifier checklist from `.claude/rules/ai-read-grounding.md`. **Cost: +0.25 d for the classification work.**
+
+5. **`## Verified by` PR-body discipline.** Every theme's PR carries a live citation (SQL query result, log subject, curl probe, or vitest). Enforced by `scripts/gh-pr-create.sh`. No exemption.
+
+6. **Registry-completeness vitest pattern.** Theme 1 G8 entries pinned by extending `tests/lib/journey/registry-completeness.test.ts` (already exists from #1676). Theme 10 `profileFieldsToCapture` shape pinned by a new sibling vitest matching the registry-completeness pattern. **Cost: ~0.5 d total across both.**
+
+### Risk register additions (post-self-audit)
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| **Theme 2 server-tool dispatcher doesn't exist yet** — only `auth.ts` + `index.ts` in `lib/voice/providers/vapi/` | High | Theme 2 scope balloons | Spike day 1 — confirm VAPI supports the `vapi.say()` + scheduled-event pattern or fall back to provider-specific server-message contracts. May need to file a separate primitive story. |
+| **Theme 1 G8 entries multiply Inspector renderer count** | Medium | Phase 1 control library may not cover all 5–6 new key shapes | Validate the 13 primitives in `apps/admin/components/journey-controls/` cover the key shapes BEFORE registering G8 entries. Missing primitives = +0.5 d each. |
+| **Theme 6 `writeCallScore` extension drifts if not all callers updated atomically** | Low | Per-part scoring writes inconsistent rows | Single-commit migration: column + writer + every consuming reader in one PR. `no-bare-call-score-write.mjs` blocks the regression class structurally. |
+| **Theme 10 EXTRACT extension doesn't classify as Class B in arch-checker** | Low | `@ai-call` audit flags new surface | Add classification when writing the EXTRACT extension; satisfies arch-checker Check G at PR time. |
+
+### Revised totals (after robustness + reuse pass)
+
+| Scope | Initial estimate | After robustness | After reuse-leverage | Net delta |
+|---|---|---|---|---|
+| Full scope (all 14 themes) | 17 d | 20 d | **~20 d** (reuse offsets some adds) | +3 d for honest robustness |
+| Pre-voice-testing target | 11 d | 13 d | **~12.5 d** (reuse saves 0.5 d on results screen + email) | +1.5 d |
+| Absolute floor | 6.5 d | 7 d | **~6.75 d** | +0.25 d |
+
+The reuse pass shows that **Themes 1, 6, 13a, 13b, 13c, 14** all plug into chains where the structural enforcement is already shipped — they cost what they say. **Themes 2, 9, 10** still carry net-new infrastructure (cue scheduler, incomplete helper + ESLint, profile-capture EXTRACT extension) but each adds <1 d of cross-cutting cost (paired ESLint + arch-checker + AppLog) that gets amortised by the next course that lands.
