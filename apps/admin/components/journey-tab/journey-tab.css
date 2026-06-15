@@ -128,6 +128,22 @@
   text-align: center;
 }
 
+.hf-journey-inspector-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.hf-cascade-trace {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .hf-journey-amber-chip {
   display: inline-block;
   margin-left: 6px;

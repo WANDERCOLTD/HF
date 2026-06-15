@@ -1,22 +1,25 @@
 "use client";
 
 /**
- * CourseJourneyTab — Phase 4 of epic #1675 (story #1697).
+ * CourseJourneyTab — Phase 4 + Phase 5 of epic #1675.
  *
  * The new first tab on the Course Design page. Tri-pane shape:
  *   - LH: 7 group accordions + phase filter chips
  *   - Canvas: existing `<PreviewLens>` mounted read-only inline
  *   - RH: `<JourneyInspectorPanel>` mounting the selected setting's
- *         JourneyField primitive
+ *         JourneyField primitive + cascade trace + Edit-as-JSON
  *
- * Slice A scope: structural mount + selection routing. Bidirectional
- * Preview↔Inspector hover/click sync is Slice B (#TBD). Cmd+K + edit-
- * as-JSON + cascade-trace breadcrumbs land in Phase 5.
+ * Cmd+K opens the CommandPalette (Phase 5). Listener is scoped to the
+ * tab root via `keydown` capture; Phase 5 Slice B will hoist it to
+ * page-level for cross-tab activation.
  */
+
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
 import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
 
+import { CommandPalette } from "./CommandPalette";
 import { JourneyInspectorPanel } from "./JourneyInspectorPanel";
 import { JourneyLhMenu } from "./JourneyLhMenu";
 import "./journey-tab.css";
@@ -32,13 +35,38 @@ export function CourseJourneyTab({
   playbookConfig,
 }: CourseJourneyTabProps) {
   const selection = useJourneySelection();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Cmd+K (mac) / Ctrl+K (win/linux) opens the palette. Scoped to
+  // window since the palette is a modal overlay; Phase 5 Slice B will
+  // make this an explicit per-tab listener.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const handlePaletteSelect = useCallback(
+    (id: string) => selection.setSettingId(id),
+    [selection],
+  );
 
   return (
     <JourneySettingMutatorProvider
       courseId={courseId}
       playbookConfig={playbookConfig}
     >
-      <div className="hf-journey-tab" data-testid="hf-journey-tab">
+      <div
+        ref={rootRef}
+        className="hf-journey-tab"
+        data-testid="hf-journey-tab"
+      >
         <aside
           className="hf-journey-pane"
           aria-label="Journey navigation"
@@ -59,6 +87,11 @@ export function CourseJourneyTab({
         >
           <JourneyInspectorPanel selectedSettingId={selection.settingId} />
         </aside>
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          onSelect={handlePaletteSelect}
+        />
       </div>
     </JourneySettingMutatorProvider>
   );
