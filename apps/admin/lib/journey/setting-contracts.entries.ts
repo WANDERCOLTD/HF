@@ -883,6 +883,133 @@ const G7_REWARD_STRATEGY: JourneySettingContract = {
 };
 
 // =============================================================
+// G8 — Module-scoped settings (6) — #1701 (epic #1700 Theme 1)
+// =============================================================
+//
+// Per-module knobs at `Playbook.config.modules[].settings.*`, addressed
+// by `arrayKey: "id"`. Phase 1 scope: 6 IELTS-required keys. Theme 1b
+// adds dedicated primitives for min/target + array-of-structs shapes;
+// Phase 1 uses `json-fallback` for those (testers are OPERATOR+).
+//
+// Downstream readers (compose transforms / endSession / cue scheduler /
+// EXTRACT) are gated by HF_FLAG_IELTS_MODULE_SETTINGS during the
+// migration window per epic #1700 decision 5.
+
+const G8_MODULE_QUESTION_TARGET: JourneySettingContract = {
+  id: "moduleQuestionTarget",
+  group: "G8",
+  educatorLabel: "Question target",
+  helpText: "Min and target number of questions the tutor asks in this module — e.g. {min: 10, target: 13}.",
+  storagePath: {
+    path: "config.modules[].settings.questionTarget",
+    arrayKey: "id",
+  },
+  control: "json-fallback",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions", hint: "question count directive" }],
+};
+
+const G8_MODULE_MIN_SPEAKING_SEC: JourneySettingContract = {
+  id: "moduleMinSpeakingSec",
+  group: "G8",
+  educatorLabel: "Min learner speaking time (sec)",
+  helpText: "Module-scoped completion gate. endSession marks the call incomplete below this threshold (Theme 9 / #1703).",
+  storagePath: {
+    path: "config.modules[].settings.minSpeakingSec",
+    arrayKey: "id",
+  },
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
+  id: "moduleCueCardPool",
+  group: "G8",
+  educatorLabel: "Cue card pool",
+  helpText: "Array of {topic, bullets} for Part 2 monologue. Session start picks one; pinned into Session.metadata.pinnedCard.",
+  storagePath: {
+    path: "config.modules[].settings.cueCardPool",
+    arrayKey: "id",
+  },
+  control: "json-fallback",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions", hint: "cue card content" }],
+};
+
+const G8_MODULE_CLOSING_LINE: JourneySettingContract = {
+  id: "moduleClosingLine",
+  group: "G8",
+  educatorLabel: "Closing line (verbatim)",
+  helpText: 'Module-specific closing line. e.g. Assessment closes with "That gives me a good picture…".',
+  storagePath: {
+    path: "config.modules[].settings.closingLine",
+    arrayKey: "id",
+  },
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "closing line" }],
+};
+
+const G8_MODULE_FIRST_TIME_ORIENTATION_LINE: JourneySettingContract = {
+  id: "moduleFirstTimeOrientationLine",
+  group: "G8",
+  educatorLabel: "First-time orientation line",
+  helpText: 'One-shot per-module orientation — e.g. Part 2 "In Part 2 you\'ll speak for 2 minutes…". Gated by `orientationShown` on CallerModuleProgress.',
+  storagePath: {
+    path: "config.modules[].settings.firstTimeOrientationLine",
+    arrayKey: "id",
+  },
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["onboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "onboarding", hint: "orientation line" }],
+};
+
+const G8_MODULE_SCHEDULED_CUES: JourneySettingContract = {
+  id: "moduleScheduledCues",
+  group: "G8",
+  educatorLabel: "Scheduled cues",
+  helpText: 'Array of {at, text} for time-keyed tutor/examiner speech (e.g. {at: 45, text: "15 seconds left"}). Consumed by the Theme 2 cue scheduler at runtime.',
+  storagePath: {
+    path: "config.modules[].settings.scheduledCues",
+    arrayKey: "id",
+  },
+  control: "json-fallback",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+// =============================================================
 // Registry
 // =============================================================
 
@@ -939,6 +1066,13 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G7_MAX_CALLS_PER_DAY,
   G7_ASSESSMENT_READINESS_THRESHOLD,
   G7_REWARD_STRATEGY,
+  // G8 (6) — #1701 module-scoped settings
+  G8_MODULE_QUESTION_TARGET,
+  G8_MODULE_MIN_SPEAKING_SEC,
+  G8_MODULE_CUE_CARD_POOL,
+  G8_MODULE_CLOSING_LINE,
+  G8_MODULE_FIRST_TIME_ORIENTATION_LINE,
+  G8_MODULE_SCHEDULED_CUES,
 ];
 
 export const JOURNEY_SETTINGS_BY_ID: Readonly<
@@ -948,9 +1082,9 @@ export const JOURNEY_SETTINGS_BY_ID: Readonly<
 export const JOURNEY_SETTINGS_BY_GROUP: Readonly<
   Record<JourneyGroup, readonly JourneySettingContract[]>
 > = (() => {
-  const groups = ["G1", "G2", "G3", "G4", "G5", "G6", "G7"] as const;
+  const groups = ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"] as const;
   const out: Record<JourneyGroup, JourneySettingContract[]> = {
-    G1: [], G2: [], G3: [], G4: [], G5: [], G6: [], G7: [],
+    G1: [], G2: [], G3: [], G4: [], G5: [], G6: [], G7: [], G8: [],
   };
   for (const s of JOURNEY_SETTINGS) {
     // Settings-group entries should not appear in JOURNEY_SETTINGS — the
