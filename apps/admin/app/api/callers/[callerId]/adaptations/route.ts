@@ -18,6 +18,12 @@
  *   - SP5-D "Next call's adaptation" — `goalAdaptationGuidance`
  *     LOW/MID/HIGH preview.
  *
+ * @tieredVisibility — opt-in for the
+ * `hf-rbac/require-tiered-redactor` ESLint rule (Wave C5 of #1685).
+ * The rule keeps this route honest about wiring
+ * `visibilityTierForRole(...)` + `redactAdaptationsForTier(...)` before
+ * returning.
+ *
  * **Auth (Wave C3b — #1577 visibility-policy revision):**
  * `requireAuth("VIEWER")` + STUDENT path-param scope via
  * `studentAllowedToReadCaller`. The OPERATOR+ safety property from

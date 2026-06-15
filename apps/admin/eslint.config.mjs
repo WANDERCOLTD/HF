@@ -22,6 +22,7 @@ import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
 import noBareStrategyKey from "./eslint-rules/no-bare-strategy-key.mjs";
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
+import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -226,6 +227,16 @@ const eslintConfig = defineConfig([
           "no-bare-strategy-key": noBareStrategyKey,
         },
       },
+      // Wave C5 of epic #1685 — opt-in @tieredVisibility tag enforces
+      // that the route imports + invokes the
+      // `lib/rbac/visibility.ts` + `lib/rbac/policies/*` pattern.
+      // Hardens the whitelist-default-safe property of Wave C3b's
+      // visibility-policy.
+      "hf-rbac": {
+        rules: {
+          "require-tiered-redactor": requireTieredRedactor,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -278,6 +289,14 @@ const eslintConfig = defineConfig([
       // `StrategyKey` enum fails CI. Allow-list (in the rule itself):
       // `lib/goals/strategies/registry.ts` (the alias map) + test files.
       "hf-goals/no-bare-strategy-key": "error",
+
+      // Wave C5 of epic #1685 — error severity from day 1.
+      // Opt-in: routes self-declare with `@tieredVisibility` JSDoc tag.
+      // No false-positives possible — the rule is dormant on untagged
+      // files. The first wired route (Wave C3b) is
+      // `app/api/callers/[callerId]/adaptations/route.ts`; new tier-sensitive
+      // routes copy the tag pattern.
+      "hf-rbac/require-tiered-redactor": "error",
 
       // #1395 / #1423 — Block app/api routes from importing the 5 lib/ops/*
       // files that instantiate their own PrismaClient (bypass the singleton).

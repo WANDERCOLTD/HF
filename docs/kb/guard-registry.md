@@ -71,6 +71,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`hf-security/no-secrets-in-client`](#guard-no-secrets-in-client) | Plaintext credentials / secret-shaped literals in `"use client"` files (they ship in the browser bundle) | HF-J / 2026-06-11 | **a** |
 | [`hf-config/no-hardcoded-spec-slug`](#guard-no-hardcoded-spec-slug) | Hardcoded spec-slug literals (`TUT-001`, `GOAL-001`, …) in `lib/`+`app/` runtime; use `config.specs.*`. **Active (error)** after HF-I sweep | HF-I / 2026-06-11 | **b** |
 | [`hf-goals/no-bare-strategy-key`](#guard-no-bare-strategy-key) | Bare string literals assigned to `Goal.progressStrategy` outside the canonical `StrategyKey` enum; allow-list covers the strategies registry alias map + test files | #1599 | **a** |
+| [`hf-rbac/require-tiered-redactor`](#guard-require-tiered-redactor) | Routes tagged `@tieredVisibility` (JSDoc) must import + invoke `visibilityTierForRole(...)` and a `redact<Resource>ForTier(...)` from `lib/rbac/policies/*`; hardens the whitelist-default-safe property of the visibility-policy pattern | #1685 Wave C5 | **a** |
 
 ### Guard detail
 
@@ -392,6 +393,7 @@ data-safety invariant.
 | `lib/prompt/composition/compose-invariants.ts` | Runtime COMPOSE-stage invariants | **a** |
 | `.claude/rules/ai-to-db-guard.md` catalogue | ~15 AI-to-DB structural guards (validate-then-write) | **a** (see `invariants.md`) |
 | `.claude/rules/response-redaction.md` + `lib/rbac/visibility.ts` + `lib/rbac/policies/<resource>.ts` | Role-tiered field-level redaction at route boundary — `redacted` / `full` / `diagnostic` tiers; whitelist-default-safe. First wired on `/api/callers/[callerId]/adaptations` (Wave C3b — #1577 visibility-policy revision). | **a** |
+| <a id="guard-require-tiered-redactor"></a>`eslint-rules/require-tiered-redactor.mjs` (rule `hf-rbac/require-tiered-redactor`) | Opt-in via `@tieredVisibility` JSDoc tag — routes that opt in MUST import + invoke `visibilityTierForRole(...)` + a `redact<Resource>ForTier(...)` function. Hardens the whitelist-default-safe property by catching a missing redactor at lint time (Wave C5 of epic #1685). | **a** |
 
 ## Plan-guard agents — `.claude/agents/`
 
