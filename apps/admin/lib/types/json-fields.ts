@@ -937,3 +937,55 @@ export interface ValidationWarning {
   path?: string;
   severity: "warning" | "error";
 }
+
+// ---------------------------------------------------------------------------
+// Session.metadata — general-purpose per-session bag (epic #1700 Migration A).
+//
+// All keys are optional. Writers set only the keys they own; readers default
+// missing keys to safe values. Distinct from `Session.voiceConfigSnapshot`
+// (voice-specific, set once at session-start).
+// ---------------------------------------------------------------------------
+
+/**
+ * Pinned card content rendered above SimChat for Part 2 cue card / Part 3
+ * topic-focus banner / Mock subPhase cue cards (Theme 3, story TBD).
+ */
+export interface PinnedCardContent {
+  /** Discriminator — drives the renderer variant. */
+  kind: "cueCard" | "topicFocus";
+  /** Cue card topic line OR Part 3 topic. */
+  topic: string;
+  /** Cue card bullets (kind="cueCard" only). */
+  bullets?: string[];
+  /** Optional secondary line beneath bullets (PPF prompt, note-taking instruction). */
+  secondaryNote?: string;
+  /** Part 3 focus area, e.g. "giving reasons" (kind="topicFocus" only). */
+  focusArea?: string;
+}
+
+/**
+ * Human-readable label for a CallScore.segmentKey value. Course-agnostic —
+ * IELTS uses ("p1", "Part 1") / ("p2", "Part 2") / ("p3", "Part 3");
+ * other courses define their own (Theme 6, story #1702).
+ */
+export interface SegmentLabel {
+  key: string;
+  label: string;
+  ordinal: number;
+}
+
+/** Per-criterion score delta + Part 3 focus delta (Theme 11). */
+export interface SessionScoreDeltas {
+  /** Map of parameter slug → previous-session score. Composer renders the diff. */
+  priorCriterionScores?: Record<string, number>;
+  /** Part 3 focus parameter slug + (current - prior) delta. */
+  focusDelta?: { parameterSlug: string; delta: number };
+}
+
+export interface SessionMetadata {
+  pinnedCard?: PinnedCardContent;
+  segmentLabels?: SegmentLabel[];
+  scoreDeltas?: SessionScoreDeltas;
+  /** Overall band estimate for Mock sessions — mean-of-12, half-band rounded (Theme 6). */
+  overallBand?: number;
+}
