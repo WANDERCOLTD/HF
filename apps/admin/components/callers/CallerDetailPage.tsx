@@ -1163,7 +1163,10 @@ export default function CallerDetailPage() {
           sections + 3 stub slots that sibling stories #1661 / #1662 /
           #1663 / #1665 / #1666 will fill. */}
       {activeSection === "snapshot-v3" && (
-        <SnapshotTabContent callerId={data.caller.id} />
+        <SnapshotTabContent
+          callerId={data.caller.id}
+          domainId={data.caller?.domainId ?? null}
+        />
       )}
 
       {/* WILL_RETIRE — covered by Snapshot v3: see docs/retirement-audit/caller-detail-v3.md */}
