@@ -24,13 +24,20 @@
   gap: 16px;
   align-items: stretch;
   width: 100%;
-  /* Default (no inspector): nav + canvas only. */
+  /* Default (nav + canvas, no inspector). */
   grid-template-columns: 240px minmax(0, 1fr);
 }
 
-.hf-designer-shell-with-inspector .hf-designer-grid {
-  /* With inspector: nav + canvas + inspector. */
+.hf-designer-shell-with-nav.hf-designer-shell-with-inspector .hf-designer-grid {
   grid-template-columns: 240px minmax(0, 1fr) 360px;
+}
+
+.hf-designer-shell-no-nav.hf-designer-shell-no-inspector .hf-designer-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hf-designer-shell-no-nav.hf-designer-shell-with-inspector .hf-designer-grid {
+  grid-template-columns: minmax(0, 1fr) 360px;
 }
 
 .hf-designer-nav {
@@ -60,9 +67,13 @@
 }
 
 @media (max-width: 1199px) {
-  .hf-designer-shell-with-inspector .hf-designer-grid {
+  .hf-designer-shell-with-nav.hf-designer-shell-with-inspector .hf-designer-grid {
     /* Inspector hidden inline; user opens via drawer toggle. */
     grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .hf-designer-shell-no-nav.hf-designer-shell-with-inspector .hf-designer-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hf-designer-shell-with-inspector .hf-designer-drawer-toggle {

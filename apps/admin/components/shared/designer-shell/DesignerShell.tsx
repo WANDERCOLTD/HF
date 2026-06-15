@@ -34,8 +34,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import "./designer-shell.css";
 
 interface DesignerShellProps {
-  /** LH nav slot — typically the existing 14-lens nav from CourseDesignConsole. */
-  nav: ReactNode;
+  /** LH nav slot — typically the existing 14-lens nav from CourseDesignConsole.
+   *  `null` → column absent + canvas reclaims width (mirrors inspector). */
+  nav: ReactNode | null;
   /** Centre canvas slot — typically the existing console / preview content. */
   canvas: ReactNode;
   /** RH inspector slot. `null` → column absent + canvas reclaims width. */
@@ -58,6 +59,7 @@ export function DesignerShell({
   inspectorTitle = "Inspector",
   idPrefix = "hf-designer",
 }: DesignerShellProps) {
+  const hasNav = nav != null;
   const hasInspector = inspector != null;
   const [isNarrow, setIsNarrow] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -87,6 +89,10 @@ export function DesignerShell({
   return (
     <div
       className={`hf-designer-shell ${
+        hasNav
+          ? "hf-designer-shell-with-nav"
+          : "hf-designer-shell-no-nav"
+      } ${
         inspectorVisibleInline
           ? "hf-designer-shell-with-inspector"
           : "hf-designer-shell-no-inspector"
@@ -97,9 +103,11 @@ export function DesignerShell({
       ) : null}
 
       <div className="hf-designer-grid">
-        <aside className="hf-designer-nav" aria-label="Designer navigation">
-          {nav}
-        </aside>
+        {hasNav ? (
+          <aside className="hf-designer-nav" aria-label="Designer navigation">
+            {nav}
+          </aside>
+        ) : null}
 
         <main className="hf-designer-canvas">{canvas}</main>
 
