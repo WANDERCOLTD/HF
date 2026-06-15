@@ -15,6 +15,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import { log } from "@/lib/logger";
 import { getTrustSettings, TRUST_DEFAULTS } from "@/lib/system-settings";
 import { resolveModuleByLogicalId, resolveModuleSlug } from "@/lib/curriculum/resolve-module";
 import {
@@ -211,11 +212,32 @@ export async function updateCurriculumProgress(
         updates.loMastery.moduleId,
       );
       if (!canonicalModuleId) {
+        const outcomeRefs = Object.keys(updates.loMastery.outcomes);
+        const skippedCount = outcomeRefs.length;
         console.warn(
           `[track-progress] #611 — refusing lo_mastery write: ` +
             `cannot resolve moduleId "${updates.loMastery.moduleId}" in curriculum ${updates.curriculumId}. ` +
-            `${Object.keys(updates.loMastery.outcomes).length} LO outcome(s) skipped.`,
+            `${skippedCount} LO outcome(s) skipped.`,
         );
+        // Promote the skip to AppLog so it surfaces in /x/logs alongside
+        // every other pipeline write-event. Subject convention mirrors
+        // `write-count-logger.ts::WRITE_COUNT_STAGE_PREFIX` so a future
+        // silent-writer detector can roll up "module-slug unresolvable
+        // → lo_mastery skipped" over a 24h window. See
+        // `.claude/rules/verify-before-fix.md` mastery-progress
+        // fingerprint — the silent-warn pattern was the root of the
+        // 2026-06-13 mastery fix chain.
+        log("system", "pipeline.aggregate.lo_mastery_skipped", {
+          message: `lo_mastery write skipped — moduleId unresolvable in curriculum`,
+          level: "warn",
+          callerId,
+          callId: updates.callId,
+          playbookId: updates.playbookId,
+          curriculumId: updates.curriculumId,
+          rawModuleId: updates.loMastery.moduleId,
+          skippedOutcomeCount: skippedCount,
+          skippedOutcomeRefs: outcomeRefs,
+        });
       }
     }
     if (canonicalModuleId) {

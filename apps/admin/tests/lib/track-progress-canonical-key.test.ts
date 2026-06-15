@@ -62,6 +62,14 @@ vi.mock("@/lib/system-settings", () => ({
   TRUST_DEFAULTS: {},
 }));
 
+// Stub @/lib/logger so the silent-skip → loud-AppLog promotion (2026-06-15)
+// doesn't drag in the SystemSetting cache machinery during unit runs. The
+// "refuses to write" case asserts mockLog was called with the new subject.
+const mockLog = vi.fn();
+vi.mock("@/lib/logger", () => ({
+  log: (...args: unknown[]) => mockLog(...args),
+}));
+
 const CURRICULUM_KEY_PATTERN = "curriculum:{specSlug}:{key}";
 const CURRICULUM_STORAGE_KEYS = {
   currentModule: "current_module",
@@ -155,6 +163,24 @@ describe("#611 Fix A — canonical moduleId in lo_mastery storage keys", () => {
     // No lo_mastery rows written — refusing to write a corrupt key is the
     // contract under #611.
     expect(loMasteryUpserts).toHaveLength(0);
+
+    // 2026-06-15 — the silent-skip is now LOUD. Assert the AppLog row
+    // gets emitted with the canonical subject + the skipped outcome refs
+    // so a future `/x/logs` rollup / silent-writer detector can pick it
+    // up. The pre-fix behaviour was console.warn-only and invisible to
+    // operators — root of the 2026-06-13 mastery fix chain.
+    const loudLogCall = mockLog.mock.calls.find(
+      (c: any[]) => c[1] === "pipeline.aggregate.lo_mastery_skipped",
+    );
+    expect(loudLogCall).toBeDefined();
+    expect(loudLogCall![0]).toBe("system");
+    const payload = loudLogCall![2];
+    expect(payload.level).toBe("warn");
+    expect(payload.callerId).toBe("caller-nico");
+    expect(payload.curriculumId).toBe("cur-xyz");
+    expect(payload.rawModuleId).toBe("ghost-module");
+    expect(payload.skippedOutcomeCount).toBe(1);
+    expect(payload.skippedOutcomeRefs).toEqual(["OUT-01"]);
   });
 
   it("falls back to the raw moduleId when curriculumId is not provided (legacy callers)", async () => {
