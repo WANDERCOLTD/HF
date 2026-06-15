@@ -37,11 +37,20 @@ import { SnapshotCarryOverActions } from "./SnapshotCarryOverActions";
 import { SnapshotSubSkills } from "./SnapshotSubSkills";
 import { SnapshotWhyThisCall } from "./SnapshotWhyThisCall";
 import { SnapshotPersonalityBlock } from "./SnapshotPersonalityBlock";
+import { SnapshotMemoryBlock } from "./SnapshotMemoryBlock";
+import { SnapshotEnrollmentBlock } from "./SnapshotEnrollmentBlock";
 
 import "./snapshot-tab.css";
 
 interface SnapshotTabContentProps {
   callerId: string;
+  /**
+   * Caller's domainId — needed by SnapshotEnrollmentBlock to power the
+   * "Enroll in another course" picker. Passed down from CallerDetailPage
+   * where the caller record is already loaded. Optional/null so Snapshot
+   * still renders if the caller has no domain assigned (rare).
+   */
+  domainId?: string | null;
 }
 
 interface AttainmentSkillBand {
@@ -92,7 +101,7 @@ interface SkillsEvidenceResponse {
   evidence: SkillsEvidenceEntry[];
 }
 
-export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
+export function SnapshotTabContent({ callerId, domainId }: SnapshotTabContentProps) {
   const [attainment, setAttainment] = useState<AttainmentResponse | null>(null);
   const [skillsEvidence, setSkillsEvidence] = useState<SkillsEvidenceResponse | null>(
     null,
@@ -185,6 +194,15 @@ export function SnapshotTabContent({ callerId }: SnapshotTabContentProps) {
       />
 
       <SnapshotCarryOverActions callerId={callerId} />
+
+      {/* Wave A1 — Profile-fold-in. Memories + Enrollments live here
+       * now so ProfileTab can retire without operator workflow loss.
+       * Placed after the call-flow sections (Skill / Heatmap / Goals
+       * / Actions) so the operator-state sections sit higher; these
+       * two are caller-administrative and natural to scroll down to. */}
+      <SnapshotMemoryBlock callerId={callerId} />
+
+      <SnapshotEnrollmentBlock callerId={callerId} domainId={domainId} />
     </div>
   );
 }

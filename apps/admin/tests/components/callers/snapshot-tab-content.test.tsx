@@ -25,6 +25,23 @@ vi.mock("@/components/callers/caller-detail/cards/LearningTrajectoryCard", () =>
   ),
 }));
 
+// Wave A1 — SnapshotEnrollmentBlock wraps CallerEnrollmentsSection, which
+// fires its own /enrollments fetch + brings in TerminologyContext etc.
+// We assert the wrapper mounts; deeper coverage lives in
+// snapshot-enrollment-block.test.tsx and the existing ProfileTab suite.
+vi.mock("@/components/callers/caller-detail/SnapshotEnrollmentBlock", () => ({
+  SnapshotEnrollmentBlock: ({ callerId, domainId }: { callerId: string; domainId: string | null | undefined }) => {
+    // Match the wrapped component's fetch shape so the cold-load
+    // parallel-fetch count assertion stays meaningful.
+    (globalThis as { fetch?: typeof fetch }).fetch?.(`/api/callers/${callerId}/enrollments`);
+    return (
+      <div data-testid="hf-snapshot-enrollments-mock">
+        enroll caller={callerId} domain={String(domainId)}
+      </div>
+    );
+  },
+}));
+
 const CALLER_ID = "caller-1";
 
 function makeAttainmentResponse() {
@@ -91,7 +108,7 @@ afterEach(() => {
 });
 
 describe("SnapshotTabContent — cold-load behaviour", () => {
-  it("fires parallel fetches on mount (attainment + skills-evidence + sub-skills + scheduler-decision + actions + personality)", async () => {
+  it("fires parallel fetches on mount (attainment + skills-evidence + sub-skills + scheduler-decision + actions + personality + memories + enrollments)", async () => {
     const calls: string[] = [];
     const fetchMock = vi.fn(async (url: string | URL | Request) => {
       const u = typeof url === "string" ? url : url.toString();
@@ -100,21 +117,23 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<SnapshotTabContent callerId={CALLER_ID} />);
+    render(<SnapshotTabContent callerId={CALLER_ID} domainId="d1" />);
 
-    // 6 parallel fetches: 2 from the foundation (attainment +
-    // skills-evidence) + 1 from SnapshotSubSkills (#1662) + 1 from
-    // SnapshotCarryOverActions (#1666) + 1 from SnapshotWhyThisCall
-    // (#1663) + 1 from SnapshotPersonalityBlock (#1665). Per-module
-    // lo-mastery fetches from SnapshotLoHeatmap (#1661) only fire
+    // 8 parallel fetches: 2 from the foundation (attainment +
+    // skills-evidence) + 1 SubSkills + 1 CarryOverActions + 1
+    // WhyThisCall + 1 PersonalityBlock + 1 MemoryBlock (Wave A1) + 1
+    // EnrollmentBlock's inner CallerEnrollmentsSection (Wave A1).
+    // Per-module lo-mastery fetches from SnapshotLoHeatmap only fire
     // AFTER attainment lands.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(8));
     expect(calls.some((u) => u.includes("/attainment"))).toBe(true);
     expect(calls.some((u) => u.includes("/skills-evidence"))).toBe(true);
     expect(calls.some((u) => u.includes("/sub-skills"))).toBe(true);
     expect(calls.some((u) => u.includes("/scheduler-decision"))).toBe(true);
     expect(calls.some((u) => u.includes("/actions"))).toBe(true);
     expect(calls.some((u) => u.includes("/personality"))).toBe(true);
+    expect(calls.some((u) => u.includes("/memories"))).toBe(true);
+    expect(calls.some((u) => u.includes("/enrollments"))).toBe(true);
   });
 
   it("renders the trajectory card in the header slot", () => {
