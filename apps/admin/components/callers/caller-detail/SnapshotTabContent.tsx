@@ -47,6 +47,7 @@ import { SnapshotRecentCallsBlock } from "./SnapshotRecentCallsBlock";
 import { SnapshotScoreTrendsBlock } from "./SnapshotScoreTrendsBlock";
 import { SnapshotSkillChartBlock } from "./SnapshotSkillChartBlock";
 import { SnapshotTopicsBlock } from "./SnapshotTopicsBlock";
+import { SnapshotTrustFooterBlock } from "./SnapshotTrustFooterBlock";
 
 import "./snapshot-tab.css";
 
@@ -250,6 +251,13 @@ export function SnapshotTabContent({ callerId, domainId }: SnapshotTabContentPro
       <SnapshotEngagementBlock callerId={callerId} />
 
       <SnapshotEnrollmentBlock callerId={callerId} domainId={domainId} />
+
+      {/* Wave C3 — Trust footer (#566 evidence-aware scoring) lifted
+       * from overview-v2's TrustFooterV2. Sits at the bottom as a
+       * measurement-transparency footer to the rest of Snapshot.
+       * Self-hides when no score row has hasLearnerEvidence set
+       * (callers predating #566). */}
+      <SnapshotTrustFooterBlock callerId={callerId} />
     </div>
   );
 }
