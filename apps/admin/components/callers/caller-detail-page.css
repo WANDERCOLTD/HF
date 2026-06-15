@@ -639,6 +639,31 @@
   color: var(--button-primary-bg);
 }
 
+/* Wave E — amber "Retiring" pill on legacy tabs in HF_TAB_LAYOUT=both
+ * mode. Pill itself is amber, with the tab text + icon slightly muted
+ * so the operator's eye is drawn to the v3 surfaces above it without
+ * the legacy tab feeling broken. */
+.cdp-tab-retiring {
+  color: var(--text-muted);
+}
+
+.cdp-tab-retiring .cdp-tab-icon {
+  opacity: 0.7;
+}
+
+.cdp-tab-retiring-pill {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--status-warning-text) 18%, transparent);
+  color: var(--status-warning-text);
+  border: 1px solid color-mix(in srgb, var(--status-warning-text) 35%, transparent);
+}
+
 /* Pulsing dot — shown on tabs affected by pipeline processing */
 .cdp-tab-processing {
   width: 7px;

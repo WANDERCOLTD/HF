@@ -48,6 +48,11 @@ import { GuideLens } from "./caller-detail/lenses/GuideLens";
 
 // Shared types
 import type { CallerData, CallerProfile, CallerRole, Domain, ComposedPrompt, SectionId, ParamConfig } from "./caller-detail/types";
+import {
+  getTabLayout,
+  computeVisibleTabs,
+  RETIRING_TABS,
+} from "@/lib/tab-layout";
 
 // Journey progress hook
 import { useEnrollmentJourney } from "@/hooks/useEnrollmentJourney";
@@ -100,28 +105,48 @@ export default function CallerDetailPage() {
     process.env.NEXT_PUBLIC_SNAPSHOT_V3_ENABLED === "true";
   const snapshotV3Requested = searchParams.get("v") === "3";
   const snapshotV3Active = snapshotV3FlagEnabled && snapshotV3Requested;
+  // Wave E — HF_TAB_LAYOUT FF drives visible-tab composition. `both`
+  // (default) shows v3 primary (Attainment + Adaptations) + legacy
+  // with amber Retiring pill. `retire` hides legacy from the bar and
+  // redirects URL hits via `retirementRedirect` below.
+  const tabLayout = getTabLayout();
+  const tabLayoutResult = computeVisibleTabs(tabLayout);
   // Tabs that may render but DO NOT appear in the tab bar (legacy / hidden).
   // The validTabs list keeps render branches reachable via ?tab=<id>; the
   // tab bar itself is built from the VISIBLE_TABS subset below.
   const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow", "attainment", "adaptations", "snapshot-v3"];
-  const VISIBLE_TABS = new Set<SectionId>([
-    "overview-v2",
-    "calls-prompts",
-    "tune",
-    "progress-v2",
-    "uplift-v2",
-    "session-flow",
-    "how",
-    "ai-call",
-    ...(snapshotV3Active ? (["snapshot-v3"] as const) : []),
-  ]);
-  const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
+  const VISIBLE_TABS = new Set<SectionId>(tabLayoutResult.visible);
+  // Snapshot v3 stays gated behind the `?v=3` URL param even when
+  // HF_TAB_LAYOUT=both — beta gate, until the dedicated promotion lands.
+  // Operators who want it visible flip `NEXT_PUBLIC_SNAPSHOT_V3_ENABLED=true`
+  // AND `?v=3`.
+  if (!snapshotV3Active) {
+    VISIBLE_TABS.delete("snapshot-v3");
+  }
+  // Wave E — retire-mode redirect: if the raw tab is a retiring one and
+  // the FF flipped to `retire`, route the user to the v3 replacement so
+  // bookmarked URLs don't 404.
+  const retirementRedirect = (rawTab && tabLayout === "retire"
+    ? tabLayoutResult.retirementRedirect(rawTab as SectionId)
+    : null) as SectionId | null;
+  // Wave E — retire-mode redirect wins over the legacy tabRedirects map.
+  // If the FF is `retire` and the user lands on a retiring tab, take them
+  // straight to the v3 replacement.
+  const mappedTab = rawTab
+    ? (retirementRedirect ??
+      ((tabRedirects[rawTab] || rawTab) as SectionId))
+    : null;
   const lastTabKey = `hf.caller-tab.${callerId}`;
   // Also redirect a v1 / hidden id from localStorage so returning users land
   // on the new equivalent instead of a hidden tab they can no longer reach.
+  // Wave E — same retire-mode override applies to the saved-tab path.
   const savedTabRaw = typeof window !== "undefined" ? window.localStorage.getItem(lastTabKey) : null;
+  const savedTabRetirementTarget = savedTabRaw && tabLayout === "retire"
+    ? tabLayoutResult.retirementRedirect(savedTabRaw as SectionId)
+    : null;
   const savedTab = savedTabRaw
-    ? ((tabRedirects[savedTabRaw] || savedTabRaw) as SectionId)
+    ? (savedTabRetirementTarget ??
+      ((tabRedirects[savedTabRaw] || savedTabRaw) as SectionId))
     : null;
   // #641: migrate from the old slide-out toggle (`hf.tuner.open.<callerId>`).
   // If the user had Tune open last visit AND no explicit ?tab= is set, send
@@ -1093,11 +1118,18 @@ export default function CallerDetailPage() {
         {sections.map((section) => {
           const isActive = activeSection === section.id;
           const isSpecial = section.special;
+          // Wave E — amber "Retiring" pill on legacy tabs in `both`
+          // mode. Tooltip names the v3 replacement so the operator can
+          // self-onboard without docs. `retire` mode hides the tab
+          // entirely so the pill never renders there.
+          const retiringEntry =
+            tabLayout === "both" ? RETIRING_TABS[section.id] : undefined;
 
           const cls = [
             "cdp-tab",
             isActive && "cdp-tab-active",
             isSpecial && "cdp-tab-special",
+            retiringEntry && "cdp-tab-retiring",
           ].filter(Boolean).join(" ");
 
           return (
@@ -1105,9 +1137,19 @@ export default function CallerDetailPage() {
               <button
                 onClick={() => setActiveSection(section.id)}
                 className={cls}
+                title={retiringEntry?.tooltip}
               >
                 <span className="cdp-tab-icon">{section.icon}</span>
                 {section.label}
+                {retiringEntry && (
+                  <span
+                    className="cdp-tab-retiring-pill"
+                    aria-label="Retiring tab"
+                    data-testid={`cdp-retiring-pill-${section.id}`}
+                  >
+                    Retiring
+                  </span>
+                )}
                 {section.count !== undefined && section.count > 0 && (
                   <span className="cdp-tab-count">
                     {section.count}
