@@ -5,9 +5,13 @@
  *
  * Lets the Inspector renderers opt into editability WITHOUT changing the
  * `PreviewRendererProps` signature (which would ripple through 11 sites
- * + DesignTab.tsx). Consumers read `useJourneySettingContext()` — when
+ * + DesignTab.tsx). Consumers read `useJourneySetting()` — when
  * `courseId` is present, render `<JourneyField>` primitives; when null,
  * fall back to the legacy read-only display.
+ *
+ * Phase 3 (#1693) extends the context with optional `playbookConfig` so
+ * compound primitives (Banding, Targets) can seed their wrapped
+ * editor's initial state.
  *
  * Wired by `DesignTab.tsx` (Phase 4) and `CourseDesignSidetray.tsx`
  * (Phase 2 follow-up). Anywhere a renderer mounts inside an editable
@@ -29,6 +33,14 @@ export interface JourneySettingContextValue {
    *  if `courseId` is set. Used by the legacy Preview tab during the
    *  Journey-tab dual-running window. */
   readonly: boolean;
+  /** Phase 3: optional playbookConfig snapshot. Compound primitives
+   *  (Banding, Targets) read this to seed their wrapped editor. When
+   *  absent, those primitives fall back to placeholder mode. */
+  playbookConfig?: Record<string, unknown> | null;
+  /** Phase 3: optional callback fired when a compound editor saves
+   *  via its own internal save loop (bypassing the journey-setting
+   *  PATCH route). DesignTab uses this to re-fetch playbookConfig. */
+  onCompoundSaved?: () => void;
 }
 
 const JourneySettingContext = createContext<JourneySettingContextValue>({
@@ -42,12 +54,18 @@ const JourneySettingContext = createContext<JourneySettingContextValue>({
 export interface JourneySettingMutatorProviderProps {
   courseId: string | null;
   readonly?: boolean;
+  /** Phase 3: pass playbookConfig so compound primitives can mount. */
+  playbookConfig?: Record<string, unknown> | null;
+  /** Phase 3: fired after a compound editor's internal save loop runs. */
+  onCompoundSaved?: () => void;
   children: ReactNode;
 }
 
 export function JourneySettingMutatorProvider({
   courseId,
   readonly = false,
+  playbookConfig,
+  onCompoundSaved,
   children,
 }: JourneySettingMutatorProviderProps) {
   const mutator = useJourneySettingMutator(courseId);
@@ -56,8 +74,10 @@ export function JourneySettingMutatorProvider({
       courseId,
       saveSetting: mutator,
       readonly: readonly || courseId === null,
+      playbookConfig,
+      onCompoundSaved,
     }),
-    [courseId, mutator, readonly],
+    [courseId, mutator, readonly, playbookConfig, onCompoundSaved],
   );
   return (
     <JourneySettingContext.Provider value={value}>
