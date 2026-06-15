@@ -15,7 +15,10 @@
 
 import { registerPreviewRenderer } from "@/components/shared/designer-shell/section-registry";
 import type { PreviewRendererProps } from "@/components/shared/designer-shell/section-registry";
+import { JourneyField } from "@/components/journey-controls";
+import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
 
+import { useJourneySetting } from "./_journey-setting-context";
 import type { SessionFlowData } from "./types";
 
 export interface IntakeRendererData {
@@ -35,6 +38,7 @@ function StateChip({ enabled, label }: { enabled: boolean; label: string }) {
 export function IntakeRenderer({
   data,
 }: PreviewRendererProps<IntakeRendererData>) {
+  const ctx = useJourneySetting();
   const sf = data.sessionFlow;
   if (!sf) {
     return (
@@ -45,6 +49,39 @@ export function IntakeRenderer({
     );
   }
   const kcMode = sf.intake.knowledgeCheck.deliveryMode ?? "mcq";
+
+  if (ctx.courseId && !ctx.readonly) {
+    return (
+      <div className="hf-card-compact">
+        <div className="hf-category-label">Intake — pre-call questions</div>
+        {(["intakeKnowledgeCheck", "intakeAboutYou"] as const).map((id) => {
+          const c = JOURNEY_SETTINGS_BY_ID[id];
+          if (!c) return null;
+          const v =
+            id === "intakeKnowledgeCheck"
+              ? sf.intake.knowledgeCheck.enabled
+              : sf.intake.aboutYou.enabled;
+          return (
+            <JourneyField
+              key={id}
+              contract={c}
+              value={v}
+              onSave={(next) => ctx.saveSetting(id, next)}
+            />
+          );
+        })}
+        <div className="hf-category-label">Read-only (settings without editable mode yet)</div>
+        <StateChip enabled={sf.intake.goals.enabled} label="Goals" />
+        <StateChip enabled={sf.intake.aiIntroCall.enabled} label="AI intro call" />
+        {sf.source?.intake ? (
+          <span className="hf-badge hf-badge-muted">
+            source: {sf.source.intake} · KC mode: {kcMode === "socratic" ? "Socratic" : "MCQ"}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="hf-card-compact">
       <div className="hf-category-label">Intake — pre-call questions</div>

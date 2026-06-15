@@ -14,7 +14,10 @@
 
 import { registerPreviewRenderer } from "@/components/shared/designer-shell/section-registry";
 import type { PreviewRendererProps } from "@/components/shared/designer-shell/section-registry";
+import { JourneyField } from "@/components/journey-controls";
+import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
 
+import { useJourneySetting } from "./_journey-setting-context";
 import type { SessionFlowData } from "./types";
 
 export interface WelcomeRendererData {
@@ -36,6 +39,7 @@ const SOURCE_LABEL: Record<NonNullable<SessionFlowData["source"]>["welcomeMessag
 export function WelcomeRenderer({
   data,
 }: PreviewRendererProps<WelcomeRendererData>) {
+  const ctx = useJourneySetting();
   const sf = data.sessionFlow;
   if (!sf) {
     return (
@@ -45,6 +49,35 @@ export function WelcomeRenderer({
       </div>
     );
   }
+
+  // Editable branch — mount JourneyField for welcomeMessage. Other
+  // settings (ack mode, course intro) ship in a sibling commit; for now
+  // they fall back to the read-only display below the editable field.
+  if (ctx.courseId && !ctx.readonly) {
+    const welcomeContract = JOURNEY_SETTINGS_BY_ID.welcomeMessage;
+    return (
+      <div className="hf-card-compact">
+        {welcomeContract ? (
+          <JourneyField
+            contract={welcomeContract}
+            value={sf.welcomeMessage ?? ""}
+            onSave={(v) => ctx.saveSetting("welcomeMessage", v)}
+          />
+        ) : null}
+        <div className="hf-category-label">Ack gate</div>
+        <span className="hf-badge hf-badge-info">
+          {ACK_LABEL[sf.firstCallWaitForAck]}
+        </span>
+        {sf.firstCallCourseIntro ? (
+          <>
+            <div className="hf-category-label">Course intro</div>
+            <p className="hf-text-sm">{sf.firstCallCourseIntro}</p>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   const welcomeSource = sf.source?.welcomeMessage;
   return (
     <div className="hf-card-compact">

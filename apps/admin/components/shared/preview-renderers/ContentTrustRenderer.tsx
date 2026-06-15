@@ -12,6 +12,11 @@
  * Empty state: when the warnings array is empty AND the course has
  * sources, render a "All sources fresh" green chip. When the course
  * has zero sources, render a muted "No content sources attached" chip.
+ *
+ * Read-only by design (epic #1675 Slice B note): freshness state is
+ * computed by the trust transform, not an educator setting. Source
+ * management lives in the Content tab. This renderer remains a
+ * read-only display.
  */
 
 import { registerPreviewRenderer } from "@/components/shared/designer-shell/section-registry";

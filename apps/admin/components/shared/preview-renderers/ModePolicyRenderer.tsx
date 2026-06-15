@@ -19,6 +19,10 @@
 
 import { registerPreviewRenderer } from "@/components/shared/designer-shell/section-registry";
 import type { PreviewRendererProps } from "@/components/shared/designer-shell/section-registry";
+import { JourneyField } from "@/components/journey-controls";
+import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
+
+import { useJourneySetting } from "./_journey-setting-context";
 
 export interface ModePolicyRendererData {
   teachingMode: string | undefined;
@@ -43,6 +47,43 @@ const TIER_LABEL: Record<string, string> = {
 export function ModePolicyRenderer({
   data,
 }: PreviewRendererProps<ModePolicyRendererData>) {
+  const ctx = useJourneySetting();
+
+  if (ctx.courseId && !ctx.readonly) {
+    const freshContract = JOURNEY_SETTINGS_BY_ID.useFreshMastery;
+    const maxTierContract = JOURNEY_SETTINGS_BY_ID.maxMasteryTier;
+    return (
+      <div className="hf-card-compact">
+        <div className="hf-category-label">Teaching mode</div>
+        {data.teachingMode ? (
+          <span className="hf-badge hf-badge-info">
+            {TEACHING_MODE_LABEL[data.teachingMode] ?? data.teachingMode}
+          </span>
+        ) : (
+          <span className="hf-badge hf-badge-muted">Unset (default)</span>
+        )}
+        {freshContract ? (
+          <JourneyField
+            contract={freshContract}
+            value={data.useFreshMastery ?? false}
+            onSave={(v) => ctx.saveSetting("useFreshMastery", v)}
+          />
+        ) : null}
+        {maxTierContract ? (
+          <JourneyField
+            contract={maxTierContract}
+            value={data.maxMasteryTier ?? ""}
+            options={Object.entries(TIER_LABEL).map(([value, label]) => ({
+              value,
+              label,
+            }))}
+            onSave={(v) => ctx.saveSetting("maxMasteryTier", v)}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
   const teachingModeLabel =
     data.teachingMode === undefined
       ? null

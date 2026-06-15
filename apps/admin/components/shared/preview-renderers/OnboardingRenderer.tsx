@@ -7,6 +7,12 @@
  * row with phase label + optional duration + first goal preview.
  *
  * Section: `onboarding` (kind: "runtime" config-sourced).
+ *
+ * Editability deferred to Phase 3 of epic #1675: the onboarding setting
+ * uses the `phases` compound control, which Phase 1 ships as a
+ * documented placeholder. Phase 3 wraps the existing `OnboardingEditor`
+ * and unlocks inline editing here. Until then, this renderer stays
+ * read-only regardless of the JourneySettingMutatorProvider context.
  */
 
 import { registerPreviewRenderer } from "@/components/shared/designer-shell/section-registry";

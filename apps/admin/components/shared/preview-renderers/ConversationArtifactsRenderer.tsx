@@ -13,6 +13,10 @@
  * + an extra `loading` discriminant so the DesignTab can render a
  * "loading…" state while the preview route fetches.
  *
+ * Read-only by design (epic #1675 Slice B note): conversation artifacts
+ * are computed by the pipeline transform from prior-call data, not an
+ * educator-tunable setting. This renderer remains a read-only display.
+ *
  * Empty states:
  *  - `loading: true` → muted "Loading recent artifacts…" placeholder
  *  - `hasArtifacts: false` AND no prior call yet → muted

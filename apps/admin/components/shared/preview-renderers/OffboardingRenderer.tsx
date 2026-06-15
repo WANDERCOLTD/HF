@@ -6,6 +6,11 @@
  * Shows end-of-course offboarding phases + the call-count trigger.
  *
  * Section: `offboarding` (kind: "runtime" config-sourced).
+ *
+ * Editability deferred to Phase 3 of epic #1675: the offboardingFlowPhases
+ * setting uses the `phases` compound control, which Phase 1 ships as a
+ * placeholder. Phase 3 unlocks inline editing here. Until then this
+ * renderer stays read-only regardless of provider context.
  */
 
 import { registerPreviewRenderer } from "@/components/shared/designer-shell/section-registry";
