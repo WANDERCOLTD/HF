@@ -25,6 +25,7 @@ import type { InteractionPattern } from '@/lib/content-trust/resolve-config';
 import { CourseWhoTab } from './CourseWhoTab';
 import { CourseGoalsTab } from './CourseGoalsTab';
 import { CourseDesignTab } from './CourseDesignTab';
+import { CourseJourneyTab } from '@/components/journey-tab/CourseJourneyTab';
 import { CourseLearnersTab } from './CourseLearnersTab';
 import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
@@ -150,9 +151,9 @@ type SessionTabData = {
 
 import { SectionHeader } from './SectionHeader';
 
-const VALID_TABS = ['intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'skills', 'voice', 'settings',
+const VALID_TABS = ['journey', 'intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'skills', 'voice', 'settings',
   // Legacy tab IDs — redirected in handleTabChange
-  'overview', 'journey', 'genome', 'audience', 'session-flow',
+  'overview', 'genome', 'audience', 'session-flow',
 ];
 
 const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
@@ -207,7 +208,9 @@ export default function CourseDetailPage() {
   // Tabs — synced to ?tab= URL param for browser back/forward
   const tabFromUrl = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<string>(
-    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'design'
+    // #1697 Phase 4: Journey tab is the new default landing surface.
+    // Existing Design tab kept (amber chip) until parity reached.
+    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'journey'
   );
 
   // Sessions tab
@@ -401,8 +404,23 @@ export default function CourseDetailPage() {
   // directly (verified by inspection); the prior dep was over-broad and
   // caused tabs to re-memoise on every sessions refresh + every poll tick.
   const tabs: TabDefinition[] = useMemo(() => [
+    // #1697 Phase 4 — Journey is the new first tab, becoming the default
+    // landing surface. Design tab kept with amber retirement chip until
+    // Journey reaches parity (Phase 2 Slice B / Phase 3 Slice B + #1695).
+    { id: 'journey', label: <TabWithHelp tabId="journey">Journey</TabWithHelp>, icon: <Wand2 size={14} /> },
     { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Content</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
-    { id: 'design', label: <TabWithHelp tabId="design">Design</TabWithHelp>, icon: <Wand2 size={14} /> },
+    {
+      id: 'design',
+      label: (
+        <TabWithHelp tabId="design">
+          Design
+          <span className="hf-journey-amber-chip" title="Retiring — will be removed when Journey reaches parity">
+            retiring
+          </span>
+        </TabWithHelp>
+      ),
+      icon: <Wand2 size={14} />,
+    },
     { id: 'curriculum', label: <TabWithHelp tabId="curriculum">Curriculum</TabWithHelp>, icon: <GraduationCap size={14} /> },
     { id: 'learners', label: <TabWithHelp tabId="learners">Learners</TabWithHelp>, icon: <Users2 size={14} /> },
     { id: 'proof', label: <TabWithHelp tabId="proof">Proof Points</TabWithHelp>, icon: <BarChart3 size={14} /> },
@@ -443,7 +461,8 @@ export default function CourseDetailPage() {
     // URL compat: redirect retired tab IDs to their new homes
     const TAB_REDIRECTS: Record<string, string> = {
       sessions: 'design', onboarding: 'design', overview: 'design',
-      journey: 'design', genome: 'intelligence', audience: 'design',
+      // #1697 Phase 4: `journey` is now a real tab, not an alias for design.
+      genome: 'intelligence', audience: 'design',
       content: 'intelligence', 'session-flow': 'design',
     };
     const resolvedTab = TAB_REDIRECTS[tab] ?? tab;
@@ -1700,6 +1719,16 @@ export default function CourseDetailPage() {
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'skills' && (
         <CourseSkillsTab courseId={courseId!} />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* JOURNEY TAB (#1697 Phase 4)                    */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'journey' && (
+        <CourseJourneyTab
+          courseId={courseId!}
+          playbookConfig={detail?.config as Record<string, unknown> | null}
+        />
       )}
 
       {/* ═══════════════════════════════════════════════ */}
