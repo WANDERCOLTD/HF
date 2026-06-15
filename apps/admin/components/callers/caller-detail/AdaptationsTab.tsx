@@ -1,40 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
-import { SlidersHorizontal, AlertTriangle, Info, Lock } from "lucide-react";
-
-import { ROLE_LEVEL } from "@/lib/roles";
-import type { UserRole } from "@prisma/client";
+import { useEffect, useState } from "react";
+import { SlidersHorizontal, AlertTriangle, Info } from "lucide-react";
 
 import "./adaptations-tab.css";
 
 /**
- * Caller Detail → Adaptations tab (SP5-A shell).
+ * Caller Detail → Adaptations tab.
  *
  * Sister of `AttainmentTab` (SP4-A) — Attainment shows "where this
  * learner IS"; Adaptations shows "what the engine CHANGED for this
- * learner, why, and what's next". Replaces fragmented coverage in
- * `AdaptationLens` + the Tune-tab adaptation sections (those land in
- * SP5-E's `WILL_RETIRE` audit once the S5 registry ships).
+ * learner, why, and what's next".
  *
- * SP5-A SHELL — three section placeholders rendered with educator-
- * meaningful "coming next" copy so the operator can SEE the layout
- * before SP5-B/C/D fill the boxes:
+ * **Wave C3b — role-tiered visibility** (replaces the SP5-A OPERATOR+
+ * client lock). The route is now `requireAuth("VIEWER")` + STUDENT
+ * path-param scope; the server applies `redactAdaptationsForTier`
+ * before responding. The component reads the `viewerTier`
+ * discriminator on the response:
+ *
+ *   - `redacted` (STUDENT / VIEWER / TESTER) — parameter names +
+ *     direction chips + "N adjustments since you started"; nextAdaptation
+ *     section omitted.
+ *   - `full` / `diagnostic` (OPERATOR+) — full sections (cascade chips,
+ *     numeric values, rationale text, next-call preview).
+ *
+ * Sections:
  *
  *   - SP5-B "What was adapted" — `CallerTarget` overrides vs PLAYBOOK
- *     default + cascade chips
- *   - SP5-C "Why" — `RewardScore` + `Goal.progressMetrics` evidence
+ *     default + cascade chips (full tier) / direction chip (redacted)
+ *   - SP5-C "Why" — `RewardScore` rationale timeline (full) / count +
+ *     most-recent date (redacted)
  *   - SP5-D "Next call's adaptation" — `goalAdaptationGuidance`
- *     LOW/MID/HIGH preview
- *
- * **OPERATOR+ only.** STUDENT/VIEWER → "Operator-only view" message
- * (mirrors `CascadeLensPanel.tsx`'s pattern). The API route also
- * refuses (`requireAuth("OPERATOR")`) so client-side hiding is the
- * cosmetic layer, not the security boundary.
+ *     LOW/MID/HIGH preview (full only)
  */
 
-interface AdaptationOverride {
+interface AdaptationOverrideFull {
   parameterId: string;
   parameterName: string;
   defaultValue: number;
@@ -42,6 +42,13 @@ interface AdaptationOverride {
   sourceScope: "SYSTEM" | "PLAYBOOK" | "CALLER";
   confidence: number | null;
   callsApplied: number;
+  updatedAt: string | null;
+}
+
+interface AdaptationOverrideRedacted {
+  parameterId: string;
+  parameterName: string;
+  direction: "up" | "down" | "hold";
   updatedAt: string | null;
 }
 
@@ -55,6 +62,11 @@ interface AdaptationReason {
   delta: number | null;
 }
 
+interface AdaptationReasonRedacted {
+  count: number;
+  mostRecentAt: string | null;
+}
+
 interface NextAdaptationGuidanceEntry {
   goalId: string;
   goalName: string;
@@ -65,15 +77,36 @@ interface NextAdaptationGuidanceEntry {
   isAssessmentTarget: boolean;
 }
 
-interface AdaptationsResponse {
+interface AdaptationsResponseFull {
   callerId: string;
   callerName: string | null;
   playbookId: string | null;
   playbookName: string | null;
-  whatWasAdapted: AdaptationOverride[];
+  whatWasAdapted: AdaptationOverrideFull[];
   why: AdaptationReason[];
   nextAdaptation: NextAdaptationGuidanceEntry[];
   empty: boolean;
+  viewerTier: "full" | "diagnostic";
+}
+
+interface AdaptationsResponseRedacted {
+  callerId: string;
+  callerName: string | null;
+  playbookId: string | null;
+  playbookName: string | null;
+  whatWasAdapted: AdaptationOverrideRedacted[];
+  whyRedacted: AdaptationReasonRedacted;
+  nextAdaptation: never[];
+  empty: boolean;
+  viewerTier: "redacted";
+}
+
+type AdaptationsResponse = AdaptationsResponseFull | AdaptationsResponseRedacted;
+
+function isRedacted(
+  r: AdaptationsResponse,
+): r is AdaptationsResponseRedacted {
+  return r.viewerTier === "redacted";
 }
 
 interface Props {
@@ -81,23 +114,11 @@ interface Props {
 }
 
 export function AdaptationsTab({ callerId }: Props) {
-  const { data: session } = useSession();
-  const userLevel = useMemo(() => {
-    const role = session?.user?.role as UserRole | undefined;
-    if (!role) return 0;
-    return ROLE_LEVEL[role] ?? 0;
-  }, [session?.user?.role]);
-  const operatorOrBetter = userLevel >= ROLE_LEVEL.OPERATOR;
-
   const [data, setData] = useState<AdaptationsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!operatorOrBetter) {
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -121,22 +142,7 @@ export function AdaptationsTab({ callerId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [callerId, operatorOrBetter]);
-
-  if (!operatorOrBetter) {
-    return (
-      <div className="hf-adaptations-locked" role="status">
-        <Lock size={18} aria-hidden />
-        <div>
-          <strong>Operator-only view.</strong>
-          <p>
-            Adaptations show what the engine changed for this learner.
-            Sign in as an operator to see the change log.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  }, [callerId]);
 
   if (loading) {
     return (
@@ -194,9 +200,32 @@ export function AdaptationsTab({ callerId }: Props) {
         </p>
       </header>
 
-      <WhatWasAdaptedSection overrides={data.whatWasAdapted} empty={data.empty} />
-      <WhySection reasons={data.why} empty={data.empty} />
-      <NextAdaptationSection guidance={data.nextAdaptation} empty={data.empty} />
+      {isRedacted(data) ? (
+        <>
+          <WhatWasAdaptedRedactedSection
+            overrides={data.whatWasAdapted}
+            empty={data.empty}
+          />
+          <WhyRedactedSection
+            redacted={data.whyRedacted}
+            empty={data.empty}
+          />
+          {/* Next-call preview is hidden at the redacted tier so the
+              learner can't pre-read the plan. */}
+        </>
+      ) : (
+        <>
+          <WhatWasAdaptedSection
+            overrides={data.whatWasAdapted}
+            empty={data.empty}
+          />
+          <WhySection reasons={data.why} empty={data.empty} />
+          <NextAdaptationSection
+            guidance={data.nextAdaptation}
+            empty={data.empty}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -207,7 +236,7 @@ function WhatWasAdaptedSection({
   overrides,
   empty,
 }: {
-  overrides: AdaptationOverride[];
+  overrides: AdaptationOverrideFull[];
   empty: boolean;
 }) {
   return (
@@ -236,7 +265,7 @@ function WhatWasAdaptedSection({
   );
 }
 
-function OverrideRow({ override }: { override: AdaptationOverride }) {
+function OverrideRow({ override }: { override: AdaptationOverrideFull }) {
   const defaultPct = Math.round(override.defaultValue * 100);
   const overridePct = Math.round(override.overrideValue * 100);
   const delta = override.overrideValue - override.defaultValue;
@@ -447,5 +476,108 @@ function NextRow({ entry }: { entry: NextAdaptationGuidanceEntry }) {
       </div>
       <p className="hf-adaptations-next-guidance">{entry.guidance}.</p>
     </li>
+  );
+}
+
+// ── Redacted sections (STUDENT / VIEWER / TESTER tier) ──────────────────────
+
+function WhatWasAdaptedRedactedSection({
+  overrides,
+  empty,
+}: {
+  overrides: AdaptationOverrideRedacted[];
+  empty: boolean;
+}) {
+  return (
+    <section
+      className="hf-adaptations-section"
+      data-testid="hf-adaptations-what-redacted"
+    >
+      <h3 className="hf-adaptations-section-title">What was adapted</h3>
+      <p className="hf-adaptations-section-desc">
+        Parameters the engine has nudged for this learner. Direction-only —
+        numeric values, source layer, and confidence are operator-only.
+      </p>
+      {overrides.length === 0 ? (
+        <p className="hf-adaptations-empty-text">
+          {empty
+            ? "No adaptations yet — the engine starts with the playbook's defaults and adapts after the first scoring call."
+            : "No per-parameter overrides recorded yet."}
+        </p>
+      ) : (
+        <ul className="hf-adaptations-override-rows">
+          {overrides.map((o) => (
+            <li
+              key={o.parameterId}
+              className="hf-adaptations-override-row hf-adaptations-override-row-redacted"
+            >
+              <div className="hf-adaptations-override-head">
+                <span className="hf-adaptations-override-name">
+                  {o.parameterName}
+                </span>
+                <span
+                  className={`hf-adaptations-override-delta hf-adaptations-override-delta-${
+                    o.direction === "hold" ? "flat" : o.direction
+                  }`}
+                  aria-label={`Direction ${o.direction}`}
+                >
+                  {o.direction === "up"
+                    ? "↑ nudged up"
+                    : o.direction === "down"
+                      ? "↓ nudged down"
+                      : "→ holding"}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function WhyRedactedSection({
+  redacted,
+  empty,
+}: {
+  redacted: AdaptationReasonRedacted;
+  empty: boolean;
+}) {
+  return (
+    <section
+      className="hf-adaptations-section"
+      data-testid="hf-adaptations-why-redacted"
+    >
+      <h3 className="hf-adaptations-section-title">Why</h3>
+      <p className="hf-adaptations-section-desc">
+        Summary of recent adaptation activity. Per-event rationale is
+        operator-only.
+      </p>
+      {redacted.count === 0 ? (
+        <p className="hf-adaptations-empty-text">
+          {empty
+            ? "No adaptation activity yet — appears after the first scoring call."
+            : "No target updates have been logged in the most recent calls."}
+        </p>
+      ) : (
+        <p className="hf-adaptations-redacted-summary">
+          <strong>
+            {redacted.count} adjustment{redacted.count === 1 ? "" : "s"}
+          </strong>{" "}
+          recorded
+          {redacted.mostRecentAt ? (
+            <>
+              {" "}— most recent on{" "}
+              <time dateTime={redacted.mostRecentAt}>
+                {formatReasonDate(redacted.mostRecentAt)}
+              </time>
+            </>
+          ) : (
+            ""
+          )}
+          .
+        </p>
+      )}
+    </section>
   );
 }

@@ -18,10 +18,23 @@
  *   - SP5-D "Next call's adaptation" — `goalAdaptationGuidance`
  *     LOW/MID/HIGH preview.
  *
- * Auth: **OPERATOR+ only.** Locked per master epic #1577 — Adaptations
- * is operator-private; STUDENT can read their OWN attainment but NEVER
- * the change-log. `requireAuth("OPERATOR")` is the structural gate; no
- * path-param scope is needed because STUDENT can't reach this method.
+ * **Auth (Wave C3b — #1577 visibility-policy revision):**
+ * `requireAuth("VIEWER")` + STUDENT path-param scope via
+ * `studentAllowedToReadCaller`. The OPERATOR+ safety property from
+ * the original #1577 design is preserved by **server-side response
+ * redaction** (`lib/rbac/policies/adaptations.ts::redactAdaptationsForTier`):
+ *
+ *   - STUDENT / VIEWER / TESTER (tier `redacted`) — see parameter
+ *     names + adjustment direction + a reason count. Numeric values,
+ *     free-text rationale, and next-call preview are dropped.
+ *   - OPERATOR / EDUCATOR / ADMIN (tier `full`) — full payload.
+ *   - SUPERADMIN (tier `diagnostic`) — reserved for future debug
+ *     fields; functionally same as `full` today.
+ *
+ * The response always carries a `viewerTier` discriminator so the
+ * client knows which shape it received. Adding a new sensitive field
+ * means updating the redactor's `redacted` branch — the type system
+ * keeps it whitelist-default-safe.
  *
  * Single-load: the response carries the three section envelopes
  * needed for first paint. Real-data sections that grow large will
@@ -29,16 +42,16 @@
  * pattern (SP4-C's `/lo-mastery` lazy fetch on module-row click).
  */
 
-/* eslint-disable hf-security/no-unscoped-caller-id-route --
- * OPERATOR+ only per master epic #1577 (Adaptations is operator-private,
- * STUDENT may only read their own Attainment). `requireAuth("OPERATOR")`
- * structurally refuses STUDENT/VIEWER at the auth gate, so the
- * studentAllowedToReadCaller path-param guard is moot for this surface.
- */
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import {
+  studentAllowedToReadCaller,
+  callerScopeMismatchResponse,
+} from "@/lib/learner-scope";
+import { visibilityTierForRole } from "@/lib/rbac/visibility";
+import { redactAdaptationsForTier } from "@/lib/rbac/policies/adaptations";
 import { getEffectiveBehaviorTargetsForCaller } from "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller";
 
 /** What changed for this learner vs the playbook default. Each row is one
@@ -121,11 +134,19 @@ export async function GET(
 ) {
   const { callerId } = await params;
 
-  // OPERATOR+ gate. No `studentAllowedToReadCaller` — STUDENT is below
-  // OPERATOR and is refused at this line, so per-caller path-param
-  // scope is moot.
-  const auth = await requireAuth("OPERATOR");
+  // Wave C3b — VIEWER+ gate with STUDENT path-param scope. The
+  // OPERATOR+ safety property is preserved via response redaction
+  // (see header), not by the auth gate. STUDENT is admitted here so
+  // their own adaptation summary is visible; the redactor strips the
+  // sensitive fields before the response leaves the route.
+  const auth = await requireAuth("VIEWER");
   if (isAuthError(auth)) return auth.error;
+
+  if (!studentAllowedToReadCaller(auth.session, callerId)) {
+    return callerScopeMismatchResponse();
+  }
+
+  const viewerTier = visibilityTierForRole(auth.session.user.role);
 
   const caller = await prisma.caller.findUnique({
     where: { id: callerId },
@@ -147,7 +168,7 @@ export async function GET(
   });
 
   if (!enrolment) {
-    return NextResponse.json({
+    const rawEmpty: AdaptationsResponse = {
       callerId,
       callerName: caller.name,
       playbookId: null,
@@ -156,7 +177,8 @@ export async function GET(
       why: [],
       nextAdaptation: [],
       empty: true,
-    } satisfies AdaptationsResponse);
+    };
+    return NextResponse.json(redactAdaptationsForTier(rawEmpty, viewerTier));
   }
 
   const playbookId = enrolment.playbookId;
@@ -351,7 +373,7 @@ export async function GET(
     };
   });
 
-  return NextResponse.json({
+  const raw: AdaptationsResponse = {
     callerId,
     callerName: caller.name,
     playbookId,
@@ -363,7 +385,8 @@ export async function GET(
       whatWasAdapted.length === 0 &&
       whyTrimmed.length === 0 &&
       nextAdaptation.length === 0,
-  } satisfies AdaptationsResponse);
+  };
+  return NextResponse.json(redactAdaptationsForTier(raw, viewerTier));
 }
 
 /**
