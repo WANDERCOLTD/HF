@@ -52,6 +52,8 @@ export function JourneyTargets({ contract, value }: JourneyFieldProps) {
           courseId={ctx.courseId}
           playbookConfig={ctx.playbookConfig}
           onSaved={ctx.onCompoundSaved}
+          hideSignposts
+          hideModePicker
         />
       </div>
     </_FieldShell>
