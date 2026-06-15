@@ -32,6 +32,17 @@ export interface CallerSkillEvidenceItem {
   score: number;
   confidence: number;
   excerpts: string[];
+  // Wave A2 — score-provenance fields lifted from the sibling CallScore
+  // row via (callId, parameterId). Surfaces what ProgressTab v1's
+  // ScoresSection used to show in its score-detail expander, so the
+  // Attainment Evidence Panel can replace it before that legacy tab
+  // retires. All optional — legacy paths (mock engine, manual scoring)
+  // may not have CallScore rows or may leave individual fields null.
+  reasoning: string | null;
+  analysisSpecName: string | null;
+  hasLearnerEvidence: boolean | null;
+  evidenceQuality: number | null;
+  scoredBy: string | null;
 }
 
 export interface CallerSkillEvidenceRow {
@@ -117,6 +128,10 @@ export async function GET(
 
   // Per-skill bounded fetch — uses @@index([parameterId]) + @@index([measuredAt]).
   // N skills × 1 indexed seek = small even when called repeatedly.
+  // Wave A2 — also pulls the sibling CallScore row for each
+  // (callId, parameterId) so the Evidence Panel can render reasoning +
+  // analysisSpec provenance + #566 hasLearnerEvidence/evidenceQuality
+  // badges in place of the now-retiring ProgressTab v1 ScoresSection.
   const rows: CallerSkillEvidenceRow[] = await Promise.all(
     skills.map(async (s) => {
       const measurements = await prisma.behaviorMeasurement.findMany({
@@ -134,17 +149,44 @@ export async function GET(
         orderBy: { measuredAt: "desc" },
         take: limit,
       });
+      const callIds = measurements.map((m) => m.callId);
+      const callScores =
+        callIds.length === 0
+          ? []
+          : await prisma.callScore.findMany({
+              where: {
+                callId: { in: callIds },
+                parameterId: s.parameterId,
+              },
+              select: {
+                callId: true,
+                reasoning: true,
+                hasLearnerEvidence: true,
+                evidenceQuality: true,
+                scoredBy: true,
+                analysisSpec: { select: { name: true } },
+              },
+            });
+      const scoreByCall = new Map(callScores.map((cs) => [cs.callId, cs]));
       return {
         skillRef: s.skillRef,
         parameterId: s.parameterId,
         parameterName: paramName.get(s.parameterId) ?? s.parameterId,
-        evidence: measurements.map((m) => ({
-          callId: m.callId,
-          measuredAt: m.measuredAt.toISOString(),
-          score: m.actualValue,
-          confidence: m.confidence,
-          excerpts: m.evidence,
-        })),
+        evidence: measurements.map((m) => {
+          const cs = scoreByCall.get(m.callId);
+          return {
+            callId: m.callId,
+            measuredAt: m.measuredAt.toISOString(),
+            score: m.actualValue,
+            confidence: m.confidence,
+            excerpts: m.evidence,
+            reasoning: cs?.reasoning ?? null,
+            analysisSpecName: cs?.analysisSpec?.name ?? null,
+            hasLearnerEvidence: cs?.hasLearnerEvidence ?? null,
+            evidenceQuality: cs?.evidenceQuality ?? null,
+            scoredBy: cs?.scoredBy ?? null,
+          };
+        }),
       };
     }),
   );
