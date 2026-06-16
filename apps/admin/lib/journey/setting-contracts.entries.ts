@@ -1319,54 +1319,9 @@ const G6_POST_TEST_STOP: JourneySettingContract = {
   previewLocators: [{ section: "modulesGate", hint: "post-test block" }],
 };
 
-const G6_COMPLETION_CRITERIA: JourneySettingContract = {
-  id: "completionCriteria",
-  menuGroupKey: "M_end_of_course",
-  group: "G6",
-  educatorLabel: "Completion criteria",
-  helpText:
-    "All modules mastered / any module mastered / mastery threshold reached.",
-  storagePath: "config.completionCriteria",
-  control: "select",
-  cascadeSources: [],
-  composeImpact: {
-    sections: ["offboarding", "modulesGate"],
-    kinds: ["section-enable", "sequence-policy"],
-    requiresReprompt: false,
-  },
-  previewLocators: [{ section: "offboarding" }],
-  options: [
-    { value: "all_modules", label: "All modules mastered" },
-    { value: "any_module", label: "Any module mastered" },
-    { value: "mastery_threshold", label: "Overall mastery threshold" },
-  ],
-};
-
 // =============================================================
 // G7 — Scoring & sequencing (6)
 // =============================================================
-
-const G7_MODULE_VISIBILITY: JourneySettingContract = {
-  id: "moduleVisibility",
-  menuGroupKey: "D_question_flow",
-  group: "G7",
-  educatorLabel: "Module visibility rules",
-  helpText: "When the AI starts naming modules in framing.",
-  storagePath: "config.moduleVisibility",
-  control: "select",
-  cascadeSources: [],
-  composeImpact: {
-    sections: ["modulesGate"],
-    kinds: ["sequence-policy", "section-content"],
-    requiresReprompt: false,
-  },
-  previewLocators: [{ section: "modulesGate", hint: "module naming" }],
-  options: [
-    { value: "mention_from_call_1", label: "Mention module names from Call 1" },
-    { value: "hide_until_call_2", label: "Hide until Call 2" },
-    { value: "hide_until_learner_picks", label: "Hide until learner picks" },
-  ],
-};
 
 // Lane 3 PR9 — final 7 contracts. Closes the Slice C BA-failure
 // recovery (#1780 coverage check). After this PR the catch-up
@@ -1456,7 +1411,7 @@ const G7_FIRST_CALL_MODULE_VISIBILITY: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Module visibility on Call 1",
   helpText:
-    "Call-1-specific module-visibility override. Distinct from the course-wide `moduleVisibility` above — this one ONLY affects Call 1's orientation/framing sections; learner's explicit module pick still overrides. (#1405)",
+    "When the AI starts naming modules in framing on Call 1. ONLY affects orientation/framing sections; learner's explicit module pick still overrides. (#1405)",
   storagePath: "config.firstCall.firstCallModuleVisibility",
   control: "select",
   cascadeSources: [],
@@ -1479,7 +1434,7 @@ const G7_COMPLETION_MODE: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Completion mode",
   helpText:
-    "When the course counts as 'done'. terminal-only (default): playbook's terminal module mastered. all-modules: every module mastered. any: at least one module mastered. Distinct from `completionCriteria` — that controls module-vs-LO granularity; this controls module-set coverage. (#494)",
+    "When the course counts as 'done'. terminal-only (default): playbook's terminal module mastered. all-modules: every module mastered. any: at least one module mastered. (#494)",
   storagePath: "config.completionMode",
   control: "select",
   cascadeSources: [],
@@ -1891,9 +1846,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G6_OFFBOARDING_BANNER_MESSAGE,
   G6_OFFBOARDING_CERTIFICATE,
   G6_POST_TEST_STOP,
-  G6_COMPLETION_CRITERIA,
   // G7 (7)
-  G7_MODULE_VISIBILITY,
   G7_TOL_MASTERY_THRESHOLD,
   G7_TOL_RETRIEVAL_CADENCE,
   G7_TOL_MEMORY_DECAY,

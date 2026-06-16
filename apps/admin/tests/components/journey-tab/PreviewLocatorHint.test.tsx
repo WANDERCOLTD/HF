@@ -54,8 +54,8 @@ describe("PreviewLocatorHint — Slice C (#1721) hint + pick-strip", () => {
   });
 
   it("renders nothing when bucket is selected but has no cross-cutting locators", () => {
-    // M_end_of_course contains offboardingCertificate + completionCriteria,
-    // whose previewLocators only touch `offboarding` (not in the
+    // M_end_of_course contains offboardingCertificate + offboarding-summary
+    // settings, whose previewLocators only touch `offboarding` (not in the
     // CROSS_CUTTING_SECTIONS set). Hint chip should not render.
     render(
       <PreviewLocatorHint
