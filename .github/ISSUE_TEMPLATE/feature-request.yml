@@ -1,0 +1,58 @@
+name: Feature Request
+description: New capability, enhancement, or improvement. Becomes a story for BA + Tech Lead grooming.
+title: "feature: <one-line summary>"
+labels: ["feature", "needs-design"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user pain or operator gap motivates this? Avoid "would be nice" — show the actual cost of not doing it.
+      placeholder: |
+        Today, operators have to <X> manually for every <Y>. This costs ~N minutes per <Y> and
+        an average operator hits it M times per week.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Rough shape of the work. The BA agent will firm it up; don't over-engineer here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (draft)
+      description: Checklist of what "done" looks like. Each item should be testable.
+      value: |
+        - [ ]
+        - [ ]
+        - [ ]
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort estimate (gut feel — TL will validate)
+      options:
+        - XS (< 2h)
+        - S (half day)
+        - M (1-2 days)
+        - L (3-5 days)
+        - XL (more than a sprint)
+    validations:
+      required: true
+
+  - type: input
+    id: parent
+    attributes:
+      label: Parent epic / related issue
+      description: GitHub issue number if this belongs to an existing epic.
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: What you DON'T want bundled into this work.
