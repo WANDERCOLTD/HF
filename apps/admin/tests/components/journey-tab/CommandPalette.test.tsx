@@ -22,10 +22,11 @@ describe("CommandPalette — Phase 5 (#1706)", () => {
     expect(screen.getByTestId("hf-cmdk-input")).toBeInTheDocument();
   });
 
-  it("indexes all 56 settings (45 journey + 11 voice)", () => {
-    expect(JOURNEY_SETTINGS.length).toBe(45);
+  it("indexes all 62 settings (51 journey + 11 voice)", () => {
+    // #1701 (Theme 1) added 6 G8 entries → journey bumped 45 → 51 → palette 56 → 62.
+    expect(JOURNEY_SETTINGS.length).toBe(51);
     expect(VOICE_SETTINGS.length).toBe(11);
-    expect(COMMAND_PALETTE_INDEX_SIZE).toBe(56);
+    expect(COMMAND_PALETTE_INDEX_SIZE).toBe(62);
   });
 
   it("typing narrows results by substring on educatorLabel", () => {

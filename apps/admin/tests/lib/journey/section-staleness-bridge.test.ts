@@ -64,8 +64,10 @@ describe("section-staleness-bridge — Phase 2B derivation helpers", () => {
   it("every setting either feeds a section OR is post-call/sequence/runtime", () => {
     for (const s of JOURNEY_SETTINGS) {
       if (s.composeImpact.sections.length > 0) continue;
-      // No sections — must be a non-section-content kind.
-      const validNoSection = ["scoring-weight", "sequence-policy", "persona-style"];
+      // No sections — must be a non-section-content kind. Widened in #1701
+      // to include "stop-timing" for G8 cue-scheduler entries (consumed by
+      // Theme 2 cue scheduler at runtime, not by the composer).
+      const validNoSection = ["scoring-weight", "sequence-policy", "persona-style", "stop-timing"];
       const overlap = s.composeImpact.kinds.some((k) => validNoSection.includes(k));
       expect(
         overlap,
