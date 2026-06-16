@@ -84,6 +84,70 @@ const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
   previewLocators: [{ section: "intake", hint: "about-you block" }],
 };
 
+// Lane 3 — A_intake contracts (catch-up follow-on from #1780).
+// The "AI Intro Call" bubble was the originally-spotted gap (operator
+// clicked it on the Preview canvas; the Inspector had no control for
+// it). This entry closes that gap; sibling entries below complete
+// A_intake coverage.
+
+const G1_INTAKE_GOALS: JourneySettingContract = {
+  id: "intakeGoals",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Pre-call learner goals",
+  helpText:
+    "Show the learner-goals capture block in the sign-up form so learners declare what they want to work on before Call 1.",
+  storagePath: "sessionFlow.intake.goals",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "learner-goals block" }],
+};
+
+const G1_INTAKE_AI_INTRO_CALL: JourneySettingContract = {
+  id: "intakeAiIntroCall",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "AI Intro Call after sign-up",
+  helpText:
+    "Optional 1–2 min AI call right after sign-up to confirm name + level + give the learner a low-stakes taste of the voice surface before Call 1.",
+  storagePath: "sessionFlow.intake.aiIntroCall",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "AI Intro Call card" }],
+};
+
+const G1_INTAKE_KNOWLEDGE_CHECK_MODE: JourneySettingContract = {
+  id: "intakeKnowledgeCheckMode",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Knowledge check delivery mode",
+  helpText:
+    "MCQ batch (post Call 1) vs Socratic probe (in Call 1). Implemented in #222; only relevant when the parent Knowledge check toggle is on.",
+  storagePath: "sessionFlow.intake.knowledgeCheck.deliveryMode",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "knowledge check block" }],
+  options: [
+    { value: "mcq", label: "MCQ batch (post Call 1)" },
+    { value: "socratic", label: "Socratic probe (in Call 1)" },
+  ],
+};
+
 const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
   id: "intakeSkipIfReturning",
   menuGroupKey: "A_intake",
@@ -1095,6 +1159,9 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G1_INTAKE_SPEC_ID,
   G1_INTAKE_KNOWLEDGE_CHECK,
   G1_INTAKE_ABOUT_YOU,
+  G1_INTAKE_GOALS,
+  G1_INTAKE_AI_INTRO_CALL,
+  G1_INTAKE_KNOWLEDGE_CHECK_MODE,
   G1_INTAKE_SKIP_IF_RETURNING,
   G1_INTAKE_CONSENT_FLOW,
   // G2 (6)

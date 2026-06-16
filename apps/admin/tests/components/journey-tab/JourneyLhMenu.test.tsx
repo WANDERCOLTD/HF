@@ -72,8 +72,8 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
         onFilterChange={vi.fn()}
       />,
     );
-    // A_intake has 5 settings stamped to it.
+    // A_intake has 8 settings stamped to it (Lane 3 PR1 added 3).
     const row = screen.getByTestId("hf-journey-bucket-row-A_intake");
-    expect(row.textContent).toMatch(/5/);
+    expect(row.textContent).toMatch(/8/);
   });
 });
