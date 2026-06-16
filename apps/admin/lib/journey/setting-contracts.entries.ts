@@ -916,6 +916,66 @@ const G5_MID_JOURNEY_STOP_TRIGGER: JourneySettingContract = {
   ],
 };
 
+// Lane 3 PR6 — L_mid_journey NPS contracts (catch-up from #1780).
+
+const G5_NPS_ENABLED: JourneySettingContract = {
+  id: "npsEnabled",
+  menuGroupKey: "L_mid_journey",
+  group: "G5",
+  educatorLabel: "NPS survey enabled",
+  helpText:
+    "Master off-switch for the NPS satisfaction survey. When off, no NPS stop fires regardless of trigger / threshold below.",
+  storagePath: "config.nps.enabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G5_NPS_TRIGGER: JourneySettingContract = {
+  id: "npsTrigger",
+  menuGroupKey: "L_mid_journey",
+  group: "G5",
+  educatorLabel: "NPS trigger",
+  helpText:
+    "When the NPS survey fires: at a mastery percentage or after N calls.",
+  storagePath: "config.nps.trigger",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+  options: [
+    { value: "mastery", label: "Mastery percentage" },
+    { value: "session_count", label: "After N calls" },
+  ],
+};
+
+const G5_NPS_THRESHOLD: JourneySettingContract = {
+  id: "npsThreshold",
+  menuGroupKey: "L_mid_journey",
+  group: "G5",
+  educatorLabel: "NPS trigger threshold",
+  helpText:
+    "Mastery % (0–100) or call count, depending on the trigger above. Default 80 (mastery) / 5 (calls).",
+  storagePath: "config.nps.threshold",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 const G5_NPS_STOP: JourneySettingContract = {
   id: "npsStop",
   menuGroupKey: "L_mid_journey",
@@ -1368,6 +1428,9 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   // G5 (3)
   G5_MID_JOURNEY_STOP,
   G5_MID_JOURNEY_STOP_TRIGGER,
+  G5_NPS_ENABLED,
+  G5_NPS_TRIGGER,
+  G5_NPS_THRESHOLD,
   G5_NPS_STOP,
   // G6 (4)
   G6_OFFBOARDING_FLOW_PHASES,

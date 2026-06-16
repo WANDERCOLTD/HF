@@ -353,12 +353,10 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   //   - interleaveReviewMinDays → config.interleaveReviewMinDays (#492)
   "config.completionMode":
     "catch-up: overlaps completionCriteria — needs disambiguation; #494",
-  "config.nps.enabled":
-    "catch-up: npsEnabled contract pending (L_mid_journey)",
-  "config.nps.trigger":
-    "catch-up: npsTrigger contract pending (L_mid_journey)",
-  "config.nps.threshold":
-    "catch-up: npsThreshold contract pending (L_mid_journey)",
+  // ── L_mid_journey — graduated to contracts (Lane 3 PR6) ──────────
+  //   - npsEnabled → config.nps.enabled
+  //   - npsTrigger → config.nps.trigger
+  //   - npsThreshold → config.nps.threshold
   "config.offboarding.triggerAfterCalls":
     "catch-up: offboardingTriggerAfterCalls contract pending (M_end_of_course)",
   "config.offboarding.bannerMessage":
@@ -509,7 +507,8 @@ describe("Registry ↔ Schema coverage — 5th Lattice piece", () => {
     // Lane 3 PR3 (C_teaching_style) — ratchet dropped 29 → 28.
     // Lane 3 PR4 (I_scoring) — ratchet dropped 28 → 26.
     // Lane 3 PR5 (K_between_calls) — ratchet dropped 26 → 25.
-    const BASELINE_CATCH_UP_CEILING = 25;
+    // Lane 3 PR6 (L_mid_journey) — ratchet dropped 25 → 22.
+    const BASELINE_CATCH_UP_CEILING = 22;
     expect(
       catchUpCount,
       `catch-up exempts: ${catchUpCount} (ceiling ${BASELINE_CATCH_UP_CEILING}). If this went UP, you exempted a new field — add the contract instead.`,

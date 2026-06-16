@@ -95,7 +95,7 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
     expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(20);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(3);
+    expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(6);
     expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(4);
     // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7
     expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(8);
@@ -104,7 +104,7 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
   });
 
   it("(8) JOURNEY_SETTINGS.length === 60", () => {
-    expect(JOURNEY_SETTINGS.length).toBe(63);
+    expect(JOURNEY_SETTINGS.length).toBe(66);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {
