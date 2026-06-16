@@ -281,7 +281,7 @@ truth.
 See [`docs/decisions/2026-06-16-journey-bucket-shape.md`](./decisions/2026-06-16-journey-bucket-shape.md)
 for the rationale + alternatives considered.
 
-### §17.1 — The 13 buckets
+### §17.1 — The 14 buckets
 
 Authored in `lib/journey/menu-items.ts::JOURNEY_MENU_ITEMS`. Each bucket
 declares `id`, `label`, `caption`, `parentGroup` (visual G1..G7
@@ -295,15 +295,27 @@ type JourneyMenuBucketId =
   | "C_teaching_style"
   | "D_question_flow"
   | "E_learner_visual"      // reserved for IELTS Theme 3
-  | "F_stall_recovery"      // reserved for IELTS Theme 2 / 7
+  | "F_stall_recovery"      // reserved for IELTS Theme 2
   | "G_session_length"
   | "H_closing"
   | "I_scoring"
   | "J_feedback"
   | "K_between_calls"
   | "L_mid_journey"
-  | "M_end_of_course";
+  | "M_end_of_course"
+  | "N_voice";              // 11 voice settings — also live in Settings tab
 ```
+
+`N_voice` is the cross-call exception (the 13 letter-named buckets are
+ordered by *session moment*; voice is configuration that applies
+uniformly across every call). It exists so educators can reach the 11
+voice settings via Cmd+K + the Journey LH without leaving the Journey
+tab. The same registry entries also surface in the Settings tab
+under `S1_voice` — there's no second copy.
+
+`bucket-relations.ts` filters over `JOURNEY_SETTINGS + VOICE_SETTINGS`
+together so `getSettingsForBucket("N_voice")` returns the 11 voice
+entries without duplicating them.
 
 ### §17.2 — Registry additions (additive)
 

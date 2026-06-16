@@ -23,6 +23,7 @@ import { JourneySettingMutatorProvider } from "@/components/shared/preview-rende
 import type { ComposeSectionKey } from "@/lib/compose";
 import { getBucketsForSection } from "@/lib/journey/bucket-relations";
 import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
+import { VOICE_SETTINGS_BY_ID } from "@/lib/settings/voice-setting-contracts";
 
 import { CommandPalette } from "./CommandPalette";
 import { JourneyInspectorPanel } from "./JourneyInspectorPanel";
@@ -63,9 +64,13 @@ export function CourseJourneyTab({
 
   // Cmd+K hit → setting id. Find its owning bucket + select. Clear the
   // pick-strip in the same step (palette nav is a fresh user intent).
+  // Voice settings (registered under N_voice via Slice C follow-on) are
+  // found in VOICE_SETTINGS_BY_ID — the same bucket select navigates to
+  // them within the Journey tab; their Settings-tab home is preserved.
   const handlePaletteSelect = useCallback(
     (settingId: string) => {
-      const owner = JOURNEY_SETTINGS_BY_ID[settingId];
+      const owner =
+        JOURNEY_SETTINGS_BY_ID[settingId] ?? VOICE_SETTINGS_BY_ID[settingId];
       if (owner?.menuGroupKey) {
         selection.setBucketId(owner.menuGroupKey);
         setPickStripSection(null);

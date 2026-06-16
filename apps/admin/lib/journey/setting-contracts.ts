@@ -174,11 +174,18 @@ export interface AutoEnableLink {
 // Slice C (#1721) — menu buckets
 // =============================================================
 
-/** The 13 educator-intent buckets, chronological by session moment.
+/** The 14 educator-intent buckets, chronological by session moment.
  *  Authored against `docs/draft-issues/ielts-pre-voice-gap-analysis.md` —
  *  the IELTS spec organises by *what happens in a session* rather than
  *  by which DB column the value lives in. See `lib/journey/menu-items.ts`
- *  for the labels + captions + journey-group dividers. */
+ *  for the labels + captions + journey-group dividers.
+ *
+ *  `N_voice` is the cross-call exception — voice provider / id / speed
+ *  / interruption tolerance affect every call uniformly rather than a
+ *  specific session moment. It surfaces in the Journey LH (and Cmd+K)
+ *  alongside the chronological buckets so the educator has one
+ *  navigation index, not two. The 11 voice settings ALSO appear in the
+ *  Settings tab under S1_voice — same registry entries, two surfaces. */
 export type JourneyMenuBucketId =
   | "A_intake"
   | "B_call1_opening"
@@ -192,7 +199,8 @@ export type JourneyMenuBucketId =
   | "J_feedback"
   | "K_between_calls"
   | "L_mid_journey"
-  | "M_end_of_course";
+  | "M_end_of_course"
+  | "N_voice";
 
 // =============================================================
 // JourneySettingContract — the registry entry
