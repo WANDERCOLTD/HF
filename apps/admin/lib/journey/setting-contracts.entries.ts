@@ -1365,6 +1365,152 @@ const G7_MODULE_VISIBILITY: JourneySettingContract = {
   ],
 };
 
+// Lane 3 PR9 — final 7 contracts. Closes the Slice C BA-failure
+// recovery (#1780 coverage check). After this PR the catch-up
+// ratchet hits 0 — all 35 originally-spotted gaps closed.
+
+// — tolerances bucket assignments (sub-fields of config.tolerances) —
+// Master tolerances helper at lib/tolerance/*. Each sub-field maps to
+// a distinct educator concern:
+
+const G7_TOL_MASTERY_THRESHOLD: JourneySettingContract = {
+  id: "tolMasteryThreshold",
+  menuGroupKey: "I_scoring",
+  group: "G7",
+  educatorLabel: "Mastery threshold override",
+  helpText:
+    "Course-level override of the mastery threshold (default 0.7). Higher = stricter passing bar. (#598)",
+  storagePath: "config.tolerances.masteryThreshold",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G7_TOL_RETRIEVAL_CADENCE: JourneySettingContract = {
+  id: "tolRetrievalCadence",
+  menuGroupKey: "K_between_calls",
+  group: "G7",
+  educatorLabel: "Retrieval cadence override",
+  helpText:
+    "Multiplier on the SchedulerPolicy retrieval cadence. Lower = faster spaced-repetition cycle. Per-learner override intentionally NOT supported (would defeat interleaving). (#598)",
+  storagePath: "config.tolerances.retrievalCadenceOverride",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G7_TOL_MEMORY_DECAY: JourneySettingContract = {
+  id: "tolMemoryDecay",
+  menuGroupKey: "K_between_calls",
+  group: "G7",
+  educatorLabel: "Memory decay scale",
+  helpText:
+    "0.1–1.0 multiplier applied to category decay defaults in the forgetting-curve calculation. Lower = slower decay (good for long-cycle courses). (#598)",
+  storagePath: "config.tolerances.memoryDecayScale",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G7_TOL_CARRY_FORWARD: JourneySettingContract = {
+  id: "tolCarryForwardBoost",
+  menuGroupKey: "D_question_flow",
+  group: "G7",
+  educatorLabel: "Carry-forward priority boost",
+  helpText:
+    "Magnitude of the priority bump given to TPs that were planned in the prior call but never covered (learner hangup, time ran out). 0 disables the feature. Default 0.5. (#918)",
+  storagePath: "config.tolerances.carryForwardBoost",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+// — disambiguation contracts —
+
+const G7_FIRST_CALL_MODULE_VISIBILITY: JourneySettingContract = {
+  id: "firstCallModuleVisibility",
+  menuGroupKey: "B_call1_opening",
+  group: "G7",
+  educatorLabel: "Module visibility on Call 1",
+  helpText:
+    "Call-1-specific module-visibility override. Distinct from the course-wide `moduleVisibility` above — this one ONLY affects Call 1's orientation/framing sections; learner's explicit module pick still overrides. (#1405)",
+  storagePath: "config.firstCall.firstCallModuleVisibility",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy", "section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate", hint: "call-1 framing" }],
+  options: [
+    { value: "mention_from_call_1", label: "Mention module names from Call 1" },
+    { value: "hide_until_call_2", label: "Hide until Call 2" },
+    { value: "hide_until_learner_picks", label: "Hide until learner picks" },
+  ],
+};
+
+const G7_COMPLETION_MODE: JourneySettingContract = {
+  id: "completionMode",
+  menuGroupKey: "I_scoring",
+  group: "G7",
+  educatorLabel: "Completion mode",
+  helpText:
+    "When the course counts as 'done'. terminal-only (default): playbook's terminal module mastered. all-modules: every module mastered. any: at least one module mastered. Distinct from `completionCriteria` — that controls module-vs-LO granularity; this controls module-set coverage. (#494)",
+  storagePath: "config.completionMode",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding", "modulesGate"],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+  options: [
+    { value: "terminal-only", label: "Terminal module only (default)" },
+    { value: "all-modules", label: "All modules mastered" },
+    { value: "any", label: "Any module mastered" },
+  ],
+};
+
+const G7_STRICT_PREREQUISITES: JourneySettingContract = {
+  id: "strictPrerequisites",
+  menuGroupKey: "D_question_flow",
+  group: "G7",
+  educatorLabel: "Strict prerequisites",
+  helpText:
+    "When on, hard-lock terminal modules with unmet prerequisites in the module picker. Off (default) = soft-warning override modal. On for assessment courses where premature attempts must be blocked. (#494)",
+  storagePath: "config.strictPrerequisites",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate" }],
+};
+
 const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
   id: "loMasteryThreshold",
   menuGroupKey: "I_scoring",
@@ -1719,6 +1865,13 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G6_COMPLETION_CRITERIA,
   // G7 (6)
   G7_MODULE_VISIBILITY,
+  G7_TOL_MASTERY_THRESHOLD,
+  G7_TOL_RETRIEVAL_CADENCE,
+  G7_TOL_MEMORY_DECAY,
+  G7_TOL_CARRY_FORWARD,
+  G7_FIRST_CALL_MODULE_VISIBILITY,
+  G7_COMPLETION_MODE,
+  G7_STRICT_PREREQUISITES,
   G7_LO_MASTERY_THRESHOLD,
   G7_INTERLEAVE_REVIEW_MIN_DAYS,
   G7_CALL_COUNT_POLICY,
