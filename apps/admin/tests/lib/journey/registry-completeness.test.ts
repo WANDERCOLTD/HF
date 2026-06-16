@@ -7,9 +7,9 @@
  *   3. Every composeImpact.sections[] element is a valid ComposeSectionKey
  *   4. Every composeImpact.kinds[] element is a valid ComposeImpactKind
  *   5. No duplicate ids within JOURNEY_SETTINGS
- *   6. Every group G1..G7 has entries
- *   7. Exact group counts: G1:5 G2:6 G3:4 G4:17 G5:3 G6:4 G7:6
- *   8. JOURNEY_SETTINGS.length === 45
+ *   6. Every group G1..G8 has entries
+ *   7. Exact group counts: G1:5 G2:6 G3:4 G4:17 G5:3 G6:4 G7:6 G8:6
+ *   8. JOURNEY_SETTINGS.length === 51 (45 base + 6 G8 from #1701)
  *   9. VOICE_SETTINGS.length === 11
  *  10. Cross-registry `interruptSensitivity` shares storagePath
  *  11. writeGate === "operator-only" → composeImpact.requiresReprompt
@@ -17,7 +17,7 @@
  *      that change pipeline behaviour need explicit reprompt; pure
  *      operator gates have no compose impact and don't need it)
  *  12. previewLocators[].section references valid ComposeSectionKey
- *  13. JOURNEY_PHASE_FILTERS has exactly 7 values including "All"
+ *  13. JOURNEY_PHASE_FILTERS has exactly 8 values including "All" + "Module" (#1701)
  */
 
 import { describe, it, expect } from "vitest";
@@ -95,10 +95,12 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(3);
     expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(4);
     expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(6);
+    // #1701 — G8 module-scoped settings (Phase 1: 6 IELTS-required keys)
+    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(6);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 45", () => {
-    expect(JOURNEY_SETTINGS.length).toBe(45);
+  it("(8) JOURNEY_SETTINGS.length === 51", () => {
+    expect(JOURNEY_SETTINGS.length).toBe(51);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {
@@ -131,9 +133,12 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     }
   });
 
-  it("(13) JOURNEY_PHASE_FILTERS has exactly 7 values including 'All'", () => {
-    expect(JOURNEY_PHASE_FILTERS.length).toBe(7);
+  it("(13) JOURNEY_PHASE_FILTERS has exactly 8 values including 'All'", () => {
+    // 7 distinct phase chips + "All" — bumped from 7 in #1701 to add
+    // the "Module" chip for G8 module-scoped settings.
+    expect(JOURNEY_PHASE_FILTERS.length).toBe(8);
     expect(JOURNEY_PHASE_FILTERS).toContain("All");
+    expect(JOURNEY_PHASE_FILTERS).toContain("Module");
   });
 });
 
@@ -154,6 +159,37 @@ describe("Voice registry — secondary integrity pins", () => {
       for (const l of s.autoEnableLinks ?? []) {
         expect(allIds.has(l.targetId), `${s.id} autoEnableLink → ${l.targetId} (missing)`).toBe(true);
       }
+    }
+  });
+});
+
+describe("G8 module-scoped settings — #1701 shape pins", () => {
+  const G8_IDS = [
+    "moduleQuestionTarget",
+    "moduleMinSpeakingSec",
+    "moduleCueCardPool",
+    "moduleClosingLine",
+    "moduleFirstTimeOrientationLine",
+    "moduleScheduledCues",
+  ];
+
+  it("registry exposes all 6 G8 keys", () => {
+    for (const id of G8_IDS) {
+      expect(JOURNEY_SETTINGS_BY_ID[id], `missing G8 entry: ${id}`).toBeDefined();
+      expect(JOURNEY_SETTINGS_BY_ID[id].group).toBe("G8");
+    }
+  });
+
+  it("every G8 entry uses structured storagePath with arrayKey:'id'", () => {
+    // Module-scoped settings address `Playbook.config.modules[].settings.*`
+    // and MUST resolve per-module via the modules array — no bare string
+    // path can encode that. Decision in `setting-contracts.ts` ADR Q1.
+    for (const id of G8_IDS) {
+      const entry = JOURNEY_SETTINGS_BY_ID[id];
+      expect(typeof entry.storagePath, `${id} storagePath should be structured, not bare`).toBe("object");
+      const sp = entry.storagePath as { path: string; arrayKey?: string };
+      expect(sp.path).toMatch(/^config\.modules\[\]\.settings\./);
+      expect(sp.arrayKey).toBe("id");
     }
   });
 });

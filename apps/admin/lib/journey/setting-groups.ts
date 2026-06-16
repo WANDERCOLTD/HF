@@ -52,6 +52,16 @@ export const JOURNEY_GROUPS = {
     caption: "What gets taught next",
     phaseFilter: "Scoring",
   },
+  G8: {
+    // #1701 (epic #1700 Theme 1) — module-scoped settings layer.
+    // Keys live at `Playbook.config.modules[].settings.*`, addressed by
+    // `arrayKey: "id"`. Scope to 6 IELTS-required keys in Phase 1;
+    // Theme 1b adds dedicated primitives for the min/target + array-of-
+    // structs shapes (Phase 1 uses `json-fallback`).
+    label: "Module-scoped settings",
+    caption: "Per-module knobs (cue cards, completion gates, scripted lines)",
+    phaseFilter: "Module",
+  },
 } as const;
 
 export type JourneyGroup = keyof typeof JOURNEY_GROUPS;
@@ -66,6 +76,7 @@ export const JOURNEY_PHASE_FILTERS = [
   "Mid-journey",
   "End",
   "Scoring",
+  "Module",
 ] as const;
 
 export type JourneyPhaseFilter = (typeof JOURNEY_PHASE_FILTERS)[number];
