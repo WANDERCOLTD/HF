@@ -249,6 +249,14 @@ export class RetellProvider implements VoiceProvider {
       hasKnowledgeCallback: false,
       toolCallsOverWebSocket: true,
       supportsRequestEndCall: true,
+      // #1742 — Retell's proactive-speech path is the LLM-WSS
+      // `agent_interrupt` frame, which requires an HF-side WSS handler
+      // queue. That handler is out of scope for the #1742 primitive;
+      // until the LLM-WSS-side enqueue lands, the cue scheduler treats
+      // Retell calls as no-capability and emits
+      // `voice.cue_scheduler.skipped_no_capability` instead of attempting
+      // a dispatch.
+      supportsProactiveSpeech: false,
       // #1337 — Retell runs its agent loop in their cloud (custom-LLM
       // mode still delegates to a Retell-managed orchestrator via WSS),
       // so it's "vendor-cloud" — same dispatch class as VAPI.

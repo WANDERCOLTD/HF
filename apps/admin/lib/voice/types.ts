@@ -332,6 +332,36 @@ export interface VoiceCatalogEntry {
  * webhook URLs that apply and the telemetry layer apply only the
  * controls the provider supports.
  */
+/**
+ * #1742 — Inputs to `VoiceProvider.sayMessage()`.
+ * See docs/decisions/2026-06-16-voice-say-message-primitive.md.
+ */
+export interface SayMessageOptions {
+  /** Free-text utterance to speak. */
+  content: string;
+  /**
+   * Suppress learner barge-in for the duration of this utterance.
+   * Retell honours this natively (`no_interruption_allowed: true`).
+   * VAPI does not have a flag — the adapter ignores the option.
+   */
+  noInterruption?: boolean;
+  /**
+   * When true, the message lands in conversation history but is NOT
+   * spoken immediately — useful for tutor notes the LLM should be
+   * aware of on its NEXT turn. Maps to VAPI's `add-message` control;
+   * Retell does not support a queue-only variant, so a Retell adapter
+   * that receives `queueOnly: true` returns `{status: "skipped"}`.
+   */
+  queueOnly?: boolean;
+  /** Caller-supplied correlation id for tracing. Echoed into AppLog. */
+  traceId?: string;
+}
+
+/** #1742 — Result of `VoiceProvider.sayMessage()`. Never thrown. */
+export interface SayMessageResult {
+  status: "spoken" | "queued" | "skipped" | "failed";
+}
+
 export interface VoiceProviderCapabilities {
   /** "single" = one end-of-call webhook (VAPI). "split" = two webhooks
    *  merged by externalCallId (Retell: call_ended + call_analyzed). */
@@ -349,6 +379,16 @@ export interface VoiceProviderCapabilities {
    *  prevention). When false, the cost-cap watcher in #1080 logs but
    *  cannot terminate the call. */
   supportsRequestEndCall: boolean;
+  /**
+   * #1742 — Provider accepts server-initiated speech injection during
+   * a live call (VAPI controlUrl POST, Retell `agent_interrupt` frame).
+   * When false, `lib/voice/cue-scheduler.ts` skips the cue and emits
+   * `voice.cue_scheduler.skipped_no_capability` for telemetry instead
+   * of failing the schedule.
+   *
+   * See docs/decisions/2026-06-16-voice-say-message-primitive.md.
+   */
+  supportsProactiveSpeech: boolean;
   /** Orchestration shape (#1337). "vendor-cloud" = provider runs the
    *  agent loop in their own cloud and calls back over HTTP/WSS (VAPI,
    *  Retell). "self-hosted-agent" = the agent loop runs INSIDE HF's
@@ -442,6 +482,26 @@ export interface VoiceProvider {
    * call. Implementation should be idempotent for already-ended calls.
    */
   requestEndCall?(externalCallId: string): Promise<void>;
+
+  /**
+   * #1742 — Inject a synthesised utterance into the live call.
+   *
+   * Optional — providers that can't push speech declare
+   * `supportsProactiveSpeech: false` in capabilities and the cue
+   * scheduler short-circuits before reaching this method.
+   *
+   * MUST be idempotent for a given (externalCallId, traceId) pair —
+   * the scheduler may retry on transient transport errors. MUST NOT
+   * throw — returns `{status: "failed"}` and emits an AppLog subject
+   * (`voice.<slug>.say_message_failed`).
+   *
+   * See docs/decisions/2026-06-16-voice-say-message-primitive.md
+   * for transport-level details (VAPI controlUrl, Retell agent_interrupt).
+   */
+  sayMessage?(
+    externalCallId: string,
+    options: SayMessageOptions,
+  ): Promise<SayMessageResult>;
 
   /**
    * Parse the provider's per-turn knowledge-base callback into a

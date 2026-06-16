@@ -1062,6 +1062,39 @@ model CallerSequenceCounter {
   @@id([callerId, kind])
 }
 
+// #1742 — Cue scheduling for `VoiceProvider.sayMessage()`. The
+// `lib/voice/cue-scheduler.ts` drain loop reads rows where
+// `scheduledFor <= NOW() AND firedAt IS NULL AND cancelledAt IS NULL`,
+// dispatches each via the provider adapter, and stamps `firedAt`. Cues
+// scheduled before a server restart survive the restart because the
+// drain loop scans on resume.
+//
+// `externalCallId` is the provider's external call id (matches
+// `Call.externalId`). `callId` is the optional HF Call.id link kept for
+// admin browse. `options` carries the rest of `SayMessageOptions`
+// (`noInterruption`, `queueOnly`, `traceId`). `status` enum: "pending"
+// | "fired" | "failed" | "cancelled" | "skipped".
+//
+// See docs/decisions/2026-06-16-voice-say-message-primitive.md.
+model CueScheduleEntry {
+  id             String   @id @default(uuid())
+  externalCallId String
+  callId         String?
+  call           Call?    @relation("CueScheduleEntries", fields: [callId], references: [id], onDelete: SetNull)
+  scheduledFor   DateTime
+  content        String   @db.Text
+  options        Json?
+  firedAt        DateTime?
+  cancelledAt    DateTime?
+  status         String   @default("pending")
+  traceId        String?
+  createdAt      DateTime @default(now())
+
+  @@index([externalCallId, status])
+  @@index([scheduledFor, status])
+  @@index([callId])
+}
+
 // Required by NextAuth EmailProvider (magic link) AND by OAuth providers
 // that issue email verification. Adding this finally makes the magic-link
 // flow shipped in #1172 actually work end-to-end. identifier = email,
@@ -1826,6 +1859,9 @@ model Call {
   // Assessment scoring doesn't pollute the learner's long-term mastery state
   // (#1081 Slice 1, AC11/AC12).
   scratchMastery Json?
+
+  // #1742 — Reverse relation for cue-scheduler entries.
+  cueScheduleEntries CueScheduleEntry[] @relation("CueScheduleEntries")
 
   @@index([source])
   @@index([externalId])
