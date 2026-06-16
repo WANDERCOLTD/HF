@@ -62,6 +62,7 @@ export type SettingsGroup = keyof typeof SETTINGS_GROUPS;
 
 const V_PROVIDER: JourneySettingContract = {
   id: "voiceProvider",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Voice provider",
   helpText: "VAPI / Deepgram / OpenAI / ElevenLabs / Azure / PlayHT.",
@@ -76,6 +77,7 @@ const V_PROVIDER: JourneySettingContract = {
 
 const V_ID: JourneySettingContract = {
   id: "voiceId",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Voice",
   helpText: "Provider-specific voice id; preview with the [▶] button.",
@@ -90,6 +92,7 @@ const V_ID: JourneySettingContract = {
 
 const V_BACKGROUND_SOUND: JourneySettingContract = {
   id: "backgroundSound",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Background sound",
   helpText: "off / office / custom URL.",
@@ -106,6 +109,7 @@ const V_BACKGROUND_SOUND: JourneySettingContract = {
  *  entries share the same storagePath. */
 const V_INTERRUPT_SENSITIVITY: JourneySettingContract = {
   id: "interruptSensitivity",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Interrupt sensitivity (voice copy)",
   helpText:
@@ -123,6 +127,7 @@ const V_INTERRUPT_SENSITIVITY: JourneySettingContract = {
 
 const V_SPEED: JourneySettingContract = {
   id: "voiceSpeed",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Voice speed",
   helpText: "Playback rate multiplier (1.0 default).",
@@ -137,6 +142,7 @@ const V_SPEED: JourneySettingContract = {
 
 const V_PITCH: JourneySettingContract = {
   id: "voicePitch",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Voice pitch",
   helpText: "Provider-supported pitch offset.",
@@ -151,6 +157,7 @@ const V_PITCH: JourneySettingContract = {
 
 const V_SILENCE_THRESHOLD: JourneySettingContract = {
   id: "silenceThreshold",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Silence threshold",
   helpText: "Seconds of silence before the AI re-prompts.",
@@ -165,6 +172,7 @@ const V_SILENCE_THRESHOLD: JourneySettingContract = {
 
 const V_END_CALL_AFTER_SILENCE: JourneySettingContract = {
   id: "endCallAfterSilence",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "End call after silence",
   helpText: "Hard hang-up after N seconds of silence.",
@@ -179,6 +187,7 @@ const V_END_CALL_AFTER_SILENCE: JourneySettingContract = {
 
 const V_MAX_CALL_DURATION: JourneySettingContract = {
   id: "maxCallDuration",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Max call duration",
   helpText: "Hard cap; VAPI hangs up at this point.",
@@ -194,6 +203,7 @@ const V_MAX_CALL_DURATION: JourneySettingContract = {
 
 const V_PHONE_NUMBER: JourneySettingContract = {
   id: "phoneNumber",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "Outbound phone number",
   helpText: "Caller-id phone number for outbound dialling.",
@@ -207,6 +217,7 @@ const V_PHONE_NUMBER: JourneySettingContract = {
 
 const V_VAPI_ASSISTANT_ID: JourneySettingContract = {
   id: "vapiAssistantId",
+  menuGroupKey: "N_voice",
   group: "S1_voice",
   educatorLabel: "VAPI assistant ID",
   helpText: "Provider-specific assistant id (advanced).",

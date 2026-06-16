@@ -9,10 +9,15 @@
  * `educatorLabel + group + storagePath`.
  *
  * Slice C3 surfaces the bucket count in the input placeholder so
- * educators learn the shape: "Search 56 settings across 13 buckets…".
+ * educators learn the shape: "Search 63 settings across 14 buckets…".
  * Both counts are derived from the canonical registries
  * (`JOURNEY_SETTINGS` + `VOICE_SETTINGS`; `JOURNEY_MENU_BUCKET_IDS`) —
  * never hardcoded.
+ *
+ * Voice-bucket follow-on (post-#1738): the 11 voice settings now also
+ * land in a bucket (`N_voice`) and `handlePaletteSelect` looks them up
+ * via `VOICE_SETTINGS_BY_ID` so Cmd+K → Enter on a voice result
+ * navigates to the Inspector instead of silently doing nothing.
  *
  * Selecting a result calls `setBucketId` from `useJourneySelection` via
  * `CourseJourneyTab.handlePaletteSelect`, which looks up the setting's
