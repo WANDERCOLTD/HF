@@ -1,0 +1,72 @@
+name: Bug Report
+description: Something is broken. Use this for unexpected behaviour, errors, or regressions.
+title: "bug: <one-line summary>"
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment where you observed it
+      description: SAND = VM (`hf-dev`), DEV = `hf-admin-dev` Cloud Run, TEST = `hf-admin-test`, PROD = `hf-admin`
+      options:
+        - SAND (VM `hf-dev`)
+        - DEV (`dev.humanfirstfoundation.com`)
+        - TEST (`test.humanfirstfoundation.com`)
+        - PROD (`lab.humanfirstfoundation.com`)
+        - Local (your Mac)
+        - Multiple — describe below
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: |
+        sev-1 = PROD down or data corruption · sev-2 = PROD impaired · sev-3 = DEV/TEST issue · sev-4 = cosmetic
+      options:
+        - sev-1 (PROD down / data corruption)
+        - sev-2 (PROD impaired but usable)
+        - sev-3 (DEV/TEST issue, no user impact)
+        - sev-4 (cosmetic / minor polish)
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: How to trigger the bug. Be specific — paths, button labels, exact text.
+      placeholder: |
+        1. Go to /x/callers/<id>
+        2. Click "Attainment" tab
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Include error messages, log subject lines, screenshot links if attached separately.
+    validations:
+      required: true
+
+  - type: input
+    id: evidence
+    attributes:
+      label: Evidence link (optional)
+      description: Screenshot URL, Cloud Logging filter, AppLog subject, commit SHA, etc.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else — caller affected, course id, related issues.

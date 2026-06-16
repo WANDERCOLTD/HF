@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: HF runbook — DR scenarios
+    url: https://github.com/WANDERCOLTD/HF/tree/main/docs/runbooks
+    about: Disaster-recovery runbooks. Read before filing an incident if a known scenario matches.
+  - name: HF release process
+    url: https://github.com/WANDERCOLTD/HF/blob/main/docs/CLOUD-DEPLOYMENT.md
+    about: Environments, deploy commands, rollback procedure. Read before filing infra bugs.
