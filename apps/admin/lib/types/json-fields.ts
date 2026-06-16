@@ -943,7 +943,25 @@ export interface AuthoredModule {
   settings?: AuthoredModuleSettings;
 }
 
-/** #1701 — Phase 1 G8 module-scoped settings (6 IELTS-required keys). */
+/** Whitelisted type for a declared profile-capture field (#1704 Theme 10). */
+export type ProfileFieldType = "text" | "number" | "band";
+
+/**
+ * One declared profile field (#1704 Theme 10). EXTRACT walks
+ * `profileFieldsToCapture` and writes typed `CallerAttribute` rows under the
+ * course-agnostic `profile:*` namespace. Consumed by
+ * `lib/pipeline/extract-profile-fields.ts`.
+ */
+export interface ProfileFieldToCapture {
+  /** Namespaced `profile:<slug>` (e.g. "profile:targetBand"). */
+  key: string;
+  /** Tutor prompt verbatim — what the AI was instructed to ask. */
+  prompt: string;
+  /** Whitelist enum driving coercion + storage. */
+  type: ProfileFieldType;
+}
+
+/** #1701 — Phase 1 G8 module-scoped settings (6 IELTS keys) + #1704 profile capture. */
 export interface AuthoredModuleSettings {
   /** Min and target number of questions the tutor asks in this module. */
   questionTarget?: { min: number; target: number };
@@ -962,6 +980,12 @@ export interface AuthoredModuleSettings {
   firstTimeOrientationLine?: string;
   /** Time-keyed tutor/examiner cues, consumed at runtime by the Theme 2 cue scheduler. */
   scheduledCues?: Array<{ at: number; text: string }>;
+  /**
+   * #1704 Theme 10 — declared conversational profile fields the AI should
+   * capture during the session. EXTRACT (`extract-profile-fields.ts`) walks
+   * this list, validates, and writes `CallerAttribute` rows under `profile:*`.
+   */
+  profileFieldsToCapture?: ProfileFieldToCapture[];
 }
 
 export interface ModuleDefaults {

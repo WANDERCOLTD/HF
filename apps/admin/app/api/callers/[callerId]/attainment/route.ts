@@ -134,6 +134,18 @@ export interface AttainmentRecentCallTalkTime {
   stats: TalkTimeStats;
 }
 
+/** One captured profile field (#1704 Theme 10). Sourced from
+ *  `CallerAttribute` rows under scope "PROFILE" / `profile:*` keys. */
+export interface AttainmentProfileField {
+  /** Namespaced key, e.g. "profile:targetBand". */
+  key: string;
+  /** Humanised label derived from the key, e.g. "Target Band". */
+  label: string;
+  /** Display string of the captured value. */
+  value: string;
+  confidence: number;
+}
+
 export interface AttainmentResponse {
   callerId: string;
   callerName: string | null;
@@ -147,6 +159,8 @@ export interface AttainmentResponse {
   goals: AttainmentGoal[];
   /** #1747 follow-on — null when no recent voice/sim session with transcript. */
   recentCallTalkTime: AttainmentRecentCallTalkTime | null;
+  /** Captured learner-profile fields for tester review (#1704). */
+  profile: AttainmentProfileField[];
   empty: boolean;
 }
 
@@ -275,6 +289,8 @@ export async function GET(
       skillBands: [],
       modules: [],
       goals: [],
+      recentCallTalkTime: null,
+      profile: [],
       empty: true,
     } satisfies AttainmentResponse);
   }
@@ -417,6 +433,30 @@ export async function GET(
   // rather than failing the whole Attainment response.
   const recentCallTalkTime = await loadRecentCallTalkTime(callerId, playbookId);
 
+  // ── Learner profile (#1704 Theme 10) ──────────────────────────────────────
+  // Captured profile fields live on `CallerAttribute` under scope "PROFILE"
+  // (isolated from `curriculum:*` mastery, which is scope = specSlug). STUDENT
+  // cross-caller reads are already blocked by `studentAllowedToReadCaller`
+  // above — this read is path-scoped to the authorised `callerId`.
+  const profileRows = await prisma.callerAttribute.findMany({
+    where: { callerId, scope: "PROFILE", key: { startsWith: "profile:" } },
+    select: { key: true, jsonValue: true, confidence: true },
+    orderBy: { key: "asc" },
+  });
+  const profile: AttainmentProfileField[] = profileRows.map((r) => {
+    const j = (r.jsonValue ?? {}) as { value?: unknown };
+    const slug = r.key.replace(/^profile:/, "");
+    const label = slug
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/^./, (c) => c.toUpperCase());
+    return {
+      key: r.key,
+      label,
+      value: j.value != null ? String(j.value) : "—",
+      confidence: r.confidence,
+    };
+  });
+
   return NextResponse.json({
     callerId,
     callerName: caller.name,
@@ -427,6 +467,7 @@ export async function GET(
     modules,
     goals,
     recentCallTalkTime,
+    profile,
     empty: skills.length === 0 && modules.length === 0 && goals.length === 0,
   } satisfies AttainmentResponse);
 }

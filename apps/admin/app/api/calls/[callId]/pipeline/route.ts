@@ -41,6 +41,10 @@ import { loadBehaviorTargetsWithCascade } from "@/lib/pipeline/score-agent-casca
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
 import { extractGoals, extractGoalCompletionSignals } from "@/lib/goals/extract-goals";
+import {
+  extractProfileFields,
+  resolveProfileFieldsForCall,
+} from "@/lib/pipeline/extract-profile-fields";
 import { extractArtifacts } from "@/lib/artifacts/extract-artifacts";
 import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
@@ -3407,8 +3411,39 @@ const stageExecutors: Record<string, StageExecutor> = {
       ctx.log.warn(`Action extraction failed (non-blocking): ${actionSettled.reason?.message || String(actionSettled.reason)}`);
     }
 
+    // #1704 Theme 10 — generic profile capture. Flag-gated + no-op for any
+    // module that declares no `profileFieldsToCapture` (every non-IELTS
+    // course → zero regression). Non-blocking: failures log, never throw.
+    let profileFieldsCaptured = 0;
+    try {
+      const profileFields = await resolveProfileFieldsForCall({
+        playbookId: ctx.call.playbookId,
+        curriculumModuleId: ctx.call.curriculumModuleId,
+      });
+      if (profileFields.length > 0) {
+        const profileResult = await extractProfileFields({
+          callId: ctx.callId,
+          callerId: ctx.callerId,
+          transcript: ctx.call.transcript || "",
+          profileFields,
+          engine: ctx.engine,
+          log: ctx.log,
+        });
+        profileFieldsCaptured = profileResult.captured;
+        if (profileResult.captured > 0 || profileResult.rejected > 0) {
+          ctx.log.info("Profile capture completed", {
+            captured: profileResult.captured,
+            rejected: profileResult.rejected,
+          });
+        }
+      }
+    } catch (err: any) {
+      ctx.log.warn(`Profile capture failed (non-blocking): ${err?.message || String(err)}`);
+    }
+
     return {
       playbookUsed: callerResult.playbookUsed,
+      profileFieldsCaptured,
       scoresCreated: callerResult.scoresCreated,
       memoriesCreated: callerResult.memoriesCreated,
       deltasComputed: deltaResult.deltasComputed,

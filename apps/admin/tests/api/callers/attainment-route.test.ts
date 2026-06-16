@@ -16,6 +16,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     callerModuleProgress: { findMany: vi.fn() },
     parameter: { findMany: vi.fn() },
     goal: { findMany: vi.fn() },
+    callerAttribute: { findMany: vi.fn() },
   },
 }));
 
@@ -62,6 +63,7 @@ function happy() {
   mockPrisma.callerTarget.findMany.mockResolvedValue([]);
   mockPrisma.parameter.findMany.mockResolvedValue([]);
   mockPrisma.callerModuleProgress.findMany.mockResolvedValue([]);
+  mockPrisma.callerAttribute.findMany.mockResolvedValue([]);
 }
 
 describe("GET /api/callers/[callerId]/attainment — goal trail (SP4-D)", () => {
