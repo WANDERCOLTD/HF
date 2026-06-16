@@ -111,14 +111,6 @@ const EXPECTED_OPTION_VALUES: Record<string, OptionPin> = {
   },
 
   // ── D_question_flow ─────────────────────────────────────────────
-  moduleVisibility: {
-    values: [
-      "mention_from_call_1",
-      "hide_until_call_2",
-      "hide_until_learner_picks",
-    ],
-    canonical: "lib/types/json-fields.ts::PlaybookConfig.moduleVisibility",
-  },
   moduleSequencePolicy: {
     values: ["strict", "interleaved", "learner_led"],
     canonical: "lib/types/json-fields.ts::PlaybookConfig.moduleSequencePolicy",
@@ -141,10 +133,6 @@ const EXPECTED_OPTION_VALUES: Record<string, OptionPin> = {
   completionMode: {
     values: ["terminal-only", "all-modules", "any"],
     canonical: "lib/types/json-fields.ts::PlaybookConfig.completionMode (#494)",
-  },
-  completionCriteria: {
-    values: ["all_modules", "any_module", "mastery_threshold"],
-    canonical: "lib/types/json-fields.ts::PlaybookConfig.completionCriteria",
   },
 
   // ── J_feedback ──────────────────────────────────────────────────
