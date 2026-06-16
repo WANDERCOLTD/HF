@@ -35,19 +35,6 @@ export interface PriorCallFeedbackSection {
   weakestParameterName: string | null;
   weakestParameterScore: number | null;
   overallScore: number | null;
-  /**
-   * #1749 (epic #1700 Theme 11) — per-criterion scoreboard line for
-   * the tutor's continuity narration. Empty array when no skill-domain
-   * scores were captured. Renderer concatenates as
-   * `Last call: FC 5.5 · LR 6.0 · …` (band approximation derived from
-   * 0–1 score × 9 in the IELTS case; renderer keeps the raw 0–1 number
-   * for course-agnostic consumption).
-   */
-  priorCriterionScores: Array<{
-    parameterId: string;
-    parameterName: string;
-    score: number;
-  }>;
 }
 
 const HEADING = "Since your last attempt on this module";
@@ -69,6 +56,5 @@ registerTransform("renderPriorCallFeedback", (
     weakestParameterName: rawData.weakestParameterName,
     weakestParameterScore: rawData.weakestParameterScore,
     overallScore: rawData.overallScore,
-    priorCriterionScores: rawData.priorCriterionScores ?? [],
   };
 });

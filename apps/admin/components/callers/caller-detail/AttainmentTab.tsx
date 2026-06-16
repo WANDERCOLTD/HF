@@ -113,6 +113,13 @@ interface AttainmentRecentCallTalkTime {
   };
 }
 
+interface ProfileField {
+  key: string;
+  label: string;
+  value: string;
+  confidence: number;
+}
+
 interface AttainmentResponse {
   callerId: string;
   callerName: string | null;
@@ -123,6 +130,7 @@ interface AttainmentResponse {
   modules: ModuleProgress[];
   goals: AttainmentGoal[];
   recentCallTalkTime: AttainmentRecentCallTalkTime | null;
+  profile: ProfileField[];
   empty: boolean;
 }
 
@@ -383,12 +391,37 @@ export function AttainmentTab({ callerId }: Props) {
         }
       />
 
+      {/* #1704 Theme 10 — captured learner-profile fields for tester review. */}
+      <ProfileSection profile={data.profile} />
+
       {/* Wave A2 — lifted from ProgressTab v1's TrustProgressSection.
        * Renders trust-weighted certification readiness + per-module
        * L0–L5 chips so progress-v2 + v1 can retire without losing the
        * cert-readiness signal educators rely on. */}
       <AttainmentCertProgressSection callerId={callerId} />
     </div>
+  );
+}
+
+// ── Learner profile section (#1704 Theme 10) ────────────────────────────────
+
+function ProfileSection({ profile }: { profile: ProfileField[] }) {
+  if (profile.length === 0) return null;
+  return (
+    <section className="hf-attainment-section">
+      <h3 className="hf-attainment-section-title">Learner profile</h3>
+      <p className="hf-attainment-section-desc">
+        Captured from conversation during the session — for tester review.
+      </p>
+      <div className="hf-attainment-goal-rows">
+        {profile.map((field) => (
+          <div key={field.key} className="hf-attainment-goal-row">
+            <span className="hf-attainment-goal-name">{field.label}</span>
+            <span className="hf-attainment-goal-pct">{field.value}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

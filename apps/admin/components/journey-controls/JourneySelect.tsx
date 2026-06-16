@@ -67,7 +67,7 @@ export function JourneySelect({
           >
             {opts.length === 0 ? (
               <option value="" disabled>
-                {f.draftValue ? `Current: ${f.draftValue}` : "Not set"}
+                Options load at runtime — use the JSON button to set
               </option>
             ) : (
               opts.map((o) => (
@@ -79,15 +79,6 @@ export function JourneySelect({
           </select>
         )}
       </div>
-      {opts.length === 0 ? (
-        <div
-          className="hf-jf-options-empty"
-          data-testid={`hf-jf-options-empty-${contract.id}`}
-        >
-          No options available right now. Use the ⋯ menu → Edit as JSON to
-          set this manually.
-        </div>
-      ) : null}
     </_FieldShell>
   );
 }

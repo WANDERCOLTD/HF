@@ -222,7 +222,6 @@ These memory files are kept in sync with the codebase. Consult them first.
 | [memory/async-patterns.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/async-patterns.md) | useTaskPoll / useAsyncStep / WizardShell / spinner-vs-glow | New hook, polling pattern, wizard framework change |
 | [memory/extraction.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/extraction.md) | DocumentTypes, resolution chain, ContentAssertion shape, trust levels | New DocumentType, extraction category, new resolveExtractionConfig caller |
 | [`docs/glossary-skills-mastery.md`](./docs/glossary-skills-mastery.md) | Canonical vocab: Course/Source/Skill/LO/TP/Mastery. Educator label ↔ DB shape. Surfaced at `/x/help/glossary`. | New entity in the 7 layers; UI label change; new tier scheme; new mastery store |
-| [`docs/DR-POSTURE.md`](./docs/DR-POSTURE.md) | RPO/RTO targets, top-8 disaster scenarios + runbook links, known unmitigated risks (single-region, GDPR §17 re-emergence, unguarded `gcloud run jobs execute`), cross-region trigger event | DR target changes; new scenario added; drill RTO re-measured; PROD provisions |
 
 ### Hard-prereq contract docs (read before touching the surface)
 

@@ -568,10 +568,12 @@ Prisma doesn't support automatic migration rollback. If a migration causes issue
 
 ### Worst case: restore from backup
 
-> **STOP — do not run `gcloud sql backups restore --restore-instance=hf-db`.**
-> That command restores INTO the source instance and wipes the live database.
-> Follow [`docs/runbooks/RB-1394-CLOUD-SQL-RESTORE.md`](./runbooks/RB-1394-CLOUD-SQL-RESTORE.md) — the clone-first procedure restores to a separate instance, validates row counts, then promotes.
-> See also [`docs/DR-POSTURE.md`](./DR-POSTURE.md) for RPO/RTO targets and scenario coverage.
+Cloud SQL has automated daily backups. To restore:
+
+```bash
+gcloud sql backups list --instance=hf-db
+gcloud sql backups restore BACKUP_ID --restore-instance=hf-db
+```
 
 ---
 

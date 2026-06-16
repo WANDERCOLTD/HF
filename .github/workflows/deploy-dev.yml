@@ -5,12 +5,6 @@ name: Deploy to Staging
 # preserve the repository_dispatch token reference.
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - '.github/ISSUE_TEMPLATE/**'
-      - 'memory/**'
   workflow_dispatch:
   repository_dispatch:
     types: [deploy-dev, deploy-staging]
@@ -121,7 +115,7 @@ jobs:
         run: |
           gcloud run jobs update hf-seed-dev \
             --image=${{ env.REGISTRY }}/hf-seed:dev \
-            --set-env-vars=SEED_PROFILE=demo \
+            --set-env-vars=SEED_PROFILE=full \
             --region=${{ env.REGION }}
           gcloud run jobs execute hf-seed-dev \
             --region=${{ env.REGION }} --wait

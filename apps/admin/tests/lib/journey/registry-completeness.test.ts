@@ -8,8 +8,8 @@
  *   4. Every composeImpact.kinds[] element is a valid ComposeImpactKind
  *   5. No duplicate ids within JOURNEY_SETTINGS
  *   6. Every group G1..G8 has entries
- *   7. Exact group counts: G1:5 G2:6 G3:4 G4:17 G5:3 G6:4 G7:6 G8:6
- *   8. JOURNEY_SETTINGS.length === 51 (45 base + 6 G8 from #1701)
+ *   7. Exact group counts: G1:8 G2:10 G3:4 G4:27 G5:6 G6:11 G7:15 G8:7
+ *   8. JOURNEY_SETTINGS.length === 88 (45 base + Lane 3 + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704)
  *   9. VOICE_SETTINGS.length === 11
  *  10. Cross-registry `interruptSensitivity` shares storagePath
  *  11. writeGate === "operator-only" → composeImpact.requiresReprompt
@@ -97,14 +97,14 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(27);
     expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(6);
     expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(11);
-    // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7
+    // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7; Lane 3 catch-up bumped further.
     expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(15);
-    // #1701 — G8 module-scoped settings (Phase 1: 6 IELTS-required keys)
-    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(6);
+    // #1701 — G8 module-scoped settings (6 IELTS keys) + #1704 profile capture (1)
+    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(7);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 60", () => {
-    expect(JOURNEY_SETTINGS.length).toBe(87);
+  it("(8) JOURNEY_SETTINGS.length === 88", () => {
+    expect(JOURNEY_SETTINGS.length).toBe(88);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

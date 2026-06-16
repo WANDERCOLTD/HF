@@ -43,13 +43,6 @@ const ALLOWED_PATH_SUFFIXES = [
   "app/api/callers/[callerId]/reset/route.ts",
   "scripts/backfill-950-stuck-module-status.ts",
   "scripts/cleanup-placeholder-lo-scores.ts",
-  // #1735 (epic #1730 G8 consumer D) — endSession writes
-  // `orientationShown=true` on first successful module completion. The
-  // write is a single boolean flag with a stable shape (no
-  // status/mastery semantics — orthogonal to the chokepoint's
-  // increment-and-waiver concern). Allow-listed inline because the
-  // semantics are too different to share `markModuleIncomplete`.
-  "lib/voice/end-session.ts",
 ];
 
 const ALLOWED_PATH_CONTAINS = [

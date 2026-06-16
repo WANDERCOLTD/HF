@@ -88,21 +88,6 @@ export interface PriorCallFeedbackData {
   /** 1–2 sentence canned summary — friendly, with relative time */
   summary: string | null;
   /**
-   * #1749 (epic #1700 Theme 11) — per-criterion scores from the prior
-   * call. Composer renders a "Last call: FC 5.5, LR 6.0, …" line so the
-   * tutor can narrate the continuity without inventing numbers (#1006
-   * Maya-class hallucination guard).
-   *
-   * Restricted to skill_* parameters (same relevance filter as
-   * `weakestParameter`) to avoid surfacing coaching parameters in the
-   * scoreboard.
-   */
-  priorCriterionScores?: Array<{
-    parameterId: string;
-    parameterName: string;
-    score: number;
-  }>;
-  /**
    * #599 Slice 1 — when the AI synthesis path ran (or returned a cache hit),
    * the resolved depth + text. Null on the templated path (every gate-blocked
    * scenario, plus `depth: "minimal"`). Persisted to
@@ -268,28 +253,6 @@ export async function loadPriorCallFeedback(
     overallScore,
   });
 
-  // #1749 (epic #1700 Theme 11) — per-criterion scoreboard. Restricted
-  // to skill_* parameters via the same relevance filter as the
-  // weakest-area pick, deduped + sorted by parameter name. The composer
-  // renders these as a "Last call: FC 5.5, LR 6.0, …" line so the
-  // tutor's continuity narration cites concrete numbers (anti-fabrication
-  // pin #1006 Maya class).
-  const seenParameterIds = new Set<string>();
-  const priorCriterionScores = relevanceCandidates
-    .filter((s) => {
-      const pid = s.parameterId ?? s.parameter?.parameterId ?? null;
-      if (!pid || !s.parameter?.name) return false;
-      if (seenParameterIds.has(pid)) return false;
-      seenParameterIds.add(pid);
-      return true;
-    })
-    .map((s) => ({
-      parameterId: s.parameterId ?? s.parameter?.parameterId ?? "",
-      parameterName: s.parameter?.name ?? "",
-      score: s.score,
-    }))
-    .sort((a, b) => a.parameterName.localeCompare(b.parameterName));
-
   const templated: PriorCallFeedbackData = {
     hasFeedback: true,
     lastCallAt,
@@ -298,7 +261,6 @@ export async function loadPriorCallFeedback(
     weakestParameterScore,
     overallScore,
     summary,
-    priorCriterionScores,
   };
 
   // #599 Slice 1 — opt-in AI synthesis path. Failures degrade silently to

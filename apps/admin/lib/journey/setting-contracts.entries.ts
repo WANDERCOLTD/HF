@@ -1789,6 +1789,32 @@ const G8_MODULE_SCHEDULED_CUES: JourneySettingContract = {
   previewLocators: [],
 };
 
+// #1704 Theme 10 — generic profile capture. EXTRACT walks this list and
+// writes typed `CallerAttribute` rows under the course-agnostic `profile:*`
+// namespace (scope "PROFILE"). Phase 1 renders via JourneyJsonFallback;
+// Theme 1b adds the typed field-list editor.
+const G8_MODULE_PROFILE_FIELDS_TO_CAPTURE: JourneySettingContract = {
+  id: "moduleProfileFieldsToCapture",
+  menuGroupKey: "A_intake",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Profile fields to capture",
+  helpText:
+    'Array of {key, prompt, type}. EXTRACT walks this list and writes typed CallerAttribute keys under the `profile:*` namespace (course-agnostic). type is "text" | "number" | "band".',
+  storagePath: {
+    path: "config.modules[].settings.profileFieldsToCapture",
+    arrayKey: "id",
+  },
+  control: "json-fallback",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions", hint: "profile capture prompts" }],
+};
+
 // =============================================================
 // Registry
 // =============================================================
@@ -1866,7 +1892,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G6_OFFBOARDING_CERTIFICATE,
   G6_POST_TEST_STOP,
   G6_COMPLETION_CRITERIA,
-  // G7 (6)
+  // G7 (7)
   G7_MODULE_VISIBILITY,
   G7_TOL_MASTERY_THRESHOLD,
   G7_TOL_RETRIEVAL_CADENCE,
@@ -1882,13 +1908,14 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G7_ASSESSMENT_READINESS_THRESHOLD,
   G7_REWARD_STRATEGY,
   G7_TALK_TIME_BUDGETS,
-  // G8 (6) — #1701 module-scoped settings
+  // G8 (7) — #1701 module-scoped settings + #1704 profile capture
   G8_MODULE_QUESTION_TARGET,
   G8_MODULE_MIN_SPEAKING_SEC,
   G8_MODULE_CUE_CARD_POOL,
   G8_MODULE_CLOSING_LINE,
   G8_MODULE_FIRST_TIME_ORIENTATION_LINE,
   G8_MODULE_SCHEDULED_CUES,
+  G8_MODULE_PROFILE_FIELDS_TO_CAPTURE,
 ];
 
 export const JOURNEY_SETTINGS_BY_ID: Readonly<
