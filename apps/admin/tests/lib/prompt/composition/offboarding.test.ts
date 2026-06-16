@@ -16,7 +16,7 @@
  * the promptfoo eval at evals/felt-progress/offboarding-summary.yaml.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -34,7 +34,7 @@ import type {
   SharedComputedState,
   CompositionSectionDef,
 } from "@/lib/prompt/composition/types";
-import type { PlaybookConfig } from "@/lib/types/json-fields";
+import type { AuthoredModule, PlaybookConfig } from "@/lib/types/json-fields";
 
 function makeSharedState(overrides: Partial<SharedComputedState> = {}): SharedComputedState {
   return {
@@ -469,6 +469,177 @@ describe("offboarding transform — strict-rule guidance", () => {
     expect(result.progressSummary.modules).toBeUndefined();
     // Goals still surfaced — failure of one dimension does not zero the rest.
     expect(result.progressSummary.goals).toBeDefined();
+  });
+});
+
+// =============================================================
+// #1734 (epic #1730 G8 consumer C) — moduleClosingLine override
+// =============================================================
+
+describe("offboarding transform — moduleClosingLine override (#1734)", () => {
+  // Helper: build a context with a locked module + matching AuthoredModule
+  // settings on the playbook config.
+  function makeWithModuleSetting(
+    closingLine: string | undefined,
+    overrides: { lockedId?: string; matchById?: boolean } = {},
+  ): AssembledContext {
+    const lockedId = overrides.lockedId ?? "mock-exam";
+    const matchById = overrides.matchById ?? true;
+    const authoredModule: AuthoredModule = {
+      id: matchById ? lockedId : "other-id",
+      label: "Mock Exam",
+      learnerSelectable: true,
+      mode: "examiner",
+      duration: "20 min",
+      scoringFired: "All four",
+      voiceBandReadout: false,
+      sessionTerminal: true,
+      frequency: "repeatable",
+      outcomesPrimary: [],
+      prerequisites: [],
+      settings: closingLine !== undefined ? { closingLine } : {},
+    };
+    const playbookConfig: PlaybookConfig = { modules: [authoredModule] };
+    return {
+      sharedState: makeSharedState({
+        isFinalSession: true,
+        lockedModule: {
+          id: lockedId,
+          slug: lockedId,
+          name: "Mock Exam",
+        } as unknown as SharedComputedState["lockedModule"],
+      }),
+      sections: {},
+      loadedData: {
+        caller: null,
+        memories: [],
+        personality: null,
+        learnerProfile: null,
+        recentCalls: [],
+        nextLearnerFacingNumber: 1,
+        behaviorTargets: [],
+        callerTargets: [],
+        callerAttributes: [],
+        goals: [],
+        playbooks: [
+          {
+            id: "p1",
+            name: "IELTS",
+            status: "PUBLISHED",
+            config: playbookConfig,
+            domain: null,
+            items: [],
+          },
+        ] as unknown as AssembledContext["loadedData"]["playbooks"],
+        systemSpecs: [],
+        onboardingSpec: null,
+      },
+      resolvedSpecs: {} as AssembledContext["resolvedSpecs"],
+      specConfig: {},
+    };
+  }
+
+  describe("HF_FLAG_IELTS_MODULE_SETTINGS gating", () => {
+    it("does NOT emit the override when the flag is off (default)", async () => {
+      delete process.env.HF_FLAG_IELTS_MODULE_SETTINGS;
+      const ctx = makeWithModuleSetting("That's the end of the speaking test. Thank you.");
+      const result = (await transform(null, ctx, STUB_SECTION)) as {
+        moduleClosingLine: string | null;
+        guidance: string[];
+      };
+      expect(result.moduleClosingLine).toBeNull();
+      expect(result.guidance.join("\n")).not.toContain("VERBATIM CLOSING LINE");
+    });
+
+    it("emits the override when the flag is on AND a matching module setting exists", async () => {
+      process.env.HF_FLAG_IELTS_MODULE_SETTINGS = "true";
+      const closing = "That's the end of the speaking test. Thank you.";
+      const ctx = makeWithModuleSetting(closing);
+      const result = (await transform(null, ctx, STUB_SECTION)) as {
+        moduleClosingLine: string | null;
+        guidance: string[];
+      };
+      expect(result.moduleClosingLine).toBe(closing);
+      const guidanceText = result.guidance.join("\n");
+      expect(guidanceText).toContain("VERBATIM CLOSING LINE");
+      expect(guidanceText).toContain(closing);
+      // Final guidance line is the verbatim-close directive — model reads it last.
+      expect(result.guidance[result.guidance.length - 1]).toContain(closing);
+      delete process.env.HF_FLAG_IELTS_MODULE_SETTINGS;
+    });
+  });
+
+  describe("resolution semantics", () => {
+    beforeEach(() => {
+      process.env.HF_FLAG_IELTS_MODULE_SETTINGS = "true";
+    });
+
+    it("returns null when no lockedModule is set", async () => {
+      const ctx = makeWithModuleSetting("close line");
+      // Override: blank out the lockedModule.
+      ctx.sharedState.lockedModule = null;
+      const result = (await transform(null, ctx, STUB_SECTION)) as {
+        moduleClosingLine: string | null;
+      };
+      expect(result.moduleClosingLine).toBeNull();
+    });
+
+    it("returns null when the locked module has no matching authored entry", async () => {
+      const ctx = makeWithModuleSetting("close line", { matchById: false });
+      const result = (await transform(null, ctx, STUB_SECTION)) as {
+        moduleClosingLine: string | null;
+      };
+      expect(result.moduleClosingLine).toBeNull();
+    });
+
+    it("returns null when settings.closingLine is missing", async () => {
+      const ctx = makeWithModuleSetting(undefined);
+      const result = (await transform(null, ctx, STUB_SECTION)) as {
+        moduleClosingLine: string | null;
+      };
+      expect(result.moduleClosingLine).toBeNull();
+    });
+
+    it("returns null when settings.closingLine is an empty / whitespace-only string", async () => {
+      const ctx = makeWithModuleSetting("   ");
+      const result = (await transform(null, ctx, STUB_SECTION)) as {
+        moduleClosingLine: string | null;
+      };
+      expect(result.moduleClosingLine).toBeNull();
+    });
+  });
+
+  describe("interaction with the existing cascade", () => {
+    beforeEach(() => {
+      process.env.HF_FLAG_IELTS_MODULE_SETTINGS = "true";
+    });
+
+    afterEach(() => {
+      delete process.env.HF_FLAG_IELTS_MODULE_SETTINGS;
+    });
+
+    it("does NOT fire when the cadence gate doesn't fire (final_only + non-final session)", async () => {
+      const ctx = makeWithModuleSetting("close line");
+      // Override: not a final session.
+      ctx.sharedState.isFinalSession = false;
+      ctx.sharedState.callNumber = 2;
+      const result = await transform(null, ctx, STUB_SECTION);
+      // Cadence gate returns null — override never gets a chance to render.
+      expect(result).toBeNull();
+    });
+
+    it("coexists with the existing data-line guidance (null-data branch)", async () => {
+      const ctx = makeWithModuleSetting("Mock close.");
+      const result = (await transform(null, ctx, STUB_SECTION)) as {
+        guidance: string[];
+        progressSummary: unknown;
+      };
+      // No mock progress data → null-data branch fires, plus the override.
+      expect(result.progressSummary).toBeNull();
+      expect(result.guidance.some((l) => l.includes("Mock close."))).toBe(true);
+      // Original GENERIC_FINAL_GUIDANCE lines still present — override is additive.
+      expect(result.guidance.some((l) => l.includes("Summarise their learning journey"))).toBe(true);
+    });
   });
 });
 
