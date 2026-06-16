@@ -882,11 +882,28 @@ export interface AuthoredModule {
   /** Outcome IDs this module primarily drills, e.g. ["OUT-01", "OUT-24"]. */
   outcomesPrimary: string[];
   /**
-   * Sibling module IDs that should be completed before this one is offered.
-   * Advisory only — the picker surfaces a "Recommended after X" hint but
-   * never gates. Empty array when no prerequisites.
+   * Sibling modules that should be completed before this one is offered.
+   *
+   * Two forms accepted (#1746 — Theme 5 widened shape):
+   *
+   * - **String** (legacy): just the sibling module id/slug. Treated as
+   *   "needs at least one COMPLETED attempt on that module".
+   * - **`{moduleId, minCompletions}`** (count-based): require ≥ N
+   *   COMPLETED attempts on the sibling. e.g. IELTS Mock needs
+   *   `{moduleId: "part1", minCompletions: 2}` ("2× Part 1 done").
+   *
+   * Reader (`lib/curriculum/check-module-unlock.ts::isModuleUnlocked`)
+   * coerces both forms. Existing single-attempt prereqs migrate
+   * implicitly — no schema change needed; the JSON shape widens by
+   * union.
+   *
+   * STUDENT-role learners are blocked when prereqs are unmet (LOCKED
+   * status). OPERATOR+ bypasses the gate (testers must not be locked
+   * out — see role-bypass contract in `isModuleUnlocked`).
+   *
+   * Empty array when no prerequisites.
    */
-  prerequisites: string[];
+  prerequisites: Array<string | { moduleId: string; minCompletions: number }>;
   /** Ordinal position in a structured course's lesson plan. Optional in continuous mode. */
   position?: number;
   /**
