@@ -33,6 +33,11 @@ import {
 import { markModuleIncomplete } from "@/lib/curriculum/mark-module-incomplete";
 import { getCourseStyle } from "@/lib/pipeline/course-style";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
+import {
+  computeTalkTimeStats,
+  evaluateTalkTimeBudgets,
+} from "@/lib/voice/talk-time-stats";
+import { log as appLog } from "@/lib/logger";
 import type { AuthoredModule, PlaybookConfig } from "@/lib/types/json-fields";
 
 export type SessionOutcome = SessionOutcomeString;
@@ -154,6 +159,20 @@ export async function endSession(
     kind,
     outcome: args.outcome,
     durationSeconds,
+  });
+
+  // #1747 follow-on (epic #1700 Theme 7) — post-call talk-time
+  // telemetry. Computes tutor-speech budgets from the transcript and
+  // emits `voice.talk_time.over_budget` AppLog when exceeded. Best-
+  // effort write — helper failures don't roll back the durable Session
+  // state. Runs only for transcript-bearing sessions
+  // (VOICE_CALL / SIM_CALL).
+  evaluateTalkTimeBudgetsForSession({
+    callerId: updated.callerId,
+    sessionId: updated.id,
+    kind,
+    transcript: args.transcript ?? null,
+    playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
   });
 
   // Fire-and-forget pipeline trigger. Must NOT be awaited and must
@@ -307,6 +326,68 @@ async function evaluateIncompleteAttempt(args: {
   } catch (err) {
     console.error(
       `[endSession] markModuleIncomplete failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/**
+ * #1747 follow-on (epic #1700 Theme 7) — compute tutor talk-time stats
+ * for this session and emit `voice.talk_time.over_budget` AppLog when
+ * any budget is exceeded.
+ *
+ * Conditions to compute:
+ *
+ *   1. Session has a transcript (passed via `endSession({transcript})`)
+ *   2. `kind` ∈ {VOICE_CALL, SIM_CALL} — chat / enrolment / assessment
+ *      don't have a measurable tutor-speech budget
+ *
+ * Reads operator budgets from `Playbook.config.talkTimeBudgets`;
+ * `evaluateTalkTimeBudgets` falls back to `DEFAULT_TALK_TIME_BUDGETS`
+ * (`maxTutorTurnSec: 30`, `maxTutorRatio: 0.2`) when keys are unset.
+ *
+ * **Best-effort** — runs synchronously (compute is fast, AppLog write
+ * is fire-and-forget inside `log()`) but any throw is swallowed so
+ * Session durability is unaffected.
+ */
+function evaluateTalkTimeBudgetsForSession(args: {
+  callerId: string | null;
+  sessionId: string;
+  kind: SessionKindString;
+  transcript: string | null;
+  playbookConfig: PlaybookConfig | null | undefined;
+}): void {
+  if (args.kind !== "VOICE_CALL" && args.kind !== "SIM_CALL") return;
+  if (!args.transcript) return;
+
+  try {
+    const stats = computeTalkTimeStats(args.transcript);
+    const budgets = args.playbookConfig?.talkTimeBudgets ?? null;
+    const evaluation = evaluateTalkTimeBudgets(stats, budgets);
+
+    if (!evaluation.overBudget) return;
+
+    appLog("system", "voice.talk_time.over_budget", {
+      level: "warn",
+      message: `Tutor talk-time exceeded budget(s): ${evaluation.exceededBy.join(", ")}`,
+      sessionId: args.sessionId,
+      callerId: args.callerId ?? null,
+      kind: args.kind,
+      exceededBy: evaluation.exceededBy,
+      budgets: evaluation.budgets,
+      stats: {
+        tutorTurnCount: stats.tutorTurnCount,
+        learnerTurnCount: stats.learnerTurnCount,
+        tutorWordCount: stats.tutorWordCount,
+        learnerWordCount: stats.learnerWordCount,
+        maxTutorTurnWords: stats.maxTutorTurnWords,
+        maxTutorTurnSec: stats.maxTutorTurnSec,
+        tutorRatio: stats.tutorRatio,
+      },
+    });
+  } catch (err) {
+    console.error(
+      `[endSession] talk-time evaluation failed for session ${args.sessionId.slice(0, 8)}:`,
       err instanceof Error ? err.message : String(err),
     );
   }
