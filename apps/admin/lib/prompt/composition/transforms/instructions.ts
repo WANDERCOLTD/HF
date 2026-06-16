@@ -323,6 +323,18 @@ registerTransform("computeInstructions", (
       (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
       sharedState,
     ),
+
+    // #1733 (epic #1730 G8 consumer B) — module-scoped cue card. Picks
+    // one card from `Playbook.config.modules[].settings.cueCardPool`
+    // deterministically by `sharedState.callNumber` so the same call
+    // always sees the same card (idempotent reads). Gated by
+    // `HF_FLAG_IELTS_MODULE_SETTINGS` per epic #1700 decision 5.
+    // Theme 3 (`<PinnedCardSlot>`) will cache the pick to
+    // `Session.metadata.pinnedCard` later for cross-process consistency.
+    module_cue_card: resolveModuleCueCard(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
   };
 });
 
@@ -376,5 +388,73 @@ function resolveModuleQuestionTarget(
     min,
     target,
     directive: `Aim for ${min} to ${target} questions in this module — track silently as you go.`,
+  };
+}
+
+/**
+ * #1733 (epic #1730 G8 consumer B) — module-scoped cue card pick.
+ *
+ * Reads `Playbook.config.modules[].settings.cueCardPool` for the locked
+ * module and picks ONE card deterministically by
+ * `sharedState.callNumber % pool.length`. Same call sees the same card
+ * across re-renders — idempotent for prompt-side reads.
+ *
+ * Returns `{ kind, topic, bullets, secondaryNote?, directive }` when:
+ *   - `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic #1700 decision 5)
+ *   - `sharedState.lockedModule` is set
+ *   - A matching `AuthoredModule` in `Playbook.config.modules[]` carries
+ *     a non-empty `settings.cueCardPool`
+ *   - The picked card has both a `topic` string and a non-empty
+ *     `bullets` array
+ *
+ * Returns `null` otherwise — no cue-card directive renders.
+ *
+ * Selection policy is deliberately deterministic (callNumber-modulo)
+ * rather than random so Preview-lens previews + actual call composition
+ * agree byte-for-byte. Theme 3 (`<PinnedCardSlot>`) will cache the
+ * pick to `Session.metadata.pinnedCard` so the UI shows the same card
+ * the prompt was composed with.
+ */
+function resolveModuleCueCard(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): {
+  kind: "cueCard";
+  topic: string;
+  bullets: string[];
+  secondaryNote?: string;
+  directive: string;
+} | null {
+  if (!isIeltsModuleSettingsEnabled()) return null;
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+
+  const pool = matched.settings?.cueCardPool;
+  if (!Array.isArray(pool) || pool.length === 0) return null;
+
+  // Deterministic pick — callNumber starts at 1 for first call.
+  const callIndex = Math.max(0, (sharedState.callNumber ?? 1) - 1);
+  const picked = pool[callIndex % pool.length];
+  if (!picked || typeof picked.topic !== "string" || picked.topic.trim().length === 0) {
+    return null;
+  }
+  const bullets = Array.isArray(picked.bullets)
+    ? picked.bullets.filter((b) => typeof b === "string" && b.trim().length > 0)
+    : [];
+  if (bullets.length === 0) return null;
+
+  const bulletsList = bullets.map((b) => `  - ${b}`).join("\n");
+  const directive = `CUE CARD for this module — keep this topic central:\nTopic: ${picked.topic}\nBullets:\n${bulletsList}`;
+  return {
+    kind: "cueCard",
+    topic: picked.topic,
+    bullets,
+    directive,
   };
 }
