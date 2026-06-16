@@ -26,6 +26,8 @@
  *   - app/api/callers/[callerId]/reset/route.ts (same)
  *   - scripts/backfill-950-stuck-module-status.ts (one-off backfill)
  *   - scripts/cleanup-placeholder-lo-scores.ts    (cleanup script)
+ *   - prisma/backfill-modules.ts                  (one-off backfill — pre-#1703 code,
+ *                                                  same shape as scripts/backfill-*)
  *
  * .createMany (enrollment-time instantiator) is intentionally NOT blocked
  * — only .update and .upsert.
@@ -43,6 +45,7 @@ const ALLOWED_PATH_SUFFIXES = [
   "app/api/callers/[callerId]/reset/route.ts",
   "scripts/backfill-950-stuck-module-status.ts",
   "scripts/cleanup-placeholder-lo-scores.ts",
+  "prisma/backfill-modules.ts",
 ];
 
 const ALLOWED_PATH_CONTAINS = [
