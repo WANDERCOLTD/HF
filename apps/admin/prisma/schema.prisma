@@ -2932,6 +2932,14 @@ model CallerModuleProgress {
   // policy — sets `status = "MASTERED"` regardless of mastery score.
   incompleteAttempts Int @default(0)
 
+  // #1735 (epic #1700 Theme 1 G8 consumer D) — gates the one-shot
+  // `moduleFirstTimeOrientationLine` G8 entry. `false` (default) means
+  // the learner has never seen the orientation for this module; the
+  // composer renders the orientation line on first encounter.
+  // `endSession` writes `true` for the (caller, module) pair on first
+  // successful completion so subsequent calls skip the orientation.
+  orientationShown Boolean @default(false)
+
   // #397 Phase 1 — per-LO running average. Shape:
   //   { [loRef: string]: { mastery: number; callCount: number } }
   // Module mastery is derived as mean(mastery) over LOs present in this map
