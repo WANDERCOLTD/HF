@@ -1674,7 +1674,7 @@ const G8_MODULE_QUESTION_TARGET: JourneySettingContract = {
     path: "config.modules[].settings.questionTarget",
     arrayKey: "id",
   },
-  control: "json-fallback",
+  control: "min-target",
   cascadeSources: [],
   composeImpact: {
     sections: ["instructions"],
@@ -1716,7 +1716,7 @@ const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
     path: "config.modules[].settings.cueCardPool",
     arrayKey: "id",
   },
-  control: "json-fallback",
+  control: "array-editor",
   cascadeSources: [],
   composeImpact: {
     sections: ["instructions"],
@@ -1779,7 +1779,7 @@ const G8_MODULE_SCHEDULED_CUES: JourneySettingContract = {
     path: "config.modules[].settings.scheduledCues",
     arrayKey: "id",
   },
-  control: "json-fallback",
+  control: "array-editor",
   cascadeSources: [],
   composeImpact: {
     sections: [],

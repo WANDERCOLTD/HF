@@ -21,3 +21,5 @@ export { JourneyTargets } from "./JourneyTargets";
 export { JourneyBanding } from "./JourneyBanding";
 export { JourneyVoicePicker } from "./JourneyVoicePicker";
 export { JourneyStop } from "./JourneyStop";
+export { JourneyMinTarget } from "./JourneyMinTarget";
+export { JourneyArrayEditor } from "./JourneyArrayEditor";
