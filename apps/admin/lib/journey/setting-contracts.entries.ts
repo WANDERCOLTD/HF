@@ -84,6 +84,70 @@ const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
   previewLocators: [{ section: "intake", hint: "about-you block" }],
 };
 
+// Lane 3 — A_intake contracts (catch-up follow-on from #1780).
+// The "AI Intro Call" bubble was the originally-spotted gap (operator
+// clicked it on the Preview canvas; the Inspector had no control for
+// it). This entry closes that gap; sibling entries below complete
+// A_intake coverage.
+
+const G1_INTAKE_GOALS: JourneySettingContract = {
+  id: "intakeGoals",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Pre-call learner goals",
+  helpText:
+    "Show the learner-goals capture block in the sign-up form so learners declare what they want to work on before Call 1.",
+  storagePath: "sessionFlow.intake.goals",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "learner-goals block" }],
+};
+
+const G1_INTAKE_AI_INTRO_CALL: JourneySettingContract = {
+  id: "intakeAiIntroCall",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "AI Intro Call after sign-up",
+  helpText:
+    "Optional 1–2 min AI call right after sign-up to confirm name + level + give the learner a low-stakes taste of the voice surface before Call 1.",
+  storagePath: "sessionFlow.intake.aiIntroCall",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "AI Intro Call card" }],
+};
+
+const G1_INTAKE_KNOWLEDGE_CHECK_MODE: JourneySettingContract = {
+  id: "intakeKnowledgeCheckMode",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Knowledge check delivery mode",
+  helpText:
+    "MCQ batch (post Call 1) vs Socratic probe (in Call 1). Implemented in #222; only relevant when the parent Knowledge check toggle is on.",
+  storagePath: "sessionFlow.intake.knowledgeCheck.deliveryMode",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "knowledge check block" }],
+  options: [
+    { value: "mcq", label: "MCQ batch (post Call 1)" },
+    { value: "socratic", label: "Socratic probe (in Call 1)" },
+  ],
+};
+
 const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
   id: "intakeSkipIfReturning",
   menuGroupKey: "A_intake",
@@ -178,6 +242,85 @@ const G2_WELCOME_MESSAGE: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "welcome", hint: "first paragraph" }],
+};
+
+// Lane 3 PR2 — B_call1_opening contracts (catch-up follow-on from #1780).
+
+const G2_FIRST_CALL_COURSE_INTRO: JourneySettingContract = {
+  id: "firstCallCourseIntro",
+  menuGroupKey: "B_call1_opening",
+  group: "G2",
+  educatorLabel: "First-call intro line",
+  helpText:
+    "Optional intro line spoken AFTER the welcomeMessage + wait-for-ack gate. Supports the `{courseName}` token. Keeps Call 1 framing consistent across cohorts. (#1403)",
+  storagePath: "config.firstCallCourseIntro",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["welcome"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "welcome", hint: "second paragraph" }],
+};
+
+const G2_FIRST_CALL_WAIT_FOR_ACK: JourneySettingContract = {
+  id: "firstCallWaitForAck",
+  menuGroupKey: "B_call1_opening",
+  group: "G2",
+  educatorLabel: "Wait after opening",
+  helpText:
+    "How the AI handles the pause after the welcomeMessage on Call 1. None / wait for any response / wait for greeting words. (#1403)",
+  storagePath: "config.firstCallWaitForAck",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["welcome"],
+    kinds: ["persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "welcome", hint: "ack-gate cue" }],
+  options: [
+    { value: "none", label: "No pause" },
+    { value: "any_response", label: "Wait for any response" },
+    { value: "greeting_words", label: "Wait for greeting words (default)" },
+  ],
+};
+
+const G2_FIRST_CALL_DURATION_OVERRIDE: JourneySettingContract = {
+  id: "firstCallDurationOverride",
+  menuGroupKey: "B_call1_opening",
+  group: "G2",
+  educatorLabel: "Call 1 duration override (minutes)",
+  helpText:
+    "Override Call 1 duration only. Calls 2+ use the standard durationMins. Useful for shorter assessment-only first calls. (#598)",
+  storagePath: "config.firstCall.durationMinsOverride",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["firstCallMode"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "firstCallMode", hint: "call-1 duration" }],
+};
+
+const G2_FIRST_CALL_INTRODUCE_PEDAGOGY: JourneySettingContract = {
+  id: "firstCallIntroducePedagogy",
+  menuGroupKey: "B_call1_opening",
+  group: "G2",
+  educatorLabel: "Introduce pedagogy on Call 1",
+  helpText:
+    "Whether the AI says \"here's how this works\" on Call 1. Off suppresses the pedagogy intro block. (#598)",
+  storagePath: "config.firstCall.introducePedagogy",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["firstCallMode", "onboarding"],
+    kinds: ["section-enable", "section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "onboarding", hint: "pedagogy intro" }],
 };
 
 const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
@@ -372,6 +515,26 @@ const G4_MODE_POLICY: JourneySettingContract = {
   ],
 };
 
+// Lane 3 PR3 — C_teaching_style contract (catch-up follow-on from #1780).
+
+const G4_SHARE_MATERIALS: JourneySettingContract = {
+  id: "shareMaterials",
+  menuGroupKey: "C_teaching_style",
+  group: "G4",
+  educatorLabel: "AI may share course materials",
+  helpText:
+    "When on, the AI may share PDFs / reference docs with learners during sessions. Turn off for voice-only courses (IELTS Speaking, conversation practice) where document delivery is pedagogically wrong or technically meaningless. (#234)",
+  storagePath: "config.shareMaterials",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions", hint: "materials policy" }],
+};
+
 const G4_TOLERANCE_ACCURACY: JourneySettingContract = {
   id: "toleranceAccuracy",
   menuGroupKey: "C_teaching_style",
@@ -438,6 +601,51 @@ const G4_TOLERANCE_ENGAGEMENT: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "instructions" }],
+};
+
+// Lane 3 PR4 — I_scoring contracts (catch-up follow-on from #1780).
+
+const G4_TIER_PRESET_ID: JourneySettingContract = {
+  id: "tierPresetId",
+  menuGroupKey: "I_scoring",
+  group: "G4",
+  educatorLabel: "Scoring mode preset",
+  helpText:
+    "When set to `ielts-speaking`, PROSODY calls the speech-assessment provider in IELTS mode and 4 sub-bands flow into the CallScore rows. Otherwise PROSODY scores in generic mode. (#1119)",
+  storagePath: "config.tierPresetId",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+  options: [
+    { value: "generic", label: "Generic" },
+    { value: "ielts-speaking", label: "IELTS Speaking" },
+    { value: "cefr", label: "CEFR" },
+    { value: "5-level", label: "5-Level" },
+    { value: "custom", label: "Custom" },
+  ],
+};
+
+const G4_SKILL_MIN_CALLS_TO_FULL: JourneySettingContract = {
+  id: "skillMinCallsToFull",
+  menuGroupKey: "I_scoring",
+  group: "G4",
+  educatorLabel: "First-call score cap factor",
+  helpText:
+    "Single-call score is capped at `min(rawScore, callsUsed/N)` until N calls have accumulated. Default 4 (matches IELTS examiner observation budget). Lower for rapid-feedback courses. (#417)",
+  storagePath: "config.skillMinCallsToFull",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
 };
 
 const G4_SKILL_TIER_MAPPING: JourneySettingContract = {
@@ -540,6 +748,143 @@ const G4_SCORING_MODE: JourneySettingContract = {
     { value: "lenient", label: "Lenient" },
     { value: "adaptive", label: "Adaptive" },
   ],
+};
+
+// Lane 3 PR7 — J_feedback contracts (catch-up from #1780).
+
+const G4_PROGRESS_NARRATIVE_ENABLED: JourneySettingContract = {
+  id: "progressNarrativeEnabled",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Mid-call mastery acknowledgement",
+  helpText:
+    "Off-switch for the progressNarrative composer section. When on, the AI cites concrete LO scores in mid-call moments. (#779 Felt Progress S1)",
+  storagePath: "config.progressNarrative.enabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_PROGRESS_NARRATIVE_CADENCE: JourneySettingContract = {
+  id: "progressNarrativeCadence",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Mid-call cadence",
+  helpText:
+    "When the AI emits LO-mastery evidence. `every_call` fires whenever any LO score > 0; `on_threshold_crossing` only when a score crosses the threshold. (#779)",
+  storagePath: "config.progressNarrative.cadence",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+  options: [
+    { value: "every_call", label: "Every call" },
+    { value: "on_threshold_crossing", label: "Only on threshold crossing" },
+  ],
+};
+
+const G4_PROGRESS_NARRATIVE_THRESHOLD: JourneySettingContract = {
+  id: "progressNarrativeThreshold",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Mid-call threshold",
+  helpText:
+    "Minimum LO score delta to trigger the mid-call narrative when cadence is `on_threshold_crossing`. Default 0.1. (#779)",
+  storagePath: "config.progressNarrative.minScoreDelta",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_PROGRESS_NARRATIVE_SKIP_FIRST: JourneySettingContract = {
+  id: "progressNarrativeSkipFirstCall",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Skip on Call 1",
+  helpText:
+    "Suppress the mid-call narrative on Call 1 (no prior context to compare against). Default true. (#779)",
+  storagePath: "config.progressNarrative.skipFirstCall",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G4_PRIOR_CALL_RECAP_ENABLED: JourneySettingContract = {
+  id: "priorCallRecapEnabled",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "AI-synthesized recap",
+  helpText:
+    "When on, the prior-call recap is AI-synthesized (uses depth picker below); when off, the templated minimal recap is used. (#599 Slice 1)",
+  storagePath: "config.priorCallRecap.enabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_PRIOR_CALL_RECAP_DEPTH: JourneySettingContract = {
+  id: "priorCallRecapDepth",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Recap synthesis depth",
+  helpText:
+    "Minimal (templated, no AI), standard (2-3 sentences), or rich (3-4 sentences + transcript observation). Only relevant when AI-synthesized recap is on. (#599)",
+  storagePath: "config.priorCallRecap.depth",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+  options: [
+    { value: "minimal", label: "Minimal (templated)" },
+    { value: "standard", label: "Standard (2–3 sentences)" },
+    { value: "rich", label: "Rich (3–4 sentences + observation)" },
+  ],
+};
+
+const G4_PRIOR_CALL_RECAP_DAILY_CAP: JourneySettingContract = {
+  id: "priorCallRecapDailyCap",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Recap synthesis daily cap",
+  helpText:
+    "Per-playbook per-UTC-day cap on recap synthesis AI calls. Default 50; server clamp 500. When the cap is hit, the loader falls back to the templated path. (#599)",
+  storagePath: "config.priorCallRecap.dailyCap",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
 };
 
 const G4_RECAP_ENABLED: JourneySettingContract = {
@@ -708,6 +1053,66 @@ const G5_MID_JOURNEY_STOP_TRIGGER: JourneySettingContract = {
   ],
 };
 
+// Lane 3 PR6 — L_mid_journey NPS contracts (catch-up from #1780).
+
+const G5_NPS_ENABLED: JourneySettingContract = {
+  id: "npsEnabled",
+  menuGroupKey: "L_mid_journey",
+  group: "G5",
+  educatorLabel: "NPS survey enabled",
+  helpText:
+    "Master off-switch for the NPS satisfaction survey. When off, no NPS stop fires regardless of trigger / threshold below.",
+  storagePath: "config.nps.enabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G5_NPS_TRIGGER: JourneySettingContract = {
+  id: "npsTrigger",
+  menuGroupKey: "L_mid_journey",
+  group: "G5",
+  educatorLabel: "NPS trigger",
+  helpText:
+    "When the NPS survey fires: at a mastery percentage or after N calls.",
+  storagePath: "config.nps.trigger",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+  options: [
+    { value: "mastery", label: "Mastery percentage" },
+    { value: "session_count", label: "After N calls" },
+  ],
+};
+
+const G5_NPS_THRESHOLD: JourneySettingContract = {
+  id: "npsThreshold",
+  menuGroupKey: "L_mid_journey",
+  group: "G5",
+  educatorLabel: "NPS trigger threshold",
+  helpText:
+    "Mastery % (0–100) or call count, depending on the trigger above. Default 80 (mastery) / 5 (calls).",
+  storagePath: "config.nps.threshold",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 const G5_NPS_STOP: JourneySettingContract = {
   id: "npsStop",
   menuGroupKey: "L_mid_journey",
@@ -746,6 +1151,135 @@ const G6_OFFBOARDING_FLOW_PHASES: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "offboarding", hint: "phase list" }],
+};
+
+// Lane 3 PR8 — M_end_of_course contracts (catch-up from #1780).
+
+const G6_OFFBOARDING_SUMMARY_ENABLED: JourneySettingContract = {
+  id: "offboardingSummaryEnabled",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Structured offboarding summary",
+  helpText:
+    "Off-switch for the structured progress block at offboarding. When on, the AI's closing turn cites concrete module / goal / skill numbers. (#780 Felt Progress S2)",
+  storagePath: "config.offboardingSummary.enabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+};
+
+const G6_OFFBOARDING_SUMMARY_CADENCE: JourneySettingContract = {
+  id: "offboardingSummaryCadence",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Summary cadence",
+  helpText:
+    "When the summary fires. `final_only` preserves the existing final-session gate; `every_session_with_data` fires on every post-Call-1 session with data. (#780)",
+  storagePath: "config.offboardingSummary.cadence",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+  options: [
+    { value: "final_only", label: "Final session only" },
+    { value: "every_session_with_data", label: "Every session with data" },
+  ],
+};
+
+const G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY: JourneySettingContract = {
+  id: "offboardingSummaryIncludeModuleMastery",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Summary: include module mastery",
+  helpText: "Include per-module mastery numbers in the offboarding summary. (#780)",
+  storagePath: "config.offboardingSummary.includeModuleMastery",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS: JourneySettingContract = {
+  id: "offboardingSummaryIncludeGoalProgress",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Summary: include goal progress",
+  helpText: "Include per-goal progress numbers in the offboarding summary. (#780)",
+  storagePath: "config.offboardingSummary.includeGoalProgress",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE: JourneySettingContract = {
+  id: "offboardingSummaryIncludeSkillScore",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Summary: include skill scores",
+  helpText: "Include per-skill current scores in the offboarding summary. (#780)",
+  storagePath: "config.offboardingSummary.includeSkillCurrentScore",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G6_OFFBOARDING_TRIGGER_AFTER_CALLS: JourneySettingContract = {
+  id: "offboardingTriggerAfterCalls",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Offboarding fires after N calls",
+  helpText:
+    "Number of calls after which the offboarding flow begins. Default 5. Increase for longer cohorts.",
+  storagePath: "config.offboarding.triggerAfterCalls",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+};
+
+const G6_OFFBOARDING_BANNER_MESSAGE: JourneySettingContract = {
+  id: "offboardingBannerMessage",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Progress page banner",
+  helpText:
+    "Banner shown on the student progress page when offboarding is approaching. Supports `{n}` for session count.",
+  storagePath: "config.offboarding.bannerMessage",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
 };
 
 const G6_OFFBOARDING_CERTIFICATE: JourneySettingContract = {
@@ -831,6 +1365,152 @@ const G7_MODULE_VISIBILITY: JourneySettingContract = {
   ],
 };
 
+// Lane 3 PR9 — final 7 contracts. Closes the Slice C BA-failure
+// recovery (#1780 coverage check). After this PR the catch-up
+// ratchet hits 0 — all 35 originally-spotted gaps closed.
+
+// — tolerances bucket assignments (sub-fields of config.tolerances) —
+// Master tolerances helper at lib/tolerance/*. Each sub-field maps to
+// a distinct educator concern:
+
+const G7_TOL_MASTERY_THRESHOLD: JourneySettingContract = {
+  id: "tolMasteryThreshold",
+  menuGroupKey: "I_scoring",
+  group: "G7",
+  educatorLabel: "Mastery threshold override",
+  helpText:
+    "Course-level override of the mastery threshold (default 0.7). Higher = stricter passing bar. (#598)",
+  storagePath: "config.tolerances.masteryThreshold",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G7_TOL_RETRIEVAL_CADENCE: JourneySettingContract = {
+  id: "tolRetrievalCadence",
+  menuGroupKey: "K_between_calls",
+  group: "G7",
+  educatorLabel: "Retrieval cadence override",
+  helpText:
+    "Multiplier on the SchedulerPolicy retrieval cadence. Lower = faster spaced-repetition cycle. Per-learner override intentionally NOT supported (would defeat interleaving). (#598)",
+  storagePath: "config.tolerances.retrievalCadenceOverride",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G7_TOL_MEMORY_DECAY: JourneySettingContract = {
+  id: "tolMemoryDecay",
+  menuGroupKey: "K_between_calls",
+  group: "G7",
+  educatorLabel: "Memory decay scale",
+  helpText:
+    "0.1–1.0 multiplier applied to category decay defaults in the forgetting-curve calculation. Lower = slower decay (good for long-cycle courses). (#598)",
+  storagePath: "config.tolerances.memoryDecayScale",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G7_TOL_CARRY_FORWARD: JourneySettingContract = {
+  id: "tolCarryForwardBoost",
+  menuGroupKey: "D_question_flow",
+  group: "G7",
+  educatorLabel: "Carry-forward priority boost",
+  helpText:
+    "Magnitude of the priority bump given to TPs that were planned in the prior call but never covered (learner hangup, time ran out). 0 disables the feature. Default 0.5. (#918)",
+  storagePath: "config.tolerances.carryForwardBoost",
+  control: "slider",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+// — disambiguation contracts —
+
+const G7_FIRST_CALL_MODULE_VISIBILITY: JourneySettingContract = {
+  id: "firstCallModuleVisibility",
+  menuGroupKey: "B_call1_opening",
+  group: "G7",
+  educatorLabel: "Module visibility on Call 1",
+  helpText:
+    "Call-1-specific module-visibility override. Distinct from the course-wide `moduleVisibility` above — this one ONLY affects Call 1's orientation/framing sections; learner's explicit module pick still overrides. (#1405)",
+  storagePath: "config.firstCall.firstCallModuleVisibility",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy", "section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate", hint: "call-1 framing" }],
+  options: [
+    { value: "mention_from_call_1", label: "Mention module names from Call 1" },
+    { value: "hide_until_call_2", label: "Hide until Call 2" },
+    { value: "hide_until_learner_picks", label: "Hide until learner picks" },
+  ],
+};
+
+const G7_COMPLETION_MODE: JourneySettingContract = {
+  id: "completionMode",
+  menuGroupKey: "I_scoring",
+  group: "G7",
+  educatorLabel: "Completion mode",
+  helpText:
+    "When the course counts as 'done'. terminal-only (default): playbook's terminal module mastered. all-modules: every module mastered. any: at least one module mastered. Distinct from `completionCriteria` — that controls module-vs-LO granularity; this controls module-set coverage. (#494)",
+  storagePath: "config.completionMode",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding", "modulesGate"],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+  options: [
+    { value: "terminal-only", label: "Terminal module only (default)" },
+    { value: "all-modules", label: "All modules mastered" },
+    { value: "any", label: "Any module mastered" },
+  ],
+};
+
+const G7_STRICT_PREREQUISITES: JourneySettingContract = {
+  id: "strictPrerequisites",
+  menuGroupKey: "D_question_flow",
+  group: "G7",
+  educatorLabel: "Strict prerequisites",
+  helpText:
+    "When on, hard-lock terminal modules with unmet prerequisites in the module picker. Off (default) = soft-warning override modal. On for assessment courses where premature attempts must be blocked. (#494)",
+  storagePath: "config.strictPrerequisites",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate"],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate" }],
+};
+
 const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
   id: "loMasteryThreshold",
   menuGroupKey: "I_scoring",
@@ -846,6 +1526,26 @@ const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "loMastery" }],
+};
+
+// Lane 3 PR5 — K_between_calls contract (catch-up follow-on from #1780).
+
+const G7_INTERLEAVE_REVIEW_MIN_DAYS: JourneySettingContract = {
+  id: "interleaveReviewMinDays",
+  menuGroupKey: "K_between_calls",
+  group: "G7",
+  educatorLabel: "Interleave-review freshness (days)",
+  helpText:
+    "Minimum days since last call before a mastered module qualifies for review. Default 3 (typical 2-3 day spacing window). Higher (~7) for deeper-cycle courses; lower (~1) for daily drills. (#492)",
+  storagePath: "config.interleaveReviewMinDays",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
 };
 
 const G7_CALL_COUNT_POLICY: JourneySettingContract = {
@@ -1121,11 +1821,18 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G1_INTAKE_SPEC_ID,
   G1_INTAKE_KNOWLEDGE_CHECK,
   G1_INTAKE_ABOUT_YOU,
+  G1_INTAKE_GOALS,
+  G1_INTAKE_AI_INTRO_CALL,
+  G1_INTAKE_KNOWLEDGE_CHECK_MODE,
   G1_INTAKE_SKIP_IF_RETURNING,
   G1_INTAKE_CONSENT_FLOW,
   // G2 (6)
   G2_FIRST_CALL_MODE,
   G2_WELCOME_MESSAGE,
+  G2_FIRST_CALL_COURSE_INTRO,
+  G2_FIRST_CALL_WAIT_FOR_ACK,
+  G2_FIRST_CALL_DURATION_OVERRIDE,
+  G2_FIRST_CALL_INTRODUCE_PEDAGOGY,
   G2_ONBOARDING_FLOW_PHASES,
   G2_FIRST_CALL_TARGETS,
   G2_PRE_TEST_STOP,
@@ -1137,15 +1844,25 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G3_OPENING_RECAP_ENABLED,
   // G4 (17)
   G4_MODE_POLICY,
+  G4_SHARE_MATERIALS,
   G4_TOLERANCE_ACCURACY,
   G4_TOLERANCE_FLUENCY,
   G4_TOLERANCE_CONFIDENCE,
   G4_TOLERANCE_ENGAGEMENT,
+  G4_TIER_PRESET_ID,
+  G4_SKILL_MIN_CALLS_TO_FULL,
   G4_SKILL_TIER_MAPPING,
   G4_SKILL_SCORING_EMA_HALF_LIFE,
   G4_MAX_MASTERY_TIER,
   G4_USE_FRESH_MASTERY,
   G4_SCORING_MODE,
+  G4_PROGRESS_NARRATIVE_ENABLED,
+  G4_PROGRESS_NARRATIVE_CADENCE,
+  G4_PROGRESS_NARRATIVE_THRESHOLD,
+  G4_PROGRESS_NARRATIVE_SKIP_FIRST,
+  G4_PRIOR_CALL_RECAP_ENABLED,
+  G4_PRIOR_CALL_RECAP_DEPTH,
+  G4_PRIOR_CALL_RECAP_DAILY_CAP,
   G4_RECAP_ENABLED,
   G4_RECAP_SYNTHESIS_ENABLED,
   G4_PRIOR_CALL_FEEDBACK_ENABLED,
@@ -1156,15 +1873,33 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   // G5 (3)
   G5_MID_JOURNEY_STOP,
   G5_MID_JOURNEY_STOP_TRIGGER,
+  G5_NPS_ENABLED,
+  G5_NPS_TRIGGER,
+  G5_NPS_THRESHOLD,
   G5_NPS_STOP,
   // G6 (4)
   G6_OFFBOARDING_FLOW_PHASES,
+  G6_OFFBOARDING_SUMMARY_ENABLED,
+  G6_OFFBOARDING_SUMMARY_CADENCE,
+  G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY,
+  G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS,
+  G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE,
+  G6_OFFBOARDING_TRIGGER_AFTER_CALLS,
+  G6_OFFBOARDING_BANNER_MESSAGE,
   G6_OFFBOARDING_CERTIFICATE,
   G6_POST_TEST_STOP,
   G6_COMPLETION_CRITERIA,
   // G7 (7)
   G7_MODULE_VISIBILITY,
+  G7_TOL_MASTERY_THRESHOLD,
+  G7_TOL_RETRIEVAL_CADENCE,
+  G7_TOL_MEMORY_DECAY,
+  G7_TOL_CARRY_FORWARD,
+  G7_FIRST_CALL_MODULE_VISIBILITY,
+  G7_COMPLETION_MODE,
+  G7_STRICT_PREREQUISITES,
   G7_LO_MASTERY_THRESHOLD,
+  G7_INTERLEAVE_REVIEW_MIN_DAYS,
   G7_CALL_COUNT_POLICY,
   G7_MAX_CALLS_PER_DAY,
   G7_ASSESSMENT_READINESS_THRESHOLD,

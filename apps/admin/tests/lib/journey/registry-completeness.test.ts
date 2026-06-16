@@ -8,8 +8,8 @@
  *   4. Every composeImpact.kinds[] element is a valid ComposeImpactKind
  *   5. No duplicate ids within JOURNEY_SETTINGS
  *   6. Every group G1..G8 has entries
- *   7. Exact group counts: G1:5 G2:6 G3:4 G4:17 G5:3 G6:4 G7:7 G8:7
- *   8. JOURNEY_SETTINGS.length === 53 (45 base + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704)
+ *   7. Exact group counts: G1:8 G2:10 G3:4 G4:27 G5:6 G6:11 G7:15 G8:7
+ *   8. JOURNEY_SETTINGS.length === 88 (45 base + Lane 3 + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704)
  *   9. VOICE_SETTINGS.length === 11
  *  10. Cross-registry `interruptSensitivity` shares storagePath
  *  11. writeGate === "operator-only" → composeImpact.requiresReprompt
@@ -88,20 +88,23 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
   });
 
   it("(7) exact group counts match the audit", () => {
-    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(5);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(6);
+    // Lane 3 PR1 — A_intake (G1) gained 3 contracts: intakeGoals,
+    // intakeAiIntroCall, intakeKnowledgeCheckMode (catch-up follow-on
+    // from #1780 coverage audit).
+    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(8);
+    expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(17);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(3);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(4);
-    // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7
-    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(7);
+    expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(27);
+    expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(6);
+    expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(11);
+    // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7; Lane 3 catch-up bumped further.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(15);
     // #1701 — G8 module-scoped settings (6 IELTS keys) + #1704 profile capture (1)
     expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(7);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 53", () => {
-    expect(JOURNEY_SETTINGS.length).toBe(53);
+  it("(8) JOURNEY_SETTINGS.length === 88", () => {
+    expect(JOURNEY_SETTINGS.length).toBe(88);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

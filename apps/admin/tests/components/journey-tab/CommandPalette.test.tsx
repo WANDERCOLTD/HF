@@ -22,13 +22,14 @@ describe("CommandPalette — Phase 5 (#1706)", () => {
     expect(screen.getByTestId("hf-cmdk-input")).toBeInTheDocument();
   });
 
-  it("indexes all 64 settings (53 journey + 11 voice)", () => {
+  it("indexes all 99 settings (88 journey + 11 voice)", () => {
     // #1701 (Theme 1) added 6 G8 entries → journey 45 → 51 → palette 62.
     // #1747 (Theme 7) added talkTimeBudgets (G7) → journey 52 → palette 63.
-    // #1704 (Theme 10) added 1 more G8 (profile capture) → journey 53 → palette 64.
-    expect(JOURNEY_SETTINGS.length).toBe(53);
+    // Lane 3 catch-up bumped journey 52 → 87 (multiple PRs).
+    // #1704 (Theme 10) added 1 more G8 (profile capture) → journey 88 → palette 99.
+    expect(JOURNEY_SETTINGS.length).toBe(88);
     expect(VOICE_SETTINGS.length).toBe(11);
-    expect(COMMAND_PALETTE_INDEX_SIZE).toBe(64);
+    expect(COMMAND_PALETTE_INDEX_SIZE).toBe(99);
   });
 
   it("typing narrows results by substring on educatorLabel", () => {
