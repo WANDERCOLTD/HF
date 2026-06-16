@@ -72,8 +72,9 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
         onFilterChange={vi.fn()}
       />,
     );
-    // A_intake has 9 settings (5 base + Lane 3 PR1 added 3 + #1704 profile capture).
+    // A_intake has 8 settings (5 base + Lane 3 PR1 added 3 + #1704 profile
+    // capture, minus the dead intakeConsentFlow contract removed in followup).
     const row = screen.getByTestId("hf-journey-bucket-row-A_intake");
-    expect(row.textContent).toMatch(/9/);
+    expect(row.textContent).toMatch(/8/);
   });
 });

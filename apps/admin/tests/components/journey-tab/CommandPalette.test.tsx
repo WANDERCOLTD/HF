@@ -22,16 +22,17 @@ describe("CommandPalette — Phase 5 (#1706)", () => {
     expect(screen.getByTestId("hf-cmdk-input")).toBeInTheDocument();
   });
 
-  it("indexes all 97 settings (86 journey + 11 voice)", () => {
+  it("indexes all 96 settings (85 journey + 11 voice)", () => {
     // #1701 (Theme 1) added 6 G8 entries → journey 45 → 51 → palette 62.
     // #1747 (Theme 7) added talkTimeBudgets (G7) → journey 52 → palette 63.
     // Lane 3 catch-up bumped journey 52 → 87 (multiple PRs).
     // #1704 (Theme 10) added 1 more G8 (profile capture) → journey 88 → palette 99.
-    // Followup: removed dead contracts moduleVisibility + completionCriteria
-    // (no PlaybookConfig type + no runtime reader) → journey 88 → 86 → palette 97.
-    expect(JOURNEY_SETTINGS.length).toBe(86);
+    // Followup: removed 3 dead contracts (moduleVisibility, completionCriteria,
+    // intakeConsentFlow — no PlaybookConfig type + no runtime reader) →
+    // journey 88 → 85 → palette 96.
+    expect(JOURNEY_SETTINGS.length).toBe(85);
     expect(VOICE_SETTINGS.length).toBe(11);
-    expect(COMMAND_PALETTE_INDEX_SIZE).toBe(97);
+    expect(COMMAND_PALETTE_INDEX_SIZE).toBe(96);
   });
 
   it("typing narrows results by substring on educatorLabel", () => {
