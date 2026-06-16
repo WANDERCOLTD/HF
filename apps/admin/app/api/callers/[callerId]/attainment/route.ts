@@ -491,7 +491,7 @@ async function loadRecentCallTalkTime(
       where: {
         callerId,
         kind: { in: ["VOICE_CALL", "SIM_CALL"] },
-        call: { transcript: { not: null } },
+        call: { is: { transcript: { not: "" } } },
       },
       orderBy: { startedAt: "desc" },
       select: {
