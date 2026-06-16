@@ -20,6 +20,7 @@ import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
 import noBareStrategyKey from "./eslint-rules/no-bare-strategy-key.mjs";
+import noBucketlessJourneySetting from "./eslint-rules/no-bucketless-journey-setting.mjs";
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
@@ -227,6 +228,15 @@ const eslintConfig = defineConfig([
           "no-bare-strategy-key": noBareStrategyKey,
         },
       },
+      // #1738 Slice C3 — every JOURNEY_SETTINGS entry must carry a
+      // `menuGroupKey` so the Slice C bucket-grained LH menu can mount
+      // it. registry-completeness vitest pins the same invariant at
+      // test time; this rule catches it at edit time.
+      "hf-journey": {
+        rules: {
+          "no-bucketless-journey-setting": noBucketlessJourneySetting,
+        },
+      },
       // Wave C5 of epic #1685 — opt-in @tieredVisibility tag enforces
       // that the route imports + invokes the
       // `lib/rbac/visibility.ts` + `lib/rbac/policies/*` pattern.
@@ -289,6 +299,11 @@ const eslintConfig = defineConfig([
       // `StrategyKey` enum fails CI. Allow-list (in the rule itself):
       // `lib/goals/strategies/registry.ts` (the alias map) + test files.
       "hf-goals/no-bare-strategy-key": "error",
+
+      // #1738 Slice C3 — error severity from day 1. No pre-existing
+      // offences (registry-completeness vitest verified all 51 entries
+      // are stamped). Future entries fail CI without a bucket assignment.
+      "hf-journey/no-bucketless-journey-setting": "error",
 
       // Wave C5 of epic #1685 — error severity from day 1.
       // Opt-in: routes self-declare with `@tieredVisibility` JSDoc tag.

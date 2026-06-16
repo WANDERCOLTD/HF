@@ -27,6 +27,7 @@ import type {
 
 import { CascadeTraceBreadcrumb } from "./CascadeTraceBreadcrumb";
 import { EditAsJsonButton } from "./EditAsJsonButton";
+import { WriteGateLockChip } from "./WriteGateLockChip";
 import { resolveValueAtPath } from "./resolve-value-at-path";
 
 interface JourneyInspectorPanelProps {
@@ -53,6 +54,7 @@ function SettingsStack({
             data-testid={`hf-journey-inspector-row-${contract.id}`}
           >
             <CascadeTraceBreadcrumb contract={contract} />
+            <WriteGateLockChip contract={contract} />
             <JourneyField
               contract={contract}
               value={value}

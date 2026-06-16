@@ -60,6 +60,7 @@ const PROBE_FILENAMES = [
   "/repo/apps/admin/lib/voice/route-handlers.ts",                    // no-hardcoded-greeting (alt)
   "/repo/apps/admin/lib/voice/build-assistant-config.ts",            // no-hardcoded-greeting (alt)
   "/repo/apps/admin/lib/something-new.ts",                           // generic catch-all
+  "/repo/apps/admin/lib/journey/setting-contracts.entries.ts",       // no-bucketless-journey-setting (#1738)
   "/dev/null",                                                       // legacy probe
 ];
 
