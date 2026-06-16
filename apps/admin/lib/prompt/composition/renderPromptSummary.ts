@@ -141,6 +141,22 @@ interface LLMPrompt {
       meaning?: string;
     }>;
     teaching_content?: string | null;
+    /** #1732 (epic #1730 G8 consumer A) — module-scoped question count directive. */
+    module_question_target?: { min: number; target: number; directive: string } | null;
+    /** #1733 (epic #1730 G8 consumer B) — module-scoped cue card pick. */
+    module_cue_card?: {
+      kind: "cueCard";
+      topic: string;
+      bullets: string[];
+      secondaryNote?: string;
+      directive: string;
+    } | null;
+    /** #1735 (epic #1730 G8 consumer D) — first-time orientation line. */
+    module_orientation_line?: { line: string; directive: string } | null;
+  };
+  /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close). */
+  offboarding?: {
+    moduleClosingLine?: string | null;
   };
   callHistory?: {
     totalCalls?: number;
@@ -380,6 +396,45 @@ export function renderProviderPrompt(
     parts.push("");
     parts.push(qs.offboarding_guidance);
   }
+
+  // #1734 (epic #1730 G8 consumer C) — module-scoped verbatim closing line.
+  // Appended after the existing offboarding guidance so the model reads it
+  // last when wrapping up. Operator-set value; only renders when the
+  // HF_FLAG_IELTS_MODULE_SETTINGS flag is on AND the locked module has
+  // settings.closingLine set.
+  const moduleClosingLine = llmPrompt.offboarding?.moduleClosingLine;
+  if (typeof moduleClosingLine === "string" && moduleClosingLine.trim().length > 0) {
+    parts.push("");
+    parts.push(
+      `VERBATIM CLOSING LINE — speak these exact words to end the call: "${moduleClosingLine}"`,
+    );
+  }
+
+  // #1735 (epic #1730 G8 consumer D) — first-time-only orientation line.
+  // Renders ONLY when CallerModuleProgress.orientationShown === false for
+  // this (caller, module). endSession writes orientationShown=true after
+  // first render so subsequent calls skip the line.
+  const orientation = llmPrompt.instructions?.module_orientation_line;
+  if (orientation?.directive) {
+    parts.push("");
+    parts.push(orientation.directive);
+  }
+
+  // #1732 (epic #1730 G8 consumer A) — module-scoped question count directive.
+  const questionTarget = llmPrompt.instructions?.module_question_target;
+  if (questionTarget?.directive) {
+    parts.push("");
+    parts.push(questionTarget.directive);
+  }
+
+  // #1733 (epic #1730 G8 consumer B) — module-scoped cue card.
+  // Deterministic per-call pick from cueCardPool.
+  const cueCard = llmPrompt.instructions?.module_cue_card;
+  if (cueCard?.directive) {
+    parts.push("");
+    parts.push(cueCard.directive);
+  }
+
   // Anti-hallucination guard: if no curriculum data at all, make it explicit
   if (!curr?.hasData && !qs?.curriculum_progress) {
     parts.push("IMPORTANT: No curriculum is loaded for this caller. Do NOT invent or assume specific academic topics, modules, or subject matter.");

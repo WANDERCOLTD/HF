@@ -175,6 +175,19 @@ export async function endSession(
     playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
   });
 
+  // #1735 (epic #1730 G8 consumer D) — write `orientationShown = true`
+  // on first successful completion of a module that has
+  // `moduleFirstTimeOrientationLine` set. Best-effort; helper failure
+  // doesn't roll back the Session.
+  await markOrientationShownIfApplicable({
+    callerId: updated.callerId,
+    curriculumModuleId: existing.curriculumModuleId,
+    moduleSlug: existing.curriculumModule?.slug ?? null,
+    playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
+    kind,
+    outcome: args.outcome,
+  });
+
   // Fire-and-forget pipeline trigger. Must NOT be awaited and must
   // NOT be inside the transaction. The reconciler (Slice 5) catches
   // any Session that never gets its COMPOSE within 60s.
@@ -390,5 +403,77 @@ function evaluateTalkTimeBudgetsForSession(args: {
       `[endSession] talk-time evaluation failed for session ${args.sessionId.slice(0, 8)}:`,
       err instanceof Error ? err.message : String(err),
     );
+  }
+}
+
+/**
+ * #1735 (epic #1730 G8 consumer D) — set `CallerModuleProgress.orientationShown
+ * = true` for `(callerId, curriculumModuleId)` after the first
+ * successful session of a module whose authored entry carries
+ * `settings.firstTimeOrientationLine`.
+ *
+ * Conditions:
+ *   - Outcome `COMPLETED` (don't gate-burn on GHOST/FAILED — those
+ *     re-attempt fresh and the learner should see the orientation
+ *     again on retry)
+ *   - `kind` ∈ {VOICE_CALL, SIM_CALL} (other classes don't render the
+ *     orientation line)
+ *   - `playbookConfig.modules[]` has a matching `AuthoredModule` with a
+ *     non-empty `settings.firstTimeOrientationLine`
+ *
+ * Best-effort — does NOT throw. The composer's resolveModuleOrientationLine
+ * re-checks the flag on next compose, so a failure here just means
+ * the learner sees the orientation again on the next attempt (harmless).
+ *
+ * Uses `update` with `where: { callerId_moduleId }` so a missing row
+ * raises a Prisma error (caught + logged) — the row should exist
+ * because the modules-instantiator (`lib/enrollment/instantiate-module-progress.ts`)
+ * creates one per (caller, module) at enrollment time.
+ */
+async function markOrientationShownIfApplicable(args: {
+  callerId: string | null;
+  curriculumModuleId: string | null;
+  moduleSlug: string | null;
+  playbookConfig: PlaybookConfig | null | undefined;
+  kind: SessionKindString;
+  outcome: SessionOutcomeString;
+}): Promise<void> {
+  if (args.outcome !== "COMPLETED") return;
+  if (args.kind !== "VOICE_CALL" && args.kind !== "SIM_CALL") return;
+  if (!args.callerId || !args.curriculumModuleId) return;
+
+  // Resolve the AuthoredModule and check if orientation is configured.
+  const authoredModules =
+    (args.playbookConfig?.modules as AuthoredModule[] | undefined) ?? [];
+  const matched = args.moduleSlug
+    ? authoredModules.find((m) => m.id === args.moduleSlug)
+    : undefined;
+  const line = matched?.settings?.firstTimeOrientationLine;
+  if (typeof line !== "string" || line.trim().length === 0) return;
+
+  // Guard #1252 — default-deny on continuous courses. Module-progress
+  // writes only make sense for structured courses. The
+  // `hf-pipeline/no-module-read-without-course-style-guard` ESLint rule
+  // requires the prisma call to sit inside this explicit if-block (an
+  // early-return + flag-check doesn't satisfy the AST shape it scans
+  // for — only an enclosing IfStatement with the structured check).
+  const courseStyle = getCourseStyle(args.playbookConfig);
+  if (courseStyle === "structured") {
+    try {
+      await prisma.callerModuleProgress.update({
+        where: {
+          callerId_moduleId: {
+            callerId: args.callerId,
+            moduleId: args.curriculumModuleId,
+          },
+        },
+        data: { orientationShown: true },
+      });
+    } catch (err) {
+      console.error(
+        `[endSession] markOrientationShown failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   }
 }
