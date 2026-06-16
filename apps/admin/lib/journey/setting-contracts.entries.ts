@@ -1056,6 +1056,26 @@ const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
   previewLocators: [{ section: "loMastery" }],
 };
 
+// Lane 3 PR5 — K_between_calls contract (catch-up follow-on from #1780).
+
+const G7_INTERLEAVE_REVIEW_MIN_DAYS: JourneySettingContract = {
+  id: "interleaveReviewMinDays",
+  menuGroupKey: "K_between_calls",
+  group: "G7",
+  educatorLabel: "Interleave-review freshness (days)",
+  helpText:
+    "Minimum days since last call before a mastered module qualifies for review. Default 3 (typical 2-3 day spacing window). Higher (~7) for deeper-cycle courses; lower (~1) for daily drills. (#492)",
+  storagePath: "config.interleaveReviewMinDays",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 const G7_CALL_COUNT_POLICY: JourneySettingContract = {
   id: "callCountPolicy",
   menuGroupKey: "K_between_calls",
@@ -1357,6 +1377,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   // G7 (6)
   G7_MODULE_VISIBILITY,
   G7_LO_MASTERY_THRESHOLD,
+  G7_INTERLEAVE_REVIEW_MIN_DAYS,
   G7_CALL_COUNT_POLICY,
   G7_MAX_CALLS_PER_DAY,
   G7_ASSESSMENT_READINESS_THRESHOLD,
