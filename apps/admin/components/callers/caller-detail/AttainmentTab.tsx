@@ -88,6 +88,31 @@ interface AttainmentGoal {
   trail: AttainmentGoalTrail | null;
 }
 
+/**
+ * #1747 follow-on — talk-time chip data for the most recent voice/sim
+ * call. `null` when the caller has no recent transcript-bearing session.
+ */
+interface AttainmentRecentCallTalkTime {
+  sessionId: string;
+  kind: string;
+  startedAt: string;
+  evaluation: {
+    overBudget: boolean;
+    exceededBy: Array<"maxTutorTurnSec" | "maxTutorRatio">;
+    budgets: { maxTutorTurnSec: number; maxTutorRatio: number };
+  };
+  stats: {
+    tutorTurnCount: number;
+    learnerTurnCount: number;
+    tutorWordCount: number;
+    learnerWordCount: number;
+    maxTutorTurnWords: number;
+    maxTutorTurnSec: number;
+    tutorRatio: number;
+    wordsPerSecond: number;
+  };
+}
+
 interface AttainmentResponse {
   callerId: string;
   callerName: string | null;
@@ -97,6 +122,7 @@ interface AttainmentResponse {
   skillBands: SkillBand[];
   modules: ModuleProgress[];
   goals: AttainmentGoal[];
+  recentCallTalkTime: AttainmentRecentCallTalkTime | null;
   empty: boolean;
 }
 
@@ -325,6 +351,9 @@ export function AttainmentTab({ callerId }: Props) {
             ? " · Mock-exam mode: mastery resets each session."
             : ""}
         </p>
+        {data.recentCallTalkTime?.evaluation.overBudget ? (
+          <TalkTimeOverBudgetChip telemetry={data.recentCallTalkTime} />
+        ) : null}
       </header>
 
       <SkillBandsSection
@@ -983,4 +1012,42 @@ function strategyLabel(strategy: string): string {
     default:
       return strategy;
   }
+}
+
+/**
+ * #1747 follow-on — yellow telemetry chip surfaced when the most recent
+ * voice/sim call exceeded the tutor talk-time budgets. Plain-language
+ * reasons + the underlying stats so operators can act without
+ * inspecting AppLogs.
+ */
+function TalkTimeOverBudgetChip({
+  telemetry,
+}: {
+  telemetry: AttainmentRecentCallTalkTime;
+}) {
+  const { evaluation, stats } = telemetry;
+  const tutorRatioPct = Math.round(stats.tutorRatio * 100);
+  const maxTutorBudgetPct = Math.round(evaluation.budgets.maxTutorRatio * 100);
+  const reasons: string[] = [];
+  if (evaluation.exceededBy.includes("maxTutorTurnSec")) {
+    reasons.push(
+      `tutor spoke ${Math.round(stats.maxTutorTurnSec)}s in one turn ` +
+        `(budget ${evaluation.budgets.maxTutorTurnSec}s)`,
+    );
+  }
+  if (evaluation.exceededBy.includes("maxTutorRatio")) {
+    reasons.push(
+      `tutor ${tutorRatioPct}% of session words (budget ${maxTutorBudgetPct}%)`,
+    );
+  }
+  return (
+    <div
+      className="hf-banner hf-banner-warning hf-attainment-talktime-chip"
+      role="status"
+    >
+      <AlertTriangle size={14} aria-hidden />
+      <strong>Tutor over-talked last call</strong>
+      <span> · {reasons.join(" · ")}</span>
+    </div>
+  );
 }
