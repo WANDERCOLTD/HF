@@ -12,8 +12,9 @@ import { registerTransform } from "../TransformRegistry";
 import { classifyValue } from "../types";
 import { computePersonalityAdaptation } from "./personality";
 import type { AssembledContext, GoalData, SubjectSourcesData } from "../types";
-import type { SpecConfig } from "@/lib/types/json-fields";
+import type { AuthoredModule, PlaybookConfig, SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
+import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
 
 // Goal-type × progress-bracket adaptation guidance.
 // Tells the AI HOW to adapt teaching based on goal type and progress level.
@@ -312,5 +313,68 @@ registerTransform("computeInstructions", (
 
     // Voice — delegates to separate transform (already computed)
     voice: sections.instructions_voice || null,
+
+    // #1732 (epic #1730 G8 consumer A) — module-scoped question count
+    // directive. Resolves `Playbook.config.modules[].settings.questionTarget`
+    // against `sharedState.lockedModule`. Gated by
+    // `HF_FLAG_IELTS_MODULE_SETTINGS` per epic #1700 decision 5. Returns
+    // null (renders nothing) when any condition fails.
+    module_question_target: resolveModuleQuestionTarget(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
   };
 });
+
+/**
+ * #1732 (epic #1730 G8 consumer A) — module-scoped question count directive.
+ *
+ * Returns a directive string when ALL conditions hold:
+ *   - `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic #1700 decision 5)
+ *   - `sharedState.lockedModule` is set (learner picked a specific module
+ *     via the Module Picker)
+ *   - An `AuthoredModule` in `Playbook.config.modules[]` matches the
+ *     locked module by `id` (and falls back to `slug` if id is absent)
+ *   - That module's `settings.questionTarget` has both `min` and `target`
+ *     as positive integers with `min <= target`
+ *
+ * Returns `null` otherwise — the instructions section renders without
+ * the question-count directive and the existing teaching cadence owns
+ * pacing.
+ *
+ * Returned shape: `{ min, target, directive }` so renderers can either
+ * use the structured fields or the pre-formatted directive sentence.
+ */
+function resolveModuleQuestionTarget(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): { min: number; target: number; directive: string } | null {
+  if (!isIeltsModuleSettingsEnabled()) return null;
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+
+  const qt = matched.settings?.questionTarget;
+  if (!qt) return null;
+  const { min, target } = qt;
+  if (
+    typeof min !== "number" ||
+    typeof target !== "number" ||
+    !Number.isFinite(min) ||
+    !Number.isFinite(target) ||
+    min < 1 ||
+    target < min
+  ) {
+    return null;
+  }
+  return {
+    min,
+    target,
+    directive: `Aim for ${min} to ${target} questions in this module — track silently as you go.`,
+  };
+}
