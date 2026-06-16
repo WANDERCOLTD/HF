@@ -441,6 +441,7 @@ data-safety invariant.
 | [`scripts/gh-pr-create.sh`](../../scripts/gh-pr-create.sh) (wrapper around `gh pr create`) | **AP-4 verify-before-fix** — PR body without `## Verified by` section + DB query / test name / log / Playwright trace evidence. | `--no-verify-section` flag (warn-only) |
 | [`scripts/check-fix-refactor-inversion.ts`](../../scripts/check-fix-refactor-inversion.ts) (PR comment, warn-only) | **AP-5 fix-before-refactor** — `fix:` commit on a file later cleanly refactored on the same branch. | none — report only |
 | [`.claude/rules/agent-report-verification.md`](../../.claude/rules/agent-report-verification.md) (orchestrator discipline) | **Agent-report negatives** — sub-agent brief asserts "X doesn't exist" / "no callers" / "dead code" without an inverse-probe corroboration. | label `[unverified]` when not consequential |
+| [`scripts/check-ci-docs-parity.sh`](../../scripts/check-ci-docs-parity.sh) (pre-push warn — L2) | **CI ⇔ docs drift** — a workflow / Dockerfile / cloudbuild / deploy-script / db-route change landed without an update to the paired operator-runbook doc (`CLOUD-DEPLOYMENT.md`, `RELEASE-PROCESS.md`, `DR-POSTURE.md`, runbooks). | `SKIP_CI_DOCS_PARITY=1 git push` (one-shot) · `## CI Docs Skip` PR-body section (per-PR justification, L3 only) |
 
 <a id="guard-fix-chain"></a>
 **`check-fix-chain.sh`** · class **meta** · born 2026-06-11 ·
@@ -541,6 +542,40 @@ repo-native enforcement; if a `PostAgentResult` hook surface lands in the
 harness later, the same probe-then-relay pattern is the natural in-process
 target. The rule itself is the durable artifact; gates are the
 mechanism-of-the-day.
+
+<a id="guard-ci-docs-parity"></a>
+**`check-ci-docs-parity.sh`** · class **meta** · born 2026-06-16 (#1802) ·
+[script source](../../scripts/check-ci-docs-parity.sh) ·
+rule → [.claude/rules/ci-docs-parity.md](../../.claude/rules/ci-docs-parity.md) ·
+ADR — none yet (rule file IS the design spec)
+
+Reads the watched-paths map (`WATCHED_MAP` array in the script — single
+source of truth; the rule file is the human-readable mirror) and the diff
+against `origin/main`. For each touched file matching a watched-path regex,
+asserts at least one of its paired docs (`docs/CLOUD-DEPLOYMENT.md`,
+`docs/RELEASE-PROCESS.md`, `docs/DR-POSTURE.md`, or a sibling runbook in
+`docs/runbooks/`) was also touched in the same diff. Wired as `pre-push`
+warn-only (L2). Bypass: `SKIP_CI_DOCS_PARITY=1`.
+
+The 2026-06-16 fingerprint: `docs/CLOUD-DEPLOYMENT.md §"Worst case"`
+carried a destructive `gcloud sql backups restore --restore-instance=hf-db`
+command (restores INTO the source instance, wipes live DB) that survived
+12+ months of deploy infra evolution because no PR ever forced re-touch
+of that doc when adjacent infra changed. DR-S2 (#1756) patched the line;
+this guard prevents the next instance of the class.
+
+**Pending lifecycle (under #1802):**
+- **L3** — invocation via `gh-pr-create.sh` with `--strict`; blocks PR
+  unless `## CI Docs Skip` override section present with one-line
+  justification. Same shape as the existing `## Verified by` gate.
+- **L4** — monthly cron that parses `Last verified: YYYY-MM-DD` headers
+  across `docs/DR-POSTURE.md` + `docs/runbooks/RB-*.md`; flags docs >180
+  days stale with the `kb-stale` label and a `dr-gap` follow-up issue if
+  in DR scope.
+
+**Survives hardening:** the doc-drift pattern is methodology-independent
+(any project with operator-runbook docs benefits). The watched-paths map
+will evolve as the infra surface shifts; the rule + script pair stays.
 
 ## Drain guards (class c — terminal state, delete when zero)
 
