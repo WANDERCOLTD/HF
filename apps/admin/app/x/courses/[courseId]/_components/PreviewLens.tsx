@@ -736,6 +736,9 @@ function EducatorView({
       {transcript.map((item, i) => {
         if (item.kind === "divider") {
           const inSidetray = item.lens && SIDETRAY_LENS_MAP[item.lens];
+          // #1698 — divider also carries the section tag so e.g. the
+          // PRE-CALL SURVEY heading pulses when intake is selected.
+          const sectionKey = item.lens ? SIDETRAY_LENS_TO_SECTION[item.lens] : undefined;
           if (inSidetray) {
             return (
               <button
@@ -744,6 +747,7 @@ function EducatorView({
                 className="hf-preview-divider hf-preview-divider--link"
                 aria-label={item.lensLabel || item.label}
                 title={item.lensLabel || item.label}
+                data-compose-section={sectionKey ?? undefined}
                 onClick={() => item.lens && onOpenSidetray(item.lens)}
               >
                 <span>{item.label}</span>
@@ -762,6 +766,7 @@ function EducatorView({
                 className="hf-preview-divider hf-preview-divider--link"
                 aria-label={item.lensLabel || item.label}
                 title={item.lensLabel || item.label}
+                data-compose-section={sectionKey ?? undefined}
               >
                 <span>{item.label}</span>
                 <span className="hf-preview-divider-edit">
@@ -849,8 +854,17 @@ function BubbleRow({
     ? "Edit demo annotation"
     : "Add demo annotation";
 
+  // #1698 — tag the bubble wrap with the ComposeSectionKey so the
+  // Journey tab can query the DOM and pulse the matching bubble when
+  // the Inspector selects a setting that owns this section.
+  const sectionKey = SIDETRAY_LENS_TO_SECTION[bubble.lens];
+
   return (
-    <div className={wrapClasses} data-bubble-ref={bubbleRef}>
+    <div
+      className={wrapClasses}
+      data-bubble-ref={bubbleRef}
+      data-compose-section={sectionKey ?? undefined}
+    >
       {bubble.caption && (
         <div className="hf-preview-bubble-caption">{bubble.caption}</div>
       )}
