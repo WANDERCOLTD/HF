@@ -50,6 +50,10 @@ const ALLOWLIST_PATH_FRAGMENTS = [
   "/tests/",
   "/eslint-rules/",
   "/docs/",
+  // eslint.config.mjs documents every rule (including @tieredVisibility)
+  // as comments — it's a wiring file, not a route. Allow-list it so the
+  // documentation mentions don't trigger the rule against itself.
+  "eslint.config.",
 ];
 
 function isAllowlistedFile(filename) {

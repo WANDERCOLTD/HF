@@ -41,7 +41,7 @@ describe("useBubblePulse — Slice C (#1721) multi-bubble pulse", () => {
     expect(bubble.scrollIntoView).toHaveBeenCalled();
   });
 
-  it("removes the pulse class after 1800ms", async () => {
+  it("holds the pulse class persistently (Slice C3 #1738 — no auto-remove)", async () => {
     const root = document.createElement("div");
     const bubble = document.createElement("div");
     bubble.setAttribute("data-compose-section", "welcome");
@@ -51,10 +51,35 @@ describe("useBubblePulse — Slice C (#1721) multi-bubble pulse", () => {
 
     renderHookWithRoot("B_call1_opening", root);
     expect(bubble.classList.contains("hf-preview-pulse")).toBe(true);
+    // Pre-C3 the class was removed after 1800ms. Slice C3 holds it for
+    // the lifetime of the selection — verify it survives 10s.
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(10_000);
     });
-    expect(bubble.classList.contains("hf-preview-pulse")).toBe(false);
+    expect(bubble.classList.contains("hf-preview-pulse")).toBe(true);
+  });
+
+  it("removes the pulse class when the selected bucket changes (cleanup fires)", () => {
+    const root = document.createElement("div");
+    const welcome = document.createElement("div");
+    welcome.setAttribute("data-compose-section", "welcome");
+    welcome.scrollIntoView = vi.fn();
+    root.appendChild(welcome);
+    document.body.appendChild(root);
+
+    const { rerender } = renderHook(
+      ({ bucket }: { bucket: JourneyMenuBucketId | null }) => {
+        const ref = useRef<HTMLElement>(root);
+        useBubblePulse(ref, bucket);
+      },
+      { initialProps: { bucket: "B_call1_opening" as JourneyMenuBucketId | null } },
+    );
+
+    expect(welcome.classList.contains("hf-preview-pulse")).toBe(true);
+
+    rerender({ bucket: null });
+
+    expect(welcome.classList.contains("hf-preview-pulse")).toBe(false);
   });
 
   it("noops when no bucket id", () => {

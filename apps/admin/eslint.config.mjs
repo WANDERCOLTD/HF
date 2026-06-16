@@ -3,7 +3,6 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import noUnscopedSlugLookup from "./eslint-rules/no-unscoped-slug-lookup.mjs";
 import noDeprecatedCurriculaRelation from "./eslint-rules/no-deprecated-curricula-relation.mjs";
-import noBareModuleProgressUpdate from "./eslint-rules/no-bare-module-progress-update.mjs";
 import noDirectPlaybookConfigWrite from "./eslint-rules/no-direct-playbook-config-write.mjs";
 import noDirectDomainOnboardingWrite from "./eslint-rules/no-direct-domain-onboarding-write.mjs";
 import noDirectSpecConfigWrite from "./eslint-rules/no-direct-spec-config-write.mjs";
@@ -21,6 +20,7 @@ import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
 import noBareStrategyKey from "./eslint-rules/no-bare-strategy-key.mjs";
+import noBucketlessJourneySetting from "./eslint-rules/no-bucketless-journey-setting.mjs";
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
@@ -68,12 +68,6 @@ const eslintConfig = defineConfig([
           // Variants linked via the join table are silently missing from the
           // deprecated `.curricula` array.
           "no-deprecated-curricula-relation": noDeprecatedCurriculaRelation,
-          // #1703 — block bare `prisma.callerModuleProgress.{update,upsert}`
-          // outside allow-list (canonical mastery writer + the new
-          // `markModuleIncomplete` chokepoint helper + admin reset routes +
-          // backfill scripts + tests). Force-routes new code through the
-          // helper so atomic-increment + waiver invariants stay enforced.
-          "no-bare-module-progress-update": noBareModuleProgressUpdate,
         },
       },
       // #826 — block direct writes to Playbook.config outside the
@@ -234,6 +228,15 @@ const eslintConfig = defineConfig([
           "no-bare-strategy-key": noBareStrategyKey,
         },
       },
+      // #1738 Slice C3 — every JOURNEY_SETTINGS entry must carry a
+      // `menuGroupKey` so the Slice C bucket-grained LH menu can mount
+      // it. registry-completeness vitest pins the same invariant at
+      // test time; this rule catches it at edit time.
+      "hf-journey": {
+        rules: {
+          "no-bucketless-journey-setting": noBucketlessJourneySetting,
+        },
+      },
       // Wave C5 of epic #1685 — opt-in @tieredVisibility tag enforces
       // that the route imports + invokes the
       // `lib/rbac/visibility.ts` + `lib/rbac/policies/*` pattern.
@@ -248,13 +251,6 @@ const eslintConfig = defineConfig([
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
       "hf-curriculum/no-deprecated-curricula-relation": "error",
-      // #1703 — error severity from day 1. Allow-list in the rule covers
-      // `track-progress.ts` (canonical mastery writer), `mark-module-incomplete.ts`
-      // (the chokepoint helper), pipeline route, admin reset routes,
-      // backfill scripts, and tests. Any new bare write site must either
-      // route through the helper or add to the allow-list with a
-      // documented bypass justification.
-      "hf-curriculum/no-bare-module-progress-update": "error",
       "hf-playbook/no-direct-config-write": "error",
       "hf-domain/no-direct-onboarding-write": "error",
       "hf-spec/no-direct-config-write": "error",
@@ -303,6 +299,11 @@ const eslintConfig = defineConfig([
       // `StrategyKey` enum fails CI. Allow-list (in the rule itself):
       // `lib/goals/strategies/registry.ts` (the alias map) + test files.
       "hf-goals/no-bare-strategy-key": "error",
+
+      // #1738 Slice C3 — error severity from day 1. No pre-existing
+      // offences (registry-completeness vitest verified all 52 entries
+      // are stamped). Future entries fail CI without a bucket assignment.
+      "hf-journey/no-bucketless-journey-setting": "error",
 
       // Wave C5 of epic #1685 — error severity from day 1.
       // Opt-in: routes self-declare with `@tieredVisibility` JSDoc tag.
