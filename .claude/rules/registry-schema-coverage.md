@@ -95,6 +95,7 @@ Author checklist — must be satisfied in the SAME PR:
 | `tests/lib/journey/registry-schema-coverage.test.ts` (born 2026-06-16) | 6 vitests: covered-or-exempt; non-stale exempt; no double; non-empty reasons; sentinel count; catch-up ratchet | The drift class that produced the 20-entry Slice C shortfall (the "AI Intro Call" fingerprint — user opened the Inspector, no control was there) |
 | `eslint-rules/no-bucketless-journey-setting.mjs` (#1738) | Edit-time | Adding a contract WITHOUT a bucket |
 | `tests/lib/journey/registry-completeness.test.ts` | Integrity within registry | Existing-entry shape problems |
+| `tests/lib/journey/registry-options-coverage.test.ts` (Lane 4, post-Slice-C audit) | 4 vitests pin every options-bearing contract's `options[].value` array against the canonical literal set in `lib/types/json-fields.ts` or `lib/banding/presets.ts`. `tierPresetId` derives both values AND labels from `TIER_PRESETS` (Object.entries map). | The option-level drift class — contract options copy-pasted from schema literals can silently diverge when the schema changes (the "Generic" vs "Generic 4-tier (HF default)" label drift). |
 
 ## When NOT to apply
 
