@@ -13632,6 +13632,39 @@ Lightweight status bar data — call activity (OPERATOR+) and AI spend (ADMIN+).
 
 ## Student
 
+### `GET` /api/student/:courseId/results/:sessionId
+
+Mock-exam Results screen payload for `/x/student/[courseId]/results/[sessionId]`.
+
+**Auth**: session (VIEWER+ — STUDENT scoped to own caller) · **Scope**: `student:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook.id |
+| sessionId | path | string | Yes | Session.id |
+
+**Response** `200`
+```json
+ResultsPayload
+```
+
+**Response** `403`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `POST` /api/student/assessment
 
 Submit pre-test, mid-test, or post-test answers. Stores each answer + correctness
@@ -16211,8 +16244,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 536 |
-| Files with annotations | 523 |
+| Route files found | 537 |
+| Files with annotations | 524 |
 | Files missing annotations | 13 |
 | Coverage | 97.6% |
 
