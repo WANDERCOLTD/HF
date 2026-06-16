@@ -61,7 +61,20 @@ export function _FieldShell({
               from {effectiveSource.level}
             </span>
           ) : null}
-          {isDirty ? <span className="hf-jf-dirty-dot" aria-label="unsaved" /> : null}
+          {isActive ? (
+            <span
+              className="hf-jf-saved-flash"
+              aria-live="polite"
+              data-testid={`hf-jf-saved-${contract.id}`}
+            >
+              ✓ Saved
+            </span>
+          ) : null}
+          {isDirty && !isActive ? (
+            <span className="hf-jf-dirty-dot" aria-label="unsaved">
+              • Unsaved
+            </span>
+          ) : null}
         </div>
       </div>
       {children}

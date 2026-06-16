@@ -26,7 +26,7 @@ import type {
 } from "@/lib/journey/setting-contracts";
 
 import { CascadeTraceBreadcrumb } from "./CascadeTraceBreadcrumb";
-import { EditAsJsonButton } from "./EditAsJsonButton";
+import { InspectorRowMenu } from "./InspectorRowMenu";
 import { WriteGateLockChip } from "./WriteGateLockChip";
 import { resolveValueAtPath } from "./resolve-value-at-path";
 
@@ -53,17 +53,19 @@ function SettingsStack({
             className="hf-journey-inspector-row"
             data-testid={`hf-journey-inspector-row-${contract.id}`}
           >
-            <CascadeTraceBreadcrumb contract={contract} />
-            <WriteGateLockChip contract={contract} />
+            <div className="hf-journey-inspector-row-head">
+              <div className="hf-journey-inspector-row-head-meta">
+                <CascadeTraceBreadcrumb contract={contract} />
+                <WriteGateLockChip contract={contract} />
+              </div>
+              <InspectorRowMenu contract={contract} value={value} />
+            </div>
             <JourneyField
               contract={contract}
               value={value}
               options={contract.options}
               onSave={(next) => ctx.saveSetting(contract.id, next)}
             />
-            <div className="hf-journey-inspector-actions">
-              <EditAsJsonButton contract={contract} value={value} />
-            </div>
           </div>
         );
       })}

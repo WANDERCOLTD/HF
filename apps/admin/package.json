@@ -1,6 +1,6 @@
 {
   "name": "admin",
-  "version": "0.8.36",
+  "version": "0.8.37",
   "private": true,
   "scripts": {
     "dev": "npx prisma migrate deploy && npx prisma generate && next dev",
