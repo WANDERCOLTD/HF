@@ -24,15 +24,21 @@ export function JourneyPhases({ contract, value }: JourneyFieldProps) {
         className="hf-jf-compound-placeholder"
         data-testid={`hf-jf-phases-${contract.id}`}
       >
-        {phases.length === 0
-          ? "No phases configured."
-          : `${phases.length} phase${phases.length === 1 ? "" : "s"}: ${phases
-              .map((p) => p.name ?? "(unnamed)")
-              .join(" → ")}`}
-        <div className="hf-jf-help">
-          Inline phase-editing ships in Phase 3. For now, edit via the legacy
-          lens (existing Design tab).
-        </div>
+        {phases.length === 0 ? (
+          <div className="hf-jf-compound-empty">
+            <strong>No phases configured.</strong>{" "}
+            <span>Use the ⋯ menu → Edit as JSON to set the phase list.</span>
+          </div>
+        ) : (
+          <div className="hf-jf-compound-summary">
+            <strong>
+              {phases.length} phase{phases.length === 1 ? "" : "s"}:
+            </strong>{" "}
+            <span>
+              {phases.map((p) => p.name ?? "(unnamed)").join(" → ")}
+            </span>
+          </div>
+        )}
       </div>
     </_FieldShell>
   );

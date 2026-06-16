@@ -21,14 +21,20 @@ export function JourneyStop({ contract, value }: JourneyFieldProps) {
         className="hf-jf-compound-placeholder"
         data-testid={`hf-jf-stop-${contract.id}`}
       >
-        {stop === null
-          ? "Stop not configured."
-          : `${stop.enabled ? "Enabled" : "Disabled"}${
-              stop.kind ? ` · kind: ${stop.kind}` : ""
-            }${stop.trigger ? ` · trigger: ${JSON.stringify(stop.trigger)}` : ""}`}
-        <div className="hf-jf-help">
-          Stop editor mounts in Phase 3.
-        </div>
+        {stop === null ? (
+          <div className="hf-jf-compound-empty">
+            <strong>Not configured.</strong>{" "}
+            <span>Use the ⋯ menu → Edit as JSON to set the stop shape.</span>
+          </div>
+        ) : (
+          <div className="hf-jf-compound-summary">
+            <strong>{stop.enabled ? "Enabled" : "Disabled"}</strong>
+            {stop.kind ? <span> · kind: {stop.kind}</span> : null}
+            {stop.trigger ? (
+              <span> · trigger: {JSON.stringify(stop.trigger)}</span>
+            ) : null}
+          </div>
+        )}
       </div>
     </_FieldShell>
   );
