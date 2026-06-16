@@ -186,3 +186,72 @@ Your local machine never runs the dev server — it's edit + push only. The tunn
 When Paul says "🟢 merged + live on hf-dev" in a comment, that means his `/vm-cpp` has pulled + migrated + restarted, and the VM is at that commit. You `/vm-pull` to sync your VM (well — it's the same VM, so `/vm-pull` just refreshes the running process from origin main).
 
 Right. One VM, two devs, code meets there. The `/vm-*` commands are the bridge.
+
+---
+
+## Workflow decisions — locked 2026-06-16
+
+Two questions Boaz posed; Paul's answers in-line below. Both become durable rules
+for this doc.
+
+### 1. Commit boundary: docs vs code → **(a) Paul-only merge for code**
+
+> **Question (Boaz):** May Boaz self-merge his own code PRs once green + CI
+> passes, or stay strictly with Paul-only code merges?
+>
+> **Options:**
+> - **(a)** Docs = Boaz self-merges; **code = Paul-only merge.** (The pattern
+>   we're currently following — e.g. docs PR #1740 self-merged; code PRs
+>   #1739 / #1768 left for Paul.)
+> - **(b)** Boaz may self-merge his own code PRs once green + CI passes.
+
+**Paul's answer: (a).** Code PRs to `main` get merged by Paul; docs Boaz
+self-merges. Reason: rule 26 makes Paul the migration owner on the shared
+VM, and code PRs frequently carry schema or seed changes whose blast radius
+extends past green CI (#1768 had Lane 3 schema drift only discovered during
+post-merge catch-up). Docs PRs can't break the VM or migrations, so they
+stay self-mergeable.
+
+This sharpens rule 23: replace "if you merged your own [PR]" with **"code →
+Paul; docs → Boaz self-merge."**
+
+### 2. Enforcement level → **(C) Doc + skill + hard guard**
+
+> **Question (Boaz):** How far should this workflow be enforced — discipline,
+> skill, or a hard guard? HF's pattern is **Documented → Defaulted →
+> Enforced** (the `lattice-survey.md` rule exists *because* a documented
+> step got skipped).
+>
+> **Options:**
+> - **A — Doc only.** This file + a pointer in Boaz's personal
+>   `CLAUDE.local.md`. Relies on discipline.
+> - **B — Doc + skill.** Add a load-on-demand `/vm-flow` skill holding the
+>   step-by-step so it doesn't bloat always-on context; principles stay
+>   in this doc.
+> - **C — Doc + skill + hard guard.** Plus a **Boaz-only** `PreToolUse`
+>   hook (`.claude/settings.local.json`, never committed) that **blocks
+>   `/vm-cpp` and `prisma migrate*`** from Boaz's sessions — turning rule
+>   26 ("Paul owns migrations") from prose into a wall, same mechanism as
+>   `git-lock-enforcer`.
+
+**Paul's answer: (C).** Go all the way to the wall. HF already lives by
+Documented → Defaulted → Enforced (`lattice-survey`, `ai-to-db-guard`,
+`git-lock-enforcer`); rule 26 currently lives in prose, which is one
+mis-typed `/vm-cpp` from a fresh Boaz session writing a migration before
+he reads the rule. The hook lives in Boaz's personal
+`.claude/settings.local.json` (never committed, no effect on anyone else)
+and uses the same mechanism Paul already trusts in `git-lock-enforcer.sh`
+— defence-in-depth, not surveillance.
+
+**Implementation (Boaz's machine):**
+1. Add `/vm-flow` skill at `~/.claude/skills/vm-flow/SKILL.md` — the
+   step-by-step distilled from this doc, load-on-demand.
+2. Add a `PreToolUse:Bash` hook in `~/projects/HF/.claude/settings.local.json`
+   that matches `^/vm-cpp\b` and `prisma\s+migrate\b` in the command string
+   and exits 2 with a message pointing back at rule 26 + this section.
+3. Escape hatch: `HF_BOAZ_OVERRIDE=1` env, mirroring `HF_FORCE_GIT=1`.
+   Used only when Paul explicitly asks Boaz to run a migration on his
+   behalf.
+
+Skill + hook are Boaz's personal config — Paul is blessing the approach,
+not implementing it.
