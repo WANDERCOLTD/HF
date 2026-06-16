@@ -31,6 +31,7 @@ import type { JourneyGroup } from "./setting-groups";
 
 const G1_INTAKE_SPEC_ID: JourneySettingContract = {
   id: "intakeSpecId",
+  menuGroupKey: "A_intake",
   group: "G1",
   educatorLabel: "Intake form",
   helpText: "Which IntakeSpec the learner fills in before Call 1.",
@@ -51,6 +52,7 @@ const G1_INTAKE_SPEC_ID: JourneySettingContract = {
 
 const G1_INTAKE_KNOWLEDGE_CHECK: JourneySettingContract = {
   id: "intakeKnowledgeCheck",
+  menuGroupKey: "A_intake",
   group: "G1",
   educatorLabel: "Knowledge check on sign-up",
   helpText: "Brief MCQ or Socratic probe in the sign-up form.",
@@ -67,6 +69,7 @@ const G1_INTAKE_KNOWLEDGE_CHECK: JourneySettingContract = {
 
 const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
   id: "intakeAboutYou",
+  menuGroupKey: "A_intake",
   group: "G1",
   educatorLabel: '"About you" questions',
   helpText: 'Show the "About you" block in the sign-up form.',
@@ -83,6 +86,7 @@ const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
 
 const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
   id: "intakeSkipIfReturning",
+  menuGroupKey: "A_intake",
   group: "G1",
   educatorLabel: "Skip intake for returning learners",
   helpText: "When true, learners who completed intake before are bypassed.",
@@ -99,6 +103,7 @@ const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
 
 const G1_INTAKE_CONSENT_FLOW: JourneySettingContract = {
   id: "intakeConsentFlow",
+  menuGroupKey: "A_intake",
   group: "G1",
   educatorLabel: "Consent / disclosure flow",
   helpText: "Which consent gates run before the learner reaches Call 1.",
@@ -122,6 +127,7 @@ const G1_INTAKE_CONSENT_FLOW: JourneySettingContract = {
 
 const G2_FIRST_CALL_MODE: JourneySettingContract = {
   id: "firstCallMode",
+  menuGroupKey: "B_call1_opening",
   group: "G2",
   educatorLabel: "Call 1 mode",
   helpText:
@@ -157,6 +163,7 @@ const G2_FIRST_CALL_MODE: JourneySettingContract = {
 
 const G2_WELCOME_MESSAGE: JourneySettingContract = {
   id: "welcomeMessage",
+  menuGroupKey: "B_call1_opening",
   group: "G2",
   educatorLabel: "Opening line",
   helpText: "First line the learner hears on Call 1.",
@@ -175,6 +182,7 @@ const G2_WELCOME_MESSAGE: JourneySettingContract = {
 
 const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
   id: "onboardingFlowPhases",
+  menuGroupKey: "G_session_length",
   group: "G2",
   educatorLabel: "Onboarding flow phases",
   helpText: "Phases the AI walks through after the welcome line on Call 1.",
@@ -193,6 +201,7 @@ const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
 
 const G2_FIRST_CALL_TARGETS: JourneySettingContract = {
   id: "firstCallTargets",
+  menuGroupKey: "B_call1_opening",
   group: "G2",
   educatorLabel: "Call 1 skill targets",
   helpText: "Per-parameter targets applied only to Call 1.",
@@ -216,6 +225,7 @@ const G2_FIRST_CALL_TARGETS: JourneySettingContract = {
 
 const G2_PRE_TEST_STOP: JourneySettingContract = {
   id: "preTestStop",
+  menuGroupKey: "B_call1_opening",
   group: "G2",
   educatorLabel: "Pre-test stop",
   helpText: "Gate the start of Call 1 with a quick assessment.",
@@ -232,6 +242,7 @@ const G2_PRE_TEST_STOP: JourneySettingContract = {
 
 const G2_BASELINE_ASSESSMENT_DEPTH: JourneySettingContract = {
   id: "baselineAssessmentDepth",
+  menuGroupKey: "B_call1_opening",
   group: "G2",
   educatorLabel: "Baseline assessment depth",
   helpText: "How thorough the baseline assessment is (light / standard / deep).",
@@ -257,6 +268,7 @@ const G2_BASELINE_ASSESSMENT_DEPTH: JourneySettingContract = {
 
 const G3_TEACHING_STYLE: JourneySettingContract = {
   id: "teachingStyle",
+  menuGroupKey: "C_teaching_style",
   group: "G3",
   educatorLabel: "Teaching style",
   helpText: "Socratic / Direct / Adaptive — how the AI explains things on Call 1.",
@@ -280,6 +292,7 @@ const G3_TEACHING_STYLE: JourneySettingContract = {
 
 const G3_MODULE_SEQUENCE_POLICY: JourneySettingContract = {
   id: "moduleSequencePolicy",
+  menuGroupKey: "D_question_flow",
   group: "G3",
   educatorLabel: "Module sequence policy",
   helpText: "Strict prerequisites / interleaved / learner-led on Call 1.",
@@ -301,6 +314,7 @@ const G3_MODULE_SEQUENCE_POLICY: JourneySettingContract = {
 
 const G3_FIRST_CALL_CURRICULUM_FOCUS: JourneySettingContract = {
   id: "firstCallCurriculumFocus",
+  menuGroupKey: "D_question_flow",
   group: "G3",
   educatorLabel: "Call 1 curriculum focus",
   helpText: "Which modules can be taught on Call 1.",
@@ -317,6 +331,7 @@ const G3_FIRST_CALL_CURRICULUM_FOCUS: JourneySettingContract = {
 
 const G3_OPENING_RECAP_ENABLED: JourneySettingContract = {
   id: "openingRecapEnabled",
+  menuGroupKey: "J_feedback",
   group: "G3",
   educatorLabel: "Opening recap (Call 1)",
   helpText: "Brief recap of intake answers at the top of Call 1.",
@@ -337,6 +352,7 @@ const G3_OPENING_RECAP_ENABLED: JourneySettingContract = {
 
 const G4_MODE_POLICY: JourneySettingContract = {
   id: "modePolicy",
+  menuGroupKey: "C_teaching_style",
   group: "G4",
   educatorLabel: "Mode policy (teach / quiz / mix)",
   helpText: "Default mode for calls 2+ — teach, quiz, or mixed.",
@@ -358,6 +374,7 @@ const G4_MODE_POLICY: JourneySettingContract = {
 
 const G4_TOLERANCE_ACCURACY: JourneySettingContract = {
   id: "toleranceAccuracy",
+  menuGroupKey: "C_teaching_style",
   group: "G4",
   educatorLabel: "Accuracy tolerance",
   helpText: "How much slack the AI gives on factual accuracy.",
@@ -374,6 +391,7 @@ const G4_TOLERANCE_ACCURACY: JourneySettingContract = {
 
 const G4_TOLERANCE_FLUENCY: JourneySettingContract = {
   id: "toleranceFluency",
+  menuGroupKey: "C_teaching_style",
   group: "G4",
   educatorLabel: "Fluency tolerance",
   helpText: "How much slack the AI gives on phrasing fluency.",
@@ -390,6 +408,7 @@ const G4_TOLERANCE_FLUENCY: JourneySettingContract = {
 
 const G4_TOLERANCE_CONFIDENCE: JourneySettingContract = {
   id: "toleranceConfidence",
+  menuGroupKey: "C_teaching_style",
   group: "G4",
   educatorLabel: "Confidence tolerance",
   helpText: "How much slack the AI gives on confident-sounding answers.",
@@ -406,6 +425,7 @@ const G4_TOLERANCE_CONFIDENCE: JourneySettingContract = {
 
 const G4_TOLERANCE_ENGAGEMENT: JourneySettingContract = {
   id: "toleranceEngagement",
+  menuGroupKey: "C_teaching_style",
   group: "G4",
   educatorLabel: "Engagement tolerance",
   helpText: "How much slack the AI gives on learner engagement signals.",
@@ -422,6 +442,7 @@ const G4_TOLERANCE_ENGAGEMENT: JourneySettingContract = {
 
 const G4_SKILL_TIER_MAPPING: JourneySettingContract = {
   id: "skillTierMapping",
+  menuGroupKey: "I_scoring",
   group: "G4",
   educatorLabel: "Skill tier mapping",
   helpText: "Tier labels + thresholds for skill bands.",
@@ -443,6 +464,7 @@ const G4_SKILL_TIER_MAPPING: JourneySettingContract = {
 
 const G4_SKILL_SCORING_EMA_HALF_LIFE: JourneySettingContract = {
   id: "skillScoringEmaHalfLife",
+  menuGroupKey: "I_scoring",
   group: "G4",
   educatorLabel: "Scoring EMA half-life",
   helpText: "Days for the per-skill EMA to decay to half-weight.",
@@ -459,6 +481,7 @@ const G4_SKILL_SCORING_EMA_HALF_LIFE: JourneySettingContract = {
 
 const G4_MAX_MASTERY_TIER: JourneySettingContract = {
   id: "maxMasteryTier",
+  menuGroupKey: "I_scoring",
   group: "G4",
   educatorLabel: "Max mastery tier",
   helpText: "Highest tier the AI will award without operator override.",
@@ -481,6 +504,7 @@ const G4_MAX_MASTERY_TIER: JourneySettingContract = {
 
 const G4_USE_FRESH_MASTERY: JourneySettingContract = {
   id: "useFreshMastery",
+  menuGroupKey: "I_scoring",
   group: "G4",
   educatorLabel: "Use fresh mastery (per-call)",
   helpText:
@@ -498,6 +522,7 @@ const G4_USE_FRESH_MASTERY: JourneySettingContract = {
 
 const G4_SCORING_MODE: JourneySettingContract = {
   id: "scoringMode",
+  menuGroupKey: "I_scoring",
   group: "G4",
   educatorLabel: "Scoring mode",
   helpText: "Strict / Lenient / Adaptive — how the AI grades answers.",
@@ -519,6 +544,7 @@ const G4_SCORING_MODE: JourneySettingContract = {
 
 const G4_RECAP_ENABLED: JourneySettingContract = {
   id: "recapEnabled",
+  menuGroupKey: "J_feedback",
   group: "G4",
   educatorLabel: "Recap at call start",
   helpText: "Brief recap of the prior call at the top of calls 2+.",
@@ -535,6 +561,7 @@ const G4_RECAP_ENABLED: JourneySettingContract = {
 
 const G4_RECAP_SYNTHESIS_ENABLED: JourneySettingContract = {
   id: "recapSynthesisEnabled",
+  menuGroupKey: "J_feedback",
   group: "G4",
   educatorLabel: "AI recap synthesis",
   helpText: "When true, the recap is AI-synthesised (cost per call).",
@@ -551,6 +578,7 @@ const G4_RECAP_SYNTHESIS_ENABLED: JourneySettingContract = {
 
 const G4_PRIOR_CALL_FEEDBACK_ENABLED: JourneySettingContract = {
   id: "priorCallFeedbackEnabled",
+  menuGroupKey: "J_feedback",
   group: "G4",
   educatorLabel: "Show prior-call feedback",
   helpText: "Show the educator's last-call feedback to the learner.",
@@ -567,6 +595,7 @@ const G4_PRIOR_CALL_FEEDBACK_ENABLED: JourneySettingContract = {
 
 const G4_AGENT_TUNER_NLP_ENABLED: JourneySettingContract = {
   id: "agentTunerNlpEnabled",
+  menuGroupKey: "C_teaching_style",
   group: "G4",
   educatorLabel: "NLP agent tuner",
   helpText: "Enable the NLP agent-tuner side panel (operator-only).",
@@ -584,6 +613,7 @@ const G4_AGENT_TUNER_NLP_ENABLED: JourneySettingContract = {
 
 const G4_PROGRESS_SIGNAL_LOW_WATER: JourneySettingContract = {
   id: "progressSignalLowWater",
+  menuGroupKey: "J_feedback",
   group: "G4",
   educatorLabel: "Progress signal — low-water mark",
   helpText: "Below this mastery, the AI emphasises encouragement.",
@@ -600,6 +630,7 @@ const G4_PROGRESS_SIGNAL_LOW_WATER: JourneySettingContract = {
 
 const G4_PROGRESS_SIGNAL_HIGH_WATER: JourneySettingContract = {
   id: "progressSignalHighWater",
+  menuGroupKey: "J_feedback",
   group: "G4",
   educatorLabel: "Progress signal — high-water mark",
   helpText: "Above this mastery, the AI moves toward review / stretch.",
@@ -619,6 +650,7 @@ const G4_PROGRESS_SIGNAL_HIGH_WATER: JourneySettingContract = {
  *  share the same `storagePath` (pinned by the completeness vitest). */
 const G4_INTERRUPT_SENSITIVITY: JourneySettingContract = {
   id: "interruptSensitivity",
+  menuGroupKey: "C_teaching_style",
   group: "G4",
   educatorLabel: "Interrupt sensitivity",
   helpText:
@@ -640,6 +672,7 @@ const G4_INTERRUPT_SENSITIVITY: JourneySettingContract = {
 
 const G5_MID_JOURNEY_STOP: JourneySettingContract = {
   id: "midJourneyStop",
+  menuGroupKey: "L_mid_journey",
   group: "G5",
   educatorLabel: "Mid-journey stop",
   helpText: "Mid-test or check-in stop between teaching calls.",
@@ -656,6 +689,7 @@ const G5_MID_JOURNEY_STOP: JourneySettingContract = {
 
 const G5_MID_JOURNEY_STOP_TRIGGER: JourneySettingContract = {
   id: "midJourneyStopTrigger",
+  menuGroupKey: "L_mid_journey",
   group: "G5",
   educatorLabel: "Mid-journey stop trigger",
   helpText: "Mastery threshold / session count that fires the stop.",
@@ -676,6 +710,7 @@ const G5_MID_JOURNEY_STOP_TRIGGER: JourneySettingContract = {
 
 const G5_NPS_STOP: JourneySettingContract = {
   id: "npsStop",
+  menuGroupKey: "L_mid_journey",
   group: "G5",
   educatorLabel: "NPS stop",
   helpText: "Net Promoter Score survey at a mid-journey moment.",
@@ -696,6 +731,7 @@ const G5_NPS_STOP: JourneySettingContract = {
 
 const G6_OFFBOARDING_FLOW_PHASES: JourneySettingContract = {
   id: "offboardingFlowPhases",
+  menuGroupKey: "H_closing",
   group: "G6",
   educatorLabel: "Offboarding flow phases",
   helpText: "Phases the AI walks through on the final call.",
@@ -714,6 +750,7 @@ const G6_OFFBOARDING_FLOW_PHASES: JourneySettingContract = {
 
 const G6_OFFBOARDING_CERTIFICATE: JourneySettingContract = {
   id: "offboardingCertificate",
+  menuGroupKey: "M_end_of_course",
   group: "G6",
   educatorLabel: "Certificate on completion",
   helpText: "Issue a completion certificate at the end.",
@@ -730,6 +767,7 @@ const G6_OFFBOARDING_CERTIFICATE: JourneySettingContract = {
 
 const G6_POST_TEST_STOP: JourneySettingContract = {
   id: "postTestStop",
+  menuGroupKey: "H_closing",
   group: "G6",
   educatorLabel: "Post-test stop",
   helpText: "Final assessment before offboarding.",
@@ -746,6 +784,7 @@ const G6_POST_TEST_STOP: JourneySettingContract = {
 
 const G6_COMPLETION_CRITERIA: JourneySettingContract = {
   id: "completionCriteria",
+  menuGroupKey: "M_end_of_course",
   group: "G6",
   educatorLabel: "Completion criteria",
   helpText:
@@ -772,6 +811,7 @@ const G6_COMPLETION_CRITERIA: JourneySettingContract = {
 
 const G7_MODULE_VISIBILITY: JourneySettingContract = {
   id: "moduleVisibility",
+  menuGroupKey: "D_question_flow",
   group: "G7",
   educatorLabel: "Module visibility rules",
   helpText: "When the AI starts naming modules in framing.",
@@ -793,6 +833,7 @@ const G7_MODULE_VISIBILITY: JourneySettingContract = {
 
 const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
   id: "loMasteryThreshold",
+  menuGroupKey: "I_scoring",
   group: "G7",
   educatorLabel: "LO mastery pass threshold",
   helpText: "Mastery score required to mark a Learning Objective as passed.",
@@ -809,6 +850,7 @@ const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
 
 const G7_CALL_COUNT_POLICY: JourneySettingContract = {
   id: "callCountPolicy",
+  menuGroupKey: "K_between_calls",
   group: "G7",
   educatorLabel: "Call count policy",
   helpText: "Hard cap / Soft cap / Unlimited — total call budget per learner.",
@@ -830,6 +872,7 @@ const G7_CALL_COUNT_POLICY: JourneySettingContract = {
 
 const G7_MAX_CALLS_PER_DAY: JourneySettingContract = {
   id: "maxCallsPerDay",
+  menuGroupKey: "K_between_calls",
   group: "G7",
   educatorLabel: "Max calls per day",
   helpText: "Throttle to N calls per day per learner.",
@@ -846,6 +889,7 @@ const G7_MAX_CALLS_PER_DAY: JourneySettingContract = {
 
 const G7_ASSESSMENT_READINESS_THRESHOLD: JourneySettingContract = {
   id: "assessmentReadinessThreshold",
+  menuGroupKey: "K_between_calls",
   group: "G7",
   educatorLabel: "Assessment readiness threshold",
   helpText: "Mastery the learner must reach before the post-test fires.",
@@ -862,6 +906,7 @@ const G7_ASSESSMENT_READINESS_THRESHOLD: JourneySettingContract = {
 
 const G7_REWARD_STRATEGY: JourneySettingContract = {
   id: "rewardStrategy",
+  menuGroupKey: "I_scoring",
   group: "G7",
   educatorLabel: "Reward strategy",
   helpText: "Which reward signal the adaptive loop optimises for.",
@@ -897,6 +942,8 @@ const G7_REWARD_STRATEGY: JourneySettingContract = {
 
 const G8_MODULE_QUESTION_TARGET: JourneySettingContract = {
   id: "moduleQuestionTarget",
+  menuGroupKey: "D_question_flow",
+  scope: "module",
   group: "G8",
   educatorLabel: "Question target",
   helpText: "Min and target number of questions the tutor asks in this module — e.g. {min: 10, target: 13}.",
@@ -916,6 +963,8 @@ const G8_MODULE_QUESTION_TARGET: JourneySettingContract = {
 
 const G8_MODULE_MIN_SPEAKING_SEC: JourneySettingContract = {
   id: "moduleMinSpeakingSec",
+  menuGroupKey: "G_session_length",
+  scope: "module",
   group: "G8",
   educatorLabel: "Min learner speaking time (sec)",
   helpText: "Module-scoped completion gate. endSession marks the call incomplete below this threshold (Theme 9 / #1703).",
@@ -935,6 +984,8 @@ const G8_MODULE_MIN_SPEAKING_SEC: JourneySettingContract = {
 
 const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
   id: "moduleCueCardPool",
+  menuGroupKey: "E_learner_visual",
+  scope: "module",
   group: "G8",
   educatorLabel: "Cue card pool",
   helpText: "Array of {topic, bullets} for Part 2 monologue. Session start picks one; pinned into Session.metadata.pinnedCard.",
@@ -954,6 +1005,8 @@ const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
 
 const G8_MODULE_CLOSING_LINE: JourneySettingContract = {
   id: "moduleClosingLine",
+  menuGroupKey: "H_closing",
+  scope: "module",
   group: "G8",
   educatorLabel: "Closing line (verbatim)",
   helpText: 'Module-specific closing line. e.g. Assessment closes with "That gives me a good picture…".',
@@ -973,6 +1026,8 @@ const G8_MODULE_CLOSING_LINE: JourneySettingContract = {
 
 const G8_MODULE_FIRST_TIME_ORIENTATION_LINE: JourneySettingContract = {
   id: "moduleFirstTimeOrientationLine",
+  menuGroupKey: "B_call1_opening",
+  scope: "module",
   group: "G8",
   educatorLabel: "First-time orientation line",
   helpText: 'One-shot per-module orientation — e.g. Part 2 "In Part 2 you\'ll speak for 2 minutes…". Gated by `orientationShown` on CallerModuleProgress.',
@@ -992,6 +1047,8 @@ const G8_MODULE_FIRST_TIME_ORIENTATION_LINE: JourneySettingContract = {
 
 const G8_MODULE_SCHEDULED_CUES: JourneySettingContract = {
   id: "moduleScheduledCues",
+  menuGroupKey: "F_stall_recovery",
+  scope: "module",
   group: "G8",
   educatorLabel: "Scheduled cues",
   helpText: 'Array of {at, text} for time-keyed tutor/examiner speech (e.g. {at: 45, text: "15 seconds left"}). Consumed by the Theme 2 cue scheduler at runtime.',

@@ -171,6 +171,30 @@ export interface AutoEnableLink {
 }
 
 // =============================================================
+// Slice C (#1721) — menu buckets
+// =============================================================
+
+/** The 13 educator-intent buckets, chronological by session moment.
+ *  Authored against `docs/draft-issues/ielts-pre-voice-gap-analysis.md` —
+ *  the IELTS spec organises by *what happens in a session* rather than
+ *  by which DB column the value lives in. See `lib/journey/menu-items.ts`
+ *  for the labels + captions + journey-group dividers. */
+export type JourneyMenuBucketId =
+  | "A_intake"
+  | "B_call1_opening"
+  | "C_teaching_style"
+  | "D_question_flow"
+  | "E_learner_visual"
+  | "F_stall_recovery"
+  | "G_session_length"
+  | "H_closing"
+  | "I_scoring"
+  | "J_feedback"
+  | "K_between_calls"
+  | "L_mid_journey"
+  | "M_end_of_course";
+
+// =============================================================
 // JourneySettingContract — the registry entry
 // =============================================================
 
@@ -231,6 +255,32 @@ export interface JourneySettingContract {
    *  Absent for free-form selects whose options come from a runtime
    *  fetch (e.g. voiceId — needs the provider's voice catalog). */
   options?: ReadonlyArray<{ value: string; label: string }>;
+
+  /** Slice C (#1721) — which menu bucket this setting belongs to. Buckets
+   *  are organised by *session moment* (the educator's mental model from
+   *  the IELTS pre-voice gap analysis) rather than by storage entity. See
+   *  `lib/journey/menu-items.ts` for the 13 bucket ids. Required — the
+   *  completeness vitest fails CI if missing. */
+  menuGroupKey?: JourneyMenuBucketId;
+
+  /** Slice C (#1721) — scope of the setting. Default `"course"` for
+   *  settings stored on `PlaybookConfig`. Module-scoped settings (G8 /
+   *  IELTS Theme 1) use `"module"` and store on `AuthoredModule.settings`.
+   *  Inspector renders mixed-scope buckets with nested sub-groups
+   *  ("Course defaults" / "This module: Assessment"). */
+  scope?: "course" | "module";
+
+  /** Slice C (#1721) — knob key for the `lib/cascade/effective-value.ts`
+   *  resolver. When set, `useEffectiveValue` calls `resolveEffective()`
+   *  to get the layered cascade envelope (System → Domain → Course →
+   *  effective). When absent, the Inspector reads via snapshot
+   *  (`resolveValueAtPath`) and CascadeTraceBreadcrumb hides.
+   *
+   *  Defaults to `id` when omitted — used for the few entries where
+   *  the cascade family key differs (e.g. `skillScoringEmaHalfLife`
+   *  contract id resolves through `skillScoringEmaHalfLifeDays` knob).
+   *  `isResolvableKnob(cascadeKnobKey)` is the runtime gate. */
+  cascadeKnobKey?: string;
 }
 
 // Re-export for sibling registries (Settings tab Voice subset).

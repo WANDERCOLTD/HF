@@ -1,32 +1,40 @@
 "use client";
 
 /**
- * PreviewLocatorHint — Phase 4 Slice B of epic #1675 (#1698).
+ * PreviewLocatorHint — Slice B (#1698) + Slice C (#1721).
  *
- * Renders a chip strip ABOVE the Preview canvas describing how the
- * selected setting affects the call. Three cases:
+ * Two responsibilities:
  *
- *   1. Setting has no previewLocators (runtime / post-call / scheduling
- *      kinds) → show "Doesn't appear in the call — affects scoring /
- *      runtime / scheduling" caption.
- *   2. Setting's previewLocators reference cross-cutting sections
- *      (behaviorTargets, personality) → show the locator `hint` as a
- *      caption: "Affects how the AI talks across every bubble".
- *   3. Setting maps to single discrete bubbles → handled by the bubble
- *      pulse (see useBubblePulse); this component renders nothing.
+ * 1. **Bucket-selected hint chip** — when a bucket is selected and any of
+ *    its settings are cross-cutting (no discrete Preview bubble), render
+ *    an explanatory chip above the canvas. Slice B handled the
+ *    single-setting case; Slice C extends to a bucket's worth of
+ *    settings.
+ *
+ * 2. **Bubble-click pick-strip (Slice C)** — when a Preview bubble is
+ *    clicked and 2+ buckets touch the bubble's section, render a small
+ *    chip strip: "This bubble is affected by: [B Opening] [C Teaching
+ *    style] [F Stall]". Click a chip → switch the LH selection to that
+ *    bucket. Default-select (the LH-chronological first) auto-applies
+ *    before the strip appears, so the strip is a "choose differently"
+ *    affordance, not a "must choose" gate.
  */
 
 import { useMemo } from "react";
 
-import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
-import { VOICE_SETTINGS_BY_ID } from "@/lib/settings/voice-setting-contracts";
 import type { ComposeSectionKey } from "@/lib/compose";
+import {
+  getBucketsForSection,
+  getSettingsForBucket,
+} from "@/lib/journey/bucket-relations";
+import { JOURNEY_MENU_ITEMS_BY_ID } from "@/lib/journey/menu-items";
+import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 
 /** Sections that don't render as a single Preview bubble — they cross-
  *  cut every bubble (behaviorTargets shapes warmth/length/etc;
- *  personality shapes tone). When the selected setting's primary locator
- *  is one of these, the bubble pulse fails to find a discrete target;
- *  the hint chip explains why. */
+ *  personality shapes tone). When a bucket's primary locators are these,
+ *  the bubble pulse fails to find a discrete target; the hint chip
+ *  explains why. */
 const CROSS_CUTTING_SECTIONS: ReadonlySet<ComposeSectionKey> = new Set([
   "behaviorTargets",
   "personality",
@@ -44,56 +52,85 @@ const CROSS_CUTTING_SECTIONS: ReadonlySet<ComposeSectionKey> = new Set([
 ]);
 
 interface PreviewLocatorHintProps {
-  selectedSettingId: string | null;
+  selectedBucketId: JourneyMenuBucketId | null;
+  /** When the user just clicked a Preview bubble, the bubble's section
+   *  is passed here. When 2+ buckets touch it, render the pick-strip. */
+  pickStripSection?: ComposeSectionKey | null;
+  /** Click handler — switches LH selection. */
+  onSelectBucket: (id: JourneyMenuBucketId) => void;
 }
 
 export function PreviewLocatorHint({
-  selectedSettingId,
+  selectedBucketId,
+  pickStripSection,
+  onSelectBucket,
 }: PreviewLocatorHintProps) {
-  const hintBody = useMemo(() => {
-    if (!selectedSettingId) return null;
-    const contract =
-      JOURNEY_SETTINGS_BY_ID[selectedSettingId] ??
-      VOICE_SETTINGS_BY_ID[selectedSettingId];
-    if (!contract) return null;
+  const pickStripBuckets = useMemo(() => {
+    if (!pickStripSection) return [];
+    return getBucketsForSection(pickStripSection);
+  }, [pickStripSection]);
 
-    const locators = contract.previewLocators;
-    if (locators.length === 0) {
-      // No previewLocators — runtime / post-call / scheduling kinds.
-      const kind = contract.composeImpact.kinds[0];
-      const label =
-        kind === "scoring-weight"
-          ? "Affects scoring / mastery — not visible in the call"
-          : kind === "sequence-policy"
-            ? "Affects module ordering — not visible in the call"
-            : kind === "persona-style"
-              ? "Affects how the AI talks across every bubble"
-              : "Doesn't appear directly in the call";
-      return { kind: "no-locator" as const, label };
+  const crossCuttingHint = useMemo(() => {
+    if (!selectedBucketId) return null;
+    const settings = getSettingsForBucket(selectedBucketId);
+    if (settings.length === 0) return null;
+    // Look for any cross-cutting locator in the bucket's settings.
+    for (const s of settings) {
+      for (const loc of s.previewLocators) {
+        if (CROSS_CUTTING_SECTIONS.has(loc.section)) {
+          return loc.hint ?? "Affects every bubble in the call";
+        }
+      }
     }
-
-    const first = locators[0];
-    if (CROSS_CUTTING_SECTIONS.has(first.section)) {
-      const hint = first.hint ?? "Affects every bubble in the call";
-      return { kind: "cross-cutting" as const, label: hint, section: first.section };
-    }
-
-    // Discrete bubble locator → useBubblePulse will handle it; render
-    // nothing here so the canvas stays clean.
     return null;
-  }, [selectedSettingId]);
+  }, [selectedBucketId]);
 
-  if (!hintBody) return null;
+  // Pick-strip wins when both could render — bubble click is the more
+  // recent user intent.
+  if (pickStripBuckets.length >= 2) {
+    return (
+      <div
+        className="hf-journey-locator-hint hf-journey-pick-strip"
+        data-testid="hf-journey-pick-strip"
+        role="toolbar"
+        aria-label="Buckets affecting this bubble"
+      >
+        <span className="hf-journey-locator-hint-chip">affects</span>
+        <span>This bubble is affected by:</span>
+        {pickStripBuckets.slice(0, 3).map((bid) => {
+          const bucket = JOURNEY_MENU_ITEMS_BY_ID[bid];
+          return (
+            <button
+              key={bid}
+              type="button"
+              className={`hf-chip ${selectedBucketId === bid ? "hf-chip-selected" : ""}`}
+              onClick={() => onSelectBucket(bid)}
+              data-testid={`hf-journey-pick-chip-${bid}`}
+            >
+              {bucket.label}
+            </button>
+          );
+        })}
+        {pickStripBuckets.length > 3 ? (
+          <span className="hf-journey-pick-overflow">
+            +{pickStripBuckets.length - 3} more
+          </span>
+        ) : null}
+      </div>
+    );
+  }
 
-  return (
-    <div
-      className="hf-journey-locator-hint"
-      data-testid="hf-journey-locator-hint"
-    >
-      <span className="hf-journey-locator-hint-chip">
-        {hintBody.kind === "cross-cutting" ? hintBody.section : "out-of-call"}
-      </span>
-      <span>{hintBody.label}</span>
-    </div>
-  );
+  if (crossCuttingHint) {
+    return (
+      <div
+        className="hf-journey-locator-hint"
+        data-testid="hf-journey-locator-hint"
+      >
+        <span className="hf-journey-locator-hint-chip">cross-cutting</span>
+        <span>{crossCuttingHint}</span>
+      </div>
+    );
+  }
+
+  return null;
 }

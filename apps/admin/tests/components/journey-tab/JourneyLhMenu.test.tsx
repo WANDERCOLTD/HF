@@ -5,12 +5,12 @@ import { JourneyLhMenu } from "@/components/journey-tab/JourneyLhMenu";
 
 afterEach(() => cleanup());
 
-describe("JourneyLhMenu — Phase 4 (#1697)", () => {
+describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
   it("renders all 7 group headers in chronological order", () => {
     render(
       <JourneyLhMenu
-        selectedSettingId={null}
-        onSelectSetting={vi.fn()}
+        selectedBucketId={null}
+        onSelectBucket={vi.fn()}
         filter="All"
         onFilterChange={vi.fn()}
       />,
@@ -23,8 +23,8 @@ describe("JourneyLhMenu — Phase 4 (#1697)", () => {
   it("phase filter chip narrows visible groups (e.g. 'End' shows only G6)", () => {
     render(
       <JourneyLhMenu
-        selectedSettingId={null}
-        onSelectSetting={vi.fn()}
+        selectedBucketId={null}
+        onSelectBucket={vi.fn()}
         filter="End"
         onFilterChange={vi.fn()}
       />,
@@ -34,32 +34,46 @@ describe("JourneyLhMenu — Phase 4 (#1697)", () => {
     expect(screen.queryByTestId("hf-journey-group-G4")).toBeNull();
   });
 
-  it("clicking a setting row fires onSelectSetting with its id", () => {
+  it("clicking a bucket row fires onSelectBucket with its id", () => {
     const onSelect = vi.fn();
     render(
       <JourneyLhMenu
-        selectedSettingId={null}
-        onSelectSetting={onSelect}
+        selectedBucketId={null}
+        onSelectBucket={onSelect}
         filter="All"
         onFilterChange={vi.fn()}
       />,
     );
-    // G1 is open by default — pick the first intake setting
-    fireEvent.click(screen.getByTestId("hf-journey-setting-row-intakeKnowledgeCheck"));
-    expect(onSelect).toHaveBeenCalledWith("intakeKnowledgeCheck");
+    // G1 is open by default — pick the A_intake bucket
+    fireEvent.click(screen.getByTestId("hf-journey-bucket-row-A_intake"));
+    expect(onSelect).toHaveBeenCalledWith("A_intake");
   });
 
   it("phase filter button clicks call onFilterChange", () => {
     const onFilter = vi.fn();
     render(
       <JourneyLhMenu
-        selectedSettingId={null}
-        onSelectSetting={vi.fn()}
+        selectedBucketId={null}
+        onSelectBucket={vi.fn()}
         filter="All"
         onFilterChange={onFilter}
       />,
     );
     fireEvent.click(screen.getByRole("tab", { name: "Call 1" }));
     expect(onFilter).toHaveBeenCalledWith("Call 1");
+  });
+
+  it("renders a bucket-count chip for populated buckets", () => {
+    render(
+      <JourneyLhMenu
+        selectedBucketId={null}
+        onSelectBucket={vi.fn()}
+        filter="All"
+        onFilterChange={vi.fn()}
+      />,
+    );
+    // A_intake has 5 settings stamped to it.
+    const row = screen.getByTestId("hf-journey-bucket-row-A_intake");
+    expect(row.textContent).toMatch(/5/);
   });
 });
