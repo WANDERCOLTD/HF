@@ -315,14 +315,9 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   // ── I_scoring — graduated to contracts (Lane 3 PR4) ──────────────
   //   - tierPresetId → config.tierPresetId (#1119)
   //   - skillMinCallsToFull → config.skillMinCallsToFull (#417)
-  "config.progressNarrative.enabled":
-    "catch-up: progressNarrativeEnabled contract pending (J_feedback) — #779",
-  "config.progressNarrative.cadence":
-    "catch-up: progressNarrativeCadence contract pending (J_feedback) — #779",
-  "config.progressNarrative.minScoreDelta":
-    "catch-up: progressNarrativeThreshold contract pending (J_feedback) — #779",
-  "config.progressNarrative.skipFirstCall":
-    "catch-up: progressNarrativeSkipFirstCall contract pending (J_feedback) — #779",
+  // ── J_feedback — graduated to contracts (Lane 3 PR7) ─────────────
+  //   - progressNarrativeEnabled / Cadence / Threshold / SkipFirstCall (#779)
+  //   - priorCallRecapEnabled / Depth / DailyCap (#599)
   "config.offboardingSummary.enabled":
     "catch-up: offboardingSummaryEnabled contract pending (M_end_of_course) — #780",
   "config.offboardingSummary.cadence":
@@ -341,12 +336,7 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
     "catch-up: tolMemoryDecay contract pending — #598",
   "config.tolerances.carryForwardBoost":
     "catch-up: tolCarryForwardBoost contract pending — #918",
-  "config.priorCallRecap.enabled":
-    "catch-up: priorCallRecapEnabled contract pending (J_feedback) — #599",
-  "config.priorCallRecap.depth":
-    "catch-up: priorCallRecapDepth contract pending (J_feedback) — #599",
-  "config.priorCallRecap.dailyCap":
-    "catch-up: priorCallRecapDailyCap contract pending (J_feedback) — #599",
+  // J_feedback priorCallRecap.* (Lane 3 PR7) graduated above.
   "config.strictPrerequisites":
     "catch-up: strictPrerequisites contract pending (D_question_flow / M_end_of_course) — #494",
   // ── K_between_calls — graduated to contract (Lane 3 PR5) ─────────
@@ -508,7 +498,8 @@ describe("Registry ↔ Schema coverage — 5th Lattice piece", () => {
     // Lane 3 PR4 (I_scoring) — ratchet dropped 28 → 26.
     // Lane 3 PR5 (K_between_calls) — ratchet dropped 26 → 25.
     // Lane 3 PR6 (L_mid_journey) — ratchet dropped 25 → 22.
-    const BASELINE_CATCH_UP_CEILING = 22;
+    // Lane 3 PR7 (J_feedback) — ratchet dropped 22 → 15 (4 progress + 3 recap).
+    const BASELINE_CATCH_UP_CEILING = 15;
     expect(
       catchUpCount,
       `catch-up exempts: ${catchUpCount} (ceiling ${BASELINE_CATCH_UP_CEILING}). If this went UP, you exempted a new field — add the contract instead.`,
