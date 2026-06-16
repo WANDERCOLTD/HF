@@ -32,6 +32,8 @@ import { JourneyTargets } from "./JourneyTargets";
 import { JourneyBanding } from "./JourneyBanding";
 import { JourneyVoicePicker } from "./JourneyVoicePicker";
 import { JourneyStop } from "./JourneyStop";
+import { JourneyMinTarget } from "./JourneyMinTarget";
+import { JourneyArrayEditor } from "./JourneyArrayEditor";
 
 export interface JourneyFieldProps {
   contract: JourneySettingContract;
@@ -68,6 +70,8 @@ const PRIMITIVES = {
   banding: JourneyBanding,
   "voice-picker": JourneyVoicePicker,
   stop: JourneyStop,
+  "min-target": JourneyMinTarget,
+  "array-editor": JourneyArrayEditor,
 } as const;
 
 export function JourneyField(props: JourneyFieldProps): ReactNode {

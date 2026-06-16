@@ -93,6 +93,9 @@ export const CONTROL_TYPES = [
   "banding",        // BandingPicker wrap
   "voice-picker",   // (Settings-tab only — provider + voiceId combo)
   "stop",           // compound: JourneyStop with discriminated trigger
+  // #1752 — Theme 1b Inspector primitives.
+  "min-target",     // {min: number, target: number} pair
+  "array-editor",   // array-of-structs editor with per-id row schemas
 ] as const;
 
 export type ControlType = (typeof CONTROL_TYPES)[number];
