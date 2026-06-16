@@ -23,12 +23,17 @@
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import {
+  DEFAULT_MIN_LEARNER_DURATION_SECONDS,
   finaliseCounterFlags,
   statusFromOutcome,
   deriveSkipStages,
   type SessionOutcomeString,
   type SessionKindString,
 } from "@/lib/voice/session-rules";
+import { markModuleIncomplete } from "@/lib/curriculum/mark-module-incomplete";
+import { getCourseStyle } from "@/lib/pipeline/course-style";
+import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
+import type { AuthoredModule, PlaybookConfig } from "@/lib/types/json-fields";
 
 export type SessionOutcome = SessionOutcomeString;
 
@@ -74,6 +79,14 @@ export async function endSession(
       countsTowardPipelineNumber: true,
       skipStages: true,
       callerId: true,
+      // #1703 — fields required for the Theme 9 incomplete-attempt check.
+      // playbookId + curriculumModuleId scope the read; the joined
+      // CurriculumModule.slug links the session's module to the
+      // AuthoredModule entry inside `Playbook.config.modules[]`.
+      playbookId: true,
+      curriculumModuleId: true,
+      curriculumModule: { select: { slug: true } },
+      playbook: { select: { config: true } },
     },
   });
   if (!existing) {
@@ -126,6 +139,21 @@ export async function endSession(
       countsTowardPipelineNumber: true,
       callerId: true,
     },
+  });
+
+  // #1703 (epic #1700 Theme 9) — record incomplete-attempt + apply waiver.
+  // Runs AFTER the Session update commits so a helper failure can't roll
+  // back the durable Session state. Side-effect class, like the pipeline
+  // trigger below.
+  await evaluateIncompleteAttempt({
+    callerId: updated.callerId,
+    playbookId: existing.playbookId,
+    curriculumModuleId: existing.curriculumModuleId,
+    moduleSlug: existing.curriculumModule?.slug ?? null,
+    playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
+    kind,
+    outcome: args.outcome,
+    durationSeconds,
   });
 
   // Fire-and-forget pipeline trigger. Must NOT be awaited and must
@@ -207,6 +235,79 @@ async function triggerPipelineForSession(
     }
     throw new Error(
       `pipeline route returned ${response.status}: ${bodyText ?? "<no body>"}`,
+    );
+  }
+}
+
+/**
+ * #1703 (epic #1700 Theme 9) — decide whether this session counts as an
+ * incomplete attempt and, if so, route through `markModuleIncomplete`.
+ *
+ * Conditions to record an incomplete:
+ *
+ *   1. Feature flag `HF_FLAG_IELTS_MODULE_SETTINGS` is enabled (epic
+ *      decision 5 — opt-in during the migration window).
+ *   2. Session is gateable: `kind` ∈ {VOICE_CALL, SIM_CALL} AND
+ *      `curriculumModuleId` is set AND `playbookId` is set.
+ *   3. Course is structured (`getCourseStyle` — guard #1252 default-deny).
+ *   4. Outcome is GHOST/FAILED OR `durationSeconds < moduleSettings.minSpeakingSec`.
+ *      The per-module threshold falls back to
+ *      `DEFAULT_MIN_LEARNER_DURATION_SECONDS` (30s) when unset.
+ *
+ * Helper is fire-and-forget — any error is logged but doesn't roll back
+ * the Session update.
+ */
+async function evaluateIncompleteAttempt(args: {
+  callerId: string | null;
+  playbookId: string | null;
+  curriculumModuleId: string | null;
+  moduleSlug: string | null;
+  playbookConfig: PlaybookConfig | null | undefined;
+  kind: SessionKindString;
+  outcome: SessionOutcomeString;
+  durationSeconds: number;
+}): Promise<void> {
+  if (!isIeltsModuleSettingsEnabled()) return;
+
+  // Conditions 2 — gateable session shape.
+  if (args.kind !== "VOICE_CALL" && args.kind !== "SIM_CALL") return;
+  if (!args.callerId || !args.playbookId || !args.curriculumModuleId) return;
+
+  // Condition 3 — structured-only (helper enforces too, but pre-check
+  // saves a DB read on continuous courses).
+  const courseStyle = getCourseStyle(args.playbookConfig);
+  if (courseStyle !== "structured") return;
+
+  // Resolve the per-module `minSpeakingSec` from the AuthoredModule
+  // entry whose `id` matches the session's `CurriculumModule.slug`.
+  // Falls back to the 30s global default when unset.
+  const authoredModules = (args.playbookConfig?.modules as
+    | AuthoredModule[]
+    | undefined) ?? [];
+  const authored = args.moduleSlug
+    ? authoredModules.find((m) => m.id === args.moduleSlug)
+    : undefined;
+  const minSpeakingSec =
+    authored?.settings?.minSpeakingSec ?? DEFAULT_MIN_LEARNER_DURATION_SECONDS;
+
+  // Condition 4 — abnormal termination OR below per-module gate.
+  const isAbnormal = args.outcome === "GHOST" || args.outcome === "FAILED";
+  const isShort = args.durationSeconds < minSpeakingSec;
+  if (!isAbnormal && !isShort) return;
+
+  try {
+    await markModuleIncomplete(prisma, {
+      callerId: args.callerId,
+      moduleId: args.curriculumModuleId,
+      courseStyle,
+      playbookId: args.playbookId,
+      durationSeconds: args.durationSeconds,
+      minSpeakingSec,
+    });
+  } catch (err) {
+    console.error(
+      `[endSession] markModuleIncomplete failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
     );
   }
 }
