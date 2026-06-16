@@ -386,6 +386,32 @@ export function renderProviderPrompt(
     if (curr.nextModule) parts.push(`Next module: ${curr.nextModule.name}`);
   }
   if (qs?.curriculum_progress) parts.push(qs.curriculum_progress);
+
+  // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
+  // Surfaces the summary line + the per-criterion scoreboard from the
+  // prior session so the tutor's continuity narration cites concrete
+  // numbers (anti-fabrication pin #1006 Maya class — only emit when
+  // the loader actually produced data).
+  const priorCallFeedback = (llmPrompt as { priorCallFeedback?: {
+    heading?: string;
+    summary?: string;
+    priorCriterionScores?: Array<{ parameterName: string; score: number }>;
+  } }).priorCallFeedback;
+  if (priorCallFeedback?.summary) {
+    parts.push("");
+    parts.push(`[${priorCallFeedback.heading ?? "Since your last attempt on this module"}]`);
+    parts.push(priorCallFeedback.summary);
+    if (priorCallFeedback.priorCriterionScores && priorCallFeedback.priorCriterionScores.length > 0) {
+      const scoreboardParts = priorCallFeedback.priorCriterionScores.map(
+        (s) => `${s.parameterName} ${s.score.toFixed(2)}`,
+      );
+      parts.push(`Last call's criterion scores: ${scoreboardParts.join(" · ")}.`);
+      parts.push(
+        "Use these numbers when narrating progress; do not invent or substitute. If you reference 'last time', cite exactly these values.",
+      );
+    }
+  }
+
   // Post-coverage guidance — what to do when all TPs are covered
   if (pedagogy?.postCoverageGuidance) {
     parts.push("");
