@@ -1153,6 +1153,135 @@ const G6_OFFBOARDING_FLOW_PHASES: JourneySettingContract = {
   previewLocators: [{ section: "offboarding", hint: "phase list" }],
 };
 
+// Lane 3 PR8 — M_end_of_course contracts (catch-up from #1780).
+
+const G6_OFFBOARDING_SUMMARY_ENABLED: JourneySettingContract = {
+  id: "offboardingSummaryEnabled",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Structured offboarding summary",
+  helpText:
+    "Off-switch for the structured progress block at offboarding. When on, the AI's closing turn cites concrete module / goal / skill numbers. (#780 Felt Progress S2)",
+  storagePath: "config.offboardingSummary.enabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+};
+
+const G6_OFFBOARDING_SUMMARY_CADENCE: JourneySettingContract = {
+  id: "offboardingSummaryCadence",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Summary cadence",
+  helpText:
+    "When the summary fires. `final_only` preserves the existing final-session gate; `every_session_with_data` fires on every post-Call-1 session with data. (#780)",
+  storagePath: "config.offboardingSummary.cadence",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+  options: [
+    { value: "final_only", label: "Final session only" },
+    { value: "every_session_with_data", label: "Every session with data" },
+  ],
+};
+
+const G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY: JourneySettingContract = {
+  id: "offboardingSummaryIncludeModuleMastery",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Summary: include module mastery",
+  helpText: "Include per-module mastery numbers in the offboarding summary. (#780)",
+  storagePath: "config.offboardingSummary.includeModuleMastery",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS: JourneySettingContract = {
+  id: "offboardingSummaryIncludeGoalProgress",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Summary: include goal progress",
+  helpText: "Include per-goal progress numbers in the offboarding summary. (#780)",
+  storagePath: "config.offboardingSummary.includeGoalProgress",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE: JourneySettingContract = {
+  id: "offboardingSummaryIncludeSkillScore",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Summary: include skill scores",
+  helpText: "Include per-skill current scores in the offboarding summary. (#780)",
+  storagePath: "config.offboardingSummary.includeSkillCurrentScore",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G6_OFFBOARDING_TRIGGER_AFTER_CALLS: JourneySettingContract = {
+  id: "offboardingTriggerAfterCalls",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Offboarding fires after N calls",
+  helpText:
+    "Number of calls after which the offboarding flow begins. Default 5. Increase for longer cohorts.",
+  storagePath: "config.offboarding.triggerAfterCalls",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding" }],
+};
+
+const G6_OFFBOARDING_BANNER_MESSAGE: JourneySettingContract = {
+  id: "offboardingBannerMessage",
+  menuGroupKey: "M_end_of_course",
+  group: "G6",
+  educatorLabel: "Progress page banner",
+  helpText:
+    "Banner shown on the student progress page when offboarding is approaching. Supports `{n}` for session count.",
+  storagePath: "config.offboarding.bannerMessage",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 const G6_OFFBOARDING_CERTIFICATE: JourneySettingContract = {
   id: "offboardingCertificate",
   menuGroupKey: "M_end_of_course",
@@ -1578,6 +1707,13 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G5_NPS_STOP,
   // G6 (4)
   G6_OFFBOARDING_FLOW_PHASES,
+  G6_OFFBOARDING_SUMMARY_ENABLED,
+  G6_OFFBOARDING_SUMMARY_CADENCE,
+  G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY,
+  G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS,
+  G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE,
+  G6_OFFBOARDING_TRIGGER_AFTER_CALLS,
+  G6_OFFBOARDING_BANNER_MESSAGE,
   G6_OFFBOARDING_CERTIFICATE,
   G6_POST_TEST_STOP,
   G6_COMPLETION_CRITERIA,

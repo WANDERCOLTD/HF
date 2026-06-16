@@ -318,16 +318,9 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   // ── J_feedback — graduated to contracts (Lane 3 PR7) ─────────────
   //   - progressNarrativeEnabled / Cadence / Threshold / SkipFirstCall (#779)
   //   - priorCallRecapEnabled / Depth / DailyCap (#599)
-  "config.offboardingSummary.enabled":
-    "catch-up: offboardingSummaryEnabled contract pending (M_end_of_course) — #780",
-  "config.offboardingSummary.cadence":
-    "catch-up: offboardingSummaryCadence contract pending (M_end_of_course) — #780",
-  "config.offboardingSummary.includeModuleMastery":
-    "catch-up: pending (M_end_of_course) — #780",
-  "config.offboardingSummary.includeGoalProgress":
-    "catch-up: pending (M_end_of_course) — #780",
-  "config.offboardingSummary.includeSkillCurrentScore":
-    "catch-up: pending (M_end_of_course) — #780",
+  // ── M_end_of_course — offboardingSummary.* graduated (Lane 3 PR8) ─
+  //   - offboardingSummaryEnabled / Cadence / IncludeModuleMastery
+  //     / IncludeGoalProgress / IncludeSkillScore (#780)
   "config.tolerances.masteryThreshold":
     "catch-up: tolMasteryThreshold contract pending — #598",
   "config.tolerances.retrievalCadenceOverride":
@@ -347,10 +340,8 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   //   - npsEnabled → config.nps.enabled
   //   - npsTrigger → config.nps.trigger
   //   - npsThreshold → config.nps.threshold
-  "config.offboarding.triggerAfterCalls":
-    "catch-up: offboardingTriggerAfterCalls contract pending (M_end_of_course)",
-  "config.offboarding.bannerMessage":
-    "catch-up: offboardingBannerMessage contract pending (M_end_of_course)",
+  // M_end_of_course offboarding.triggerAfterCalls + bannerMessage
+  // graduated (Lane 3 PR8).
   "config.offboarding.phases":
     "catch-up: overlaps sessionFlow.offboarding — needs disambiguation",
   "config.welcomeMessage":
@@ -499,7 +490,8 @@ describe("Registry ↔ Schema coverage — 5th Lattice piece", () => {
     // Lane 3 PR5 (K_between_calls) — ratchet dropped 26 → 25.
     // Lane 3 PR6 (L_mid_journey) — ratchet dropped 25 → 22.
     // Lane 3 PR7 (J_feedback) — ratchet dropped 22 → 15 (4 progress + 3 recap).
-    const BASELINE_CATCH_UP_CEILING = 15;
+    // Lane 3 PR8 (M_end_of_course) — ratchet dropped 15 → 8 (5 summary + 2 offboarding).
+    const BASELINE_CATCH_UP_CEILING = 8;
     expect(
       catchUpCount,
       `catch-up exempts: ${catchUpCount} (ceiling ${BASELINE_CATCH_UP_CEILING}). If this went UP, you exempted a new field — add the contract instead.`,
