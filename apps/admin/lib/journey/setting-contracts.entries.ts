@@ -927,6 +927,26 @@ const G7_REWARD_STRATEGY: JourneySettingContract = {
   ],
 };
 
+const G7_TALK_TIME_BUDGETS: JourneySettingContract = {
+  id: "talkTimeBudgets",
+  menuGroupKey: "J_feedback",
+  group: "G7",
+  educatorLabel: "Tutor talk-time budgets",
+  helpText:
+    "Post-call telemetry budgets. Shape: {maxTutorTurnSec, maxTutorRatio}. Defaults: 30s / 0.2 (tutor ≤ 20% of session words). Yellow chip in AttainmentTab + AppLog voice.talk_time.over_budget when exceeded.",
+  storagePath: "config.talkTimeBudgets",
+  control: "json-fallback",
+  cascadeSources: [],
+  composeImpact: {
+    // Post-call telemetry only — runtime intervention is explicitly
+    // deferred per the gap-analysis risk register. No composer section.
+    sections: [],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 // =============================================================
 // G8 — Module-scoped settings (6) — #1701 (epic #1700 Theme 1)
 // =============================================================
@@ -1123,6 +1143,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G7_MAX_CALLS_PER_DAY,
   G7_ASSESSMENT_READINESS_THRESHOLD,
   G7_REWARD_STRATEGY,
+  G7_TALK_TIME_BUDGETS,
   // G8 (6) — #1701 module-scoped settings
   G8_MODULE_QUESTION_TARGET,
   G8_MODULE_MIN_SPEAKING_SEC,

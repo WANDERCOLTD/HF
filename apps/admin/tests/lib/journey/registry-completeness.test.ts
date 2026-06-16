@@ -94,13 +94,14 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(17);
     expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(3);
     expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(4);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(6);
+    // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7
+    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(7);
     // #1701 — G8 module-scoped settings (Phase 1: 6 IELTS-required keys)
     expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(6);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 51", () => {
-    expect(JOURNEY_SETTINGS.length).toBe(51);
+  it("(8) JOURNEY_SETTINGS.length === 52", () => {
+    expect(JOURNEY_SETTINGS.length).toBe(52);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

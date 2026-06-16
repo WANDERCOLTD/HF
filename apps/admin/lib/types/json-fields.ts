@@ -594,6 +594,21 @@ export interface PlaybookConfig {
     carryForwardBoost?: number;
   };
   /**
+   * #1747 (epic #1700 Theme 7) — operator-configurable tutor-talk-time
+   * budgets. Post-call telemetry chip in AttainmentTab flips yellow when
+   * a budget is exceeded; AppLog `voice.talk_time.over_budget` fires
+   * via the `evaluateTalkTimeBudgets` helper in
+   * `lib/voice/talk-time-stats.ts`.
+   *
+   * Defaults (gap analysis): `maxTutorTurnSec = 30` (≈ 75 words at 150
+   * WPM), `maxTutorRatio = 0.2` (tutor ≤ 20% of total session words).
+   * Course-only — not cascadable.
+   */
+  talkTimeBudgets?: {
+    maxTutorTurnSec?: number;
+    maxTutorRatio?: number;
+  };
+  /**
    * #598 Slice 1 — Additional first-call overrides. Companion to
    * `firstCallMode` (flat field above, shipped #790) — these are net-new
    * knobs, NOT a rename. Re-introducing `firstCall.allowAssessMode` would
