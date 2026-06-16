@@ -68,6 +68,14 @@ tester.run("require-tiered-redactor", rule as never, {
         }
       `,
     },
+    {
+      name: "eslint.config.mjs mentions @tieredVisibility as wiring documentation — allow-listed",
+      filename: "/repo/apps/admin/eslint.config.mjs",
+      code: `
+        // Wave C5 wiring: '@tieredVisibility' tag enforces redactor pattern.
+        export default [{ rules: { "hf-rbac/require-tiered-redactor": "error" } }];
+      `,
+    },
   ],
   invalid: [
     {

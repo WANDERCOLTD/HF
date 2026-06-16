@@ -1,16 +1,16 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-12T17:02:54.510Z",
+  "generatedAt": "2026-06-16T12:07:54.114Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 513,
+    "routeCount": 536,
     "byAuthLevel": {
-      "VIEWER": 113,
+      "VIEWER": 122,
       "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
-      "OPERATOR": 130,
+      "OPERATOR": 144,
       "OPERATOR+VIEWER": 8,
       "VIEWER+OPERATOR": 67,
       "auth-gate(non-role)": 53,
@@ -25,7 +25,7 @@
       "VIEWER+TESTER": 3
     },
     "noAuthGate": 30,
-    "possiblyUnscoped": 109,
+    "possiblyUnscoped": 115,
     "internalSecret": 8
   },
   "routes": [
@@ -1268,6 +1268,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/callers/[callerId]/adaptations",
+      "file": "apps/admin/app/api/callers/[callerId]/adaptations/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/callers/[callerId]/aggregate",
       "file": "apps/admin/app/api/callers/[callerId]/aggregate/route.ts",
       "methods": [
@@ -1292,6 +1312,26 @@
     {
       "route": "/api/callers/[callerId]/artifacts",
       "file": "apps/admin/app/api/callers/[callerId]/artifacts/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/callers/[callerId]/attainment",
+      "file": "apps/admin/app/api/callers/[callerId]/attainment/route.ts",
       "methods": [
         "GET"
       ],
@@ -1560,6 +1600,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/callers/[callerId]/insights",
+      "file": "apps/admin/app/api/callers/[callerId]/insights/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/callers/[callerId]/journey-progress",
       "file": "apps/admin/app/api/callers/[callerId]/journey-progress/route.ts",
       "methods": [
@@ -1620,6 +1680,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/callers/[callerId]/lo-mastery",
+      "file": "apps/admin/app/api/callers/[callerId]/lo-mastery/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/callers/[callerId]/lo-progress",
       "file": "apps/admin/app/api/callers/[callerId]/lo-progress/route.ts",
       "methods": [
@@ -1660,8 +1740,48 @@
       "reviewed": false
     },
     {
+      "route": "/api/callers/[callerId]/memories",
+      "file": "apps/admin/app/api/callers/[callerId]/memories/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/callers/[callerId]/module-progress",
       "file": "apps/admin/app/api/callers/[callerId]/module-progress/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/callers/[callerId]/personality",
+      "file": "apps/admin/app/api/callers/[callerId]/personality/route.ts",
       "methods": [
         "GET"
       ],
@@ -1762,6 +1882,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/callers/[callerId]/scheduler-decision",
+      "file": "apps/admin/app/api/callers/[callerId]/scheduler-decision/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/callers/[callerId]/session-flow-progress",
       "file": "apps/admin/app/api/callers/[callerId]/session-flow-progress/route.ts",
       "methods": [
@@ -1778,6 +1918,26 @@
         "handlesInternalSecret": false,
         "rawPrisma": true,
         "possiblyUnscoped": true,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/callers/[callerId]/skills-evidence",
+      "file": "apps/admin/app/api/callers/[callerId]/skills-evidence/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -1829,6 +1989,26 @@
         "GET"
       ],
       "authLevels": [],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/callers/[callerId]/sub-skills",
+      "file": "apps/admin/app/api/callers/[callerId]/sub-skills/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
       "hasAuthGate": true,
       "tenantSignals": {
         "acceptsCallerIdParam": true,
@@ -3485,6 +3665,46 @@
       "reviewed": false
     },
     {
+      "route": "/api/courses/[courseId]/content-trust",
+      "file": "apps/admin/app/api/courses/[courseId]/content-trust/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/conversation-artifacts-preview",
+      "file": "apps/admin/app/api/courses/[courseId]/conversation-artifacts-preview/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": true,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/courses/[courseId]/course-instructions",
       "file": "apps/admin/app/api/courses/[courseId]/course-instructions/route.ts",
       "methods": [
@@ -3691,6 +3911,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/courses/[courseId]/journey-setting",
+      "file": "apps/admin/app/api/courses/[courseId]/journey-setting/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/courses/[courseId]/learners/ensure-cohort",
       "file": "apps/admin/app/api/courses/[courseId]/learners/ensure-cohort/route.ts",
       "methods": [
@@ -3766,6 +4006,26 @@
         "handlesInternalSecret": false,
         "rawPrisma": true,
         "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/memory-deltas-preview",
+      "file": "apps/admin/app/api/courses/[courseId]/memory-deltas-preview/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": true,
         "noAuthGate": false
       },
       "reviewed": false
@@ -3893,6 +4153,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/courses/[courseId]/recompose-section",
+      "file": "apps/admin/app/api/courses/[courseId]/recompose-section/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": true,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/courses/[courseId]/reconcile-mcqs",
       "file": "apps/admin/app/api/courses/[courseId]/reconcile-mcqs/route.ts",
       "methods": [
@@ -3925,6 +4205,46 @@
       "tenantSignals": {
         "acceptsCallerIdParam": false,
         "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/reproject-skills",
+      "file": "apps/admin/app/api/courses/[courseId]/reproject-skills/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/section-staleness",
+      "file": "apps/admin/app/api/courses/[courseId]/section-staleness/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": true,
         "handlesInternalSecret": false,
         "rawPrisma": true,
         "possiblyUnscoped": false,
@@ -4001,6 +4321,126 @@
       ],
       "authLevels": [
         "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/skills-cohort-cell",
+      "file": "apps/admin/app/api/courses/[courseId]/skills-cohort-cell/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": true,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/skills-cohort-heatmap",
+      "file": "apps/admin/app/api/courses/[courseId]/skills-cohort-heatmap/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": true,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/skills-evidence",
+      "file": "apps/admin/app/api/courses/[courseId]/skills-evidence/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": true,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/skills-framework",
+      "file": "apps/admin/app/api/courses/[courseId]/skills-framework/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/skills-rubric-calibration",
+      "file": "apps/admin/app/api/courses/[courseId]/skills-rubric-calibration/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/skills-source-lineage",
+      "file": "apps/admin/app/api/courses/[courseId]/skills-source-lineage/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
       ],
       "hasAuthGate": true,
       "tenantSignals": {
@@ -9099,6 +9539,26 @@
       ],
       "authLevels": [
         "SUPERADMIN"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": false,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/system/pipeline-health",
+      "file": "apps/admin/app/api/system/pipeline-health/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
       ],
       "hasAuthGate": true,
       "tenantSignals": {

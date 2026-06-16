@@ -1,13 +1,13 @@
 {
   "$schema": "model-map/v1",
-  "generatedAt": "2026-06-12T17:02:54.055Z",
+  "generatedAt": "2026-06-16T12:07:53.426Z",
   "generator": "scripts/capture/model-map.ts",
   "schemaPath": "apps/admin/prisma/schema.prisma",
   "note": "Tier-2 generated KB. proposedClass is a HEURISTIC unless reviewed:true. Human ratifications live in docs/kb/model-map-overrides.json and are reapplied by the generator on each run. Do not hand-edit this JSON — edit the overrides file.",
-  "modelCount": 110,
+  "modelCount": 111,
   "ratifiedCount": 8,
   "summary": {
-    "tenant-scoped": 98,
+    "tenant-scoped": 99,
     "global": 4,
     "join": 8,
     "alreadyTenantAware": 1,
@@ -1330,9 +1330,9 @@
     },
     {
       "name": "CallerModuleProgress",
-      "fieldCount": 14,
+      "fieldCount": 15,
       "relationCount": 2,
-      "meaningfulScalarCount": 6,
+      "meaningfulScalarCount": 7,
       "scalarFields": [
         "id",
         "callerId",
@@ -1343,6 +1343,7 @@
         "completedAt",
         "lastCallId",
         "callCount",
+        "incompleteAttempts",
         "loScoresJson",
         "createdAt",
         "updatedAt"
@@ -1577,15 +1578,16 @@
     },
     {
       "name": "CallScore",
-      "fieldCount": 20,
+      "fieldCount": 21,
       "relationCount": 5,
-      "meaningfulScalarCount": 8,
+      "meaningfulScalarCount": 9,
       "scalarFields": [
         "id",
         "callId",
         "callerId",
         "parameterId",
         "moduleId",
+        "segmentKey",
         "score",
         "confidence",
         "evidence",
@@ -3601,8 +3603,8 @@
     },
     {
       "name": "Playbook",
-      "fieldCount": 38,
-      "relationCount": 17,
+      "fieldCount": 39,
+      "relationCount": 18,
       "meaningfulScalarCount": 15,
       "scalarFields": [
         "id",
@@ -3695,6 +3697,10 @@
         {
           "field": "sessions",
           "target": "Session"
+        },
+        {
+          "field": "sectionStaleness",
+          "target": "PlaybookSectionStaleness"
         }
       ],
       "blockAttrs": [
@@ -3860,6 +3866,37 @@
         "@@index",
         "@@index",
         "@@index",
+        "@@index",
+        "@@index"
+      ],
+      "hasTenantHint": false,
+      "proposedClass": "tenant-scoped",
+      "confidence": "low",
+      "reviewed": false,
+      "notes": "Default — domain data; needs a tenantId in multi-tenancy unless reachable only via a scoped parent."
+    },
+    {
+      "name": "PlaybookSectionStaleness",
+      "fieldCount": 8,
+      "relationCount": 1,
+      "meaningfulScalarCount": 3,
+      "scalarFields": [
+        "id",
+        "playbookId",
+        "sectionKey",
+        "sectionHash",
+        "staleSince",
+        "createdAt",
+        "updatedAt"
+      ],
+      "relations": [
+        {
+          "field": "playbook",
+          "target": "Playbook"
+        }
+      ],
+      "blockAttrs": [
+        "@@unique",
         "@@index",
         "@@index"
       ],
@@ -4292,9 +4329,9 @@
     },
     {
       "name": "Session",
-      "fieldCount": 27,
+      "fieldCount": 28,
       "relationCount": 8,
-      "meaningfulScalarCount": 11,
+      "meaningfulScalarCount": 12,
       "scalarFields": [
         "id",
         "callerId",
@@ -4307,6 +4344,7 @@
         "voiceProvider",
         "intentId",
         "voiceConfigSnapshot",
+        "metadata",
         "startedAt",
         "endedAt",
         "status",

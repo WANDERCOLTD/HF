@@ -41,8 +41,8 @@ const POLICY_IMPORT_PREFIX = "@/lib/rbac/policies/";
 const REDACTOR_NAME_RE = /^redact[A-Z][A-Za-z0-9]*ForTier$/;
 
 // Skip files that legitimately mention `@tieredVisibility` as data (test
-// fixtures, rule source itself, KB docs). Same allow-list convention as
-// `no-bare-strategy-key.mjs`.
+// fixtures, rule source itself, KB docs, the eslint config that wires
+// the rule). Same allow-list convention as `no-bare-strategy-key.mjs`.
 const ALLOWLIST_PATH_FRAGMENTS = [
   ".test.",
   ".spec.",
@@ -50,6 +50,7 @@ const ALLOWLIST_PATH_FRAGMENTS = [
   "/tests/",
   "/eslint-rules/",
   "/docs/",
+  "eslint.config.",
 ];
 
 function isAllowlistedFile(filename) {
