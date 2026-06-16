@@ -143,6 +143,14 @@ cd "$REPO_ROOT" || exit 0
 UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "origin/main")
 git fetch origin main --quiet 2>/dev/null || true
 
+# CI ⇔ docs parity (L2 — warn-only per #1802) — runs for every push,
+# BEFORE the .ts/.tsx early-exit since this check covers YAML / shell / md.
+# Reads .claude/rules/ci-docs-parity.md watched-paths map; warns if CI/infra
+# changes landed without paired doc update. Bypass: SKIP_CI_DOCS_PARITY=1.
+if [ -x "$REPO_ROOT/scripts/check-ci-docs-parity.sh" ]; then
+  "$REPO_ROOT/scripts/check-ci-docs-parity.sh" >&2 || true
+fi
+
 # .ts/.tsx files modified in the commits about to be pushed.
 CHANGED=$(git diff --name-only --diff-filter=ACMR "$UPSTREAM"...HEAD -- 'apps/admin/**/*.ts' 'apps/admin/**/*.tsx' 2>/dev/null)
 
@@ -243,14 +251,6 @@ if [ "${LINT_ERRORS:-0}" -gt 0 ]; then
 fi
 
 echo "[pre-push] lint: no errors in changed files."
-
-# CI ⇔ docs parity (L2 — warn-only per #1802).
-# Reads .claude/rules/ci-docs-parity.md watched-paths map; warns if CI/infra
-# changes landed without paired doc update. Bypass: SKIP_CI_DOCS_PARITY=1.
-if [ -x "$REPO_ROOT/scripts/check-ci-docs-parity.sh" ]; then
-  "$REPO_ROOT/scripts/check-ci-docs-parity.sh" >&2 || true
-fi
-
 echo "[pre-push] Push checks passed."
 exit 0
 HOOK
