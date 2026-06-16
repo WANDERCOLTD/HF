@@ -4561,6 +4561,39 @@ Returns a hierarchical tree structure of ALL specs grouped by Domain > Scope > O
 
 ## Student
 
+### `GET` /api/v1/student/:courseId/results/:sessionId
+
+Mock-exam Results screen payload for `/x/student/[courseId]/results/[sessionId]`.
+
+**Auth**: session (VIEWER+ — STUDENT scoped to own caller) · **Scope**: `student:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook.id |
+| sessionId | path | string | Yes | Session.id |
+
+**Response** `200`
+```json
+ResultsPayload
+```
+
+**Response** `403`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/v1/student/courses
 
 List all course enrollments for the authenticated student. Returns playbook metadata, status, session count, and active goal count.
