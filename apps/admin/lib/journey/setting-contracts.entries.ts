@@ -1432,7 +1432,7 @@ const G7_TOL_MEMORY_DECAY: JourneySettingContract = {
 
 const G7_TOL_CARRY_FORWARD: JourneySettingContract = {
   id: "tolCarryForwardBoost",
-  menuGroupKey: "D_question_flow",
+  menuGroupKey: "K_between_calls",
   group: "G7",
   educatorLabel: "Carry-forward priority boost",
   helpText:
