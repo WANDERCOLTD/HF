@@ -24,6 +24,7 @@ import type {
   JourneySettingContract,
 } from "./setting-contracts";
 import type { JourneyGroup } from "./setting-groups";
+import { TIER_PRESETS } from "@/lib/banding/presets";
 
 // =============================================================
 // G1 — Sign-up & Intake (5)
@@ -621,13 +622,15 @@ const G4_TIER_PRESET_ID: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
-  options: [
-    { value: "generic", label: "Generic" },
-    { value: "ielts-speaking", label: "IELTS Speaking" },
-    { value: "cefr", label: "CEFR" },
-    { value: "5-level", label: "5-Level" },
-    { value: "custom", label: "Custom" },
-  ],
+  // Lane 4 — options derived from the canonical TIER_PRESETS map in
+  // lib/banding/presets.ts. Adding a preset there flows to the
+  // Inspector dropdown without a registry edit; the labels stay
+  // exactly in sync (no drift between "Generic" and "Generic 4-tier
+  // (HF default)").
+  options: Object.entries(TIER_PRESETS).map(([value, preset]) => ({
+    value,
+    label: preset.label,
+  })),
 };
 
 const G4_SKILL_MIN_CALLS_TO_FULL: JourneySettingContract = {

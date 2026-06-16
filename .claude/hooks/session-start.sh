@@ -187,6 +187,13 @@ fi
 if [ "$PEER_COUNT" -gt 1 ]; then
   MSG="${MSG}🚨 $PEER_COUNT concurrent claude processes detected. They share this working tree — peer 'git checkout' calls will swap HEAD under you. Treat any unexplained branch change as confirmation. See memory/feedback_concurrent_claude_processes.md for recovery. "
 fi
+# VM migration lock (S8 / #1763) — warn if another operator has a pending Prisma migration on shared hf_sandbox.
+if [ -x "$REPO_ROOT/scripts/check-vm-migration-lock.sh" ]; then
+  LOCK_MSG="$("$REPO_ROOT/scripts/check-vm-migration-lock.sh" summary 2>/dev/null || true)"
+  if [ -n "$LOCK_MSG" ]; then
+    MSG="${MSG}${LOCK_MSG} "
+  fi
+fi
 # Tell claude which lock role it claimed so it surfaces the right
 # expectations to the user.
 if [ "$LOCK_ROLE" = "secondary" ]; then

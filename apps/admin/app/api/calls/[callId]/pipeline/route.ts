@@ -41,10 +41,6 @@ import { loadBehaviorTargetsWithCascade } from "@/lib/pipeline/score-agent-casca
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
 import { extractGoals, extractGoalCompletionSignals } from "@/lib/goals/extract-goals";
-import {
-  extractProfileFields,
-  resolveProfileFieldsForCall,
-} from "@/lib/pipeline/extract-profile-fields";
 import { extractArtifacts } from "@/lib/artifacts/extract-artifacts";
 import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
@@ -585,23 +581,35 @@ async function runPerSegmentScoring(
   });
   if (!boundModule || boundModule.coversModules.length === 0) return 0;
 
-  // Resolve each declared slug → CurriculumModule.id, scoped to the
-  // bound module's curriculum (#407 — never a global slug lookup).
-  const slugToId = new Map<string, string>();
+  // Resolve each declared slug → CurriculumModule (id + segmentCues), scoped
+  // to the bound module's curriculum (#407 — never a global slug lookup).
+  // Batched as a single findMany to avoid N+1; #1785 also reads `segmentCues`
+  // so the segmenter's heuristic matchers are course-agnostic (DB-driven
+  // tutor cue phrases instead of an IELTS-hardcoded regex map).
+  const subModules = await prisma.curriculumModule.findMany({
+    where: { curriculumId: boundModule.curriculumId, slug: { in: boundModule.coversModules } },
+    select: { id: true, slug: true, segmentCues: true },
+  });
+  const slugToId = new Map<string, string>(subModules.map((m) => [m.slug, m.id]));
+  const slugToCues: Record<string, string[]> = {};
+  for (const m of subModules) {
+    if (m.segmentCues.length > 0) slugToCues[m.slug] = m.segmentCues;
+  }
   for (const slug of boundModule.coversModules) {
-    const resolved = await resolveModuleByLogicalId(boundModule.curriculumId, slug);
-    if (resolved) slugToId.set(slug, resolved.id);
-    else log.warn("Per-part MEASURE: coversModules slug not found in curriculum", {
-      slug,
-      curriculumId: boundModule.curriculumId,
-      boundSlug: boundModule.slug,
-    });
+    if (!slugToId.has(slug)) {
+      log.warn("Per-part MEASURE: coversModules slug not found in curriculum", {
+        slug,
+        curriculumId: boundModule.curriculumId,
+        boundSlug: boundModule.slug,
+      });
+    }
   }
   if (slugToId.size === 0) return 0;
 
   const segments = await segmentMockTranscript({
     transcript,
     coversModuleSlugs: boundModule.coversModules.filter((s) => slugToId.has(s)),
+    slugToCues,
     engine,
     log,
   });
@@ -3411,39 +3419,8 @@ const stageExecutors: Record<string, StageExecutor> = {
       ctx.log.warn(`Action extraction failed (non-blocking): ${actionSettled.reason?.message || String(actionSettled.reason)}`);
     }
 
-    // #1704 Theme 10 — generic profile capture. Flag-gated + no-op for any
-    // module that declares no `profileFieldsToCapture` (every non-IELTS
-    // course → zero regression). Non-blocking: failures log, never throw.
-    let profileFieldsCaptured = 0;
-    try {
-      const profileFields = await resolveProfileFieldsForCall({
-        playbookId: ctx.call.playbookId,
-        curriculumModuleId: ctx.call.curriculumModuleId,
-      });
-      if (profileFields.length > 0) {
-        const profileResult = await extractProfileFields({
-          callId: ctx.callId,
-          callerId: ctx.callerId,
-          transcript: ctx.call.transcript || "",
-          profileFields,
-          engine: ctx.engine,
-          log: ctx.log,
-        });
-        profileFieldsCaptured = profileResult.captured;
-        if (profileResult.captured > 0 || profileResult.rejected > 0) {
-          ctx.log.info("Profile capture completed", {
-            captured: profileResult.captured,
-            rejected: profileResult.rejected,
-          });
-        }
-      }
-    } catch (err: any) {
-      ctx.log.warn(`Profile capture failed (non-blocking): ${err?.message || String(err)}`);
-    }
-
     return {
       playbookUsed: callerResult.playbookUsed,
-      profileFieldsCaptured,
       scoresCreated: callerResult.scoresCreated,
       memoriesCreated: callerResult.memoriesCreated,
       deltasComputed: deltaResult.deltasComputed,

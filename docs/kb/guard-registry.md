@@ -74,6 +74,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`hf-rbac/require-tiered-redactor`](#guard-require-tiered-redactor) | Routes tagged `@tieredVisibility` (JSDoc) must import + invoke `visibilityTierForRole(...)` and a `redact<Resource>ForTier(...)` from `lib/rbac/policies/*`; hardens the whitelist-default-safe property of the visibility-policy pattern | #1685 Wave C5 | **a** |
 | [`hf-curriculum/no-bare-module-progress-update`](#guard-no-bare-module-progress-update) | Bare `prisma.callerModuleProgress.{update,upsert}` outside allow-list; must use `markModuleIncomplete` (incomplete-attempt writes — atomic increment + waiver) or `track-progress.ts` (mastery writes) | #1703 | **a** |
 | [`hf-journey/no-bucketless-journey-setting`](#guard-no-bucketless-journey-setting) | `JOURNEY_SETTINGS` entries without `menuGroupKey` so the Slice C bucket-grained LH menu can mount them; allow-list covers the voice sibling registry + test files | #1738 | **a** |
+| [`registry-schema-coverage`](#guard-registry-schema-coverage) | Schema-vs-registry coverage: every educator-facing `PlaybookConfig` field must be either covered by a `JourneySettingContract.storagePath` or in `REGISTRY_EXEMPT_PATHS` with reason. The 5th Lattice piece — catches the drift class that produced the Slice C ~20-entry shortfall (the "AI Intro Call" fingerprint). | post-Slice-C audit | **a** |
 
 ### Guard detail
 
@@ -414,6 +415,7 @@ data-safety invariant.
 | `.claude/rules/response-redaction.md` + `lib/rbac/visibility.ts` + `lib/rbac/policies/<resource>.ts` | Role-tiered field-level redaction at route boundary — `redacted` / `full` / `diagnostic` tiers; whitelist-default-safe. First wired on `/api/callers/[callerId]/adaptations` (Wave C3b — #1577 visibility-policy revision). | **a** |
 | <a id="guard-require-tiered-redactor"></a>`eslint-rules/require-tiered-redactor.mjs` (rule `hf-rbac/require-tiered-redactor`) | Opt-in via `@tieredVisibility` JSDoc tag — routes that opt in MUST import + invoke `visibilityTierForRole(...)` + a `redact<Resource>ForTier(...)` function. Hardens the whitelist-default-safe property by catching a missing redactor at lint time (Wave C5 of epic #1685). | **a** |
 | <a id="guard-no-bucketless-journey-setting"></a>`eslint-rules/no-bucketless-journey-setting.mjs` (rule `hf-journey/no-bucketless-journey-setting`) | Every `JOURNEY_SETTINGS` entry in `lib/journey/setting-contracts.entries.ts` must carry `menuGroupKey: JourneyMenuBucketId` so the Slice C bucket-grained LH menu can mount it (#1721). Companion to `registry-completeness.test.ts` (test-time pin) and `docs/CONTRACTS-JOURNEY.md` §17 (the bucket model contract). Allow-list: `lib/settings/voice-setting-contracts.ts` + test files. Born #1738. | **a** |
+| <a id="guard-registry-schema-coverage"></a>`tests/lib/journey/registry-schema-coverage.test.ts` (rule [`.claude/rules/registry-schema-coverage.md`](../../.claude/rules/registry-schema-coverage.md)) | Schema-vs-registry coverage — the 5th Lattice piece. Every educator-facing field on `PlaybookConfig` (+ sub-interfaces `IntakeConfig`, `NpsConfig`, `OffboardingConfig`, etc.) MUST be either covered by a `JourneySettingContract.storagePath` or exempted in `REGISTRY_EXEMPT_PATHS` with one of four documented reason types (wizard-owned / internal / derived / ai-only). The "catch-up" exempt sub-block tracks the ~20-entry shortfall the BA failure produced; a sentinel test ratchets it DOWN as Lane 3 contract PRs land. Companion: ADR [`docs/decisions/2026-06-16-registry-schema-coverage.md`](../decisions/2026-06-16-registry-schema-coverage.md). Born post-Slice-C audit (#1738 follow-on). | **a** |
 
 ## Plan-guard agents — `.claude/agents/`
 
@@ -439,6 +441,7 @@ data-safety invariant.
 | [`scripts/gh-pr-create.sh`](../../scripts/gh-pr-create.sh) (wrapper around `gh pr create`) | **AP-4 verify-before-fix** — PR body without `## Verified by` section + DB query / test name / log / Playwright trace evidence. | `--no-verify-section` flag (warn-only) |
 | [`scripts/check-fix-refactor-inversion.ts`](../../scripts/check-fix-refactor-inversion.ts) (PR comment, warn-only) | **AP-5 fix-before-refactor** — `fix:` commit on a file later cleanly refactored on the same branch. | none — report only |
 | [`.claude/rules/agent-report-verification.md`](../../.claude/rules/agent-report-verification.md) (orchestrator discipline) | **Agent-report negatives** — sub-agent brief asserts "X doesn't exist" / "no callers" / "dead code" without an inverse-probe corroboration. | label `[unverified]` when not consequential |
+| [`scripts/check-ci-docs-parity.sh`](../../scripts/check-ci-docs-parity.sh) (pre-push warn — L2) | **CI ⇔ docs drift** — a workflow / Dockerfile / cloudbuild / deploy-script / db-route change landed without an update to the paired operator-runbook doc (`CLOUD-DEPLOYMENT.md`, `RELEASE-PROCESS.md`, `DR-POSTURE.md`, runbooks). | `SKIP_CI_DOCS_PARITY=1 git push` (one-shot) · `## CI Docs Skip` PR-body section (per-PR justification, L3 only) |
 
 <a id="guard-fix-chain"></a>
 **`check-fix-chain.sh`** · class **meta** · born 2026-06-11 ·
@@ -539,6 +542,40 @@ repo-native enforcement; if a `PostAgentResult` hook surface lands in the
 harness later, the same probe-then-relay pattern is the natural in-process
 target. The rule itself is the durable artifact; gates are the
 mechanism-of-the-day.
+
+<a id="guard-ci-docs-parity"></a>
+**`check-ci-docs-parity.sh`** · class **meta** · born 2026-06-16 (#1802) ·
+[script source](../../scripts/check-ci-docs-parity.sh) ·
+rule → [.claude/rules/ci-docs-parity.md](../../.claude/rules/ci-docs-parity.md) ·
+ADR — none yet (rule file IS the design spec)
+
+Reads the watched-paths map (`WATCHED_MAP` array in the script — single
+source of truth; the rule file is the human-readable mirror) and the diff
+against `origin/main`. For each touched file matching a watched-path regex,
+asserts at least one of its paired docs (`docs/CLOUD-DEPLOYMENT.md`,
+`docs/RELEASE-PROCESS.md`, `docs/DR-POSTURE.md`, or a sibling runbook in
+`docs/runbooks/`) was also touched in the same diff. Wired as `pre-push`
+warn-only (L2). Bypass: `SKIP_CI_DOCS_PARITY=1`.
+
+The 2026-06-16 fingerprint: `docs/CLOUD-DEPLOYMENT.md §"Worst case"`
+carried a destructive `gcloud sql backups restore --restore-instance=hf-db`
+command (restores INTO the source instance, wipes live DB) that survived
+12+ months of deploy infra evolution because no PR ever forced re-touch
+of that doc when adjacent infra changed. DR-S2 (#1756) patched the line;
+this guard prevents the next instance of the class.
+
+**Pending lifecycle (under #1802):**
+- **L3** — invocation via `gh-pr-create.sh` with `--strict`; blocks PR
+  unless `## CI Docs Skip` override section present with one-line
+  justification. Same shape as the existing `## Verified by` gate.
+- **L4** — monthly cron that parses `Last verified: YYYY-MM-DD` headers
+  across `docs/DR-POSTURE.md` + `docs/runbooks/RB-*.md`; flags docs >180
+  days stale with the `kb-stale` label and a `dr-gap` follow-up issue if
+  in DR scope.
+
+**Survives hardening:** the doc-drift pattern is methodology-independent
+(any project with operator-runbook docs benefits). The watched-paths map
+will evolve as the infra surface shifts; the rule + script pair stays.
 
 ## Drain guards (class c — terminal state, delete when zero)
 

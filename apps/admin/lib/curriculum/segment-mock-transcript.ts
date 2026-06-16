@@ -48,31 +48,38 @@ export type TranscriptSegment = {
 };
 
 /**
- * Per-slug ordered regex patterns. Each pattern targets phrases the
- * tutor reliably uses to introduce a part. Patterns are intentionally
- * conservative — false positives (treating a casual mention as a
- * boundary) corrupt downstream scoring, while false negatives just
- * trigger the AI fallback.
+ * Compile DB-supplied cue strings into per-slug ordered RegExp arrays.
  *
- * Ordered: the matcher walks slugs left-to-right; the first match per
- * slug after the previous boundary becomes that slug's start. This
- * guards against "Part 2" appearing inside a Part 3 question.
+ * Each entry in `slugToCues` is treated as a regex SOURCE (not a literal
+ * string) so authors can use alternation / character classes / `\s+`.
+ * Authors who want literal matching must escape metacharacters themselves
+ * — same contract as `new RegExp(source, "i")` everywhere else.
+ *
+ * When a slug has no DB-supplied cues, fall back to `\b<escapedSlug>\b`
+ * so a non-IELTS course (whose transcripts mention "history" / "examination"
+ * verbatim) still gets a reasonable first-pass match. The AI fallback
+ * covers everything the fallback regex misses.
+ *
+ * Patterns deliberately omit the trailing `\b` because some cue phrases
+ * end in punctuation (`say:`, `card:`) where the regex engine would fail
+ * to find a word boundary between `:` and the following whitespace.
  */
-// Patterns deliberately omit the trailing `\b` because some cue
-// phrases end in punctuation (`say:`, `card:`) where the regex engine
-// would fail to find a word boundary between `:` and the following
-// whitespace.
-const HEURISTIC_PATTERNS: Record<string, RegExp[]> = {
-  part1: [
-    /\b(let'?s\s+(?:start|begin)\s+with\s+part\s*1|part\s*1\s*\.\s*[A-Z]|now\s+(?:in|for)\s+part\s*1|i'?ll?\s+ask\s+you\s+some\s+(?:general|familiar)\s+questions)/i,
-  ],
-  part2: [
-    /\b(now\s+(?:let'?s\s+)?(?:move\s+(?:on\s+)?to|move\s+into|turn\s+to|go\s+to)\s+part\s*2|let'?s\s+(?:start|begin)\s+part\s*2|here'?s?\s+your\s+(?:cue\s+card|topic\s+card)|i'?ll?\s+(?:now\s+)?(?:give|hand)\s+you\s+(?:a|your)\s+(?:cue|topic)\s+card|you'?ll?\s+have\s+(?:one\s+minute|1\s+minute)\s+to\s+prepare|describe\s+a\s+[a-z]+\s+(?:you|that)|you\s+should\s+say)/i,
-  ],
-  part3: [
-    /\b(now\s+(?:let'?s\s+)?(?:move\s+(?:on\s+)?to|move\s+into|turn\s+to|go\s+to)\s+part\s*3|let'?s\s+(?:start|begin)\s+part\s*3|i'?d?\s+like\s+to\s+(?:discuss|talk\s+about)\s+(?:some\s+)?(?:more\s+)?(?:general|abstract|broader)|let'?s\s+(?:now\s+)?(?:discuss|talk\s+about)\s+(?:this|the\s+topic)\s+more\s+(?:broadly|generally|abstractly)|now\s+we'?ll?\s+discuss|now\s+(?:i'?d?\s+like\s+to\s+)?(?:explore|consider)\s+(?:some\s+)?broader)/i,
-  ],
-};
+function compileCuesToPatterns(
+  slugToCues: Record<string, string[]> | undefined,
+  coversModuleSlugs: string[],
+): Record<string, RegExp[]> {
+  const out: Record<string, RegExp[]> = {};
+  for (const slug of coversModuleSlugs) {
+    const cues = slugToCues?.[slug];
+    if (cues && cues.length > 0) {
+      out[slug] = cues.map((src) => new RegExp(src, "i"));
+    } else {
+      const escaped = slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      out[slug] = [new RegExp(`\\b${escaped}\\b`, "i")];
+    }
+  }
+  return out;
+}
 
 /**
  * Find the start offset for each slug using ordered regex. Returns a
@@ -83,12 +90,13 @@ const HEURISTIC_PATTERNS: Record<string, RegExp[]> = {
 function findHeuristicBoundaries(
   transcript: string,
   coversModuleSlugs: string[],
+  slugToPatterns: Record<string, RegExp[]>,
 ): Map<string, number> {
   const boundaries = new Map<string, number>();
   let searchFrom = 0;
 
   for (const slug of coversModuleSlugs) {
-    const patterns = HEURISTIC_PATTERNS[slug];
+    const patterns = slugToPatterns[slug];
     if (!patterns || patterns.length === 0) continue;
 
     for (const pattern of patterns) {
@@ -254,6 +262,14 @@ export interface SegmentMockTranscriptOptions {
   transcript: string;
   /** Ordered slug list — first slug owns the transcript prefix. */
   coversModuleSlugs: string[];
+  /**
+   * Per-slug cue strings sourced from `CurriculumModule.segmentCues`. Each
+   * cue is a regex source compiled with the `i` flag. When a slug is absent
+   * (or its array empty), the segmenter falls back to `\b<slug>\b` — safe
+   * default for new courses authored without explicit cues. IELTS Mock
+   * relies on the seed populating this map; see `prisma/seed-ielts-course.ts`.
+   */
+  slugToCues?: Record<string, string[]>;
   engine: AIEngine;
   log: PipelineLogger;
 }
@@ -267,16 +283,18 @@ export interface SegmentMockTranscriptOptions {
 export async function segmentMockTranscript(
   options: SegmentMockTranscriptOptions,
 ): Promise<TranscriptSegment[]> {
-  const { transcript, coversModuleSlugs, engine, log } = options;
+  const { transcript, coversModuleSlugs, slugToCues, engine, log } = options;
 
   if (coversModuleSlugs.length === 0) return [];
   if (transcript.trim().length === 0) return [];
+
+  const slugToPatterns = compileCuesToPatterns(slugToCues, coversModuleSlugs);
 
   // Phase 1 — heuristic. Skip AI only when ALL N slugs were found via
   // regex; if even one is missing, ask the AI to fill the gap. This
   // preserves the common case (clean transcripts → no AI cost) while
   // recovering from a single missing cue.
-  const heuristicBoundaries = findHeuristicBoundaries(transcript, coversModuleSlugs);
+  const heuristicBoundaries = findHeuristicBoundaries(transcript, coversModuleSlugs, slugToPatterns);
 
   if (heuristicBoundaries.size === coversModuleSlugs.length) {
     const segments = buildSegmentsFromBoundaries(
@@ -330,5 +348,5 @@ export const __internals = {
   findHeuristicBoundaries,
   buildSegmentsFromBoundaries,
   validateAndExtractBoundaries,
-  HEURISTIC_PATTERNS,
+  compileCuesToPatterns,
 };

@@ -218,6 +218,34 @@ export async function main(prisma: PrismaClient): Promise<void> {
     if (mockSet.count > 0) {
       console.log(`  Mock module coversModules → [part1, part2, part3] (${mockSet.count} row)`);
     }
+
+    // #1785 — Per-sub-module segmentation cues for `segmentMockTranscript`.
+    // Mirror the legacy IELTS-hardcoded `HEURISTIC_PATTERNS` so behaviour
+    // matches pre-refactor exactly. Each cue string is a regex SOURCE
+    // (alternation / `\s+` / `\b`); the segmenter compiles with the `i`
+    // flag. Patterns deliberately omit a trailing `\b` because some cue
+    // phrases end in punctuation (`say:`, `card:`) — see
+    // `lib/curriculum/segment-mock-transcript.ts` header.
+    const IELTS_SEGMENT_CUES: Record<string, string[]> = {
+      part1: [
+        "\\b(let'?s\\s+(?:start|begin)\\s+with\\s+part\\s*1|part\\s*1\\s*\\.\\s*[A-Z]|now\\s+(?:in|for)\\s+part\\s*1|i'?ll?\\s+ask\\s+you\\s+some\\s+(?:general|familiar)\\s+questions)",
+      ],
+      part2: [
+        "\\b(now\\s+(?:let'?s\\s+)?(?:move\\s+(?:on\\s+)?to|move\\s+into|turn\\s+to|go\\s+to)\\s+part\\s*2|let'?s\\s+(?:start|begin)\\s+part\\s*2|here'?s?\\s+your\\s+(?:cue\\s+card|topic\\s+card)|i'?ll?\\s+(?:now\\s+)?(?:give|hand)\\s+you\\s+(?:a|your)\\s+(?:cue|topic)\\s+card|you'?ll?\\s+have\\s+(?:one\\s+minute|1\\s+minute)\\s+to\\s+prepare|describe\\s+a\\s+[a-z]+\\s+(?:you|that)|you\\s+should\\s+say)",
+      ],
+      part3: [
+        "\\b(now\\s+(?:let'?s\\s+)?(?:move\\s+(?:on\\s+)?to|move\\s+into|turn\\s+to|go\\s+to)\\s+part\\s*3|let'?s\\s+(?:start|begin)\\s+part\\s*3|i'?d?\\s+like\\s+to\\s+(?:discuss|talk\\s+about)\\s+(?:some\\s+)?(?:more\\s+)?(?:general|abstract|broader)|let'?s\\s+(?:now\\s+)?(?:discuss|talk\\s+about)\\s+(?:this|the\\s+topic)\\s+more\\s+(?:broadly|generally|abstractly)|now\\s+we'?ll?\\s+discuss|now\\s+(?:i'?d?\\s+like\\s+to\\s+)?(?:explore|consider)\\s+(?:some\\s+)?broader)",
+      ],
+    };
+    for (const [slug, cues] of Object.entries(IELTS_SEGMENT_CUES)) {
+      const cuesSet = await prisma.curriculumModule.updateMany({
+        where: { curriculumId: ieltsCurriculum.id, slug },
+        data: { segmentCues: cues },
+      });
+      if (cuesSet.count > 0) {
+        console.log(`  ${slug} segmentCues populated (${cuesSet.count} row)`);
+      }
+    }
   }
 
   // ── 5. CONTENT-role spec for trust-weighted certification progress (#457) ──

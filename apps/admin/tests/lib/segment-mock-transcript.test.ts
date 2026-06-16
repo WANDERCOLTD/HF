@@ -32,6 +32,22 @@ function makeLog() {
   } as any;
 }
 
+// Mirror of `prisma/seed-ielts-course.ts::IELTS_SEGMENT_CUES`. The
+// production segmenter is course-agnostic (#1785) — these cues live in
+// `CurriculumModule.segmentCues` and the seed populates them. Tests load
+// them inline so the test bank is independent of the DB seed.
+const IELTS_CUES: Record<string, string[]> = {
+  part1: [
+    "\\b(let'?s\\s+(?:start|begin)\\s+with\\s+part\\s*1|part\\s*1\\s*\\.\\s*[A-Z]|now\\s+(?:in|for)\\s+part\\s*1|i'?ll?\\s+ask\\s+you\\s+some\\s+(?:general|familiar)\\s+questions)",
+  ],
+  part2: [
+    "\\b(now\\s+(?:let'?s\\s+)?(?:move\\s+(?:on\\s+)?to|move\\s+into|turn\\s+to|go\\s+to)\\s+part\\s*2|let'?s\\s+(?:start|begin)\\s+part\\s*2|here'?s?\\s+your\\s+(?:cue\\s+card|topic\\s+card)|i'?ll?\\s+(?:now\\s+)?(?:give|hand)\\s+you\\s+(?:a|your)\\s+(?:cue|topic)\\s+card|you'?ll?\\s+have\\s+(?:one\\s+minute|1\\s+minute)\\s+to\\s+prepare|describe\\s+a\\s+[a-z]+\\s+(?:you|that)|you\\s+should\\s+say)",
+  ],
+  part3: [
+    "\\b(now\\s+(?:let'?s\\s+)?(?:move\\s+(?:on\\s+)?to|move\\s+into|turn\\s+to|go\\s+to)\\s+part\\s*3|let'?s\\s+(?:start|begin)\\s+part\\s*3|i'?d?\\s+like\\s+to\\s+(?:discuss|talk\\s+about)\\s+(?:some\\s+)?(?:more\\s+)?(?:general|abstract|broader)|let'?s\\s+(?:now\\s+)?(?:discuss|talk\\s+about)\\s+(?:this|the\\s+topic)\\s+more\\s+(?:broadly|generally|abstractly)|now\\s+we'?ll?\\s+discuss|now\\s+(?:i'?d?\\s+like\\s+to\\s+)?(?:explore|consider)\\s+(?:some\\s+)?broader)",
+  ],
+};
+
 describe("segmentMockTranscript — heuristic path", () => {
   beforeEach(() => {
     mockGetConfiguredMeteredAICompletion.mockReset();
@@ -50,6 +66,7 @@ describe("segmentMockTranscript — heuristic path", () => {
     const segments = await segmentMockTranscript({
       transcript,
       coversModuleSlugs: ["part1", "part2", "part3"],
+      slugToCues: IELTS_CUES,
       engine: "claude",
       log: makeLog(),
     });
@@ -90,6 +107,7 @@ describe("segmentMockTranscript — heuristic path", () => {
     const segments = await segmentMockTranscript({
       transcript,
       coversModuleSlugs: ["part1", "part2", "part3"],
+      slugToCues: IELTS_CUES,
       engine: "claude",
       log: makeLog(),
     });
@@ -121,6 +139,7 @@ describe("segmentMockTranscript — AI fallback validation", () => {
     const segments = await segmentMockTranscript({
       transcript,
       coversModuleSlugs: ["part1", "part2", "part3"],
+      slugToCues: IELTS_CUES,
       engine: "claude",
       log: makeLog(),
     });
@@ -139,6 +158,7 @@ describe("segmentMockTranscript — AI fallback validation", () => {
     const segments = await segmentMockTranscript({
       transcript,
       coversModuleSlugs: ["part1", "part2", "part3"],
+      slugToCues: IELTS_CUES,
       engine: "claude",
       log: makeLog(),
     });
@@ -234,6 +254,12 @@ describe("segmentMockTranscript — Part 2 cue card phrases", () => {
     mockGetConfiguredMeteredAICompletion.mockReset();
   });
 
+  const IELTS_PATTERNS = __internals.compileCuesToPatterns(IELTS_CUES, [
+    "part1",
+    "part2",
+    "part3",
+  ]);
+
   it("Part 2 detected via 'Here's your cue card'", () => {
     const transcript =
       "Assistant: Let's start with Part 1. Hello.\n" +
@@ -242,7 +268,11 @@ describe("segmentMockTranscript — Part 2 cue card phrases", () => {
       "User: Okay.\n" +
       "Assistant: Now let's move to Part 3. Final question.\n" +
       "User: Sure.";
-    const boundaries = __internals.findHeuristicBoundaries(transcript, ["part1", "part2", "part3"]);
+    const boundaries = __internals.findHeuristicBoundaries(
+      transcript,
+      ["part1", "part2", "part3"],
+      IELTS_PATTERNS,
+    );
     expect(boundaries.has("part1")).toBe(true);
     expect(boundaries.has("part2")).toBe(true);
     expect(boundaries.has("part3")).toBe(true);
@@ -253,8 +283,80 @@ describe("segmentMockTranscript — Part 2 cue card phrases", () => {
       "Assistant: Let's start with Part 1. Hello.\n" +
       "Assistant: Describe a person. You should say: who they are.\n" +
       "Assistant: Now let's move to Part 3.";
-    const boundaries = __internals.findHeuristicBoundaries(transcript, ["part1", "part2", "part3"]);
+    const boundaries = __internals.findHeuristicBoundaries(
+      transcript,
+      ["part1", "part2", "part3"],
+      IELTS_PATTERNS,
+    );
     expect(boundaries.size).toBeGreaterThanOrEqual(2);
     expect(boundaries.has("part2")).toBe(true);
+  });
+});
+
+describe("segmentMockTranscript — #1785 course-agnostic cues", () => {
+  beforeEach(() => {
+    mockGetConfiguredMeteredAICompletion.mockReset();
+  });
+
+  it("non-IELTS course with custom DB-supplied cues segments by those cues", async () => {
+    // A hypothetical driving-test Mock that walks through theory → manoeuvres → drive.
+    const transcript = [
+      "Assistant: We'll start with the theory section. What does a red triangle sign mean?",
+      "User: A warning of hazard ahead.",
+      "Assistant: Now let's run the manoeuvres section. Parallel park here.",
+      "User: Okay, reversing now.",
+      "Assistant: Finally we'll do the open-road drive. Pull out when safe.",
+      "User: Right.",
+    ].join("\n\n");
+
+    const drivingCues: Record<string, string[]> = {
+      theory: ["\\btheory\\s+section\\b"],
+      manoeuvres: ["\\bmanoeuvres\\s+section\\b"],
+      drive: ["\\bopen-road\\s+drive\\b"],
+    };
+
+    const segments = await segmentMockTranscript({
+      transcript,
+      coversModuleSlugs: ["theory", "manoeuvres", "drive"],
+      slugToCues: drivingCues,
+      engine: "claude",
+      log: makeLog(),
+    });
+
+    expect(segments.map((s) => s.slug)).toEqual(["theory", "manoeuvres", "drive"]);
+    expect(segments.every((s) => s.method === "heuristic")).toBe(true);
+    expect(mockGetConfiguredMeteredAICompletion).not.toHaveBeenCalled();
+  });
+
+  it("empty slugToCues — falls back to \\bslug\\b regex per slug", () => {
+    const patterns = __internals.compileCuesToPatterns(undefined, ["intro", "core", "wrap-up"]);
+
+    expect(patterns.intro).toHaveLength(1);
+    // The fallback `\b<slug>\b` is a word-boundary match: the bare token
+    // "intro" matches, but "introduction" does NOT (no word boundary
+    // between "intro" and "duction").
+    expect("now intro begins".match(patterns.intro[0])).toBeTruthy();
+    expect("INTRO section".match(patterns.intro[0])).toBeTruthy();
+    expect("introduction matches".match(patterns.intro[0])).toBeNull();
+    // "wrap-up" — `-` is a regex metachar; the fallback escapes it so
+    // the literal slug "wrap-up" matches.
+    expect("then wrap-up follows".match(patterns["wrap-up"][0])).toBeTruthy();
+    // Non-matching word stays non-matching.
+    expect("kernel".match(patterns.core[0])).toBeNull();
+  });
+
+  it("slug absent from slugToCues — fallback regex used for that slug only", () => {
+    const partial: Record<string, string[]> = {
+      part1: ["\\bcustom\\s+part\\s*1\\b"],
+      // part2 absent → falls back to \bpart2\b
+    };
+    const patterns = __internals.compileCuesToPatterns(partial, ["part1", "part2"]);
+    expect(patterns.part1[0].source).toContain("custom");
+    expect(patterns.part2[0].source).toBe("\\bpart2\\b");
+  });
+
+  it("empty cues array for a slug — uses fallback", () => {
+    const patterns = __internals.compileCuesToPatterns({ part1: [] }, ["part1"]);
+    expect(patterns.part1[0].source).toBe("\\bpart1\\b");
   });
 });

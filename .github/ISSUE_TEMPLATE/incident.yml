@@ -1,0 +1,82 @@
+name: Production Incident
+description: Active or recent PROD impact. Auto-tags `incident`; triggers post-mortem flow per CLAUDE.md.
+title: "incident: <one-line summary> (YYYY-MM-DD)"
+labels: ["incident", "sev-2"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > 🚨 **If this is sev-1 (PROD down / data corruption) — fix first, file second.**
+        >
+        > After the bleed stops:
+        > 1. Roll back: `gcloud run services update-traffic hf-admin --to-revisions=PREV=100 --region=europe-west2`
+        > 2. Then file this issue.
+        > 3. Then run the `post-mortem` agent within 24h.
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment impacted
+      options:
+        - PROD (`lab.humanfirstfoundation.com`)
+        - TEST (`test.humanfirstfoundation.com`)
+        - DEV (`dev.humanfirstfoundation.com`)
+        - Multiple
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - sev-1 (PROD down / data corruption / security breach)
+        - sev-2 (PROD impaired but usable)
+        - sev-3 (DEV/TEST only)
+    validations:
+      required: true
+
+  - type: input
+    id: window
+    attributes:
+      label: Time window (UTC)
+      description: When did impact start and end (or is it ongoing)?
+      placeholder: "2026-06-16T14:30Z → ongoing"
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: User-visible impact
+      description: Who saw what? How many callers / sessions / dollars affected?
+    validations:
+      required: true
+
+  - type: textarea
+    id: immediate_fix
+    attributes:
+      label: Immediate fix applied
+      description: What stopped the bleed? (rollback / disabled flag / DB restore)
+    validations:
+      required: true
+
+  - type: textarea
+    id: root_cause
+    attributes:
+      label: Root cause (TBD if not yet known)
+      description: Fill in or update once `post-mortem` agent has run.
+
+  - type: textarea
+    id: prevention
+    attributes:
+      label: Prevention work
+      description: Action items to prevent recurrence. File each as a separate issue and link here.
+
+  - type: textarea
+    id: runbook
+    attributes:
+      label: Runbook used (if any)
+      description: |
+        e.g. `docs/runbooks/RB-DR-S1-BAD-MIGRATION-PITR.md` ·
+        If a runbook was outdated / wrong, file a `dr-gap` issue against it within 24h per DR-POSTURE.md.
