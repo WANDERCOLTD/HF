@@ -295,12 +295,13 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   // These will graduate to covered as each contract lands. The exempt
   // entry exists so CI doesn't block the structural test ship while we
   // queue the contract-add PRs.
-  "sessionFlow.intake.goals":
-    "catch-up: intakeGoals contract pending (A_intake bucket)",
-  "sessionFlow.intake.aiIntroCall":
-    "catch-up: intakeAiIntroCall contract pending (A_intake bucket) — user spotted",
-  "sessionFlow.intake.knowledgeCheck.deliveryMode":
-    "catch-up: intakeKnowledgeCheckMode contract pending (A_intake bucket)",
+  // ── A_intake — graduated to contracts (Lane 3 PR1) ───────────────
+  // The 3 A_intake catch-up exempts moved into the registry:
+  //   - intakeGoals → sessionFlow.intake.goals
+  //   - intakeAiIntroCall → sessionFlow.intake.aiIntroCall (user-spotted gap)
+  //   - intakeKnowledgeCheckMode → sessionFlow.intake.knowledgeCheck.deliveryMode
+  // Coverage is satisfied via getStoragePathString lookup over
+  // JOURNEY_SETTINGS.
   "config.firstCallCourseIntro":
     "catch-up: firstCallCourseIntro contract pending (B_call1_opening bucket) — #1403",
   "config.firstCallWaitForAck":
@@ -504,7 +505,9 @@ describe("Registry ↔ Schema coverage — 5th Lattice piece", () => {
     const catchUpCount = Array.from(exempt).filter((path) =>
       REGISTRY_EXEMPT_PATHS[path]?.startsWith("catch-up:"),
     ).length;
-    const BASELINE_CATCH_UP_CEILING = 36;
+    // Lane 3 PR1 (A_intake) — ratchet dropped 36 → 33 as the 3 A_intake
+    // exempts graduated to contracts.
+    const BASELINE_CATCH_UP_CEILING = 33;
     expect(
       catchUpCount,
       `catch-up exempts: ${catchUpCount} (ceiling ${BASELINE_CATCH_UP_CEILING}). If this went UP, you exempted a new field — add the contract instead.`,
