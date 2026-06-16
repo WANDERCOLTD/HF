@@ -39,6 +39,12 @@ import { resolveAllSkillsForPlaybook } from "@/lib/curriculum/resolve-skill";
 import { isUseFreshMastery } from "@/lib/curriculum/playbook-mastery-config";
 import { getSkillTierMapping, scoreToTier } from "@/lib/goals/track-progress";
 import { getCourseStyle } from "@/lib/pipeline/course-style";
+import {
+  computeTalkTimeStats,
+  evaluateTalkTimeBudgets,
+  type TalkTimeStats,
+  type TalkTimeEvaluation,
+} from "@/lib/voice/talk-time-stats";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 export interface AttainmentSkillBand {
@@ -111,6 +117,23 @@ export interface AttainmentModuleProgress {
   freshMasteryActive: boolean;
 }
 
+/**
+ * #1747 follow-on — most-recent call's talk-time telemetry. Surfaces the
+ * yellow chip in AttainmentTab when the most recent VOICE_CALL / SIM_CALL
+ * exceeded `Playbook.config.talkTimeBudgets` (or defaults). `null` when
+ * the caller has no recent transcript-bearing session.
+ *
+ * Read-side only — the durable emission is the AppLog
+ * `voice.talk_time.over_budget` from endSession.
+ */
+export interface AttainmentRecentCallTalkTime {
+  sessionId: string;
+  kind: string;
+  startedAt: string;
+  evaluation: TalkTimeEvaluation;
+  stats: TalkTimeStats;
+}
+
 export interface AttainmentResponse {
   callerId: string;
   callerName: string | null;
@@ -122,6 +145,8 @@ export interface AttainmentResponse {
   skillBands: AttainmentSkillBand[];
   modules: AttainmentModuleProgress[];
   goals: AttainmentGoal[];
+  /** #1747 follow-on — null when no recent voice/sim session with transcript. */
+  recentCallTalkTime: AttainmentRecentCallTalkTime | null;
   empty: boolean;
 }
 
@@ -384,6 +409,14 @@ export async function GET(
     trail: buildGoalTrail(g.progressMetrics),
   }));
 
+  // ── #1747 follow-on — most-recent call's talk-time telemetry ──────────────
+  // Reads the most recent VOICE_CALL / SIM_CALL Session for this caller that
+  // has a transcript, computes stats lazily, evaluates against the playbook's
+  // `talkTimeBudgets` (falls back to defaults). Returns null when there's no
+  // qualifying session. Best-effort — any compute failure returns null
+  // rather than failing the whole Attainment response.
+  const recentCallTalkTime = await loadRecentCallTalkTime(callerId, playbookId);
+
   return NextResponse.json({
     callerId,
     callerName: caller.name,
@@ -393,6 +426,63 @@ export async function GET(
     skillBands,
     modules,
     goals,
+    recentCallTalkTime,
     empty: skills.length === 0 && modules.length === 0 && goals.length === 0,
   } satisfies AttainmentResponse);
+}
+
+/**
+ * Fetch the most recent voice/sim Session with a transcript and compute
+ * talk-time telemetry. Returns null on any miss (no session, empty
+ * transcript, compute failure). Best-effort — does NOT throw.
+ */
+async function loadRecentCallTalkTime(
+  callerId: string,
+  playbookId: string | null,
+): Promise<AttainmentRecentCallTalkTime | null> {
+  if (!playbookId) return null;
+  try {
+    const session = await prisma.session.findFirst({
+      where: {
+        callerId,
+        kind: { in: ["VOICE_CALL", "SIM_CALL"] },
+        call: { transcript: { not: null } },
+      },
+      orderBy: { startedAt: "desc" },
+      select: {
+        id: true,
+        kind: true,
+        startedAt: true,
+        call: { select: { transcript: true } },
+      },
+    });
+    if (!session?.call?.transcript) return null;
+
+    const stats = computeTalkTimeStats(session.call.transcript);
+    if (stats.tutorTurnCount === 0 && stats.learnerTurnCount === 0) {
+      return null;
+    }
+
+    const playbook = await prisma.playbook.findUnique({
+      where: { id: playbookId },
+      select: { config: true },
+    });
+    const budgets =
+      (playbook?.config as PlaybookConfig | null)?.talkTimeBudgets ?? null;
+    const evaluation = evaluateTalkTimeBudgets(stats, budgets);
+
+    return {
+      sessionId: session.id,
+      kind: session.kind,
+      startedAt: session.startedAt.toISOString(),
+      evaluation,
+      stats,
+    };
+  } catch (err) {
+    console.error(
+      `[attainment] talk-time read failed for caller ${callerId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+    return null;
+  }
 }
