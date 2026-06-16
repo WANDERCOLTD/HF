@@ -468,7 +468,11 @@ export async function GET(
     goals,
     recentCallTalkTime,
     profile,
-    empty: skills.length === 0 && modules.length === 0 && goals.length === 0,
+    empty:
+      skills.length === 0 &&
+      modules.length === 0 &&
+      goals.length === 0 &&
+      profile.length === 0,
   } satisfies AttainmentResponse);
 }
 

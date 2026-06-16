@@ -13,7 +13,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const mockAICompletion = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { callerAttribute: { upsert: vi.fn() } },
+  prisma: {
+    callerAttribute: { upsert: vi.fn() },
+    playbook: { findUnique: vi.fn() },
+    curriculumModule: { findUnique: vi.fn() },
+  },
 }));
 vi.mock("@/lib/metering/instrumented-ai", () => ({
   getConfiguredMeteredAICompletion: (...args: any[]) => mockAICompletion(...args),
@@ -27,6 +31,7 @@ import { prisma } from "@/lib/prisma";
 import { log as appLog } from "@/lib/logger";
 import {
   extractProfileFields,
+  resolveProfileFieldsForCall,
   coerceProfileValue,
   isWhitelistedProfileKey,
   PROFILE_SCOPE,
@@ -180,6 +185,125 @@ describe("coerceProfileValue — type validation", () => {
     expect(coerceProfileValue("number", "3")).toEqual({ ok: true, valueType: "NUMBER", value: 3 });
     expect(coerceProfileValue("text", "  hi  ")).toEqual({ ok: true, valueType: "STRING", value: "hi" });
     expect(coerceProfileValue("text", "   ")).toEqual({ ok: false, reason: "empty_text" });
+  });
+});
+
+describe("resolveProfileFieldsForCall — operator-editable JSON defence", () => {
+  const mockedPlaybookFind = prisma.playbook.findUnique as unknown as ReturnType<typeof vi.fn>;
+  const mockedModuleFind = prisma.curriculumModule.findUnique as unknown as ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockedPlaybookFind.mockReset();
+    mockedModuleFind.mockReset();
+  });
+
+  it("returns [] when the flag is off (no DB read)", async () => {
+    delete process.env.HF_FLAG_IELTS_MODULE_SETTINGS;
+    const out = await resolveProfileFieldsForCall({
+      playbookId: "pb-1",
+      curriculumModuleId: "cm-1",
+    });
+    expect(out).toEqual([]);
+    expect(mockedPlaybookFind).not.toHaveBeenCalled();
+    expect(mockedModuleFind).not.toHaveBeenCalled();
+  });
+
+  it("returns [] when playbookId or curriculumModuleId is missing", async () => {
+    expect(
+      await resolveProfileFieldsForCall({ playbookId: null, curriculumModuleId: "cm-1" }),
+    ).toEqual([]);
+    expect(
+      await resolveProfileFieldsForCall({ playbookId: "pb-1", curriculumModuleId: undefined }),
+    ).toEqual([]);
+    expect(mockedPlaybookFind).not.toHaveBeenCalled();
+    expect(mockedModuleFind).not.toHaveBeenCalled();
+  });
+
+  it("returns [] when the authored module declares no profileFieldsToCapture", async () => {
+    mockedPlaybookFind.mockResolvedValue({
+      config: { modules: [{ id: "mod-slug", settings: {} }] },
+    });
+    mockedModuleFind.mockResolvedValue({ slug: "mod-slug" });
+
+    const out = await resolveProfileFieldsForCall({
+      playbookId: "pb-1",
+      curriculumModuleId: "cm-1",
+    });
+    expect(out).toEqual([]);
+  });
+
+  it("returns [] when the bound module's slug doesn't match any authored module", async () => {
+    mockedPlaybookFind.mockResolvedValue({
+      config: {
+        modules: [
+          {
+            id: "other-slug",
+            settings: {
+              profileFieldsToCapture: [
+                { key: "profile:reason", prompt: "Why?", type: "text" },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    mockedModuleFind.mockResolvedValue({ slug: "mod-slug" });
+
+    const out = await resolveProfileFieldsForCall({
+      playbookId: "pb-1",
+      curriculumModuleId: "cm-1",
+    });
+    expect(out).toEqual([]);
+  });
+
+  it("filters malformed entries from operator-editable JSON (Phase 1 JourneyJsonFallback)", async () => {
+    mockedPlaybookFind.mockResolvedValue({
+      config: {
+        modules: [
+          {
+            id: "mod-slug",
+            settings: {
+              profileFieldsToCapture: [
+                { key: "profile:reason", prompt: "Why?", type: "text" },
+                { key: "profile:targetBand", prompt: "Band?", type: "band" },
+                { key: "profile:bad", prompt: "x", type: "boolean" },
+                { key: 42, prompt: "x", type: "text" },
+                { prompt: "no key", type: "text" },
+                null,
+                "not-an-object",
+              ],
+            },
+          },
+        ],
+      },
+    });
+    mockedModuleFind.mockResolvedValue({ slug: "mod-slug" });
+
+    const out = await resolveProfileFieldsForCall({
+      playbookId: "pb-1",
+      curriculumModuleId: "cm-1",
+    });
+    expect(out).toEqual([
+      { key: "profile:reason", prompt: "Why?", type: "text" },
+      { key: "profile:targetBand", prompt: "Band?", type: "band" },
+    ]);
+  });
+
+  it("returns [] when profileFieldsToCapture is not an array", async () => {
+    mockedPlaybookFind.mockResolvedValue({
+      config: {
+        modules: [
+          { id: "mod-slug", settings: { profileFieldsToCapture: "oops not an array" } },
+        ],
+      },
+    });
+    mockedModuleFind.mockResolvedValue({ slug: "mod-slug" });
+
+    const out = await resolveProfileFieldsForCall({
+      playbookId: "pb-1",
+      curriculumModuleId: "cm-1",
+    });
+    expect(out).toEqual([]);
   });
 });
 
