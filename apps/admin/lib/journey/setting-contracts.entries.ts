@@ -244,6 +244,85 @@ const G2_WELCOME_MESSAGE: JourneySettingContract = {
   previewLocators: [{ section: "welcome", hint: "first paragraph" }],
 };
 
+// Lane 3 PR2 — B_call1_opening contracts (catch-up follow-on from #1780).
+
+const G2_FIRST_CALL_COURSE_INTRO: JourneySettingContract = {
+  id: "firstCallCourseIntro",
+  menuGroupKey: "B_call1_opening",
+  group: "G2",
+  educatorLabel: "First-call intro line",
+  helpText:
+    "Optional intro line spoken AFTER the welcomeMessage + wait-for-ack gate. Supports the `{courseName}` token. Keeps Call 1 framing consistent across cohorts. (#1403)",
+  storagePath: "config.firstCallCourseIntro",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["welcome"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "welcome", hint: "second paragraph" }],
+};
+
+const G2_FIRST_CALL_WAIT_FOR_ACK: JourneySettingContract = {
+  id: "firstCallWaitForAck",
+  menuGroupKey: "B_call1_opening",
+  group: "G2",
+  educatorLabel: "Wait after opening",
+  helpText:
+    "How the AI handles the pause after the welcomeMessage on Call 1. None / wait for any response / wait for greeting words. (#1403)",
+  storagePath: "config.firstCallWaitForAck",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["welcome"],
+    kinds: ["persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "welcome", hint: "ack-gate cue" }],
+  options: [
+    { value: "none", label: "No pause" },
+    { value: "any_response", label: "Wait for any response" },
+    { value: "greeting_words", label: "Wait for greeting words (default)" },
+  ],
+};
+
+const G2_FIRST_CALL_DURATION_OVERRIDE: JourneySettingContract = {
+  id: "firstCallDurationOverride",
+  menuGroupKey: "B_call1_opening",
+  group: "G2",
+  educatorLabel: "Call 1 duration override (minutes)",
+  helpText:
+    "Override Call 1 duration only. Calls 2+ use the standard durationMins. Useful for shorter assessment-only first calls. (#598)",
+  storagePath: "config.firstCall.durationMinsOverride",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["firstCallMode"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "firstCallMode", hint: "call-1 duration" }],
+};
+
+const G2_FIRST_CALL_INTRODUCE_PEDAGOGY: JourneySettingContract = {
+  id: "firstCallIntroducePedagogy",
+  menuGroupKey: "B_call1_opening",
+  group: "G2",
+  educatorLabel: "Introduce pedagogy on Call 1",
+  helpText:
+    "Whether the AI says \"here's how this works\" on Call 1. Off suppresses the pedagogy intro block. (#598)",
+  storagePath: "config.firstCall.introducePedagogy",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["firstCallMode", "onboarding"],
+    kinds: ["section-enable", "section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "onboarding", hint: "pedagogy intro" }],
+};
+
 const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
   id: "onboardingFlowPhases",
   menuGroupKey: "G_session_length",
@@ -1167,6 +1246,10 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   // G2 (6)
   G2_FIRST_CALL_MODE,
   G2_WELCOME_MESSAGE,
+  G2_FIRST_CALL_COURSE_INTRO,
+  G2_FIRST_CALL_WAIT_FOR_ACK,
+  G2_FIRST_CALL_DURATION_OVERRIDE,
+  G2_FIRST_CALL_INTRODUCE_PEDAGOGY,
   G2_ONBOARDING_FLOW_PHASES,
   G2_FIRST_CALL_TARGETS,
   G2_PRE_TEST_STOP,

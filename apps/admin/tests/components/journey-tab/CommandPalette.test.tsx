@@ -22,13 +22,13 @@ describe("CommandPalette — Phase 5 (#1706)", () => {
     expect(screen.getByTestId("hf-cmdk-input")).toBeInTheDocument();
   });
 
-  it("indexes all 66 settings (55 journey + 11 voice)", () => {
+  it("indexes all 70 settings (59 journey + 11 voice)", () => {
     // #1701 (Theme 1) added 6 G8 entries → journey 45 → 51 → palette 56 → 62.
     // #1747 (Theme 7) added talkTimeBudgets (G7) → journey 51 → 52 → palette 62 → 63.
     // Lane 3 PR1 added 3 A_intake (G1) entries → journey 52 → 55 → palette 63 → 66.
-    expect(JOURNEY_SETTINGS.length).toBe(55);
+    expect(JOURNEY_SETTINGS.length).toBe(59);
     expect(VOICE_SETTINGS.length).toBe(11);
-    expect(COMMAND_PALETTE_INDEX_SIZE).toBe(66);
+    expect(COMMAND_PALETTE_INDEX_SIZE).toBe(70);
   });
 
   it("typing narrows results by substring on educatorLabel", () => {
