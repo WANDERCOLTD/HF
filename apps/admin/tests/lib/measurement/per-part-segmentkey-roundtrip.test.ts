@@ -63,9 +63,25 @@ describe("per-part segmentKey round-trip (#1702)", () => {
       "User: Most people prefer fixed schedules.",
     ].join("\n\n");
 
+    // #1785 — segmenter is course-agnostic; production pipeline reads cues
+    // from `CurriculumModule.segmentCues`. This test mirrors the IELTS seed
+    // so the heuristic path matches part1/part2/part3 deterministically.
+    const IELTS_CUES: Record<string, string[]> = {
+      part1: [
+        "\\b(let'?s\\s+(?:start|begin)\\s+with\\s+part\\s*1|part\\s*1\\s*\\.\\s*[A-Z]|now\\s+(?:in|for)\\s+part\\s*1|i'?ll?\\s+ask\\s+you\\s+some\\s+(?:general|familiar)\\s+questions)",
+      ],
+      part2: [
+        "\\b(now\\s+(?:let'?s\\s+)?(?:move\\s+(?:on\\s+)?to|move\\s+into|turn\\s+to|go\\s+to)\\s+part\\s*2|let'?s\\s+(?:start|begin)\\s+part\\s*2|here'?s?\\s+your\\s+(?:cue\\s+card|topic\\s+card)|i'?ll?\\s+(?:now\\s+)?(?:give|hand)\\s+you\\s+(?:a|your)\\s+(?:cue|topic)\\s+card|you'?ll?\\s+have\\s+(?:one\\s+minute|1\\s+minute)\\s+to\\s+prepare|describe\\s+a\\s+[a-z]+\\s+(?:you|that)|you\\s+should\\s+say)",
+      ],
+      part3: [
+        "\\b(now\\s+(?:let'?s\\s+)?(?:move\\s+(?:on\\s+)?to|move\\s+into|turn\\s+to|go\\s+to)\\s+part\\s*3|let'?s\\s+(?:start|begin)\\s+part\\s*3|i'?d?\\s+like\\s+to\\s+(?:discuss|talk\\s+about)\\s+(?:some\\s+)?(?:more\\s+)?(?:general|abstract|broader)|let'?s\\s+(?:now\\s+)?(?:discuss|talk\\s+about)\\s+(?:this|the\\s+topic)\\s+more\\s+(?:broadly|generally|abstractly)|now\\s+we'?ll?\\s+discuss|now\\s+(?:i'?d?\\s+like\\s+to\\s+)?(?:explore|consider)\\s+(?:some\\s+)?broader)",
+      ],
+    };
+
     const segments = await segmentMockTranscript({
       transcript,
       coversModuleSlugs: ["part1", "part2", "part3"],
+      slugToCues: IELTS_CUES,
       engine: "claude",
       log: makeLog(),
     });

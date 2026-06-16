@@ -2790,6 +2790,15 @@ model CurriculumModule {
   terminal      Boolean  @default(false)
   coversModules String[]
 
+  // #1785 — Course-agnostic segmentation cues for the Mock transcript
+  // segmenter (`lib/curriculum/segment-mock-transcript.ts`). Per-curriculum
+  // tutor cue phrases that mark the start of THIS sub-module's segment in a
+  // multi-part Mock transcript. Default `[]` → segmenter falls back to a
+  // `\bslug\b` regex (preserves IELTS behaviour during the migration
+  // window). Authored in the curriculum spec (not the playbook variant);
+  // sibling to `coversModules` above.
+  segmentCues String[]
+
   // Lifecycle
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
