@@ -92,7 +92,7 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // intakeAiIntroCall, intakeKnowledgeCheckMode (catch-up follow-on
     // from #1780 coverage audit).
     expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(8);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(6);
+    expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
     expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(17);
     expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(3);
@@ -103,8 +103,8 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(6);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 55", () => {
-    expect(JOURNEY_SETTINGS.length).toBe(55);
+  it("(8) JOURNEY_SETTINGS.length === 59", () => {
+    expect(JOURNEY_SETTINGS.length).toBe(59);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

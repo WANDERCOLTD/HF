@@ -302,14 +302,12 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   //   - intakeKnowledgeCheckMode → sessionFlow.intake.knowledgeCheck.deliveryMode
   // Coverage is satisfied via getStoragePathString lookup over
   // JOURNEY_SETTINGS.
-  "config.firstCallCourseIntro":
-    "catch-up: firstCallCourseIntro contract pending (B_call1_opening bucket) — #1403",
-  "config.firstCallWaitForAck":
-    "catch-up: firstCallWaitForAck contract pending (B_call1_opening bucket) — #1403",
-  "config.firstCall.durationMinsOverride":
-    "catch-up: firstCallDurationOverride contract pending (B_call1_opening) — #598",
-  "config.firstCall.introducePedagogy":
-    "catch-up: firstCallIntroducePedagogy contract pending (B_call1_opening) — #598",
+  // ── B_call1_opening — graduated to contracts (Lane 3 PR2) ────────
+  // The 4 B_call1_opening catch-up exempts moved into the registry:
+  //   - firstCallCourseIntro → config.firstCallCourseIntro (#1403)
+  //   - firstCallWaitForAck → config.firstCallWaitForAck (#1403)
+  //   - firstCallDurationOverride → config.firstCall.durationMinsOverride (#598)
+  //   - firstCallIntroducePedagogy → config.firstCall.introducePedagogy (#598)
   "config.firstCall.firstCallModuleVisibility":
     "catch-up: overlaps moduleVisibility — needs disambiguation; #1405",
   "config.shareMaterials":
@@ -507,7 +505,9 @@ describe("Registry ↔ Schema coverage — 5th Lattice piece", () => {
     ).length;
     // Lane 3 PR1 (A_intake) — ratchet dropped 36 → 33 as the 3 A_intake
     // exempts graduated to contracts.
-    const BASELINE_CATCH_UP_CEILING = 33;
+    // Lane 3 PR2 (B_call1_opening) — ratchet dropped 33 → 29 as the 4
+    // B_call1_opening exempts graduated to contracts.
+    const BASELINE_CATCH_UP_CEILING = 29;
     expect(
       catchUpCount,
       `catch-up exempts: ${catchUpCount} (ceiling ${BASELINE_CATCH_UP_CEILING}). If this went UP, you exempted a new field — add the contract instead.`,
