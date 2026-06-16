@@ -44,16 +44,23 @@ import { substituteGreetingTokens } from "@/lib/prompt/composition/defaults/subs
 import type { DemoAnnotation, DemoScript } from "@/lib/types/json-fields";
 import type { ComposeSectionKey } from "@/lib/compose";
 
-/** Map from PreviewLens sidetray lens id → `ComposeSectionKey` for B.13.
- *  Only the 5 in-scope sections are listed; clicks on other lenses (e.g.
- *  `moduleVisibility`) leave the Designer Inspector untouched. The
- *  `stops` lens currently surfaces the NPS prompt — map to `nps`. */
-const SIDETRAY_LENS_TO_SECTION: Partial<Record<string, ComposeSectionKey>> = {
+/** Map from PreviewLens sidetray lens id → `ComposeSectionKey`.
+ *  Originally for #1623 Renderers v2 B.13 (5 sections). Extended in the
+ *  Slice C3 follow-on (#1738) to cover `moduleVisibility` → `modulesGate`
+ *  so the Journey-tab bucket pulse + bubble-click navigation reach
+ *  every lens emitted by PreviewLens. The `stops` lens currently
+ *  surfaces the NPS prompt — map to `nps`.
+ *
+ *  When adding a new lens key, also add a row here. The map is the
+ *  bridge between the PreviewLens emission and the Journey tab's
+ *  bucket model — gaps cause silent "click does nothing" UX. */
+export const SIDETRAY_LENS_TO_SECTION: Partial<Record<string, ComposeSectionKey>> = {
   intake: "intake",
   onboarding: "onboarding",
   offboarding: "offboarding",
   welcome: "welcome",
   stops: "nps",
+  moduleVisibility: "modulesGate",
 };
 
 interface PreviewLensProps {
