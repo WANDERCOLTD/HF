@@ -186,3 +186,29 @@ Your local machine never runs the dev server — it's edit + push only. The tunn
 When Paul says "🟢 merged + live on hf-dev" in a comment, that means his `/vm-cpp` has pulled + migrated + restarted, and the VM is at that commit. You `/vm-pull` to sync your VM (well — it's the same VM, so `/vm-pull` just refreshes the running process from origin main).
 
 Right. One VM, two devs, code meets there. The `/vm-*` commands are the bridge.
+
+---
+
+## Open decisions for Paul — raised by Boaz, 2026-06-16
+
+Two things to lock this workflow in as a durable working principle. **Your call on both** — answer inline + merge, or close with a comment.
+
+### 1. Commit boundary: docs vs code
+
+Boaz's understanding from you: he may commit/merge **docs** to `main` himself, but **code** reaches `main` only via a PR **you** merge. This doc's hard rules (never `main`, never `/vm-cpp`, rebase, Lattice) don't state a docs-vs-code *merge* boundary explicitly — and rule 23 says "if you merged your own [PR]", which reads as broader.
+
+**Decide one:**
+- **(a)** Docs = Boaz self-merges; **code = Paul-only merge.** (The stricter reading we're currently following — e.g. docs PR #1740 self-merged; code PRs #1739 / #1768 left for you.)
+- **(b)** Boaz may self-merge his own code PRs once green + CI passes.
+
+### 2. How far to enforce this workflow
+
+HF's own pattern is **Documented → Defaulted → Enforced** (the `lattice-survey.md` rule exists *because* a documented step got skipped). Pick the rung for this workflow:
+
+- **A — Doc only.** This file + a pointer in Boaz's personal `CLAUDE.local.md`. Relies on discipline.
+- **B — Doc + skill.** Add a load-on-demand `/vm-flow` skill holding the step-by-step so it doesn't bloat always-on context; principles stay in this doc.
+- **C — Doc + skill + hard guard.** Plus a **Boaz-only** `PreToolUse` hook (`.claude/settings.local.json`, never committed) that **blocks `/vm-cpp` and `prisma migrate*`** from Boaz's sessions — turning rule 26 ("Paul owns migrations") from prose into a wall, same mechanism as `git-lock-enforcer`.
+
+Boaz leans **C** (matches how HF already guards git), but defers to you since rule 26 and the migration line on the shared VM are yours. The skill + hook live on Boaz's machine (personal config), so this is your *blessing on the approach*, not work you implement.
+
+> _Posed via PR so it reaches you by review-request. Nothing in this PR changes code or behaviour — it only adds this section to your doc._
