@@ -1,17 +1,19 @@
 "use client";
 
 /**
- * CourseJourneyTab — Phase 4 + Phase 5 of epic #1675.
+ * CourseJourneyTab — Phase 4 of epic #1675, extended in Slice C (#1721).
  *
  * The new first tab on the Course Design page. Tri-pane shape:
- *   - LH: 7 group accordions + phase filter chips
- *   - Canvas: existing `<PreviewLens>` mounted read-only inline
- *   - RH: `<JourneyInspectorPanel>` mounting the selected setting's
- *         JourneyField primitive + cascade trace + Edit-as-JSON
+ *   - LH: 13 buckets grouped under G1..G7 visual section headers
+ *   - Canvas: existing `<PreviewLens>` mounted read-only inline + multi-
+ *     pulse + pick-strip
+ *   - RH: `<JourneyInspectorPanel>` stacks ALL settings in the selected
+ *     bucket; mixed-scope buckets split into Course/Module sub-groups
  *
- * Cmd+K opens the CommandPalette (Phase 5). Listener is scoped to the
- * tab root via `keydown` capture; Phase 5 Slice B will hoist it to
- * page-level for cross-tab activation.
+ * Bubble click → derive every bucket touching the section. If 1 →
+ * select. If 2+ → select the first chronologically AND render the pick-
+ * strip above the canvas so the educator can switch buckets without
+ * scrolling the LH.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,7 +21,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
 import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
 import type { ComposeSectionKey } from "@/lib/compose";
-import { getSettingsForSection } from "@/lib/journey/section-staleness-bridge";
+import { getBucketsForSection } from "@/lib/journey/bucket-relations";
+import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
 
 import { CommandPalette } from "./CommandPalette";
 import { JourneyInspectorPanel } from "./JourneyInspectorPanel";
@@ -40,15 +43,13 @@ export function CourseJourneyTab({
 }: CourseJourneyTabProps) {
   const selection = useJourneySelection();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [pickStripSection, setPickStripSection] = useState<ComposeSectionKey | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLElement>(null);
 
-  // #1698 — Inspector selection → pulse matching Preview bubble.
-  useBubblePulse(canvasRef, selection.settingId);
+  // Slice C — multi-pulse over all bucket sections.
+  useBubblePulse(canvasRef, selection.bucketId);
 
-  // Cmd+K (mac) / Ctrl+K (win/linux) opens the palette. Scoped to
-  // window since the palette is a modal overlay; Phase 5 Slice B will
-  // make this an explicit per-tab listener.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -60,24 +61,45 @@ export function CourseJourneyTab({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Cmd+K hit → setting id. Find its owning bucket + select. Clear the
+  // pick-strip in the same step (palette nav is a fresh user intent).
   const handlePaletteSelect = useCallback(
-    (id: string) => selection.setSettingId(id),
+    (settingId: string) => {
+      const owner = JOURNEY_SETTINGS_BY_ID[settingId];
+      if (owner?.menuGroupKey) {
+        selection.setBucketId(owner.menuGroupKey);
+        setPickStripSection(null);
+      }
+    },
     [selection],
   );
 
-  // Bubble click in PreviewLens → mount the first matching setting in
-  // the Inspector pane. Replaces the legacy click-to-edit sidetray
-  // (which we also suppress on PreviewLens below) so the educator
-  // never sees two overlapping editors.
+  // LH bucket click — clear pick-strip in the same step.
+  const handleLhSelect = useCallback(
+    (next: typeof selection.bucketId) => {
+      selection.setBucketId(next);
+      setPickStripSection(null);
+    },
+    [selection],
+  );
+
+  // Bubble click in PreviewLens → derive bucket(s) → select first
+  // chronologically AND set pick-strip when N≥2.
   const handlePreviewSectionSelect = useCallback(
     (section: ComposeSectionKey | null) => {
       if (!section) {
-        selection.setSettingId(null);
+        setPickStripSection(null);
         return;
       }
-      const settings = getSettingsForSection(section);
-      const first = settings[0];
-      if (first) selection.setSettingId(first.id);
+      const buckets = getBucketsForSection(section);
+      if (buckets.length === 0) {
+        setPickStripSection(null);
+        return;
+      }
+      // Always select the first chronologically — the strip is for
+      // changing the choice, not forcing one.
+      selection.setBucketId(buckets[0]);
+      setPickStripSection(buckets.length >= 2 ? section : null);
     },
     [selection],
   );
@@ -97,14 +119,18 @@ export function CourseJourneyTab({
           aria-label="Journey navigation"
         >
           <JourneyLhMenu
-            selectedSettingId={selection.settingId}
-            onSelectSetting={selection.setSettingId}
+            selectedBucketId={selection.bucketId}
+            onSelectBucket={handleLhSelect}
             filter={selection.filter}
             onFilterChange={selection.setFilter}
           />
         </aside>
         <main ref={canvasRef} className="hf-journey-pane hf-journey-canvas">
-          <PreviewLocatorHint selectedSettingId={selection.settingId} />
+          <PreviewLocatorHint
+            selectedBucketId={selection.bucketId}
+            pickStripSection={pickStripSection}
+            onSelectBucket={handleLhSelect}
+          />
           <PreviewLens
             courseId={courseId}
             onSelectSection={handlePreviewSectionSelect}
@@ -115,7 +141,7 @@ export function CourseJourneyTab({
           className="hf-journey-pane hf-journey-inspector"
           aria-label="Inspector"
         >
-          <JourneyInspectorPanel selectedSettingId={selection.settingId} />
+          <JourneyInspectorPanel selectedBucketId={selection.bucketId} />
         </aside>
         <CommandPalette
           open={paletteOpen}

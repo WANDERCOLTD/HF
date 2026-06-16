@@ -1,54 +1,49 @@
 "use client";
 
 /**
- * useBubblePulse — Phase 4 Slice B of epic #1675 (#1698).
+ * useBubblePulse — Phase 4 Slice B (#1698) + Slice C (#1721) of epic #1675.
  *
- * When the Inspector selects a setting, find the matching Preview
- * bubble(s) via `contract.previewLocators[].section` and pulse them
- * + scroll into view. Reads from the DOM via `data-compose-section`
- * tags emitted by PreviewLens (#1698 Slice A — same PR).
+ * Slice B mounted single-bubble pulse from a selected setting's first
+ * previewLocator. Slice C generalised it to MULTI-bubble pulse from a
+ * selected BUCKET — pulses every Preview element whose
+ * `data-compose-section` appears in any of the bucket's settings'
+ * previewLocators.
+ *
+ * Reads from the DOM via `data-compose-section` tags emitted by
+ * PreviewLens (Slice B groundwork).
  *
  * Cleans up the pulse class on selection change so only the currently-
- * selected setting's bubble pulses.
- *
- * Non-goals (would be Slice B+):
- *   - Bubble → Inspector direction (Phase 4A Slice A already handles
- *     this via `onSelectSection` → CourseJourneyTab.handlePreviewSectionSelect).
- *   - Multi-section setting → pulse ALL matching bubbles (today we
- *     pulse the first locator only; the chip strip below the canvas
- *     summarises the others).
+ * selected bucket's bubbles pulse.
  */
 
 import { useEffect } from "react";
 
-import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
-import { VOICE_SETTINGS_BY_ID } from "@/lib/settings/voice-setting-contracts";
+import { getSectionsForBucket } from "@/lib/journey/bucket-relations";
+import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 
 const PULSE_CLASS = "hf-preview-pulse";
 const PULSE_MS = 1800;
 
 export function useBubblePulse(
   rootRef: React.RefObject<HTMLElement | null>,
-  selectedSettingId: string | null,
+  selectedBucketId: JourneyMenuBucketId | null,
 ): void {
   useEffect(() => {
-    if (!selectedSettingId) return;
+    if (!selectedBucketId) return;
     const root = rootRef.current;
     if (!root) return;
 
-    const contract =
-      JOURNEY_SETTINGS_BY_ID[selectedSettingId] ??
-      VOICE_SETTINGS_BY_ID[selectedSettingId];
-    if (!contract) return;
-    const firstLocator = contract.previewLocators[0];
-    if (!firstLocator) return;
+    const sections = getSectionsForBucket(selectedBucketId);
+    if (sections.length === 0) return;
 
-    const sel = `[data-compose-section="${firstLocator.section}"]`;
-    const matches = root.querySelectorAll<HTMLElement>(sel);
+    const selectors = sections
+      .map((s) => `[data-compose-section="${s}"]`)
+      .join(", ");
+    const matches = root.querySelectorAll<HTMLElement>(selectors);
     if (matches.length === 0) return;
 
-    // Pulse the first match + scroll it into view; tag the rest with the
-    // class but don't scroll them (avoids fighting for viewport position).
+    // Pulse all matches; scroll the first into view (don't fight for
+    // viewport position with the others).
     const first = matches[0];
     matches.forEach((el) => el.classList.add(PULSE_CLASS));
     first.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -61,5 +56,5 @@ export function useBubblePulse(
       window.clearTimeout(timer);
       matches.forEach((el) => el.classList.remove(PULSE_CLASS));
     };
-  }, [selectedSettingId, rootRef]);
+  }, [selectedBucketId, rootRef]);
 }
