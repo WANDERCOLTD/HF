@@ -750,6 +750,143 @@ const G4_SCORING_MODE: JourneySettingContract = {
   ],
 };
 
+// Lane 3 PR7 — J_feedback contracts (catch-up from #1780).
+
+const G4_PROGRESS_NARRATIVE_ENABLED: JourneySettingContract = {
+  id: "progressNarrativeEnabled",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Mid-call mastery acknowledgement",
+  helpText:
+    "Off-switch for the progressNarrative composer section. When on, the AI cites concrete LO scores in mid-call moments. (#779 Felt Progress S1)",
+  storagePath: "config.progressNarrative.enabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_PROGRESS_NARRATIVE_CADENCE: JourneySettingContract = {
+  id: "progressNarrativeCadence",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Mid-call cadence",
+  helpText:
+    "When the AI emits LO-mastery evidence. `every_call` fires whenever any LO score > 0; `on_threshold_crossing` only when a score crosses the threshold. (#779)",
+  storagePath: "config.progressNarrative.cadence",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+  options: [
+    { value: "every_call", label: "Every call" },
+    { value: "on_threshold_crossing", label: "Only on threshold crossing" },
+  ],
+};
+
+const G4_PROGRESS_NARRATIVE_THRESHOLD: JourneySettingContract = {
+  id: "progressNarrativeThreshold",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Mid-call threshold",
+  helpText:
+    "Minimum LO score delta to trigger the mid-call narrative when cadence is `on_threshold_crossing`. Default 0.1. (#779)",
+  storagePath: "config.progressNarrative.minScoreDelta",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_PROGRESS_NARRATIVE_SKIP_FIRST: JourneySettingContract = {
+  id: "progressNarrativeSkipFirstCall",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Skip on Call 1",
+  helpText:
+    "Suppress the mid-call narrative on Call 1 (no prior context to compare against). Default true. (#779)",
+  storagePath: "config.progressNarrative.skipFirstCall",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
+const G4_PRIOR_CALL_RECAP_ENABLED: JourneySettingContract = {
+  id: "priorCallRecapEnabled",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "AI-synthesized recap",
+  helpText:
+    "When on, the prior-call recap is AI-synthesized (uses depth picker below); when off, the templated minimal recap is used. (#599 Slice 1)",
+  storagePath: "config.priorCallRecap.enabled",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+};
+
+const G4_PRIOR_CALL_RECAP_DEPTH: JourneySettingContract = {
+  id: "priorCallRecapDepth",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Recap synthesis depth",
+  helpText:
+    "Minimal (templated, no AI), standard (2-3 sentences), or rich (3-4 sentences + transcript observation). Only relevant when AI-synthesized recap is on. (#599)",
+  storagePath: "config.priorCallRecap.depth",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "priorCallFeedback" }],
+  options: [
+    { value: "minimal", label: "Minimal (templated)" },
+    { value: "standard", label: "Standard (2–3 sentences)" },
+    { value: "rich", label: "Rich (3–4 sentences + observation)" },
+  ],
+};
+
+const G4_PRIOR_CALL_RECAP_DAILY_CAP: JourneySettingContract = {
+  id: "priorCallRecapDailyCap",
+  menuGroupKey: "J_feedback",
+  group: "G4",
+  educatorLabel: "Recap synthesis daily cap",
+  helpText:
+    "Per-playbook per-UTC-day cap on recap synthesis AI calls. Default 50; server clamp 500. When the cap is hit, the loader falls back to the templated path. (#599)",
+  storagePath: "config.priorCallRecap.dailyCap",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["priorCallFeedback"],
+    kinds: ["section-enable"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 const G4_RECAP_ENABLED: JourneySettingContract = {
   id: "recapEnabled",
   menuGroupKey: "J_feedback",
@@ -1418,6 +1555,13 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G4_MAX_MASTERY_TIER,
   G4_USE_FRESH_MASTERY,
   G4_SCORING_MODE,
+  G4_PROGRESS_NARRATIVE_ENABLED,
+  G4_PROGRESS_NARRATIVE_CADENCE,
+  G4_PROGRESS_NARRATIVE_THRESHOLD,
+  G4_PROGRESS_NARRATIVE_SKIP_FIRST,
+  G4_PRIOR_CALL_RECAP_ENABLED,
+  G4_PRIOR_CALL_RECAP_DEPTH,
+  G4_PRIOR_CALL_RECAP_DAILY_CAP,
   G4_RECAP_ENABLED,
   G4_RECAP_SYNTHESIS_ENABLED,
   G4_PRIOR_CALL_FEEDBACK_ENABLED,
