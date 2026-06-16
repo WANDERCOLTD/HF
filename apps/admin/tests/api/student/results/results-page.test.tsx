@@ -88,10 +88,11 @@ describe("MockResultsPage", () => {
       json: async () => READY_PAYLOAD,
     } as unknown as Response);
 
-    render(<MockResultsPage />);
+    const { container } = render(<MockResultsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("6.0")).toBeInTheDocument(); // Overall band hero
+      const hero = container.querySelector(".hf-results-hero-band");
+      expect(hero?.textContent).toBe("6.0");
     });
     expect(screen.getByText("Strength")).toBeInTheDocument();
     expect(screen.getByText("Area to work on")).toBeInTheDocument();

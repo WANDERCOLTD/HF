@@ -20,7 +20,7 @@
  * as an error banner.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import type { ResultsPayload, ResultsResponse } from "@/app/api/student/[courseId]/results/[sessionId]/route";
@@ -37,7 +37,6 @@ type FetchState =
 export default function MockResultsPage() {
   const { courseId, sessionId } = useParams<{ courseId: string; sessionId: string }>();
   const [state, setState] = useState<FetchState>({ kind: "loading" });
-  const startedAtRef = useRef<number>(Date.now());
 
   const fetchOnce = useCallback(async () => {
     try {
@@ -61,7 +60,7 @@ export default function MockResultsPage() {
 
   useEffect(() => {
     if (!courseId || !sessionId) return;
-    startedAtRef.current = Date.now();
+    const startedAt = Date.now();
     let stopped = false;
 
     void fetchOnce().then(({ processing }) => {
@@ -70,7 +69,7 @@ export default function MockResultsPage() {
 
     const interval = setInterval(async () => {
       if (stopped) return;
-      if (Date.now() - startedAtRef.current > POLL_DEADLINE_MS) {
+      if (Date.now() - startedAt > POLL_DEADLINE_MS) {
         stopped = true;
         clearInterval(interval);
         return;

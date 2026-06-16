@@ -149,12 +149,14 @@ describe("GET /api/student/[courseId]/results/[sessionId]", () => {
 
     expect(body.processing).toBe(false);
     expect(body.scores).toHaveLength(12);
-    // strength = pr (0.8 → band 7), area = gra (0.55 → band 5)
+    // Per the mocked scoreToTier (band = round(score*9*2)/2):
+    //   fc 0.7 → 6.5, lr 0.6 → 5.5, gra 0.55 → 5, pr 0.8 → 7
+    // strength = pr (7), area = gra (5).
     expect(body.strength.parameterId).toBe("pr");
     expect(body.area.parameterId).toBe("gra");
-    // overall = mean of 12 bands. Bands: 7,7,7 + 5.5,5.5,5.5 + 5,5,5 + 7,7,7 → mean = 6.25 → half-band rounded = 6.5
+    // Mean of 12 bands = (6.5+5.5+5+7) * 3 / 12 = 6.0 → half-band rounded = 6.
     expect(body.overallBandSource).toBe("computed");
-    expect(body.overallBand).toBe(6.5);
+    expect(body.overallBand).toBe(6);
   });
 
   it("prefers Session.metadata.overallBand when present", async () => {
