@@ -312,10 +312,9 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
     "catch-up: overlaps moduleVisibility — needs disambiguation; #1405",
   // ── C_teaching_style — graduated to contract (Lane 3 PR3) ────────
   //   - shareMaterials → config.shareMaterials (#234)
-  "config.tierPresetId":
-    "catch-up: tierPresetId contract pending (I_scoring) — #1119",
-  "config.skillMinCallsToFull":
-    "catch-up: skillMinCallsToFull contract pending (I_scoring) — #417",
+  // ── I_scoring — graduated to contracts (Lane 3 PR4) ──────────────
+  //   - tierPresetId → config.tierPresetId (#1119)
+  //   - skillMinCallsToFull → config.skillMinCallsToFull (#417)
   "config.progressNarrative.enabled":
     "catch-up: progressNarrativeEnabled contract pending (J_feedback) — #779",
   "config.progressNarrative.cadence":
@@ -508,7 +507,8 @@ describe("Registry ↔ Schema coverage — 5th Lattice piece", () => {
     // Lane 3 PR2 (B_call1_opening) — ratchet dropped 33 → 29 as the 4
     // B_call1_opening exempts graduated to contracts.
     // Lane 3 PR3 (C_teaching_style) — ratchet dropped 29 → 28.
-    const BASELINE_CATCH_UP_CEILING = 28;
+    // Lane 3 PR4 (I_scoring) — ratchet dropped 28 → 26.
+    const BASELINE_CATCH_UP_CEILING = 26;
     expect(
       catchUpCount,
       `catch-up exempts: ${catchUpCount} (ceiling ${BASELINE_CATCH_UP_CEILING}). If this went UP, you exempted a new field — add the contract instead.`,

@@ -603,6 +603,51 @@ const G4_TOLERANCE_ENGAGEMENT: JourneySettingContract = {
   previewLocators: [{ section: "instructions" }],
 };
 
+// Lane 3 PR4 — I_scoring contracts (catch-up follow-on from #1780).
+
+const G4_TIER_PRESET_ID: JourneySettingContract = {
+  id: "tierPresetId",
+  menuGroupKey: "I_scoring",
+  group: "G4",
+  educatorLabel: "Scoring mode preset",
+  helpText:
+    "When set to `ielts-speaking`, PROSODY calls the speech-assessment provider in IELTS mode and 4 sub-bands flow into the CallScore rows. Otherwise PROSODY scores in generic mode. (#1119)",
+  storagePath: "config.tierPresetId",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+  options: [
+    { value: "generic", label: "Generic" },
+    { value: "ielts-speaking", label: "IELTS Speaking" },
+    { value: "cefr", label: "CEFR" },
+    { value: "5-level", label: "5-Level" },
+    { value: "custom", label: "Custom" },
+  ],
+};
+
+const G4_SKILL_MIN_CALLS_TO_FULL: JourneySettingContract = {
+  id: "skillMinCallsToFull",
+  menuGroupKey: "I_scoring",
+  group: "G4",
+  educatorLabel: "First-call score cap factor",
+  helpText:
+    "Single-call score is capped at `min(rawScore, callsUsed/N)` until N calls have accumulated. Default 4 (matches IELTS examiner observation budget). Lower for rapid-feedback courses. (#417)",
+  storagePath: "config.skillMinCallsToFull",
+  control: "number",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 const G4_SKILL_TIER_MAPPING: JourneySettingContract = {
   id: "skillTierMapping",
   menuGroupKey: "I_scoring",
@@ -1286,6 +1331,8 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G4_TOLERANCE_FLUENCY,
   G4_TOLERANCE_CONFIDENCE,
   G4_TOLERANCE_ENGAGEMENT,
+  G4_TIER_PRESET_ID,
+  G4_SKILL_MIN_CALLS_TO_FULL,
   G4_SKILL_TIER_MAPPING,
   G4_SKILL_SCORING_EMA_HALF_LIFE,
   G4_MAX_MASTERY_TIER,
