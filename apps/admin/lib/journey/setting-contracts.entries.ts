@@ -515,6 +515,26 @@ const G4_MODE_POLICY: JourneySettingContract = {
   ],
 };
 
+// Lane 3 PR3 — C_teaching_style contract (catch-up follow-on from #1780).
+
+const G4_SHARE_MATERIALS: JourneySettingContract = {
+  id: "shareMaterials",
+  menuGroupKey: "C_teaching_style",
+  group: "G4",
+  educatorLabel: "AI may share course materials",
+  helpText:
+    "When on, the AI may share PDFs / reference docs with learners during sessions. Turn off for voice-only courses (IELTS Speaking, conversation practice) where document delivery is pedagogically wrong or technically meaningless. (#234)",
+  storagePath: "config.shareMaterials",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions", hint: "materials policy" }],
+};
+
 const G4_TOLERANCE_ACCURACY: JourneySettingContract = {
   id: "toleranceAccuracy",
   menuGroupKey: "C_teaching_style",
@@ -1261,6 +1281,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G3_OPENING_RECAP_ENABLED,
   // G4 (17)
   G4_MODE_POLICY,
+  G4_SHARE_MATERIALS,
   G4_TOLERANCE_ACCURACY,
   G4_TOLERANCE_FLUENCY,
   G4_TOLERANCE_CONFIDENCE,
