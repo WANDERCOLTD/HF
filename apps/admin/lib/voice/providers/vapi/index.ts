@@ -31,12 +31,15 @@ import type {
   ParsedTranscriptUpdate,
   ProviderAssistantConfig,
   ProviderConfigSchema,
+  SayMessageOptions,
+  SayMessageResult,
   VoiceCatalogEntry,
   VoiceProvider,
   VoiceProviderCapabilities,
 } from "../../types";
 import { verifyVapiRequest } from "./auth";
 import { log } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Valid `assistant.backgroundSound` values accepted by the VAPI API.
@@ -211,6 +214,14 @@ export class VapiProvider implements VoiceProvider {
       ...(typeof ctx.customLlmSecret === "string" && ctx.customLlmSecret.length > 0
         ? { serverUrlSecret: ctx.customLlmSecret }
         : {}),
+      // #1742 — Enable VAPI's live-call control surface. With this flag,
+      // the Call response carries `monitor.controlUrl` — a per-call HTTP
+      // endpoint that accepts `{type:"say"|"add-message",…}` POST bodies.
+      // `sayMessage()` reads the URL via `extractControlUrl()` and POSTs
+      // to it. Without this flag the URL is omitted from the Call object
+      // and `sayMessage` returns `{status:"skipped"}` at run time.
+      // See docs/decisions/2026-06-16-voice-say-message-primitive.md.
+      monitorPlan: { controlEnabled: true, listenEnabled: false },
     };
 
     if (ctx.firstLine) {
@@ -673,6 +684,10 @@ export class VapiProvider implements VoiceProvider {
       hasKnowledgeCallback: true,
       toolCallsOverWebSocket: false,
       supportsRequestEndCall: true,
+      // #1742 — VAPI accepts server-initiated speech via per-call
+      // `monitor.controlUrl` HTTP POST. URL is captured at call-start
+      // via `monitorPlan.controlEnabled = true` in buildAssistantConfig.
+      supportsProactiveSpeech: true,
       // #1337 — VAPI runs the agent loop in their cloud and calls back over
       // HTTP for tools / knowledge / end-of-call. LiveKit/Pipecat-style
       // providers would declare "self-hosted-agent" here.
@@ -915,6 +930,123 @@ export class VapiProvider implements VoiceProvider {
       );
     }
   }
+
+  /**
+   * #1742 — inject a synthesised utterance into the live VAPI call.
+   *
+   * Reads the per-call controlUrl from `Call.voiceProviderRaw.monitor.controlUrl`
+   * (stamped at outbound-dial / call-start time when
+   * `monitorPlan.controlEnabled = true` — see `buildAssistantConfig`).
+   * POSTs `{type: "say"|"add-message", …}` to it.
+   *
+   * Idempotent on the wire: VAPI returns 200 on a fresh say, and silently
+   * accepts duplicates. We swallow transport errors and emit
+   * `voice.vapi.say_message_failed` to AppLog.
+   *
+   * See docs/decisions/2026-06-16-voice-say-message-primitive.md.
+   */
+  async sayMessage(
+    externalCallId: string,
+    options: SayMessageOptions,
+  ): Promise<SayMessageResult> {
+    const controlUrl = await this.resolveControlUrl(externalCallId);
+    if (!controlUrl) {
+      log("system", "voice.vapi.say_message_skipped_no_control_url", {
+        level: "warn",
+        externalCallId,
+        traceId: options.traceId,
+      });
+      return { status: "skipped" };
+    }
+
+    const body = options.queueOnly
+      ? {
+          type: "add-message",
+          message: { role: "assistant", content: options.content },
+          triggerResponseEnabled: false,
+        }
+      : {
+          type: "say",
+          content: options.content,
+          endCallAfterSpoken: false,
+        };
+
+    try {
+      const res = await fetch(controlUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        log("system", "voice.vapi.say_message_failed", {
+          level: "warn",
+          externalCallId,
+          httpStatus: res.status,
+          traceId: options.traceId,
+        });
+        return { status: "failed" };
+      }
+      return { status: options.queueOnly ? "queued" : "spoken" };
+    } catch (err) {
+      log("system", "voice.vapi.say_message_failed", {
+        level: "warn",
+        externalCallId,
+        error: err instanceof Error ? err.message : String(err),
+        traceId: options.traceId,
+      });
+      return { status: "failed" };
+    }
+  }
+
+  /**
+   * Resolve the per-call controlUrl from `Call.voiceProviderRaw`. Pre-#1742
+   * VAPI calls have no monitor.controlUrl stamped — those paths short-
+   * circuit `sayMessage` with `{status: "skipped"}`. New calls created with
+   * `monitorPlan.controlEnabled = true` (from `buildAssistantConfig` above)
+   * carry `monitor.controlUrl` on the call response, which the outbound-
+   * dial route stamps onto `Call.voiceProviderRaw.monitor.controlUrl` at
+   * call-start (or `extractControlUrl()` stamps it from a webhook arrival).
+   */
+  private async resolveControlUrl(externalCallId: string): Promise<string | null> {
+    if (!externalCallId) return null;
+    const row = await prisma.call.findFirst({
+      where: { externalId: externalCallId, source: this.slug },
+      select: { voiceProviderRaw: true },
+    });
+    return extractControlUrl(row?.voiceProviderRaw ?? null);
+  }
+}
+
+/**
+ * #1742 — Read `monitor.controlUrl` from a VAPI call payload.
+ *
+ * VAPI nests the URL under either:
+ *   - the top-level Call response object (from `POST /call`), OR
+ *   - `message.call.monitor.controlUrl` (webhook payloads).
+ *
+ * Returns null when the URL is absent — typically because the call was
+ * created before `monitorPlan.controlEnabled = true` was wired, or VAPI
+ * suppressed the URL for a sandbox/staging assistant.
+ */
+export function extractControlUrl(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidates: Array<Record<string, unknown> | null> = [];
+  const root = raw as Record<string, unknown>;
+  candidates.push(root);
+  candidates.push(root.message as Record<string, unknown> | null);
+  candidates.push(root.call as Record<string, unknown> | null);
+  const message = root.message as Record<string, unknown> | undefined;
+  candidates.push((message?.call ?? null) as Record<string, unknown> | null);
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const monitor = candidate.monitor as Record<string, unknown> | undefined;
+    const controlUrl = monitor?.controlUrl;
+    if (typeof controlUrl === "string" && controlUrl.length > 0) {
+      return controlUrl;
+    }
+  }
+  return null;
 }
 
 /**
