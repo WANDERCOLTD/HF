@@ -84,7 +84,7 @@ export const JOURNEY_MENU_ITEMS: readonly JourneyMenuBucket[] = [
     parentGroup: "G4",
     emptyReservation: {
       ieltsTheme: 2,
-      note: "Lands with IELTS Theme 2 (stall + cue scheduler) + Theme 7 (talk-time budgets).",
+      note: "Lands with IELTS Theme 2 (stall + cue scheduler). Theme 7's talkTimeBudgets shipped in J_feedback (#1747).",
     },
   },
   {

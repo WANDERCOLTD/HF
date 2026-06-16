@@ -134,26 +134,29 @@
   margin-top: 8px;
 }
 
-/* #1698 — Inspector → Preview pulse. Highlights the bubble owned by the
- * currently-selected setting. Class is added by `useBubblePulse` and
- * removed after PULSE_MS (1800ms). */
+/* #1698 + Slice C3 (#1738) — Inspector → Preview pulse. Highlights the
+ * bubble owned by the currently-selected bucket. Class is added by
+ * `useBubblePulse` and removed when the LH selection changes. The
+ * animation runs *infinitely* (slower 2.4s cycle, gentler intensity)
+ * for the lifetime of the selection so the educator can find the
+ * affected bubble even after scrolling. */
 .hf-preview-pulse {
-  animation: hf-preview-pulse-anim 1.8s ease-out;
+  animation: hf-preview-pulse-anim 2.4s ease-in-out infinite;
   border-radius: 8px;
 }
 
 @keyframes hf-preview-pulse-anim {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 70%, transparent);
-    background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
   }
-  60% {
-    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent-primary) 0%, transparent);
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent-primary) 0%, transparent);
     background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent);
-    background: transparent;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
   }
 }
 
@@ -200,6 +203,23 @@
   font-style: italic;
   color: var(--text-muted);
   opacity: 0.7;
+}
+
+/* Slice C3 (#1738) — operator-only lock chip. Status signal above the
+ * JourneyField row when contract.writeGate === "operator-only". */
+.hf-writegate-lock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--status-warning-text);
+  background: color-mix(in srgb, var(--status-warning-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-warning-text) 30%, transparent);
+  border-radius: 999px;
+  cursor: help;
 }
 
 .hf-journey-amber-chip {
