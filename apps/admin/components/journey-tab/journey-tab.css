@@ -134,6 +134,56 @@
   margin-top: 8px;
 }
 
+/* #1698 — Inspector → Preview pulse. Highlights the bubble owned by the
+ * currently-selected setting. Class is added by `useBubblePulse` and
+ * removed after PULSE_MS (1800ms). */
+.hf-preview-pulse {
+  animation: hf-preview-pulse-anim 1.8s ease-out;
+  border-radius: 8px;
+}
+
+@keyframes hf-preview-pulse-anim {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 70%, transparent);
+    background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent-primary) 0%, transparent);
+    background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent);
+    background: transparent;
+  }
+}
+
+/* #1698 — locator hint chip strip above the Preview canvas. Renders
+ * when the selected setting has multiple previewLocators OR when its
+ * locator section isn't a single bubble (e.g. behaviorTargets,
+ * personality — they cross-cut every bubble). */
+.hf-journey-locator-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-secondary) 60%, transparent);
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border-default) 60%, transparent);
+}
+
+.hf-journey-locator-hint-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  border-radius: 999px;
+}
+
 .hf-cascade-trace {
   font-size: 11px;
   color: var(--text-muted);

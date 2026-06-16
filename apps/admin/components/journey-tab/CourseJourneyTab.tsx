@@ -24,7 +24,9 @@ import { getSettingsForSection } from "@/lib/journey/section-staleness-bridge";
 import { CommandPalette } from "./CommandPalette";
 import { JourneyInspectorPanel } from "./JourneyInspectorPanel";
 import { JourneyLhMenu } from "./JourneyLhMenu";
+import { PreviewLocatorHint } from "./PreviewLocatorHint";
 import "./journey-tab.css";
+import { useBubblePulse } from "./use-bubble-pulse";
 import { useJourneySelection } from "./use-journey-selection";
 
 interface CourseJourneyTabProps {
@@ -39,6 +41,10 @@ export function CourseJourneyTab({
   const selection = useJourneySelection();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLElement>(null);
+
+  // #1698 — Inspector selection → pulse matching Preview bubble.
+  useBubblePulse(canvasRef, selection.settingId);
 
   // Cmd+K (mac) / Ctrl+K (win/linux) opens the palette. Scoped to
   // window since the palette is a modal overlay; Phase 5 Slice B will
@@ -97,7 +103,8 @@ export function CourseJourneyTab({
             onFilterChange={selection.setFilter}
           />
         </aside>
-        <main className="hf-journey-pane hf-journey-canvas">
+        <main ref={canvasRef} className="hf-journey-pane hf-journey-canvas">
+          <PreviewLocatorHint selectedSettingId={selection.settingId} />
           <PreviewLens
             courseId={courseId}
             onSelectSection={handlePreviewSectionSelect}
