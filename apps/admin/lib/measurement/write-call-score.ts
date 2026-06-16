@@ -47,6 +47,17 @@ export interface WriteCallScoreInput {
   /** Module attribution. `null` for unbound calls; the `CurriculumModule.id`
    *  for module-bound calls (#491 Slice 1.2). */
   moduleId: string | null;
+  /** Transcript-segment annotation (#1700 Theme 6, story #1702). The
+   *  per-part Mock scorer passes the segment slug (e.g. `"part1"`) so the
+   *  Results screen (Theme 13a) can render per-part criterion scores.
+   *  Free-text, course-agnostic. `null` / omitted for whole-call and
+   *  bound-module writes — zero behaviour change on non-Mock paths.
+   *
+   *  **NOT part of the `(callId, parameterId, moduleId)` idempotence key**
+   *  (epic #1700 decision 1) — purely an annotation column. Widening the
+   *  unique key would let one pass write multiple rows per criterion for
+   *  the same module. */
+  segmentKey?: string | null;
   /** 0-1 normalised score. NOT clamped here — clamp at the caller. */
   score: number;
   /** 0-1 confidence band. Defaults to 0.5 in the schema if omitted. */
@@ -117,6 +128,7 @@ export async function writeCallScore(
         analysisSpecId: input.analysisSpecId,
         hasLearnerEvidence: input.hasLearnerEvidence ?? null,
         evidenceQuality: input.evidenceQuality ?? null,
+        segmentKey: input.segmentKey ?? null,
       },
     });
     return { id: existing.id, created: false };
@@ -136,6 +148,7 @@ export async function writeCallScore(
       analysisSpecId: input.analysisSpecId,
       hasLearnerEvidence: input.hasLearnerEvidence ?? null,
       evidenceQuality: input.evidenceQuality ?? null,
+      ...(input.segmentKey ? { segmentKey: input.segmentKey } : {}),
     },
     select: { id: true },
   });

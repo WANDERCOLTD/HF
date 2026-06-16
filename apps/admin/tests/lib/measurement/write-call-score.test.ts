@@ -187,6 +187,78 @@ describe("writeCallScore — structural contract", () => {
     expect("moduleId" in createArg.data).toBe(false);
   });
 
+  it("forwards segmentKey into the create payload (#1702 per-part annotation)", async () => {
+    mockedFindFirst.mockResolvedValueOnce(null);
+    mockedCreate.mockResolvedValueOnce({ id: "score-seg" });
+
+    await writeCallScore({
+      callId: "call-1",
+      callerId: "caller-1",
+      parameterId: "skill_fluency_and_coherence_fc",
+      analysisSpecId: "spec-abc",
+      moduleId: "mod-part2",
+      score: 0.7,
+      confidence: 0.8,
+      evidence: ["Segment: part2"],
+      segmentKey: "part2",
+    });
+
+    expect(mockedCreate.mock.calls[0]![0].data.segmentKey).toBe("part2");
+  });
+
+  it("forwards segmentKey into the update payload on re-run", async () => {
+    mockedFindFirst.mockResolvedValueOnce({ id: "score-existing" });
+    mockedUpdate.mockResolvedValueOnce({ id: "score-existing" });
+
+    await writeCallScore({
+      callId: "call-1",
+      callerId: "caller-1",
+      parameterId: "skill_fluency_and_coherence_fc",
+      analysisSpecId: "spec-abc",
+      moduleId: "mod-part2",
+      score: 0.9,
+      confidence: 0.9,
+      evidence: ["Segment: part2 (re-run)"],
+      segmentKey: "part2",
+    });
+
+    expect(mockedUpdate.mock.calls[0]![0].data.segmentKey).toBe("part2");
+  });
+
+  it("defaults segmentKey to null when omitted (non-Mock paths unchanged)", async () => {
+    mockedFindFirst.mockResolvedValueOnce(null);
+    mockedCreate.mockResolvedValueOnce({ id: "score-whole-call" });
+
+    await writeCallScore({
+      callId: "call-1",
+      callerId: "caller-1",
+      parameterId: "skill_pronunciation_p",
+      analysisSpecId: MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY,
+      moduleId: null,
+      score: 0.6,
+      confidence: 0.9,
+      evidence: ["prosody/ielts:band=6.0"],
+    });
+
+    // create branch omits the key entirely when null → schema default (null).
+    expect("segmentKey" in mockedCreate.mock.calls[0]![0].data).toBe(false);
+
+    // update branch always writes it explicitly as null.
+    mockedFindFirst.mockResolvedValueOnce({ id: "score-existing" });
+    mockedUpdate.mockResolvedValueOnce({ id: "score-existing" });
+    await writeCallScore({
+      callId: "call-1",
+      callerId: "caller-1",
+      parameterId: "skill_pronunciation_p",
+      analysisSpecId: MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY,
+      moduleId: null,
+      score: 0.6,
+      confidence: 0.9,
+      evidence: ["prosody/ielts:band=6.0"],
+    });
+    expect(mockedUpdate.mock.calls[0]![0].data.segmentKey).toBe(null);
+  });
+
   it("accepts sentinel spec ids for non-LLM writers", async () => {
     mockedFindFirst.mockResolvedValueOnce(null);
     mockedCreate.mockResolvedValueOnce({ id: "score-prosody" });

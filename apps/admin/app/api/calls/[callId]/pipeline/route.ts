@@ -63,7 +63,7 @@ import { carryThroughCompose } from "@/lib/voice/carry-through-compose";
 import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";
 import { getAudienceOption, type AudienceId } from "@/lib/prompt/composition/transforms/audience";
 import { getPipelineGates, getAITimeoutSettings } from "@/lib/system-settings";
-import { logAI } from "@/lib/logger";
+import { logAI, log as appLog } from "@/lib/logger";
 import { createLogger, type PipelineLogger } from "@/lib/pipeline/logger";
 import { mapToMemoryCategory } from "@/lib/pipeline/memory";
 import { loadGuardrails, type GuardrailsConfig } from "@/lib/pipeline/guardrails";
@@ -601,10 +601,26 @@ async function runPerSegmentScoring(
     engine,
     log,
   });
-  if (segments.length === 0) {
-    log.info("Per-part MEASURE: segmentation returned no segments, skipping", {
+  // Loud-skip fallback (#1700 Theme 6 / #1702). The bound module declares a
+  // multi-part Mock (`coversModules.length > 0`, guaranteed above) but the
+  // segmenter resolved 0 or 1 boundary — per-part scoring is not viable, so
+  // we fall back to bound-module scoring. Promote this to an AppLog subject
+  // (precedent: `pipeline.aggregate.lo_mastery_skipped`) so a 24h dashboard
+  // can spot "Mock call → no per-part scores" instead of it dying in the
+  // response-only PipelineLogger.
+  if (segments.length <= 1) {
+    appLog("system", "prosody.segmentation.fallback", {
+      message:
+        "Per-part MEASURE fell back to bound-module scoring — segmenter resolved ≤1 boundary",
+      callId: call.id,
+      moduleSlug: boundModule.slug,
+      coversModules: boundModule.coversModules,
+      segmentsReturned: segments.length,
+    });
+    log.info("Per-part MEASURE: segmentation returned ≤1 segment, skipping", {
       callId: call.id,
       boundSlug: boundModule.slug,
+      segmentsReturned: segments.length,
     });
     return 0;
   }
@@ -619,8 +635,21 @@ async function runPerSegmentScoring(
   let segmentScoresCreated = 0;
 
   for (const segment of segments) {
+    // Whitelist guard (#1700 Theme 6 / #1702). The segment slug MUST resolve
+    // to a curriculum-declared sub-module (`coversModules` → `slugToId`). A
+    // slug outside that set is a segmentation mismatch — promote to AppLog
+    // and skip only that segment's writes (other segments still score).
     const segmentModuleId = slugToId.get(segment.slug);
-    if (!segmentModuleId) continue;
+    if (!segmentModuleId) {
+      appLog("system", "prosody.segmentation.mismatch", {
+        message:
+          "Per-part MEASURE skipped a segment — slug not in curriculum coversModules whitelist",
+        callId: call.id,
+        slug: segment.slug,
+        knownKeys: [...slugToId.keys()],
+      });
+      continue;
+    }
 
     // IELTS-focused per-segment prompt: scopes scoring to the 4
     // IELTS Speaking skills, embeds the band rubric, gives per-part
@@ -738,6 +767,11 @@ async function runPerSegmentScoring(
           parameterId,
           analysisSpecId: parentSpec?.analysisSpecId ?? MEASUREMENT_SENTINEL_SPEC_IDS.MOCK,
           moduleId: segmentModuleId,
+          // #1700 Theme 6 / #1702 — annotate which Mock part produced this
+          // score so the Results screen (Theme 13a) can render per-part
+          // criterion bands. Bound-module/whole-call writes omit this →
+          // `segmentKey = null`, zero regression on non-Mock paths.
+          segmentKey: segment.slug,
           score,
           confidence,
           reasoning,
