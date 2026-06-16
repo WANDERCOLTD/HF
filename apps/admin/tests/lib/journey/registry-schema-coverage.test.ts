@@ -349,8 +349,8 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
     "catch-up: priorCallRecapDailyCap contract pending (J_feedback) — #599",
   "config.strictPrerequisites":
     "catch-up: strictPrerequisites contract pending (D_question_flow / M_end_of_course) — #494",
-  "config.interleaveReviewMinDays":
-    "catch-up: interleaveReviewMinDays contract pending (K_between_calls) — #492",
+  // ── K_between_calls — graduated to contract (Lane 3 PR5) ─────────
+  //   - interleaveReviewMinDays → config.interleaveReviewMinDays (#492)
   "config.completionMode":
     "catch-up: overlaps completionCriteria — needs disambiguation; #494",
   "config.nps.enabled":
@@ -508,7 +508,8 @@ describe("Registry ↔ Schema coverage — 5th Lattice piece", () => {
     // B_call1_opening exempts graduated to contracts.
     // Lane 3 PR3 (C_teaching_style) — ratchet dropped 29 → 28.
     // Lane 3 PR4 (I_scoring) — ratchet dropped 28 → 26.
-    const BASELINE_CATCH_UP_CEILING = 26;
+    // Lane 3 PR5 (K_between_calls) — ratchet dropped 26 → 25.
+    const BASELINE_CATCH_UP_CEILING = 25;
     expect(
       catchUpCount,
       `catch-up exempts: ${catchUpCount} (ceiling ${BASELINE_CATCH_UP_CEILING}). If this went UP, you exempted a new field — add the contract instead.`,
