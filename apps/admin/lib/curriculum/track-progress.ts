@@ -614,7 +614,17 @@ export async function updateModuleMastery(
 
   const existing = await prisma.callerModuleProgress.findUnique({
     where: { callerId_moduleId: { callerId, moduleId: resolvedModuleId } },
-    select: { callCount: true, loScoresJson: true, lastCallId: true },
+    select: {
+      callCount: true,
+      loScoresJson: true,
+      lastCallId: true,
+      // #1703 sticky-waiver: read the incomplete-attempts counter +
+      // current status so we can preserve a waived COMPLETED across
+      // subsequent low-mastery pipeline runs (see comment near
+      // the `status` derivation below).
+      incompleteAttempts: true,
+      status: true,
+    },
   });
 
   // #547 — idempotency guard mirroring incrementModuleEvidence at
@@ -662,7 +672,19 @@ export async function updateModuleMastery(
     finalMastery = capMasteryByCallCount(mastery, effectiveCallCount);
   }
 
-  const status = finalMastery >= 1.0 ? "COMPLETED" : finalMastery > 0 ? "IN_PROGRESS" : "NOT_STARTED";
+  // #1703 sticky-waiver: a module marked COMPLETED via the
+  // incomplete-attempt waiver path (markModuleIncomplete) stays COMPLETED
+  // even when subsequent low-mastery pipeline runs would compute
+  // IN_PROGRESS/NOT_STARTED. The waiver invariant is the second-attempt
+  // policy from Theme 9 — once the learner has been advanced past the
+  // gate, track-progress must not silently un-advance them. Marker:
+  // `incompleteAttempts >= 2 && status === "COMPLETED"` (only the helper
+  // writes both atomically).
+  const computedStatus =
+    finalMastery >= 1.0 ? "COMPLETED" : finalMastery > 0 ? "IN_PROGRESS" : "NOT_STARTED";
+  const isWaived =
+    (existing?.incompleteAttempts ?? 0) >= 2 && existing?.status === "COMPLETED";
+  const status = isWaived ? "COMPLETED" : computedStatus;
 
   await prisma.callerModuleProgress.upsert({
     where: {

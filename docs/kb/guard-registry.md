@@ -72,6 +72,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`hf-config/no-hardcoded-spec-slug`](#guard-no-hardcoded-spec-slug) | Hardcoded spec-slug literals (`TUT-001`, `GOAL-001`, …) in `lib/`+`app/` runtime; use `config.specs.*`. **Active (error)** after HF-I sweep | HF-I / 2026-06-11 | **b** |
 | [`hf-goals/no-bare-strategy-key`](#guard-no-bare-strategy-key) | Bare string literals assigned to `Goal.progressStrategy` outside the canonical `StrategyKey` enum; allow-list covers the strategies registry alias map + test files | #1599 | **a** |
 | [`hf-rbac/require-tiered-redactor`](#guard-require-tiered-redactor) | Routes tagged `@tieredVisibility` (JSDoc) must import + invoke `visibilityTierForRole(...)` and a `redact<Resource>ForTier(...)` from `lib/rbac/policies/*`; hardens the whitelist-default-safe property of the visibility-policy pattern | #1685 Wave C5 | **a** |
+| [`hf-curriculum/no-bare-module-progress-update`](#guard-no-bare-module-progress-update) | Bare `prisma.callerModuleProgress.{update,upsert}` outside allow-list; must use `markModuleIncomplete` (incomplete-attempt writes — atomic increment + waiver) or `track-progress.ts` (mastery writes) | #1703 | **a** |
 
 ### Guard detail
 
@@ -193,6 +194,23 @@ discipline, applied to the measurement write path. Allow-list updates accompany 
 deliberate bypass (drain scripts, demo reset, manual ops) so the bypass stays
 documented. **Survives hardening:** spec-driven measurement is an architectural
 property of the pipeline; the builder pattern carries forward.
+
+<a id="guard-no-bare-module-progress-update"></a>
+**`hf-curriculum/no-bare-module-progress-update`** · class **(a) invariant** · born #1703 ·
+[rule source](../../apps/admin/eslint-rules/no-bare-module-progress-update.mjs)
+
+`CallerModuleProgress` writes split into two semantic classes: **mastery** writes (canonical
+writer `lib/curriculum/track-progress.ts`, computes `status` + `mastery` from accumulated
+LO running averages) and **incomplete-attempt** writes (canonical writer
+`lib/curriculum/mark-module-incomplete.ts`, atomic increment of `incompleteAttempts` + the
+Theme 9 second-attempt waiver). Drift between the two — e.g. a hand-rolled
+`prisma.callerModuleProgress.update({ data: { incompleteAttempts: 1 } })` outside the
+helper — re-opens the race that `markModuleIncomplete`'s atomic-increment + sticky-waiver
+contract closes. The rule blocks bare `.update`/`.upsert` outside the documented
+allow-list (canonical writers, admin reset routes, backfill scripts, tests). Pairs with
+`#1252 no-module-read-without-course-style-guard` — both writers gate on
+`getCourseStyle === "structured"`. **Survives hardening:** chokepoint discipline carries
+forward; the helper is the only place atomicity + the waiver invariant live.
 
 <a id="guard-no-bare-strategy-key"></a>
 **`hf-goals/no-bare-strategy-key`** · class **(a) invariant** · born #1599 ·

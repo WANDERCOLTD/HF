@@ -911,6 +911,42 @@ export interface AuthoredModule {
   terminal?: boolean;
   coversModules?: string[];
   masteryThreshold?: number;
+
+  /**
+   * #1701 (epic #1700 Theme 1) — module-scoped settings layer (G8).
+   *
+   * All keys optional. Each maps to a G8 entry in
+   * `lib/journey/setting-contracts.entries.ts`. Downstream readers
+   * (endSession, cue scheduler, EXTRACT, composer transforms) gate
+   * on `HF_FLAG_IELTS_MODULE_SETTINGS` during the migration window
+   * per epic decision 5.
+   *
+   * Theme 1b will replace `cueCardPool` / `scheduledCues` JSON shapes
+   * with dedicated Inspector primitives; the storage shape stays the
+   * same.
+   */
+  settings?: AuthoredModuleSettings;
+}
+
+/** #1701 — Phase 1 G8 module-scoped settings (6 IELTS-required keys). */
+export interface AuthoredModuleSettings {
+  /** Min and target number of questions the tutor asks in this module. */
+  questionTarget?: { min: number; target: number };
+  /**
+   * Module-scoped completion gate (sec). endSession marks the call
+   * incomplete when `durationSeconds < minSpeakingSec` (Theme 9 /
+   * #1703). Falls back to `DEFAULT_MIN_LEARNER_DURATION_SECONDS` (30s)
+   * when unset.
+   */
+  minSpeakingSec?: number;
+  /** Pool for Part 2 monologue. Session-start picks one → `Session.metadata.pinnedCard`. */
+  cueCardPool?: Array<{ topic: string; bullets: string[] }>;
+  /** Verbatim closing line (e.g. Assessment's "That gives me a good picture…"). */
+  closingLine?: string;
+  /** One-shot per-module orientation, gated by `orientationShown` on `CallerModuleProgress`. */
+  firstTimeOrientationLine?: string;
+  /** Time-keyed tutor/examiner cues, consumed at runtime by the Theme 2 cue scheduler. */
+  scheduledCues?: Array<{ at: number; text: string }>;
 }
 
 export interface ModuleDefaults {
