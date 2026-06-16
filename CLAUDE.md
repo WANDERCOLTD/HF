@@ -143,6 +143,18 @@ Both configured in `.mcp.json` — auto-connect on project open.
 
 ---
 
+## ⚠️ MANDATORY: The Lattice — survey before you touch it
+
+**The Lattice** is HF's umbrella for four interlocked guard systems: **Chain Contracts** (cross-stage invariants — [`docs/CHAIN-CONTRACTS.md`](./docs/CHAIN-CONTRACTS.md)) × **Guards** (ESLint rules — [`docs/kb/guard-registry.md`](./docs/kb/guard-registry.md)) × **Cascade** (effective-value resolvers — `apps/admin/lib/cascade/`) × **Rules** (`.claude/rules/*.md`).
+
+**Before writing OR modifying any code that mutates a shared DB column, crosses a chain-stage boundary, registers a new guard/contract, or extends an AI write/read path, you MUST run the 60–90 second sibling-writer survey** in [`.claude/rules/lattice-survey.md`](./.claude/rules/lattice-survey.md).
+
+The survey: identify the surface → map every existing writer/reader (qmd + grep) → read the contract catalogues row-by-row → cross-check the 4 classic risk shapes (sibling-writer drift, default-deny gates, cascade respect, convention conflict) → decide convergence → only then write.
+
+Skipping the survey is how the 2026-06-16 #1703 fingerprint happened — three contract risks introduced silently in a single helper because no one mapped sibling writers first. Every PR's `## Verified by` section MUST cite the survey result for code that touches the Lattice.
+
+---
+
 ## ⚠️ MANDATORY: You CAN hit authenticated API routes via the VM
 
 **Do not say "I can't authenticate"** — you can. The hf-dev VM has seeded SUPERADMIN credentials (`admin@test.com` / `admin123`) on the local DB and can mint a next-auth session cookie via curl. Use this whenever you need to verify a session-gated endpoint without asking the operator to load it in the browser.
