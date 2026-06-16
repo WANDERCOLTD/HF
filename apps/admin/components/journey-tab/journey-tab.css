@@ -194,6 +194,14 @@
   gap: 4px;
 }
 
+/* Slice C2 (#1737) — loading placeholder while the cascade envelope
+ * resolves. Muted dotted underline matches sibling Skills lenses. */
+.hf-cascade-trace-loading {
+  font-style: italic;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
 .hf-journey-amber-chip {
   display: inline-block;
   margin-left: 6px;
