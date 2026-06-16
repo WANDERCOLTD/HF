@@ -308,8 +308,9 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   //   - firstCallWaitForAck → config.firstCallWaitForAck (#1403)
   //   - firstCallDurationOverride → config.firstCall.durationMinsOverride (#598)
   //   - firstCallIntroducePedagogy → config.firstCall.introducePedagogy (#598)
-  "config.firstCall.firstCallModuleVisibility":
-    "catch-up: overlaps moduleVisibility — needs disambiguation; #1405",
+  // ── B_call1_opening firstCallModuleVisibility — graduated (Lane 3 PR9)
+  // Disambiguated from the course-wide moduleVisibility: this contract
+  // covers only Call-1 framing/orientation, learner's pick still wins.
   // ── C_teaching_style — graduated to contract (Lane 3 PR3) ────────
   //   - shareMaterials → config.shareMaterials (#234)
   // ── I_scoring — graduated to contracts (Lane 3 PR4) ──────────────
@@ -321,21 +322,18 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   // ── M_end_of_course — offboardingSummary.* graduated (Lane 3 PR8) ─
   //   - offboardingSummaryEnabled / Cadence / IncludeModuleMastery
   //     / IncludeGoalProgress / IncludeSkillScore (#780)
-  "config.tolerances.masteryThreshold":
-    "catch-up: tolMasteryThreshold contract pending — #598",
-  "config.tolerances.retrievalCadenceOverride":
-    "catch-up: tolRetrievalCadence contract pending — #598",
-  "config.tolerances.memoryDecayScale":
-    "catch-up: tolMemoryDecay contract pending — #598",
-  "config.tolerances.carryForwardBoost":
-    "catch-up: tolCarryForwardBoost contract pending — #918",
-  // J_feedback priorCallRecap.* (Lane 3 PR7) graduated above.
-  "config.strictPrerequisites":
-    "catch-up: strictPrerequisites contract pending (D_question_flow / M_end_of_course) — #494",
+  // ── config.tolerances.* — graduated to contracts (Lane 3 PR9) ────
+  // Buckets assigned by educator concern:
+  //   - tolMasteryThreshold → I_scoring
+  //   - tolRetrievalCadence → K_between_calls
+  //   - tolMemoryDecay → K_between_calls
+  //   - tolCarryForwardBoost → D_question_flow
+  // ── strictPrerequisites + completionMode — graduated (Lane 3 PR9) ─
+  // Disambiguated: completionMode (module-set coverage) is distinct
+  // from completionCriteria (module-vs-LO granularity); strictPrerequisites
+  // controls picker hard-lock vs soft-warning.
   // ── K_between_calls — graduated to contract (Lane 3 PR5) ─────────
   //   - interleaveReviewMinDays → config.interleaveReviewMinDays (#492)
-  "config.completionMode":
-    "catch-up: overlaps completionCriteria — needs disambiguation; #494",
   // ── L_mid_journey — graduated to contracts (Lane 3 PR6) ──────────
   //   - npsEnabled → config.nps.enabled
   //   - npsTrigger → config.nps.trigger
@@ -343,7 +341,7 @@ const REGISTRY_EXEMPT_PATHS: Record<string, string> = {
   // M_end_of_course offboarding.triggerAfterCalls + bannerMessage
   // graduated (Lane 3 PR8).
   "config.offboarding.phases":
-    "catch-up: overlaps sessionFlow.offboarding — needs disambiguation",
+    "legacy: covered via sessionFlow.offboarding (canonical) — dual-read window",
   "config.welcomeMessage":
     "legacy: covered via sessionFlow.welcomeMessage (canonical) — dual-read window",
 
@@ -490,8 +488,10 @@ describe("Registry ↔ Schema coverage — 5th Lattice piece", () => {
     // Lane 3 PR5 (K_between_calls) — ratchet dropped 26 → 25.
     // Lane 3 PR6 (L_mid_journey) — ratchet dropped 25 → 22.
     // Lane 3 PR7 (J_feedback) — ratchet dropped 22 → 15 (4 progress + 3 recap).
-    // Lane 3 PR8 (M_end_of_course) — ratchet dropped 15 → 8 (5 summary + 2 offboarding).
-    const BASELINE_CATCH_UP_CEILING = 8;
+    // Lane 3 PR9 (final) — ratchet hits 0. All 35 originally-spotted
+    // gaps from the Slice C BA-failure recovery have shipped contracts.
+    // Future drift is structurally caught by the coverage check.
+    const BASELINE_CATCH_UP_CEILING = 0;
     expect(
       catchUpCount,
       `catch-up exempts: ${catchUpCount} (ceiling ${BASELINE_CATCH_UP_CEILING}). If this went UP, you exempted a new field — add the contract instead.`,
