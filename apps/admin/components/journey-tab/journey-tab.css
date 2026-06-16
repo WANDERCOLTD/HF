@@ -134,26 +134,29 @@
   margin-top: 8px;
 }
 
-/* #1698 — Inspector → Preview pulse. Highlights the bubble owned by the
- * currently-selected setting. Class is added by `useBubblePulse` and
- * removed after PULSE_MS (1800ms). */
+/* #1698 + Slice C3 (#1738) — Inspector → Preview pulse. Highlights the
+ * bubble owned by the currently-selected bucket. Class is added by
+ * `useBubblePulse` and removed when the LH selection changes. The
+ * animation runs *infinitely* (slower 2.4s cycle, gentler intensity)
+ * for the lifetime of the selection so the educator can find the
+ * affected bubble even after scrolling. */
 .hf-preview-pulse {
-  animation: hf-preview-pulse-anim 1.8s ease-out;
+  animation: hf-preview-pulse-anim 2.4s ease-in-out infinite;
   border-radius: 8px;
 }
 
 @keyframes hf-preview-pulse-anim {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 70%, transparent);
-    background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
   }
-  60% {
-    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent-primary) 0%, transparent);
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent-primary) 0%, transparent);
     background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent);
-    background: transparent;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
   }
 }
 
@@ -200,6 +203,23 @@
   font-style: italic;
   color: var(--text-muted);
   opacity: 0.7;
+}
+
+/* Slice C3 (#1738) — operator-only lock chip. Status signal above the
+ * JourneyField row when contract.writeGate === "operator-only". */
+.hf-writegate-lock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--status-warning-text);
+  background: color-mix(in srgb, var(--status-warning-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-warning-text) 30%, transparent);
+  border-radius: 999px;
+  cursor: help;
 }
 
 .hf-journey-amber-chip {
@@ -296,4 +316,96 @@
   .hf-journey-inspector {
     display: none;
   }
+}
+
+/* Lane 2 — Inspector row head + overflow menu (post-Slice-C audit). */
+.hf-journey-inspector-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.hf-journey-inspector-row-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hf-inspector-row-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.hf-inspector-row-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.hf-inspector-row-menu-button:hover,
+.hf-inspector-row-menu-button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--surface-secondary) 70%, transparent);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.hf-inspector-row-menu {
+  position: absolute;
+  top: 26px;
+  right: 0;
+  min-width: 200px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px color-mix(in srgb, #000 10%, transparent);
+  padding: 4px 0;
+  z-index: 50;
+}
+.hf-inspector-row-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.hf-inspector-row-menu-item:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--surface-secondary) 70%, transparent);
+}
+.hf-inspector-row-menu-item[disabled] {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+.hf-inspector-row-menu-hint {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Lane 2 — promote scope subgroup headers to a real divider style. */
+.hf-journey-inspector-subgroup > .hf-category-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 6px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 50%, transparent);
 }

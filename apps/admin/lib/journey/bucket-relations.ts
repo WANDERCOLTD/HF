@@ -27,12 +27,24 @@ import type { ComposeSectionKey } from "@/lib/compose";
 
 import type { JourneyMenuBucketId, JourneySettingContract } from "./setting-contracts";
 import { JOURNEY_SETTINGS } from "./setting-contracts.entries";
+import { VOICE_SETTINGS } from "@/lib/settings/voice-setting-contracts";
 
-/** All settings in the named bucket. */
+/** Combined corpus the bucket model searches over. The voice 11 are
+ *  stamped with `menuGroupKey: "N_voice"` so they surface in the
+ *  Journey LH + Cmd+K under their own bucket while ALSO remaining
+ *  Settings-tab citizens. The two surfaces share the SAME registry
+ *  entries — there is no second copy. */
+const ALL_BUCKETED_SETTINGS: readonly JourneySettingContract[] = [
+  ...JOURNEY_SETTINGS,
+  ...VOICE_SETTINGS,
+];
+
+/** All settings in the named bucket. Spans journey + voice registries
+ *  via `menuGroupKey`. */
 export function getSettingsForBucket(
   bucketId: JourneyMenuBucketId,
 ): readonly JourneySettingContract[] {
-  return JOURNEY_SETTINGS.filter((s) => s.menuGroupKey === bucketId);
+  return ALL_BUCKETED_SETTINGS.filter((s) => s.menuGroupKey === bucketId);
 }
 
 /** Every ComposeSectionKey any setting in the bucket touches. Used by
@@ -57,7 +69,7 @@ export function getBucketsForSection(
   sectionKey: ComposeSectionKey,
 ): readonly JourneyMenuBucketId[] {
   const out = new Set<JourneyMenuBucketId>();
-  for (const s of JOURNEY_SETTINGS) {
+  for (const s of ALL_BUCKETED_SETTINGS) {
     if (!s.menuGroupKey) continue;
     if (s.previewLocators.some((l) => l.section === sectionKey)) {
       out.add(s.menuGroupKey);

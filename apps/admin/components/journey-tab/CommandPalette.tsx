@@ -1,24 +1,33 @@
 "use client";
 
 /**
- * CommandPalette — Phase 5 of epic #1675.
+ * CommandPalette — Phase 5 of epic #1675 + Slice C3 (#1738) bucket-
+ * count surfacing.
  *
  * Cmd+K / Ctrl+K opens a search-as-you-type palette over BOTH the
- * journey registry (45) AND the voice registry (11). 56 settings
- * indexed in a single pass; substring match on
+ * journey registry AND the voice registry. Substring match on
  * `educatorLabel + group + storagePath`.
  *
- * Selecting a result calls `setSettingId` from `useJourneySelection`,
- * which mounts the contract's `JourneyField` in the Inspector pane.
+ * Slice C3 surfaces the bucket count in the input placeholder so
+ * educators learn the shape: "Search 63 settings across 14 buckets…".
+ * Both counts are derived from the canonical registries
+ * (`JOURNEY_SETTINGS` + `VOICE_SETTINGS`; `JOURNEY_MENU_BUCKET_IDS`) —
+ * never hardcoded.
  *
- * Slice A scope: palette is mounted by the Journey-tab shell only. A
- * Phase 5 Slice B follow-up will hoist activation to the page level so
- * the palette works from any tab.
+ * Voice-bucket follow-on (post-#1738): the 11 voice settings now also
+ * land in a bucket (`N_voice`) and `handlePaletteSelect` looks them up
+ * via `VOICE_SETTINGS_BY_ID` so Cmd+K → Enter on a voice result
+ * navigates to the Inspector instead of silently doing nothing.
+ *
+ * Selecting a result calls `setBucketId` from `useJourneySelection` via
+ * `CourseJourneyTab.handlePaletteSelect`, which looks up the setting's
+ * owning bucket and mounts the bucket's settings in the Inspector pane.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { JOURNEY_SETTINGS } from "@/lib/journey/setting-contracts.entries";
+import { JOURNEY_MENU_BUCKET_IDS } from "@/lib/journey/menu-items";
 import { VOICE_SETTINGS } from "@/lib/settings/voice-setting-contracts";
 import type { JourneySettingContract } from "@/lib/journey/setting-contracts";
 
@@ -37,6 +46,12 @@ const ALL_SETTINGS: readonly JourneySettingContract[] = [
 
 /** Exposed for the count-pin vitest. */
 export const COMMAND_PALETTE_INDEX_SIZE = ALL_SETTINGS.length;
+
+/** Slice C3 (#1738) — derived bucket count surfaced in the input
+ *  placeholder so educators understand the shape of the index. Pure
+ *  derivation from `JOURNEY_MENU_BUCKET_IDS` — single source of truth
+ *  at `lib/journey/menu-items.ts`. */
+export const COMMAND_PALETTE_BUCKET_COUNT = JOURNEY_MENU_BUCKET_IDS.length;
 
 function pathString(c: JourneySettingContract): string {
   return typeof c.storagePath === "string" ? c.storagePath : c.storagePath.path;
@@ -133,7 +148,7 @@ export function CommandPalette({
           ref={inputRef}
           type="text"
           className="hf-cmdk-input"
-          placeholder={`Search ${COMMAND_PALETTE_INDEX_SIZE} settings…`}
+          placeholder={`Search ${COMMAND_PALETTE_INDEX_SIZE} settings across ${COMMAND_PALETTE_BUCKET_COUNT} buckets…`}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);

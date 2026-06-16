@@ -12,8 +12,9 @@ import { registerTransform } from "../TransformRegistry";
 import { classifyValue } from "../types";
 import { computePersonalityAdaptation } from "./personality";
 import type { AssembledContext, GoalData, SubjectSourcesData } from "../types";
-import type { SpecConfig } from "@/lib/types/json-fields";
+import type { AuthoredModule, PlaybookConfig, SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
+import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
 
 // Goal-type × progress-bracket adaptation guidance.
 // Tells the AI HOW to adapt teaching based on goal type and progress level.
@@ -312,5 +313,218 @@ registerTransform("computeInstructions", (
 
     // Voice — delegates to separate transform (already computed)
     voice: sections.instructions_voice || null,
+
+    // #1732 (epic #1730 G8 consumer A) — module-scoped question count
+    // directive. Resolves `Playbook.config.modules[].settings.questionTarget`
+    // against `sharedState.lockedModule`. Gated by
+    // `HF_FLAG_IELTS_MODULE_SETTINGS` per epic #1700 decision 5. Returns
+    // null (renders nothing) when any condition fails.
+    module_question_target: resolveModuleQuestionTarget(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
+
+    // #1733 (epic #1730 G8 consumer B) — module-scoped cue card. Picks
+    // one card from `Playbook.config.modules[].settings.cueCardPool`
+    // deterministically by `sharedState.callNumber` so the same call
+    // always sees the same card (idempotent reads). Gated by
+    // `HF_FLAG_IELTS_MODULE_SETTINGS` per epic #1700 decision 5.
+    // Theme 3 (`<PinnedCardSlot>`) will cache the pick to
+    // `Session.metadata.pinnedCard` later for cross-process consistency.
+    module_cue_card: resolveModuleCueCard(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
+
+    // #1735 (epic #1730 G8 consumer D) — module-scoped first-time
+    // orientation line. Renders ONLY when the learner has never seen
+    // this module's orientation yet (`CallerModuleProgress.orientationShown
+    // === false`). After the line renders, `endSession` writes
+    // orientationShown=true so subsequent calls skip it. Gated by
+    // `HF_FLAG_IELTS_MODULE_SETTINGS` per epic #1700 decision 5.
+    module_orientation_line: resolveModuleOrientationLine(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+      loadedData,
+    ),
   };
 });
+
+/**
+ * #1732 (epic #1730 G8 consumer A) — module-scoped question count directive.
+ *
+ * Returns a directive string when ALL conditions hold:
+ *   - `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic #1700 decision 5)
+ *   - `sharedState.lockedModule` is set (learner picked a specific module
+ *     via the Module Picker)
+ *   - An `AuthoredModule` in `Playbook.config.modules[]` matches the
+ *     locked module by `id` (and falls back to `slug` if id is absent)
+ *   - That module's `settings.questionTarget` has both `min` and `target`
+ *     as positive integers with `min <= target`
+ *
+ * Returns `null` otherwise — the instructions section renders without
+ * the question-count directive and the existing teaching cadence owns
+ * pacing.
+ *
+ * Returned shape: `{ min, target, directive }` so renderers can either
+ * use the structured fields or the pre-formatted directive sentence.
+ */
+function resolveModuleQuestionTarget(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): { min: number; target: number; directive: string } | null {
+  if (!isIeltsModuleSettingsEnabled()) return null;
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+
+  const qt = matched.settings?.questionTarget;
+  if (!qt) return null;
+  const { min, target } = qt;
+  if (
+    typeof min !== "number" ||
+    typeof target !== "number" ||
+    !Number.isFinite(min) ||
+    !Number.isFinite(target) ||
+    min < 1 ||
+    target < min
+  ) {
+    return null;
+  }
+  return {
+    min,
+    target,
+    directive: `Aim for ${min} to ${target} questions in this module — track silently as you go.`,
+  };
+}
+
+/**
+ * #1733 (epic #1730 G8 consumer B) — module-scoped cue card pick.
+ *
+ * Reads `Playbook.config.modules[].settings.cueCardPool` for the locked
+ * module and picks ONE card deterministically by
+ * `sharedState.callNumber % pool.length`. Same call sees the same card
+ * across re-renders — idempotent for prompt-side reads.
+ *
+ * Returns `{ kind, topic, bullets, secondaryNote?, directive }` when:
+ *   - `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic #1700 decision 5)
+ *   - `sharedState.lockedModule` is set
+ *   - A matching `AuthoredModule` in `Playbook.config.modules[]` carries
+ *     a non-empty `settings.cueCardPool`
+ *   - The picked card has both a `topic` string and a non-empty
+ *     `bullets` array
+ *
+ * Returns `null` otherwise — no cue-card directive renders.
+ *
+ * Selection policy is deliberately deterministic (callNumber-modulo)
+ * rather than random so Preview-lens previews + actual call composition
+ * agree byte-for-byte. Theme 3 (`<PinnedCardSlot>`) will cache the
+ * pick to `Session.metadata.pinnedCard` so the UI shows the same card
+ * the prompt was composed with.
+ */
+function resolveModuleCueCard(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): {
+  kind: "cueCard";
+  topic: string;
+  bullets: string[];
+  secondaryNote?: string;
+  directive: string;
+} | null {
+  if (!isIeltsModuleSettingsEnabled()) return null;
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+
+  const pool = matched.settings?.cueCardPool;
+  if (!Array.isArray(pool) || pool.length === 0) return null;
+
+  // Deterministic pick — callNumber starts at 1 for first call.
+  const callIndex = Math.max(0, (sharedState.callNumber ?? 1) - 1);
+  const picked = pool[callIndex % pool.length];
+  if (!picked || typeof picked.topic !== "string" || picked.topic.trim().length === 0) {
+    return null;
+  }
+  const bullets = Array.isArray(picked.bullets)
+    ? picked.bullets.filter((b) => typeof b === "string" && b.trim().length > 0)
+    : [];
+  if (bullets.length === 0) return null;
+
+  const bulletsList = bullets.map((b) => `  - ${b}`).join("\n");
+  const directive = `CUE CARD for this module — keep this topic central:\nTopic: ${picked.topic}\nBullets:\n${bulletsList}`;
+  return {
+    kind: "cueCard",
+    topic: picked.topic,
+    bullets,
+    directive,
+  };
+}
+
+/**
+ * #1735 (epic #1730 G8 consumer D) — first-time-only orientation line.
+ *
+ * Returns the verbatim string when ALL hold:
+ *   - `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic #1700 decision 5)
+ *   - `sharedState.lockedModule` is set
+ *   - Matching `AuthoredModule` in `Playbook.config.modules[]` has a
+ *     non-empty `settings.firstTimeOrientationLine` string
+ *   - The corresponding `CallerModuleProgress.orientationShown` for
+ *     `(callerId, moduleId)` is `false` (or row absent — first attempt)
+ *
+ * Returns `null` otherwise — the orientation line was already shown
+ * (gate hit) OR the operator hasn't set one.
+ *
+ * The "has it been shown" lookup uses `loadedData.callerModuleProgress`
+ * (loaded by the modules section). Falls back to `sharedState.modules`
+ * for older composer paths.
+ *
+ * After this line renders for the first time, `endSession`'s
+ * `evaluateOrientationShown` writes `orientationShown = true` so the
+ * next composition for this caller skips the line.
+ */
+function resolveModuleOrientationLine(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+  loadedData: AssembledContext["loadedData"],
+): { line: string; directive: string } | null {
+  if (!isIeltsModuleSettingsEnabled()) return null;
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+
+  const line = matched.settings?.firstTimeOrientationLine;
+  if (typeof line !== "string" || line.trim().length === 0) return null;
+
+  // Has the learner seen this module's orientation already? The
+  // `callerModuleProgress` rows live on `loadedData` when the modules
+  // loader has run; fall back to `sharedState.modules.progress` (the
+  // older composer path also carries this).
+  const progressRows = (
+    loadedData as { callerModuleProgress?: Array<{ moduleId: string; orientationShown?: boolean }> }
+  ).callerModuleProgress ?? [];
+  const progressRow = progressRows.find(
+    (r) => r.moduleId === matched.id || r.moduleId === lockedModule.id,
+  );
+  if (progressRow?.orientationShown === true) return null;
+
+  return {
+    line,
+    directive: `FIRST-TIME ORIENTATION (one-shot — speak these exact words once before starting the module): "${line}"`,
+  };
+}

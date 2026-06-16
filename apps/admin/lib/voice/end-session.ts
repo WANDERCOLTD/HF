@@ -33,6 +33,12 @@ import {
 import { markModuleIncomplete } from "@/lib/curriculum/mark-module-incomplete";
 import { getCourseStyle } from "@/lib/pipeline/course-style";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
+import {
+  computeTalkTimeStats,
+  evaluateTalkTimeBudgets,
+} from "@/lib/voice/talk-time-stats";
+import { countInterrogatives } from "@/lib/pipeline/count-interrogatives";
+import { log as appLog } from "@/lib/logger";
 import type { AuthoredModule, PlaybookConfig } from "@/lib/types/json-fields";
 
 export type SessionOutcome = SessionOutcomeString;
@@ -154,6 +160,49 @@ export async function endSession(
     kind,
     outcome: args.outcome,
     durationSeconds,
+  });
+
+  // #1747 follow-on (epic #1700 Theme 7) — post-call talk-time
+  // telemetry. Computes tutor-speech budgets from the transcript and
+  // emits `voice.talk_time.over_budget` AppLog when exceeded. Best-
+  // effort write — helper failures don't roll back the durable Session
+  // state. Runs only for transcript-bearing sessions
+  // (VOICE_CALL / SIM_CALL).
+  evaluateTalkTimeBudgetsForSession({
+    callerId: updated.callerId,
+    sessionId: updated.id,
+    kind,
+    transcript: args.transcript ?? null,
+    playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
+  });
+
+  // #1735 (epic #1730 G8 consumer D) — write `orientationShown = true`
+  // on first successful completion of a module that has
+  // `moduleFirstTimeOrientationLine` set. Best-effort; helper failure
+  // doesn't roll back the Session.
+  await markOrientationShownIfApplicable({
+    callerId: updated.callerId,
+    curriculumModuleId: existing.curriculumModuleId,
+    moduleSlug: existing.curriculumModule?.slug ?? null,
+    playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
+    kind,
+    outcome: args.outcome,
+  });
+
+  // #1748 (epic #1700 Theme 8) — question-count undershoot gate. If
+  // the locked module declared `moduleQuestionTarget` and the tutor
+  // asked fewer questions than `min`, treat as incomplete + flow
+  // through the `markModuleIncomplete` chokepoint (same waiver policy
+  // as duration-undershoot).
+  await evaluateQuestionCountForSession({
+    callerId: updated.callerId,
+    curriculumModuleId: existing.curriculumModuleId,
+    moduleSlug: existing.curriculumModule?.slug ?? null,
+    playbookId: existing.playbookId,
+    playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
+    kind,
+    outcome: args.outcome,
+    transcript: args.transcript ?? null,
   });
 
   // Fire-and-forget pipeline trigger. Must NOT be awaited and must
@@ -307,6 +356,232 @@ async function evaluateIncompleteAttempt(args: {
   } catch (err) {
     console.error(
       `[endSession] markModuleIncomplete failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/**
+ * #1747 follow-on (epic #1700 Theme 7) — compute tutor talk-time stats
+ * for this session and emit `voice.talk_time.over_budget` AppLog when
+ * any budget is exceeded.
+ *
+ * Conditions to compute:
+ *
+ *   1. Session has a transcript (passed via `endSession({transcript})`)
+ *   2. `kind` ∈ {VOICE_CALL, SIM_CALL} — chat / enrolment / assessment
+ *      don't have a measurable tutor-speech budget
+ *
+ * Reads operator budgets from `Playbook.config.talkTimeBudgets`;
+ * `evaluateTalkTimeBudgets` falls back to `DEFAULT_TALK_TIME_BUDGETS`
+ * (`maxTutorTurnSec: 30`, `maxTutorRatio: 0.2`) when keys are unset.
+ *
+ * **Best-effort** — runs synchronously (compute is fast, AppLog write
+ * is fire-and-forget inside `log()`) but any throw is swallowed so
+ * Session durability is unaffected.
+ */
+function evaluateTalkTimeBudgetsForSession(args: {
+  callerId: string | null;
+  sessionId: string;
+  kind: SessionKindString;
+  transcript: string | null;
+  playbookConfig: PlaybookConfig | null | undefined;
+}): void {
+  if (args.kind !== "VOICE_CALL" && args.kind !== "SIM_CALL") return;
+  if (!args.transcript) return;
+
+  try {
+    const stats = computeTalkTimeStats(args.transcript);
+    const budgets = args.playbookConfig?.talkTimeBudgets ?? null;
+    const evaluation = evaluateTalkTimeBudgets(stats, budgets);
+
+    if (!evaluation.overBudget) return;
+
+    appLog("system", "voice.talk_time.over_budget", {
+      level: "warn",
+      message: `Tutor talk-time exceeded budget(s): ${evaluation.exceededBy.join(", ")}`,
+      sessionId: args.sessionId,
+      callerId: args.callerId ?? null,
+      kind: args.kind,
+      exceededBy: evaluation.exceededBy,
+      budgets: evaluation.budgets,
+      stats: {
+        tutorTurnCount: stats.tutorTurnCount,
+        learnerTurnCount: stats.learnerTurnCount,
+        tutorWordCount: stats.tutorWordCount,
+        learnerWordCount: stats.learnerWordCount,
+        maxTutorTurnWords: stats.maxTutorTurnWords,
+        maxTutorTurnSec: stats.maxTutorTurnSec,
+        tutorRatio: stats.tutorRatio,
+      },
+    });
+  } catch (err) {
+    console.error(
+      `[endSession] talk-time evaluation failed for session ${args.sessionId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/**
+ * #1735 (epic #1730 G8 consumer D) — set `CallerModuleProgress.orientationShown
+ * = true` for `(callerId, curriculumModuleId)` after the first
+ * successful session of a module whose authored entry carries
+ * `settings.firstTimeOrientationLine`.
+ *
+ * Conditions:
+ *   - Outcome `COMPLETED` (don't gate-burn on GHOST/FAILED — those
+ *     re-attempt fresh and the learner should see the orientation
+ *     again on retry)
+ *   - `kind` ∈ {VOICE_CALL, SIM_CALL} (other classes don't render the
+ *     orientation line)
+ *   - `playbookConfig.modules[]` has a matching `AuthoredModule` with a
+ *     non-empty `settings.firstTimeOrientationLine`
+ *
+ * Best-effort — does NOT throw. The composer's resolveModuleOrientationLine
+ * re-checks the flag on next compose, so a failure here just means
+ * the learner sees the orientation again on the next attempt (harmless).
+ *
+ * Uses `update` with `where: { callerId_moduleId }` so a missing row
+ * raises a Prisma error (caught + logged) — the row should exist
+ * because the modules-instantiator (`lib/enrollment/instantiate-module-progress.ts`)
+ * creates one per (caller, module) at enrollment time.
+ */
+async function markOrientationShownIfApplicable(args: {
+  callerId: string | null;
+  curriculumModuleId: string | null;
+  moduleSlug: string | null;
+  playbookConfig: PlaybookConfig | null | undefined;
+  kind: SessionKindString;
+  outcome: SessionOutcomeString;
+}): Promise<void> {
+  if (args.outcome !== "COMPLETED") return;
+  if (args.kind !== "VOICE_CALL" && args.kind !== "SIM_CALL") return;
+  if (!args.callerId || !args.curriculumModuleId) return;
+
+  // Resolve the AuthoredModule and check if orientation is configured.
+  const authoredModules =
+    (args.playbookConfig?.modules as AuthoredModule[] | undefined) ?? [];
+  const matched = args.moduleSlug
+    ? authoredModules.find((m) => m.id === args.moduleSlug)
+    : undefined;
+  const line = matched?.settings?.firstTimeOrientationLine;
+  if (typeof line !== "string" || line.trim().length === 0) return;
+
+  // Guard #1252 — default-deny on continuous courses. Module-progress
+  // writes only make sense for structured courses. The
+  // `hf-pipeline/no-module-read-without-course-style-guard` ESLint rule
+  // requires the prisma call to sit inside this explicit if-block (an
+  // early-return + flag-check doesn't satisfy the AST shape it scans
+  // for — only an enclosing IfStatement with the structured check).
+  const courseStyle = getCourseStyle(args.playbookConfig);
+  if (courseStyle === "structured") {
+    try {
+      await prisma.callerModuleProgress.update({
+        where: {
+          callerId_moduleId: {
+            callerId: args.callerId,
+            moduleId: args.curriculumModuleId,
+          },
+        },
+        data: { orientationShown: true },
+      });
+    } catch (err) {
+      console.error(
+        `[endSession] markOrientationShown failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
+/**
+ * #1748 (epic #1700 Theme 8) — question-count undershoot gate.
+ *
+ * When the locked module declares `moduleQuestionTarget.min` (G8 entry
+ * from #1701) and the tutor asks fewer real questions than `min`, the
+ * call is incomplete by spec. Routes through the same
+ * `markModuleIncomplete` chokepoint as duration-undershoot — second
+ * incomplete still triggers the waiver per #1703.
+ *
+ * Conditions to evaluate:
+ *
+ *   1. `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic decision 5)
+ *   2. `kind` ∈ {VOICE_CALL, SIM_CALL} with `playbookId` + `curriculumModuleId`
+ *   3. `outcome === "COMPLETED"` (skip GHOST/FAILED — duration-undershoot
+ *      block already handles those)
+ *   4. `getCourseStyle === "structured"` (guard #1252 default-deny)
+ *   5. AuthoredModule has a valid `settings.questionTarget = {min, target}`
+ *   6. `countInterrogatives(transcript).count < questionTarget.min`
+ *
+ * Emits AppLog `module.incomplete.question_count_undershoot` (sibling
+ * subject to the other `module.incomplete.*` subjects from #1703).
+ *
+ * Best-effort — helper failures log + return; Session durability
+ * preserved.
+ */
+async function evaluateQuestionCountForSession(args: {
+  callerId: string | null;
+  curriculumModuleId: string | null;
+  moduleSlug: string | null;
+  playbookId: string | null;
+  playbookConfig: PlaybookConfig | null | undefined;
+  kind: SessionKindString;
+  outcome: SessionOutcomeString;
+  transcript: string | null;
+}): Promise<void> {
+  if (!isIeltsModuleSettingsEnabled()) return;
+  if (args.outcome !== "COMPLETED") return;
+  if (args.kind !== "VOICE_CALL" && args.kind !== "SIM_CALL") return;
+  if (!args.callerId || !args.curriculumModuleId || !args.playbookId) return;
+  if (!args.transcript) return;
+
+  const courseStyle = getCourseStyle(args.playbookConfig);
+  if (courseStyle !== "structured") return;
+
+  const authoredModules =
+    (args.playbookConfig?.modules as AuthoredModule[] | undefined) ?? [];
+  const matched = args.moduleSlug
+    ? authoredModules.find((m) => m.id === args.moduleSlug)
+    : undefined;
+  const qt = matched?.settings?.questionTarget;
+  if (
+    !qt ||
+    typeof qt.min !== "number" ||
+    !Number.isFinite(qt.min) ||
+    qt.min < 1
+  ) {
+    return;
+  }
+
+  const result = countInterrogatives(args.transcript);
+  if (result.count >= qt.min) return;
+
+  // Undershoot — fire the gate.
+  appLog("system", "module.incomplete.question_count_undershoot", {
+    level: "warn",
+    message: `Tutor asked ${result.count} questions; module target min is ${qt.min}`,
+    callerId: args.callerId,
+    moduleId: args.curriculumModuleId,
+    playbookId: args.playbookId,
+    questionCount: result.count,
+    rawCount: result.rawCount,
+    rhetoricalFiltered: result.rhetoricalFiltered,
+    tutorTurnCount: result.tutorTurnCount,
+    questionTargetMin: qt.min,
+    questionTargetTarget: qt.target,
+  });
+
+  try {
+    await markModuleIncomplete(prisma, {
+      callerId: args.callerId,
+      moduleId: args.curriculumModuleId,
+      courseStyle,
+      playbookId: args.playbookId,
+    });
+  } catch (err) {
+    console.error(
+      `[endSession] markModuleIncomplete (question-count) failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
       err instanceof Error ? err.message : String(err),
     );
   }

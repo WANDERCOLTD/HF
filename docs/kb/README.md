@@ -14,7 +14,7 @@ and classifies everything by **"does it survive the hardening?"**.
 The work is overwhelmingly **consolidation, not creation** — most of the knowledge
 already exists, scattered across mechanisms that were never designed as one system.
 
-## Lattice — the four pillars this KB catalogues
+## Lattice — the five pillars this KB catalogues
 
 **Lattice** is the umbrella term (2026-06-16) for HF's structural-enforcement
 infrastructure. New structural infra must ship *with* its paired guard + rule.
@@ -26,6 +26,7 @@ infrastructure. New structural infra must ship *with* its paired guard + rule.
 | **Guards** | Executable enforcement (ESLint rules + `check-*` scripts + DB-level constraints) | `apps/admin/eslint-rules/`, `scripts/capture/check-*`, `prisma/schema.prisma` | `guard-registry.md` |
 | **Cascade** | Effective-value resolvers (`resolveEffective`, presets, variant pins) | `lib/cascade/`, `lib/banding/`, `lib/config/resolve-*` | Part 1 model-map + Part 2 |
 | **Rules** | Curated guidance that explains *why* a guard exists | `.claude/rules/*.md` | linked from each guard row |
+| **Registry-schema coverage** | Schema-driven completeness check — every educator-facing `PlaybookConfig` field is either covered by a `JourneySettingContract` or explicitly exempted with a reason | `apps/admin/tests/lib/journey/registry-schema-coverage.test.ts` + `.claude/rules/registry-schema-coverage.md` | `guard-registry.md` meta-ratchet |
 
 Audit cue: when changes touch any pillar, audit against all four explicitly
 before merge. Lattice-survey discipline (60–90s sibling-writer survey before

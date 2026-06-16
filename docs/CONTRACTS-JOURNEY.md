@@ -265,6 +265,124 @@ When a new journey-affecting setting is introduced:
 3. If the setting maps onto a NEW `ComposeSectionKey`, add the key to
    `lib/compose/section.ts` (existing rule). The completeness test
    catches references to non-existent section keys.
+4. **(Slice C, §17)** Assign a `menuGroupKey` from the 13 buckets in
+   `lib/journey/menu-items.ts::JOURNEY_MENU_BUCKET_IDS`. The
+   `hf-journey/no-bucketless-journey-setting` ESLint rule blocks the
+   entry from landing without it.
+
+## §17 — Slice C bucket model (#1721)
+
+The Slice C LH menu reshape replaced the 45-row "one setting per row"
+shape with **13 educator-intent buckets** organised by *session
+moment*. The bucket model is the operator's mental model (per the
+IELTS pre-voice gap analysis); the registry remains the storage-entity
+truth.
+
+See [`docs/decisions/2026-06-16-journey-bucket-shape.md`](./decisions/2026-06-16-journey-bucket-shape.md)
+for the rationale + alternatives considered.
+
+### §17.1 — The 14 buckets
+
+Authored in `lib/journey/menu-items.ts::JOURNEY_MENU_ITEMS`. Each bucket
+declares `id`, `label`, `caption`, `parentGroup` (visual G1..G7
+section header), and optional `emptyReservation` linking unpopulated
+buckets to a future IELTS theme (#1700).
+
+```ts
+type JourneyMenuBucketId =
+  | "A_intake"
+  | "B_call1_opening"
+  | "C_teaching_style"
+  | "D_question_flow"
+  | "E_learner_visual"      // reserved for IELTS Theme 3
+  | "F_stall_recovery"      // reserved for IELTS Theme 2
+  | "G_session_length"
+  | "H_closing"
+  | "I_scoring"
+  | "J_feedback"
+  | "K_between_calls"
+  | "L_mid_journey"
+  | "M_end_of_course"
+  | "N_voice";              // 11 voice settings — also live in Settings tab
+```
+
+`N_voice` is the cross-call exception (the 13 letter-named buckets are
+ordered by *session moment*; voice is configuration that applies
+uniformly across every call). It exists so educators can reach the 11
+voice settings via Cmd+K + the Journey LH without leaving the Journey
+tab. The same registry entries also surface in the Settings tab
+under `S1_voice` — there's no second copy.
+
+`bucket-relations.ts` filters over `JOURNEY_SETTINGS + VOICE_SETTINGS`
+together so `getSettingsForBucket("N_voice")` returns the 11 voice
+entries without duplicating them.
+
+### §17.2 — Registry additions (additive)
+
+Three optional fields on `JourneySettingContract`:
+
+| Field | Type | Purpose |
+|---|---|---|
+| `menuGroupKey` | `JourneyMenuBucketId` | Which bucket the setting appears under in the LH. Pinned by `registry-completeness.test.ts` and `hf-journey/no-bucketless-journey-setting`. |
+| `scope` | `"course" \| "module"` | Default `"course"`. `"module"` for G8 / IELTS Theme 1 settings stored on `AuthoredModule.settings`. Mixed-scope buckets render two sub-groups in the Inspector. |
+| `cascadeKnobKey` | `string` | When set, `useEffectiveValue` (Slice C2) uses this as the knob-key for cascade resolution. Defaults to `id` when omitted. |
+
+### §17.3 — Bucket relations (derived)
+
+`lib/journey/bucket-relations.ts` exposes pure N-to-N derivers — never
+written to, never cached:
+
+| Function | Returns |
+|---|---|
+| `getSettingsForBucket(id)` | Every setting whose `menuGroupKey` matches |
+| `getSectionsForBucket(id)` | Every `ComposeSectionKey` the bucket's settings touch (multi-pulse source) |
+| `getBucketsForSection(key)` | Every bucket that touches the section (pick-strip source) |
+| `splitBucketByScope(id)` | `{ course[], module[] }` split for mixed-scope buckets |
+
+### §17.4 — UI chain
+
+```
+LH bucket click
+  → useJourneySelection.setBucketId(id) writes ?j_bucket=<id> to URL
+  → JourneyInspectorPanel mounts every setting in getSettingsForBucket(id)
+  → useBubblePulse adds .hf-preview-pulse to every bubble whose
+    data-compose-section appears in getSectionsForBucket(id)
+    (persistent — Slice C3 #1738 changed this from a 1.8s flash to an
+    infinite pulse held for the lifetime of the LH selection)
+
+Preview bubble click
+  → CourseJourneyTab.handlePreviewSectionSelect(section)
+  → getBucketsForSection(section) returns ordered list
+  → if 1 bucket: select it
+  → if 2+: select the first chronologically AND render PreviewLocatorHint
+    pick-strip so the operator can switch buckets without scrolling LH
+
+Cmd+K palette
+  → search "<query>" over JOURNEY_SETTINGS + VOICE_SETTINGS
+  → Enter selects a setting → look up owner.menuGroupKey →
+    selection.setBucketId(owner.menuGroupKey)
+  → placeholder copy shows derived counts: "Search N settings across
+    13 buckets…" (Slice C3 #1738)
+```
+
+### §17.5 — writeGate UI signal (Slice C3 #1738)
+
+When a contract carries `writeGate: "operator-only"`, the Inspector
+renders an `<WriteGateLockChip>` above the row — a non-interactive
+status chip with a lock glyph and "Operator-only" label. The chip is
+the educator-visible mirror of the chain-contract boundary documented
+at `docs/CHAIN-CONTRACTS.md` (the adaptive pipeline must never mutate
+these settings). The chip is cosmetic — the structural protection is
+the pipeline-side check; the chip exists so operators see at a glance
+which settings the loop won't touch.
+
+### §17.6 — Guards (Lattice Guards pillar)
+
+| Guard | Where | What it blocks |
+|---|---|---|
+| `hf-journey/no-bucketless-journey-setting` | `eslint-rules/no-bucketless-journey-setting.mjs` (#1738) | A new `JOURNEY_SETTINGS` entry without `menuGroupKey`. Error severity from day 1. Allow-list: `lib/settings/voice-setting-contracts.ts` + test files. |
+| `registry-completeness.test.ts` | `tests/lib/journey/registry-completeness.test.ts` | Same invariant at test time + per-group counts + Compose section reference integrity. |
+| `.claude/rules/cascade-reuse.md` | rule doc (#1737) | Snapshot-read anti-pattern for cascade-resolvable values. Names `useEffectiveValue` + `<CascadeValue>` + `<LayerBadge>` as the canonical read-side path. |
 
 ## See also
 

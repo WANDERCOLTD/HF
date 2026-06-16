@@ -25,7 +25,8 @@
 import { registerTransform } from "../TransformRegistry";
 import { prisma } from "@/lib/prisma";
 import type { AssembledContext } from "../types";
-import type { PlaybookConfig } from "@/lib/types/json-fields";
+import type { AuthoredModule, PlaybookConfig } from "@/lib/types/json-fields";
+import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
 
 export interface ModuleProgressEntry {
   slug: string;
@@ -56,6 +57,14 @@ export interface OffboardingOutput {
   cadenceFired: "final_only" | "every_session_with_data";
   guidance: string[];
   progressSummary: ProgressSummary | null;
+  /**
+   * #1734 (epic #1730 G8 consumer C) — module-scoped verbatim closing
+   * line, when set on the locked module's `settings.closingLine` AND
+   * `HF_FLAG_IELTS_MODULE_SETTINGS=true`. Appended as a final guidance
+   * line so the model reads it last. `null` when the override isn't
+   * active for this session.
+   */
+  moduleClosingLine: string | null;
 }
 
 const DEFAULTS = {
@@ -208,12 +217,30 @@ registerTransform("computeOffboarding", async (
       ? [...GENERIC_FINAL_GUIDANCE]
       : [...GENERIC_EVERY_SESSION_GUIDANCE];
 
+  // #1734 (epic #1730 G8 consumer C) — module-scoped verbatim closing
+  // line override. Resolves `Playbook.config.modules[].settings.closingLine`
+  // against the session's `sharedState.lockedModule`. Gated by
+  // `HF_FLAG_IELTS_MODULE_SETTINGS` per epic #1700 decision 5. When set,
+  // append a verbatim-close line at end of guidance so the model reads
+  // it last. The base cadence gate (final_only / every_session_with_data)
+  // is unchanged — when the gate doesn't fire, this transform returns
+  // null above and the closing line never renders.
+  const moduleClosingLine = resolveModuleClosingLine(config, sharedState);
+
   if (!hasAnyData) {
+    const guidance = [...baseGuidance];
+    if (moduleClosingLine) {
+      guidance.push(
+        "",
+        `VERBATIM CLOSING LINE — speak these exact words to end the call: "${moduleClosingLine}"`,
+      );
+    }
     return {
       isFinalSession,
       cadenceFired: cadence,
-      guidance: baseGuidance,
+      guidance,
       progressSummary: null,
+      moduleClosingLine,
     };
   }
 
@@ -237,10 +264,55 @@ registerTransform("computeOffboarding", async (
     "  - Keep it tight: name at most two dimensions to celebrate. Don't recite the whole list.",
   );
 
+  const guidance = [...baseGuidance, ...dataLines];
+  if (moduleClosingLine) {
+    guidance.push(
+      "",
+      `VERBATIM CLOSING LINE — speak these exact words to end the call: "${moduleClosingLine}"`,
+    );
+  }
+
   return {
     isFinalSession,
     cadenceFired: cadence,
-    guidance: [...baseGuidance, ...dataLines],
+    guidance,
     progressSummary,
+    moduleClosingLine,
   };
 });
+
+/**
+ * Resolve the module-scoped closing line for this session.
+ *
+ * Returns the verbatim string when ALL conditions hold:
+ *   - `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic #1700 decision 5)
+ *   - `sharedState.lockedModule` is set (learner picked a specific module
+ *     via the Module Picker)
+ *   - An `AuthoredModule` in `Playbook.config.modules[]` matches the
+ *     locked module by `id` (and falls back to `slug` if id is absent)
+ *   - That module's `settings.closingLine` is a non-empty string
+ *
+ * Returns `null` otherwise — the offboarding section renders without
+ * the verbatim-close override and the standard cascade guidance owns
+ * the closing slot.
+ */
+function resolveModuleClosingLine(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): string | null {
+  if (!isIeltsModuleSettingsEnabled()) return null;
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+
+  const closingLine = matched.settings?.closingLine;
+  if (typeof closingLine !== "string" || closingLine.trim().length === 0) {
+    return null;
+  }
+  return closingLine;
+}

@@ -84,7 +84,7 @@ export const JOURNEY_MENU_ITEMS: readonly JourneyMenuBucket[] = [
     parentGroup: "G4",
     emptyReservation: {
       ieltsTheme: 2,
-      note: "Lands with IELTS Theme 2 (stall + cue scheduler) + Theme 7 (talk-time budgets).",
+      note: "Lands with IELTS Theme 2 (stall + cue scheduler). Theme 7's talkTimeBudgets shipped in J_feedback (#1747).",
     },
   },
   {
@@ -129,6 +129,13 @@ export const JOURNEY_MENU_ITEMS: readonly JourneyMenuBucket[] = [
     caption: "Wrap-up, results delivery, completion",
     parentGroup: "G6",
   },
+  {
+    id: "N_voice",
+    label: "Voice & how the tutor sounds",
+    caption:
+      "Provider, voice, speed, interruption tolerance — also editable in the Settings tab",
+    parentGroup: "G4",
+  },
 ];
 
 export const JOURNEY_MENU_ITEMS_BY_ID: Readonly<
@@ -138,7 +145,7 @@ export const JOURNEY_MENU_ITEMS_BY_ID: Readonly<
   JourneyMenuBucket
 >;
 
-/** The 13 IDs as an ordered tuple — useful for stable URL state +
+/** The 14 IDs as an ordered tuple — useful for stable URL state +
  *  registry-completeness assertions. */
 export const JOURNEY_MENU_BUCKET_IDS: readonly JourneyMenuBucketId[] =
   JOURNEY_MENU_ITEMS.map((b) => b.id);

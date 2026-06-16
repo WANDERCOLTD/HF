@@ -26,6 +26,10 @@
  *   - app/api/callers/[callerId]/reset/route.ts (same)
  *   - scripts/backfill-950-stuck-module-status.ts (one-off backfill)
  *   - scripts/cleanup-placeholder-lo-scores.ts    (cleanup script)
+ *   - lib/voice/end-session.ts                    (#1735 / epic #1730 G8 consumer D —
+ *                                                  orientationShown=true on first module
+ *                                                  completion; orthogonal to incomplete-
+ *                                                  attempt + waiver semantics)
  *   - prisma/backfill-modules.ts                  (one-off backfill — pre-#1703 code,
  *                                                  same shape as scripts/backfill-*)
  *
@@ -45,6 +49,13 @@ const ALLOWED_PATH_SUFFIXES = [
   "app/api/callers/[callerId]/reset/route.ts",
   "scripts/backfill-950-stuck-module-status.ts",
   "scripts/cleanup-placeholder-lo-scores.ts",
+  // #1735 (epic #1730 G8 consumer D) — endSession writes
+  // `orientationShown=true` on first successful module completion. The
+  // write is a single boolean flag with a stable shape (no
+  // status/mastery semantics — orthogonal to the chokepoint's
+  // increment-and-waiver concern). Allow-listed inline because the
+  // semantics are too different to share `markModuleIncomplete`.
+  "lib/voice/end-session.ts",
   "prisma/backfill-modules.ts",
 ];
 
