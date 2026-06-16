@@ -70,11 +70,6 @@ const EXPECTED_OPTION_VALUES: Record<string, OptionPin> = {
     canonical:
       "lib/types/json-fields.ts::IntakeConfig.knowledgeCheck.deliveryMode",
   },
-  // NOTE: intakeConsentFlow ships with control:"select" but NO options
-  // array — pre-existing bug surfaced during this audit. Lane 2 already
-  // added the "No options available — use ⋯ → Edit as JSON" fallback
-  // for the runtime UX. Follow-on needed: product to define the
-  // canonical consent-flow value set, then add options here.
 
   // ── B_call1_opening ─────────────────────────────────────────────
   firstCallMode: {

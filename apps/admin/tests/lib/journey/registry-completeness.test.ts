@@ -91,7 +91,7 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // Lane 3 PR1 — A_intake (G1) gained 3 contracts: intakeGoals,
     // intakeAiIntroCall, intakeKnowledgeCheckMode (catch-up follow-on
     // from #1780 coverage audit).
-    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(8);
+    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(7);
     expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
     expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(27);
@@ -103,8 +103,8 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(7);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 86", () => {
-    expect(JOURNEY_SETTINGS.length).toBe(86);
+  it("(8) JOURNEY_SETTINGS.length === 85", () => {
+    expect(JOURNEY_SETTINGS.length).toBe(85);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

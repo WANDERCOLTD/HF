@@ -166,26 +166,6 @@ const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
   previewLocators: [],
 };
 
-const G1_INTAKE_CONSENT_FLOW: JourneySettingContract = {
-  id: "intakeConsentFlow",
-  menuGroupKey: "A_intake",
-  group: "G1",
-  educatorLabel: "Consent / disclosure flow",
-  helpText: "Which consent gates run before the learner reaches Call 1.",
-  storagePath: "config.intakeConsentFlow",
-  control: "select",
-  cascadeSources: [
-    { level: "domain", storagePath: "domain.consentFlowDefault" },
-  ],
-  composeImpact: {
-    sections: ["intake"],
-    kinds: ["section-content", "section-enable"],
-    requiresReprompt: true, // operator-only + compose impact (AC §6 rule 11)
-  },
-  previewLocators: [{ section: "intake", hint: "consent gates" }],
-  writeGate: "operator-only",
-};
-
 // =============================================================
 // G2 — Call 1 — opening & assessment (6)
 // =============================================================
@@ -1783,7 +1763,6 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G1_INTAKE_AI_INTRO_CALL,
   G1_INTAKE_KNOWLEDGE_CHECK_MODE,
   G1_INTAKE_SKIP_IF_RETURNING,
-  G1_INTAKE_CONSENT_FLOW,
   // G2 (6)
   G2_FIRST_CALL_MODE,
   G2_WELCOME_MESSAGE,
