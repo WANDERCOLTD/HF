@@ -21,8 +21,13 @@ import { ROLE_LEVEL } from "@/lib/roles";
 export { ROLE_LEVEL };
 
 type AuthSuccess = { session: Session };
-type AuthFailure = { error: NextResponse };
-type AuthResult = AuthSuccess | AuthFailure;
+/** Generic in T so the auth-error NextResponse assigns to any route's
+ *  declared return type. Default `any` (rather than unknown) because the
+ *  NextResponse<T> type is covariant in T — unknown would require every
+ *  caller to cast. Routes opt into a stricter type by calling
+ *  `requireAuth<MyResponseType>(...)`. */
+type AuthFailure<T = any> = { error: NextResponse<T> };
+type AuthResult<T = any> = AuthSuccess | AuthFailure<T>;
 
 interface RequireAuthOptions {
   /** Skip masquerade override — use the real JWT identity. Required for masquerade management routes. */
@@ -40,23 +45,23 @@ interface RequireAuthOptions {
  * Pass `{ skipMasquerade: true }` for routes that need the real admin identity
  * (e.g., the masquerade management API itself).
  */
-export async function requireAuth(
+export async function requireAuth<T = any>(
   minRole: UserRole = "VIEWER",
   options?: RequireAuthOptions,
-): Promise<AuthResult> {
+): Promise<AuthResult<T>> {
   let session;
   try {
     session = await auth();
   } catch (e) {
     console.error("[requireAuth] auth() threw:", (e as Error).message);
     return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) as NextResponse<T>,
     };
   }
 
   if (!session?.user) {
     return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) as NextResponse<T>,
     };
   }
 
@@ -88,7 +93,7 @@ export async function requireAuth(
 
   if (userLevel < requiredLevel) {
     return {
-      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) as NextResponse<T>,
     };
   }
 
@@ -98,7 +103,7 @@ export async function requireAuth(
 /**
  * Type guard: check if result is an auth error response.
  */
-export function isAuthError(result: AuthResult): result is AuthFailure {
+export function isAuthError<T>(result: AuthResult<T>): result is AuthFailure<T> {
   return "error" in result;
 }
 

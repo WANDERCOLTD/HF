@@ -85,7 +85,7 @@ export function studentAllowedToReadCaller(
 }
 
 /** Shared 403 response for the inline STUDENT-owns-resource check. */
-export function callerScopeMismatchResponse(): NextResponse {
+export function callerScopeMismatchResponse(): NextResponse<{ ok: false; error: string }> {
   return NextResponse.json(
     { ok: false, error: "Forbidden — caller scope mismatch" },
     { status: 403 },
