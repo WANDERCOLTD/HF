@@ -37,6 +37,7 @@ import {
   computeTalkTimeStats,
   evaluateTalkTimeBudgets,
 } from "@/lib/voice/talk-time-stats";
+import { countInterrogatives } from "@/lib/pipeline/count-interrogatives";
 import { log as appLog } from "@/lib/logger";
 import type { AuthoredModule, PlaybookConfig } from "@/lib/types/json-fields";
 
@@ -186,6 +187,22 @@ export async function endSession(
     playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
     kind,
     outcome: args.outcome,
+  });
+
+  // #1748 (epic #1700 Theme 8) — question-count undershoot gate. If
+  // the locked module declared `moduleQuestionTarget` and the tutor
+  // asked fewer questions than `min`, treat as incomplete + flow
+  // through the `markModuleIncomplete` chokepoint (same waiver policy
+  // as duration-undershoot).
+  await evaluateQuestionCountForSession({
+    callerId: updated.callerId,
+    curriculumModuleId: existing.curriculumModuleId,
+    moduleSlug: existing.curriculumModule?.slug ?? null,
+    playbookId: existing.playbookId,
+    playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
+    kind,
+    outcome: args.outcome,
+    transcript: args.transcript ?? null,
   });
 
   // Fire-and-forget pipeline trigger. Must NOT be awaited and must
@@ -475,5 +492,97 @@ async function markOrientationShownIfApplicable(args: {
         err instanceof Error ? err.message : String(err),
       );
     }
+  }
+}
+
+/**
+ * #1748 (epic #1700 Theme 8) — question-count undershoot gate.
+ *
+ * When the locked module declares `moduleQuestionTarget.min` (G8 entry
+ * from #1701) and the tutor asks fewer real questions than `min`, the
+ * call is incomplete by spec. Routes through the same
+ * `markModuleIncomplete` chokepoint as duration-undershoot — second
+ * incomplete still triggers the waiver per #1703.
+ *
+ * Conditions to evaluate:
+ *
+ *   1. `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic decision 5)
+ *   2. `kind` ∈ {VOICE_CALL, SIM_CALL} with `playbookId` + `curriculumModuleId`
+ *   3. `outcome === "COMPLETED"` (skip GHOST/FAILED — duration-undershoot
+ *      block already handles those)
+ *   4. `getCourseStyle === "structured"` (guard #1252 default-deny)
+ *   5. AuthoredModule has a valid `settings.questionTarget = {min, target}`
+ *   6. `countInterrogatives(transcript).count < questionTarget.min`
+ *
+ * Emits AppLog `module.incomplete.question_count_undershoot` (sibling
+ * subject to the other `module.incomplete.*` subjects from #1703).
+ *
+ * Best-effort — helper failures log + return; Session durability
+ * preserved.
+ */
+async function evaluateQuestionCountForSession(args: {
+  callerId: string | null;
+  curriculumModuleId: string | null;
+  moduleSlug: string | null;
+  playbookId: string | null;
+  playbookConfig: PlaybookConfig | null | undefined;
+  kind: SessionKindString;
+  outcome: SessionOutcomeString;
+  transcript: string | null;
+}): Promise<void> {
+  if (!isIeltsModuleSettingsEnabled()) return;
+  if (args.outcome !== "COMPLETED") return;
+  if (args.kind !== "VOICE_CALL" && args.kind !== "SIM_CALL") return;
+  if (!args.callerId || !args.curriculumModuleId || !args.playbookId) return;
+  if (!args.transcript) return;
+
+  const courseStyle = getCourseStyle(args.playbookConfig);
+  if (courseStyle !== "structured") return;
+
+  const authoredModules =
+    (args.playbookConfig?.modules as AuthoredModule[] | undefined) ?? [];
+  const matched = args.moduleSlug
+    ? authoredModules.find((m) => m.id === args.moduleSlug)
+    : undefined;
+  const qt = matched?.settings?.questionTarget;
+  if (
+    !qt ||
+    typeof qt.min !== "number" ||
+    !Number.isFinite(qt.min) ||
+    qt.min < 1
+  ) {
+    return;
+  }
+
+  const result = countInterrogatives(args.transcript);
+  if (result.count >= qt.min) return;
+
+  // Undershoot — fire the gate.
+  appLog("system", "module.incomplete.question_count_undershoot", {
+    level: "warn",
+    message: `Tutor asked ${result.count} questions; module target min is ${qt.min}`,
+    callerId: args.callerId,
+    moduleId: args.curriculumModuleId,
+    playbookId: args.playbookId,
+    questionCount: result.count,
+    rawCount: result.rawCount,
+    rhetoricalFiltered: result.rhetoricalFiltered,
+    tutorTurnCount: result.tutorTurnCount,
+    questionTargetMin: qt.min,
+    questionTargetTarget: qt.target,
+  });
+
+  try {
+    await markModuleIncomplete(prisma, {
+      callerId: args.callerId,
+      moduleId: args.curriculumModuleId,
+      courseStyle,
+      playbookId: args.playbookId,
+    });
+  } catch (err) {
+    console.error(
+      `[endSession] markModuleIncomplete (question-count) failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
+    );
   }
 }
