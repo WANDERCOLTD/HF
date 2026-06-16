@@ -41,3 +41,4 @@ A-Sample Docs/
 *.docx
 docs/market-test-plan.md
 .claude/scheduled_tasks.lock
+.vm-migration-lock
