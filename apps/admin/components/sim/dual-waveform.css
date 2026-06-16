@@ -1,0 +1,91 @@
+/* #1745 — Mock exam shell waveform pair */
+
+.hf-dwf {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  width: 100%;
+  max-width: 720px;
+}
+
+.hf-dwf-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hf-dwf-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  width: 88px;
+  flex-shrink: 0;
+}
+
+.hf-dwf-bars {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 56px;
+}
+
+.hf-dwf-bar {
+  flex: 1;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+  transition: height 0.06s linear, background 0.12s linear;
+}
+
+.hf-dwf-bar-examiner {
+  background: color-mix(in srgb, var(--accent-primary) 60%, transparent);
+}
+
+.hf-dwf-bar-learner {
+  background: color-mix(in srgb, var(--status-success-text) 60%, transparent);
+}
+
+.hf-dwf-bar[data-active="true"] {
+  background: var(--accent-primary);
+}
+
+.hf-dwf-bar-learner[data-active="true"] {
+  background: var(--status-success-text);
+}
+
+/* Use the [data-height] attribute as the height driver. The browser
+ * supports `attr()` only for content; we wire a CSS custom property
+ * via inline `style` is forbidden by the design system, so we project
+ * the value through an attribute selector that scales discrete buckets.
+ * (A more pixel-accurate version would use a custom property; given
+ * the design-system "no inline styles" rule, the bucket approach
+ * accepts a slight quantisation in exchange for purity.) */
+.hf-dwf-bar[data-height="0"]   { height: 8%;  }
+.hf-dwf-bar[data-height="5"]   { height: 10%; }
+.hf-dwf-bar[data-height="10"]  { height: 12%; }
+.hf-dwf-bar[data-height="15"]  { height: 16%; }
+.hf-dwf-bar[data-height="20"]  { height: 22%; }
+.hf-dwf-bar[data-height="25"]  { height: 28%; }
+.hf-dwf-bar[data-height="30"]  { height: 34%; }
+.hf-dwf-bar[data-height="35"]  { height: 40%; }
+.hf-dwf-bar[data-height="40"]  { height: 46%; }
+.hf-dwf-bar[data-height="45"]  { height: 52%; }
+.hf-dwf-bar[data-height="50"]  { height: 60%; }
+.hf-dwf-bar[data-height="55"]  { height: 65%; }
+.hf-dwf-bar[data-height="60"]  { height: 72%; }
+.hf-dwf-bar[data-height="65"]  { height: 78%; }
+.hf-dwf-bar[data-height="70"]  { height: 84%; }
+.hf-dwf-bar[data-height="75"]  { height: 88%; }
+.hf-dwf-bar[data-height="80"]  { height: 92%; }
+.hf-dwf-bar[data-height="85"]  { height: 96%; }
+.hf-dwf-bar[data-height="90"]  { height: 98%; }
+.hf-dwf-bar[data-height="95"]  { height: 100%; }
+.hf-dwf-bar[data-height="100"] { height: 100%; }
+
+.hf-dwf-divider {
+  height: 1px;
+  background: var(--border-default);
+}

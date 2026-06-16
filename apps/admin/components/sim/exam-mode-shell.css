@@ -1,0 +1,49 @@
+/* #1745 — Mock exam stripped UI */
+
+.hf-exam-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--exam-shell-bg, #0b0f1a);
+  color: var(--exam-shell-text, #e8ecf3);
+}
+
+.hf-exam-shell-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at top,
+    color-mix(in srgb, var(--accent-primary) 18%, transparent),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.hf-exam-shell-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 32px;
+  width: 100%;
+  max-width: 760px;
+}
+
+.hf-exam-shell-banner {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--exam-shell-text, #e8ecf3) 75%, transparent);
+  text-align: center;
+}
+
+.hf-exam-shell-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
