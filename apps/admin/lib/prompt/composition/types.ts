@@ -170,6 +170,16 @@ export interface PriorCallFeedbackData {
   overallScore: number | null;
   summary: string | null;
   /**
+   * #1749 (epic #1700 Theme 11) — per-criterion scoreboard for the
+   * tutor's continuity narration. Empty/absent when the prior call
+   * had no skill_* scores (or no prior call).
+   */
+  priorCriterionScores?: Array<{
+    parameterId: string;
+    parameterName: string;
+    score: number;
+  }>;
+  /**
    * #599 Slice 1 — when the AI synthesis path produced (or cache-hit) a
    * recap, the resolved depth + text. Null on every gate-blocked /
    * templated-path scenario. `persistComposedPrompt` reads this and writes
