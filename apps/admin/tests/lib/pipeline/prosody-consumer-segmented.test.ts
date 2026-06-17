@@ -16,6 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { VoiceProsodyFeatures } from "@/lib/pipeline/prosody-types";
+import { withPhaseNamespace } from "@/lib/pipeline/segment-key-namespace";
 
 const { mockPrisma, mockWriteCallScore } = vi.hoisted(() => ({
   mockPrisma: {
@@ -101,14 +102,16 @@ describe("prosody-consumer — bySegment branch (#1870)", () => {
     const segmentKeys = mockWriteCallScore.mock.calls.map(
       (c) => (c[0] as { segmentKey?: string | null }).segmentKey,
     );
-    // 12 rows carry namespaced phase keys
-    expect(segmentKeys.filter((k) => k === "phase:p1").length).toBe(4);
-    expect(segmentKeys.filter((k) => k === "phase:p2_monologue").length).toBe(4);
-    expect(segmentKeys.filter((k) => k === "phase:p3").length).toBe(4);
+    // 12 rows carry namespaced phase keys — derived via the canonical
+    // helper, not hardcoded, so a future namespace change reaches both
+    // sides of the assertion atomically (#1872 NO HARDCODING contract).
+    expect(segmentKeys.filter((k) => k === withPhaseNamespace("p1")).length).toBe(4);
+    expect(segmentKeys.filter((k) => k === withPhaseNamespace("p2_monologue")).length).toBe(4);
+    expect(segmentKeys.filter((k) => k === withPhaseNamespace("p3")).length).toBe(4);
     // 4 aggregate rows carry segmentKey null
     expect(segmentKeys.filter((k) => k === null).length).toBe(4);
     // No bare phase names — these would collide with the text segmenter's
-    // "part1"/"part2"/"part3" namespace per #1872
+    // "part1"/"part2"/"part3" namespace per #1872.
     expect(segmentKeys.some((k) => k === "p1" || k === "p2_monologue" || k === "p3")).toBe(
       false,
     );
@@ -155,9 +158,9 @@ describe("prosody-consumer — bySegment branch (#1870)", () => {
     const segmentKeys = mockWriteCallScore.mock.calls.map(
       (c) => (c[0] as { segmentKey?: string | null }).segmentKey,
     );
-    expect(segmentKeys).toContain("phase:intro");
-    expect(segmentKeys).toContain("phase:main");
-    expect(segmentKeys).toContain("phase:wrap");
+    expect(segmentKeys).toContain(withPhaseNamespace("intro"));
+    expect(segmentKeys).toContain(withPhaseNamespace("main"));
+    expect(segmentKeys).toContain(withPhaseNamespace("wrap"));
   });
 
   it("per-phase 'unavailable' entries are skipped (no row written for that phase)", async () => {
@@ -206,7 +209,7 @@ describe("prosody-consumer — bySegment branch (#1870)", () => {
     const segmentKeys = mockWriteCallScore.mock.calls.map(
       (c) => (c[0] as { segmentKey?: string | null }).segmentKey,
     );
-    expect(segmentKeys.filter((k) => k === "phase:p2_monologue").length).toBe(0);
+    expect(segmentKeys.filter((k) => k === withPhaseNamespace("p2_monologue")).length).toBe(0);
   });
 
   it("no bySegment → existing whole-call behaviour unchanged (4 IELTS rows, no segmentKey)", async () => {

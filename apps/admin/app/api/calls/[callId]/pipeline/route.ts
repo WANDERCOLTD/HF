@@ -71,6 +71,7 @@ import { shouldRunCallerAnalysis } from "@/lib/pipeline/event-gate";
 import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
 import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile } from "@/lib/pipeline/specs-loader";
 import { writeCallScore, MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
+import { withTextNamespace } from "@/lib/pipeline/segment-key-namespace";
 import { normalizeScoreAgentEvidence } from "@/lib/pipeline/normalize-score-agent-evidence";
 import { logStageWriteCounts } from "@/lib/pipeline/write-count-logger";
 import { updateTargets } from "@/lib/ops/update-targets";
@@ -785,7 +786,11 @@ async function runPerSegmentScoring(
           // score so the Results screen (Theme 13a) can render per-part
           // criterion bands. Bound-module/whole-call writes omit this →
           // `segmentKey = null`, zero regression on non-Mock paths.
-          segmentKey: segment.slug,
+          // #1872 — namespace prefix (`text:<slug>`) so this writer can't
+          // collide with the cue-scheduler's phase-keyed prosody writes.
+          // See `lib/pipeline/segment-key-namespace.ts` for the single
+          // source of truth.
+          segmentKey: withTextNamespace(segment.slug),
           score,
           confidence,
           reasoning,
@@ -1792,14 +1797,20 @@ async function computeReward(
   let goalProgressScore: number | null = null;
   let overallScore = behaviorScore;
 
-  const assessmentGoals = await prisma.goal.findMany({
-    where: {
-      callerId: call.callerId,
-      isAssessmentTarget: true,
-      status: { in: ["ACTIVE", "PAUSED"] },
-    },
-    select: { id: true, progress: true, priority: true },
-  });
+  // call.callerId is typed `string | null` at this point but the function
+  // is guard-gated above on its presence — narrow here so the Prisma where
+  // clause type-checks. (Was a pre-existing tsc error before #1872; net-zero
+  // baseline keeps the macOS-local ratchet honest.)
+  const assessmentGoals = call.callerId
+    ? await prisma.goal.findMany({
+        where: {
+          callerId: call.callerId,
+          isAssessmentTarget: true,
+          status: { in: ["ACTIVE", "PAUSED"] },
+        },
+        select: { id: true, progress: true, priority: true },
+      })
+    : [];
 
   if (assessmentGoals.length > 0) {
     const totalWeight = assessmentGoals.reduce((sum, g) => sum + (g.priority || 5), 0);

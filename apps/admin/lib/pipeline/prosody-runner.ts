@@ -65,6 +65,7 @@ import type {
   GeneralSignals,
   ProsodyPhaseEnvelope,
 } from "./prosody-types";
+import { withPhaseNamespace } from "./segment-key-namespace";
 
 export interface RunProsodyOptions {
   callId: string;
@@ -576,9 +577,10 @@ async function runSegmentedProsody(
     // #1872 — namespace prefix on segmentKey writes to avoid collision
     // with the text-side Theme 6 Mock segmenter ("part1" / "part2" /
     // "part3"). Operator-chosen phase names ("p1" / "p2_prep" / etc.)
-    // are wrapped here; the AGGREGATE consumer mirrors the prefix when
-    // writing CallScore rows.
-    const phaseKey = `phase:${boundary.phase}`;
+    // are wrapped here via the single-source-of-truth helper; the
+    // AGGREGATE consumer (`prosody-consumer.ts`) propagates the prefixed
+    // key when writing CallScore rows.
+    const phaseKey = withPhaseNamespace(boundary.phase);
 
     let phaseEnvelope: ProsodyPhaseEnvelope;
     try {
