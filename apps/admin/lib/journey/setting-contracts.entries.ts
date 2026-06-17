@@ -1335,7 +1335,7 @@ const G7_TOL_RETRIEVAL_CADENCE: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Retrieval cadence override",
   helpText:
-    "Multiplier on the SchedulerPolicy retrieval cadence. Lower = faster spaced-repetition cycle. Per-learner override intentionally NOT supported (would defeat interleaving). (#598)",
+    "Absolute override (positive integer) for the SchedulerPolicy retrieval cadence — replaces the preset value, not a multiplier. Cadence = how many calls between retrieval sessions: 1 retrieves every call, 4 retrieves every 4th. Lower = faster spaced-repetition cycle. Typical range 1–5 (presets pick 2–4). Per-learner override intentionally NOT supported (would defeat interleaving). (#598)",
   storagePath: "config.tolerances.retrievalCadenceOverride",
   control: "number",
   cascadeSources: [],
