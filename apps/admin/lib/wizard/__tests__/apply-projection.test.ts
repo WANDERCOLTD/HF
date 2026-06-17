@@ -135,6 +135,11 @@ function buildMockPrisma() {
     parameter: {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue({ parameterId: "skill_x" }),
+      // #1573 — upsertParameters merges config.tierScheme/tiers/bandThresholds
+      // onto an existing Parameter via update when the projection carries
+      // any of those keys. The no-op assertion only checks `create`/`delete`
+      // didn't fire; `update` is not forbidden.
+      update: vi.fn().mockResolvedValue({}),
     },
     behaviorTarget: {
       findMany: vi.fn().mockResolvedValue([]),

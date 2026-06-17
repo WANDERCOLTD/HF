@@ -22,11 +22,12 @@ describe("page-help registry", () => {
       expect(entry?.title).toBe("Courses");
     });
 
-    it("returns the Course detail entry for parameterised pathname with 8 tabs", () => {
+    it("returns the Course detail entry for parameterised pathname with 9 tabs", () => {
       const entry = getPageHelp("/x/courses/abc-123");
       expect(entry).toBeDefined();
       expect(entry?.title).toBe("Course detail");
-      expect(entry?.tabs).toHaveLength(8);
+      // 9 tabs — added Skills Framework beta (#1572) between Goals and Voice.
+      expect(entry?.tabs).toHaveLength(9);
       const labels = entry?.tabs?.map((t) => t.label);
       expect(labels).toEqual([
         "Content",
@@ -35,6 +36,7 @@ describe("page-help registry", () => {
         "Learners",
         "Proof Points",
         "Goals",
+        "Skills",
         "Voice",
         "Settings",
       ]);
@@ -50,17 +52,21 @@ describe("page-help registry", () => {
       expect(getPageHelp("/x/courses/v3")?.title).not.toBe("Course detail");
     });
 
-    it("returns the Learner detail entry for parameterised pathname with 8 tabs", () => {
+    it("returns the Learner detail entry for parameterised pathname with 10 tabs", () => {
       const entry = getPageHelp("/x/callers/xyz-789");
       expect(entry).toBeDefined();
       expect(entry?.title).toBe("Learner detail");
-      expect(entry?.tabs).toHaveLength(8);
+      // 10 tabs — added Attainment (SP4-A #1580) and Adaptations (SP5-A #1589)
+      // between Progress and Uplift.
+      expect(entry?.tabs).toHaveLength(10);
       const ids = entry?.tabs?.map((t) => t.id);
       expect(ids).toEqual([
         "overview-v2",
         "calls-prompts",
         "tune",
         "progress-v2",
+        "attainment",
+        "adaptations",
         "uplift-v2",
         "session-flow",
         "how",

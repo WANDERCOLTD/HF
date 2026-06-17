@@ -154,13 +154,18 @@ describe("CascadeTraceBreadcrumb — Slice C2 (#1737) hook integration", () => {
   });
 
   it("uses contract.cascadeKnobKey when present, falls back to contract.id", async () => {
+    // #1842 added `isResolvableKnob` pre-filter to useEffectiveValue. A
+    // knob that isn't in `FAMILIES` short-circuits to {unresolvable: true}
+    // before fetch is ever called. To pin the cascadeKnobKey-over-id
+    // routing, use a known-resolvable family member (`voiceProvider`) so
+    // the hook actually issues the network call.
     vi.mocked(global.fetch).mockResolvedValue({
       ok: false,
       status: 400,
       json: () =>
         Promise.resolve({
           ok: false,
-          error: 'Unknown cascade knob key: "remappedKnob"',
+          error: 'mock 400 — assertion is about the URL only',
         }),
     } as Response);
 
@@ -169,7 +174,7 @@ describe("CascadeTraceBreadcrumb — Slice C2 (#1737) hook integration", () => {
         contract={{
           ...baseContract,
           id: "someContractId",
-          cascadeKnobKey: "remappedKnob",
+          cascadeKnobKey: "voiceProvider",
           cascadeSources: [
             { level: "group", storagePath: "config.someField" },
           ],
@@ -181,6 +186,6 @@ describe("CascadeTraceBreadcrumb — Slice C2 (#1737) hook integration", () => {
       expect(vi.mocked(global.fetch)).toHaveBeenCalled();
     });
     const url = vi.mocked(global.fetch).mock.calls[0][0] as string;
-    expect(url).toContain("knobKey=remappedKnob");
+    expect(url).toContain("knobKey=voiceProvider");
   });
 });
