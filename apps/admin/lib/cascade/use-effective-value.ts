@@ -33,6 +33,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { Effective } from "./layer-types";
+import { isResolvableKnob } from "./effective-value";
 
 /** Mirror of the route's accepted scope ids. courseId is the operator-
  *  facing alias for playbookId. */
@@ -103,6 +104,23 @@ export function useEffectiveValue<T>(
       // assumes derivable state, but this is a true reset on a
       // transition signal (knobKey going null is a user action, not a
       // derivation).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setState({
+        envelope: null,
+        loading: false,
+        unresolvable: true,
+        error: null,
+      });
+      return;
+    }
+    // Pre-filter — when the knob has no registered cascade family, skip
+    // the fetch entirely. The route would 400 with "Unknown cascade knob
+    // key" and the hook would translate that to `unresolvable: true`; we
+    // short-circuit to the same terminal state without polluting the
+    // network tab + console. Mirrors the documented contract in
+    // `cascade-reuse.md` and matches the `isResolvableKnob` gate UI
+    // consumers use to decide whether to mount `<LayerBadge>`.
+    if (!isResolvableKnob(knobKey)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({
         envelope: null,

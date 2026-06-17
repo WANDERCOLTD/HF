@@ -56,6 +56,20 @@ describe("useEffectiveValue — Slice C2 (#1737)", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("short-circuits with unresolvable=true for a knobKey with no registered family (no fetch)", () => {
+    // Pre-filter: when isResolvableKnob(knobKey) is false (course-only
+    // knob, no Domain/System ancestor), the hook does NOT fire the
+    // route — saves the 400 + console noise. Matches the documented
+    // contract in `.claude/rules/cascade-reuse.md`.
+    const { result } = renderHook(() =>
+      useEffectiveValue<unknown>("intakeKnowledgeCheck", { courseId: "c1" }),
+    );
+    expect(result.current.unresolvable).toBe(true);
+    expect(result.current.envelope).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("fetches the route and returns the envelope on success (skillTierMapping family)", async () => {
     vi.mocked(global.fetch).mockResolvedValue({
       ok: true,

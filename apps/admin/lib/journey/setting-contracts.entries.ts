@@ -57,7 +57,10 @@ const G1_INTAKE_KNOWLEDGE_CHECK: JourneySettingContract = {
   group: "G1",
   educatorLabel: "Knowledge check on sign-up",
   helpText: "Brief MCQ or Socratic probe in the sign-up form.",
-  storagePath: "sessionFlow.intake.knowledgeCheck",
+  // sessionFlow.intake.knowledgeCheck is `{enabled, deliveryMode?}`.
+  // Toggle binds to .enabled; sibling intakeKnowledgeCheckMode binds to
+  // .deliveryMode. The applier walks segments and preserves siblings.
+  storagePath: "sessionFlow.intake.knowledgeCheck.enabled",
   control: "toggle",
   cascadeSources: [],
   composeImpact: {
@@ -74,7 +77,7 @@ const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
   group: "G1",
   educatorLabel: '"About you" questions',
   helpText: 'Show the "About you" block in the sign-up form.',
-  storagePath: "sessionFlow.intake.aboutYou",
+  storagePath: "sessionFlow.intake.aboutYou.enabled",
   control: "toggle",
   cascadeSources: [],
   composeImpact: {
@@ -98,7 +101,7 @@ const G1_INTAKE_GOALS: JourneySettingContract = {
   educatorLabel: "Pre-call learner goals",
   helpText:
     "Show the learner-goals capture block in the sign-up form so learners declare what they want to work on before Call 1.",
-  storagePath: "sessionFlow.intake.goals",
+  storagePath: "sessionFlow.intake.goals.enabled",
   control: "toggle",
   cascadeSources: [],
   composeImpact: {
@@ -116,7 +119,7 @@ const G1_INTAKE_AI_INTRO_CALL: JourneySettingContract = {
   educatorLabel: "AI Intro Call after sign-up",
   helpText:
     "Optional 1–2 min AI call right after sign-up to confirm name + level + give the learner a low-stakes taste of the voice surface before Call 1.",
-  storagePath: "sessionFlow.intake.aiIntroCall",
+  storagePath: "sessionFlow.intake.aiIntroCall.enabled",
   control: "toggle",
   cascadeSources: [],
   composeImpact: {
