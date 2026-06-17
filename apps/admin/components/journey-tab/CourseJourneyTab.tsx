@@ -47,6 +47,35 @@ export function CourseJourneyTab({
   const [pickStripSection, setPickStripSection] = useState<ComposeSectionKey | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLElement>(null);
+  // Tab-local override of the parent's playbookConfig. Seeded from the
+  // prop on mount/prop-change; replaced after each save via the
+  // `onCompoundSaved` callback below. This is the cure for the
+  // stale-read class — without it, the Inspector + "Edit as JSON"
+  // modal kept reading from the parent's `detail.config` snapshot
+  // that page.tsx only refetched on route change.
+  const [localConfig, setLocalConfig] = useState<
+    Record<string, unknown> | null
+  >(playbookConfig);
+  useEffect(() => {
+    setLocalConfig(playbookConfig);
+  }, [playbookConfig]);
+  const refetchPlaybookConfig = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/playbooks/${courseId}`);
+      if (!res.ok) return;
+      const body = (await res.json()) as {
+        ok?: boolean;
+        playbook?: { config?: Record<string, unknown> | null };
+      };
+      if (body.ok && body.playbook) {
+        setLocalConfig(body.playbook.config ?? null);
+      }
+    } catch {
+      // Refetch is best-effort — the parent will still pick up the new
+      // value on the next route change. Don't surface the network error
+      // here; the save itself already succeeded.
+    }
+  }, [courseId]);
 
   // Slice C — multi-pulse over all bucket sections.
   useBubblePulse(canvasRef, selection.bucketId);
@@ -112,7 +141,8 @@ export function CourseJourneyTab({
   return (
     <JourneySettingMutatorProvider
       courseId={courseId}
-      playbookConfig={playbookConfig}
+      playbookConfig={localConfig}
+      onCompoundSaved={refetchPlaybookConfig}
     >
       <div
         ref={rootRef}

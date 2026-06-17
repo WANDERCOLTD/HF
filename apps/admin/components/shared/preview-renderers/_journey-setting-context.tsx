@@ -20,7 +20,7 @@
  * Underscore-prefix = renderer-internal; not in the public barrel.
  */
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { useJourneySettingMutator } from "./_useJourneySettingMutator";
 
@@ -69,15 +69,30 @@ export function JourneySettingMutatorProvider({
   children,
 }: JourneySettingMutatorProviderProps) {
   const mutator = useJourneySettingMutator(courseId);
+  // Wrap the raw mutator so the parent's refetch callback also fires
+  // after a successful PATCH route save (toggle / select / number /
+  // text / etc.). Without this, only compound editors (Banding,
+  // Targets, Stops) — which call `onCompoundSaved` directly from their
+  // own save loops — triggered a refetch; the simple primitives left
+  // the snapshot stale, producing the toggle-vs-JSON-modal divergence
+  // operators reported (toggle ON in UI, JSON modal showed stale
+  // `false`). See journey-r2 follow-on session 2026-06-17.
+  const wrappedSaveSetting = useCallback(
+    async (settingId: string, nextValue: unknown) => {
+      await mutator(settingId, nextValue);
+      onCompoundSaved?.();
+    },
+    [mutator, onCompoundSaved],
+  );
   const value = useMemo<JourneySettingContextValue>(
     () => ({
       courseId,
-      saveSetting: mutator,
+      saveSetting: wrappedSaveSetting,
       readonly: readonly || courseId === null,
       playbookConfig,
       onCompoundSaved,
     }),
-    [courseId, mutator, readonly, playbookConfig, onCompoundSaved],
+    [courseId, wrappedSaveSetting, readonly, playbookConfig, onCompoundSaved],
   );
   return (
     <JourneySettingContext.Provider value={value}>
