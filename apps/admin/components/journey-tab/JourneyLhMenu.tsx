@@ -1,23 +1,29 @@
 "use client";
 
 /**
- * JourneyLhMenu — Phase 4 Slice C of epic #1675 (#1721).
+ * JourneyLhMenu — Phase 4 Slice C of epic #1675 (#1721); pruned in P4
+ * of epic #1850.
  *
- * Left-hand navigation for the Journey tab. Renders 13 educator-intent
- * BUCKETS grouped under the original G1..G7 visual section headers.
+ * Left-hand navigation for the Journey tab. Renders the educator-intent
+ * BUCKETS that the Journey tab OWNS — filtered against
+ * `BUCKETS_BY_TAB.journey` (7 buckets across G1..G3, G5, G6) — grouped
+ * under the original G1..G7 visual section headers.
  *
  * Pre-Slice-C, this menu was 45 individual setting rows (one click per
- * setting). Now: 13 buckets (one click → Inspector stacks all bucket
- * members). The IELTS pre-voice gap analysis (#1700) tells us this is
- * how power users actually think — by session moment, not by entity.
+ * setting). Slice C reshaped to 14 buckets. P4 (#1850) prunes the 7
+ * non-Journey buckets — Teaching (C/E/F/J), Scoring (I/K), Voice (N) —
+ * so the LH only shows what this tab edits. Out-of-tab clicks in the
+ * Preview lens still work via the parent's `CrossTabHintCard` path
+ * (#1893).
  *
  * Phase filter chips at the top narrow visibility by educator phase.
  * Clicking a bucket row selects it (mounts all bucket settings in the
  * Inspector via the parent's selection state).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { BUCKETS_BY_TAB } from "@/lib/journey/buckets-by-tab";
 import {
   JOURNEY_GROUPS,
   type JourneyGroup,
@@ -87,12 +93,21 @@ export function JourneyLhMenu({
 
   // Group buckets by their parentGroup so the visual section headers
   // (G1..G7) carry the chronology and the buckets are the leaves.
-  const bucketsByGroup = new Map<JourneyGroup, JourneyMenuBucket[]>();
-  for (const b of JOURNEY_MENU_ITEMS) {
-    const arr = bucketsByGroup.get(b.parentGroup) ?? [];
-    arr.push(b);
-    bucketsByGroup.set(b.parentGroup, arr);
-  }
+  // P4 (#1850): filter to BUCKETS_BY_TAB.journey first — Teaching /
+  // Scoring / Voice tabs own the rest. Groups with zero remaining
+  // buckets (G4 after the teaching split, G7 after the scoring split)
+  // collapse naturally — `buckets.length === 0` short-circuits below.
+  const bucketsByGroup = useMemo(() => {
+    const owned = new Set<JourneyMenuBucketId>(BUCKETS_BY_TAB.journey);
+    const byGroup = new Map<JourneyGroup, JourneyMenuBucket[]>();
+    for (const b of JOURNEY_MENU_ITEMS) {
+      if (!owned.has(b.id)) continue;
+      const arr = byGroup.get(b.parentGroup) ?? [];
+      arr.push(b);
+      byGroup.set(b.parentGroup, arr);
+    }
+    return byGroup;
+  }, []);
 
   return (
     <div className="hf-journey-lh" data-testid="hf-journey-lh-menu">

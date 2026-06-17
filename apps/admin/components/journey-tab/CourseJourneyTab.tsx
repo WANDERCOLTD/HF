@@ -1,10 +1,14 @@
 "use client";
 
 /**
- * CourseJourneyTab — Phase 4 of epic #1675, extended in Slice C (#1721).
+ * CourseJourneyTab — Phase 4 of epic #1675, extended in Slice C (#1721),
+ * pruned in P4 of epic #1850.
  *
  * The new first tab on the Course Design page. Tri-pane shape:
- *   - LH: 13 buckets grouped under G1..G7 visual section headers
+ *   - LH: 7 Journey-owned buckets (filtered against
+ *     `BUCKETS_BY_TAB.journey`) grouped under G1..G7 visual section
+ *     headers — G4 and G7 collapse to nothing because all their
+ *     buckets moved to Teaching / Scoring in P0
  *   - Canvas: existing `<PreviewLens>` mounted read-only inline + multi-
  *     pulse + pick-strip
  *   - RH: `<JourneyInspectorPanel>` stacks ALL settings in the selected
@@ -16,12 +20,11 @@
  * scrolling the LH.
  *
  * Phase P3b (#1850): when the click resolves to a bucket owned by a
- * different Course Detail tab (e.g. operator clicks the Intake bubble
- * while on the — hypothetical — Scoring journey), the Inspector renders
- * a `<CrossTabHintCard>` offering to jump there. Journey-tab buckets
- * span the chronological arc; today the in-scope path catches every
- * click, so the hint card is a defensive future-proofing for new
- * buckets that may live on other tabs.
+ * different Course Detail tab (e.g. operator clicks a Teaching-owned
+ * `priorCallFeedback` bubble while on Journey), the Inspector renders
+ * a `<CrossTabHintCard>` offering to jump there. With the P4 LH pruning,
+ * Teaching / Scoring / Voice buckets are no longer reachable via the LH
+ * — the hint card is the only on-tab affordance for those settings.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
