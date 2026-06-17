@@ -212,3 +212,12 @@
   font-size: 14px;
   text-align: center;
 }
+
+/* Outbound nav (Epic #1700 missing-surface sweep) */
+.hf-results-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}

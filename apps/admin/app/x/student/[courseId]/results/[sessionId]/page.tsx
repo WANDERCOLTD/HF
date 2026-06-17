@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import type { ResultsPayload, ResultsResponse } from "@/app/api/student/[courseId]/results/[sessionId]/route";
 import "./results.css";
@@ -208,6 +209,27 @@ function ResultsView({ data }: { data: ResultsPayload }) {
           <div className="hf-results-table-empty">No scores recorded for this session.</div>
         )}
       </section>
+
+      {/* Outbound navigation — Results is a per-session band card; learner
+       *  still needs a path to their broader Progress dashboard and back
+       *  to module pick for another attempt. Added in the Epic #1700
+       *  missing-surface sweep — pre-fix learner was stranded here. */}
+      <nav className="hf-results-actions" aria-label="What's next">
+        <Link
+          className="hf-btn hf-btn-primary"
+          href={`/x/student/${data.courseId}/modules`}
+          data-testid="hf-results-pick-module"
+        >
+          Pick another module
+        </Link>
+        <Link
+          className="hf-btn hf-btn-secondary"
+          href="/x/student/progress"
+          data-testid="hf-results-view-progress"
+        >
+          View overall progress
+        </Link>
+      </nav>
     </>
   );
 }

@@ -3470,6 +3470,38 @@ SPEC-DRIVEN pipeline endpoint that runs analysis in configurable stages. Pipelin
 
 ---
 
+### `GET` /api/calls/:callId/post-call-redirect
+
+Resolves the URL a STUDENT learner should land on after
+
+**Auth**: session (VIEWER+ — STUDENT scoped to own caller) · **Scope**: `calls:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callId | path | string | Yes | Call.id |
+
+**Response** `200`
+```json
+{ ok: true, target: string }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/calls/[callId]/messages
 
 Fetch messages for a call, optionally filtered by timestamp and role. Includes call ended status for observation polling.
