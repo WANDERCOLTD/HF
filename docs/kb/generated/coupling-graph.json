@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-17T11:44:00.157Z",
+  "generatedAt": "2026-06-17T15:03:48.184Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1818,
-  "edgeCount": 4254,
+  "fileCount": 1829,
+  "edgeCount": 4278,
   "skippedEdges": 1,
   "edges": [
     {
@@ -6169,6 +6169,10 @@
     },
     {
       "from": "app/api/student/[courseId]/results/[sessionId]/route.ts",
+      "to": "lib/pipeline/compute-overall-band.ts"
+    },
+    {
+      "from": "app/api/student/[courseId]/results/[sessionId]/route.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -9061,6 +9065,14 @@
     },
     {
       "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "components/modules-tab/CourseModulesTab.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "components/scoring-tab/CourseScoringTab.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
       "to": "components/shared/CollapsibleCard.tsx"
     },
     {
@@ -9102,6 +9114,10 @@
     {
       "from": "app/x/courses/[courseId]/page.tsx",
       "to": "components/shared/SurveyStopDetail.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "components/teaching-tab/CourseTeachingTab.tsx"
     },
     {
       "from": "app/x/courses/[courseId]/page.tsx",
@@ -11286,6 +11302,10 @@
     {
       "from": "lib/ai/config-loader.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/ai/config-loader.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/ai/knowledge-accumulation.ts",
@@ -13836,6 +13856,30 @@
       "to": "lib/settings/voice-setting-contracts.ts"
     },
     {
+      "from": "lib/journey/buckets-by-tab.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
+      "from": "lib/journey/compute-relevance-state.ts",
+      "to": "lib/journey/is-gated-by.ts"
+    },
+    {
+      "from": "lib/journey/compute-relevance-state.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
+      "from": "lib/journey/compute-relevance-state.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/journey/is-gated-by.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
+      "from": "lib/journey/is-gated-by.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/journey/menu-items.ts",
       "to": "lib/journey/setting-contracts.ts"
     },
@@ -14312,6 +14356,10 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/pipeline/compute-overall-band.ts",
+      "to": "lib/goals/track-progress.ts"
+    },
+    {
       "from": "lib/pipeline/config.ts",
       "to": "lib/config.ts"
     },
@@ -14409,6 +14457,10 @@
     },
     {
       "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
       "to": "lib/pipeline/adaptive-loop-invariants.ts"
     },
     {
@@ -14426,6 +14478,14 @@
     {
       "from": "lib/pipeline/prosody-runner.ts",
       "to": "lib/speech-assessment/types.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/voice/audio-slice.ts"
     },
     {
       "from": "lib/pipeline/prosody-runner.ts",
@@ -14494,6 +14554,26 @@
     {
       "from": "lib/pipeline/write-count-logger.ts",
       "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/goals/track-progress.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/pipeline/compute-overall-band.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/pipeline/writer-completeness-invariant.ts",
@@ -15885,6 +15965,10 @@
     },
     {
       "from": "lib/voice/cue-scheduler.ts",
+      "to": "lib/voice/phase-boundaries.ts"
+    },
+    {
+      "from": "lib/voice/cue-scheduler.ts",
       "to": "lib/voice/provider-factory.ts"
     },
     {
@@ -15994,6 +16078,18 @@
     {
       "from": "lib/voice/load-voice-config.ts",
       "to": "lib/voice/system-settings.ts"
+    },
+    {
+      "from": "lib/voice/phase-boundaries.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/voice/phase-boundaries.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/voice/phase-boundaries.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/voice/poll-stale-calls.ts",
@@ -19243,7 +19339,7 @@
     {
       "path": "app/api/student/[courseId]/results/[sessionId]/route.ts",
       "inDegree": 1,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "app/api/student/artifacts/mark-read/route.ts",
@@ -20403,7 +20499,7 @@
     {
       "path": "app/x/courses/[courseId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 45
+      "outDegree": 48
     },
     {
       "path": "app/x/courses/[courseId]/sessions/[sessionNum]/page.tsx",
@@ -21621,12 +21717,22 @@
       "outDegree": 0
     },
     {
+      "path": "components/modules-tab/CourseModulesTab.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "components/orchestrator/OrchestratorShell.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
     {
       "path": "components/playbook/PlaybookBuilder.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/scoring-tab/CourseScoringTab.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
@@ -22131,6 +22237,11 @@
       "outDegree": 0
     },
     {
+      "path": "components/teaching-tab/CourseTeachingTab.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "components/voice/VoiceConfigSection.tsx",
       "inDegree": 1,
       "outDegree": 0
@@ -22398,7 +22509,7 @@
     {
       "path": "lib/ai/config-loader.ts",
       "inDegree": 6,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/ai/error-utils.ts",
@@ -23797,7 +23908,7 @@
     },
     {
       "path": "lib/goals/track-progress.ts",
-      "inDegree": 14,
+      "inDegree": 16,
       "outDegree": 6
     },
     {
@@ -24021,6 +24132,21 @@
       "outDegree": 4
     },
     {
+      "path": "lib/journey/buckets-by-tab.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
+      "path": "lib/journey/compute-relevance-state.ts",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
+      "path": "lib/journey/is-gated-by.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
       "path": "lib/journey/menu-items.ts",
       "inDegree": 0,
       "outDegree": 2
@@ -24042,7 +24168,7 @@
     },
     {
       "path": "lib/journey/setting-contracts.ts",
-      "inDegree": 8,
+      "inDegree": 11,
       "outDegree": 2
     },
     {
@@ -24177,7 +24303,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 33,
+      "inDegree": 36,
       "outDegree": 3
     },
     {
@@ -24336,6 +24462,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/pipeline/compute-overall-band.ts",
+      "inDegree": 2,
+      "outDegree": 1
+    },
+    {
       "path": "lib/pipeline/config.ts",
       "inDegree": 3,
       "outDegree": 2
@@ -24408,7 +24539,7 @@
     {
       "path": "lib/pipeline/prosody-runner.ts",
       "inDegree": 3,
-      "outDegree": 8
+      "outDegree": 11
     },
     {
       "path": "lib/pipeline/prosody-types.ts",
@@ -24456,6 +24587,11 @@
       "outDegree": 1
     },
     {
+      "path": "lib/pipeline/write-overall-band.ts",
+      "inDegree": 0,
+      "outDegree": 5
+    },
+    {
       "path": "lib/pipeline/writer-completeness-invariant.ts",
       "inDegree": 1,
       "outDegree": 3
@@ -24472,7 +24608,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 668,
+      "inDegree": 670,
       "outDegree": 0
     },
     {
@@ -25052,7 +25188,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 121,
+      "inDegree": 127,
       "outDegree": 0
     },
     {
@@ -25074,6 +25210,11 @@
       "path": "lib/voice/adapter-registry.ts",
       "inDegree": 3,
       "outDegree": 3
+    },
+    {
+      "path": "lib/voice/audio-slice.ts",
+      "inDegree": 1,
+      "outDegree": 0
     },
     {
       "path": "lib/voice/build-assistant-config.ts",
@@ -25108,7 +25249,7 @@
     {
       "path": "lib/voice/cue-scheduler.ts",
       "inDegree": 2,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "lib/voice/diag.ts",
@@ -25164,6 +25305,11 @@
       "path": "lib/voice/mask-credentials.ts",
       "inDegree": 4,
       "outDegree": 0
+    },
+    {
+      "path": "lib/voice/phase-boundaries.ts",
+      "inDegree": 1,
+      "outDegree": 3
     },
     {
       "path": "lib/voice/phone-format.ts",
@@ -25289,6 +25435,11 @@
       "path": "lib/voice/tool-router.ts",
       "inDegree": 2,
       "outDegree": 3
+    },
+    {
+      "path": "lib/voice/transcript-detailed.ts",
+      "inDegree": 0,
+      "outDegree": 0
     },
     {
       "path": "lib/voice/transcript-stream-gate.ts",
@@ -26119,7 +26270,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 668,
+      "inDegree": 670,
       "outDegree": 0
     },
     {
@@ -26129,7 +26280,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 121,
+      "inDegree": 127,
       "outDegree": 0
     },
     {
@@ -26160,7 +26311,7 @@
     {
       "path": "app/x/courses/[courseId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 45
+      "outDegree": 48
     },
     {
       "path": "lib/prompt/composition/types.ts",
@@ -26178,14 +26329,14 @@
       "outDegree": 40
     },
     {
+      "path": "lib/logger.ts",
+      "inDegree": 36,
+      "outDegree": 3
+    },
+    {
       "path": "app/api/chat/route.ts",
       "inDegree": 0,
       "outDegree": 38
-    },
-    {
-      "path": "lib/logger.ts",
-      "inDegree": 33,
-      "outDegree": 3
     },
     {
       "path": "lib/prompt/composition/TransformRegistry.ts",

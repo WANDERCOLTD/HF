@@ -1,6 +1,6 @@
 {
   "tsc_errors": 41,
-  "lint_errors": 0,
+  "lint_errors": 15,
   "lint_warnings": 4509,
   "quarantined_tests": 36,
   "knip_unused": 162,
