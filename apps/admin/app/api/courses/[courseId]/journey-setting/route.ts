@@ -7,13 +7,24 @@
  * `docs/decisions/2026-06-15-journey-setting-contracts.md` Decision 5
  * + Tech Lead Q3.
  *
- * Body: `{ settingId: string, value: unknown }`.
+ * Body: `{ settingId: string, value: unknown, arraySelector?: string }`.
+ *
+ * `arraySelector` is the per-call selector VALUE used when the contract's
+ * `storagePath` declares `arrayKey` without a fixed `selectorValue` —
+ * the per-instance case (G8 module-scoped settings keyed on each
+ * AuthoredModule's `id`). The selector KEY stays defined in the
+ * contract (`arrayKey: "id"`); the caller supplies the runtime id.
+ * Fixed-selector contracts (e.g. JourneyStop `arrayKey: "kind"` +
+ * `selectorValue: "pre_test"`) ignore the body field and use the
+ * contract's `selectorValue`. P3c (#1850).
  *
  * Behaviour:
  *   1. Auth: `requireAuth("OPERATOR")`. Pipeline-service-token writes
  *      hit a stricter gate when `writeGate === "operator-only"`.
  *   2. Lookup contract in journey or voice registries.
  *   3. Resolve `storagePath` to a `PlaybookConfig` mutation point.
+ *      When the contract carries `arrayKey` with no fixed selectorValue,
+ *      thread the body's `arraySelector` through as the per-call value.
  *   4. Apply parent write + any `autoEnableLinks` matching `whenValue`
  *      in the SAME `updatePlaybookConfig` transformer (one transaction).
  *   5. Return updated effective value + autoEnableLinks fan-out summary.
@@ -51,6 +62,10 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 const bodySchema = z.object({
   settingId: z.string().min(1),
   value: z.unknown(),
+  /** Per-call selector VALUE for contracts whose storagePath declares
+   *  `arrayKey` without a fixed `selectorValue` (G8 module-scoped
+   *  settings — the moduleId). Ignored by fixed-selector contracts. */
+  arraySelector: z.string().min(1).optional(),
 });
 
 interface PatchResponse {
@@ -100,7 +115,7 @@ export async function PATCH(
       { status: 400 },
     );
   }
-  const { settingId, value } = parsed.data;
+  const { settingId, value, arraySelector } = parsed.data;
 
   // Lookup contract
   const contract: JourneySettingContract | undefined =
@@ -131,7 +146,49 @@ export async function PATCH(
   }
 
   // Resolve storage root
-  const resolved = resolveStoragePath(contract.storagePath);
+  let resolved = resolveStoragePath(contract.storagePath);
+
+  // P3c (#1850): per-instance array selector. When the contract's
+  // storagePath declares `arrayKey` but no fixed `selectorValue` (e.g.
+  // G8 `config.modules[].settings.*` with `arrayKey: "id"`), the caller
+  // supplies the runtime selector via the body's `arraySelector` field.
+  // Fixed-selector contracts (storagePath carries `selectorValue`) ignore
+  // the body field — `resolved.arraySelector` is already non-null with
+  // the fixed value baked in.
+  if (
+    arraySelector !== undefined &&
+    typeof contract.storagePath !== "string" &&
+    contract.storagePath.arrayKey &&
+    contract.storagePath.selectorValue === undefined
+  ) {
+    resolved = {
+      ...resolved,
+      arraySelector: {
+        key: contract.storagePath.arrayKey,
+        value: arraySelector,
+      },
+    };
+  }
+
+  // Per-instance array contracts (G8) REQUIRE arraySelector — without
+  // it the write would target index 0 / push a new element, neither of
+  // which the caller intended. Reject explicitly so the surface tells
+  // the operator what's missing.
+  if (
+    typeof contract.storagePath !== "string" &&
+    contract.storagePath.arrayKey &&
+    contract.storagePath.selectorValue === undefined &&
+    resolved.arraySelector === null
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Setting ${settingId} requires arraySelector in body (contract storagePath has arrayKey="${contract.storagePath.arrayKey}" with no fixed selectorValue).`,
+        code: "ARRAY_SELECTOR_REQUIRED",
+      },
+      { status: 400 },
+    );
+  }
 
   // Phase 3 (#1693): behaviorTargets is a separate model — the storage
   // path applier doesn't write to it. The existing FirstSessionSettings

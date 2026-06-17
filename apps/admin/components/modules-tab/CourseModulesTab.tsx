@@ -8,10 +8,12 @@
  * picker; the Inspector hosts module-scoped settings.
  *
  * P3 wires the real per-module Inspector (`ModuleInspectorPanel`) and
- * the dedicated `/api/courses/:courseId/modules` route. The Inspector
- * is read-side only — saves surface a "module-mutator pending" notice;
- * the writer follows in a separate PR (see TODO(module-mutator)
- * comments in `ModuleInspectorPanel.tsx`).
+ * the dedicated `/api/courses/:courseId/modules` route. P3c (#1850)
+ * lit up the write side — the Inspector PATCHes through the shared
+ * `/api/courses/:courseId/journey-setting` route with `arraySelector:
+ * selectedModuleId` so the storage-path applier resolves the right
+ * `config.modules[]` element. Saves refresh the local module list so
+ * the Inspector reflects persisted state on subsequent renders.
  *
  * Continuous-course empty state: continuous courses have no authored
  * modules — they pull from a topic pool. We render an explanation
@@ -51,7 +53,9 @@ export function CourseModulesTab({
   // `settings` sub-object without a second round-trip. The LH picker
   // owns its own fetch (it renders without waiting on the parent), and
   // this one feeds the Inspector — both target the same dedicated
-  // /modules route so the cache will collapse them.
+  // /modules route so the cache will collapse them. `reloadKey` bumps
+  // after each save so the Inspector reflects persisted state.
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     if (!courseId || courseStyle === "continuous") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset list on course/style change, matches sibling ModulesLhPicker pattern
@@ -75,28 +79,11 @@ export function CourseModulesTab({
     return () => {
       cancelled = true;
     };
-  }, [courseId, courseStyle]);
+  }, [courseId, courseStyle, reloadKey]);
 
-  const handleSaveAttempt = useCallback(
-    async (settingId: string, next: unknown) => {
-      // TODO(module-mutator): the existing journey-setting PATCH route's
-      // storage-path applier doesn't traverse mid-path arrays
-      // (`config.modules[].settings.*`). Until either (a) the applier
-      // is extended OR (b) a dedicated module-scope PATCH route lands,
-      // saves here surface a notice and do NOT persist. Tracked at the
-      // P3 follow-on (epic #1850).
-      if (typeof window !== "undefined") {
-        console.info(
-          `[modules-tab] save deferred — module-scope mutator pending`,
-          { settingId, next },
-        );
-        // Soft surfacing only; no toast library is wired in this tab.
-        // The banner inside ModuleInspectorPanel already tells the
-        // educator saves are deferred.
-      }
-    },
-    [],
-  );
+  const handleSaved = useCallback(() => {
+    setReloadKey((k) => k + 1);
+  }, []);
 
   if (courseStyle === "continuous") {
     return (
@@ -145,10 +132,11 @@ export function CourseModulesTab({
       }
       inspector={
         <ModuleInspectorPanel
+          courseId={courseId}
           selectedModuleId={selectedModuleId}
           selectedModuleLabel={selectedModule?.label ?? null}
           settings={selectedModule?.settings ?? null}
-          onSaveAttempt={handleSaveAttempt}
+          onSaved={handleSaved}
         />
       }
     />

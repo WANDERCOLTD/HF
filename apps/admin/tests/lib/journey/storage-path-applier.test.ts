@@ -133,3 +133,92 @@ describe("applyAtPath", () => {
     expect(stops[0].trigger).toEqual({ type: "first" });
   });
 });
+
+describe("applyAtPath — mid-path arrays (P3c #1850)", () => {
+  it("writes into the matching array element for config.modules[].settings.<key>", () => {
+    const config: PlaybookConfig = {
+      modules: [
+        { id: "part1", settings: { questionTarget: { min: 8, target: 10 } } },
+        { id: "part2", settings: {} },
+      ],
+    } as unknown as PlaybookConfig;
+    const resolved = {
+      ...resolveStoragePath({
+        path: "config.modules[].settings.questionTarget",
+        arrayKey: "id",
+      }),
+      arraySelector: { key: "id", value: "part1" },
+    };
+    applyAtPath(config, resolved, { min: 12, target: 15 });
+    const mods = (config as unknown as { modules: Array<Record<string, unknown>> }).modules;
+    expect(mods).toHaveLength(2);
+    expect(mods[0].id).toBe("part1");
+    expect((mods[0].settings as Record<string, unknown>).questionTarget).toEqual({
+      min: 12,
+      target: 15,
+    });
+    expect(mods[1].settings).toEqual({});
+  });
+
+  it("creates the matching array element when not yet present", () => {
+    const config: PlaybookConfig = {} as PlaybookConfig;
+    const resolved = {
+      ...resolveStoragePath({
+        path: "config.modules[].settings.closingLine",
+        arrayKey: "id",
+      }),
+      arraySelector: { key: "id", value: "part2" },
+    };
+    applyAtPath(config, resolved, "See you next time!");
+    const mods = (config as unknown as { modules: Array<Record<string, unknown>> }).modules;
+    expect(mods).toHaveLength(1);
+    expect(mods[0].id).toBe("part2");
+    expect((mods[0].settings as Record<string, unknown>).closingLine).toBe(
+      "See you next time!",
+    );
+  });
+
+  it("creates intermediate `settings` sub-object when missing", () => {
+    const config: PlaybookConfig = {
+      modules: [{ id: "part1" }],
+    } as unknown as PlaybookConfig;
+    const resolved = {
+      ...resolveStoragePath({
+        path: "config.modules[].settings.minSpeakingSec",
+        arrayKey: "id",
+      }),
+      arraySelector: { key: "id", value: "part1" },
+    };
+    applyAtPath(config, resolved, 120);
+    const mods = (config as unknown as { modules: Array<Record<string, unknown>> }).modules;
+    expect((mods[0].settings as Record<string, unknown>).minSpeakingSec).toBe(120);
+  });
+
+  it("resolveStoragePath captures arraySegmentIndex for mid-path arrays", () => {
+    const r = resolveStoragePath({
+      path: "config.modules[].settings.questionTarget",
+      arrayKey: "id",
+    });
+    // segments: ["modules", "settings", "questionTarget"] — the [] is on modules
+    expect(r.segments).toEqual(["modules", "settings", "questionTarget"]);
+    expect(r.arraySegmentIndex).toBe(0);
+  });
+
+  it("resolveStoragePath: arraySegmentIndex is null for non-array paths", () => {
+    const r = resolveStoragePath("config.firstCallMode");
+    expect(r.arraySegmentIndex).toBeNull();
+  });
+
+  it("resolveStoragePath: arraySegmentIndex points at the final segment for sessionFlow.stops[]", () => {
+    const r = resolveStoragePath({
+      path: "sessionFlow.stops[]",
+      arrayKey: "kind",
+      selectorValue: "pre_test",
+    });
+    // segments: ["stops"] — the [] is on the final segment, so the
+    // applier's legacy final-segment array branch handles it (mid-path
+    // branch only fires when arraySegmentIndex < lastIdx).
+    expect(r.arraySegmentIndex).toBe(0);
+    expect(r.segments).toEqual(["stops"]);
+  });
+});

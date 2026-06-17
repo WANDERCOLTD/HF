@@ -166,4 +166,91 @@ describe("PATCH /api/courses/[courseId]/journey-setting — Phase 2 #1687", () =
     expect(body.compoundOwnedSave).toBe(true);
     expect(body.bumpedSections).toEqual([]);
   });
+
+  // ===========================================================
+  // P3c (#1850) — module-scope writes (G8) via arraySelector
+  // ===========================================================
+
+  it("P3c: G8 module-scoped write succeeds when arraySelector supplied", async () => {
+    const updaters: Array<(c: Record<string, unknown>) => Record<string, unknown>> = [];
+    const ucMod = await import("@/lib/playbook/update-playbook-config");
+    vi.mocked(ucMod.updatePlaybookConfig).mockImplementationOnce(
+      async (_playbookId: string, transform: (c: Record<string, unknown>) => Record<string, unknown>) => {
+        updaters.push(transform);
+        const initial: Record<string, unknown> = {
+          modules: [
+            { id: "part1", settings: { questionTarget: { min: 8, target: 10 } } },
+            { id: "part2", settings: {} },
+          ],
+        };
+        transform(initial);
+        return {
+          playbook: { config: initial } as unknown as Awaited<ReturnType<typeof ucMod.updatePlaybookConfig>>["playbook"],
+          composeAffectingChanged: true,
+          timestampBumped: true,
+          fanoutScope: "none",
+        };
+      },
+    );
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(
+      makeReq({
+        settingId: "moduleQuestionTarget",
+        value: { min: 12, target: 15 },
+        arraySelector: "part1",
+      }) as never,
+      PARAMS as never,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.effectiveValue).toEqual({ min: 12, target: 15 });
+    // The transformer captured the write — re-running it on a fresh
+    // config proves the path resolved correctly onto part1, not part2,
+    // not the root.
+    const fresh: Record<string, unknown> = {
+      modules: [
+        { id: "part1", settings: { questionTarget: { min: 8, target: 10 } } },
+        { id: "part2", settings: {} },
+      ],
+    };
+    updaters[0](fresh);
+    const mods = fresh.modules as Array<{ id: string; settings: Record<string, unknown> }>;
+    expect(mods[0].id).toBe("part1");
+    expect(mods[0].settings.questionTarget).toEqual({ min: 12, target: 15 });
+    // part2 untouched
+    expect(mods[1].settings).toEqual({});
+  });
+
+  it("P3c: G8 write 400s when arraySelector missing (per-instance contract)", async () => {
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(
+      makeReq({
+        settingId: "moduleQuestionTarget",
+        value: { min: 12, target: 15 },
+      }) as never,
+      PARAMS as never,
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe("ARRAY_SELECTOR_REQUIRED");
+  });
+
+  it("P3c: arraySelector on a non-array contract is ignored (backwards-compat)", async () => {
+    // welcomeMessage is a string-path contract — supplying arraySelector
+    // must not break the legacy path.
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(
+      makeReq({
+        settingId: "welcomeMessage",
+        value: "hello",
+        arraySelector: "ignored-id",
+      }) as never,
+      PARAMS as never,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.effectiveValue).toBe("hello");
+  });
 });

@@ -10,22 +10,18 @@
  * `Playbook.config.modules[].settings.*` keyed by `arrayKey: "id"`,
  * NOT on the top-level `Playbook.config` like other Journey settings.
  *
- * Read side (this PR): mounts JourneyField primitives against the
- * selected module's `settings` object — the dedicated
- * `/api/courses/:courseId/modules` route returns each module's full
- * settings sub-tree.
+ * Read side: mounts JourneyField primitives against the selected
+ * module's `settings` object — the dedicated `/api/courses/:courseId/modules`
+ * route returns each module's full settings sub-tree.
  *
- * Write side (deferred → `TODO(module-mutator)`): the existing journey-
- * setting PATCH route's storage-path applier
- * (`lib/journey/storage-path-applier.ts::applyAtPath`) only handles
- * arrays at the FINAL segment of the path (`sessionFlow.stops[]`). G8
- * settings have a MID-path array (`config.modules[].settings.<key>`)
- * which the applier doesn't traverse correctly today. Wiring a real
- * mutator requires either (a) extending `applyAtPath` to walk mid-path
- * arrays with `selectorValue`, or (b) a dedicated module-scope PATCH
- * route. Both are out of scope for P3 — the read-side visibility win is
- * shippable without it, so the stub mutator surfaces a toast and the
- * follow-on lands the writer.
+ * Write side (P3c, #1850): saves go through the existing
+ * `/api/courses/:courseId/journey-setting` PATCH route. P3c extended
+ * the route's body to accept an `arraySelector` field — the selector
+ * VALUE for contracts whose storagePath has `arrayKey` without a fixed
+ * `selectorValue` — and extended `lib/journey/storage-path-applier.ts`
+ * to walk mid-path arrays (`config.modules[].settings.<key>`). The
+ * Inspector threads `selectedModuleId` through as `arraySelector` so
+ * the route resolves the right `modules[]` element.
  *
  * Parallels the CourseTeachingTab → JourneyInspectorPanel relationship,
  * but the per-module data model justifies a separate panel rather than
@@ -33,6 +29,8 @@
  * mutator-provider context writes to `Playbook.config.*`, not to
  * `Playbook.config.modules[i].settings.*`).
  */
+
+import { useCallback } from "react";
 
 import { JourneyField } from "@/components/journey-controls";
 import { JOURNEY_SETTINGS } from "@/lib/journey/setting-contracts.entries";
@@ -43,6 +41,8 @@ import type {
 import type { AuthoredModuleSettings } from "@/lib/types/json-fields";
 
 interface ModuleInspectorPanelProps {
+  /** Course id — passed to the PATCH route URL. */
+  courseId: string;
   selectedModuleId: string | null;
   /** The selected module's label — used in the panel header. */
   selectedModuleLabel?: string | null;
@@ -50,13 +50,10 @@ interface ModuleInspectorPanelProps {
    *  `/api/courses/:courseId/modules` → `modules[].settings`).
    *  Undefined or empty → all fields render with default values. */
   settings: Partial<AuthoredModuleSettings> | null;
-  /** Fired on a save attempt against a G8 field. P3 hooks this to a
-   *  stub that surfaces the "module-mutator pending" message; once
-   *  the writer lands, this becomes the real mutator. */
-  onSaveAttempt: (
-    settingId: string,
-    next: unknown,
-  ) => Promise<void> | void;
+  /** Optional hook fired after every successful save. Parent uses it
+   *  to refetch the module list so the Inspector reflects persisted
+   *  state on subsequent renders. */
+  onSaved?: () => void;
 }
 
 /** Pull the final segment from a G8 storagePath
@@ -77,11 +74,55 @@ const G8_SETTINGS: readonly JourneySettingContract[] = JOURNEY_SETTINGS.filter(
 );
 
 export function ModuleInspectorPanel({
+  courseId,
   selectedModuleId,
   selectedModuleLabel,
   settings,
-  onSaveAttempt,
+  onSaved,
 }: ModuleInspectorPanelProps) {
+  // Module-scope mutator — P3c (#1850). Threads `selectedModuleId`
+  // through as the per-call `arraySelector` so the existing
+  // `/journey-setting` PATCH route resolves the right
+  // `config.modules[]` element. Inline rather than via
+  // `useJourneySettingMutator` because that hook's body shape is
+  // `{ settingId, value }` only — G8 needs the extra `arraySelector`
+  // field, and threading it through the shared hook would change the
+  // surface for every Journey/Teaching/Scoring caller.
+  const handleSave = useCallback(
+    async (settingId: string, value: unknown) => {
+      if (!courseId) {
+        throw new Error("ModuleInspectorPanel: courseId is required");
+      }
+      if (!selectedModuleId) {
+        throw new Error("ModuleInspectorPanel: selectedModuleId is required");
+      }
+      const res = await fetch(
+        `/api/courses/${courseId}/journey-setting`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            settingId,
+            value,
+            arraySelector: selectedModuleId,
+          }),
+        },
+      );
+      if (!res.ok) {
+        type ErrBody = { ok?: boolean; error?: string; code?: string };
+        let body: ErrBody | null = null;
+        try {
+          body = (await res.json()) as ErrBody;
+        } catch {
+          body = null;
+        }
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      onSaved?.();
+    },
+    [courseId, selectedModuleId, onSaved],
+  );
+
   if (!selectedModuleId) {
     return (
       <div
@@ -120,11 +161,6 @@ export function ModuleInspectorPanel({
         </p>
       </div>
 
-      <div className="hf-banner hf-banner-info" role="status">
-        Read-only preview. The module-scope writer ships in a follow-on
-        — saves here surface a notice instead of persisting.
-      </div>
-
       <div className="hf-journey-inspector-stack">
         {G8_SETTINGS.map((contract) => {
           const key = lastSegmentOfStoragePath(contract);
@@ -139,9 +175,7 @@ export function ModuleInspectorPanel({
                 contract={contract}
                 value={value}
                 options={contract.options}
-                onSave={(next) =>
-                  Promise.resolve(onSaveAttempt(contract.id, next))
-                }
+                onSave={(next) => handleSave(contract.id, next)}
               />
             </div>
           );
