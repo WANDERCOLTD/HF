@@ -112,6 +112,7 @@ Three structural patterns, in order of preference:
 | Cascade family registration → `useEffectiveValue` dispatch | `lib/cascade/effective-value.ts::FAMILIES` | `lib/cascade/use-effective-value.ts` | ✅ PROTECTED | `tests/lib/cascade/use-effective-value.test.tsx` | — | Pre-filter on `isResolvableKnob` shipped 2026-06-17 |
 | Cascade family ↔ resolver function existence | `FAMILIES[].resolve` | `lib/cascade/resolvers/<family>.ts` | ✅ PROTECTED | TypeScript signature match + resolver-level vitest | — | — |
 | Cascade-eligible UI surface → `<CascadeValue>` + `<LayerBadge>` | UI render | hook return | ⚠️ PARTIAL | `.claude/rules/cascade-reuse.md` convention | MED | Rule explicitly states "No ESLint rule today — too many false positives". 1 known violation auto-paired with `CascadeTraceBreadcrumb` downstream. |
+| AI call-point → Playbook/Domain `aiOverrides[callPoint]` cascade | `getConfiguredMeteredAICompletion({ callPoint, scope })` callsite | `lib/ai/config-loader.ts::getAIConfig` → 6-layer resolver | ⚠️ PARTIAL | `.claude/rules/ai-callpoint-cascade.md` + `tests/lib/ai/config-loader-cascade.test.ts` (11 cases, #1868) | MED | Resolver + cascade-order test PROTECTED. Per-callsite "always pass scope when callId in scope" remains convention until ESLint rule + Coverage vitest follow-on lands. |
 
 ### RBAC / API
 
