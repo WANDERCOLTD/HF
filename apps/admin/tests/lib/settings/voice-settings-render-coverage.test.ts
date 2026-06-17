@@ -60,48 +60,21 @@ const COMMAND_PALETTE_SRC: string = (() => {
 // Exempt list — VOICE_SETTINGS entries not yet rendered inline in
 // VoiceConfigSection. Each entry MUST cite the alternative surface
 // (currently: CommandPalette spread + Tuning tab auto-discovery).
+//
+// 2026-06-17: the exempt list went to ZERO after wiring all 11 entries
+// into FIELD_GROUPS (3 inline-by-id, 2 inline-by-storagePath-leaf, 6
+// added). The classifier now matches both registry `id` AND the leaf
+// of `storagePath` — `endCallAfterSilence` resolves through
+// `silenceTimeoutSeconds`, `maxCallDuration` through `maxDurationSeconds`.
 // ────────────────────────────────────────────────────────────
 
 interface ExemptEntry {
   reason: string;
 }
 
-const RENDER_EXEMPT: Record<string, ExemptEntry> = {
-  interruptSensitivity: {
-    reason:
-      "Reachable via CommandPalette spread (...VOICE_SETTINGS) + Tuning tab auto-discovery via prisma.parameter.findMany. VoiceConfigSection inline render is the follow-on.",
-  },
-  voiceSpeed: {
-    reason:
-      "Reachable via CommandPalette spread + Tuning tab. VoiceConfigSection inline render is the follow-on.",
-  },
-  voicePitch: {
-    reason:
-      "Reachable via CommandPalette spread + Tuning tab. VoiceConfigSection inline render is the follow-on.",
-  },
-  silenceThreshold: {
-    reason:
-      "Reachable via CommandPalette spread + Tuning tab. VoiceConfigSection covers `silenceTimeoutSeconds` (different field). Naming overlap — clarify in follow-on.",
-  },
-  endCallAfterSilence: {
-    reason:
-      "Reachable via CommandPalette spread + Tuning tab. VoiceConfigSection covers `silenceTimeoutSeconds` (different field) and `endCallPhrases`. Follow-on to unify.",
-  },
-  maxCallDuration: {
-    reason:
-      "Reachable via CommandPalette spread + Tuning tab. VoiceConfigSection covers `maxDurationSeconds` (different field name). Follow-on to unify naming.",
-  },
-  phoneNumber: {
-    reason:
-      "Reachable via CommandPalette spread + Tuning tab. VoiceConfigSection covers `phoneNumberId` (different field — ID vs human-readable). Follow-on.",
-  },
-  vapiAssistantId: {
-    reason:
-      "Reachable via CommandPalette spread + Tuning tab. Implementation-specific — may not need inline UI exposure.",
-  },
-};
+const RENDER_EXEMPT: Record<string, ExemptEntry> = {};
 
-const EXPECTED_EXEMPT_COUNT = 8;
+const EXPECTED_EXEMPT_COUNT = 0;
 
 // ────────────────────────────────────────────────────────────
 // Classification
@@ -115,13 +88,32 @@ interface SettingResult {
   reason?: string;
 }
 
+/**
+ * Return the trailing segment of a `storagePath` (after the last `.`),
+ * which is the literal key VoiceConfigSection's `FIELD_GROUPS` arrays
+ * use to dispatch fields. `playbook.voiceConfig.silenceTimeoutSeconds`
+ * → `silenceTimeoutSeconds`.
+ */
+function storagePathLeaf(storagePath: unknown): string | null {
+  if (typeof storagePath !== "string") return null;
+  const idx = storagePath.lastIndexOf(".");
+  return idx >= 0 ? storagePath.slice(idx + 1) : storagePath;
+}
+
 function classify(id: string): SettingResult {
   if (RENDER_EXEMPT[id]) {
     return { id, classification: "exempt", reason: RENDER_EXEMPT[id].reason };
   }
-  // Inline-rendered: appears as a quoted string in VoiceConfigSection's
-  // hardcoded keys array.
+  // Inline-rendered: the registry `id` OR the leaf of `storagePath`
+  // appears as a quoted string in VoiceConfigSection's `FIELD_GROUPS`
+  // arrays. Some registry ids (e.g. `endCallAfterSilence`) reach the
+  // editor under their storagePath leaf (`silenceTimeoutSeconds`).
   if (VOICE_CONFIG_SECTION_SRC.includes(`"${id}"`)) {
+    return { id, classification: "inline-rendered" };
+  }
+  const entry = VOICE_SETTINGS.find((s) => s.id === id);
+  const leaf = storagePathLeaf(entry?.storagePath);
+  if (leaf && leaf !== id && VOICE_CONFIG_SECTION_SRC.includes(`"${leaf}"`)) {
     return { id, classification: "inline-rendered" };
   }
   return { id, classification: "gap" };

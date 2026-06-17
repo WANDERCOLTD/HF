@@ -70,6 +70,11 @@ const CROSS_CUTTING_LABELS: Record<string, { label: string; help: string; type: 
     help: "Hang up after this many seconds of silence. Lower = cheaper but harsher.",
     type: "number",
   },
+  silenceThreshold: {
+    label: "Silence re-prompt threshold (seconds)",
+    help: "Seconds of silence before the AI re-prompts (distinct from the hard hang-up timeout above).",
+    type: "number",
+  },
   maxDurationSeconds: {
     label: "Max call duration (seconds)",
     help: "Hard cap on call length. VAPI will end any call at this point.",
@@ -100,13 +105,76 @@ const CROSS_CUTTING_LABELS: Record<string, { label: string; help: string; type: 
     help: "Force this string into Call.voiceEndedReason. Debugging only.",
     type: "string",
   },
+  voiceSpeed: {
+    label: "Voice speed",
+    help: "Playback rate multiplier (1.0 default).",
+    type: "number",
+  },
+  voicePitch: {
+    label: "Voice pitch",
+    help: "Provider-supported pitch offset.",
+    type: "number",
+  },
+  interruptSensitivity: {
+    label: "Interrupt sensitivity",
+    help: "How readily the AI yields when the learner starts speaking.",
+    type: "number",
+  },
+  phoneNumber: {
+    label: "Outbound phone number",
+    help: "Caller-id phone number (E.164). Distinct from `phoneNumberId` below — this is the human-readable number string.",
+    type: "string",
+  },
+  vapiAssistantId: {
+    label: "VAPI assistant ID",
+    help: "Provider-specific assistant id (advanced).",
+    type: "string",
+  },
 };
 
+// FIELD_GROUPS decides which form field renders in which group. Keys are
+// the storagePath leaves used by the provider's `schemaFields` payload.
+// The set is the union of historical schema field names AND the
+// `VOICE_SETTINGS` registry storagePath leaves — keeping both surfaces
+// consistent. `phoneNumber` (E.164 string) and `phoneNumberId` (VAPI
+// object id) are intentionally distinct fields and both appear under
+// "Advanced".
 const FIELD_GROUPS: { title: string; keys: string[] }[] = [
   { title: "Behaviour", keys: ["autoPipeline", "endedReasonOverride"] },
-  { title: "Voice & transcription", keys: ["voiceId", "voiceProvider", "transcriber", "backgroundSound", "recordingEnabled"] },
-  { title: "Cost safety", keys: ["silenceTimeoutSeconds", "maxDurationSeconds", "voicemailDetectionEnabled", "endCallPhrases", "maxCostPerCallUsd"] },
-  { title: "Advanced", keys: ["pollIntervalMs", "publicKey", "phoneNumberId"] },
+  {
+    title: "Voice & transcription",
+    keys: [
+      "voiceId",
+      "voiceProvider",
+      "transcriber",
+      "backgroundSound",
+      "recordingEnabled",
+      "voiceSpeed",
+      "voicePitch",
+    ],
+  },
+  {
+    title: "Cost safety",
+    keys: [
+      "silenceTimeoutSeconds",
+      "silenceThreshold",
+      "maxDurationSeconds",
+      "voicemailDetectionEnabled",
+      "endCallPhrases",
+      "maxCostPerCallUsd",
+    ],
+  },
+  {
+    title: "Advanced",
+    keys: [
+      "pollIntervalMs",
+      "publicKey",
+      "phoneNumberId",
+      "phoneNumber",
+      "interruptSensitivity",
+      "vapiAssistantId",
+    ],
+  },
 ];
 
 export function sourceBadge(source: Source, scope: "course" | "domain") {
