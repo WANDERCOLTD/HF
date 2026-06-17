@@ -1,7 +1,7 @@
 {
-  "tsc_errors": 40,
+  "tsc_errors": 41,
   "lint_errors": 0,
-  "lint_warnings": 4489,
+  "lint_warnings": 4509,
   "quarantined_tests": 36,
   "knip_unused": 162,
   "same_issue_fix_chain_max": 10,

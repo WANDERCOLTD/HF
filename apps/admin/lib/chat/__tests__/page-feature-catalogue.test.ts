@@ -60,18 +60,15 @@ describe("buildPageFeatureCatalogue", () => {
     expect(out).toMatch(/\*\*Settings\*\*.*operator-only/);
   });
 
-  it("stays under ~800-token budget (3200 chars proxy) for every registered page", () => {
-    // #810 raised the cap from ~500 tokens (2000 chars) to ~700 tokens (2800
-    // chars). The Design tab now exports 5 named `sections` (Progress Signals,
-    // Tolerances, etc.) so the AI can answer section-level questions, which
-    // costs ~120 extra tokens per render. Cheap given DATA-mode runs Sonnet
-    // 4.5 — the grounding wins are worth more than the bytes.
-    //
-    // 2026-06-17 (#1572 / #1349): Course detail gained the Skills Framework
-    // beta tab and Voice was extracted from Settings to its own first-class
-    // tab. Combined cost ≈ +280 chars (~70 extra tokens) on the
-    // /x/courses/abc-123 catalogue. Budget bumped from 2800 → 3200 chars
-    // (~700 → ~800 tokens). Still cheap on DATA-mode Sonnet 4.5.
+  // Cap raised stepwise as tabs accrue:
+  //   #810   2000 →  2800  (Design sections)
+  //   #1859  2800 →  3200  (Skills + Voice extract)
+  //   #1852  3200 →  3700  (Teaching + Scoring + Modules — 3 new tabs)
+  // Per-tab cost averages ~80 chars. The cap is a runaway-growth tripwire,
+  // not a hard limit — DATA-mode runs Sonnet 4.5 where 100 extra tokens
+  // is cheap. Bump when a real tab is added; investigate when one isn't.
+  const BUDGET_CHARS = 3700;
+  it(`stays under the ${BUDGET_CHARS}-char budget for every registered page`, () => {
     const routes = [
       "/x/get-started-v5",
       "/x/courses",
@@ -83,8 +80,8 @@ describe("buildPageFeatureCatalogue", () => {
       const out = buildPageFeatureCatalogue(route);
       expect(
         out.length,
-        `${route} catalogue exceeded 3200-char budget (got ${out.length})`,
-      ).toBeLessThanOrEqual(3200);
+        `${route} catalogue exceeded ${BUDGET_CHARS}-char budget (got ${out.length})`,
+      ).toBeLessThanOrEqual(BUDGET_CHARS);
     }
   });
 });
