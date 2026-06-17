@@ -81,7 +81,7 @@ Three structural patterns, in order of preference:
 | Voice settings registry → Settings tab render | `lib/settings/voice-setting-contracts.ts::VOICE_SETTINGS` | `components/voice-section/VoiceSettings.tsx` | ❌ GAP | — | MED | No test pins render against registry. New voice setting could fail to mount. |
 | Parameter rows → AgentTuner UI | `prisma.parameter.findMany()` at `lib/agent-tuner/params.ts:37` | `components/sim/tuner/**/*.tsx` | ⚠️ PARTIAL | Runtime (auto-discover) | LOW | No test pins that all params render; runtime self-corrects on next page load. |
 | Parameter rows → JOURNEY_SETTINGS LH-menu exposure | `behavior-parameters.registry.json` | `JourneySettingContract` entries targeting `behaviorTargets[<paramId>]` | ❌ GAP | — | MED | New parameter doesn't auto-appear in Journey Inspector LH menu. Convention only. Per-param `JourneySettingContract` filing needed. |
-| Parameter rows → AnalysisSpec.measurements soft-FK | `behavior-parameters.registry.json::parameterId` | `AnalysisSpec.measurements[].parameterId` | ❌ GAP | — | HIGH | Soft-FK only — dangling ID causes silent measurement skip at read. Needs SQL check in `apps/admin/scripts/check-fk-consistency.ts`. |
+| Parameter rows → AnalysisSpec.config.parameters[].id soft-FK | `behavior-parameters.registry.json::parameterId` | `AnalysisSpec.config.parameters[].id` (JSON field — read at `lib/goals/strategies/resolve-strategy.ts:76`) | ✅ PROTECTED | `apps/admin/scripts/check-fk-consistency.ts` Query 11 (`analysis-spec-config-dangling-parameter-ref`, 2026-06-17) | — | SQL check via `jsonb_array_elements` + LEFT JOIN. Surfaces dangling `(specSlug, configParameterId)` pairs. Wrapped in try/catch so dev SQLite path tolerates JSON-syntax differences. |
 | Parameter rows → runtime consumer (compose/score/cascade) | `behavior-parameters.registry.json` | concat of `lib/prompt/composition/**` + `lib/pipeline/**` + `lib/cascade/resolvers/**` + others | ✅ PROTECTED | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | — | Exempt list (118 entries) with ratchet |
 
 ### Pipeline
@@ -201,7 +201,7 @@ Three structural patterns, in order of preference:
 
 | Gap | Severity | Effort | Ship plan |
 |---|---|---|---|
-| Parameter ↔ AnalysisSpec.measurements FK consistency | HIGH | 1–2 hr | SQL check in `apps/admin/scripts/check-fk-consistency.ts` |
+| ~~Parameter ↔ AnalysisSpec.measurements FK consistency~~ | ~~HIGH~~ | ~~1–2 hr~~ | **SHIPPED** as Query 11 in `apps/admin/scripts/check-fk-consistency.ts` (2026-06-17). The actual soft-FK was in `AnalysisSpec.config.parameters[].id` (JSON), not `measurements` — clarified during the fix. |
 | AnalysisSpec.outputType → stage dispatch enum guard | HIGH | 1–2 hr | TS const enum + ESLint rule + ratchet |
 | VAPI webhook subject whitelist | HIGH | 1 hr | Allowlist constant + handler guard + test |
 | Parameter ↔ JOURNEY_SETTINGS LH-menu exposure | MED | 2 hr | Coverage vitest in #1849 pattern |

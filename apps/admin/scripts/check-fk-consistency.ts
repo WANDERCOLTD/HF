@@ -421,6 +421,70 @@ async function runChecks(): Promise<CheckResult[]> {
     })),
   });
 
+  // Query 11 — 2026-06-17 — soft-FK in AnalysisSpec.config.parameters[].id.
+  // `AnalysisSpec.config` is a JSON column holding `parameters: [{id, ...}]`
+  // where each `.id` is a string-form reference to `Parameter.parameterId`.
+  // There is no DB-level FK constraint (the value lives inside JSON), so a
+  // Parameter delete leaves dangling references. Consumers like
+  // `lib/goals/strategies/resolve-strategy.ts:76` do
+  // `.find((p) => p.id === "goal_progress_strategies")` and silently return
+  // DEFAULT_SPEC when the id is missing — no error, just a behaviour
+  // regression that's invisible until an educator notices targets aren't
+  // moving.
+  //
+  // This query unrolls the JSON array and joins against Parameter.parameterId
+  // to surface every dangling `(specSlug, configParameterId)` pair.
+  // Identified by the Lattice end-to-end audit (PR #1863). HIGH severity
+  // because the silent fallback class is hard to detect from telemetry —
+  // educators see "targets don't move" without a logged error.
+  type DanglingParamRow = {
+    spec_id: string;
+    spec_slug: string;
+    config_parameter_id: string;
+  };
+  let danglingParamRefs: DanglingParamRow[] = [];
+  try {
+    danglingParamRefs = await prisma.$queryRaw<DanglingParamRow[]>`
+      WITH spec_param_refs AS (
+        SELECT
+          s.id AS spec_id,
+          s.slug AS spec_slug,
+          jsonb_array_elements(s.config->'parameters')->>'id'
+            AS config_parameter_id
+        FROM "AnalysisSpec" s
+        WHERE jsonb_typeof(s.config->'parameters') = 'array'
+      )
+      SELECT spec_id, spec_slug, config_parameter_id
+      FROM spec_param_refs r
+      LEFT JOIN "Parameter" p ON p."parameterId" = r.config_parameter_id
+      WHERE r.config_parameter_id IS NOT NULL
+        AND p."parameterId" IS NULL
+      ORDER BY spec_slug, config_parameter_id;
+    `;
+  } catch (err) {
+    // JSON path query syntax differs across Postgres versions / SQLite
+    // dev DBs. Tolerate failure with a warn so unrelated CI doesn't
+    // block — the check is best-effort.
+    console.warn(
+      `[fk-check] AnalysisSpec.config parameter-ref scan errored: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  results.push({
+    name: "analysis-spec-config-dangling-parameter-ref",
+    description:
+      "AnalysisSpec.config.parameters[].id references a Parameter row that no longer exists. Soft-FK class — JSON column has no DB constraint. Consumers (e.g. lib/goals/strategies/resolve-strategy.ts) silently fall back to DEFAULT when the id is missing.",
+    rows: danglingParamRefs.map((r) => ({
+      id: `${r.spec_slug}/${r.config_parameter_id}`,
+      detail: {
+        specId: r.spec_id,
+        specSlug: r.spec_slug,
+        danglingParameterId: r.config_parameter_id,
+      },
+    })),
+  });
+
   return results;
 }
 
