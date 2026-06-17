@@ -27,7 +27,7 @@
  * restores the per-module Inspector.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
 import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
@@ -35,7 +35,10 @@ import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell"
 import type { CourseDetailTabId } from "@/lib/journey/buckets-by-tab";
 import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 import { useCrossTabHint } from "@/lib/journey/use-cross-tab-hint";
-import type { AuthoredModuleSettings } from "@/lib/types/json-fields";
+import type {
+  AuthoredModuleSettings,
+  PlaybookConfig,
+} from "@/lib/types/json-fields";
 
 import { ModuleInspectorPanel } from "./ModuleInspectorPanel";
 import { ModulesLhPicker } from "./ModulesLhPicker";
@@ -56,12 +59,18 @@ interface CourseModulesTabProps {
     tabId: CourseDetailTabId,
     options: { selectedBucket: JourneyMenuBucketId },
   ) => void;
+  /** Full PlaybookConfig — threaded through to ModuleInspectorPanel so
+   *  it can derive the editor-facing CourseShape (P3d, #1850). Optional;
+   *  legacy callers without it fall back to the binary courseStyle and
+   *  exam-only G8 entries render as `out-of-shape`. */
+  playbookConfig?: Record<string, unknown> | null;
 }
 
 export function CourseModulesTab({
   courseId,
   courseStyle,
   onTabSwitch,
+  playbookConfig,
 }: CourseModulesTabProps) {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [modules, setModules] = useState<ModuleRow[]>([]);
@@ -107,6 +116,18 @@ export function CourseModulesTab({
   const handleSaved = useCallback(() => {
     setReloadKey((k) => k + 1);
   }, []);
+
+  // P3d (#1850) — cast once at the boundary; ModuleInspectorPanel
+  // consumes the typed shape and falls back to "continuous" when null.
+  // Hoisted above the continuous-course early return to keep hook order
+  // stable across renders (react-hooks/rules-of-hooks).
+  const typedPlaybookConfig = useMemo<PlaybookConfig | null>(
+    () =>
+      playbookConfig === null || playbookConfig === undefined
+        ? null
+        : (playbookConfig as unknown as PlaybookConfig),
+    [playbookConfig],
+  );
 
   if (courseStyle === "continuous") {
     return (
@@ -170,6 +191,7 @@ export function CourseModulesTab({
             selectedModuleId={selectedModuleId}
             selectedModuleLabel={selectedModule?.label ?? null}
             settings={selectedModule?.settings ?? null}
+            playbookConfig={typedPlaybookConfig}
             onSaved={handleSaved}
           />
         )

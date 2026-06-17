@@ -1791,6 +1791,7 @@ export default function CourseDetailPage() {
               : 'continuous'
           }
           onTabSwitch={handleCrossTabSwitch}
+          playbookConfig={detail?.config as Record<string, unknown> | null | undefined}
         />
       )}
 

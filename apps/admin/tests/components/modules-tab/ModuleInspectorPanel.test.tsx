@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 
 import { ModuleInspectorPanel } from "@/components/modules-tab/ModuleInspectorPanel";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 afterEach(() => {
   cleanup();
@@ -175,6 +176,151 @@ describe("ModuleInspectorPanel — P3c mutator wiring (#1850)", () => {
       expect(onSaved).not.toHaveBeenCalled();
     } finally {
       process.off("unhandledRejection", swallow);
+    }
+  });
+});
+
+describe("ModuleInspectorPanel — P3d appliesTo filter (#1850)", () => {
+  /** A structured (non-exam) course config — no module cue-card pools. */
+  const STRUCTURED_NON_EXAM: PlaybookConfig = {
+    lessonPlanMode: "structured",
+    modules: [
+      {
+        id: "m1",
+        label: "Module 1",
+        learnerSelectable: true,
+        mode: "tutor",
+        duration: "20 min",
+        scoringFired: "All four",
+        voiceBandReadout: false,
+        sessionTerminal: false,
+        frequency: "always_available",
+        outcomesPrimary: [],
+        settings: {},
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any,
+  } as PlaybookConfig;
+
+  /** An exam course config — at least one module carries a cue-card pool. */
+  const EXAM: PlaybookConfig = {
+    lessonPlanMode: "structured",
+    modules: [
+      {
+        id: "p1",
+        label: "Part 1",
+        learnerSelectable: true,
+        mode: "tutor",
+        duration: "20 min",
+        scoringFired: "All four",
+        voiceBandReadout: false,
+        sessionTerminal: false,
+        frequency: "always_available",
+        outcomesPrimary: [],
+        settings: {},
+      },
+      {
+        id: "p2",
+        label: "Part 2",
+        learnerSelectable: true,
+        mode: "tutor",
+        duration: "2 min monologue",
+        scoringFired: "All four",
+        voiceBandReadout: true,
+        sessionTerminal: false,
+        frequency: "always_available",
+        outcomesPrimary: [],
+        settings: {
+          cueCardPool: [
+            { topic: "Describe a hobby", bullets: ["What it is"] },
+          ],
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any,
+  } as PlaybookConfig;
+
+  /** The 3 exam-only G8 entries the brief calls out. */
+  const EXAM_ONLY_IDS = [
+    "moduleCueCardPool",
+    "moduleScheduledCues",
+    "moduleFirstTimeOrientationLine",
+  ] as const;
+
+  /** All 8 G8 entries — used to assert show-don't-hide. */
+  const ALL_G8_IDS = [
+    "moduleQuestionTarget",
+    "moduleMinSpeakingSec",
+    "moduleCueCardPool",
+    "moduleClosingLine",
+    "moduleFirstTimeOrientationLine",
+    "moduleScheduledCues",
+    "moduleScaffoldPool",
+    "moduleProfileFieldsToCapture",
+  ] as const;
+
+  it("on a non-exam structured course, the 3 exam-only G8 entries render as out-of-shape", () => {
+    render(
+      <ModuleInspectorPanel
+        courseId="course-1"
+        selectedModuleId="m1"
+        selectedModuleLabel="Module 1"
+        settings={null}
+        playbookConfig={STRUCTURED_NON_EXAM}
+      />,
+    );
+
+    for (const id of EXAM_ONLY_IDS) {
+      const row = screen.getByTestId(`hf-module-inspector-row-${id}`);
+      expect(row.getAttribute("data-relevance-state")).toBe("out-of-shape");
+      // RelevanceWrapper emits a wrapper with data-state="out-of-shape"
+      expect(row.querySelector('[data-state="out-of-shape"]')).toBeTruthy();
+    }
+
+    // The other 5 entries render active (no overlay)
+    const activeIds = ALL_G8_IDS.filter(
+      (id) => !EXAM_ONLY_IDS.includes(id as (typeof EXAM_ONLY_IDS)[number]),
+    );
+    for (const id of activeIds) {
+      const row = screen.getByTestId(`hf-module-inspector-row-${id}`);
+      expect(row.getAttribute("data-relevance-state")).toBe("active");
+    }
+  });
+
+  it("on an exam course, all 8 G8 entries render as editable (active)", () => {
+    render(
+      <ModuleInspectorPanel
+        courseId="course-1"
+        selectedModuleId="p1"
+        selectedModuleLabel="Part 1"
+        settings={null}
+        playbookConfig={EXAM}
+      />,
+    );
+
+    for (const id of ALL_G8_IDS) {
+      const row = screen.getByTestId(`hf-module-inspector-row-${id}`);
+      expect(row.getAttribute("data-relevance-state")).toBe("active");
+      expect(row.querySelector('[data-state="out-of-shape"]')).toBeNull();
+    }
+  });
+
+  it("show-don't-hide: every G8 entry is in the DOM regardless of course shape", () => {
+    // Render on a non-exam course where 3 are out-of-shape.
+    render(
+      <ModuleInspectorPanel
+        courseId="course-1"
+        selectedModuleId="m1"
+        selectedModuleLabel="Module 1"
+        settings={null}
+        playbookConfig={STRUCTURED_NON_EXAM}
+      />,
+    );
+    // All 8 rows are present — the out-of-shape ones are wrapped, not hidden.
+    for (const id of ALL_G8_IDS) {
+      expect(
+        screen.getByTestId(`hf-module-inspector-row-${id}`),
+      ).toBeInTheDocument();
     }
   });
 });
