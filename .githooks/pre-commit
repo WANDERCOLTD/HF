@@ -141,19 +141,29 @@ apps/admin/docs-archive/bdd-specs/*)
 fi
 
 # 6) Auto-regen the KB Tier-2 generated facts when their inputs change.
-#    Schema edits → model-map; route edits → route-inventory; overrides
-#    edits → model-map. Adds the regenerated JSON to the same commit so
-#    the CI freshness gate (kb:check, .github/workflows/test.yml) passes
-#    without a follow-up commit. Non-blocking on failure. See docs/kb/README.md.
+#    Schema edits → model-map; route edits → route-inventory + operator-
+#    surfaces; cascade knob-keys / compose affecting-keys edits → demo-
+#    knobs; any apps/admin source edit → coupling-graph. Adds regenerated
+#    JSON to the same commit so the CI freshness gate (kb:check,
+#    .github/workflows/test.yml) passes without a follow-up commit. Each
+#    regen step is non-blocking on failure. See docs/kb/README.md.
 if command -v npx >/dev/null 2>&1; then
   schema_changed="0"
   routes_changed="0"
+  knob_keys_changed="0"
+  source_changed="0"
   while IFS= read -r f; do
     case "$f" in
       apps/admin/prisma/schema.prisma|docs/kb/model-map-overrides.json)
         schema_changed="1" ;;
       apps/admin/app/api/*route.ts)
         routes_changed="1" ;;
+      apps/admin/lib/cascade/knob-keys.ts|apps/admin/lib/compose/affecting-keys.ts)
+        knob_keys_changed="1" ;;
+    esac
+    case "$f" in
+      apps/admin/*.ts|apps/admin/*.tsx)
+        source_changed="1" ;;
     esac
   done <<< "${STAGED_FILES}"
 
@@ -172,6 +182,33 @@ if command -v npx >/dev/null 2>&1; then
       git add docs/kb/generated/route-inventory.json
     else
       echo "[pre-commit] ⚠ route-inventory regen failed (non-blocking). Run: cd apps/admin && npm run kb:routes"
+    fi
+
+    echo "[pre-commit] Regenerating docs/kb/generated/operator-surfaces.json..."
+    if (cd apps/admin && npx tsx scripts/capture/operator-surfaces.ts >/dev/null 2>&1); then
+      git add docs/kb/generated/operator-surfaces.json
+    else
+      echo "[pre-commit] ⚠ operator-surfaces regen failed (non-blocking). Run: cd apps/admin && npm run kb:operator-surfaces"
+    fi
+  fi
+
+  if [[ "$knob_keys_changed" == "1" ]]; then
+    echo "[pre-commit] Regenerating docs/kb/generated/demo-knobs.json..."
+    if (cd apps/admin && npx tsx scripts/capture/demo-knobs.ts >/dev/null 2>&1); then
+      git add docs/kb/generated/demo-knobs.json
+    else
+      echo "[pre-commit] ⚠ demo-knobs regen failed (non-blocking). Run: cd apps/admin && npm run kb:demo-knobs"
+    fi
+  fi
+
+  # coupling-graph walks the whole apps/admin source tree (~1.4s); any
+  # staged .ts/.tsx edit there can shift import edges.
+  if [[ "$source_changed" == "1" ]]; then
+    echo "[pre-commit] Regenerating docs/kb/generated/coupling-graph.json..."
+    if (cd apps/admin && npx tsx scripts/capture/coupling-graph.ts >/dev/null 2>&1); then
+      git add docs/kb/generated/coupling-graph.json
+    else
+      echo "[pre-commit] ⚠ coupling-graph regen failed (non-blocking). Run: cd apps/admin && npm run kb:coupling"
     fi
   fi
 fi

@@ -14,6 +14,28 @@ and classifies everything by **"does it survive the hardening?"**.
 The work is overwhelmingly **consolidation, not creation** — most of the knowledge
 already exists, scattered across mechanisms that were never designed as one system.
 
+## Lattice — the five pillars this KB catalogues
+
+**Lattice** is the umbrella term (2026-06-16) for HF's structural-enforcement
+infrastructure. New structural infra must ship *with* its paired guard + rule.
+"Lattice violation" = bypass; "off-Lattice change" = exists outside the system.
+
+| Pillar | What it is | Lives in | KB index |
+|---|---|---|---|
+| **Chain Contracts** | Cross-stage invariants (Link 3 / Link 4 / Session boundaries) | `docs/CHAIN-CONTRACTS.md` + `docs/CONTRACTS-*.md` | Part 2 prototype |
+| **Guards** | Executable enforcement (ESLint rules + `check-*` scripts + DB-level constraints) | `apps/admin/eslint-rules/`, `scripts/capture/check-*`, `prisma/schema.prisma` | `guard-registry.md` |
+| **Cascade** | Effective-value resolvers (`resolveEffective`, presets, variant pins) | `lib/cascade/`, `lib/banding/`, `lib/config/resolve-*` | Part 1 model-map + Part 2 |
+| **Rules** | Curated guidance that explains *why* a guard exists | `.claude/rules/*.md` | linked from each guard row |
+| **Coverage** | Schema-driven completeness check — registry incomplete vs target surface (post-Slice-C BA-failure recovery, #1780) | `apps/admin/tests/lib/journey/registry-schema-coverage.test.ts` + `registry-options-coverage.test.ts` | vitest pins (no separate catalogue) |
+
+Audit cue: when changes touch any pillar, audit against all five explicitly
+before merge. Lattice-survey discipline (60–90s sibling-writer survey before
+writing/modifying code that touches a shared DB column, crosses a chain-stage
+boundary, registers a new guard/contract, or extends an AI write/read path) —
+PR `## Verified by` must cite the survey result. Memory:
+`feedback_lattice_guard_umbrella.md`, `feedback_lattice_survey_discipline.md`,
+`feedback_lattice_5th_pillar_coverage.md`.
+
 ## Reuse map — what already exists (don't rebuild these)
 
 | Existing artifact | Role | KB tier it satisfies |
