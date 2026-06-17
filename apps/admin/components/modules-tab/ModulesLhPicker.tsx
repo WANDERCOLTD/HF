@@ -3,26 +3,22 @@
 /**
  * ModulesLhPicker — LH module picker for the Modules tab.
  *
- * Fetches `/api/courses/[courseId]/sessions` for the modules array
- * (the sessions route already returns modules). When a dedicated
- * `/api/courses/[courseId]/modules` route lands, swap the fetch.
+ * Fetches the dedicated `/api/courses/[courseId]/modules` route
+ * (Phase P3 of epic #1850). Returns AuthoredModule[] from
+ * `Playbook.config.modules` — the playbook-side list — NOT the
+ * `/sessions` route's CurriculumModule[] (curriculum-side).
  *
  * Renders one row per AuthoredModule via `hf-list-row`. Click → setSelected.
- *
- * TODO(modules-route): replace the sessions piggyback with a dedicated
- * `/api/courses/[courseId]/modules` route when one exists. The sessions
- * route over-fetches (plan + studentProgress) for what's needed here.
  */
 
 import { useEffect, useState } from "react";
 
 interface ModuleSummary {
   id: string;
-  slug?: string;
-  title: string;
-  description?: string | null;
-  sortOrder?: number;
-  learningObjectiveCount?: number;
+  label: string;
+  mode?: string;
+  duration?: string;
+  position?: number;
 }
 
 interface ModulesLhPickerProps {
@@ -45,7 +41,7 @@ export function ModulesLhPicker({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/courses/${courseId}/sessions`)
+    fetch(`/api/courses/${courseId}/modules`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -118,11 +114,9 @@ export function ModulesLhPicker({
             onClick={() => onSelect(m.id)}
             data-testid={`hf-modules-row-${m.id}`}
           >
-            <span className="hf-journey-bucket-label">{m.title}</span>
-            {typeof m.learningObjectiveCount === "number" ? (
-              <span className="hf-journey-bucket-count">
-                {m.learningObjectiveCount}
-              </span>
+            <span className="hf-journey-bucket-label">{m.label}</span>
+            {m.duration ? (
+              <span className="hf-journey-bucket-count">{m.duration}</span>
             ) : null}
           </button>
         ))}
