@@ -8,6 +8,10 @@ import { config } from "@/lib/config";
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext, PlaybookData, SystemSpecData, ResolvedSpecs, ResolvedSpec } from "../types";
 import type { SpecConfig } from "@/lib/types/json-fields";
+import {
+  NEUTRAL_PARAMETER_TARGET,
+  NEUTRAL_TARGET_TOLERANCE,
+} from "@/lib/measurement/neutral-target";
 
 /**
  * Resolve identity, content, and voice specs from stacked playbooks + system specs.
@@ -265,14 +269,19 @@ export function applyGroupToneOverride(
     };
 
     for (const [key, value] of Object.entries(sliders)) {
-      // Neutral (0.5) means no override — skip
-      if (typeof value !== "number" || Math.abs(value - 0.5) < 0.05) continue;
+      // Neutral midpoint means no override — skip
+      if (
+        typeof value !== "number" ||
+        Math.abs(value - NEUTRAL_PARAMETER_TARGET) < NEUTRAL_TARGET_TOLERANCE
+      ) {
+        continue;
+      }
 
       const labels = SLIDER_LABELS[key];
       if (!labels) continue;
 
       const [lowLabel, highLabel] = labels;
-      if (value < 0.5) {
+      if (value < NEUTRAL_PARAMETER_TARGET) {
         const intensity = value < 0.25 ? "strongly" : "somewhat";
         guidelines.push(`Department tone: Be ${intensity} ${lowLabel}.`);
       } else {

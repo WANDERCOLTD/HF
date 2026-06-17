@@ -104,6 +104,7 @@ Three structural patterns, in order of preference:
 | ComposeSectionKey → staleness inputs map | `lib/compose/section.ts::COMPOSE_SECTION_KEYS` | `lib/compose/section-staleness.ts::PIPELINE_STATE_SECTION_LOADERS` | ✅ PROTECTED | TypeScript `satisfies const readonly ComposeSectionKey[]` + `tests/lib/compose/section-loaders.test.ts:23` | — | Compile-time exhaustiveness |
 | ComposeSectionKey → SECTION_OUTPUT_KEYS map | `COMPOSE_SECTION_KEYS` | `SECTION_OUTPUT_KEYS` | ✅ PROTECTED | Same `satisfies` + section-loaders test | — | Compile-time + test |
 | COMP-001 spec sections ↔ `getDefaultSections()` code | `docs-archive/bdd-specs/COMP-001-prompt-composition.spec.json` | `lib/compose/section.ts::getDefaultSections` | ⚠️ PARTIAL | `tests/lib/prompt/composition/seed-sync.test.ts` (existing) | MED | Test catches code-vs-spec divergence at fixture time; doesn't re-pin post-spec-JSON-update. |
+| Transform behavior-target neutral fallback | `lib/measurement/neutral-target.ts::NEUTRAL_PARAMETER_TARGET` | composition transforms (`quickstart.ts`, `identity.ts`) | ✅ PROTECTED | `tests/lib/measurement/neutral-target.test.ts` (#1880) | — | Named const replaces bare `?? 0.5`; ratchet rejects new offenders in `lib/prompt/composition/transforms/`. |
 
 ### Cascade
 
