@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { isRoleAtOrAbove } from "@/lib/roles";
 
 export type ViewModePreference = "auto" | "simple" | "advanced";
 
@@ -15,9 +16,6 @@ const ViewModeContext = createContext<ViewModeContextValue | null>(null);
 
 const STORAGE_KEY = "hf.viewMode";
 
-/** Roles at level >= 3 default to advanced when preference is "auto" */
-const ADVANCED_ROLES = new Set(["SUPERADMIN", "ADMIN", "OPERATOR", "EDUCATOR"]);
-
 function getStoredPreference(): ViewModePreference {
   if (typeof window === "undefined") return "auto";
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -30,8 +28,8 @@ function getStoredPreference(): ViewModePreference {
 function resolveAdvanced(preference: ViewModePreference, role: string | undefined): boolean {
   if (preference === "simple") return false;
   if (preference === "advanced") return true;
-  // "auto" — resolve from role
-  return ADVANCED_ROLES.has(role ?? "");
+  // "auto" — OPERATOR+ (level >= 3) defaults to advanced; EDUCATOR also qualifies
+  return isRoleAtOrAbove(role, "OPERATOR");
 }
 
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {

@@ -307,9 +307,9 @@ export function getConfigForRole(role: string): DashboardRoleConfig {
   return DASHBOARD_CONFIGS[role] ?? DASHBOARD_CONFIGS.ADMIN;
 }
 
-/** Roles that are considered "admin-level" (OPERATOR+) */
-const ADMIN_ROLES = new Set(["SUPERADMIN", "ADMIN", "OPERATOR"]);
-
-export function isAdminRole(role: string): boolean {
-  return ADMIN_ROLES.has(role);
-}
+/**
+ * Roles that get the OPERATOR-track admin dashboard.
+ * Re-exported from `lib/roles.ts` — see `isOperatorTrackAdmin` for the
+ * documented EDUCATOR-exclusion rationale.
+ */
+export { isOperatorTrackAdmin as isAdminRole } from "@/lib/roles";
