@@ -66,6 +66,9 @@ function makeAttainmentResponse() {
     ],
     modules: [],
     goals: [],
+    // #1704 Theme 10 — ProfileSection reads data.profile; route always
+    // returns this array (possibly empty). Test mock must match.
+    profile: [],
     empty: false,
   };
 }

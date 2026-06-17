@@ -17,7 +17,10 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, within } from "@testing-library/react";
 
-import { CourseDesignConsole } from "@/app/x/courses/[courseId]/_components/CourseDesignConsole";
+import {
+  CourseDesignConsole,
+  DESIGN_LENS_ORDER,
+} from "@/app/x/courses/[courseId]/_components/CourseDesignConsole";
 
 const replaceSpy = vi.fn();
 let currentDesignView: string | null = null;
@@ -109,13 +112,15 @@ beforeEach(() => {
 });
 
 describe("CourseDesignConsole — nav", () => {
-  it("renders 14 lenses in the nav (5 Journey + 7 Behaviour + 1 Preview + 1 Voice Flow)", () => {
-    // 7 Behaviour: call1Mode + moduleVisibility (#1405) + firstCallTargets +
-    // tolerances + skillBanding + progressSignals + agentTunerNlp.
+  it("renders one nav item per lens in DESIGN_LENS_ORDER", () => {
+    // Derive expected count from the canonical lens-order array rather
+    // than hardcoding. Voice Flow lens was retired in epic #1675 Phase 6
+    // (#1708) — the previous literal `14` silently desynced. Future
+    // lens add/remove ripples through naturally.
     mockSessionFlowFetch(makeResolvedResponse());
     const { container } = render(<CourseDesignConsole courseId="course-1" />);
     const items = container.querySelectorAll(".hf-console-shell-nav-item");
-    expect(items.length).toBe(14);
+    expect(items.length).toBe(DESIGN_LENS_ORDER.length);
   });
 
   it("renders a 'soon' badge only on agentTunerNlp (1 — Slices 2+3 absorbed the rest)", () => {

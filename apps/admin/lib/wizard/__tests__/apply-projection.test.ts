@@ -135,6 +135,10 @@ function buildMockPrisma() {
     parameter: {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue({ parameterId: "skill_x" }),
+      // upsertParameters merges config into existing parameter rows via
+      // an update on re-run. Without this the no-op path crashes with
+      // "tx.parameter.update is not a function".
+      update: vi.fn().mockResolvedValue({ parameterId: "skill_x" }),
     },
     behaviorTarget: {
       findMany: vi.fn().mockResolvedValue([]),

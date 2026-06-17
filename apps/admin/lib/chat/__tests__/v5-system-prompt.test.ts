@@ -139,12 +139,17 @@ describe("buildV5SystemPrompt", () => {
     const setupData = { courseRefEnabled: true };
     const result = await buildV5SystemPrompt(setupData, emptyEvaluation());
     expect(result).toContain("Teaching Guide");
-    expect(result).toContain("Skills Framework");
+    expect(result).toContain("### Skills Framework");
   });
 
   it("excludes pedagogy section when courseRefEnabled is false", async () => {
     const result = await buildV5SystemPrompt({}, emptyEvaluation());
-    expect(result).not.toContain("Skills Framework");
+    // Match the section header — the rules block legitimately mentions
+    // "Skills Framework" in the launchBlocker copy
+    // (PROJECTION_NO_SKILLS_FRAMEWORK guidance) and is included
+    // unconditionally. The pedagogy gate controls the `### Skills
+    // Framework` H3 only.
+    expect(result).not.toContain("### Skills Framework");
   });
 
   it("conditionally hides completed pedagogy sub-sections", async () => {

@@ -91,10 +91,20 @@ describe("DesignTab — modePolicy Inspector toggle", () => {
       screen.getByRole("button", { name: /Mode policy:.*practice/ }),
     );
     expect(document.querySelector(".hf-designer-inspector")).not.toBeNull();
-    // Inspector body shows the 3 chip groups.
+    // Inspector body now mounts the editable JourneyField variant
+    // (DesignTab passes a courseId + !readonly context). The 3 settings:
+    //  - teachingMode badge (read-only literal)
+    //  - useFreshMastery toggle (aria-checked reflects state)
+    //  - maxMasteryTier segmented buttons (aria-pressed reflects state)
     expect(screen.getByText("Practice")).toBeInTheDocument();
-    expect(screen.getByText("ON — writes to scratch space")).toBeInTheDocument();
-    expect(screen.getByText("Capped at Practitioner")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("hf-jf-toggle-useFreshMastery").getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByTestId("hf-jf-select-maxMasteryTier")
+        .querySelector('button[aria-pressed="true"]')?.textContent,
+    ).toBe("Practitioner");
   });
 
   it("clicking twice closes the Inspector", () => {

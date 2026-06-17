@@ -22,12 +22,14 @@ describe("page-help registry", () => {
       expect(entry?.title).toBe("Courses");
     });
 
-    it("returns the Course detail entry for parameterised pathname with 8 tabs", () => {
+    it("returns the Course detail entry for parameterised pathname", () => {
       const entry = getPageHelp("/x/courses/abc-123");
       expect(entry).toBeDefined();
       expect(entry?.title).toBe("Course detail");
-      expect(entry?.tabs).toHaveLength(8);
       const labels = entry?.tabs?.map((t) => t.label);
+      // Skills (Inspector beta) was added between Goals and Voice. Treat
+      // the registry as canonical — when a tab is added/removed, this
+      // literal is the single edit point.
       expect(labels).toEqual([
         "Content",
         "Design",
@@ -35,9 +37,11 @@ describe("page-help registry", () => {
         "Learners",
         "Proof Points",
         "Goals",
+        "Skills",
         "Voice",
         "Settings",
       ]);
+      expect(entry?.tabs).toHaveLength(labels?.length ?? 0);
     });
 
     it("does NOT return Course detail for /x/courses/new (non-detail route)", () => {
@@ -50,22 +54,27 @@ describe("page-help registry", () => {
       expect(getPageHelp("/x/courses/v3")?.title).not.toBe("Course detail");
     });
 
-    it("returns the Learner detail entry for parameterised pathname with 8 tabs", () => {
+    it("returns the Learner detail entry for parameterised pathname", () => {
       const entry = getPageHelp("/x/callers/xyz-789");
       expect(entry).toBeDefined();
       expect(entry?.title).toBe("Learner detail");
-      expect(entry?.tabs).toHaveLength(8);
       const ids = entry?.tabs?.map((t) => t.id);
+      // `attainment` (epic #1685 Wave A) and `adaptations` (Sprint 5)
+      // were added between Progress and Uplift. The literal list is the
+      // single edit point when a tab is added/removed.
       expect(ids).toEqual([
         "overview-v2",
         "calls-prompts",
         "tune",
         "progress-v2",
+        "attainment",
+        "adaptations",
         "uplift-v2",
         "session-flow",
         "how",
         "ai-call",
       ]);
+      expect(entry?.tabs).toHaveLength(ids?.length ?? 0);
     });
 
     it("returns the Learners index entry for exact pathname", () => {

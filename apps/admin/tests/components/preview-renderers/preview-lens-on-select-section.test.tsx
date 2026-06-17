@@ -6,8 +6,9 @@
  *     (intake / welcome / onboarding / offboarding / stops→nps) fires
  *     `onSelectSection` AND opens the sidetray (sidetray stays the
  *     edit affordance; the callback is the new B.13 hook).
- *   - Lens ids without a `ComposeSectionKey` (e.g. `moduleVisibility`)
- *     leave the callback untouched.
+ *   - `moduleVisibility` was originally an unmapped lens (test asserted
+ *     the callback did NOT fire). #1738 mapped it to `modulesGate` so it
+ *     now fires alongside the sidetray (same as the welcome bubble).
  *   - When the prop is omitted, PreviewLens behaviour is unchanged
  *     (byte-identical sidetray-only).
  */
@@ -129,7 +130,7 @@ describe("PreviewLens onSelectSection callback — #1623", () => {
     });
   });
 
-  it("does NOT fire onSelectSection for moduleVisibility lens click", async () => {
+  it("fires onSelectSection('modulesGate') when the moduleVisibility bubble is clicked (#1738)", async () => {
     const onSelectSection = vi.fn<SelectFn>();
     mountWithFlow({ flow: welcomeFlow(), onSelectSection });
     const editButton = await waitFor(
@@ -138,13 +139,13 @@ describe("PreviewLens onSelectSection callback — #1623", () => {
     );
     if (!editButton) throw new Error("moduleVisibility affordance not found");
     fireEvent.click(editButton);
-    // The sidetray still opens for module-visibility (existing behaviour);
-    // onSelectSection should NOT fire because moduleVisibility doesn't map
-    // to a ComposeSectionKey.
+    // Sidetray still opens for back-compat; onSelectSection now ALSO fires
+    // with the mapped ComposeSectionKey (#1738 added the row to
+    // SIDETRAY_LENS_TO_SECTION so Journey-tab navigation reaches it).
     await waitFor(() => {
       expect(screen.getByTestId("mock-mvs")).toBeInTheDocument();
     });
-    expect(onSelectSection).not.toHaveBeenCalled();
+    expect(onSelectSection).toHaveBeenCalledWith("modulesGate");
   });
 
   it("is a pure addition — omitting the prop is allowed and unchanged", async () => {

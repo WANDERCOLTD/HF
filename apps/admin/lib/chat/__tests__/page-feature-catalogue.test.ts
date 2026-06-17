@@ -60,12 +60,13 @@ describe("buildPageFeatureCatalogue", () => {
     expect(out).toMatch(/\*\*Settings\*\*.*operator-only/);
   });
 
-  it("stays under ~700-token budget (2800 chars proxy) for every registered page", () => {
+  it("stays under ~800-token budget (3200 chars proxy) for every registered page", () => {
     // #810 raised the cap from ~500 tokens (2000 chars) to ~700 tokens (2800
-    // chars). The Design tab now exports 5 named `sections` (Progress Signals,
-    // Tolerances, etc.) so the AI can answer section-level questions, which
-    // costs ~120 extra tokens per render. Cheap given DATA-mode runs Sonnet
-    // 4.5 — the grounding wins are worth more than the bytes.
+    // chars). Bumped again to ~800 tokens (3200 chars) — Course detail now
+    // carries the Skills tab (Inspector beta) and Learner detail carries
+    // Attainment + Adaptations from the epic #1685 retire-mode rollout.
+    // Each new tab adds ~80–120 chars and is intentional surface area;
+    // grounding wins outweigh the bytes (DATA-mode runs Sonnet 4.5).
     const routes = [
       "/x/get-started-v5",
       "/x/courses",
@@ -77,8 +78,8 @@ describe("buildPageFeatureCatalogue", () => {
       const out = buildPageFeatureCatalogue(route);
       expect(
         out.length,
-        `${route} catalogue exceeded 2800-char budget (got ${out.length})`,
-      ).toBeLessThanOrEqual(2800);
+        `${route} catalogue exceeded 3200-char budget (got ${out.length})`,
+      ).toBeLessThanOrEqual(3200);
     }
   });
 });

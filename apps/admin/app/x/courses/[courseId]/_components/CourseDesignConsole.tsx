@@ -84,7 +84,7 @@ type DesignLensId =
 /** Preview moved to the top of the nav (2026-06-07) — it's now the
  *  canonical landing surface: educator sees the full call walkthrough,
  *  clicks any bubble to edit in a sidetray. Default lens is `preview`. */
-const DESIGN_LENS_ORDER: DesignLensId[] = [
+export const DESIGN_LENS_ORDER: DesignLensId[] = [
   "preview",
   "intake",
   "onboarding",
