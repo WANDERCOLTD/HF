@@ -12,30 +12,63 @@
  * navigate to buckets intended for this tab; the Inspector then renders
  * the bucket's settings via `getSettingsForBucket(bucketId)`. Mirror of
  * `CourseTeachingTab.tsx`.
+ *
+ * P3b (#1850 cross-tab hints): when a Preview-lens bubble click maps to
+ * a bucket owned by a different tab, the Inspector renders a
+ * `<CrossTabHintCard>` instead of staying empty. Wired via
+ * `useCrossTabHint` + the `onTabSwitch` parent callback.
  */
 
 import { useCallback, useEffect, useState } from "react";
 
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
 import { JourneyInspectorPanel } from "@/components/journey-tab/JourneyInspectorPanel";
+import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
 import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell";
+import type { CourseDetailTabId } from "@/lib/journey/buckets-by-tab";
 import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
+import { useCrossTabHint } from "@/lib/journey/use-cross-tab-hint";
 
 import { ScoringLhMenu } from "./ScoringLhMenu";
 
 interface CourseScoringTabProps {
   courseId: string;
   playbookConfig: Record<string, unknown> | null;
+  /** Parent-provided tab switcher. Phase P3b — invoked by the
+   *  cross-tab hint card's primary button. Optional for backwards
+   *  compatibility; when omitted the hint card renders without a
+   *  jump button. */
+  onTabSwitch?: (
+    tabId: CourseDetailTabId,
+    options: { selectedBucket: JourneyMenuBucketId },
+  ) => void;
+  /** URL `?selectedBucket=` param. When present and in scope, seeds
+   *  the Inspector selection on mount. */
+  selectedBucketParam?: string | null;
 }
 
 export function CourseScoringTab({
   courseId,
   playbookConfig,
+  onTabSwitch,
+  selectedBucketParam = null,
 }: CourseScoringTabProps) {
-  const [selectedId, setSelectedId] = useState<JourneyMenuBucketId | null>(
-    null,
-  );
+  const {
+    selectedId,
+    setSelectedId,
+    crossTabHint,
+    handlePreviewSelect,
+    jumpToOwningTab,
+  } = useCrossTabHint({
+    currentTab: "scoring",
+    selectedBucketParam,
+    onTabSwitch:
+      onTabSwitch ??
+      // No parent wiring — degrade to no-op; the card still renders
+      // but the jump button is inert. Pre-P3b sites preserve behaviour.
+      (() => {}),
+  });
   // Tab-local override of the parent's playbookConfig — mirrors the
   // Journey + Teaching tabs' stale-read cure. Refetched after each save
   // via the provider's `onCompoundSaved` callback.
@@ -61,6 +94,13 @@ export function CourseScoringTab({
     }
   }, [courseId]);
 
+  const handleLhSelect = useCallback(
+    (next: JourneyMenuBucketId | null) => {
+      setSelectedId(next);
+    },
+    [setSelectedId],
+  );
+
   return (
     <JourneySettingMutatorProvider
       courseId={courseId}
@@ -72,11 +112,27 @@ export function CourseScoringTab({
           <ScoringLhMenu
             courseId={courseId}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={handleLhSelect}
           />
         }
-        canvas={<PreviewLens courseId={courseId} suppressSidetray />}
-        inspector={<JourneyInspectorPanel selectedBucketId={selectedId} />}
+        canvas={
+          <PreviewLens
+            courseId={courseId}
+            onSelectSection={handlePreviewSelect}
+            suppressSidetray
+          />
+        }
+        inspector={
+          crossTabHint ? (
+            <CrossTabHintCard
+              bucketLabel={crossTabHint.bucketLabel}
+              owningTabLabel={crossTabHint.owningTabLabel}
+              onJump={jumpToOwningTab}
+            />
+          ) : (
+            <JourneyInspectorPanel selectedBucketId={selectedId} />
+          )
+        }
       />
     </JourneySettingMutatorProvider>
   );

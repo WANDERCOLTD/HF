@@ -18,12 +18,23 @@
  * Continuous-course empty state: continuous courses have no authored
  * modules — they pull from a topic pool. We render an explanation
  * rather than an empty picker.
+ *
+ * P3b (#1850 cross-tab hints): the Modules tab has zero entries in
+ * `BUCKETS_BY_TAB.modules` — every Preview bubble click resolves to a
+ * bucket owned by another tab. The Inspector renders a
+ * `<CrossTabHintCard>` in place of the per-module panel whenever the
+ * hint state is set; clearing the hint (jumping or selecting a module)
+ * restores the per-module Inspector.
  */
 
 import { useCallback, useEffect, useState } from "react";
 
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
+import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell";
+import type { CourseDetailTabId } from "@/lib/journey/buckets-by-tab";
+import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
+import { useCrossTabHint } from "@/lib/journey/use-cross-tab-hint";
 import type { AuthoredModuleSettings } from "@/lib/types/json-fields";
 
 import { ModuleInspectorPanel } from "./ModuleInspectorPanel";
@@ -40,14 +51,26 @@ interface CourseModulesTabProps {
   /** From `PlaybookConfig.lessonPlanMode`. `"continuous"` (or missing) →
    *  modules don't apply; we show the empty state instead of the picker. */
   courseStyle?: string;
+  /** Parent-provided tab switcher. Phase P3b. */
+  onTabSwitch?: (
+    tabId: CourseDetailTabId,
+    options: { selectedBucket: JourneyMenuBucketId },
+  ) => void;
 }
 
 export function CourseModulesTab({
   courseId,
   courseStyle,
+  onTabSwitch,
 }: CourseModulesTabProps) {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [modules, setModules] = useState<ModuleRow[]>([]);
+  const { crossTabHint, handlePreviewSelect, jumpToOwningTab } =
+    useCrossTabHint({
+      currentTab: "modules",
+      selectedBucketParam: null, // modules tab doesn't seed from URL
+      onTabSwitch: onTabSwitch ?? (() => {}),
+    });
 
   // Mirror the LH picker fetch so the Inspector can read each module's
   // `settings` sub-object without a second round-trip. The LH picker
@@ -127,17 +150,29 @@ export function CourseModulesTab({
               a follow-on.
             </div>
           ) : null}
-          <PreviewLens courseId={courseId} suppressSidetray />
+          <PreviewLens
+            courseId={courseId}
+            onSelectSection={handlePreviewSelect}
+            suppressSidetray
+          />
         </>
       }
       inspector={
-        <ModuleInspectorPanel
-          courseId={courseId}
-          selectedModuleId={selectedModuleId}
-          selectedModuleLabel={selectedModule?.label ?? null}
-          settings={selectedModule?.settings ?? null}
-          onSaved={handleSaved}
-        />
+        crossTabHint ? (
+          <CrossTabHintCard
+            bucketLabel={crossTabHint.bucketLabel}
+            owningTabLabel={crossTabHint.owningTabLabel}
+            onJump={jumpToOwningTab}
+          />
+        ) : (
+          <ModuleInspectorPanel
+            courseId={courseId}
+            selectedModuleId={selectedModuleId}
+            selectedModuleLabel={selectedModule?.label ?? null}
+            settings={selectedModule?.settings ?? null}
+            onSaved={handleSaved}
+          />
+        )
       }
     />
   );

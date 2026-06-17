@@ -555,6 +555,27 @@ export default function CourseDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, activeTab, handleTabChange]);
 
+  // ── Phase P3b (#1850) — cross-tab Inspector hint card jump ──
+  // The Journey / Teaching / Scoring / Modules tabs surface a
+  // `<CrossTabHintCard>` when a Preview-lens bubble click resolves to a
+  // bucket owned by a different tab. The card's primary button calls
+  // back into this handler, which switches the active tab AND seeds
+  // `?selectedBucket=<bucketId>` so the destination tab's Inspector
+  // opens on the right bucket on mount.
+  const handleCrossTabSwitch = useCallback(
+    (nextTab: string, options: { selectedBucket: string }) => {
+      setActiveTab(nextTab);
+      const params = new URLSearchParams(window.location.search);
+      params.set('tab', nextTab);
+      params.set('selectedBucket', options.selectedBucket);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    },
+    [router],
+  );
+  // Read once per render — each tab consumes the param and decides
+  // whether the seeded bucket is in its scope (otherwise ignored).
+  const selectedBucketParam = searchParams.get('selectedBucket');
+
   // ── #688 — listen for chord-driven tab switches ──
   // Convention: chord engine dispatches `hf:chord:tab:<id>`. Pages map that
   // to their tab setter without a global prop-drill.
@@ -1735,6 +1756,7 @@ export default function CourseDetailPage() {
         <CourseJourneyTab
           courseId={courseId!}
           playbookConfig={detail?.config as Record<string, unknown> | null}
+          onTabSwitch={handleCrossTabSwitch}
         />
       )}
 
@@ -1745,6 +1767,8 @@ export default function CourseDetailPage() {
         <CourseTeachingTab
           courseId={courseId!}
           playbookConfig={detail?.config as Record<string, unknown> | null}
+          onTabSwitch={handleCrossTabSwitch}
+          selectedBucketParam={selectedBucketParam}
         />
       )}
 
@@ -1752,6 +1776,8 @@ export default function CourseDetailPage() {
         <CourseScoringTab
           courseId={courseId!}
           playbookConfig={detail?.config as Record<string, unknown> | null}
+          onTabSwitch={handleCrossTabSwitch}
+          selectedBucketParam={selectedBucketParam}
         />
       )}
 
@@ -1764,6 +1790,7 @@ export default function CourseDetailPage() {
               ? 'structured'
               : 'continuous'
           }
+          onTabSwitch={handleCrossTabSwitch}
         />
       )}
 
