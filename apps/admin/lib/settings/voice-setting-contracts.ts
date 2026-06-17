@@ -29,6 +29,7 @@ export type {
   ComposeImpact,
   ComposeImpactKind,
   ControlType,
+  CourseShape,
   JourneySettingContract,
   PreviewLocator,
   StoragePath,
