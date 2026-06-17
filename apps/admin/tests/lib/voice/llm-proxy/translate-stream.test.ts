@@ -16,7 +16,7 @@ import {
 } from "@/lib/voice/llm-proxy/translate-stream";
 
 async function asyncIterable<T>(items: T[]): Promise<AsyncIterable<T>> {
-  // eslint-disable-next-line @typescript-eslint/require-await
+   
   return (async function* () {
     for (const item of items) {
       yield item;
