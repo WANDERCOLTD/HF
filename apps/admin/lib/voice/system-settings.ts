@@ -39,6 +39,12 @@ export interface VoiceSystemSettings {
    *  when calling SpeechAce / SpeechSuper. Default 30s leaves headroom
    *  inside Cloud Run's 60s request budget. */
   vendorTimeoutMs: number;
+  /** #1870 — Per-call cap on segmented PROSODY scoring. When a call has
+   *  more than this many `Session.metadata.phaseBoundaries[]`, the
+   *  runner falls back to whole-call scoring and logs
+   *  `voice.prosody.segments_capped`. Default 5 covers IELTS Mock's
+   *  4 phases plus headroom. */
+  maxSegmentsPerCall: number;
 }
 
 export const VOICE_SYSTEM_DEFAULTS: VoiceSystemSettings = {
@@ -57,6 +63,7 @@ export const VOICE_SYSTEM_DEFAULTS: VoiceSystemSettings = {
     "have a nice day",
   ],
   vendorTimeoutMs: 30000,
+  maxSegmentsPerCall: 5,
 };
 
 const SINGLETON_ID = "singleton";
@@ -83,6 +90,7 @@ function rowToSettings(
     voicemailDetectionEnabled: row.voicemailDetectionEnabled,
     endCallPhrases: row.endCallPhrases,
     vendorTimeoutMs: row.vendorTimeoutMs,
+    maxSegmentsPerCall: row.maxSegmentsPerCall,
   };
 }
 

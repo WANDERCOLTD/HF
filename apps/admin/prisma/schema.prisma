@@ -5316,6 +5316,13 @@ model VoiceSystemSettings {
   // continues, AGGREGATE skips prosody-dependent writes for the call.
   vendorTimeoutMs Int @default(30000)
 
+  // #1870 — Per-call cap on segmented PROSODY scoring. When a call has
+  // more than this many `Session.metadata.phaseBoundaries[]` entries,
+  // the runner falls back to whole-call scoring (one vendor invocation)
+  // instead of N. Default 5 = IELTS Mock 4-phase budget + 1 headroom.
+  // On over-cap, emits AppLog `voice.prosody.segments_capped`.
+  maxSegmentsPerCall Int @default(5)
+
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }

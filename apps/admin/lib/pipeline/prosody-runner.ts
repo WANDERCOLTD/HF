@@ -38,22 +38,32 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { log } from "@/lib/logger";
 import { logVoiceEvent } from "@/lib/voice/telemetry";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { getSpeechAssessmentProvider } from "@/lib/speech-assessment/provider-factory";
 import { resolveSpeechAssessmentProviderForCall } from "@/lib/voice/resolve-speech-assessment-provider";
 import { recordIAL4ProsodySkip } from "@/lib/pipeline/adaptive-loop-invariants";
+import {
+  extractAudioSlice,
+  AudioSliceError,
+} from "@/lib/voice/audio-slice";
 import type {
   ScoringMode,
   NormalisedScoreResult,
   SpeechAssessmentAdapter,
 } from "@/lib/speech-assessment/types";
+import type {
+  PhaseBoundary,
+  SessionMetadata,
+} from "@/lib/types/json-fields";
 
 import type {
   VoiceProsodyFeatures,
   VoiceProsodyMode,
   IeltsScores,
   GeneralSignals,
+  ProsodyPhaseEnvelope,
 } from "./prosody-types";
 
 export interface RunProsodyOptions {
@@ -86,6 +96,10 @@ export async function runProsodyStage(
       stereoRecordingUrl: true,
       playbookId: true,
       voiceProsody: true,
+      // #1870 — read Session.metadata.phaseBoundaries via the 1:1
+      // Call.session relation (epic #1338). Null when no Session row is
+      // linked (legacy Calls during the Slice 0 transition window).
+      session: { select: { metadata: true } },
     },
   });
   if (!call) {
@@ -176,24 +190,77 @@ export async function runProsodyStage(
   let vendorEnvelope: VoiceProsodyFeatures;
   let vendorErrorMessage: string | undefined;
 
-  try {
-    const audio = await fetchAudioBuffer(call.stereoRecordingUrl);
-    const scoringMode: ScoringMode =
-      mode === "ielts" ? "ielts" : "general";
-    const result = await Promise.race([
-      adapter.scoreUploadedAudio(audio.buffer, audio.mimeType, scoringMode),
-      timeoutAfter(vendorTimeoutMs),
-    ]);
-    vendorEnvelope = normaliseVendorResult(result, mode);
-  } catch (err) {
-    const isTimeout =
-      err instanceof Error && err.message === "PROSODY_VENDOR_TIMEOUT";
-    vendorEnvelope = {
-      mode: "unavailable",
-      errorReason: isTimeout ? "vendor_timeout" : "vendor_error",
-      rawVendor: err instanceof Error ? { error: err.message } : { error: String(err) },
-    };
-    vendorErrorMessage = err instanceof Error ? err.message : String(err);
+  // 5a. Branch — segmented vs whole-call. Segmented requires:
+  //   - >= 2 phase boundaries (a single boundary degenerates to whole-call)
+  //   - boundaries.length <= maxSegmentsPerCall (cost cap, #1870 AC)
+  //   - audio-slice host allow-list (currently storage.vapi.ai only)
+  //   - Session relation populated (legacy Calls during #1338 Slice 0
+  //     window have no Session — degenerates to whole-call)
+  const boundaries = readPhaseBoundaries(call.session?.metadata);
+  const cap = settings.maxSegmentsPerCall;
+  const overCap = boundaries.length > cap;
+
+  if (overCap) {
+    log("system", "voice.prosody.segments_capped", {
+      level: "warn",
+      callId,
+      phaseCount: boundaries.length,
+      cap,
+    });
+  }
+
+  const wantSegmented = boundaries.length >= 2 && !overCap;
+
+  if (wantSegmented) {
+    // Probe the host once via the slice helper's validation pathway —
+    // a single failed call short-circuits the segmented branch and
+    // falls back to whole-call (rather than aborting). Use a zero-byte
+    // probe by passing fetchImpl that returns 416 immediately; cheaper
+    // to just try the first slice and catch host_not_allowed.
+    try {
+      const segmented = await runSegmentedProsody({
+        callId,
+        callerId,
+        recordingUrl: call.stereoRecordingUrl,
+        adapter,
+        mode,
+        vendorTimeoutMs,
+        boundaries,
+      });
+      vendorEnvelope = segmented.envelope;
+      vendorErrorMessage = segmented.errorMessage;
+    } catch (err) {
+      // Catastrophic failure (host_not_allowed on the very first phase
+      // — slice helper's URL validation rejected it). Fall back to
+      // whole-call so the call still gets a forensic envelope.
+      const reason =
+        err instanceof AudioSliceError && err.code === "host_not_allowed"
+          ? "segment_url_not_allowed"
+          : "segment_setup_failed";
+      log("system", `voice.prosody.${reason}`, {
+        level: "warn",
+        callId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      vendorEnvelope = await runWholeCallProsody({
+        recordingUrl: call.stereoRecordingUrl,
+        adapter,
+        mode,
+        vendorTimeoutMs,
+      }).then((r) => {
+        vendorErrorMessage = r.errorMessage;
+        return r.envelope;
+      });
+    }
+  } else {
+    const whole = await runWholeCallProsody({
+      recordingUrl: call.stereoRecordingUrl,
+      adapter,
+      mode,
+      vendorTimeoutMs,
+    });
+    vendorEnvelope = whole.envelope;
+    vendorErrorMessage = whole.errorMessage;
   }
 
   const durationMs = Date.now() - startMs;
@@ -389,4 +456,312 @@ async function persistProsody(
       voiceProsody: envelope as unknown as object,
     },
   });
+}
+
+/**
+ * Extract `phaseBoundaries` from `Session.metadata`. Defensive — accepts
+ * the raw JSON column shape (Prisma returns `JsonValue | null`). Returns
+ * an empty array when the metadata is missing, malformed, or empty so
+ * the caller can branch on `length`.
+ */
+function readPhaseBoundaries(metadata: unknown): PhaseBoundary[] {
+  if (!metadata || typeof metadata !== "object") return [];
+  const md = metadata as SessionMetadata;
+  const raw = md.phaseBoundaries;
+  if (!Array.isArray(raw)) return [];
+  // Filter shape-valid entries — defensive against a future writer
+  // shipping partial rows. A boundary with `endSec === startSec` is the
+  // OPEN-boundary convention (#1762 Story C) and is intentionally
+  // skipped here because we can't slice an empty window.
+  const out: PhaseBoundary[] = [];
+  for (const row of raw) {
+    if (
+      row &&
+      typeof row === "object" &&
+      typeof (row as PhaseBoundary).phase === "string" &&
+      typeof (row as PhaseBoundary).startSec === "number" &&
+      typeof (row as PhaseBoundary).endSec === "number" &&
+      Number.isFinite((row as PhaseBoundary).startSec) &&
+      Number.isFinite((row as PhaseBoundary).endSec) &&
+      (row as PhaseBoundary).endSec > (row as PhaseBoundary).startSec
+    ) {
+      out.push(row as PhaseBoundary);
+    }
+  }
+  return out;
+}
+
+interface RunWholeCallProsodyArgs {
+  recordingUrl: string;
+  adapter: SpeechAssessmentAdapter;
+  mode: VoiceProsodyMode;
+  vendorTimeoutMs: number;
+}
+
+interface VendorAttemptResult {
+  envelope: VoiceProsodyFeatures;
+  errorMessage?: string;
+}
+
+/**
+ * Whole-call vendor invocation — today's behaviour, factored out to a
+ * helper so the segmented branch can reuse the catch-and-encode pattern
+ * verbatim. Byte-identical to the pre-#1870 inline block.
+ */
+async function runWholeCallProsody(
+  args: RunWholeCallProsodyArgs,
+): Promise<VendorAttemptResult> {
+  try {
+    const audio = await fetchAudioBuffer(args.recordingUrl);
+    const scoringMode: ScoringMode =
+      args.mode === "ielts" ? "ielts" : "general";
+    const result = await Promise.race([
+      args.adapter.scoreUploadedAudio(audio.buffer, audio.mimeType, scoringMode),
+      timeoutAfter(args.vendorTimeoutMs),
+    ]);
+    return { envelope: normaliseVendorResult(result, args.mode) };
+  } catch (err) {
+    const isTimeout =
+      err instanceof Error && err.message === "PROSODY_VENDOR_TIMEOUT";
+    return {
+      envelope: {
+        mode: "unavailable",
+        errorReason: isTimeout ? "vendor_timeout" : "vendor_error",
+        rawVendor:
+          err instanceof Error ? { error: err.message } : { error: String(err) },
+      },
+      errorMessage: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+interface RunSegmentedProsodyArgs {
+  callId: string;
+  callerId: string | null;
+  recordingUrl: string;
+  adapter: SpeechAssessmentAdapter;
+  mode: VoiceProsodyMode;
+  vendorTimeoutMs: number;
+  boundaries: PhaseBoundary[];
+}
+
+/**
+ * Segmented vendor invocation — one adapter call per phase boundary.
+ *
+ * Idempotency note: the runner-level idempotency (Step 1, existing
+ * envelope short-circuit) covers the WHOLE call. Per-phase idempotency
+ * is a future hardening; for now a force-rerun goes phase-by-phase
+ * (re-billing every phase). This matches the AC: "cache key
+ * `(callId, phaseKey)` … full-call re-run still goes phase-by-phase".
+ *
+ * Per-phase failures are CONTAINED — one adapter exception writes a
+ * `{mode: "unavailable", errorReason}` slot for that phase but does NOT
+ * abort the sibling phases. The top-level aggregate uses only the
+ * successful phases.
+ */
+async function runSegmentedProsody(
+  args: RunSegmentedProsodyArgs,
+): Promise<VendorAttemptResult> {
+  log("system", "voice.prosody.segmented_start", {
+    level: "info",
+    callId: args.callId,
+    phaseCount: args.boundaries.length,
+  });
+
+  const bySegment: Record<string, ProsodyPhaseEnvelope> = {};
+  let lastErrorMessage: string | undefined;
+  let firstSetupError: unknown = null;
+
+  for (const boundary of args.boundaries) {
+    // #1872 — namespace prefix on segmentKey writes to avoid collision
+    // with the text-side Theme 6 Mock segmenter ("part1" / "part2" /
+    // "part3"). Operator-chosen phase names ("p1" / "p2_prep" / etc.)
+    // are wrapped here; the AGGREGATE consumer mirrors the prefix when
+    // writing CallScore rows.
+    const phaseKey = `phase:${boundary.phase}`;
+
+    let phaseEnvelope: ProsodyPhaseEnvelope;
+    try {
+      const slice = await extractAudioSlice({
+        audioUrl: args.recordingUrl,
+        startSec: boundary.startSec,
+        endSec: boundary.endSec,
+      });
+      const sliceBuffer = Buffer.from(slice.buffer ?? new Uint8Array(0));
+      const scoringMode: ScoringMode =
+        args.mode === "ielts" ? "ielts" : "general";
+      const result = await Promise.race([
+        args.adapter.scoreUploadedAudio(
+          sliceBuffer,
+          slice.contentType,
+          scoringMode,
+        ),
+        timeoutAfter(args.vendorTimeoutMs),
+      ]);
+      const whole = normaliseVendorResult(result, args.mode);
+      if (whole.mode === "ielts" && whole.ieltsScores) {
+        phaseEnvelope = { mode: "ielts", ieltsScores: whole.ieltsScores };
+      } else if (whole.mode === "general" && whole.generalSignals) {
+        phaseEnvelope = { mode: "general", generalSignals: whole.generalSignals };
+      } else {
+        phaseEnvelope = {
+          mode: "unavailable",
+          errorReason: whole.errorReason ?? "vendor_error",
+        };
+      }
+      log("system", "voice.prosody.segmented_phase_scored", {
+        level: "info",
+        callId: args.callId,
+        phaseKey,
+        criterionCount:
+          phaseEnvelope.mode === "ielts"
+            ? 4
+            : phaseEnvelope.mode === "general"
+            ? 2
+            : 0,
+      });
+    } catch (err) {
+      // AudioSliceError host_not_allowed on the FIRST phase indicates
+      // a configuration failure — propagate so the caller falls back
+      // to whole-call. Same for any setup-class error that hits all
+      // phases.
+      if (
+        Object.keys(bySegment).length === 0 &&
+        err instanceof AudioSliceError &&
+        err.code === "host_not_allowed"
+      ) {
+        firstSetupError = err;
+        break;
+      }
+      const isTimeout =
+        err instanceof Error && err.message === "PROSODY_VENDOR_TIMEOUT";
+      const errorReason = isTimeout ? "vendor_timeout" : "vendor_error";
+      phaseEnvelope = { mode: "unavailable", errorReason };
+      lastErrorMessage = err instanceof Error ? err.message : String(err);
+      log("system", "voice.prosody.segmented_phase_failed", {
+        level: "warn",
+        callId: args.callId,
+        phaseKey,
+        errorReason,
+        error: lastErrorMessage,
+      });
+    }
+    bySegment[phaseKey] = phaseEnvelope;
+  }
+
+  if (firstSetupError) {
+    throw firstSetupError;
+  }
+
+  // Aggregate top-level fields from the successful phases. Readers that
+  // only inspect top-level `ieltsScores` / `generalSignals` keep working
+  // — they see the MEAN across successful phases (AC: "top-level fields
+  // remain populated for backwards-compat").
+  const envelope = aggregateBySegment(bySegment, args.mode);
+  return { envelope, errorMessage: lastErrorMessage };
+}
+
+/**
+ * Aggregate per-phase envelopes into the top-level fields. Skips
+ * "unavailable" phases. Returns the parent envelope shape (top-level
+ * fields + `bySegment`).
+ *
+ * IELTS mode: MEAN per sub-band across successful IELTS phases.
+ * General mode: MEAN per field, skipping zeros (the existing vendor
+ *   stub returns 0 for all four signals until adapters expose general
+ *   prosody — comment lives at `prosody-runner.ts::normaliseVendorResult`
+ *   general branch). When every successful phase reports 0 for a
+ *   field, the field stays 0 — fine, matches the stub semantics.
+ */
+function aggregateBySegment(
+  bySegment: Record<string, ProsodyPhaseEnvelope>,
+  mode: VoiceProsodyMode,
+): VoiceProsodyFeatures {
+  const phases = Object.values(bySegment);
+  const successful = phases.filter(
+    (p): p is Exclude<ProsodyPhaseEnvelope, { mode: "unavailable" }> =>
+      p.mode !== "unavailable",
+  );
+
+  // Every phase failed → top-level "unavailable"; preserve bySegment
+  // for forensics.
+  if (successful.length === 0) {
+    return {
+      mode: "unavailable",
+      errorReason: "vendor_error",
+      bySegment,
+    };
+  }
+
+  if (mode === "ielts") {
+    const ieltsPhases = successful.filter(
+      (p): p is { mode: "ielts"; ieltsScores: IeltsScores } => p.mode === "ielts",
+    );
+    if (ieltsPhases.length === 0) {
+      return {
+        mode: "unavailable",
+        errorReason: "vendor_error",
+        bySegment,
+      };
+    }
+    const ieltsScores: IeltsScores = {
+      overall: mean(ieltsPhases.map((p) => p.ieltsScores.overall)),
+      pronunciation: mean(ieltsPhases.map((p) => p.ieltsScores.pronunciation)),
+      fluencyCoherence: mean(ieltsPhases.map((p) => p.ieltsScores.fluencyCoherence)),
+      lexicalResource: mean(ieltsPhases.map((p) => p.ieltsScores.lexicalResource)),
+      grammaticalRange: mean(ieltsPhases.map((p) => p.ieltsScores.grammaticalRange)),
+    };
+    return { mode: "ielts", ieltsScores, bySegment };
+  }
+
+  const generalPhases = successful.filter(
+    (p): p is { mode: "general"; generalSignals: GeneralSignals } =>
+      p.mode === "general",
+  );
+  if (generalPhases.length === 0) {
+    return {
+      mode: "unavailable",
+      errorReason: "vendor_error",
+      bySegment,
+    };
+  }
+  // Per-field stub-aware mean — skip 0 values (the existing vendor stub
+  // sentinel at `normaliseVendorResult` general branch). If every
+  // contributing phase is 0, the result stays 0; semantics match the
+  // whole-call stub.
+  const generalSignals: GeneralSignals = {
+    paceWpm: meanSkipZero(generalPhases.map((p) => p.generalSignals.paceWpm)),
+    hesitationRate: meanSkipZero(
+      generalPhases.map((p) => p.generalSignals.hesitationRate),
+    ),
+    meanEnergyDb: meanSkipZero(
+      generalPhases.map((p) => p.generalSignals.meanEnergyDb),
+    ),
+    pitchRangeHz: meanSkipZero(
+      generalPhases.map((p) => p.generalSignals.pitchRangeHz),
+    ),
+    confidenceProxy: mean(
+      generalPhases.map((p) => p.generalSignals.confidenceProxy),
+    ),
+  };
+  return { mode: "general", generalSignals, bySegment };
+}
+
+function mean(values: number[]): number {
+  if (values.length === 0) return 0;
+  let sum = 0;
+  let count = 0;
+  for (const v of values) {
+    if (Number.isFinite(v)) {
+      sum += v;
+      count++;
+    }
+  }
+  return count === 0 ? 0 : sum / count;
+}
+
+function meanSkipZero(values: number[]): number {
+  const nonZero = values.filter((v) => Number.isFinite(v) && v !== 0);
+  if (nonZero.length === 0) return 0;
+  return nonZero.reduce((a, b) => a + b, 0) / nonZero.length;
 }

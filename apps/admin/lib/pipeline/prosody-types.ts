@@ -46,6 +46,20 @@ export interface GeneralSignals {
   confidenceProxy: number;
 }
 
+/**
+ * Per-phase sub-envelope written when segmented scoring fires (#1870).
+ * Either an IELTS sub-band block, a generic signals block, or an
+ * "unavailable" marker for the phase the adapter failed on. Top-level
+ * `ieltsScores` / `generalSignals` on the parent envelope are the
+ * MEAN aggregate across the successful phases so existing readers
+ * (Snapshot v3, AGGREGATE consumer's whole-call branch, Adaptations
+ * tab) stay backwards-compat.
+ */
+export type ProsodyPhaseEnvelope =
+  | { mode: "ielts"; ieltsScores: IeltsScores }
+  | { mode: "general"; generalSignals: GeneralSignals }
+  | { mode: "unavailable"; errorReason: VoiceProsodyErrorReason };
+
 export interface VoiceProsodyFeatures {
   mode: VoiceProsodyMode;
   ieltsScores?: IeltsScores;
@@ -54,6 +68,15 @@ export interface VoiceProsodyFeatures {
   errorReason?: VoiceProsodyErrorReason;
   /** Verbatim vendor JSON, kept for forensics; never read in shared code. */
   rawVendor?: unknown;
+  /**
+   * #1870 — Per-phase score envelopes when the runner ran segmented
+   * scoring. Keys are the namespace-prefixed phaseKey (`phase:<name>`)
+   * — see [#1872](https://github.com/WANDERCOLTD/HF/issues/1872) for
+   * the namespace decision (Option 2 — namespace prefix). When
+   * absent, the envelope was produced by whole-call scoring (pre-#1870
+   * behaviour) and downstream readers see only the top-level fields.
+   */
+  bySegment?: Record<string, ProsodyPhaseEnvelope>;
 }
 
 export const VOICE_PROSODY_CONTRACT_ID = "VOICE_PROSODY_V1" as const;
