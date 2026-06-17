@@ -14,6 +14,7 @@
  */
 
 import type { ProviderConfigSchema } from "@/lib/voice/types";
+import type { GeneralSignals } from "@/lib/pipeline/prosody-types";
 
 export interface SpeechAssessmentCapabilities {
   /** Vendor returns IELTS band scores (0.0–9.0). */
@@ -87,6 +88,37 @@ export interface SpeechAssessmentAdapter {
     mimeType: string,
     mode: ScoringMode,
   ): Promise<NormalisedScoreResult>;
+
+  /**
+   * #1871 — optional general-mode prosody signal extractor. When implemented,
+   * the PROSODY runner's `general` branch consumes this instead of falling
+   * back to stub-zero `GeneralSignals`. Returns a `Partial<GeneralSignals>`
+   * because no known vendor exposes the full four-field set today:
+   *
+   *   - SpeechAce v9 — derives `paceWpm` from word-timing + `hesitationRate`
+   *     from filler tokens in the transcript. Leaves `meanEnergyDb` +
+   *     `pitchRangeHz` undefined (not exposed).
+   *   - SpeechSuper — maps `speaking_rate` → `paceWpm` and
+   *     `pause filler frequency` → `hesitationRate`. Leaves energy + pitch
+   *     undefined.
+   *
+   * The runner merges the partial onto a stub-zero baseline so downstream
+   * AGGREGATE consumers can still read every field unconditionally; the
+   * partial-fill telemetry (`voice.prosody.general_partial_signals`) cites
+   * exactly which fields the adapter populated vs. which fell back.
+   *
+   * Optional on the interface so adapters without support don't fail-fast.
+   * The runner detects implementation with a `typeof` guard at the call
+   * site (see `lib/pipeline/prosody-runner.ts::runWholeCallProsody`).
+   *
+   * Returns `{}` (empty partial) when the adapter has no data to extract
+   * (e.g. SpeechAce response missing word-timings). The runner treats this
+   * as full-fallback to the stub-zero baseline — never crashes.
+   */
+  getGeneralSignals?(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<Partial<GeneralSignals>>;
 }
 
 export interface SpeechAssessmentAdapterConstructor {

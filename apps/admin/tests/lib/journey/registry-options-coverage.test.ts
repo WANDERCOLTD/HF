@@ -47,6 +47,7 @@ import {
 } from "@/lib/journey/setting-contracts.entries";
 import { VOICE_SETTINGS } from "@/lib/settings/voice-setting-contracts";
 import { TIER_PRESETS } from "@/lib/banding/presets";
+import { PROSODY_MODE_VALUES } from "@/lib/pipeline/prosody-types";
 
 /** Marker for options that derive from a canonical source. The test
  *  verifies the derived array matches the canonical's current keys. */
@@ -117,6 +118,11 @@ const EXPECTED_OPTION_VALUES: Record<string, OptionPin> = {
     canonical:
       "lib/banding/presets.ts::TIER_PRESETS (Object.keys); contract derives both values and labels",
   },
+  voiceProsodyMode: {
+    values: DERIVED,
+    canonical:
+      "lib/pipeline/prosody-types.ts::PROSODY_MODE_VALUES (single source of truth shared with the update_voice_config admin tool enum)",
+  },
   maxMasteryTier: {
     values: ["FOUNDATION", "DEVELOPING", "PRACTITIONER", "DISTINCTION"],
     canonical: "lib/types/json-fields.ts::PlaybookConfig.maxMasteryTier",
@@ -179,6 +185,9 @@ function resolveExpected(id: string): readonly string[] | null {
     // Derive from canonical sources by id.
     if (id === "tierPresetId") {
       return Object.keys(TIER_PRESETS);
+    }
+    if (id === "voiceProsodyMode") {
+      return [...PROSODY_MODE_VALUES];
     }
     return null;
   }

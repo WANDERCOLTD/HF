@@ -80,3 +80,64 @@ export interface VoiceProsodyFeatures {
 }
 
 export const VOICE_PROSODY_CONTRACT_ID = "VOICE_PROSODY_V1" as const;
+
+/**
+ * #1871 — canonical literal values the operator can write to
+ * `Playbook.config.voice.prosodyMode`. Single source of truth for:
+ *
+ *  - The runtime precedence in `resolveProsodyMode` (`"ielts" | "general"`
+ *    are the only two values that bypass the tier-preset heuristic; `"auto"`
+ *    is the explicit sentinel for "fall back to the heuristic")
+ *  - The `update_voice_config` admin tool's `prosodyMode` enum
+ *  - The JourneySettingContract option list for `voiceProsodyMode`
+ *
+ * Imports of this constant — NOT a hand-typed string array — are how the
+ * three writers stay agreement-locked. Adding `"deepgram"` (or any future
+ * mode) here flows to the tool schema + Inspector dropdown without a
+ * cross-file edit.
+ */
+export const PROSODY_MODE_VALUES = ["auto", "ielts", "general"] as const;
+
+export type ProsodyModeValue = (typeof PROSODY_MODE_VALUES)[number];
+
+/**
+ * Educator-facing labels keyed by canonical value. Centralised so the
+ * Inspector dropdown and the course-header ProsodyModePill agree on the
+ * human form. The "(auto)" suffix on the pill is rendered by the pill
+ * itself (it carries the resolved value + explicit/implicit nuance).
+ */
+export const PROSODY_MODE_LABELS: Record<ProsodyModeValue, string> = {
+  auto: "Auto (use tier preset)",
+  ielts: "IELTS (4 sub-bands)",
+  general: "General (pace + hesitation)",
+};
+
+/**
+ * #1871 — canonical field-name list for `GeneralSignals`. The PROSODY
+ * runner uses this to compute the `fieldsPopulated` / `fieldsMissing`
+ * arrays for the `voice.prosody.general_partial_signals` AppLog without
+ * hand-typing the field names at the emit site.
+ *
+ * Includes ONLY the four vendor-observable signals (paceWpm,
+ * hesitationRate, meanEnergyDb, pitchRangeHz). `confidenceProxy` is a
+ * derived scalar from IELTS fluency in today's general fallback and is
+ * tracked separately — it isn't an adapter-provided signal so it doesn't
+ * belong in the partial-fill telemetry.
+ */
+export const GENERAL_SIGNAL_FIELDS = [
+  "paceWpm",
+  "hesitationRate",
+  "meanEnergyDb",
+  "pitchRangeHz",
+] as const satisfies readonly (keyof GeneralSignals)[];
+
+export type GeneralSignalField = (typeof GENERAL_SIGNAL_FIELDS)[number];
+
+/**
+ * #1871 — sentinel for "vendor doesn't expose this signal in general mode".
+ * Distinguished from a real zero in code review: any read site that produces
+ * this value should comment why (vendor not asked / partial fill default /
+ * stub-fallback). The runner uses it for the legacy fallback when the
+ * adapter doesn't implement `getGeneralSignals`.
+ */
+export const STUB_SIGNAL_ZERO = 0 as const;

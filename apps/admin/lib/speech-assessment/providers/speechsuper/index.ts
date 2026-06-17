@@ -30,6 +30,7 @@ import type {
   SpeechAssessmentAdapter,
   SpeechAssessmentCapabilities,
 } from "@/lib/speech-assessment/types";
+import type { GeneralSignals } from "@/lib/pipeline/prosody-types";
 
 const SPEECHSUPER_BASE_URL = "https://api.speechsuper.com/";
 const CORE_TYPE_SPONTANEOUS_IELTS = "speak.eval.pro";
@@ -67,6 +68,19 @@ interface SpeechSuperResponse {
     vocabulary?: number;
     transcription?: string;
     words?: unknown;
+    /**
+     * #1871 — SpeechSuper Pro features. Vendor exposes these on the
+     * standard `speak.eval.pro` response. `speaking_rate` is wpm over
+     * the scored window; `pause_filler_frequency` is a rate-per-utterance
+     * proportion. Adapter doesn't surface them via `scoreUploadedAudio` —
+     * `getGeneralSignals` reads them off the same response for the
+     * general-mode prosody path.
+     */
+    speaking_rate?: number;
+    pause_filler_frequency?: number;
+    /** Tolerated alias seen in some sample payloads. */
+    speakingRate?: number;
+    pauseFillerFrequency?: number;
   };
 }
 
@@ -266,6 +280,93 @@ export class SpeechSuperAdapter implements SpeechAssessmentAdapter {
       raw: body,
     };
   }
+
+  /**
+   * #1871 — derive general-mode prosody signals from SpeechSuper's standard
+   * Pro response. Maps `speaking_rate` → `paceWpm` and
+   * `pause_filler_frequency` → `hesitationRate`. `meanEnergyDb` +
+   * `pitchRangeHz` are NOT supplied (vendor's Pro features expose
+   * cadence + filler signals, not acoustic energy or pitch range).
+   *
+   * Costs ONE vendor request. Same endpoint + same auth signatures as
+   * `scoreUploadedAudio`; request body omits `test_type: "ielts"` so
+   * the vendor returns the spontaneous-speech shape without IELTS scoring.
+   */
+  async getGeneralSignals(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<Partial<GeneralSignals>> {
+    if (!this.appKey || !this.secretKey) {
+      throw new Error(
+        "SpeechSuperAdapter.getGeneralSignals: appKey and secretKey are not both configured.",
+      );
+    }
+    const coreType = CORE_TYPE_SPONTANEOUS_IELTS;
+    const url = `${SPEECHSUPER_BASE_URL}${coreType}`;
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const userId = this.defaultUserId;
+    const connectSig = crypto
+      .createHash("sha1")
+      .update(`${this.appKey}${timestamp}${this.secretKey}`)
+      .digest("hex");
+    const startSig = crypto
+      .createHash("sha1")
+      .update(`${this.appKey}${timestamp}${userId}${this.secretKey}`)
+      .digest("hex");
+    const audioType = audioTypeForMimeType(mimeType);
+    const params = {
+      connect: {
+        cmd: "connect",
+        param: {
+          sdk: { version: 16777472, source: 9, protocol: 2 },
+          app: { applicationId: this.appKey, sig: connectSig, timestamp },
+        },
+      },
+      start: {
+        cmd: "start",
+        param: {
+          app: {
+            userId,
+            applicationId: this.appKey,
+            timestamp,
+            sig: startSig,
+          },
+          audio: { audioType, channel: 1, sampleBytes: 2, sampleRate: 16000 },
+          request: {
+            coreType,
+            tokenId: "tokenId",
+            model: this.model,
+            penalize_offtopic: this.penalizeOfftopic ? 1 : 0,
+          },
+        },
+      },
+    };
+    const form = new FormData();
+    form.set("text", JSON.stringify(params));
+    form.set(
+      "audio",
+      new Blob([new Uint8Array(buffer)], { type: mimeType }),
+      `audio.${audioType}`,
+    );
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Request-Index": "0" },
+      body: form,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `SpeechSuperAdapter.getGeneralSignals: HTTP ${res.status}. Body: ${text.slice(0, 300)}`,
+      );
+    }
+    const body = (await res.json()) as SpeechSuperResponse;
+    if (body.errId !== undefined && body.errId !== 0) {
+      throw new Error(
+        `SpeechSuperAdapter.getGeneralSignals: errId=${body.errId} (${body.error ?? "unknown"})`,
+      );
+    }
+    return deriveSignalsFromSpeechSuperResponse(body);
+  }
 }
 
 function audioTypeForMimeType(mimeType: string): string {
@@ -274,4 +375,44 @@ function audioTypeForMimeType(mimeType: string): string {
   if (mimeType.includes("ogg")) return "ogg";
   if (mimeType.includes("webm")) return "webm";
   return "wav";
+}
+
+/**
+ * Pure derivation — exported for direct unit testing of the parser without
+ * a live vendor call. The runner consumes via `adapter.getGeneralSignals`.
+ *
+ * Reads both `snake_case` and `camelCase` aliases. Finite-number guard
+ * rejects null / NaN / Infinity. Bounds `hesitationRate` to [0, 1] in
+ * case the vendor returns a percent-like form.
+ */
+export function deriveSignalsFromSpeechSuperResponse(
+  body: SpeechSuperResponse,
+): Partial<GeneralSignals> {
+  const out: Partial<GeneralSignals> = {};
+  const result = body.result;
+  if (!result) return out;
+
+  const rate = firstFiniteField(result, ["speaking_rate", "speakingRate"]);
+  if (rate !== undefined) out.paceWpm = rate;
+
+  const filler = firstFiniteField(result, [
+    "pause_filler_frequency",
+    "pauseFillerFrequency",
+  ]);
+  if (filler !== undefined) {
+    const normalised = filler > 1 ? Math.min(1, filler / 100) : Math.max(0, filler);
+    out.hesitationRate = normalised;
+  }
+  return out;
+}
+
+function firstFiniteField(
+  obj: Record<string, unknown>,
+  fields: readonly string[],
+): number | undefined {
+  for (const f of fields) {
+    const v = obj[f];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return undefined;
 }

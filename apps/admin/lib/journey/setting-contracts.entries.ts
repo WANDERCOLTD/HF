@@ -25,6 +25,10 @@ import type {
 } from "./setting-contracts";
 import type { JourneyGroup } from "./setting-groups";
 import { TIER_PRESETS } from "@/lib/banding/presets";
+import {
+  PROSODY_MODE_VALUES,
+  PROSODY_MODE_LABELS,
+} from "@/lib/pipeline/prosody-types";
 
 // =============================================================
 // G1 — Sign-up & Intake (5)
@@ -623,6 +627,62 @@ const G4_TIER_PRESET_ID: JourneySettingContract = {
   options: Object.entries(TIER_PRESETS).map(([value, preset]) => ({
     value,
     label: preset.label,
+  })),
+};
+
+
+// #1871 — explicit operator override for the PROSODY pipeline stage's
+// scoring mode. Beats `tierPresetId` at runtime (see
+// `lib/pipeline/prosody-runner.ts::resolveProsodyMode`). Pre-#1871 the
+// only ways to flip this were Cmd+K on the Course Chat page
+// (`update_voice_config({ prosodyMode })`) or direct DB edit; operators
+// using the Scoring-tab Inspector could see the resolved value on the
+// course-header ProsodyModePill but couldn't edit it.
+//
+// `auto` writes `voice.prosodyMode = "auto"` — the runtime's
+// `resolveProsodyMode` treats anything other than "ielts" / "general"
+// as "fall through to the tierPresetId heuristic", so the literal "auto"
+// is the explicit "use the heuristic" state. Lets operators see "Auto"
+// in the dropdown rather than an unchecked blank.
+//
+// NOT registered in `lib/cascade/effective-value.ts::FAMILIES` — the
+// override is intentionally course-level only (Domain-level prosody-mode
+// override would silently swap scoring rubrics on every course in the
+// domain, which is dangerous). Snapshot read is correct per
+// `.claude/rules/cascade-reuse.md`: cascade resolver returns
+// `unresolvable: true`, Inspector falls back to snapshot read.
+//
+// Option list derived from `PROSODY_MODE_VALUES` + `PROSODY_MODE_LABELS`
+// in `lib/pipeline/prosody-types.ts` — single source of truth shared
+// with the `update_voice_config` admin tool's enum + the runtime's
+// `resolveProsodyMode` precedence.
+const G4_VOICE_PROSODY_MODE: JourneySettingContract = {
+  id: "voiceProsodyMode",
+  menuGroupKey: "I_scoring",
+  group: "G4",
+  educatorLabel: "Voice scoring mode (override)",
+  helpText:
+    "Explicit override for how PROSODY scores call audio. Auto falls back to the tier preset heuristic (`ielts-speaking` -> IELTS; everything else -> General). IELTS writes the 4-band CallScores (Fluency & Coherence, Pronunciation, Lexical Resource, Grammatical Range & Accuracy); General writes CONV_PACE + pace_indicators only.",
+  storagePath: "config.voice.prosodyMode",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    // Same surface as tierPresetId — flipping prosody mode changes which
+    // signals flow into the mastery sections at AGGREGATE time, so the
+    // Preview lens flips stale for the same rendered sections.
+    sections: ["moduleMastery", "loMastery"],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [
+    // Course-header ProsodyModePill — clicking the pill historically
+    // routed to Course Chat; the Inspector dropdown is the canonical
+    // editor; pill remains a read-only display chip.
+    { section: "moduleMastery", hint: "ProsodyModePill (course header)" },
+  ],
+  options: PROSODY_MODE_VALUES.map((value) => ({
+    value,
+    label: PROSODY_MODE_LABELS[value],
   })),
 };
 
@@ -1840,6 +1900,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G4_TOLERANCE_CONFIDENCE,
   G4_TOLERANCE_ENGAGEMENT,
   G4_TIER_PRESET_ID,
+  G4_VOICE_PROSODY_MODE,
   G4_SKILL_MIN_CALLS_TO_FULL,
   G4_SKILL_TIER_MAPPING,
   G4_SKILL_SCORING_EMA_HALF_LIFE,

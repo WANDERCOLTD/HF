@@ -23,6 +23,20 @@ import type {
   SpeechAssessmentAdapter,
   SpeechAssessmentCapabilities,
 } from "@/lib/speech-assessment/types";
+import type { GeneralSignals } from "@/lib/pipeline/prosody-types";
+
+/**
+ * #1871 — common English filler / hesitation tokens. Used by both the
+ * SpeechAce + SpeechSuper general-signal derivers. Kept here as a
+ * lower-case Set so callers can `.has(token.toLowerCase())` without
+ * re-allocating. The list is intentionally short — false positives ("so",
+ * "well") would dominate; only canonical fillers are tracked.
+ */
+const ENGLISH_FILLER_TOKENS: ReadonlySet<string> = new Set([
+  "um", "uh", "umm", "uhh", "uhm", "er", "erm",
+  "ah", "ahh", "hmm",
+  "like", "y'know", "yknow",
+]);
 
 const SPEECHACE_ENDPOINT = "https://api.speechace.co/api/scoring/speech/v9/json";
 
@@ -206,6 +220,67 @@ export class SpeechAceAdapter implements SpeechAssessmentAdapter {
       raw: body,
     };
   }
+
+  /**
+   * #1871 — derive general-mode prosody signals from SpeechAce's standard
+   * scoring response. SpeechAce v9 returns `word_score_list[]` with
+   * `start_time` + `end_time` (seconds) on each word + a `transcript`
+   * string. From these we can compute:
+   *
+   *   - `paceWpm` — words-per-minute over the scored window (utterance
+   *     start = first word's start_time; utterance end = last word's
+   *     end_time). Undefined when fewer than 2 words exist OR duration
+   *     is non-positive.
+   *   - `hesitationRate` — proportion of transcript tokens matching
+   *     `ENGLISH_FILLER_TOKENS`. Bounded to [0, 1]. Undefined when
+   *     transcript is empty.
+   *
+   * `meanEnergyDb` + `pitchRangeHz` are NOT supplied — SpeechAce's v9
+   * payload doesn't expose acoustic energy or pitch range. The runner's
+   * partial-fill merge cites them in the `fieldsMissing` AppLog.
+   *
+   * One vendor request — same endpoint as `scoreUploadedAudio` but with
+   * `include_ielts_feedback` omitted.
+   */
+  async getGeneralSignals(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<Partial<GeneralSignals>> {
+    if (!this.apiKey) {
+      throw new Error(
+        "SpeechAceAdapter: apiKey is not configured. Set credentials.apiKey on the SpeechAssessmentProvider row.",
+      );
+    }
+    const url = new URL(SPEECHACE_ENDPOINT);
+    url.searchParams.set("key", this.apiKey);
+    url.searchParams.set("dialect", this.dialect);
+    if (this.userId) url.searchParams.set("user_id", this.userId);
+
+    const form = new FormData();
+    form.set(
+      "user_audio_file",
+      new Blob([new Uint8Array(buffer)], { type: mimeType }),
+      filenameForMimeType(mimeType),
+    );
+    if (this.pronunciationScoreMode) {
+      form.set("pronunciation_score_mode", this.pronunciationScoreMode);
+    }
+
+    const res = await fetch(url.toString(), { method: "POST", body: form });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `SpeechAceAdapter.getGeneralSignals: HTTP ${res.status}. Body: ${text.slice(0, 300)}`,
+      );
+    }
+    const body = (await res.json()) as SpeechAceResponse;
+    if (body.status && body.status !== "success") {
+      throw new Error(
+        `SpeechAceAdapter.getGeneralSignals: vendor returned status="${body.status}".`,
+      );
+    }
+    return deriveSignalsFromSpeechAceResponse(body);
+  }
 }
 
 /** Filename hint for the multipart upload. SpeechAce inspects the
@@ -219,4 +294,77 @@ function filenameForMimeType(mimeType: string): string {
   if (mimeType.includes("m4a") || mimeType.includes("aac"))
     return "audio.m4a";
   return "audio.wav";
+}
+
+interface SpeechAceWord {
+  word?: string;
+  start_time?: number;
+  end_time?: number;
+  start?: number;
+  end?: number;
+  startTime?: number;
+  endTime?: number;
+}
+
+/**
+ * Pure derivation — exported for direct unit-testing of the parser without
+ * a live vendor call. The runner consumes via `adapter.getGeneralSignals`.
+ */
+export function deriveSignalsFromSpeechAceResponse(
+  body: SpeechAceResponse,
+): Partial<GeneralSignals> {
+  const out: Partial<GeneralSignals> = {};
+
+  const words = Array.isArray(body.speech_score?.word_score_list)
+    ? (body.speech_score?.word_score_list as SpeechAceWord[])
+    : [];
+  const firstWordStart = firstNumericField(words[0], [
+    "start_time", "start", "startTime",
+  ]);
+  const lastWordEnd = firstNumericField(words[words.length - 1], [
+    "end_time", "end", "endTime",
+  ]);
+  if (
+    words.length >= 2 &&
+    typeof firstWordStart === "number" &&
+    typeof lastWordEnd === "number" &&
+    lastWordEnd > firstWordStart
+  ) {
+    const durationSec = lastWordEnd - firstWordStart;
+    const durationMin = durationSec / 60;
+    out.paceWpm = words.length / durationMin;
+  }
+
+  const transcript = body.speech_score?.transcript;
+  if (typeof transcript === "string" && transcript.trim().length > 0) {
+    out.hesitationRate = computeHesitationRate(transcript);
+  }
+  return out;
+}
+
+function firstNumericField(
+  obj: SpeechAceWord | undefined,
+  fields: readonly string[],
+): number | undefined {
+  if (!obj) return undefined;
+  for (const f of fields) {
+    const v = (obj as Record<string, unknown>)[f];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
+
+/**
+ * Filler-token ratio over the transcript. Tokenises on whitespace + strips
+ * trailing punctuation. Bounded to [0, 1].
+ */
+export function computeHesitationRate(transcript: string): number {
+  const tokens = transcript
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[.,!?;:"]+$/g, "").replace(/^["']+/g, ""))
+    .filter((t) => t.length > 0);
+  if (tokens.length === 0) return 0;
+  const fillers = tokens.filter((t) => ENGLISH_FILLER_TOKENS.has(t)).length;
+  return Math.min(1, fillers / tokens.length);
 }
