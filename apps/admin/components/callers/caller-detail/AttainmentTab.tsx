@@ -158,11 +158,28 @@ interface SkillEvidenceItem {
   scoredBy?: string | null;
 }
 
+/**
+ * #1887 Slice 1 — per-segment cell for the criterion × segment matrix.
+ * Sourced from `/api/callers/[id]/skills-evidence`. Sorted server-side
+ * by `label` so render order is stable.
+ */
+interface SkillSegmentCell {
+  segmentKey: string | null;
+  namespace: "text" | "phase" | "mixed" | "legacy" | "overall";
+  label: string;
+  band: number;
+  callId: string;
+  measuredAt: string;
+  durationSeconds: number | null;
+}
+
 interface SkillEvidenceRow {
   skillRef: string;
   parameterId: string;
   parameterName: string;
   evidence: SkillEvidenceItem[];
+  /** #1887 Slice 1 — may be missing on responses pre-#1887; treat as empty. */
+  segments?: SkillSegmentCell[];
 }
 
 interface SkillEvidenceResponse {
@@ -209,6 +226,10 @@ export function AttainmentTab({ callerId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [expandedSkillRef, setExpandedSkillRef] = useState<string | null>(null);
   const [evidence, setEvidence] = useState<Record<string, SkillEvidenceItem[]>>({});
+  // #1887 Slice 1 — per-skill segment cells, keyed by skillRef. Empty
+  // array means the route returned no segmented scoring (brand-new
+  // caller, or a course that doesn't segment).
+  const [segments, setSegments] = useState<Record<string, SkillSegmentCell[]>>({});
   const [evidenceLoading, setEvidenceLoading] = useState<string | null>(null);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
   const [loBreakdown, setLoBreakdown] = useState<Record<string, LoMasteryResponse>>({});
@@ -282,11 +303,14 @@ export function AttainmentTab({ callerId }: Props) {
         const res = await fetch(`/api/callers/${callerId}/skills-evidence`);
         if (res.ok) {
           const body: SkillEvidenceResponse = await res.json();
-          const map: Record<string, SkillEvidenceItem[]> = {};
+          const evMap: Record<string, SkillEvidenceItem[]> = {};
+          const segMap: Record<string, SkillSegmentCell[]> = {};
           for (const row of body.rows) {
-            map[row.skillRef] = row.evidence;
+            evMap[row.skillRef] = row.evidence;
+            segMap[row.skillRef] = row.segments ?? [];
           }
-          setEvidence((prev) => ({ ...prev, ...map }));
+          setEvidence((prev) => ({ ...prev, ...evMap }));
+          setSegments((prev) => ({ ...prev, ...segMap }));
         }
       } finally {
         setEvidenceLoading(null);
@@ -375,6 +399,7 @@ export function AttainmentTab({ callerId }: Props) {
         bands={data.skillBands}
         expandedSkillRef={expandedSkillRef}
         evidence={evidence}
+        segments={segments}
         evidenceLoading={evidenceLoading}
         onToggleSkill={handleToggleSkill}
         rowRefs={skillRowRefs}
@@ -438,6 +463,7 @@ function SkillBandsSection({
   bands,
   expandedSkillRef,
   evidence,
+  segments,
   evidenceLoading,
   onToggleSkill,
   rowRefs,
@@ -445,6 +471,7 @@ function SkillBandsSection({
   bands: SkillBand[];
   expandedSkillRef: string | null;
   evidence: Record<string, SkillEvidenceItem[]>;
+  segments: Record<string, SkillSegmentCell[]>;
   evidenceLoading: string | null;
   onToggleSkill: (skillRef: string) => void;
   rowRefs?: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
@@ -513,7 +540,9 @@ function SkillBandsSection({
               {expanded ? (
                 <SkillEvidencePanel
                   skillRef={band.skillRef}
+                  parameterName={band.parameterName}
                   evidence={evidence[band.skillRef] ?? null}
+                  segments={segments[band.skillRef] ?? null}
                   loading={evidenceLoading === band.skillRef}
                 />
               ) : null}
@@ -527,11 +556,15 @@ function SkillBandsSection({
 
 function SkillEvidencePanel({
   skillRef,
+  parameterName,
   evidence,
+  segments,
   loading,
 }: {
   skillRef: string;
+  parameterName: string;
   evidence: SkillEvidenceItem[] | null;
+  segments: SkillSegmentCell[] | null;
   loading: boolean;
 }) {
   if (loading) {
@@ -541,15 +574,41 @@ function SkillEvidencePanel({
       </div>
     );
   }
-  if (!evidence || evidence.length === 0) {
+  if ((!evidence || evidence.length === 0) && (!segments || segments.length === 0)) {
     return (
       <div className="hf-attainment-evidence-empty">
         <em>No evidence captured for {skillRef} yet.</em>
       </div>
     );
   }
+  // #1887 Slice 1 — when the route returns per-segment cells, render the
+  // criterion × segment matrix above the existing per-call evidence list.
+  // Empty `segments` (continuous course / brand-new caller) hides it.
+  const hasSegments = segments != null && segments.length > 0;
+  // Empty array means we know there's no segmented scoring; render
+  // the evidence list only without a misleading matrix.
+  if (!evidence || evidence.length === 0) {
+    return (
+      <div className="hf-attainment-evidence-list">
+        {hasSegments ? (
+          <SkillSegmentMatrix
+            skillRef={skillRef}
+            parameterName={parameterName}
+            segments={segments}
+          />
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div className="hf-attainment-evidence-list">
+      {hasSegments ? (
+        <SkillSegmentMatrix
+          skillRef={skillRef}
+          parameterName={parameterName}
+          segments={segments}
+        />
+      ) : null}
       <div className="hf-attainment-evidence-title">
         Last {evidence.length} time{evidence.length === 1 ? "" : "s"} the AI
         tutor scored this skill
@@ -635,6 +694,134 @@ function SkillEvidencePanel({
       ))}
     </div>
   );
+}
+
+// ── Skill segment matrix (#1887 Slice 1) ────────────────────────────────────
+
+/**
+ * #1887 Slice 1 — per-criterion × per-segment matrix.
+ *
+ * When the learner's calls produced `CallScore.segmentKey` rows (e.g. IELTS
+ * Mock writes `phase:p1` / `phase:p2_monologue` / `phase:p3`, the text
+ * segmenter writes `text:part1` / `text:part2` / `text:part3`), each
+ * cell here reveals the per-Part band for this criterion. The provenance
+ * chip ("audio" / "text" / "mixed" / "legacy" / "overall") tells the
+ * educator whether the band came from audio-fidelity phase-boundary
+ * scoring vs. transcript-only heuristics.
+ *
+ * Per cell:
+ *   - Band value (most-recent observation for this segment label)
+ *   - Provenance chip with tooltip
+ *   - Empty cells (no scoring for this segment) render as a faded dash —
+ *     intentionally NOT collapsed, so the absence is visible information
+ *
+ * NO HARDCODING — the chip labels + provenance classes come from the
+ * route's `namespace` field (derived from `parseSegmentKey` at the route).
+ */
+function SkillSegmentMatrix({
+  skillRef,
+  parameterName,
+  segments,
+}: {
+  skillRef: string;
+  parameterName: string;
+  segments: SkillSegmentCell[];
+}) {
+  return (
+    <div className="hf-attainment-segment-matrix" data-testid="hf-attainment-segment-matrix">
+      <div className="hf-attainment-segment-matrix-title">
+        Per-segment breakdown — {parameterName}
+      </div>
+      <div
+        className="hf-attainment-segment-grid"
+        role="list"
+        aria-label={`${parameterName} per-segment cells`}
+      >
+        {segments.map((cell) => (
+          <SkillSegmentCellCard
+            key={`${skillRef}-${cell.label}`}
+            cell={cell}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SkillSegmentCellCard({ cell }: { cell: SkillSegmentCell }) {
+  const chipLabel = provenanceChipLabel(cell.namespace);
+  const tooltip = provenanceTooltip(cell);
+  return (
+    <div
+      role="listitem"
+      className="hf-attainment-segment-cell"
+      data-testid={`hf-attainment-segment-cell-${cell.label.replace(/\s+/g, "-").toLowerCase()}`}
+      data-namespace={cell.namespace}
+      title={tooltip}
+    >
+      <span className="hf-attainment-segment-cell-label">{cell.label}</span>
+      <span className="hf-attainment-segment-cell-band">
+        {/* Bands are stored 0..1; surface the 0..10 IELTS-style figure
+         *  the rest of AttainmentTab uses (`(score * 10).toFixed(1)`). */}
+        {(cell.band * 10).toFixed(1)}
+      </span>
+      <span
+        className={`hf-attainment-segment-chip hf-attainment-segment-chip-${cell.namespace}`}
+      >
+        {chipLabel}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Friendly chip label per namespace. Five values total — the discriminator
+ * comes from the route, never inferred client-side. No `text:` / `phase:`
+ * literals in this file.
+ */
+function provenanceChipLabel(
+  namespace: SkillSegmentCell["namespace"],
+): string {
+  switch (namespace) {
+    case "phase":
+      return "audio";
+    case "text":
+      return "text";
+    case "mixed":
+      return "mixed";
+    case "overall":
+      return "overall";
+    case "legacy":
+      return "legacy";
+  }
+}
+
+/**
+ * Educator-friendly tooltip — the sentence form Story spec asks for:
+ *   - Audio-derived: "Audio-derived 5.5 from Part 2 monologue (90s)"
+ *   - Text-derived: "Text-derived 6.0 — heuristic from transcript only"
+ *   - Mixed: surfaces that both audio + text contributed
+ *   - Overall: whole-call score, not segment-attributed
+ *   - Legacy: pre-#1872 backfill row, namespace unknown
+ */
+function provenanceTooltip(cell: SkillSegmentCell): string {
+  const bandFmt = (cell.band * 10).toFixed(1);
+  const durationFrag =
+    cell.durationSeconds != null && cell.durationSeconds > 0
+      ? ` (${Math.round(cell.durationSeconds)}s)`
+      : "";
+  switch (cell.namespace) {
+    case "phase":
+      return `Audio-derived ${bandFmt} from ${cell.label}${durationFrag}`;
+    case "text":
+      return `Text-derived ${bandFmt} — heuristic from transcript only`;
+    case "mixed":
+      return `Mixed-source ${bandFmt} for ${cell.label} — both audio + text contributed`;
+    case "overall":
+      return `Whole-call score ${bandFmt} (not segment-attributed)`;
+    case "legacy":
+      return `Legacy ${bandFmt} for ${cell.label} — pre-namespace data`;
+  }
 }
 
 // ── Modules section + per-LO drill (SP4-C) ──────────────────────────────────

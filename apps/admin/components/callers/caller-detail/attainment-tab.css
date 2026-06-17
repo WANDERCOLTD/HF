@@ -171,6 +171,90 @@
   color: var(--text-muted);
 }
 
+/* ── #1887 Slice 1 — per-segment matrix ─────────────────────────────────── */
+
+.hf-attainment-segment-matrix {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border-default);
+}
+
+.hf-attainment-segment-matrix-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.hf-attainment-segment-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hf-attainment-segment-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.hf-attainment-segment-cell-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.hf-attainment-segment-cell-band {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hf-attainment-segment-cell-empty .hf-attainment-segment-cell-band {
+  color: var(--text-muted);
+}
+
+.hf-attainment-segment-chip {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: lowercase;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+.hf-attainment-segment-chip-phase {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+
+.hf-attainment-segment-chip-text {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+
+.hf-attainment-segment-chip-mixed {
+  background: color-mix(in srgb, var(--login-gold) 20%, transparent);
+  color: var(--text-primary);
+}
+
+.hf-attainment-segment-chip-overall {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+.hf-attainment-segment-chip-legacy {
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  color: var(--text-muted);
+}
+
 /* ── Module rows ─────────────────────────────────────────────────────────── */
 
 .hf-attainment-module-rows {
