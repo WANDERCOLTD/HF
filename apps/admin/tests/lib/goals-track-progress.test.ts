@@ -676,14 +676,17 @@ describe("lib/goals/track-progress.ts", () => {
       });
 
       const before = await import("@/lib/goals/track-progress");
+      const { TIER_PRESETS } = await import("@/lib/banding/presets");
       const result = await before.calculateSkillAchieveProgress(
         { id: "g-x", ref: "SKILL-01", playbookId: "pb-1", progress: 0 },
         "caller-1",
       );
       expect(result).not.toBeNull();
-      // 0.62 falls in [0.55, 0.70) → "Developing" / band 5.5
+      // 0.62 falls in [0.5, 0.75) under the Generic preset → Developing tier.
+      // Band number derives from the canonical preset, not hardcoded.
+      const developingBand = TIER_PRESETS.generic.mapping.tierBands.developing;
       expect(result!.evidence).toContain("Developing");
-      expect(result!.evidence).toContain("5.5");
+      expect(result!.evidence).toContain(`band ~${developingBand}`);
       expect(result!.evidence).toContain("0.62");
     });
 
@@ -742,30 +745,47 @@ describe("lib/goals/track-progress.ts", () => {
   });
 
   describe("scoreToTier pure function (#417)", () => {
-    it("maps 0.0 → Approaching Emerging (band 3)", async () => {
+    // Derive expected bands from the canonical Generic preset rather than
+    // hardcoding literal numbers. The SYSTEM default flipped IELTS → Generic
+    // in #1657; hardcoded IELTS bands (3 / 4 / 5.5 / 7) silently desync'd
+    // with the new defaults. Pull from TIER_PRESETS.generic so future
+    // changes to the canonical mapping ripple through the test correctly.
+    // Inputs are chosen mid-tier under the Generic thresholds
+    // (0.25 / 0.5 / 0.75 / 1.0) so boundary fuzz doesn't matter.
+    it("maps 0.0 → Approaching Emerging", async () => {
       const { scoreToTier } = await import("@/lib/goals/track-progress");
-      expect(scoreToTier(0.0)).toEqual({ tier: "Approaching Emerging", band: 3 });
-      expect(scoreToTier(0.29)).toEqual({ tier: "Approaching Emerging", band: 3 });
+      const { TIER_PRESETS } = await import("@/lib/banding/presets");
+      const bands = TIER_PRESETS.generic.mapping.tierBands;
+      expect(scoreToTier(0.0)).toEqual({ tier: "Approaching Emerging", band: bands.approachingEmerging });
+      expect(scoreToTier(0.2)).toEqual({ tier: "Approaching Emerging", band: bands.approachingEmerging });
     });
-    it("maps Emerging band (0.3-0.55)", async () => {
+    it("maps Emerging band", async () => {
       const { scoreToTier } = await import("@/lib/goals/track-progress");
-      expect(scoreToTier(0.3)).toEqual({ tier: "Emerging", band: 4 });
-      expect(scoreToTier(0.54)).toEqual({ tier: "Emerging", band: 4 });
+      const { TIER_PRESETS } = await import("@/lib/banding/presets");
+      const bands = TIER_PRESETS.generic.mapping.tierBands;
+      expect(scoreToTier(0.3)).toEqual({ tier: "Emerging", band: bands.emerging });
+      expect(scoreToTier(0.49)).toEqual({ tier: "Emerging", band: bands.emerging });
     });
-    it("maps Developing band (0.55-0.70)", async () => {
+    it("maps Developing band", async () => {
       const { scoreToTier } = await import("@/lib/goals/track-progress");
-      expect(scoreToTier(0.55)).toEqual({ tier: "Developing", band: 5.5 });
-      expect(scoreToTier(0.69)).toEqual({ tier: "Developing", band: 5.5 });
+      const { TIER_PRESETS } = await import("@/lib/banding/presets");
+      const bands = TIER_PRESETS.generic.mapping.tierBands;
+      expect(scoreToTier(0.6)).toEqual({ tier: "Developing", band: bands.developing });
+      expect(scoreToTier(0.74)).toEqual({ tier: "Developing", band: bands.developing });
     });
-    it("maps Secure band (≥0.70)", async () => {
+    it("maps Secure band", async () => {
       const { scoreToTier } = await import("@/lib/goals/track-progress");
-      expect(scoreToTier(0.7)).toEqual({ tier: "Secure", band: 7 });
-      expect(scoreToTier(1.0)).toEqual({ tier: "Secure", band: 7 });
+      const { TIER_PRESETS } = await import("@/lib/banding/presets");
+      const bands = TIER_PRESETS.generic.mapping.tierBands;
+      expect(scoreToTier(0.8)).toEqual({ tier: "Secure", band: bands.secure });
+      expect(scoreToTier(1.0)).toEqual({ tier: "Secure", band: bands.secure });
     });
     it("clamps out-of-range input", async () => {
       const { scoreToTier } = await import("@/lib/goals/track-progress");
-      expect(scoreToTier(-0.1)).toEqual({ tier: "Approaching Emerging", band: 3 });
-      expect(scoreToTier(1.5)).toEqual({ tier: "Secure", band: 7 });
+      const { TIER_PRESETS } = await import("@/lib/banding/presets");
+      const bands = TIER_PRESETS.generic.mapping.tierBands;
+      expect(scoreToTier(-0.1)).toEqual({ tier: "Approaching Emerging", band: bands.approachingEmerging });
+      expect(scoreToTier(1.5)).toEqual({ tier: "Secure", band: bands.secure });
     });
   });
 
