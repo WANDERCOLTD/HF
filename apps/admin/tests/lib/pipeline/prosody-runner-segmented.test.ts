@@ -22,6 +22,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SessionMetadata } from "@/lib/types/json-fields";
+import { withPhaseNamespace } from "@/lib/pipeline/segment-key-namespace";
 
 // ── Mocks ─────────────────────────────────────────────────
 
@@ -235,10 +236,12 @@ describe("runProsodyStage — 3-phase IELTS Mock (#1870)", () => {
     expect(mockExtractAudioSlice).toHaveBeenCalledTimes(3);
     expect(result.envelope.mode).toBe("ielts");
     expect(result.envelope.bySegment).toBeDefined();
+    // #1872 — namespace prefix derived via the canonical helper (no
+    // hardcoded "phase:" strings in test assertions).
     expect(Object.keys(result.envelope.bySegment ?? {})).toEqual([
-      "phase:p1",
-      "phase:p2_monologue",
-      "phase:p3",
+      withPhaseNamespace("p1"),
+      withPhaseNamespace("p2_monologue"),
+      withPhaseNamespace("p3"),
     ]);
     // Top-level aggregate = mean(6, 7, 8) = 7
     if (result.envelope.mode === "ielts") {
@@ -247,9 +250,10 @@ describe("runProsodyStage — 3-phase IELTS Mock (#1870)", () => {
     }
     // Per-phase preserves the raw band
     const seg = result.envelope.bySegment ?? {};
-    expect(seg["phase:p1"]).toMatchObject({ mode: "ielts" });
-    if (seg["phase:p1"]?.mode === "ielts") {
-      expect(seg["phase:p1"].ieltsScores.overall).toBe(6);
+    expect(seg[withPhaseNamespace("p1")]).toMatchObject({ mode: "ielts" });
+    const phaseP1 = seg[withPhaseNamespace("p1")];
+    if (phaseP1?.mode === "ielts") {
+      expect(phaseP1.ieltsScores.overall).toBe(6);
     }
   });
 });
@@ -288,9 +292,9 @@ describe("runProsodyStage — partial-failure tolerance (#1870)", () => {
 
     expect(scorer).toHaveBeenCalledTimes(3);
     const seg = result.envelope.bySegment ?? {};
-    expect(seg["phase:p1"]?.mode).toBe("ielts");
-    expect(seg["phase:p2_monologue"]?.mode).toBe("unavailable");
-    expect(seg["phase:p3"]?.mode).toBe("ielts");
+    expect(seg[withPhaseNamespace("p1")]?.mode).toBe("ielts");
+    expect(seg[withPhaseNamespace("p2_monologue")]?.mode).toBe("unavailable");
+    expect(seg[withPhaseNamespace("p3")]?.mode).toBe("ielts");
     // Top-level aggregate uses 6 and 8 only → mean = 7
     if (result.envelope.mode === "ielts") {
       expect(result.envelope.ieltsScores?.overall).toBe(7);

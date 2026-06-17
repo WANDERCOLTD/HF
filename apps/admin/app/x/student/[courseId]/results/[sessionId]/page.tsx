@@ -25,6 +25,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import type { ResultsPayload, ResultsResponse } from "@/app/api/student/[courseId]/results/[sessionId]/route";
+import { segmentKeyLabel } from "@/lib/pipeline/segment-key-namespace";
 import "./results.css";
 
 const POLL_INTERVAL_MS = 5_000;
@@ -185,7 +186,17 @@ function ResultsView({ data }: { data: ResultsPayload }) {
               <tr>
                 <th>Criterion</th>
                 {segmentKeys.map((seg) => (
-                  <th key={seg ?? "overall"}>{seg ?? "Overall"}</th>
+                  // #1872 — segmentKey carries a namespace prefix
+                  // ("text:partN" / "phase:pN") so the text-segmenter and
+                  // phase-boundary writers don't collide. The header strips
+                  // the prefix via `segmentKeyLabel`, which also humanises
+                  // the bare value ("part1" → "Part 1"; "p2_monologue" →
+                  // "Part 2 (monologue)"). Legacy un-backfilled rows fall
+                  // through to the raw value, so a missed migration row
+                  // doesn't blank the column.
+                  <th key={seg ?? "overall"}>
+                    {seg === null ? "Overall" : segmentKeyLabel(seg)}
+                  </th>
                 ))}
               </tr>
             </thead>
