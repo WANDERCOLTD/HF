@@ -353,7 +353,16 @@ const G2_PRE_TEST_STOP: JourneySettingContract = {
   group: "G2",
   educatorLabel: "Pre-test stop",
   helpText: "Gate the start of Call 1 with a quick assessment.",
-  storagePath: "sessionFlow.stops.preTest",
+  // `Playbook.config.sessionFlow.stops` is a JourneyStop[] keyed by stable
+  // synthetic id (`"pre-test" | "mid-test" | "post-test" | "nps"` — set
+  // by `lib/session-flow/resolver.ts` synthesis and SessionFlowEditor
+  // creation paths). Structured storagePath addresses the array element.
+  storagePath: {
+    path: "sessionFlow.stops[]",
+    arrayKey: "id",
+    selectorValue: "pre-test",
+    writeMode: "merge",
+  },
   control: "stop",
   cascadeSources: [],
   composeImpact: {
@@ -1003,8 +1012,16 @@ const G5_MID_JOURNEY_STOP: JourneySettingContract = {
   menuGroupKey: "L_mid_journey",
   group: "G5",
   educatorLabel: "Mid-journey stop",
-  helpText: "Mid-test or check-in stop between teaching calls.",
-  storagePath: "sessionFlow.stops.midJourney",
+  helpText: "Mid-test or check-in stop between teaching calls. Trigger type is edited from the stop's own trigger picker.",
+  // Stable synthetic id for the array element — matches SessionFlowEditor's
+  // row id taxonomy (lib/session-flow/resolver.ts synthesises `"pre-test"` /
+  // `"post-test"` / `"nps"`; this is the sibling canonical id).
+  storagePath: {
+    path: "sessionFlow.stops[]",
+    arrayKey: "id",
+    selectorValue: "mid-test",
+    writeMode: "merge",
+  },
   control: "stop",
   cascadeSources: [],
   composeImpact: {
@@ -1015,26 +1032,12 @@ const G5_MID_JOURNEY_STOP: JourneySettingContract = {
   previewLocators: [{ section: "modulesGate", hint: "mid-journey block" }],
 };
 
-const G5_MID_JOURNEY_STOP_TRIGGER: JourneySettingContract = {
-  id: "midJourneyStopTrigger",
-  menuGroupKey: "L_mid_journey",
-  group: "G5",
-  educatorLabel: "Mid-journey stop trigger",
-  helpText: "Mastery threshold / session count that fires the stop.",
-  storagePath: "sessionFlow.stops.midJourney.trigger",
-  control: "select",
-  cascadeSources: [],
-  composeImpact: {
-    sections: ["modulesGate"],
-    kinds: ["stop-timing"],
-    requiresReprompt: false,
-  },
-  previewLocators: [{ section: "modulesGate" }],
-  options: [
-    { value: "mastery_threshold", label: "Mastery threshold reached" },
-    { value: "session_count", label: "After N sessions" },
-  ],
-};
+// midJourneyStopTrigger removed — was a `control: "select"` sibling that
+// tried to write `sessionFlow.stops.midJourney.trigger` (nested into the
+// array element), which the storage-path applier cannot express. The
+// trigger picker is already part of the `midJourneyStop` compound editor
+// above. Removing the redundant entry closes the storage-path/applier
+// mismatch.
 
 // Lane 3 PR6 — L_mid_journey NPS contracts (catch-up from #1780).
 
@@ -1102,7 +1105,12 @@ const G5_NPS_STOP: JourneySettingContract = {
   group: "G5",
   educatorLabel: "NPS stop",
   helpText: "Net Promoter Score survey at a mid-journey moment.",
-  storagePath: "sessionFlow.stops.nps",
+  storagePath: {
+    path: "sessionFlow.stops[]",
+    arrayKey: "id",
+    selectorValue: "nps",
+    writeMode: "merge",
+  },
   control: "stop",
   cascadeSources: [],
   composeImpact: {
@@ -1288,7 +1296,12 @@ const G6_POST_TEST_STOP: JourneySettingContract = {
   group: "G6",
   educatorLabel: "Post-test stop",
   helpText: "Final assessment before offboarding.",
-  storagePath: "sessionFlow.stops.postTest",
+  storagePath: {
+    path: "sessionFlow.stops[]",
+    arrayKey: "id",
+    selectorValue: "post-test",
+    writeMode: "merge",
+  },
   control: "stop",
   cascadeSources: [],
   composeImpact: {
@@ -1807,9 +1820,8 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G4_PROGRESS_SIGNAL_LOW_WATER,
   G4_PROGRESS_SIGNAL_HIGH_WATER,
   G4_INTERRUPT_SENSITIVITY,
-  // G5 (3)
+  // G5 (5)
   G5_MID_JOURNEY_STOP,
-  G5_MID_JOURNEY_STOP_TRIGGER,
   G5_NPS_ENABLED,
   G5_NPS_TRIGGER,
   G5_NPS_THRESHOLD,

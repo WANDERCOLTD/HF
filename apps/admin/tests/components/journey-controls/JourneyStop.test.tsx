@@ -15,7 +15,12 @@ const contract: JourneySettingContract = {
   id: "preTestStop",
   group: "G2",
   educatorLabel: "Pre-test stop",
-  storagePath: "sessionFlow.stops.preTest",
+  storagePath: {
+    path: "sessionFlow.stops[]",
+    arrayKey: "id",
+    selectorValue: "pre-test",
+    writeMode: "merge",
+  },
   control: "stop",
   cascadeSources: [],
   composeImpact: {
