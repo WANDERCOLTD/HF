@@ -1,10 +1,10 @@
 {
-  "tsc_errors": 41,
+  "tsc_errors": 40,
   "lint_errors": 0,
-  "lint_warnings": 4454,
+  "lint_warnings": 4489,
   "quarantined_tests": 36,
   "knip_unused": 162,
   "same_issue_fix_chain_max": 10,
-  "memory_md_bytes": 29422,
+  "memory_md_bytes": 0,
   "npm_audit_high_crit": 3
 }

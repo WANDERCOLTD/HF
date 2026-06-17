@@ -154,13 +154,22 @@ describe("CascadeTraceBreadcrumb — Slice C2 (#1737) hook integration", () => {
   });
 
   it("uses contract.cascadeKnobKey when present, falls back to contract.id", async () => {
+    // The hook pre-filters via `isResolvableKnob` and short-circuits
+    // unregistered keys before fetch (see use-effective-value.ts:123).
+    // Use a real cascadable knob ("welcomeMessage") with a contract.id
+    // that does NOT match — the assertion still proves cascadeKnobKey
+    // takes precedence over id when building the route URL.
     vi.mocked(global.fetch).mockResolvedValue({
-      ok: false,
-      status: 400,
+      ok: true,
+      status: 200,
       json: () =>
         Promise.resolve({
-          ok: false,
-          error: 'Unknown cascade knob key: "remappedKnob"',
+          knobKey: "welcomeMessage",
+          value: "hello",
+          winningLayer: "PLAYBOOK",
+          layers: [],
+          isInherited: false,
+          recommendedLayerForEdit: "PLAYBOOK",
         }),
     } as Response);
 
@@ -169,7 +178,7 @@ describe("CascadeTraceBreadcrumb — Slice C2 (#1737) hook integration", () => {
         contract={{
           ...baseContract,
           id: "someContractId",
-          cascadeKnobKey: "remappedKnob",
+          cascadeKnobKey: "welcomeMessage",
           cascadeSources: [
             { level: "group", storagePath: "config.someField" },
           ],
@@ -181,6 +190,7 @@ describe("CascadeTraceBreadcrumb — Slice C2 (#1737) hook integration", () => {
       expect(vi.mocked(global.fetch)).toHaveBeenCalled();
     });
     const url = vi.mocked(global.fetch).mock.calls[0][0] as string;
-    expect(url).toContain("knobKey=remappedKnob");
+    expect(url).toContain("knobKey=welcomeMessage");
+    expect(url).not.toContain("knobKey=someContractId");
   });
 });
