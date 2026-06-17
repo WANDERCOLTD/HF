@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-17T16:24:43.856Z",
+  "generatedAt": "2026-06-17T18:14:21.169Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1834,
-  "edgeCount": 4300,
+  "fileCount": 1836,
+  "edgeCount": 4308,
   "skippedEdges": 1,
   "edges": [
     {
@@ -13900,6 +13900,14 @@
       "to": "lib/settings/voice-setting-contracts.ts"
     },
     {
+      "from": "lib/journey/bucket-to-tab.ts",
+      "to": "lib/journey/buckets-by-tab.ts"
+    },
+    {
+      "from": "lib/journey/bucket-to-tab.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
       "from": "lib/journey/buckets-by-tab.ts",
       "to": "lib/journey/setting-contracts.ts"
     },
@@ -13986,6 +13994,30 @@
     {
       "from": "lib/journey/use-cascade-edit-field.ts",
       "to": "lib/journey/use-glow-state.ts"
+    },
+    {
+      "from": "lib/journey/use-cross-tab-hint.ts",
+      "to": "lib/compose/index.ts"
+    },
+    {
+      "from": "lib/journey/use-cross-tab-hint.ts",
+      "to": "lib/journey/bucket-relations.ts"
+    },
+    {
+      "from": "lib/journey/use-cross-tab-hint.ts",
+      "to": "lib/journey/bucket-to-tab.ts"
+    },
+    {
+      "from": "lib/journey/use-cross-tab-hint.ts",
+      "to": "lib/journey/buckets-by-tab.ts"
+    },
+    {
+      "from": "lib/journey/use-cross-tab-hint.ts",
+      "to": "lib/journey/menu-items.ts"
+    },
+    {
+      "from": "lib/journey/use-cross-tab-hint.ts",
+      "to": "lib/journey/setting-contracts.ts"
     },
     {
       "from": "lib/knowledge/assertions.ts",
@@ -23256,7 +23288,7 @@
     },
     {
       "path": "lib/compose/index.ts",
-      "inDegree": 7,
+      "inDegree": 8,
       "outDegree": 0
     },
     {
@@ -24226,12 +24258,17 @@
     },
     {
       "path": "lib/journey/bucket-relations.ts",
-      "inDegree": 0,
+      "inDegree": 1,
       "outDegree": 4
     },
     {
+      "path": "lib/journey/bucket-to-tab.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
       "path": "lib/journey/buckets-by-tab.ts",
-      "inDegree": 0,
+      "inDegree": 2,
       "outDegree": 1
     },
     {
@@ -24246,7 +24283,7 @@
     },
     {
       "path": "lib/journey/menu-items.ts",
-      "inDegree": 0,
+      "inDegree": 1,
       "outDegree": 2
     },
     {
@@ -24266,7 +24303,7 @@
     },
     {
       "path": "lib/journey/setting-contracts.ts",
-      "inDegree": 11,
+      "inDegree": 13,
       "outDegree": 2
     },
     {
@@ -24283,6 +24320,11 @@
       "path": "lib/journey/use-cascade-edit-field.ts",
       "inDegree": 0,
       "outDegree": 2
+    },
+    {
+      "path": "lib/journey/use-cross-tab-hint.ts",
+      "inDegree": 0,
+      "outDegree": 6
     },
     {
       "path": "lib/journey/use-glow-state.ts",

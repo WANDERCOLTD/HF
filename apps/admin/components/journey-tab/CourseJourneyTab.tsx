@@ -14,14 +14,31 @@
  * select. If 2+ → select the first chronologically AND render the pick-
  * strip above the canvas so the educator can switch buckets without
  * scrolling the LH.
+ *
+ * Phase P3b (#1850): when the click resolves to a bucket owned by a
+ * different Course Detail tab (e.g. operator clicks the Intake bubble
+ * while on the — hypothetical — Scoring journey), the Inspector renders
+ * a `<CrossTabHintCard>` offering to jump there. Journey-tab buckets
+ * span the chronological arc; today the in-scope path catches every
+ * click, so the hint card is a defensive future-proofing for new
+ * buckets that may live on other tabs.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
+import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
 import type { ComposeSectionKey } from "@/lib/compose";
+import {
+  BUCKETS_BY_TAB,
+  TAB_LABELS,
+  type CourseDetailTabId,
+} from "@/lib/journey/buckets-by-tab";
+import { bucketToTab } from "@/lib/journey/bucket-to-tab";
 import { getBucketsForSection } from "@/lib/journey/bucket-relations";
+import { JOURNEY_MENU_ITEMS_BY_ID } from "@/lib/journey/menu-items";
+import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
 import { VOICE_SETTINGS_BY_ID } from "@/lib/settings/voice-setting-contracts";
 
@@ -33,18 +50,40 @@ import "./journey-tab.css";
 import { useBubblePulse } from "./use-bubble-pulse";
 import { useJourneySelection } from "./use-journey-selection";
 
+interface CrossTabHint {
+  bucketId: JourneyMenuBucketId;
+  bucketLabel: string;
+  owningTab: CourseDetailTabId;
+  owningTabLabel: string;
+}
+
 interface CourseJourneyTabProps {
   courseId: string;
   playbookConfig: Record<string, unknown> | null;
+  /** Parent-provided tab switcher (Phase P3b). When set, a cross-tab
+   *  hint card's primary button calls this with the owning tab id +
+   *  the bucket id so the destination tab can seed its Inspector. */
+  onTabSwitch?: (
+    tabId: CourseDetailTabId,
+    options: { selectedBucket: JourneyMenuBucketId },
+  ) => void;
+}
+
+const CURRENT_TAB: CourseDetailTabId = "journey";
+
+function isJourneyBucket(b: JourneyMenuBucketId): boolean {
+  return BUCKETS_BY_TAB.journey.includes(b);
 }
 
 export function CourseJourneyTab({
   courseId,
   playbookConfig,
+  onTabSwitch,
 }: CourseJourneyTabProps) {
   const selection = useJourneySelection();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pickStripSection, setPickStripSection] = useState<ComposeSectionKey | null>(null);
+  const [crossTabHint, setCrossTabHint] = useState<CrossTabHint | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLElement>(null);
   // Tab-local override of the parent's playbookConfig. Seeded from the
@@ -103,40 +142,74 @@ export function CourseJourneyTab({
       if (owner?.menuGroupKey) {
         selection.setBucketId(owner.menuGroupKey);
         setPickStripSection(null);
+        setCrossTabHint(null);
       }
     },
     [selection],
   );
 
-  // LH bucket click — clear pick-strip in the same step.
+  // LH bucket click — clear pick-strip + hint in the same step.
   const handleLhSelect = useCallback(
     (next: typeof selection.bucketId) => {
       selection.setBucketId(next);
       setPickStripSection(null);
+      setCrossTabHint(null);
     },
     [selection],
   );
 
-  // Bubble click in PreviewLens → derive bucket(s) → select first
-  // chronologically AND set pick-strip when N≥2.
+  // Bubble click in PreviewLens → derive bucket(s). If any in-tab →
+  // select first chronologically + set pick-strip when N≥2. If NONE
+  // in-tab (cross-tab scenario) → surface the hint card for the first
+  // bucket chronologically and clear the LH selection.
   const handlePreviewSectionSelect = useCallback(
     (section: ComposeSectionKey | null) => {
       if (!section) {
         setPickStripSection(null);
+        setCrossTabHint(null);
         return;
       }
       const buckets = getBucketsForSection(section);
       if (buckets.length === 0) {
         setPickStripSection(null);
+        setCrossTabHint(null);
         return;
       }
-      // Always select the first chronologically — the strip is for
-      // changing the choice, not forcing one.
-      selection.setBucketId(buckets[0]);
-      setPickStripSection(buckets.length >= 2 ? section : null);
+      const inTab = buckets.filter(isJourneyBucket);
+      if (inTab.length > 0) {
+        selection.setBucketId(inTab[0]);
+        setPickStripSection(inTab.length >= 2 ? section : null);
+        setCrossTabHint(null);
+        return;
+      }
+      // Cross-tab: pick the first bucket chronologically and offer to
+      // jump to its owning tab.
+      const owner = buckets[0];
+      const owningTab = bucketToTab(owner);
+      if (!owningTab) {
+        setPickStripSection(null);
+        setCrossTabHint(null);
+        return;
+      }
+      const meta = JOURNEY_MENU_ITEMS_BY_ID[owner];
+      setPickStripSection(null);
+      setCrossTabHint({
+        bucketId: owner,
+        bucketLabel: meta?.label ?? owner,
+        owningTab,
+        owningTabLabel: TAB_LABELS[owningTab],
+      });
     },
     [selection],
   );
+
+  const handleJump = useCallback(() => {
+    if (!crossTabHint) return;
+    onTabSwitch?.(crossTabHint.owningTab, {
+      selectedBucket: crossTabHint.bucketId,
+    });
+    setCrossTabHint(null);
+  }, [crossTabHint, onTabSwitch]);
 
   return (
     <JourneySettingMutatorProvider
@@ -176,7 +249,16 @@ export function CourseJourneyTab({
           className="hf-journey-pane hf-journey-inspector"
           aria-label="Inspector"
         >
-          <JourneyInspectorPanel selectedBucketId={selection.bucketId} />
+          {/* Mark CURRENT_TAB usage explicit for future tab-aware checks */}
+          {CURRENT_TAB && crossTabHint ? (
+            <CrossTabHintCard
+              bucketLabel={crossTabHint.bucketLabel}
+              owningTabLabel={crossTabHint.owningTabLabel}
+              onJump={handleJump}
+            />
+          ) : (
+            <JourneyInspectorPanel selectedBucketId={selection.bucketId} />
+          )}
         </aside>
         <CommandPalette
           open={paletteOpen}
