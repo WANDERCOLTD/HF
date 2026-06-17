@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { randomUUID } from "crypto";
 import { assignPlaybookToCohort } from "@/lib/enrollment";
+import { TEACHING_CALLER_ROLES } from "@/lib/caller-roles";
 
 /**
  * @api POST /api/domains/:domainId/classroom
@@ -48,7 +49,7 @@ export async function POST(
       where: {
         userId: session.user.id,
         domainId,
-        role: { in: ["TEACHER", "TUTOR"] },
+        role: { in: TEACHING_CALLER_ROLES },
       },
       select: { id: true },
     });

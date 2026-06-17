@@ -6,6 +6,7 @@ import {
   buildScopeFilter,
 } from "@/lib/access-control";
 import { parsePagination } from "@/lib/api-utils";
+import { isTeachingCallerRole } from "@/lib/caller-roles";
 
 /**
  * @api GET /api/cohorts
@@ -163,7 +164,7 @@ export async function POST(req: Request) {
         { status: 404 }
       );
     }
-    if (owner.role !== "TEACHER" && owner.role !== "TUTOR") {
+    if (!isTeachingCallerRole(owner.role)) {
       return NextResponse.json(
         { ok: false, error: "Owner must have TEACHER or TUTOR role" },
         { status: 400 }

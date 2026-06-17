@@ -108,6 +108,8 @@ Three structural patterns, in order of preference:
 | `PlaybookCurriculumRole` enum adoption | `@prisma/client::PlaybookCurriculumRole` | 38 consumers under `apps/admin/{app,lib,scripts}` | ✅ PROTECTED | `tests/lib/playbook-curriculum-role-adoption.test.ts` | — | Ratchet rejects bare `role: "primary"` / `role: "linked"` literals across app, lib, scripts. |
 | `MemoryCategory` enum adoption | `@prisma/client::MemoryCategory` | `lib/chat/commands.ts` + `differentiation/route.ts` | ✅ PROTECTED | `tests/lib/memory-category-adoption.test.ts` | — | Ratchet rejects 6-permutation literal reconstructions. |
 | RBAC role-level adoption (no magic role arrays) | `lib/roles.ts` (`ROLE_LEVEL` + `isRoleAtOrAbove` + `rolesAtOrAbove` + `isOperatorTrackAdmin`) | 4 sites: `ViewModeContext`, `dashboard-config`, `dashboard/route`, `system-ini` | ✅ PROTECTED | `tests/lib/roles.test.ts` | — | Ratchet rejects new `["SUPERADMIN","ADMIN","OPERATOR"]` triplet literals in `app`/`lib`/`contexts`. EDUCATOR exclusion documented (track distinction, not level). |
+| `TEACHING_CALLER_ROLES` (CallerRole subset) | `lib/caller-roles.ts` (`TEACHING_CALLER_ROLES` + `isTeachingCallerRole`) | 3 routes: `classroom`, `cohorts`, `ensure-cohort` | ✅ PROTECTED | `tests/lib/teaching-caller-roles.test.ts` | — | Ratchet rejects bare `["TEACHER","TUTOR"]` literals and `role === "TEACHER" \|\| role === "TUTOR"` chains. |
+| `DEFAULT_VOICE_PROVIDER_SLUG` | `lib/voice/default-provider.ts` | `load-voice-config.ts:48` + `poll-stale-calls.ts:112` | ✅ PROTECTED | `tests/lib/voice/default-provider.test.ts` | — | Ratchet rejects `?? "vapi"` fallbacks under `lib/voice/` outside the provider's own identity files. |
 
 ### Cascade
 
