@@ -11,6 +11,7 @@ import { classifyValue, getAttributeValue } from "../types";
 import type { SpecConfig, PlaybookConfig } from "@/lib/types/json-fields";
 import type { AssembledContext, CallerAttributeData } from "../types";
 import { PARAMS } from "@/lib/registry";
+import { NEUTRAL_PARAMETER_TARGET } from "@/lib/measurement/neutral-target";
 import { getAudienceOption } from "./audience";
 import { SURVEY_SCOPES, PRE_SURVEY_KEYS } from "@/lib/learner/survey-keys";
 import { config } from "@/lib/config";
@@ -476,9 +477,9 @@ registerTransform("computeQuickStart", (
       const warmth = mergedTargets.find((t: any) => t.parameterId === PARAMS.BEH_WARMTH);
       const questions = mergedTargets.find((t: any) => t.parameterId === PARAMS.BEH_QUESTION_RATE);
       const responseLength = mergedTargets.find((t: any) => t.parameterId === PARAMS.BEH_RESPONSE_LEN);
-      const warmthLevel = classifyValue(warmth?.targetValue ?? 0.5, thresholds) || "MODERATE";
-      const questionLevel = classifyValue(questions?.targetValue ?? 0.5, thresholds) || "MODERATE";
-      const responseLengthLevel = classifyValue(responseLength?.targetValue ?? 0.5, thresholds) || "MODERATE";
+      const warmthLevel = classifyValue(warmth?.targetValue ?? NEUTRAL_PARAMETER_TARGET, thresholds) || "MODERATE";
+      const questionLevel = classifyValue(questions?.targetValue ?? NEUTRAL_PARAMETER_TARGET, thresholds) || "MODERATE";
+      const responseLengthLevel = classifyValue(responseLength?.targetValue ?? NEUTRAL_PARAMETER_TARGET, thresholds) || "MODERATE";
       return `${warmthLevel} warmth, ${questionLevel} questions, ${responseLengthLevel} response length`;
     })(),
 
@@ -486,9 +487,9 @@ registerTransform("computeQuickStart", (
       const responseLength = mergedTargets.find((t: any) => t.parameterId === PARAMS.BEH_RESPONSE_LEN);
       const turnLength = mergedTargets.find((t: any) => t.parameterId === PARAMS.BEH_TURN_LENGTH);
       const pauseTolerance = mergedTargets.find((t: any) => t.parameterId === PARAMS.BEH_PAUSE_TOLERANCE);
-      const rl = classifyValue(responseLength?.targetValue ?? 0.5, thresholds);
-      const tl = classifyValue(turnLength?.targetValue ?? 0.5, thresholds);
-      const pt = classifyValue(pauseTolerance?.targetValue ?? 0.5, thresholds);
+      const rl = classifyValue(responseLength?.targetValue ?? NEUTRAL_PARAMETER_TARGET, thresholds);
+      const tl = classifyValue(turnLength?.targetValue ?? NEUTRAL_PARAMETER_TARGET, thresholds);
+      const pt = classifyValue(pauseTolerance?.targetValue ?? NEUTRAL_PARAMETER_TARGET, thresholds);
       return {
         sentences_per_turn: rl === "LOW" ? "1-2" : rl === "HIGH" ? "3-4" : "2-3",
         max_seconds: tl === "LOW" ? 10 : tl === "HIGH" ? 20 : 15,
