@@ -7,6 +7,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
+import { rolesAtOrAbove } from "@/lib/roles";
 
 // ============================================================
 // Types
@@ -368,7 +369,7 @@ async function checkContracts(): Promise<IniCheck> {
 
 async function checkAdminUser(): Promise<IniCheck> {
   const adminCount = await prisma.user.count({
-    where: { role: { in: ["SUPERADMIN", "ADMIN"] } },
+    where: { role: { in: rolesAtOrAbove("ADMIN") } },
   });
 
   if (adminCount === 0) {

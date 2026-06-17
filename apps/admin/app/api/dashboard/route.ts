@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { isOperatorTrackAdmin } from "@/lib/roles";
 
 /**
  * @api GET /api/dashboard
@@ -21,7 +22,7 @@ export async function GET() {
 
     const role = session.user.role;
     const userId = session.user.id;
-    const isAdmin = ["SUPERADMIN", "ADMIN", "OPERATOR"].includes(role);
+    const isAdmin = isOperatorTrackAdmin(role);
     const isSuperAdmin = role === "SUPERADMIN";
     const isTester = ["TESTER", "VIEWER", "SUPER_TESTER"].includes(role);
     const isSuperTester = role === "SUPER_TESTER";
