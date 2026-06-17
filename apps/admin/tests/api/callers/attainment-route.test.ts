@@ -244,3 +244,74 @@ describe("GET /api/callers/[callerId]/attainment — goal trail (SP4-D)", () => 
     expect(t.firstNoticedAt).toBe("2026-06-05T10:00:00Z");
   });
 });
+
+// ── #1703 Theme 9 — incomplete-attempts surface ────────────────────────────
+// Epic #1700 missing-surface sweep (surface 3 of 3).
+
+describe("GET /api/callers/[callerId]/attainment — incompleteAttempts on modules", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns incompleteAttempts on each ModuleProgress row for structured courses", async () => {
+    const { getCourseStyle } = await import("@/lib/pipeline/course-style");
+    (getCourseStyle as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      "structured",
+    );
+    happy();
+    mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+      {
+        moduleId: "m-part1",
+        callCount: 4,
+        incompleteAttempts: 2,
+        mastery: 0.65,
+        status: "IN_PROGRESS",
+        module: {
+          id: "m-part1",
+          slug: "part1",
+          title: "Part 1",
+          curriculum: {
+            playbookLinks: [{ playbookId: "pb1" }],
+          },
+        },
+      },
+    ]);
+    mockPrisma.goal.findMany.mockResolvedValue([]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.modules).toHaveLength(1);
+    expect(body.modules[0].incompleteAttempts).toBe(2);
+    expect(body.modules[0].attemptsCount).toBe(4);
+  });
+
+  it("defaults incompleteAttempts to 0 when column null (older rows)", async () => {
+    const { getCourseStyle } = await import("@/lib/pipeline/course-style");
+    (getCourseStyle as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      "structured",
+    );
+    happy();
+    mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+      {
+        moduleId: "m-part1",
+        callCount: 1,
+        incompleteAttempts: null,
+        mastery: 0.1,
+        status: "IN_PROGRESS",
+        module: {
+          id: "m-part1",
+          slug: "part1",
+          title: "Part 1",
+          curriculum: {
+            playbookLinks: [{ playbookId: "pb1" }],
+          },
+        },
+      },
+    ]);
+    mockPrisma.goal.findMany.mockResolvedValue([]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.modules[0].incompleteAttempts).toBe(0);
+  });
+});
