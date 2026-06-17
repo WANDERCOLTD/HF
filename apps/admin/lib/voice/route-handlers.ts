@@ -61,6 +61,7 @@ import { loadResolvedVoiceConfig } from "@/lib/voice/load-voice-config";
 import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
 import { createSession } from "@/lib/voice/create-session";
 import { endSession } from "@/lib/voice/end-session";
+import { registerModuleScheduledCues } from "@/lib/voice/register-module-cues";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
 import {
   resolveTranscriptStreamEnabled,
@@ -399,17 +400,26 @@ async function processTranscriptUpdate(
   // #1361 — Prefer hfCallId lookup (WebRTC path round-trips our placeholder
   // id via assistant.metadata.hfCallId). Fall back to externalId for PSTN
   // and any legacy rows. Same single indexed findFirst — no perf cost.
-  let callRow: { id: string; callerId: string | null; playbookId: string | null; externalId: string | null } | null = null;
+  // #1743 widens the projection with `requestedModuleId` so the cue
+  // registration helper can look up Playbook.config.modules[] by slug
+  // inside the self-heal branch below.
+  let callRow: {
+    id: string;
+    callerId: string | null;
+    playbookId: string | null;
+    externalId: string | null;
+    requestedModuleId: string | null;
+  } | null = null;
   if (parsed.hfCallId) {
     callRow = await prisma.call.findFirst({
       where: { id: parsed.hfCallId, source: slug },
-      select: { id: true, callerId: true, playbookId: true, externalId: true },
+      select: { id: true, callerId: true, playbookId: true, externalId: true, requestedModuleId: true },
     });
   }
   if (!callRow) {
     callRow = await prisma.call.findFirst({
       where: { externalId: parsed.externalCallId, source: slug },
-      select: { id: true, callerId: true, playbookId: true, externalId: true },
+      select: { id: true, callerId: true, playbookId: true, externalId: true, requestedModuleId: true },
     });
   }
   if (!callRow) return;
@@ -430,6 +440,24 @@ async function processTranscriptUpdate(
           err instanceof Error ? err.message : String(err),
         );
       });
+
+    // #1743 (epic #1700 Theme 2b) — first moment WebRTC's externalCallId
+    // is known. Register module-scoped scheduled cues here. The helper
+    // is idempotent (queries existing rows by externalCallId before
+    // inserting) so an at-least-once duplicate webhook delivery is safe.
+    void registerModuleScheduledCues({
+      externalCallId: parsed.externalCallId,
+      callId: callRow.id,
+      playbookId: callRow.playbookId,
+      moduleSlug: callRow.requestedModuleId,
+    }).catch((err) => {
+      log("system", "voice.cue_registration.failed", {
+        level: "warn",
+        callId: callRow!.id,
+        externalCallId: parsed.externalCallId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 
   // #1373 — Cascade-aware live-bubble gate. Resolve once per call (cached

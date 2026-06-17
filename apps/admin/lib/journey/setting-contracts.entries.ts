@@ -1737,6 +1737,32 @@ const G8_MODULE_SCHEDULED_CUES: JourneySettingContract = {
   previewLocators: [],
 };
 
+// #1743 (epic #1700 Theme 2b — Theme 1 extension) — module-scoped pool
+// of scaffold lines the client-side stall detector picks from when the
+// learner goes silent. Module slug (Part 2 vs Part 3) is the implicit
+// discriminator — Part 2 reads its own pool, Part 3 reads its own.
+const G8_MODULE_SCAFFOLD_POOL: JourneySettingContract = {
+  id: "moduleScaffoldPool",
+  menuGroupKey: "F_stall_recovery",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Stall scaffold pool",
+  helpText:
+    'Array of subtle scaffold strings ("Take your time…", "When you\'re ready, carry on…") the client-side stall detector picks from on a 10s silence window during this module. Module slug is the discriminator (Part 2 monologue pool vs Part 3 discussion pool).',
+  storagePath: {
+    path: "config.modules[].settings.scaffoldPool",
+    arrayKey: "id",
+  },
+  control: "array-editor",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 // #1704 Theme 10 — generic profile capture. EXTRACT walks this list and
 // writes typed `CallerAttribute` rows under the course-agnostic `profile:*`
 // namespace (scope "PROFILE"). Phase 1 renders via JourneyJsonFallback;
@@ -1852,13 +1878,14 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G7_ASSESSMENT_READINESS_THRESHOLD,
   G7_REWARD_STRATEGY,
   G7_TALK_TIME_BUDGETS,
-  // G8 (7) — #1701 module-scoped settings + #1704 profile capture
+  // G8 (8) — #1701 module-scoped settings + #1704 profile capture + #1743 scaffold pool
   G8_MODULE_QUESTION_TARGET,
   G8_MODULE_MIN_SPEAKING_SEC,
   G8_MODULE_CUE_CARD_POOL,
   G8_MODULE_CLOSING_LINE,
   G8_MODULE_FIRST_TIME_ORIENTATION_LINE,
   G8_MODULE_SCHEDULED_CUES,
+  G8_MODULE_SCAFFOLD_POOL,
   G8_MODULE_PROFILE_FIELDS_TO_CAPTURE,
 ];
 

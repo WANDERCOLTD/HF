@@ -23,6 +23,8 @@ import { ChatSurveyInput } from './ChatSurveyInput';
 import { SimAdminPanel } from './SimAdminPanel';
 import { SimProgressPanel } from './SimProgressPanel';
 import { PostCallProgressCard } from './PostCallProgressCard';
+import { StallChip } from './StallChip';
+import { useStallDetector } from '@/hooks/use-stall-detector';
 import { QualificationSessionSummary } from './qualification/QualificationContextStrip';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { useJourneyPosition } from '@/hooks/useJourneyPosition';
@@ -214,6 +216,47 @@ export function SimChat({
   const wrapUpSentRef = useRef(false);
   const [timeChip, setTimeChip] = useState<string | null>(null);
 
+  // #1743 (epic #1700 Theme 2b) — last speech timestamp + scaffold pool
+  // for the client-side stall detector. `lastSpeechAt` is bumped from
+  // every `transcript-partial` SSE event (either role); `stallPool` is
+  // fetched once per session from /api/callers/[id]/module-stall-pool
+  // and stays stable for the call.
+  const [lastSpeechAt, setLastSpeechAt] = useState<number | null>(null);
+  const [stallPool, setStallPool] = useState<string[]>([]);
+
+  // #1743 — fetch the scaffold pool for the active module once the call
+  // is active. Single fire-and-forget request; an empty pool keeps the
+  // chip disabled. Flag-off / no-playbook / no-module → empty pool from
+  // the route. Aborted on phase change so a re-enter cancels in-flight.
+  useEffect(() => {
+    if (!requestedModuleId) {
+      setStallPool([]);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(
+      `/api/callers/${encodeURIComponent(callerId)}/module-stall-pool?moduleSlug=${encodeURIComponent(requestedModuleId)}`,
+      { signal: controller.signal, credentials: 'same-origin' },
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { pool?: string[] } | null) => {
+        if (!body || !Array.isArray(body.pool)) return;
+        setStallPool(body.pool);
+      })
+      .catch((err) => {
+        if ((err as Error)?.name === 'AbortError') return;
+        // Pool fetch is best-effort — silent on failure (the chip simply
+        // never fires).
+      });
+    return () => controller.abort();
+  }, [callerId, requestedModuleId]);
+
+  const { chip: stallChip } = useStallDetector({
+    enabled: callPhase === 'active',
+    lastSpeechAt,
+    pool: stallPool,
+  });
+
   // Voice mode — wired so transcribed speech sends as user message
   const voiceMode = useVoiceMode(useCallback((transcript: string) => {
     sendVoiceMessage(transcript);
@@ -242,6 +285,8 @@ export function SimChat({
     if (event.type === 'transcript-partial') {
       const id = `voice-${event.timestampMs}-${event.role}`;
       const isLearner = event.role === 'learner';
+      // #1743 — any speech (learner or tutor) resets the stall window.
+      setLastSpeechAt(event.timestampMs);
       setMessages((prev) => {
         // #1365 — Coalesce same-role chunks by REPLACE, not APPEND.
         // VAPI's transcript-bearing events carry the latest interim for
@@ -1736,6 +1781,12 @@ export function SimChat({
             transcript activity for >30s during a live call. Provides a
             "Mark as ended" escape hatch so the learner isn't stuck if the
             provider event never lands. Cleared on any new message. */}
+        {/* #1743 — stall-detector chip (Theme 2b). Subtle visual nudge
+            after `silenceMs` of no transcript activity. Voice is never
+            triggered from this surface; cue scheduler owns proactive
+            speech. Chip clears the moment any party speaks again. */}
+        <StallChip text={stallChip} />
+
         {silenceWarning && callPhase === 'active' && (
           <div
             className="hf-banner hf-banner-warning"
