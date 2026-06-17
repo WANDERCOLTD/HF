@@ -40,6 +40,13 @@ import {
   deriveSkipStages,
   type SessionKindString,
 } from "@/lib/voice/session-rules";
+import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
+import { selectPinnedCardForModule } from "@/lib/voice/select-pinned-card";
+import type {
+  PinnedCardContent,
+  PlaybookConfig,
+  SessionMetadata,
+} from "@/lib/types/json-fields";
 
 export type SessionKind = SessionKindString;
 
@@ -129,6 +136,19 @@ export async function createSession(
     }
   }
 
+  // (3b) #1733 / #1744 (epic #1700 Theme 3) — load the Playbook config
+  // so we can resolve the per-session pinned card pool. Side-effect-free
+  // read; safe outside the transaction. Skipped when the IELTS module
+  // settings flag is off (the same gate the prompt-side reader uses).
+  let pinnedCardConfig: PlaybookConfig | null = null;
+  if (isIeltsModuleSettingsEnabled() && playbookId && resolvedRequestedSlug) {
+    const playbook = await prisma.playbook.findUnique({
+      where: { id: playbookId },
+      select: { config: true },
+    });
+    pinnedCardConfig = (playbook?.config ?? null) as PlaybookConfig | null;
+  }
+
   // (4) usedPromptId — I-CT2 cascade. May be null on a brand-new caller.
   const promptResolution = await resolveUsedPromptId({ callerId: args.callerId });
 
@@ -203,6 +223,23 @@ export async function createSession(
       learnerFacingNumber = lf.nextSeq - 1;
     }
 
+    // #1733 / #1744 (epic #1700 Theme 3) — pin a cue card for THIS
+    // session. Same selection policy as `resolveModuleCueCard` in
+    // `transforms/instructions.ts` so the UI card and the prompt's
+    // CUE CARD directive agree byte-for-byte. Indexes on
+    // `learnerFacingNumber` when it exists (sim drops do not advance
+    // the count, so consecutive learner sessions rotate cards), falls
+    // back to `assignedSeq` otherwise.
+    let pinnedCard: PinnedCardContent | null = null;
+    if (pinnedCardConfig) {
+      pinnedCard = selectPinnedCardForModule({
+        config: pinnedCardConfig,
+        moduleSlug: resolvedRequestedSlug,
+        sequenceNumber: learnerFacingNumber ?? assignedSeq,
+      });
+    }
+    const metadata: SessionMetadata | null = pinnedCard ? { pinnedCard } : null;
+
     const session = await tx.session.create({
       data: {
         callerId: args.callerId,
@@ -225,6 +262,9 @@ export async function createSession(
           : {}),
         ...(promptResolution.usedPromptId
           ? { usedPromptId: promptResolution.usedPromptId }
+          : {}),
+        ...(metadata
+          ? { metadata: metadata as unknown as Prisma.InputJsonValue }
           : {}),
       },
       select: {

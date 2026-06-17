@@ -25,6 +25,7 @@ import { SimProgressPanel } from './SimProgressPanel';
 import { PostCallProgressCard } from './PostCallProgressCard';
 import { StallChip } from './StallChip';
 import { useStallDetector } from '@/hooks/use-stall-detector';
+import { PinnedCardSlot } from './PinnedCardSlot';
 import { QualificationSessionSummary } from './qualification/QualificationContextStrip';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { useJourneyPosition } from '@/hooks/useJourneyPosition';
@@ -1776,6 +1777,18 @@ export function SimChat({
             <span style={{ fontSize: 12, color: 'var(--status-success-text)' }}>View &rarr;</span>
           </div>
         )}
+
+        {/* #1744 — pinned cue card (Theme 3). Sticky-positioned card
+            above the chat surface that holds the Part 2 monologue cue
+            or Part 3 / Mock topic-focus banner. Read from the persisted
+            Session.metadata.pinnedCard written at session-start by
+            createSession (#1733) under the same selection policy the
+            prompt-side composer uses. Esc-dismissible; auto-clears on
+            session-complete. */}
+        <PinnedCardSlot
+          callId={callId}
+          phaseEnded={callPhase === 'ended' || callPhase === 'wrapping'}
+        />
 
         {/* #1241 Slice 5 — 30s silence watchdog banner. Surfaces when no
             transcript activity for >30s during a live call. Provides a
