@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-17T11:44:00.157Z",
+  "generatedAt": "2026-06-17T16:24:43.856Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1818,
-  "edgeCount": 4254,
+  "fileCount": 1834,
+  "edgeCount": 4300,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1265,6 +1265,10 @@
     },
     {
       "from": "app/api/callers/[callerId]/skills-evidence/route.ts",
+      "to": "lib/pipeline/segment-key-namespace.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/skills-evidence/route.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -1694,6 +1698,10 @@
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/pipeline/score-agent-cascade.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pipeline/route.ts",
+      "to": "lib/pipeline/segment-key-namespace.ts"
     },
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
@@ -2150,6 +2158,10 @@
     {
       "from": "app/api/cohorts/route.ts",
       "to": "lib/api-utils.ts"
+    },
+    {
+      "from": "app/api/cohorts/route.ts",
+      "to": "lib/caller-roles.ts"
     },
     {
       "from": "app/api/cohorts/route.ts",
@@ -3193,6 +3205,10 @@
     },
     {
       "from": "app/api/courses/[courseId]/learners/ensure-cohort/route.ts",
+      "to": "lib/caller-roles.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/learners/ensure-cohort/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -3242,6 +3258,18 @@
     {
       "from": "app/api/courses/[courseId]/memory-deltas-preview/route.ts",
       "to": "lib/prompt/composition/loaders/memoryDeltas.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/modules/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/modules/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/modules/route.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "app/api/courses/[courseId]/onboarding/route.ts",
@@ -3896,6 +3924,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "app/api/dashboard/route.ts",
+      "to": "lib/roles.ts"
+    },
+    {
       "from": "app/api/data-dictionary/dependencies/route.ts",
       "to": "lib/permissions.ts"
     },
@@ -3930,6 +3962,10 @@
     {
       "from": "app/api/demonstrate/suggest/route.ts",
       "to": "lib/system-settings.ts"
+    },
+    {
+      "from": "app/api/domains/[domainId]/classroom/route.ts",
+      "to": "lib/caller-roles.ts"
     },
     {
       "from": "app/api/domains/[domainId]/classroom/route.ts",
@@ -6166,6 +6202,10 @@
     {
       "from": "app/api/student/[courseId]/results/[sessionId]/route.ts",
       "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/student/[courseId]/results/[sessionId]/route.ts",
+      "to": "lib/pipeline/compute-overall-band.ts"
     },
     {
       "from": "app/api/student/[courseId]/results/[sessionId]/route.ts",
@@ -9061,6 +9101,14 @@
     },
     {
       "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "components/modules-tab/CourseModulesTab.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "components/scoring-tab/CourseScoringTab.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
       "to": "components/shared/CollapsibleCard.tsx"
     },
     {
@@ -9102,6 +9150,10 @@
     {
       "from": "app/x/courses/[courseId]/page.tsx",
       "to": "components/shared/SurveyStopDetail.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "components/teaching-tab/CourseTeachingTab.tsx"
     },
     {
       "from": "app/x/courses/[courseId]/page.tsx",
@@ -10720,6 +10772,10 @@
       "to": "app/x/student/[courseId]/results/[sessionId]/results.css"
     },
     {
+      "from": "app/x/student/[courseId]/results/[sessionId]/page.tsx",
+      "to": "lib/pipeline/segment-key-namespace.ts"
+    },
+    {
       "from": "app/x/student/calls/page.tsx",
       "to": "hooks/useStudentCallerId.ts"
     },
@@ -11288,6 +11344,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/ai/config-loader.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/ai/knowledge-accumulation.ts",
       "to": "lib/prisma.ts"
     },
@@ -11790,6 +11850,10 @@
     {
       "from": "lib/chat/admin-tools.ts",
       "to": "lib/ai/client.ts"
+    },
+    {
+      "from": "lib/chat/admin-tools.ts",
+      "to": "lib/pipeline/prosody-types.ts"
     },
     {
       "from": "lib/chat/commands.ts",
@@ -13836,6 +13900,30 @@
       "to": "lib/settings/voice-setting-contracts.ts"
     },
     {
+      "from": "lib/journey/buckets-by-tab.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
+      "from": "lib/journey/compute-relevance-state.ts",
+      "to": "lib/journey/is-gated-by.ts"
+    },
+    {
+      "from": "lib/journey/compute-relevance-state.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
+      "from": "lib/journey/compute-relevance-state.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/journey/is-gated-by.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
+      "from": "lib/journey/is-gated-by.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/journey/menu-items.ts",
       "to": "lib/journey/setting-contracts.ts"
     },
@@ -13870,6 +13958,10 @@
     {
       "from": "lib/journey/setting-contracts.entries.ts",
       "to": "lib/journey/setting-groups.ts"
+    },
+    {
+      "from": "lib/journey/setting-contracts.entries.ts",
+      "to": "lib/pipeline/prosody-types.ts"
     },
     {
       "from": "lib/journey/setting-contracts.ts",
@@ -14312,6 +14404,10 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/pipeline/compute-overall-band.ts",
+      "to": "lib/goals/track-progress.ts"
+    },
+    {
       "from": "lib/pipeline/config.ts",
       "to": "lib/config.ts"
     },
@@ -14409,11 +14505,23 @@
     },
     {
       "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
       "to": "lib/pipeline/adaptive-loop-invariants.ts"
     },
     {
       "from": "lib/pipeline/prosody-runner.ts",
       "to": "lib/pipeline/prosody-types.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/pipeline/prosody-types.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/pipeline/segment-key-namespace.ts"
     },
     {
       "from": "lib/pipeline/prosody-runner.ts",
@@ -14426,6 +14534,14 @@
     {
       "from": "lib/pipeline/prosody-runner.ts",
       "to": "lib/speech-assessment/types.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/pipeline/prosody-runner.ts",
+      "to": "lib/voice/audio-slice.ts"
     },
     {
       "from": "lib/pipeline/prosody-runner.ts",
@@ -14494,6 +14610,26 @@
     {
       "from": "lib/pipeline/write-count-logger.ts",
       "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/goals/track-progress.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/pipeline/compute-overall-band.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/pipeline/write-overall-band.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/pipeline/writer-completeness-invariant.ts",
@@ -14957,6 +15093,10 @@
     },
     {
       "from": "lib/prompt/composition/transforms/identity.ts",
+      "to": "lib/measurement/neutral-target.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/identity.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -15218,6 +15358,10 @@
     {
       "from": "lib/prompt/composition/transforms/quickstart.ts",
       "to": "lib/learner/survey-keys.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/quickstart.ts",
+      "to": "lib/measurement/neutral-target.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/quickstart.ts",
@@ -15533,6 +15677,10 @@
     },
     {
       "from": "lib/speech-assessment/providers/speechace/index.ts",
+      "to": "lib/pipeline/prosody-types.ts"
+    },
+    {
+      "from": "lib/speech-assessment/providers/speechace/index.ts",
       "to": "lib/speech-assessment/types.ts"
     },
     {
@@ -15541,11 +15689,19 @@
     },
     {
       "from": "lib/speech-assessment/providers/speechsuper/index.ts",
+      "to": "lib/pipeline/prosody-types.ts"
+    },
+    {
+      "from": "lib/speech-assessment/providers/speechsuper/index.ts",
       "to": "lib/speech-assessment/types.ts"
     },
     {
       "from": "lib/speech-assessment/providers/speechsuper/index.ts",
       "to": "lib/voice/types.ts"
+    },
+    {
+      "from": "lib/speech-assessment/types.ts",
+      "to": "lib/pipeline/prosody-types.ts"
     },
     {
       "from": "lib/speech-assessment/types.ts",
@@ -15602,6 +15758,10 @@
     {
       "from": "lib/system-ini.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/system-ini.ts",
+      "to": "lib/roles.ts"
     },
     {
       "from": "lib/system-settings.ts",
@@ -15885,6 +16045,10 @@
     },
     {
       "from": "lib/voice/cue-scheduler.ts",
+      "to": "lib/voice/phase-boundaries.ts"
+    },
+    {
+      "from": "lib/voice/cue-scheduler.ts",
       "to": "lib/voice/provider-factory.ts"
     },
     {
@@ -15989,6 +16153,10 @@
     },
     {
       "from": "lib/voice/load-voice-config.ts",
+      "to": "lib/voice/default-provider.ts"
+    },
+    {
+      "from": "lib/voice/load-voice-config.ts",
       "to": "lib/voice/provider-factory.ts"
     },
     {
@@ -15996,8 +16164,24 @@
       "to": "lib/voice/system-settings.ts"
     },
     {
+      "from": "lib/voice/phase-boundaries.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/voice/phase-boundaries.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/voice/phase-boundaries.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/voice/poll-stale-calls.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/voice/poll-stale-calls.ts",
+      "to": "lib/voice/default-provider.ts"
     },
     {
       "from": "lib/voice/poll-stale-calls.ts",
@@ -17498,7 +17682,7 @@
     {
       "path": "app/api/callers/[callerId]/skills-evidence/route.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/api/callers/[callerId]/slugs/route.ts",
@@ -17593,7 +17777,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 54
+      "outDegree": 55
     },
     {
       "path": "app/api/calls/[callId]/post-call-redirect/route.ts",
@@ -17708,7 +17892,7 @@
     {
       "path": "app/api/cohorts/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/communities/[communityId]/invite/route.ts",
@@ -18033,7 +18217,7 @@
     {
       "path": "app/api/courses/[courseId]/learners/ensure-cohort/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/courses/[courseId]/learners/invite/route.ts",
@@ -18052,6 +18236,11 @@
     },
     {
       "path": "app/api/courses/[courseId]/memory-deltas-preview/route.ts",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
+      "path": "app/api/courses/[courseId]/modules/route.ts",
       "inDegree": 0,
       "outDegree": 3
     },
@@ -18283,7 +18472,7 @@
     {
       "path": "app/api/dashboard/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/data-dictionary/dependencies/route.ts",
@@ -18308,7 +18497,7 @@
     {
       "path": "app/api/domains/[domainId]/classroom/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/domains/[domainId]/content-categories/route.ts",
@@ -19243,7 +19432,7 @@
     {
       "path": "app/api/student/[courseId]/results/[sessionId]/route.ts",
       "inDegree": 1,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "app/api/student/artifacts/mark-read/route.ts",
@@ -20403,7 +20592,7 @@
     {
       "path": "app/x/courses/[courseId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 45
+      "outDegree": 48
     },
     {
       "path": "app/x/courses/[courseId]/sessions/[sessionNum]/page.tsx",
@@ -21233,7 +21422,7 @@
     {
       "path": "app/x/student/[courseId]/results/[sessionId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/x/student/[courseId]/results/[sessionId]/results.css",
@@ -21621,12 +21810,22 @@
       "outDegree": 0
     },
     {
+      "path": "components/modules-tab/CourseModulesTab.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "components/orchestrator/OrchestratorShell.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
     {
       "path": "components/playbook/PlaybookBuilder.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/scoring-tab/CourseScoringTab.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
@@ -22131,6 +22330,11 @@
       "outDegree": 0
     },
     {
+      "path": "components/teaching-tab/CourseTeachingTab.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "components/voice/VoiceConfigSection.tsx",
       "inDegree": 1,
       "outDegree": 0
@@ -22398,7 +22602,7 @@
     {
       "path": "lib/ai/config-loader.ts",
       "inDegree": 6,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/ai/error-utils.ts",
@@ -22606,6 +22810,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/caller-roles.ts",
+      "inDegree": 3,
+      "outDegree": 0
+    },
+    {
       "path": "lib/caller-utils.ts",
       "inDegree": 3,
       "outDegree": 0
@@ -22733,7 +22942,7 @@
     {
       "path": "lib/chat/admin-tools.ts",
       "inDegree": 2,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/chat/ai-forbidden-fields.ts",
@@ -23797,7 +24006,7 @@
     },
     {
       "path": "lib/goals/track-progress.ts",
-      "inDegree": 14,
+      "inDegree": 16,
       "outDegree": 6
     },
     {
@@ -24021,6 +24230,21 @@
       "outDegree": 4
     },
     {
+      "path": "lib/journey/buckets-by-tab.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
+      "path": "lib/journey/compute-relevance-state.ts",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
+      "path": "lib/journey/is-gated-by.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
       "path": "lib/journey/menu-items.ts",
       "inDegree": 0,
       "outDegree": 2
@@ -24038,11 +24262,11 @@
     {
       "path": "lib/journey/setting-contracts.entries.ts",
       "inDegree": 3,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "lib/journey/setting-contracts.ts",
-      "inDegree": 8,
+      "inDegree": 11,
       "outDegree": 2
     },
     {
@@ -24177,7 +24401,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 33,
+      "inDegree": 36,
       "outDegree": 3
     },
     {
@@ -24189,6 +24413,11 @@
       "path": "lib/measurement/build-batched-measure-prompt.ts",
       "inDegree": 1,
       "outDegree": 1
+    },
+    {
+      "path": "lib/measurement/neutral-target.ts",
+      "inDegree": 2,
+      "outDegree": 0
     },
     {
       "path": "lib/measurement/parameter-spec-map.ts",
@@ -24317,7 +24546,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 472,
+      "inDegree": 473,
       "outDegree": 3
     },
     {
@@ -24334,6 +24563,11 @@
       "path": "lib/pipeline/aggregate-runner.ts",
       "inDegree": 3,
       "outDegree": 5
+    },
+    {
+      "path": "lib/pipeline/compute-overall-band.ts",
+      "inDegree": 2,
+      "outDegree": 1
     },
     {
       "path": "lib/pipeline/config.ts",
@@ -24408,11 +24642,11 @@
     {
       "path": "lib/pipeline/prosody-runner.ts",
       "inDegree": 3,
-      "outDegree": 8
+      "outDegree": 13
     },
     {
       "path": "lib/pipeline/prosody-types.ts",
-      "inDegree": 2,
+      "inDegree": 8,
       "outDegree": 0
     },
     {
@@ -24441,6 +24675,11 @@
       "outDegree": 2
     },
     {
+      "path": "lib/pipeline/segment-key-namespace.ts",
+      "inDegree": 4,
+      "outDegree": 0
+    },
+    {
       "path": "lib/pipeline/specs-loader.ts",
       "inDegree": 1,
       "outDegree": 4
@@ -24454,6 +24693,11 @@
       "path": "lib/pipeline/write-count-logger.ts",
       "inDegree": 2,
       "outDegree": 1
+    },
+    {
+      "path": "lib/pipeline/write-overall-band.ts",
+      "inDegree": 0,
+      "outDegree": 5
     },
     {
       "path": "lib/pipeline/writer-completeness-invariant.ts",
@@ -24472,7 +24716,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 668,
+      "inDegree": 671,
       "outDegree": 0
     },
     {
@@ -24628,7 +24872,7 @@
     {
       "path": "lib/prompt/composition/transforms/identity.ts",
       "inDegree": 2,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/prompt/composition/transforms/instructions.ts",
@@ -24708,7 +24952,7 @@
     {
       "path": "lib/prompt/composition/transforms/quickstart.ts",
       "inDegree": 2,
-      "outDegree": 12
+      "outDegree": 13
     },
     {
       "path": "lib/prompt/composition/transforms/retrieval-practice.ts",
@@ -24812,7 +25056,7 @@
     },
     {
       "path": "lib/roles.ts",
-      "inDegree": 14,
+      "inDegree": 16,
       "outDegree": 0
     },
     {
@@ -24933,17 +25177,17 @@
     {
       "path": "lib/speech-assessment/providers/speechace/index.ts",
       "inDegree": 1,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/speech-assessment/providers/speechsuper/index.ts",
       "inDegree": 1,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/speech-assessment/types.ts",
       "inDegree": 5,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/storage/adapter.ts",
@@ -24978,7 +25222,7 @@
     {
       "path": "lib/system-ini.ts",
       "inDegree": 2,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/system-settings.ts",
@@ -25052,7 +25296,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 121,
+      "inDegree": 128,
       "outDegree": 0
     },
     {
@@ -25074,6 +25318,11 @@
       "path": "lib/voice/adapter-registry.ts",
       "inDegree": 3,
       "outDegree": 3
+    },
+    {
+      "path": "lib/voice/audio-slice.ts",
+      "inDegree": 1,
+      "outDegree": 0
     },
     {
       "path": "lib/voice/build-assistant-config.ts",
@@ -25108,7 +25357,12 @@
     {
       "path": "lib/voice/cue-scheduler.ts",
       "inDegree": 2,
-      "outDegree": 4
+      "outDegree": 5
+    },
+    {
+      "path": "lib/voice/default-provider.ts",
+      "inDegree": 2,
+      "outDegree": 0
     },
     {
       "path": "lib/voice/diag.ts",
@@ -25158,12 +25412,17 @@
     {
       "path": "lib/voice/load-voice-config.ts",
       "inDegree": 6,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/voice/mask-credentials.ts",
       "inDegree": 4,
       "outDegree": 0
+    },
+    {
+      "path": "lib/voice/phase-boundaries.ts",
+      "inDegree": 1,
+      "outDegree": 3
     },
     {
       "path": "lib/voice/phone-format.ts",
@@ -25173,7 +25432,7 @@
     {
       "path": "lib/voice/poll-stale-calls.ts",
       "inDegree": 1,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "lib/voice/provider-factory.ts",
@@ -25289,6 +25548,11 @@
       "path": "lib/voice/tool-router.ts",
       "inDegree": 2,
       "outDegree": 3
+    },
+    {
+      "path": "lib/voice/transcript-detailed.ts",
+      "inDegree": 0,
+      "outDegree": 0
     },
     {
       "path": "lib/voice/transcript-stream-gate.ts",
@@ -26119,17 +26383,17 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 668,
+      "inDegree": 671,
       "outDegree": 0
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 472,
+      "inDegree": 473,
       "outDegree": 3
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 121,
+      "inDegree": 128,
       "outDegree": 0
     },
     {
@@ -26148,19 +26412,19 @@
       "outDegree": 1
     },
     {
+      "path": "app/api/calls/[callId]/pipeline/route.ts",
+      "inDegree": 0,
+      "outDegree": 55
+    },
+    {
       "path": "lib/system-settings.ts",
       "inDegree": 52,
       "outDegree": 3
     },
     {
-      "path": "app/api/calls/[callId]/pipeline/route.ts",
-      "inDegree": 0,
-      "outDegree": 54
-    },
-    {
       "path": "app/x/courses/[courseId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 45
+      "outDegree": 48
     },
     {
       "path": "lib/prompt/composition/types.ts",
@@ -26178,14 +26442,14 @@
       "outDegree": 40
     },
     {
+      "path": "lib/logger.ts",
+      "inDegree": 36,
+      "outDegree": 3
+    },
+    {
       "path": "app/api/chat/route.ts",
       "inDegree": 0,
       "outDegree": 38
-    },
-    {
-      "path": "lib/logger.ts",
-      "inDegree": 33,
-      "outDegree": 3
     },
     {
       "path": "lib/prompt/composition/TransformRegistry.ts",
