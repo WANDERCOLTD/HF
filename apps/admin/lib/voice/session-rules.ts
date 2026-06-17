@@ -150,15 +150,48 @@ export function statusFromOutcome(outcome: SessionOutcomeString): SessionStatusS
  *
  * Returns a sorted, de-duplicated string[].
  */
+/**
+ * Derive which pipeline stages should be skipped for a given Session.kind
+ * + outcome combo.
+ *
+ * Uses `switch + never` exhaustiveness on `kind` so a new SessionKind
+ * cannot be added without a deliberate decision here. Pinned by
+ * `tests/lib/voice/session-kind-exhaustiveness.test.ts` — that test also
+ * surfaces drift if the kind→stages mapping silently changes.
+ *
+ * Stage-skip semantics by kind (no outcome override):
+ *   - ENROLLMENT / ASSESSMENT: intake / probe — no audio to score,
+ *     transcript is structured intake form. Skip EXTRACT / SCORE_AGENT
+ *     / PROSODY; pipeline still runs ADAPT / SUPERVISE / COMPOSE.
+ *   - VOICE_CALL / SIM_CALL / TEXT_CHAT: full pipeline at kind level.
+ *     (TEXT_CHAT has no audio — PROSODY would no-op on empty audio path,
+ *     but the pipeline runner handles that itself; we don't pre-skip.)
+ *
+ * Outcome overrides (always applied on top of kind-level skips):
+ *   - FAILED / GHOST: scoring on an empty / failed transcript is
+ *     misleading. Skip EXTRACT / SCORE_AGENT / PROSODY / REWARD.
+ */
 export function deriveSkipStages(args: {
   kind: SessionKindString;
   outcome?: SessionOutcomeString;
 }): string[] {
   const skip = new Set<string>();
-  if (args.kind === "ENROLLMENT" || args.kind === "ASSESSMENT") {
-    skip.add("EXTRACT");
-    skip.add("SCORE_AGENT");
-    skip.add("PROSODY");
+  switch (args.kind) {
+    case "ENROLLMENT":
+    case "ASSESSMENT":
+      skip.add("EXTRACT");
+      skip.add("SCORE_AGENT");
+      skip.add("PROSODY");
+      break;
+    case "VOICE_CALL":
+    case "SIM_CALL":
+    case "TEXT_CHAT":
+      // Full pipeline at kind level. Outcome-level skip below may still apply.
+      break;
+    default: {
+      const exhaustive: never = args.kind;
+      return exhaustive;
+    }
   }
   if (args.outcome === "FAILED" || args.outcome === "GHOST") {
     skip.add("EXTRACT");

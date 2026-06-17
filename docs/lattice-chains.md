@@ -133,7 +133,7 @@ Three structural patterns, in order of preference:
 | Stall detector event → server persistence | `hooks/use-stall-detector.ts` | (no server-side persistence today) | ❌ GAP | — | MED | Client-only. Needed before `BEH-STALL-RECOVERY-MS` can ship (epic #1860) |
 | `Session.voiceConfigSnapshot` → reproducibility consumer | `lib/voice/create-session.ts` snapshot at session-start | (forensics + reproducibility — no automated consumer) | ⚠️ PARTIAL | Schema field + create-session test pins write | LOW | Snapshot stored; no test that it enables replay |
 | `Session.sequenceNumber` → call ordering | atomic upsert at `CallerSequenceCounter` | pipeline + reads | ✅ PROTECTED | `ai-to-db-guard.md` (createSession atomic increment) + `apps/admin/tests/lib/voice/create-session.test.ts` | — | Postgres row-level lock serialises concurrent webhooks |
-| Session.kind → `skipStages` pipeline gate | `lib/voice/create-session.ts` | `lib/pipeline/run-spec-driven.ts` | ⚠️ PARTIAL | Runtime + `tests/lib/voice/create-session.test.ts` | MED | Mapping logic tested at write but no coverage test that all 5 kinds map correctly |
+| Session.kind → `skipStages` pipeline gate | `lib/voice/session-rules.ts::deriveSkipStages` (switch + never exhaustiveness) | `lib/pipeline/run-spec-driven.ts` | ✅ PROTECTED | `apps/admin/tests/lib/voice/session-kind-exhaustiveness.test.ts` (5 vitests: kind enumeration + per-kind skip pin + outcome override pin + initialCounterFlags exhaustiveness pin) + TS `never` compile-time check | — | 2026-06-17: refactored `deriveSkipStages` from `if (kind === ... \|\| kind === ...)` to `switch + never`. Behaviour-preserving (TEXT_CHAT/VOICE_CALL/SIM_CALL still no kind-level skips). Test pins the kind→skip-list mapping byte-identical with the original behaviour. |
 
 ### Schema / migration
 
@@ -207,7 +207,7 @@ Three structural patterns, in order of preference:
 | Parameter ↔ JOURNEY_SETTINGS LH-menu exposure | MED | 2 hr | Coverage vitest in #1849 pattern |
 | VOICE_SETTINGS ↔ Settings tab render coverage | MED | 1 hr | Coverage vitest |
 | Migration ↔ seed compatibility | MED | 2 hr | CI step running seed after each migration |
-| Session.kind ↔ skipStages mapping | MED | 1 hr | Exhaustiveness test |
+| ~~Session.kind ↔ skipStages mapping~~ | ~~MED~~ | ~~1 hr~~ | **SHIPPED** 2026-06-17 — `switch + never` refactor in `lib/voice/session-rules.ts::deriveSkipStages` + 5 pinning vitests in `tests/lib/voice/session-kind-exhaustiveness.test.ts`. |
 | Stall detector → server persistence | MED | (epic) | Tracked in #1860 epic Phase 3 |
 | `composeImpact.kinds` consumer | LOW | (decide) | Either build the UI or drop the field |
 
