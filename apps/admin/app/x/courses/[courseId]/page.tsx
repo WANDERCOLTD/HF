@@ -9,7 +9,7 @@ import {
   Settings as SettingsIcon, Users2,
   Zap, Target, BarChart3,
   PlayCircle, Copy, Link2, GraduationCap, Wand2, FileSearch,
-  Mic, Award,
+  Mic, Award, Sliders, Layers, Calculator,
 } from 'lucide-react';
 import { CourseSkillsTab } from './CourseSkillsTab';
 import { SettingsTabVoiceLens } from '@/components/journey-tab/SettingsTabVoiceLens';
@@ -26,6 +26,9 @@ import { CourseWhoTab } from './CourseWhoTab';
 import { CourseGoalsTab } from './CourseGoalsTab';
 import { CourseDesignTab } from './CourseDesignTab';
 import { CourseJourneyTab } from '@/components/journey-tab/CourseJourneyTab';
+import { CourseTeachingTab } from '@/components/teaching-tab/CourseTeachingTab';
+import { CourseScoringTab } from '@/components/scoring-tab/CourseScoringTab';
+import { CourseModulesTab } from '@/components/modules-tab/CourseModulesTab';
 import { CourseLearnersTab } from './CourseLearnersTab';
 import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
@@ -151,7 +154,7 @@ type SessionTabData = {
 
 import { SectionHeader } from './SectionHeader';
 
-const VALID_TABS = ['journey', 'intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'skills', 'voice', 'settings',
+const VALID_TABS = ['journey', 'teaching', 'scoring', 'modules', 'intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'skills', 'voice', 'settings',
   // Legacy tab IDs — redirected in handleTabChange
   'overview', 'genome', 'audience', 'session-flow',
 ];
@@ -408,6 +411,10 @@ export default function CourseDetailPage() {
     // landing surface. Design tab kept with amber retirement chip until
     // Journey reaches parity (Phase 2 Slice B / Phase 3 Slice B + #1695).
     { id: 'journey', label: <TabWithHelp tabId="journey">Journey</TabWithHelp>, icon: <Wand2 size={14} /> },
+    // Track C P0 — new Course Detail tab shells, BUCKETS_BY_TAB-driven LH.
+    { id: 'teaching', label: <TabWithHelp tabId="teaching">Teaching</TabWithHelp>, icon: <Sliders size={14} /> },
+    { id: 'scoring', label: <TabWithHelp tabId="scoring">Scoring</TabWithHelp>, icon: <Calculator size={14} /> },
+    { id: 'modules', label: <TabWithHelp tabId="modules">Modules</TabWithHelp>, icon: <Layers size={14} /> },
     { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Content</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
     {
       id: 'design',
@@ -1728,6 +1735,35 @@ export default function CourseDetailPage() {
         <CourseJourneyTab
           courseId={courseId!}
           playbookConfig={detail?.config as Record<string, unknown> | null}
+        />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* TEACHING / SCORING / MODULES (Track C P0)      */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'teaching' && (
+        <CourseTeachingTab
+          courseId={courseId!}
+          playbookConfig={detail?.config as Record<string, unknown> | null}
+        />
+      )}
+
+      {activeTab === 'scoring' && (
+        <CourseScoringTab
+          courseId={courseId!}
+          playbookConfig={detail?.config as Record<string, unknown> | null}
+        />
+      )}
+
+      {activeTab === 'modules' && (
+        <CourseModulesTab
+          courseId={courseId!}
+          courseStyle={
+            (detail?.config as { lessonPlanMode?: string } | null | undefined)
+              ?.lessonPlanMode === 'structured'
+              ? 'structured'
+              : 'continuous'
+          }
         />
       )}
 
