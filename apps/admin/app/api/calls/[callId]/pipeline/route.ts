@@ -1797,14 +1797,20 @@ async function computeReward(
   let goalProgressScore: number | null = null;
   let overallScore = behaviorScore;
 
-  const assessmentGoals = await prisma.goal.findMany({
-    where: {
-      callerId: call.callerId,
-      isAssessmentTarget: true,
-      status: { in: ["ACTIVE", "PAUSED"] },
-    },
-    select: { id: true, progress: true, priority: true },
-  });
+  // call.callerId is typed `string | null` at this point but the function
+  // is guard-gated above on its presence — narrow here so the Prisma where
+  // clause type-checks. (Was a pre-existing tsc error before #1872; net-zero
+  // baseline keeps the macOS-local ratchet honest.)
+  const assessmentGoals = call.callerId
+    ? await prisma.goal.findMany({
+        where: {
+          callerId: call.callerId,
+          isAssessmentTarget: true,
+          status: { in: ["ACTIVE", "PAUSED"] },
+        },
+        select: { id: true, progress: true, priority: true },
+      })
+    : [];
 
   if (assessmentGoals.length > 0) {
     const totalWeight = assessmentGoals.reduce((sum, g) => sum + (g.priority || 5), 0);
