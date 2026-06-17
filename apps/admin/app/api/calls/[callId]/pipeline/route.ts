@@ -78,6 +78,7 @@ import { updateTargets } from "@/lib/ops/update-targets";
 import { buildParameterSpecMap, type ParameterWithSpec } from "@/lib/measurement/parameter-spec-map";
 import { buildBatchedMeasurePrompt } from "@/lib/measurement/build-batched-measure-prompt";
 import type { SpecConfig } from "@/lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 /**
  * Build a BATCHED prompt for all MEASURE + LEARN specs
@@ -139,7 +140,7 @@ async function loadCurrentModuleContext(
         config: true,
         // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
         playbookCurricula: {
-          where: { role: "primary" },
+          where: { role: PlaybookCurriculumRole.primary },
           take: 1,
           select: { curriculum: { select: { slug: true } } },
         },
@@ -233,7 +234,7 @@ async function loadCurrentModuleContext(
         config: true,
         // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
         playbookCurricula: {
-          where: { role: "primary" },
+          where: { role: PlaybookCurriculumRole.primary },
           take: 1,
           select: { curriculum: { select: { id: true, slug: true } } },
         },

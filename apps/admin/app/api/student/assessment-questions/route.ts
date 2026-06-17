@@ -26,6 +26,7 @@ import { prisma } from "@/lib/prisma";
 import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { buildPreTest, buildPreTestForPlaybook, buildPostTest, buildComprehensionPostTest } from "@/lib/assessment/pre-test-builder";
 import type { AuthoredModule } from "@/lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 const VALID_TYPES = new Set(["pre_test", "post_test"]);
 
@@ -101,7 +102,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
           playbookCurricula: {
             where: {
-              role: "primary",
+              role: PlaybookCurriculumRole.primary,
               curriculum: { deliveryConfig: { not: Prisma.JsonNull } },
             },
             select: { curriculum: { select: { id: true } } },

@@ -46,6 +46,7 @@ import {
   type TalkTimeEvaluation,
 } from "@/lib/voice/talk-time-stats";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export interface AttainmentSkillBand {
   skillRef: string;
@@ -381,7 +382,7 @@ export async function GET(
             curriculum: {
               select: {
                 playbookLinks: {
-                  where: { playbookId, role: "primary" },
+                  where: { playbookId, role: PlaybookCurriculumRole.primary },
                   select: { playbookId: true },
                 },
               },

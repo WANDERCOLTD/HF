@@ -43,6 +43,7 @@ import {
 import { isUseFreshMastery } from "@/lib/curriculum/playbook-mastery-config";
 import { getAllScratchMastery } from "@/lib/curriculum/scratch-mastery";
 import { getSkillTierMapping, scoreToTier } from "@/lib/goals/track-progress";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export type LoMasteryStatus =
   | "mastered"
@@ -133,7 +134,7 @@ export async function GET(
   // Resolve curriculumId via PlaybookCurriculum(primary) — canonical join
   // post-#1177. Mirrors `lib/curriculum/resolve-playbook-for-curriculum.ts`.
   const playbookCurriculum = await prisma.playbookCurriculum.findFirst({
-    where: { playbookId, role: "primary" },
+    where: { playbookId, role: PlaybookCurriculumRole.primary },
     select: { curriculumId: true },
   });
   if (!playbookCurriculum) {

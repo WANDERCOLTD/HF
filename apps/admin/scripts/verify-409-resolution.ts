@@ -12,6 +12,7 @@ import {
   resolveCurriculumIdForPlaybook,
   resolveModuleByLogicalId,
 } from "@/lib/curriculum/resolve-module";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 const CALLERS = [
   { id: "b9ad0217-9202-4f32-b358-6a79783170ef", name: "Opal Jensen" },
@@ -38,7 +39,7 @@ async function main() {
             curriculum: {
               select: {
                 playbookLinks: {
-                  where: { role: "primary" },
+                  where: { role: PlaybookCurriculumRole.primary },
                   take: 1,
                   select: { playbookId: true },
                 },

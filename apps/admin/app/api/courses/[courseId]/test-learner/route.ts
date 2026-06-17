@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { createTestLearnerForPlaybook } from "@/lib/enrollment/create-test-learner";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 /**
  * @api POST /api/courses/:courseId/test-learner
@@ -50,7 +51,7 @@ export async function POST(
       isActive: true,
       curriculum: {
         OR: [
-          { playbookLinks: { some: { playbookId: courseId, role: "primary" } } },
+          { playbookLinks: { some: { playbookId: courseId, role: PlaybookCurriculumRole.primary } } },
           { subject: { playbooks: { some: { playbookId: courseId } } } },
         ],
       },

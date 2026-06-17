@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import { getSourceIdsForPlaybook } from "@/lib/knowledge/domain-sources";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 type Params = { params: Promise<{ courseId: string }> };
 
@@ -110,7 +111,7 @@ export async function GET(
     // 2. Find curriculum — canonical PlaybookCurriculum primary join,
     // fallback to subject chain. #1177 Slice 6.
     let curriculum = await prisma.curriculum.findFirst({
-      where: { playbookLinks: { some: { playbookId: courseId, role: "primary" } } },
+      where: { playbookLinks: { some: { playbookId: courseId, role: PlaybookCurriculumRole.primary } } },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,

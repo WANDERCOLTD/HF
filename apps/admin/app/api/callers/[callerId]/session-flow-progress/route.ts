@@ -31,6 +31,7 @@ import type {
   OnboardingFlowPhases,
   SessionFlowResolved,
 } from "@/lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export interface CallerSessionFlowProgress {
   /** Course-level state */
@@ -89,7 +90,7 @@ export async function GET(
             // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
             playbookCurricula: {
               where: {
-                role: "primary",
+                role: PlaybookCurriculumRole.primary,
                 curriculum: { deliveryConfig: { not: undefined } },
               },
               select: { curriculum: { select: { id: true, slug: true } } },

@@ -358,6 +358,10 @@ vi.mock('@prisma/client', () => {
       RELATIONSHIP: 'RELATIONSHIP',
       CONTEXT: 'CONTEXT',
     },
+    PlaybookCurriculumRole: {
+      primary: 'primary',
+      linked: 'linked',
+    },
     MemorySource: {
       EXTRACTED: 'EXTRACTED',
       INFERRED: 'INFERRED',

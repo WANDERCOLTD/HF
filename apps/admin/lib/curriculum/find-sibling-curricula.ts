@@ -4,7 +4,7 @@
  * When a create-course route declares qualification metadata (body + ref) that
  * derives to a non-null anchor, we look in the SAME DOMAIN for an existing
  * Curriculum carrying that anchor. If one exists, the new Playbook is linked
- * to it via PlaybookCurriculum(role: "linked") rather than minting a fresh
+ * to it via PlaybookCurriculum(role: PlaybookCurriculumRole.linked) rather than minting a fresh
  * Curriculum — that is the variant pattern from #1034 applied to ingest paths.
  *
  * Domain scope: a Curriculum's domain is reached via any of its linked
@@ -23,6 +23,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export class QualificationAnchorAmbiguity extends Error {
   public readonly anchor: string;

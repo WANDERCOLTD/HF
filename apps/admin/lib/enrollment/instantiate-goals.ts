@@ -19,6 +19,7 @@
 import { prisma } from "@/lib/prisma";
 import { GOAL_TYPE_VALUES, type GoalTypeLiteral, type PlaybookConfig } from "@/lib/types/json-fields";
 import { loadGoalProgressSpec, resolveStrategyKey } from "@/lib/goals/strategies";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 const LEGACY_GOAL_TYPE_MAP: Record<string, GoalTypeLiteral> = {
   TOPIC_MASTERED: "LEARN",
@@ -72,7 +73,7 @@ async function deriveGoalsFromCurriculum(playbookId: string): Promise<GoalConfig
     where: {
       isActive: true,
       curriculum: {
-        playbookLinks: { some: { playbookId, role: "primary" } },
+        playbookLinks: { some: { playbookId, role: PlaybookCurriculumRole.primary } },
       },
     },
     select: { id: true, slug: true, title: true, description: true, sortOrder: true },

@@ -35,6 +35,7 @@ import type {
   CourseCompleteLoadedData,
   CurriculumAssertionData,
 } from "./types";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 /**
  * Loaded shape of the `curriculumAssertions` loader.
@@ -1542,7 +1543,7 @@ registerLoader("courseInstructions", async (_callerId, loaderConfig) => {
         module: {
           isActive: true,
           curriculum: {
-            playbookLinks: { some: { playbookId: scope.playbookId, role: "primary" } },
+            playbookLinks: { some: { playbookId: scope.playbookId, role: PlaybookCurriculumRole.primary } },
           },
         },
       },

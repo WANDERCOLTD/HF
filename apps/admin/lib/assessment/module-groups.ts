@@ -12,6 +12,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { AuthoredModule } from "@/lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export interface ModuleGroup {
   /** AuthoredModule.id — e.g. "part1", "mock". */
@@ -47,7 +48,7 @@ export async function resolveModuleGroupsForSource(
           config: true,
           // #1205 — canonical PlaybookCurriculum primary join (variant-aware).
           playbookCurricula: {
-            where: { role: "primary" },
+            where: { role: PlaybookCurriculumRole.primary },
             select: { curriculum: { select: { id: true } } },
             take: 1,
           },

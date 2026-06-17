@@ -19,6 +19,7 @@ import {
   findCurriculumByAnchor,
   QualificationAnchorAmbiguity,
 } from "@/lib/curriculum/find-sibling-curricula";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 type Params = { params: Promise<{ subjectId: string }> };
 
@@ -276,7 +277,7 @@ export async function POST(req: NextRequest, { params }: Params) {
                 create: {
                   playbookId: resolvedPlaybookId,
                   curriculumId: sibling.id,
-                  role: "linked",
+                  role: PlaybookCurriculumRole.linked,
                 },
                 update: {},
               });

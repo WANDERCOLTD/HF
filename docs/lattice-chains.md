@@ -105,6 +105,8 @@ Three structural patterns, in order of preference:
 | ComposeSectionKey → SECTION_OUTPUT_KEYS map | `COMPOSE_SECTION_KEYS` | `SECTION_OUTPUT_KEYS` | ✅ PROTECTED | Same `satisfies` + section-loaders test | — | Compile-time + test |
 | COMP-001 spec sections ↔ `getDefaultSections()` code | `docs-archive/bdd-specs/COMP-001-prompt-composition.spec.json` | `lib/compose/section.ts::getDefaultSections` | ⚠️ PARTIAL | `tests/lib/prompt/composition/seed-sync.test.ts` (existing) | MED | Test catches code-vs-spec divergence at fixture time; doesn't re-pin post-spec-JSON-update. |
 | Transform behavior-target neutral fallback | `lib/measurement/neutral-target.ts::NEUTRAL_PARAMETER_TARGET` | composition transforms (`quickstart.ts`, `identity.ts`) | ✅ PROTECTED | `tests/lib/measurement/neutral-target.test.ts` (#1880) | — | Named const replaces bare `?? 0.5`; ratchet rejects new offenders in `lib/prompt/composition/transforms/`. |
+| `PlaybookCurriculumRole` enum adoption | `@prisma/client::PlaybookCurriculumRole` | 38 consumers under `apps/admin/{app,lib,scripts}` | ✅ PROTECTED | `tests/lib/playbook-curriculum-role-adoption.test.ts` | — | Ratchet rejects bare `role: "primary"` / `role: "linked"` literals across app, lib, scripts. |
+| `MemoryCategory` enum adoption | `@prisma/client::MemoryCategory` | `lib/chat/commands.ts` + `differentiation/route.ts` | ✅ PROTECTED | `tests/lib/memory-category-adoption.test.ts` | — | Ratchet rejects 6-permutation literal reconstructions. |
 
 ### Cascade
 

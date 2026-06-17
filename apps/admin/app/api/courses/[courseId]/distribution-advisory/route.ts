@@ -4,6 +4,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getLessonPlanModel } from "@/lib/lesson-plan/models";
 import { runAdvisoryChecks, type LessonSession } from "@/lib/content-trust/lesson-planner";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 /**
  * @api GET /api/courses/:courseId/distribution-advisory
@@ -35,7 +36,7 @@ export async function GET(
         id: true,
         config: true,
         playbookCurricula: {
-          where: { role: "primary" },
+          where: { role: PlaybookCurriculumRole.primary },
           take: 1,
           select: { curriculum: { select: { id: true, deliveryConfig: true } } },
         },

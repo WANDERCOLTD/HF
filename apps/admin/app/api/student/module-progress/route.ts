@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth = await requireStudentOrAdmin(request);
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         callerId,
         module: {
           curriculum: {
-            playbookLinks: { some: { playbookId: courseId, role: "primary" } },
+            playbookLinks: { some: { playbookId: courseId, role: PlaybookCurriculumRole.primary } },
           },
         },
       }

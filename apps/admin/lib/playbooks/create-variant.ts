@@ -40,6 +40,7 @@ import {
   deriveQualificationAnchor,
   isAnchorSafe,
 } from "@/lib/curriculum/qualification-anchor";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export type VariantPreset = "revision" | "popquiz" | "exam";
 
@@ -192,7 +193,7 @@ export async function createPlaybookVariant(
           data: {
             playbookId: variant.id,
             curriculumId: sharedCurriculumId,
-            role: "linked",
+            role: PlaybookCurriculumRole.linked,
           },
         });
       }

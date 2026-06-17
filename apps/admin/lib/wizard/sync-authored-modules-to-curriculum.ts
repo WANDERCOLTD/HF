@@ -30,6 +30,7 @@ import type { AuthoredModule } from "@/lib/types/json-fields";
 import { prerequisiteSlugs } from "@/lib/curriculum/check-module-unlock";
 import { detectMockShapeCovers } from "./detect-mock-shape-modules";
 import { assertValidLoRefBatch } from "@/lib/curriculum/validate-lo-refs";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 // #317 — LO audience classification is NOT run from this helper because it
 // receives an open transaction (`tx`) and the classifier runs its own
@@ -101,7 +102,7 @@ export async function syncAuthoredModulesToCurriculum(
       data: {
         playbookId,
         curriculumId: created.id,
-        role: "primary",
+        role: PlaybookCurriculumRole.primary,
       },
     });
     curriculumId = created.id;

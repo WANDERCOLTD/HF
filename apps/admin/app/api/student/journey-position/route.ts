@@ -21,6 +21,7 @@ import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 import { config } from "@/lib/config";
 import { resolveSessionFlow } from "@/lib/session-flow/resolver";
 import { evaluateStops, type JourneyStopState } from "@/lib/session-flow/journey-stop-runner";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 /**
  * Translate a fired JourneyStop into the legacy nextStop response shape.
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
               // curriculum has none, this enrollment can't have a journey position.
               playbookCurricula: {
                 where: {
-                  role: "primary",
+                  role: PlaybookCurriculumRole.primary,
                   curriculum: { deliveryConfig: { not: Prisma.JsonNull } },
                 },
                 select: { curriculum: { select: { id: true, slug: true, deliveryConfig: true } } },
