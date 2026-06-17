@@ -62,6 +62,13 @@ interface ModuleProgress {
   mastery: number;
   status: string;
   attemptsCount: number;
+  /**
+   * #1703 Theme 9 — count of incomplete attempts on this module
+   * (incremented when Session ends below `minSpeakingSec` OR with
+   * GHOST/FAILED outcome). Surfaced as a chip in ModulesSection when > 0
+   * per Epic #1700 missing-surface sweep (surface 3 of 3).
+   */
+  incompleteAttempts: number;
   freshMasteryActive: boolean;
 }
 
@@ -710,6 +717,15 @@ function ModulesSection({
                     ? ` · ${m.attemptsCount} attempt(s)`
                     : ""}
                 </span>
+                {m.incompleteAttempts > 0 ? (
+                  <span
+                    className="hf-attainment-module-incomplete-chip"
+                    title="Sessions that ended below the module's minSpeakingSec threshold or with GHOST / FAILED outcome (#1703 Theme 9)"
+                    data-testid={`hf-attainment-module-incomplete-${m.moduleSlug}`}
+                  >
+                    {m.incompleteAttempts} incomplete
+                  </span>
+                ) : null}
               </button>
               {expanded ? (
                 <div

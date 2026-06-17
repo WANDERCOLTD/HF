@@ -607,3 +607,19 @@
 .hf-attainment-talktime-chip strong {
   font-weight: 600;
 }
+
+/* #1703 Theme 9 — incomplete-attempts chip on each module row.
+ * Epic #1700 missing-surface sweep — surface 3 of 3. */
+.hf-attainment-module-incomplete-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-warning-text, #c97a00) 14%, transparent);
+  color: var(--status-warning-text, #c97a00);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
