@@ -1903,6 +1903,32 @@ html.light {
   transform: translateY(1px);
 }
 
+/* #1743 — stall-detector chip. Subtle fade-in cue above the chat surface
+   when the learner has gone quiet during a monologue / discussion module.
+   Voice never triggers from this; it is a visual nudge only. */
+.hf-stall-chip {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  padding: 6px 12px;
+  margin: 8px auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-info-bg) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-info-text) 18%, transparent);
+  color: var(--status-info-text);
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0;
+  animation: hf-stall-chip-fade-in 280ms ease-out forwards;
+}
+@keyframes hf-stall-chip-fade-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hf-stall-chip { animation: none; opacity: 1; }
+}
+
 /* Sim state breadcrumb (#357) — call/state/module pills above the chat */
 .hf-sim-breadcrumb {
   display: flex;

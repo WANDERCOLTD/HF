@@ -287,6 +287,6 @@ describe("Journey settings save round-trip smoke test", () => {
     // Today: intakeSpecId + onboardingFlowPhases.
     expect(get("skipped-domain").length).toBe(2);
     expect(get("skipped-behavior-targets").length).toBe(1); // first session targets
-    expect(get("skipped-module-scope").length).toBe(7);    // G8 — Theme 1 + #1704
+    expect(get("skipped-module-scope").length).toBe(8);    // G8 — Theme 1 + #1704 + #1743 moduleScaffoldPool
   });
 });
