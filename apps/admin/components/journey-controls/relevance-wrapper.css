@@ -1,0 +1,123 @@
+/**
+ * RelevanceWrapper styles — Phase 0 of the Journey-Design tab refactor.
+ *
+ * Tokens only. `color-mix()` for alpha. Co-located with the component.
+ *
+ * Visual hierarchy:
+ *   .hf-relevance-wrap        — outer container per non-`active` state
+ *   .hf-relevance-chip        — status chip rendered above the children
+ *   .hf-relevance-chip-icon   — small leading glyph
+ *   .hf-relevance-chip-text   — primary label
+ *   .hf-relevance-chip-action — optional CTA inside the chip (e.g. Decouple)
+ *   .hf-relevance-chip-button — when the chip is a click target
+ *   .hf-relevance-children    — slot holding the actual control
+ *
+ * State variants (data-state-driven where convenient) live on
+ * `.hf-relevance-chip--<state>` and `.hf-relevance-wrap--<state>`.
+ */
+
+.hf-relevance-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--surface-secondary) 30%, transparent);
+}
+
+.hf-relevance-wrap--inherited {
+  background: color-mix(in srgb, var(--surface-secondary) 20%, transparent);
+}
+
+.hf-relevance-wrap--auto-derived,
+.hf-relevance-wrap--gated-off,
+.hf-relevance-wrap--out-of-shape {
+  background: color-mix(in srgb, var(--surface-secondary) 60%, transparent);
+}
+
+.hf-relevance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  width: max-content;
+  max-width: 100%;
+}
+
+.hf-relevance-chip-button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.hf-relevance-chip-button:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--surface-primary));
+  border-color: color-mix(in srgb, var(--accent-primary) 40%, var(--border-default));
+  color: var(--text-primary);
+}
+
+.hf-relevance-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hf-relevance-chip-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hf-relevance-chip-action {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0 0 0 6px;
+  margin: 0;
+  font: inherit;
+  color: var(--accent-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.hf-relevance-chip-action:hover {
+  color: color-mix(in srgb, var(--accent-primary) 80%, var(--text-primary));
+}
+
+.hf-relevance-chip--inherited {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-default));
+}
+
+.hf-relevance-chip--auto-derived {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--surface-primary));
+  border-color: color-mix(in srgb, var(--accent-primary) 25%, var(--border-default));
+}
+
+.hf-relevance-chip--gated-off {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 5%, var(--surface-primary));
+}
+
+.hf-relevance-chip--out-of-shape {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-secondary) 80%, var(--surface-primary));
+  font-style: italic;
+}
+
+.hf-relevance-children {
+  padding-top: 2px;
+}
+
+.hf-relevance-children--muted {
+  opacity: 0.55;
+  pointer-events: none;
+}
