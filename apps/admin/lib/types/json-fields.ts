@@ -995,8 +995,15 @@ export interface AuthoredModuleSettings {
   closingLine?: string;
   /** One-shot per-module orientation, gated by `orientationShown` on `CallerModuleProgress`. */
   firstTimeOrientationLine?: string;
-  /** Time-keyed tutor/examiner cues, consumed at runtime by the Theme 2 cue scheduler. */
-  scheduledCues?: Array<{ at: number; text: string }>;
+  /**
+   * Time-keyed tutor/examiner cues, consumed at runtime by the Theme 2
+   * cue scheduler. Optional `phase` tag (#1762 Story C) marks the cue
+   * as a phase transition — when the cue fires, the dispatcher writes
+   * a phase boundary into `Session.metadata.phaseBoundaries`. Phase
+   * naming is course-agnostic (IELTS Mock: `"p1"`, `"p2_prep"`,
+   * `"p2_monologue"`, `"p3"`).
+   */
+  scheduledCues?: Array<{ at: number; text: string; phase?: string }>;
   /**
    * #1743 (epic #1700 Theme 2b — Theme 1 extension) — pool of subtle
    * scaffold strings the client-side stall detector picks from when the
@@ -1081,10 +1088,34 @@ export interface SessionScoreDeltas {
   focusDelta?: { parameterSlug: string; delta: number };
 }
 
+/**
+ * Phase boundary captured at runtime by the cue-scheduler when a
+ * phase-tagged cue fires (#1762 Story C). Closed-form boundary —
+ * `endSec` is filled when the NEXT phase transition arrives; while a
+ * phase is still in flight `endSec === startSec` (open boundary).
+ * Reader: `lib/voice/audio-slice.ts` (Story D) uses these to pick
+ * start/end timestamps for an audio slice.
+ *
+ * Phase name convention is course-agnostic — IELTS Mock uses
+ * `"p1" / "p2_prep" / "p2_monologue" / "p3"`; other courses define
+ * their own.
+ */
+export interface PhaseBoundary {
+  phase: string;
+  startSec: number;
+  endSec: number;
+}
+
 export interface SessionMetadata {
   pinnedCard?: PinnedCardContent;
   segmentLabels?: SegmentLabel[];
   scoreDeltas?: SessionScoreDeltas;
   /** Overall band estimate for Mock sessions — mean-of-12, half-band rounded (Theme 6). */
   overallBand?: number;
+  /**
+   * Phase transitions captured at runtime by the cue-scheduler
+   * (#1762 Story C). Append-only; readers depend on monotonic
+   * `startSec` ordering.
+   */
+  phaseBoundaries?: PhaseBoundary[];
 }

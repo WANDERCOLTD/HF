@@ -116,6 +116,12 @@ export async function registerModuleScheduledCues(
       callId: args.callId,
       scheduledFor: new Date(baseMs + cue.at * 1000),
       content: cue.text,
+      // #1762 Story C — phase tag (optional) flows through to the
+      // CueScheduleEntry row; the dispatcher writes a Session.metadata
+      // boundary when the cue fires.
+      ...(typeof cue.phase === "string" && cue.phase.trim().length > 0
+        ? { phase: cue.phase }
+        : {}),
     });
     registered += 1;
   }
