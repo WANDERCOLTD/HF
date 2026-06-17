@@ -69,11 +69,13 @@ export interface CallerVoiceSurfaceProps {
   /** STANDALONE-only — passed through to SimChat. Routes back to /x/sim on mobile. */
   onBack?: () => void;
   /**
-   * STANDALONE-only — STUDENT-session post-call redirect. Sim page passes
-   * a 1.5s `router.push('/x/student')` for learners. Embedded callers
-   * (admin) leave this undefined.
+   * STANDALONE-only — STUDENT-session post-call redirect. Sim page reads
+   * the just-ended `callId` (when present) and routes to the Mock
+   * Results screen (Epic #1700 Theme 13a) for Mock-style modules; falls
+   * back to `/x/student` otherwise. Embedded callers (admin) leave this
+   * undefined.
    */
-  onCallEnd?: () => void;
+  onCallEnd?: (info?: { callId: string }) => void;
   /**
    * EMBEDDED — parent's hook to refetch its own caller data + prompts
    * after the call ends, so the broader caller-detail view stays in sync.
@@ -324,10 +326,13 @@ export function CallerVoiceSurface({
     setCallSession((prev) => prev + 1);
   }, []);
 
-  const handleCallEnd = useCallback(() => {
-    onCallEnd?.();
-    onPostCallRefresh?.();
-  }, [onCallEnd, onPostCallRefresh]);
+  const handleCallEnd = useCallback(
+    (info?: { callId: string }) => {
+      onCallEnd?.(info);
+      onPostCallRefresh?.();
+    },
+    [onCallEnd, onPostCallRefresh],
+  );
 
   if (error) {
     return (

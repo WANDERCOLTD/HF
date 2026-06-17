@@ -53,7 +53,18 @@ export interface SimChatProps {
   sessionGoal?: string;
   targetOverrides?: Record<string, number>;
   forceFirstCall?: boolean;
-  onCallEnd?: () => void;
+  /**
+   * Fires once the call has fully wrapped (Call row written, transcript
+   * persisted, end-of-call telemetry flushed).
+   *
+   * Argument shape was widened in the Epic #1700 missing-surface sweep
+   * so the standalone sim page can route Mock learners to the Results
+   * screen instead of the generic /x/student home. Callers that don't
+   * care about the just-ended call id continue to work — the arg is
+   * optional and most existing call sites pass a `() =>` shape that
+   * structurally satisfies the wider signature.
+   */
+  onCallEnd?: (info?: { callId: string }) => void;
   onNewCall?: () => void;
   onBack?: () => void;
   /**
@@ -1124,7 +1135,7 @@ export function SimChat({
       // phase transition — so the breadcrumb stays "Active" through any
       // post-call UI settle and only flips back once the call is fully
       // wrapped. Sync the ref so the watcher effect won't re-fire.
-      onCallEnd?.();
+      onCallEnd?.(callId ? { callId } : undefined);
       lastCallActiveFiredRef.current = false;
       onCallStateChange?.(false);
       journey?.onCallEnd();
