@@ -1903,6 +1903,78 @@ html.light {
   transform: translateY(1px);
 }
 
+/* #1744 — sticky pinned cue card above SimChat (Theme 3). Holds the
+   Part 2 monologue cue or Part 3 / Mock topic-focus banner so the
+   learner can refer back without scrolling. Sticky positioning keeps
+   it visible as the chat scrolls beneath. */
+.hf-pinned-card {
+  position: sticky;
+  top: 8px;
+  z-index: 10;
+  width: calc(100% - 16px);
+  max-width: 520px;
+  margin: 8px auto;
+  padding: 12px 36px 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 12%, transparent);
+}
+.hf-pinned-card-cue {
+  display: block;
+}
+.hf-pinned-card-focus {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.hf-pinned-card-topic {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.hf-pinned-card-focus .hf-pinned-card-topic {
+  margin-bottom: 0;
+}
+.hf-pinned-card-bullets {
+  list-style: disc;
+  margin: 0 0 0 18px;
+  padding: 0;
+}
+.hf-pinned-card-bullets li {
+  margin-bottom: 2px;
+}
+.hf-pinned-card-note {
+  margin-top: 8px;
+  font-style: italic;
+  color: var(--text-muted);
+}
+.hf-pinned-card-focus-area {
+  color: var(--text-muted);
+}
+.hf-pinned-card-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: transparent;
+  border: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.hf-pinned-card-dismiss:hover,
+.hf-pinned-card-dismiss:focus-visible {
+  background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+  color: var(--text-primary);
+  outline: none;
+}
+
 /* #1743 — stall-detector chip. Subtle fade-in cue above the chat surface
    when the learner has gone quiet during a monologue / discussion module.
    Voice never triggers from this; it is a visual nudge only. */

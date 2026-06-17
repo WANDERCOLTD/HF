@@ -3411,6 +3411,29 @@ Run a specific analysis op on a single call. Valid ops: measure, learn, measure-
 
 ---
 
+### `GET` /api/calls/:callId/pinned-card
+
+#1744 (epic #1700 Theme 3) — read the persisted
+
+**Auth**: VIEWER (STUDENT scoped to own caller; OPERATOR+ unrestricted) · **Scope**: `calls:read`
+
+**Response** `200`
+```json
+{ ok: true, card: PinnedCardContent | null }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "STUDENT cannot read a different caller" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Call not found" }
+```
+
+---
+
 ### `POST` /api/calls/:callId/pipeline
 
 SPEC-DRIVEN pipeline endpoint that runs analysis in configurable stages. Pipeline stages are loaded from the PIPELINE-001 spec (or GUARD-001 fallback), not hardcoded. Each stage has a name, order, outputTypes, and optional requiresMode. Default stages: EXTRACT (10), SCORE_AGENT (20), AGGREGATE (30), REWARD (40), ADAPT (50), SUPERVISE (60), COMPOSE (100, prompt mode only).
@@ -16244,8 +16267,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 538 |
-| Files with annotations | 524 |
+| Route files found | 539 |
+| Files with annotations | 525 |
 | Files missing annotations | 14 |
 | Coverage | 97.4% |
 
