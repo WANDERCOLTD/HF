@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { MemoryCategory } from "@prisma/client";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { requireEducator, isEducatorAuthError } from "@/lib/educator-access";
 import {
@@ -197,7 +198,7 @@ export async function GET(
     prisma.callerMemory.findMany({
       where: {
         callerId: { in: callerIds },
-        category: { in: ["FACT", "PREFERENCE", "TOPIC"] },
+        category: { in: [MemoryCategory.FACT, MemoryCategory.PREFERENCE, MemoryCategory.TOPIC] },
         confidence: { gte: 0.6 },
       },
       orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
