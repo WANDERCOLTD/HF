@@ -149,6 +149,54 @@ The 2026-06-16 #1701 G8 cohort intentionally landed as producer-only
 consumers are Phase 2 work (Themes 8, 10, plus the closing/orientation
 transform wires). Tracked at <follow-on issue TBD>.
 
+## Producer ↔ consumer pairing — deeper layer: transform vs renderer
+
+Even when the registry → transform side of the pairing is solid, a
+*second* producer-only failure mode lives one layer down: the
+transform produces a directive structure, but the prose renderer never
+emits the directive into the final `voicePrompt` string. The LLM gets
+JSON-shape data but the actual VAPI call uses
+`renderProviderPrompt(llmPrompt)` — the prose mirror at
+`lib/prompt/composition/renderPromptSummary.ts`. If the renderer
+doesn't `parts.push(directive)`, the tutor never hears it.
+
+**Live incident (2026-06-17):** PR #1768 (Theme 10 profile capture)
+silently deleted 5 unrelated renderer consumer blocks during a bad
+merge:
+
+  - `instructions.module_question_target.directive` (#1732)
+  - `instructions.module_cue_card.directive`       (#1733)
+  - `offboarding.moduleClosingLine`                 (#1734)
+  - `instructions.module_orientation_line.directive` (#1735)
+  - `priorCallFeedback.summary` + scoreboard         (#1749)
+
+For ~24 hours every IELTS Mock learner ran without the cue-card
+directive (the LLM didn't know to anchor on the Part 2 topic), the
+question-count directive, the verbatim closing line, the first-time
+orientation, AND the score-delta narrator.
+
+**Rule:** when a transform's output object carries a `directive: "…"`
+field, the SAME PR MUST add (or keep) the matching push in
+`renderPromptSummary.ts`. The pairing is enforced by three sibling
+layers:
+
+  1. **ESLint** (`hf-compose/composition-directive-needs-renderer`,
+     severity `error`) — fires at edit time on transforms/*.ts files
+     containing a `directive: "…"` field UNLESS the file carries the
+     sentinel comment `// @renderer-consumed-at lib/prompt/composition/renderPromptSummary.ts`.
+  2. **Composition coverage vitest**
+     (`tests/lib/prompt/composition/coverage-producer-consumer.test.ts`)
+     — walks the manifest of known pairs + sweeps every transforms/*.ts
+     for orphan `directive:` fields. Catches BOTH silent renderer
+     drops AND new directives that forgot to register a pair.
+  3. **This rule file** — author discipline, last-line defence when
+     someone reasons their way around (1) and (2).
+
+The cost of compliance is one sentinel comment per transform file,
+plus one PAIRS row per directive. The cost of regression — measured
+by the 2026-06-17 incident — is hours of live traffic running an LLM
+that's missing the operator-tuned behaviour.
+
 ## Escalation
 
 If the survey turns up a contract gap (an existing pair of sibling writers

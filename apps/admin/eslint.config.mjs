@@ -10,6 +10,7 @@ import noAiFanoutAll from "./eslint-rules/no-ai-fanout-all.mjs";
 import noAiForbiddenFields from "./eslint-rules/no-ai-forbidden-fields.mjs";
 import noOrphanInstructionFallback from "./eslint-rules/no-orphan-instruction-fallback.mjs";
 import noHardcodedGreetingInComposition from "./eslint-rules/no-hardcoded-greeting-in-composition.mjs";
+import compositionDirectiveNeedsRenderer from "./eslint-rules/composition-directive-needs-renderer.mjs";
 import noVapiColumnRef from "./eslint-rules/hf-voice/no-vapi-column-ref.mjs";
 import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-definitions-const.mjs";
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
@@ -131,6 +132,14 @@ const eslintConfig = defineConfig([
           // builders. The greeting is course-tunable behaviour, not a
           // code constant. Companion: `.claude/rules/pipeline-and-prompt.md`.
           "no-hardcoded-greeting-in-composition": noHardcodedGreetingInComposition,
+          // 2026-06-17 — block producer-only directive fields in
+          // prompt-composition transforms. Sibling enforcement to the
+          // composition-coverage vitest. Forces every `directive: "…"`
+          // field to carry a sentinel comment acknowledging the
+          // renderer pairs the producer. Born of #1768 (Theme 10) which
+          // silently dropped 5 unrelated renderer consumer blocks.
+          // Companion: `.claude/rules/lattice-survey.md`.
+          "composition-directive-needs-renderer": compositionDirectiveNeedsRenderer,
         },
       },
       // AnyVoice #1024 — block reintroduction of pre-rename vapi*
@@ -269,6 +278,12 @@ const eslintConfig = defineConfig([
       // `lib/voice/build-assistant-config.ts`, or `lib/voice/route-
       // handlers.ts` now fails CI.
       "hf-compose/no-hardcoded-greeting-in-composition": "error",
+      // 2026-06-17 — error severity from day 1. Cost of compliance is
+      // one comment line per transform file (the sentinel); cost of
+      // regression is unwired LLM directives shipping to production.
+      // See `.claude/rules/lattice-survey.md` (producer↔consumer
+      // pairing) + the composition-coverage vitest companion.
+      "hf-compose/composition-directive-needs-renderer": "error",
       "hf-voice/no-vapi-column-ref": "error",
       "hf-voice/no-vapi-tool-definitions-const": "error",
       "hf-wizard-v6/no-undeclared-field-require": "error",
