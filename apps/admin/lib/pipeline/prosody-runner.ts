@@ -63,9 +63,14 @@ import type {
   VoiceProsodyMode,
   IeltsScores,
   GeneralSignals,
+  GeneralSignalField,
   ProsodyPhaseEnvelope,
 } from "./prosody-types";
 import { withPhaseNamespace } from "./segment-key-namespace";
+import {
+  GENERAL_SIGNAL_FIELDS,
+  STUB_SIGNAL_ZERO,
+} from "./prosody-types";
 
 export interface RunProsodyOptions {
   callId: string;
@@ -248,6 +253,8 @@ export async function runProsodyStage(
         adapter,
         mode,
         vendorTimeoutMs,
+        callId,
+        callerId,
       }).then((r) => {
         vendorErrorMessage = r.errorMessage;
         return r.envelope;
@@ -259,6 +266,8 @@ export async function runProsodyStage(
       adapter,
       mode,
       vendorTimeoutMs,
+      callId,
+      callerId,
     });
     vendorEnvelope = whole.envelope;
     vendorErrorMessage = whole.errorMessage;
@@ -424,26 +433,82 @@ function normaliseVendorResult(
     };
   }
 
-  // General mode — vendor adapters don't yet return generic prosody
-  // signals in a normalised shape (the SpeechAce / SpeechSuper paths
-  // return IELTS even when called with `general` mode). For now, we
-  // derive degenerate signals from the IELTS payload when present, and
-  // emit zeros otherwise. A future story can extend the adapter
-  // interface with a `getGeneralSignals()` method when a vendor really
-  // exposes them.
+  // General mode — legacy fallback path. Adapters that don't implement
+  // `getGeneralSignals` end up here; the runner's general branch logs
+  // `voice.prosody.general_unsupported` once per call before this fires.
+  // `STUB_SIGNAL_ZERO` is the sentinel for "vendor doesn't expose this
+  // signal" — distinct from a real zero in code review (see
+  // prosody-types.ts). `confidenceProxy` keeps the existing IELTS-fluency
+  // derivation so legacy adapters that DO return IELTS bands while called
+  // in general mode still contribute a useful proxy.
   const generalSignals: GeneralSignals = {
-    paceWpm: 0,
-    hesitationRate: 0,
-    meanEnergyDb: 0,
-    pitchRangeHz: 0,
+    paceWpm: STUB_SIGNAL_ZERO,
+    hesitationRate: STUB_SIGNAL_ZERO,
+    meanEnergyDb: STUB_SIGNAL_ZERO,
+    pitchRangeHz: STUB_SIGNAL_ZERO,
     confidenceProxy: result.ielts?.fluency
       ? Math.min(1, result.ielts.fluency / 9)
-      : 0,
+      : STUB_SIGNAL_ZERO,
   };
   return {
     mode: "general",
     generalSignals,
     rawVendor: result.raw,
+  };
+}
+
+
+/**
+ * #1871 — compose a `VoiceProsodyFeatures` envelope for general mode from
+ * an adapter's `Partial<GeneralSignals>` return.
+ *
+ * The partial is merged onto a STUB_SIGNAL_ZERO baseline so downstream
+ * AGGREGATE reads every field unconditionally. `confidenceProxy` is set
+ * to STUB_SIGNAL_ZERO — adapters don't expose a learner-confidence proxy
+ * via the general-signal path; the existing IELTS-fluency-derived form
+ * lives on the legacy scoreUploadedAudio path and stays there.
+ *
+ * Emits `voice.prosody.general_partial_signals` AppLog with the populated
+ * / missing field-name lists derived from the canonical
+ * `GENERAL_SIGNAL_FIELDS` constant. Pinned by
+ * `prosody-runner-general-signals.test.ts`.
+ */
+function composeGeneralEnvelopeFromPartial(
+  partial: Partial<GeneralSignals>,
+  adapterKey: string,
+  callId: string | undefined,
+): VoiceProsodyFeatures {
+  const populated: GeneralSignalField[] = [];
+  const missing: GeneralSignalField[] = [];
+  for (const field of GENERAL_SIGNAL_FIELDS) {
+    const v = partial[field];
+    if (typeof v === "number" && Number.isFinite(v)) {
+      populated.push(field);
+    } else {
+      missing.push(field);
+    }
+  }
+
+  log("system", "voice.prosody.general_partial_signals", {
+    message: `Adapter ${adapterKey} returned ${populated.length}/${GENERAL_SIGNAL_FIELDS.length} general signal field(s)`,
+    callId,
+    adapterKey,
+    fieldsPopulated: populated,
+    fieldsMissing: missing,
+  });
+
+  const generalSignals: GeneralSignals = {
+    paceWpm: partial.paceWpm ?? STUB_SIGNAL_ZERO,
+    hesitationRate: partial.hesitationRate ?? STUB_SIGNAL_ZERO,
+    meanEnergyDb: partial.meanEnergyDb ?? STUB_SIGNAL_ZERO,
+    pitchRangeHz: partial.pitchRangeHz ?? STUB_SIGNAL_ZERO,
+    confidenceProxy: STUB_SIGNAL_ZERO,
+  };
+
+  return {
+    mode: "general",
+    generalSignals,
+    rawVendor: { partial, source: "getGeneralSignals", adapterKey },
   };
 }
 
@@ -497,6 +562,13 @@ interface RunWholeCallProsodyArgs {
   adapter: SpeechAssessmentAdapter;
   mode: VoiceProsodyMode;
   vendorTimeoutMs: number;
+  /** #1871 — passed through to the general-mode AppLog dump sites so
+   *  observability can attribute the partial-fill / unsupported events
+   *  back to the originating Call + Caller. Optional because the
+   *  segmented path's per-phase whole-call fallback (currently unused
+   *  but kept structurally) doesn't always have caller context. */
+  callId?: string;
+  callerId?: string | null;
 }
 
 interface VendorAttemptResult {
@@ -516,6 +588,39 @@ async function runWholeCallProsody(
     const audio = await fetchAudioBuffer(args.recordingUrl);
     const scoringMode: ScoringMode =
       args.mode === "ielts" ? "ielts" : "general";
+
+    // #1871 — general-mode preferred path: when the adapter implements
+    // `getGeneralSignals`, call that instead of `scoreUploadedAudio`. The
+    // partial result is merged onto a STUB_SIGNAL_ZERO baseline so
+    // downstream AGGREGATE reads every field unconditionally. Adapters
+    // that don't implement it fall back to the legacy stub-zero path AND
+    // emit `voice.prosody.general_unsupported` once per call so operators
+    // can SEE which adapters/courses still pay vendor cost for stub data.
+    if (
+      scoringMode === "general" &&
+      typeof args.adapter.getGeneralSignals === "function"
+    ) {
+      const partial = await Promise.race([
+        args.adapter.getGeneralSignals(audio.buffer, audio.mimeType),
+        timeoutAfter(args.vendorTimeoutMs),
+      ]);
+      return {
+        envelope: composeGeneralEnvelopeFromPartial(
+          partial,
+          args.adapter.slug,
+          args.callId,
+        ),
+      };
+    }
+    if (scoringMode === "general" && args.callId) {
+      log("system", "voice.prosody.general_unsupported", {
+        message: `Adapter ${args.adapter.slug} does not implement getGeneralSignals; falling back to stub-zero envelope`,
+        callId: args.callId,
+        adapterKey: args.adapter.slug,
+        callerId: args.callerId ?? undefined,
+      });
+    }
+
     const result = await Promise.race([
       args.adapter.scoreUploadedAudio(audio.buffer, audio.mimeType, scoringMode),
       timeoutAfter(args.vendorTimeoutMs),

@@ -94,7 +94,8 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(7);
     expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(27);
+    // #1871 — voiceProsodyMode added (I_scoring / G4). 27 -> 28.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(28);
     // midJourneyStopTrigger removed in fix/journey-stops-structured-paths
     // (storagePath was unrepresentable in the applier — trigger is now
     // edited only via the midJourneyStop compound editor). G5 6 → 5.
@@ -107,9 +108,9 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(8);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 85", () => {
-    // 84 (post midJourneyStopTrigger removal) + 1 (moduleScaffoldPool #1743)
-    expect(JOURNEY_SETTINGS.length).toBe(85);
+  it("(8) JOURNEY_SETTINGS.length === 86", () => {
+    // 84 (post midJourneyStopTrigger removal) + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
+    expect(JOURNEY_SETTINGS.length).toBe(86);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

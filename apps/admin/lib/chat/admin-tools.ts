@@ -6,6 +6,7 @@
  */
 
 import type { AITool } from "@/lib/ai/client";
+import { PROSODY_MODE_VALUES } from "@/lib/pipeline/prosody-types";
 
 export const ADMIN_TOOLS: AITool[] = [
   {
@@ -1010,7 +1011,10 @@ export const ADMIN_TOOLS: AITool[] = [
             maxDurationSeconds: { type: "integer" },
             voicemailDetectionEnabled: { type: "boolean" },
             endCallPhrases: { type: "array", items: { type: "string" } },
-            prosodyMode: { type: "string", enum: ["ielts", "general", "auto"] },
+            // #1871 — enum derived from PROSODY_MODE_VALUES (single source
+            // of truth shared with the JourneySettingContract option list
+            // and the runtime resolveProsodyMode precedence).
+            prosodyMode: { type: "string", enum: [...PROSODY_MODE_VALUES] },
           },
           additionalProperties: true,
         },

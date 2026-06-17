@@ -96,6 +96,7 @@ const APPLIES_TO_ALL: readonly string[] = [
   "toleranceConfidence",
   "toleranceEngagement",
   "tierPresetId",
+  "voiceProsodyMode",
   "skillMinCallsToFull",
   "skillTierMapping",
   "skillScoringEmaHalfLife",
