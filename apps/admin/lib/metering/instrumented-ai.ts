@@ -399,9 +399,9 @@ export async function getConfiguredMeteredAICompletionStream(
   options: ConfiguredAIOptions,
   context?: MeteringContext
 ): Promise<{ stream: ReadableStream<Uint8Array>; model: string }> {
-  // Import config loader to get the model info
+  // Import config loader to get the model info (#1868 — scope-aware)
   const { getAIConfig } = await import("@/lib/ai/config-loader");
-  const aiConfig = await getAIConfig(options.callPoint);
+  const aiConfig = await getAIConfig(options.callPoint, options.scope);
 
   const stream = await getConfiguredAICompletionStream(options);
 

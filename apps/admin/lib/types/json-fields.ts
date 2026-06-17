@@ -363,9 +363,52 @@ export type PriorCallRecapDepth = "minimal" | "standard" | "rich";
  *
  * @see docs/decisions/2026-05-22-tolerance-placement.md
  */
+/**
+ * Per–call-point AI override carried on `Playbook.config.aiOverrides` and
+ * `Domain.config.aiOverrides`. Keyed by canonical CallPoint id (e.g.
+ * `"pipeline.measure"`, `"pipeline.score_agent"`, `"compose.prompt"`).
+ *
+ * The Lattice resolver walks Playbook → Domain → AIConfig table →
+ * SystemSetting `fallback:ai.default_models` → hardcoded `CALL_POINTS`
+ * defaults (per `.claude/rules/ai-callpoint-cascade.md`). Each layer may
+ * set ZERO or more of the four fields below — partial overrides are
+ * merged top-down per field (model on Playbook + temperature on Domain
+ * + maxTokens on the AIConfig admin row, etc.).
+ *
+ * Born of the live-incident chain (#1861 follow-on, 2026-06-17): the
+ * stale Anthropic model id `claude-sonnet-4-20250514` in the System
+ * fallback broke every Mock pipeline run because pipeline call points
+ * had no per-Playbook override surface. This type closes that gap.
+ */
+export interface AICallPointOverride {
+  /** `"claude" | "openai" | "mock"` — must match an `AIEngine`. */
+  provider?: string;
+  /** Provider-specific model id, e.g. `"claude-sonnet-4-6"`. */
+  model?: string;
+  /** 0..1; passed through to the call point's prompt. */
+  temperature?: number;
+  /** Provider max-output-tokens cap; passed through. */
+  maxTokens?: number;
+  /** Call timeout (ms); cascades into the AI client wrapper. */
+  timeoutMs?: number;
+}
+
+/** Cascade map carried on `Playbook.config.aiOverrides` + `Domain.config.aiOverrides`. */
+export type AIOverridesMap = Record<string, AICallPointOverride>;
+
 export interface PlaybookConfig {
   systemSpecToggles?: Record<string, { isEnabled: boolean }>;
   goals?: GoalTemplate[];
+  /**
+   * Per-call-point AI overrides for this Playbook (#1868 — Lattice gap
+   * closeout). Keys are CallPoint ids (`"pipeline.measure"` etc.). When
+   * present, the resolver picks these BEFORE walking to the Domain layer
+   * or the flat AIConfig / SystemSetting fallback.
+   *
+   * @bucket Course parameter — operator-tunable on the AI Config lens
+   * (Phase 2, follow-on).
+   */
+  aiOverrides?: AIOverridesMap;
   onboardingFlowPhases?: OnboardingFlowPhases;
   physicalMaterials?: string;
   audience?: string;
