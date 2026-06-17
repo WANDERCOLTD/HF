@@ -30,15 +30,21 @@
  * `Playbook.config.modules[i].settings.*`).
  */
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { JourneyField } from "@/components/journey-controls";
+import { RelevanceWrapper } from "@/components/journey-controls/RelevanceWrapper";
+import { getCourseShape } from "@/lib/journey/course-shape";
 import { JOURNEY_SETTINGS } from "@/lib/journey/setting-contracts.entries";
 import type {
+  CourseShape,
   JourneySettingContract,
   StoragePathStruct,
 } from "@/lib/journey/setting-contracts";
-import type { AuthoredModuleSettings } from "@/lib/types/json-fields";
+import type {
+  AuthoredModuleSettings,
+  PlaybookConfig,
+} from "@/lib/types/json-fields";
 
 interface ModuleInspectorPanelProps {
   /** Course id — passed to the PATCH route URL. */
@@ -50,6 +56,12 @@ interface ModuleInspectorPanelProps {
    *  `/api/courses/:courseId/modules` → `modules[].settings`).
    *  Undefined or empty → all fields render with default values. */
   settings: Partial<AuthoredModuleSettings> | null;
+  /** The course's full PlaybookConfig — used by `getCourseShape` to
+   *  decide which G8 entries apply to this course shape. Optional so
+   *  consumers that haven't threaded it through (yet) keep working;
+   *  when omitted the helper short-circuits to "continuous" and the
+   *  exam-only entries render as `out-of-shape`. P3d (#1850). */
+  playbookConfig?: PlaybookConfig | null;
   /** Optional hook fired after every successful save. Parent uses it
    *  to refetch the module list so the Inspector reflects persisted
    *  state on subsequent renders. */
@@ -73,13 +85,62 @@ const G8_SETTINGS: readonly JourneySettingContract[] = JOURNEY_SETTINGS.filter(
   (c) => c.group === "G8" && c.scope === "module",
 );
 
+/** P3d (#1850) — true when the contract declares an `appliesTo` set
+ *  that excludes the current `courseShape`. Show-don't-hide: the row
+ *  remains in the DOM but is wrapped in `RelevanceWrapper state="out-of-shape"`.
+ *  Contracts that don't declare `appliesTo` apply to all shapes. */
+function isOutOfShape(
+  contract: JourneySettingContract,
+  courseShape: CourseShape,
+): boolean {
+  if (!contract.appliesTo || contract.appliesTo.length === 0) return false;
+  return !contract.appliesTo.includes(courseShape);
+}
+
+/** Educator-facing explainer chip text for the `out-of-shape` overlay.
+ *  Reads the contract's allowed shapes to render "Exam courses use … —
+ *  this is a Structured course" rather than a generic "doesn't apply". */
+function outOfShapeReason(
+  contract: JourneySettingContract,
+  courseShape: CourseShape,
+): string {
+  const allowed = (contract.appliesTo ?? []) as readonly CourseShape[];
+  const allowedLabel = allowed.map(shapeLabel).join(" or ");
+  const currentLabel = shapeLabel(courseShape);
+  return `${allowedLabel} courses use ${contract.educatorLabel.toLowerCase()} — this is a ${currentLabel} course`;
+}
+
+/** Short title-cased label for the chip — keeps the message educator-friendly. */
+function shapeLabel(shape: CourseShape): string {
+  switch (shape) {
+    case "structured":
+      return "Structured";
+    case "continuous":
+      return "Continuous";
+    case "exam":
+      return "Exam";
+    default:
+      return shape;
+  }
+}
+
 export function ModuleInspectorPanel({
   courseId,
   selectedModuleId,
   selectedModuleLabel,
   settings,
+  playbookConfig,
   onSaved,
 }: ModuleInspectorPanelProps) {
+  // P3d (#1850) — derive the editor-facing course shape so we can
+  // dim G8 entries whose `appliesTo` excludes this course's shape
+  // (e.g. IELTS cue-card pool on a non-exam structured course).
+  // Memoised because PlaybookConfig is a large object that's stable
+  // between renders within a tab session.
+  const courseShape: CourseShape = useMemo(
+    () => getCourseShape(playbookConfig ?? null),
+    [playbookConfig],
+  );
   // Module-scope mutator — P3c (#1850). Threads `selectedModuleId`
   // through as the per-call `arraySelector` so the existing
   // `/journey-setting` PATCH route resolves the right
@@ -165,18 +226,32 @@ export function ModuleInspectorPanel({
         {G8_SETTINGS.map((contract) => {
           const key = lastSegmentOfStoragePath(contract);
           const value = key ? moduleSettings[key] : undefined;
+          const outOfShape = isOutOfShape(contract, courseShape);
+          const field = (
+            <JourneyField
+              contract={contract}
+              value={value}
+              options={contract.options}
+              onSave={(next) => handleSave(contract.id, next)}
+            />
+          );
           return (
             <div
               key={contract.id}
               className="hf-journey-inspector-row"
               data-testid={`hf-module-inspector-row-${contract.id}`}
+              data-relevance-state={outOfShape ? "out-of-shape" : "active"}
             >
-              <JourneyField
-                contract={contract}
-                value={value}
-                options={contract.options}
-                onSave={(next) => handleSave(contract.id, next)}
-              />
+              {outOfShape ? (
+                <RelevanceWrapper
+                  state="out-of-shape"
+                  reason={outOfShapeReason(contract, courseShape)}
+                >
+                  {field}
+                </RelevanceWrapper>
+              ) : (
+                field
+              )}
             </div>
           );
         })}

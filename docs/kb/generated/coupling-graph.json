@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-17T18:14:21.169Z",
+  "generatedAt": "2026-06-17T18:24:49.786Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1836,
-  "edgeCount": 4308,
+  "fileCount": 1837,
+  "edgeCount": 4311,
   "skippedEdges": 1,
   "edges": [
     {
@@ -13924,6 +13924,18 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/journey/course-shape.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
+      "from": "lib/journey/course-shape.ts",
+      "to": "lib/pipeline/course-style.ts"
+    },
+    {
+      "from": "lib/journey/course-shape.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/journey/is-gated-by.ts",
       "to": "lib/journey/setting-contracts.ts"
     },
@@ -24277,6 +24289,11 @@
       "outDegree": 3
     },
     {
+      "path": "lib/journey/course-shape.ts",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
       "path": "lib/journey/is-gated-by.ts",
       "inDegree": 1,
       "outDegree": 2
@@ -24303,7 +24320,7 @@
     },
     {
       "path": "lib/journey/setting-contracts.ts",
-      "inDegree": 13,
+      "inDegree": 14,
       "outDegree": 2
     },
     {
@@ -24618,7 +24635,7 @@
     },
     {
       "path": "lib/pipeline/course-style.ts",
-      "inDegree": 9,
+      "inDegree": 10,
       "outDegree": 1
     },
     {
@@ -25338,7 +25355,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 128,
+      "inDegree": 129,
       "outDegree": 0
     },
     {
@@ -26435,7 +26452,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 128,
+      "inDegree": 129,
       "outDegree": 0
     },
     {
