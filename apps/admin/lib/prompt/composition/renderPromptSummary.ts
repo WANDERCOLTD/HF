@@ -141,6 +141,28 @@ interface LLMPrompt {
       meaning?: string;
     }>;
     teaching_content?: string | null;
+    /** #1732 (epic #1730 G8 consumer A) — module-scoped question count directive. */
+    module_question_target?: { min: number; target: number; directive: string } | null;
+    /** #1733 (epic #1730 G8 consumer B) — module-scoped cue card pick. */
+    module_cue_card?: {
+      kind: "cueCard";
+      topic: string;
+      bullets: string[];
+      secondaryNote?: string;
+      directive: string;
+    } | null;
+    /** #1735 (epic #1730 G8 consumer D) — first-time orientation line. */
+    module_orientation_line?: { line: string; directive: string } | null;
+  };
+  /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close). */
+  offboarding?: {
+    moduleClosingLine?: string | null;
+  };
+  /** #1749 (epic #1700 Theme 11) — score-delta narrator input. */
+  priorCallFeedback?: {
+    heading?: string;
+    summary?: string;
+    priorCriterionScores?: Array<{ parameterName: string; score: number }>;
   };
   callHistory?: {
     totalCalls?: number;
@@ -190,6 +212,8 @@ export const DEFAULT_RENDER_CAPABILITIES: VoiceProviderCapabilities = {
   hasKnowledgeCallback: true,
   toolCallsOverWebSocket: false,
   supportsRequestEndCall: true,
+  // #1742 — Mirrors VAPI's sayMessage primitive capability.
+  supportsProactiveSpeech: true,
   // #1337 — Mirrors VAPI (vendor-cloud) which is the only live provider.
   orchestrationMode: "vendor-cloud",
 };
@@ -380,6 +404,66 @@ export function renderProviderPrompt(
     parts.push("");
     parts.push(qs.offboarding_guidance);
   }
+
+  // #1734 (epic #1730 G8 consumer C) — module-scoped verbatim closing line.
+  // Appended after the existing offboarding guidance so the model reads it
+  // last when wrapping up. Operator-set value; only renders when the
+  // HF_FLAG_IELTS_MODULE_SETTINGS flag is on AND the locked module has
+  // settings.closingLine set.
+  //
+  // RESTORED 2026-06-17 after PR #1768 silently deleted these 5 G8/Theme-11
+  // consumer pushes. Pinned by the composition-coverage vitest at
+  // `tests/lib/prompt/composition/coverage-producer-consumer.test.ts`.
+  const moduleClosingLine = llmPrompt.offboarding?.moduleClosingLine;
+  if (typeof moduleClosingLine === "string" && moduleClosingLine.trim().length > 0) {
+    parts.push("");
+    parts.push(
+      `VERBATIM CLOSING LINE — speak these exact words to end the call: "${moduleClosingLine}"`,
+    );
+  }
+  // #1735 (epic #1730 G8 consumer D) — first-time-only orientation line.
+  // Renders ONLY when CallerModuleProgress.orientationShown === false for
+  // this (caller, module). endSession writes orientationShown=true after
+  // first render so subsequent calls skip the line.
+  const orientation = llmPrompt.instructions?.module_orientation_line;
+  if (orientation?.directive) {
+    parts.push("");
+    parts.push(orientation.directive);
+  }
+  // #1732 (epic #1730 G8 consumer A) — module-scoped question count directive.
+  const questionTarget = llmPrompt.instructions?.module_question_target;
+  if (questionTarget?.directive) {
+    parts.push("");
+    parts.push(questionTarget.directive);
+  }
+  // #1733 (epic #1730 G8 consumer B) — module-scoped cue card.
+  // Deterministic per-call pick from cueCardPool.
+  const cueCard = llmPrompt.instructions?.module_cue_card;
+  if (cueCard?.directive) {
+    parts.push("");
+    parts.push(cueCard.directive);
+  }
+  // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
+  // Surfaces the summary line + the per-criterion scoreboard from the
+  // prior session so the tutor's continuity narration cites concrete
+  // numbers (anti-fabrication pin #1006 Maya class — only emit when
+  // the loader actually produced data).
+  const priorCallFeedback = llmPrompt.priorCallFeedback;
+  if (priorCallFeedback?.summary) {
+    parts.push("");
+    parts.push(`[${priorCallFeedback.heading ?? "Since your last attempt on this module"}]`);
+    parts.push(priorCallFeedback.summary);
+    if (priorCallFeedback.priorCriterionScores && priorCallFeedback.priorCriterionScores.length > 0) {
+      const scoreboardParts = priorCallFeedback.priorCriterionScores.map(
+        (s) => `${s.parameterName} ${s.score.toFixed(2)}`,
+      );
+      parts.push(`Last call's criterion scores: ${scoreboardParts.join(" · ")}.`);
+      parts.push(
+        "Use these numbers when narrating progress; do not invent or substitute. If you reference 'last time', cite exactly these values.",
+      );
+    }
+  }
+
   // Anti-hallucination guard: if no curriculum data at all, make it explicit
   if (!curr?.hasData && !qs?.curriculum_progress) {
     parts.push("IMPORTANT: No curriculum is loaded for this caller. Do NOT invent or assume specific academic topics, modules, or subject matter.");
