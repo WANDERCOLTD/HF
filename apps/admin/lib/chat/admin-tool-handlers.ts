@@ -31,6 +31,7 @@ import { cascadeableKeys, LOCKED_KEYS, SECRET_KEYS } from "@/lib/voice/config";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { explainVoiceCascade } from "@/lib/cascade/voice-explain";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -2322,7 +2323,7 @@ async function handleSwapPrimaryCurriculum(input: Record<string, any>) {
 
   // Demote any current primary (other than the target), then upsert target → primary.
   const previousPrimary = await prisma.playbookCurriculum.findFirst({
-    where: { playbookId, role: "primary" },
+    where: { playbookId, role: PlaybookCurriculumRole.primary },
     select: { curriculumId: true },
   });
 
@@ -2332,14 +2333,14 @@ async function handleSwapPrimaryCurriculum(input: Record<string, any>) {
         where: {
           playbookId_curriculumId: { playbookId, curriculumId: previousPrimary.curriculumId },
         },
-        data: { role: "linked" },
+        data: { role: PlaybookCurriculumRole.linked },
       });
     }
     // Upsert target → primary. If a 'linked' join row exists, promote it.
     await tx.playbookCurriculum.upsert({
       where: { playbookId_curriculumId: { playbookId, curriculumId } },
-      create: { playbookId, curriculumId, role: "primary" },
-      update: { role: "primary" },
+      create: { playbookId, curriculumId, role: PlaybookCurriculumRole.primary },
+      update: { role: PlaybookCurriculumRole.primary },
     });
   });
 
@@ -2397,7 +2398,7 @@ async function handleAttachLinkedCurriculum(input: Record<string, any>) {
   }
 
   await prisma.playbookCurriculum.create({
-    data: { playbookId, curriculumId, role: "linked" },
+    data: { playbookId, curriculumId, role: PlaybookCurriculumRole.linked },
   });
   await bumpPlaybookComposeTimestamp(playbookId);
 
@@ -2419,7 +2420,7 @@ async function handleAttachLinkedCurriculum(input: Record<string, any>) {
     ok: true,
     playbook_id: playbookId,
     curriculum_id: curriculumId,
-    role: "linked",
+    role: PlaybookCurriculumRole.linked,
     compose_inputs_bumped: true,
     message: `Attached "${curriculum.name}" as a linked variant on "${playbook.name}". ${TRAY_PROPOSED_SUFFIX}`,
     pendingChange,

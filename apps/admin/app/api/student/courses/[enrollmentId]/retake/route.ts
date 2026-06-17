@@ -19,6 +19,7 @@ import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access"
 import { autoComposeForCaller } from "@/lib/enrollment/auto-compose";
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export async function POST(
   request: NextRequest,
@@ -50,7 +51,7 @@ export async function POST(
           // join row is the single source of truth for "this playbook's
           // curriculum body".
           playbookCurricula: {
-            where: { role: "primary" },
+            where: { role: PlaybookCurriculumRole.primary },
             take: 1,
             select: { curriculum: { select: { slug: true } } },
           },

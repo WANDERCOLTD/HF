@@ -14,6 +14,7 @@ import {
 } from "@/lib/ai/task-guidance";
 import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
 import { resolvePlaybookIdForCurriculum } from "@/lib/curriculum/resolve-playbook-for-curriculum";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 type Params = { params: Promise<{ curriculumId: string }> };
 
@@ -291,7 +292,7 @@ async function runBackgroundLessonPlanGeneration(
         subjectId: true,
         deliveryConfig: true,
         playbookLinks: {
-          where: { role: "primary" },
+          where: { role: PlaybookCurriculumRole.primary },
           take: 1,
           select: { playbookId: true },
         },
@@ -697,7 +698,7 @@ export async function POST(
         deliveryConfig: true,
         subjectId: true,
         playbookLinks: {
-          where: { role: "primary" },
+          where: { role: PlaybookCurriculumRole.primary },
           take: 1,
           select: { playbookId: true },
         },

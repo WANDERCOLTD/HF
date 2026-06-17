@@ -62,6 +62,7 @@ import type {
   ProjectedMeasureSpec,
   ProjectedParameter,
 } from "./project-course-reference";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 // ── Public types ────────────────────────────────────────────────────────────
 
@@ -263,7 +264,7 @@ async function ensureCurriculum(
   // #1081 Slice 2B.2 — anchor-aware sibling-link. Before minting a fresh
   // Curriculum, see if this Playbook's domain already hosts a Curriculum
   // teaching the same regulated qualification. If so, LINK the new Playbook
-  // via PlaybookCurriculum(role: "linked") and reuse the shared Curriculum.
+  // via PlaybookCurriculum(role: PlaybookCurriculumRole.linked) and reuse the shared Curriculum.
   // Mastery sharing flows naturally from the shared CurriculumModule UUIDs
   // (CC-E in docs/chain-contracts.md).
   //
@@ -325,7 +326,7 @@ async function ensureCurriculum(
           data: {
             playbookId,
             curriculumId: sibling.id,
-            role: "linked",
+            role: PlaybookCurriculumRole.linked,
           },
         });
         console.log(
@@ -366,7 +367,7 @@ async function ensureCurriculum(
     data: {
       playbookId,
       curriculumId: created.id,
-      role: "primary",
+      role: PlaybookCurriculumRole.primary,
     },
   });
   return { id: created.id, created: true };

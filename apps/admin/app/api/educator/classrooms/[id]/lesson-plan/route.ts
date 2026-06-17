@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 /**
  * @api GET /api/educator/classrooms/[id]/lesson-plan
@@ -44,7 +45,7 @@ export async function GET(
             id: true,
             name: true,
             playbookCurricula: {
-              where: { role: "primary" },
+              where: { role: PlaybookCurriculumRole.primary },
               take: 1,
               select: { curriculum: { select: { slug: true, deliveryConfig: true } } },
             },

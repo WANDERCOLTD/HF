@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export async function GET(
   req: NextRequest,
@@ -53,7 +54,7 @@ export async function GET(
         playbook: {
           select: {
             playbookCurricula: {
-              where: { role: "primary" },
+              where: { role: PlaybookCurriculumRole.primary },
               select: { curriculumId: true },
             },
           },

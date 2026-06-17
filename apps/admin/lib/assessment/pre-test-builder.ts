@@ -13,6 +13,7 @@ import {
   shuffleOptions,
   relabelByPosition,
 } from "@/lib/assessment/shuffle-options";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,7 +90,7 @@ async function getSourceIdsForCurriculum(curriculumId: string): Promise<string[]
       primarySourceId: true,
       subjectId: true,
       playbookLinks: {
-        where: { role: "primary" },
+        where: { role: PlaybookCurriculumRole.primary },
         take: 1,
         select: { playbookId: true },
       },

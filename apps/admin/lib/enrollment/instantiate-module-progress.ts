@@ -40,6 +40,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCourseStyle } from "@/lib/pipeline/course-style";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export interface InstantiateModuleProgressResult {
   created: number;
@@ -68,7 +69,7 @@ export async function instantiatePlaybookModuleProgress(
       id: true,
       config: true,
       playbookCurricula: {
-        where: { role: "primary" },
+        where: { role: PlaybookCurriculumRole.primary },
         select: { curriculumId: true },
         take: 1,
       },

@@ -33,6 +33,7 @@
 import { prisma } from "../lib/prisma";
 import { updatePlaybookConfig } from "../lib/playbook/update-playbook-config";
 import type { PlaybookConfig } from "../lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 const APPLY = process.argv.includes("--apply");
 
@@ -53,7 +54,7 @@ async function main() {
       config: true,
       // #1177 — Curriculum is reached via PlaybookCurriculum (role:'primary').
       playbookCurricula: {
-        where: { role: "primary" },
+        where: { role: PlaybookCurriculumRole.primary },
         select: { curriculumId: true },
         take: 1,
       },

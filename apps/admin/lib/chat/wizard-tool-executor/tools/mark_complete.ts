@@ -1,4 +1,5 @@
 import type { WizardToolExec } from "../_shared/types";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export async function execute(
   _input: Record<string, unknown>,
@@ -31,7 +32,7 @@ export async function execute(
       name: true,
       // #1205 — canonical PlaybookCurriculum primary join.
       playbookCurricula: {
-        where: { role: "primary" },
+        where: { role: PlaybookCurriculumRole.primary },
         take: 1,
         select: {
           curriculum: {

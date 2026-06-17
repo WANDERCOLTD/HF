@@ -3,6 +3,7 @@
  * Run: npx tsx scripts/debug-session-tps.ts
  */
 import { prisma } from "@/lib/prisma";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 async function main() {
   // Find the 11+ Comprehension course
@@ -18,7 +19,7 @@ async function main() {
 
   // #1177 Slice 6 — canonical PlaybookCurriculum primary join.
   const cur = await prisma.curriculum.findFirst({
-    where: { playbookLinks: { some: { playbookId: pb.id, role: "primary" } } },
+    where: { playbookLinks: { some: { playbookId: pb.id, role: PlaybookCurriculumRole.primary } } },
     select: { id: true, subjectId: true, deliveryConfig: true },
   });
   if (cur === null) {

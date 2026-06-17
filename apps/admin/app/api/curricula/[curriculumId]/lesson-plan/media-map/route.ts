@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 type Params = { params: Promise<{ curriculumId: string }> };
 
@@ -50,7 +51,7 @@ export async function GET(
         deliveryConfig: true,
         subjectId: true,
         playbookLinks: {
-          where: { role: "primary" },
+          where: { role: PlaybookCurriculumRole.primary },
           take: 1,
           select: { playbookId: true },
         },

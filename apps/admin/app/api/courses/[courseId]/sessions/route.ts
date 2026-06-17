@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 type Params = { params: Promise<{ courseId: string }> };
 
@@ -40,7 +41,7 @@ export async function GET(
     // 2. Fetch curricula — canonical PlaybookCurriculum primary join,
     // fallback to subject chain. #1177 Slice 6.
     let curricula = await prisma.curriculum.findMany({
-      where: { playbookLinks: { some: { playbookId: courseId, role: "primary" } } },
+      where: { playbookLinks: { some: { playbookId: courseId, role: PlaybookCurriculumRole.primary } } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

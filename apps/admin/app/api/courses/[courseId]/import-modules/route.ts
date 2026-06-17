@@ -34,6 +34,7 @@ import { resolveCurriculumIdForPlaybook } from "@/lib/curriculum/resolve-module"
 import { recommendNextModule } from "@/lib/curriculum/recommend-next-module";
 import { readCourseFlags } from "@/lib/curriculum/course-completion";
 import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 // #495 Slice 4.2 — picker status badge. Per-module progress is returned to
 // the learner picker so each tile/rail card can render Mastered / In progress
@@ -258,7 +259,7 @@ export async function GET(
   if (allOutcomeRefs.length > 0) {
     // #1177 Slice 6 — canonical PlaybookCurriculum primary join (variant-aware).
     const curriculumRow = await prisma.curriculum.findFirst({
-      where: { playbookLinks: { some: { playbookId: courseId, role: "primary" } } },
+      where: { playbookLinks: { some: { playbookId: courseId, role: PlaybookCurriculumRole.primary } } },
       orderBy: { createdAt: "asc" },
       select: { id: true },
     });
@@ -446,7 +447,7 @@ async function loadProgressForCaller(
       callerId,
       module: {
         curriculum: {
-          playbookLinks: { some: { playbookId: courseId, role: "primary" } },
+          playbookLinks: { some: { playbookId: courseId, role: PlaybookCurriculumRole.primary } },
         },
       },
     },

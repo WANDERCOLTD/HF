@@ -18,6 +18,7 @@ import { ContractRegistry } from "@/lib/contracts/registry";
 import { CURRICULUM_REQUIRED_FIELDS } from "@/lib/curriculum/constants";
 import { resolveMasteryThreshold } from "@/lib/tolerance/resolve-tolerance";
 import type { SpecConfig } from "@/lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 interface CurriculumMetadata {
   type: 'sequential' | 'branching' | 'open-ended';
@@ -137,7 +138,7 @@ export async function composeContentSection(
     const hasRealModules = await prisma.curriculumModule.count({
       where: {
         curriculum: {
-          playbookLinks: { some: { playbookId: playbook.id, role: "primary" } },
+          playbookLinks: { some: { playbookId: playbook.id, role: PlaybookCurriculumRole.primary } },
         },
       },
     });

@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 type TxOrClient =
   | PrismaClient
@@ -43,7 +44,7 @@ export async function ensurePrimaryPlaybookLink(
     create: {
       playbookId,
       curriculumId,
-      role: "primary",
+      role: PlaybookCurriculumRole.primary,
     },
     update: {},
   });

@@ -13,6 +13,7 @@ import { db, type TxClient } from "@/lib/prisma";
 import { extractCurriculumFromAssertions, type CurriculumIntents } from "@/lib/content-trust/extract-curriculum";
 import { syncModulesToDB } from "@/lib/curriculum/sync-modules";
 import type { LegacyCurriculumModuleJSON } from "@/lib/types/json-fields";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -264,7 +265,7 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
           ? {
               OR: [
                 { subjectId },
-                { playbookLinks: { some: { playbookId: options.playbookId, role: "primary" } } },
+                { playbookLinks: { some: { playbookId: options.playbookId, role: PlaybookCurriculumRole.primary } } },
               ],
             }
           : { subjectId },

@@ -50,6 +50,7 @@ import { createTestLearnerForPlaybook } from "@/lib/enrollment/create-test-learn
 import { getCourseStyle } from "@/lib/pipeline/course-style";
 import { execSync } from "child_process";
 import fs from "fs";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 const DEFAULT_PLAYBOOK_ID = "5bbdbe7e-c32f-490e-8ff8-a938ddfc49a0"; // CIO/CTO Revision Aid
 
@@ -197,7 +198,7 @@ async function main() {
 
   const pb = await prisma.playbook.findUnique({
     where: { id: playbookId },
-    select: { name: true, config: true, status: true, playbookCurricula: { where: { role: "primary" }, select: { curriculumId: true }, take: 1 } },
+    select: { name: true, config: true, status: true, playbookCurricula: { where: { role: PlaybookCurriculumRole.primary }, select: { curriculumId: true }, take: 1 } },
   });
   if (!pb || pb.status !== "PUBLISHED") {
     console.error(`Playbook ${playbookId} not PUBLISHED — abort`);

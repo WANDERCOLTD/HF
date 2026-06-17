@@ -19,6 +19,7 @@ import {
   resolveStrategyKey,
 } from "./strategies";
 import type { StrategyKey } from "./strategies/types";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 export interface GoalProgressUpdate {
   goalId: string;
@@ -326,7 +327,7 @@ async function resolveLearningObjective(
       where: {
         slug: moduleSlug,
         curriculum: {
-          playbookLinks: { some: { playbookId, role: "primary" } },
+          playbookLinks: { some: { playbookId, role: PlaybookCurriculumRole.primary } },
         },
       },
       select: {
@@ -360,7 +361,7 @@ async function resolveLearningObjective(
       ref,
       module: {
         curriculum: {
-          playbookLinks: { some: { playbookId, role: "primary" } },
+          playbookLinks: { some: { playbookId, role: PlaybookCurriculumRole.primary } },
         },
       },
     },

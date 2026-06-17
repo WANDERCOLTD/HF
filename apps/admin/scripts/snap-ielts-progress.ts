@@ -10,6 +10,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { PlaybookCurriculumRole } from "@prisma/client";
 
 const CALEB_CALLER_ID = "17b1b0b7-4837-4ece-9ae5-f94a967e5ff9";
 const IELTS_PLAYBOOK_ID = "e460cd6f-0d0c-4948-9d8e-1ce696d4dfd3";
@@ -19,7 +20,7 @@ const p = new PrismaClient();
 async function main() {
   // #1177 Slice 6 — canonical PlaybookCurriculum primary join.
   const curric = await p.curriculum.findFirst({
-    where: { playbookLinks: { some: { playbookId: IELTS_PLAYBOOK_ID, role: "primary" } } },
+    where: { playbookLinks: { some: { playbookId: IELTS_PLAYBOOK_ID, role: PlaybookCurriculumRole.primary } } },
     select: { id: true },
   });
   const modules = curric
