@@ -1,0 +1,103 @@
+/* /x/test — tester index page styles */
+
+.hf-test-index-header {
+  margin-bottom: 24px;
+}
+
+.hf-test-index-legend {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hf-test-index-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.hf-test-index-pill-fresh {
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  color: var(--accent-primary);
+}
+
+.hf-test-index-pill-return {
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+}
+
+.hf-test-index-course {
+  margin-bottom: 16px;
+}
+
+.hf-test-index-course-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.hf-test-index-slug {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-secondary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+}
+
+.hf-test-index-modules {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.hf-test-index-modules th,
+.hf-test-index-modules td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.hf-test-index-modules th {
+  background: var(--surface-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hf-test-index-modules tr:last-child td {
+  border-bottom: none;
+}
+
+.hf-test-index-modules code {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+}
+
+.hf-test-index-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hf-test-index-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 24px;
+}
