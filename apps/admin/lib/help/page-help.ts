@@ -127,6 +127,30 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       "Everything about one course: the content that drives sessions, the design of the journey, the curriculum's module structure, the learners enrolled, the proof points teachers track, and the goals callers work toward.",
     tabs: [
       {
+        id: "teaching",
+        label: "Teaching",
+        about:
+          "How the tutor behaves on every call — style, visuals, stall handling, in-call feedback.",
+        whenToUse:
+          "When you want to retune how the AI tutor sounds and acts across every call (not just one moment).",
+      },
+      {
+        id: "scoring",
+        label: "Scoring",
+        about:
+          "Math + sequencing — banding, EMA, cadence, max calls per day.",
+        whenToUse:
+          "When you want to adjust how scores are computed, banded, or paced between calls.",
+      },
+      {
+        id: "modules",
+        label: "Modules",
+        about:
+          "Per-module settings for structured courses — cue cards, prep timers, completion gates.",
+        whenToUse:
+          "When you want to retune a specific module's behaviour without affecting the rest of the course.",
+      },
+      {
         id: "intelligence",
         label: "Content",
         about: "Source files and the extracted assertions that drive what the AI teaches.",
