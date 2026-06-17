@@ -149,6 +149,20 @@ The 2026-06-16 #1701 G8 cohort intentionally landed as producer-only
 consumers are Phase 2 work (Themes 8, 10, plus the closing/orientation
 transform wires). Tracked at <follow-on issue TBD>.
 
+**Structural enforcement (2026-06-17):** this layer of the producer↔
+consumer pairing is now pinned by
+`tests/lib/journey/registry-consumer-coverage.test.ts`. Each
+`JOURNEY_SETTINGS` + `VOICE_SETTINGS` entry is classified
+`covered` / `family-shortcut` / `no-compose-impact` / `exempt` /
+`gap`. Exempt entries require a one-line reason; total exempt count
+is ratcheted — cannot grow without an explicit bump. See
+[`registry-consumer-coverage.md`](./registry-consumer-coverage.md)
+for the full rule. **15 entries on the exempt list at birth** —
+that's the pre-existing producer-only debt this rule freezes in
+place. The 2026-06-17 audit surfaced the drift after months of
+trust-based convention enforcement; any future entry must wire its
+consumer in the same PR or consciously join the exempt list.
+
 ## Producer ↔ consumer pairing — deeper layer: transform vs renderer
 
 Even when the registry → transform side of the pairing is solid, a
