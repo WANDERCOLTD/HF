@@ -1356,7 +1356,7 @@ async function handleUpdateDomain(input: Record<string, any>) {
   }
 
   if (Object.keys(directData).length > 0) {
-    // eslint-disable-next-line hf-domain/no-direct-onboarding-write
+     
     await prisma.domain.update({ where: { id: domainId }, data: directData });
   }
 
