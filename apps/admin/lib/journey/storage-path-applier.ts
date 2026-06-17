@@ -20,6 +20,16 @@
  * The structured form (`StoragePathStruct` with `arrayKey + selectorValue`)
  * is handled only when the path is rooted inside `playbookConfig`.
  *
+ * Array traversal modes (both supported):
+ *  - **Final-segment array** (legacy): the `[]` marker is the LAST
+ *    segment, e.g. `sessionFlow.stops[]`. The whole array element is
+ *    replaced / merged.
+ *  - **Mid-path array** (P3c #1850): `[]` sits in the middle, e.g.
+ *    `config.modules[].settings.questionTarget`. The applier walks to
+ *    the array, finds / creates the element matching `arraySelector`,
+ *    then dives into the trailing segments to write a specific key
+ *    inside the matched element. Used for G8 module-scoped settings.
+ *
  * The applier is pure — call it from inside `updatePlaybookConfig`'s
  * transformer.
  */
@@ -45,6 +55,13 @@ export interface ResolvedPath {
   segments: readonly string[];
   /** When structured: the array-item selector (kind/id) and value. */
   arraySelector: { key: string; value: string } | null;
+  /** Index into `segments` of the array marker `[]`, when present. Used
+   *  by `applyAtPath` to distinguish a final-segment array
+   *  (e.g. `sessionFlow.stops[]`) from a mid-path array
+   *  (e.g. `config.modules[].settings.questionTarget`). Defaults to the
+   *  final-segment behaviour when omitted. P3c (#1850) wired the
+   *  mid-path traversal for G8 module-scoped writes. */
+  arraySegmentIndex: number | null;
   /** Write mode — "merge" shallow-merges into the parent, "replace" overwrites. */
   writeMode: "merge" | "replace";
 }
@@ -57,56 +74,54 @@ export function resolveStoragePath(storage: StoragePath): ResolvedPath {
   const writeMode: "merge" | "replace" =
     isStruct(storage) && storage.writeMode === "merge" ? "merge" : "replace";
 
-  // Detect root and strip the placeholder `[]` if present.
-  if (path.startsWith("config.")) {
+  // Detect root, then capture the array-marker index BEFORE stripping
+  // brackets so `applyAtPath` can tell mid-path arrays from
+  // final-segment arrays.
+  function buildAfter(rootStripped: string, root: StorageRoot): ResolvedPath {
+    const rawParts = rootStripped.split(".");
+    let arraySegmentIndex: number | null = null;
+    for (let i = 0; i < rawParts.length; i++) {
+      if (rawParts[i].endsWith("[]")) {
+        arraySegmentIndex = i;
+        break;
+      }
+    }
     return {
-      root: "config",
-      segments: stripBrackets(path.slice("config.".length).split(".")),
+      root,
+      segments: stripBrackets(rawParts),
       arraySelector,
+      arraySegmentIndex,
       writeMode,
     };
+  }
+
+  if (path.startsWith("config.")) {
+    return buildAfter(path.slice("config.".length), "config");
   }
   if (path.startsWith("sessionFlow.")) {
-    return {
-      root: "sessionFlow",
-      segments: stripBrackets(path.slice("sessionFlow.".length).split(".")),
-      arraySelector,
-      writeMode,
-    };
+    return buildAfter(path.slice("sessionFlow.".length), "sessionFlow");
   }
   if (path.startsWith("tolerances.")) {
-    return {
-      root: "tolerances",
-      segments: stripBrackets(path.slice("tolerances.".length).split(".")),
-      arraySelector,
-      writeMode,
-    };
+    return buildAfter(path.slice("tolerances.".length), "tolerances");
   }
   if (path.startsWith("playbook.voiceConfig.")) {
-    return {
-      root: "playbook.voiceConfig",
-      segments: stripBrackets(path.slice("playbook.voiceConfig.".length).split(".")),
-      arraySelector,
-      writeMode,
-    };
+    return buildAfter(path.slice("playbook.voiceConfig.".length), "playbook.voiceConfig");
   }
   if (path.startsWith("domain.")) {
-    return {
-      root: "domain",
-      segments: stripBrackets(path.slice("domain.".length).split(".")),
-      arraySelector,
-      writeMode,
-    };
+    return buildAfter(path.slice("domain.".length), "domain");
   }
   if (path.startsWith("behaviorTargets")) {
+    // behaviorTargets keeps the legacy split-on-dot behaviour; the array
+    // marker sits inside the bracket-segment itself, not as a trailing `[]`.
     return {
       root: "behaviorTargets",
       segments: stripBrackets(path.split(".")),
       arraySelector,
+      arraySegmentIndex: null,
       writeMode,
     };
   }
-  return { root: "unknown", segments: [], arraySelector, writeMode };
+  return { root: "unknown", segments: [], arraySelector, arraySegmentIndex: null, writeMode };
 }
 
 /** Apply a value at the resolved path inside a PlaybookConfig clone. */
@@ -138,6 +153,68 @@ export function applyAtPath(
       // Caller handles these — leave the config untouched. The PATCH
       // route returns 501 / 400 for these cases.
       return config;
+  }
+
+  // Mid-path array (P3c, #1850): `config.modules[].settings.<key>` where
+  // `modules` is the array and `settings.<key>` lives WITHIN each
+  // matched element. Walk up to the array segment, locate / create the
+  // matching element, then dive into its trailing segments. The
+  // final-segment array branch below handles the legacy
+  // `sessionFlow.stops[]` case (array IS the final segment).
+  const lastIdx = resolved.segments.length - 1;
+  if (
+    resolved.arraySelector &&
+    resolved.arraySegmentIndex !== null &&
+    resolved.arraySegmentIndex < lastIdx
+  ) {
+    // Walk segments up to (but not including) the array segment as objects.
+    for (let i = 0; i < resolved.arraySegmentIndex; i++) {
+      parent = ensureObject(parent, resolved.segments[i]);
+    }
+    // The array segment itself.
+    const arrayKey = resolved.segments[resolved.arraySegmentIndex];
+    const arr = ensureArray(parent, arrayKey);
+    let idx = arr.findIndex(
+      (it) =>
+        typeof it === "object" &&
+        it !== null &&
+        (it as Record<string, unknown>)[resolved.arraySelector!.key] ===
+          resolved.arraySelector!.value,
+    );
+    if (idx === -1) {
+      // Element doesn't yet exist → seed it with the selector key.
+      arr.push({
+        [resolved.arraySelector.key]: resolved.arraySelector.value,
+      });
+      idx = arr.length - 1;
+    }
+    let element = arr[idx] as Record<string, unknown>;
+    if (typeof element !== "object" || element === null) {
+      element = { [resolved.arraySelector.key]: resolved.arraySelector.value };
+      arr[idx] = element;
+    }
+    // Walk the trailing segments WITHIN the matched element.
+    let cursor: Record<string, unknown> = element;
+    for (let i = resolved.arraySegmentIndex + 1; i < lastIdx; i++) {
+      cursor = ensureObject(cursor, resolved.segments[i]);
+    }
+    const finalKey = resolved.segments[lastIdx];
+    if (!finalKey) return config;
+    if (
+      resolved.writeMode === "merge" &&
+      typeof value === "object" &&
+      value !== null &&
+      typeof cursor[finalKey] === "object" &&
+      cursor[finalKey] !== null
+    ) {
+      cursor[finalKey] = {
+        ...(cursor[finalKey] as Record<string, unknown>),
+        ...(value as Record<string, unknown>),
+      };
+    } else {
+      cursor[finalKey] = value;
+    }
+    return config;
   }
 
   // Walk segments creating intermediate objects.

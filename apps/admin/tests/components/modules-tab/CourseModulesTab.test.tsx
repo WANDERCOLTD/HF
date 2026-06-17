@@ -135,7 +135,7 @@ describe("CourseModulesTab — P3 (#1850) Inspector wiring", () => {
     ).toBeInTheDocument();
   });
 
-  it("surfaces the read-only banner when a module is selected", async () => {
+  it("surfaces the course-wide-preview banner only — P3c (#1850) removed the Inspector read-only banner", async () => {
     render(<CourseModulesTab courseId="c1" courseStyle="structured" />);
     const row = await waitFor(() =>
       screen.getByTestId("hf-modules-row-part1"),
@@ -144,13 +144,18 @@ describe("CourseModulesTab — P3 (#1850) Inspector wiring", () => {
     await waitFor(() =>
       screen.getByTestId("hf-module-inspector-part1"),
     );
-    // Inspector banner + canvas banner both surface that saves + preview
-    // are deferred to follow-on PRs.
-    expect(
-      screen.getByText(/Read-only preview/i),
-    ).toBeInTheDocument();
+    // The canvas-side "Showing course-wide preview" banner persists
+    // until the preview-scope follow-on lands.
     expect(
       screen.getByText(/Showing course-wide preview/i),
     ).toBeInTheDocument();
+    // The Inspector-side "Read-only preview" banner is GONE — the
+    // mutator is wired in P3c.
+    expect(
+      screen.queryByText(/Read-only preview/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/module-scope writer ships in a follow-on/i),
+    ).not.toBeInTheDocument();
   });
 });
