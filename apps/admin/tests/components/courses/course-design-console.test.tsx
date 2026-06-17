@@ -109,13 +109,15 @@ beforeEach(() => {
 });
 
 describe("CourseDesignConsole — nav", () => {
-  it("renders 14 lenses in the nav (5 Journey + 7 Behaviour + 1 Preview + 1 Voice Flow)", () => {
+  it("renders 13 lenses in the nav (5 Journey + 7 Behaviour + 1 Preview)", () => {
     // 7 Behaviour: call1Mode + moduleVisibility (#1405) + firstCallTargets +
     // tolerances + skillBanding + progressSignals + agentTunerNlp.
+    // Voice Flow was retired by #1708 (Phase 6 of #1675) — its content
+    // collapsed into the canonical session-flow editor surface.
     mockSessionFlowFetch(makeResolvedResponse());
     const { container } = render(<CourseDesignConsole courseId="course-1" />);
     const items = container.querySelectorAll(".hf-console-shell-nav-item");
-    expect(items.length).toBe(14);
+    expect(items.length).toBe(13);
   });
 
   it("renders a 'soon' badge only on agentTunerNlp (1 — Slices 2+3 absorbed the rest)", () => {

@@ -144,7 +144,12 @@ describe("buildV5SystemPrompt", () => {
 
   it("excludes pedagogy section when courseRefEnabled is false", async () => {
     const result = await buildV5SystemPrompt({}, emptyEvaluation());
-    expect(result).not.toContain("Skills Framework");
+    // Assert the pedagogy *section heading* is absent. Plain "Skills
+    // Framework" mentions exist elsewhere (e.g. the post-create
+    // launchBlockers gate added by #1565) which is unrelated to the
+    // courseRefEnabled gating.
+    expect(result).not.toContain("### Skills Framework");
+    expect(result).not.toContain("Teaching Guide");
   });
 
   it("conditionally hides completed pedagogy sub-sections", async () => {

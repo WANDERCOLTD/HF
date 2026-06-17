@@ -83,13 +83,16 @@ describe("PlaybookSource isolation guards", () => {
       // COURSE_REFERENCE and the course is "degenerate".
       //
       // Static check that the existing-path of create_course (split
-      // out of `wizard-tool-executor.ts` by #1547) contains the same
-      // upsertPlaybookSource loop the new-path has.
+      // out of `wizard-tool-executor.ts` by #1547, then further split
+      // into per-stage modules under `create_course/` by #1562) contains
+      // the same upsertPlaybookSource loop the new-path has.
       const fs = await import("fs/promises");
       const path = await import("path");
+      // #1562 — the reuse-existing-playbook branch was extracted into a
+      // dedicated module. The ordering invariant now lives in _reuse-path.ts.
       const file = path.resolve(
         __dirname,
-        "../../../lib/chat/wizard-tool-executor/tools/create_course.ts",
+        "../../../lib/chat/wizard-tool-executor/tools/create_course/_reuse-path.ts",
       );
       const src = await fs.readFile(file, "utf8");
 

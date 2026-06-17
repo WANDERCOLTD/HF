@@ -129,7 +129,12 @@ describe("PreviewLens onSelectSection callback — #1623", () => {
     });
   });
 
-  it("does NOT fire onSelectSection for moduleVisibility lens click", async () => {
+  it("fires onSelectSection('modulesGate') for moduleVisibility lens click (#1738)", async () => {
+    // Slice C3 follow-on (#1738) extended SIDETRAY_LENS_TO_SECTION with
+    // `moduleVisibility: "modulesGate"` so the moduleVisibility lens now
+    // does map to a ComposeSectionKey. Pre-fix the lens fired the sidetray
+    // only; post-fix it ALSO routes through onSelectSection so the Inspector
+    // can mount the modulesGate editor.
     const onSelectSection = vi.fn<SelectFn>();
     mountWithFlow({ flow: welcomeFlow(), onSelectSection });
     const editButton = await waitFor(
@@ -138,13 +143,12 @@ describe("PreviewLens onSelectSection callback — #1623", () => {
     );
     if (!editButton) throw new Error("moduleVisibility affordance not found");
     fireEvent.click(editButton);
-    // The sidetray still opens for module-visibility (existing behaviour);
-    // onSelectSection should NOT fire because moduleVisibility doesn't map
-    // to a ComposeSectionKey.
+    // Sidetray still opens (existing behaviour, byte-identical to pre-#1738).
     await waitFor(() => {
       expect(screen.getByTestId("mock-mvs")).toBeInTheDocument();
     });
-    expect(onSelectSection).not.toHaveBeenCalled();
+    // And onSelectSection now fires with the mapped ComposeSectionKey.
+    expect(onSelectSection).toHaveBeenCalledWith("modulesGate");
   });
 
   it("is a pure addition — omitting the prop is allowed and unchanged", async () => {
