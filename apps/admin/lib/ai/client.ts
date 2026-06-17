@@ -645,7 +645,7 @@ function mockStream(messages: AIMessage[]): ReadableStream<Uint8Array> {
 // CONFIG-AWARE COMPLETIONS
 // ============================================================
 
-import { getAIConfig } from "./config-loader";
+import { getAIConfig, type AIConfigScope } from "./config-loader";
 
 export interface ConfiguredAIOptions {
   callPoint: string;
@@ -662,6 +662,16 @@ export interface ConfiguredAIOptions {
   thinkingBudgetTokens?: number;
   /** Optional: number of retries for transient errors (default: 2) */
   maxRetries?: number;
+  /**
+   * Optional cascade scope (#1868). When set, `getAIConfig` walks the
+   * Playbook → Domain layer overrides on `config.aiOverrides[callPoint]`
+   * before falling back to the global AIConfig table / SystemSettings.
+   *
+   * Pipeline + chat callers should pass `{ callId }` at minimum; supplying
+   * `{ playbookId }` directly skips the Call lookup. Per
+   * `.claude/rules/ai-callpoint-cascade.md`.
+   */
+  scope?: AIConfigScope;
 }
 
 /**
@@ -675,10 +685,10 @@ export interface ConfiguredAIOptions {
 export async function getConfiguredAICompletion(
   options: ConfiguredAIOptions
 ): Promise<AICompletionResult> {
-  const { callPoint, messages, maxTokens, temperature, engineOverride, tools, timeoutMs, thinkingBudgetTokens } = options;
+  const { callPoint, messages, maxTokens, temperature, engineOverride, tools, timeoutMs, thinkingBudgetTokens, scope } = options;
 
-  // Load config from database
-  const aiConfig = await getAIConfig(callPoint);
+  // Load config from database (#1868 — Playbook/Domain cascade when scope present)
+  const aiConfig = await getAIConfig(callPoint, scope);
 
   // Use override if provided, otherwise use config.
   // When the engine is overridden to a different provider, the configured model
@@ -718,10 +728,10 @@ export async function getConfiguredAICompletion(
 export async function getConfiguredAICompletionStream(
   options: ConfiguredAIOptions
 ): Promise<ReadableStream<Uint8Array>> {
-  const { callPoint, messages, maxTokens, temperature, engineOverride, timeoutMs } = options;
+  const { callPoint, messages, maxTokens, temperature, engineOverride, timeoutMs, scope } = options;
 
-  // Load config from database
-  const aiConfig = await getAIConfig(callPoint);
+  // Load config from database (#1868 — Playbook/Domain cascade when scope present)
+  const aiConfig = await getAIConfig(callPoint, scope);
 
   // Use override if provided, otherwise use config.
   // When the engine is overridden to a different provider, the configured model
