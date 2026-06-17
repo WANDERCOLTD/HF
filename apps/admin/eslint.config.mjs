@@ -25,6 +25,7 @@ import noBucketlessJourneySetting from "./eslint-rules/no-bucketless-journey-set
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
+import requireAiScopeInCascadeZone from "./eslint-rules/require-ai-scope-in-cascade-zone.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -256,6 +257,16 @@ const eslintConfig = defineConfig([
           "require-tiered-redactor": requireTieredRedactor,
         },
       },
+      // #1868 follow-on — block scope-less AI completion calls inside
+      // the cascade-required zone (pipeline / chat / voice routes).
+      // Without scope, the Playbook/Domain `aiOverrides[callPoint]`
+      // cascade is silently bypassed — the exact regression class the
+      // 2026-06-17 stale-model incident chain produced.
+      "hf-ai": {
+        rules: {
+          "require-ai-scope-in-cascade-zone": requireAiScopeInCascadeZone,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -327,6 +338,12 @@ const eslintConfig = defineConfig([
       // `app/api/callers/[callerId]/adaptations/route.ts`; new tier-sensitive
       // routes copy the tag pattern.
       "hf-rbac/require-tiered-redactor": "error",
+
+      // #1868 follow-on — error severity from day 1. Path-scoped to the
+      // cascade-required zone (pipeline / chat / voice routes); no other
+      // surface is touched. Escape hatch: `// @ai-scope-omitted: <reason>`
+      // on the line above. See `.claude/rules/ai-callpoint-cascade.md`.
+      "hf-ai/require-ai-scope-in-cascade-zone": "error",
 
       // #1395 / #1423 — Block app/api routes from importing the 5 lib/ops/*
       // files that instantiate their own PrismaClient (bypass the singleton).
