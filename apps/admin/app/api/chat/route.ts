@@ -314,6 +314,7 @@ export async function POST(request: NextRequest) {
         })),
         ...(msgInHistory ? [] : [{ role: "user" as const, content: message.trim() }]),
       ];
+      // @ai-scope-omitted: WIZARD chat thread — no Call/Playbook/Domain scope available pre-create_course
       const aiConfig = await getAIConfig("wizard.get-started");
       const selectedEngine = engine || aiConfig.provider;
       return await handleWizardModeWithTools(
@@ -345,6 +346,7 @@ export async function POST(request: NextRequest) {
         })),
         ...(msgInHistory ? [] : [{ role: "user" as const, content: message.trim() }]),
       ];
+      // @ai-scope-omitted: WIZARD course-ref thread — no Call/Playbook/Domain scope available pre-create_course
       const aiConfig = await getAIConfig("wizard.course-ref");
       const selectedEngine = engine || aiConfig.provider;
       return await handleWizardModeWithTools(
@@ -467,6 +469,7 @@ export async function POST(request: NextRequest) {
       const { buildDemoSystemPrompt } = await import("@/lib/chat/demo-system-prompt");
       const demoPrompt = await buildDemoSystemPrompt({ entityContext });
       const callPoint = "chat.demo";
+      // @ai-scope-omitted: DEMO mode chat — synthetic entity, not a real Call/Playbook
       const aiConfig = await getAIConfig(callPoint);
       const selectedEngine = engine || aiConfig.provider;
 
@@ -570,6 +573,7 @@ export async function POST(request: NextRequest) {
       ];
 
       const unifiedCallPoint = "chat.unified_assistant";
+      // @ai-scope-omitted: cross-mode DATA assistant — entityContext is heterogeneous; no single Call scope applies
       const unifiedAIConfig = await getAIConfig(unifiedCallPoint);
       const unifiedSelectedEngine = engine || unifiedAIConfig.provider;
       const unifiedUserId = authResult.session.user.id;
@@ -617,6 +621,7 @@ export async function POST(request: NextRequest) {
 
     // @ai-call chat.{call|bug} — runtime-only modes after the #1504 Slice 2 collapse
     const callPoint = `chat.${mode.toLowerCase()}`;
+    // @ai-scope-omitted: admin-side chat (CALL/BUG modes) — entityContext is admin browsing, not a learner Call
     const aiConfig = await getAIConfig(callPoint);
     const selectedEngine = engine || aiConfig.provider;
 
@@ -638,6 +643,7 @@ export async function POST(request: NextRequest) {
       }
 
       // @ai-call chat.call — Streaming CALL mode (no callId) | config: /x/ai-config
+      // @ai-scope-omitted: admin-side chat (no learner Call); annotation above explicitly notes "no callId"
       const { stream: meteredStream } = await getConfiguredMeteredAICompletionStream(
         {
           callPoint,
@@ -670,6 +676,7 @@ export async function POST(request: NextRequest) {
       // @ai-call chat.bug — Bug diagnosis with code context | config: /x/ai-config
       const callPoint = "chat.bug";
 
+      // @ai-scope-omitted: BUG mode chat — admin diagnostic, no learner Call/Playbook scope
       const response = await getConfiguredMeteredAICompletion(
         {
           callPoint,
@@ -770,6 +777,7 @@ async function handleDataModeWithTools(
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     // @ai-call chat.data — Non-streaming with tools | config: /x/ai-config
+    // @ai-scope-omitted: DATA mode chat — admin browsing surface, entityContext is read-only catalogue
     const response = await getConfiguredMeteredAICompletion(
       {
         callPoint,
@@ -899,6 +907,7 @@ async function handleCallModeWithTools(
   // No content available — fall back to standard streaming (no tools needed)
   if (!catalog) {
     // @ai-call chat.call — Streaming CALL mode (no content catalog) | config: /x/ai-config
+    // @ai-scope-omitted: admin-side chat (no learner Call); annotation above explicitly notes "no content catalog"
     const { stream: meteredStream } = await getConfiguredMeteredAICompletionStream(
       {
         callPoint,
@@ -949,6 +958,7 @@ async function handleCallModeWithTools(
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     // @ai-call chat.call — Non-streaming with content tools | config: /x/ai-config
+    // @ai-scope-omitted: admin-side chat (no learner Call) with content-catalogue tools
     const response = await getConfiguredMeteredAICompletion(
       {
         callPoint,
@@ -1118,6 +1128,7 @@ async function handleWizardModeWithTools(
       break;
     }
     // @ai-call wizard.get-started — Non-streaming with wizard tools | config: /x/ai-config
+    // @ai-scope-omitted: WIZARD chat — pre-create_course; no Playbook/Domain to scope against
     const response = await getConfiguredMeteredAICompletion(
       {
         callPoint,
@@ -1358,6 +1369,7 @@ async function handleWizardModeWithTools(
     console.log(`[wizard] Continuation re-prompt: ${logPhase}`);
 
     // @ai-call wizard.get-started — Continuation after tool-only loop | config: /x/ai-config
+    // @ai-scope-omitted: WIZARD chat — continuation turn; same no-scope rationale as above
     const contResponse = await getConfiguredMeteredAICompletion(
       {
         callPoint,
