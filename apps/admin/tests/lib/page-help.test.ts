@@ -22,14 +22,20 @@ describe("page-help registry", () => {
       expect(entry?.title).toBe("Courses");
     });
 
-    it("returns the Course detail entry for parameterised pathname with 9 tabs", () => {
+    it("returns the Course detail entry for parameterised pathname", () => {
       const entry = getPageHelp("/x/courses/abc-123");
       expect(entry).toBeDefined();
       expect(entry?.title).toBe("Course detail");
-      // 9 tabs — added Skills Framework beta (#1572) between Goals and Voice.
-      expect(entry?.tabs).toHaveLength(9);
       const labels = entry?.tabs?.map((t) => t.label);
+      // Single source of truth — the literal labels array. Adding a new
+      // tab requires a single edit here. Hardcoded count was retired
+      // because it drifted twice in 24h (#1572 added Skills; PR #1852
+      // added Teaching/Scoring/Modules — both required a separate edit
+      // to bump the count next to the array).
       expect(labels).toEqual([
+        "Teaching",
+        "Scoring",
+        "Modules",
         "Content",
         "Design",
         "Curriculum",
@@ -40,6 +46,7 @@ describe("page-help registry", () => {
         "Voice",
         "Settings",
       ]);
+      expect(entry?.tabs).toHaveLength(labels?.length ?? 0);
     });
 
     it("does NOT return Course detail for /x/courses/new (non-detail route)", () => {
@@ -52,14 +59,13 @@ describe("page-help registry", () => {
       expect(getPageHelp("/x/courses/v3")?.title).not.toBe("Course detail");
     });
 
-    it("returns the Learner detail entry for parameterised pathname with 10 tabs", () => {
+    it("returns the Learner detail entry for parameterised pathname", () => {
       const entry = getPageHelp("/x/callers/xyz-789");
       expect(entry).toBeDefined();
       expect(entry?.title).toBe("Learner detail");
-      // 10 tabs — added Attainment (SP4-A #1580) and Adaptations (SP5-A #1589)
-      // between Progress and Uplift.
-      expect(entry?.tabs).toHaveLength(10);
       const ids = entry?.tabs?.map((t) => t.id);
+      // Single source of truth — the literal ids array. Adding/removing
+      // a tab requires a single edit here (the count is derived).
       expect(ids).toEqual([
         "overview-v2",
         "calls-prompts",
@@ -72,6 +78,7 @@ describe("page-help registry", () => {
         "how",
         "ai-call",
       ]);
+      expect(entry?.tabs).toHaveLength(ids?.length ?? 0);
     });
 
     it("returns the Learners index entry for exact pathname", () => {

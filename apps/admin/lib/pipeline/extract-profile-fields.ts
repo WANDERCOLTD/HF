@@ -218,6 +218,7 @@ export async function extractProfileFields(
       {
         callPoint: "pipeline.extract_profile_fields",
         engineOverride: engine,
+        scope: { callId },
         messages: [
           { role: "system", content: buildSystemPrompt() },
           { role: "user", content: buildUserPrompt(profileFields, transcript, 6000) },

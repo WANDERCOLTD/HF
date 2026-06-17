@@ -127,6 +127,7 @@ ${transcript.slice(0, 4000)}`;
     const result = await getConfiguredMeteredAICompletion({
       callPoint: "analysis.measure",
       engineOverride: engine,
+      scope: { callId: context?.callId },
       messages: [
         { role: "system", content: "You are an expert call analyst. Always respond with valid JSON." },
         { role: "user", content: prompt },
@@ -263,6 +264,7 @@ ${transcript.slice(0, 4000)}`;
     const result = await getConfiguredMeteredAICompletion({
       callPoint: "analysis.learn",
       engineOverride: engine,
+      scope: { callId: context?.callId },
       messages: [
         { role: "system", content: "You are an expert at extracting structured information from conversations. Always respond with valid JSON." },
         { role: "user", content: fullPrompt },
