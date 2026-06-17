@@ -236,7 +236,7 @@ const G2_FIRST_CALL_COURSE_INTRO: JourneySettingContract = {
   group: "G2",
   educatorLabel: "First-call intro line",
   helpText:
-    "Optional intro line spoken AFTER the welcomeMessage + wait-for-ack gate. Supports the `{courseName}` token. Keeps Call 1 framing consistent across cohorts. (#1403)",
+    "Optional intro line spoken AFTER the welcomeMessage + wait-for-ack gate. Supports the `{courseName}` token. Keeps Call 1 framing consistent across cohorts.",
   storagePath: "config.firstCallCourseIntro",
   control: "text",
   cascadeSources: [],
@@ -254,7 +254,7 @@ const G2_FIRST_CALL_WAIT_FOR_ACK: JourneySettingContract = {
   group: "G2",
   educatorLabel: "Wait after opening",
   helpText:
-    "How the AI handles the pause after the welcomeMessage on Call 1. None / wait for any response / wait for greeting words. (#1403)",
+    "How the AI handles the pause after the welcomeMessage on Call 1. None / wait for any response / wait for greeting words.",
   storagePath: "config.firstCallWaitForAck",
   control: "select",
   cascadeSources: [],
@@ -277,7 +277,7 @@ const G2_FIRST_CALL_DURATION_OVERRIDE: JourneySettingContract = {
   group: "G2",
   educatorLabel: "Call 1 duration override (minutes)",
   helpText:
-    "Override Call 1 duration only. Calls 2+ use the standard durationMins. Useful for shorter assessment-only first calls. (#598)",
+    "Override Call 1 duration only. Calls 2+ use the standard durationMins. Useful for shorter assessment-only first calls.",
   storagePath: "config.firstCall.durationMinsOverride",
   control: "number",
   cascadeSources: [],
@@ -295,7 +295,7 @@ const G2_FIRST_CALL_INTRODUCE_PEDAGOGY: JourneySettingContract = {
   group: "G2",
   educatorLabel: "Introduce pedagogy on Call 1",
   helpText:
-    "Whether the AI says \"here's how this works\" on Call 1. Off suppresses the pedagogy intro block. (#598)",
+    "Whether the AI says \"here's how this works\" on Call 1. Off suppresses the pedagogy intro block.",
   storagePath: "config.firstCall.introducePedagogy",
   control: "toggle",
   cascadeSources: [],
@@ -516,7 +516,7 @@ const G4_SHARE_MATERIALS: JourneySettingContract = {
   group: "G4",
   educatorLabel: "AI may share course materials",
   helpText:
-    "When on, the AI may share PDFs / reference docs with learners during sessions. Turn off for voice-only courses (IELTS Speaking, conversation practice) where document delivery is pedagogically wrong or technically meaningless. (#234)",
+    "When on, the AI may share PDFs / reference docs with learners during sessions. Turn off for voice-only courses (IELTS Speaking, conversation practice) where document delivery is pedagogically wrong or technically meaningless.",
   storagePath: "config.shareMaterials",
   control: "toggle",
   cascadeSources: [],
@@ -604,7 +604,7 @@ const G4_TIER_PRESET_ID: JourneySettingContract = {
   group: "G4",
   educatorLabel: "Scoring mode preset",
   helpText:
-    "When set to `ielts-speaking`, PROSODY calls the speech-assessment provider in IELTS mode and 4 sub-bands flow into the CallScore rows. Otherwise PROSODY scores in generic mode. (#1119)",
+    "When set to `ielts-speaking`, PROSODY calls the speech-assessment provider in IELTS mode and 4 sub-bands flow into the CallScore rows. Otherwise PROSODY scores in generic mode.",
   storagePath: "config.tierPresetId",
   control: "select",
   cascadeSources: [],
@@ -631,7 +631,7 @@ const G4_SKILL_MIN_CALLS_TO_FULL: JourneySettingContract = {
   group: "G4",
   educatorLabel: "First-call score cap factor",
   helpText:
-    "Single-call score is capped at `min(rawScore, callsUsed/N)` until N calls have accumulated. Default 4 (matches IELTS examiner observation budget). Lower for rapid-feedback courses. (#417)",
+    "Single-call score is capped at `min(rawScore, callsUsed/N)` until N calls have accumulated. Default 4 (matches IELTS examiner observation budget). Lower for rapid-feedback courses.",
   storagePath: "config.skillMinCallsToFull",
   control: "number",
   cascadeSources: [],
@@ -753,7 +753,7 @@ const G4_PROGRESS_NARRATIVE_ENABLED: JourneySettingContract = {
   group: "G4",
   educatorLabel: "Mid-call mastery acknowledgement",
   helpText:
-    "Off-switch for the progressNarrative composer section. When on, the AI cites concrete LO scores in mid-call moments. (#779 Felt Progress S1)",
+    "Off-switch for the progressNarrative composer section. When on, the AI cites concrete LO scores in mid-call moments.",
   storagePath: "config.progressNarrative.enabled",
   control: "toggle",
   cascadeSources: [],
@@ -771,7 +771,7 @@ const G4_PROGRESS_NARRATIVE_CADENCE: JourneySettingContract = {
   group: "G4",
   educatorLabel: "Mid-call cadence",
   helpText:
-    "When the AI emits LO-mastery evidence. `every_call` fires whenever any LO score > 0; `on_threshold_crossing` only when a score crosses the threshold. (#779)",
+    "When the AI emits LO-mastery evidence. `every_call` fires whenever any LO score > 0; `on_threshold_crossing` only when a score crosses the threshold.",
   storagePath: "config.progressNarrative.cadence",
   control: "select",
   cascadeSources: [],
@@ -793,7 +793,7 @@ const G4_PROGRESS_NARRATIVE_THRESHOLD: JourneySettingContract = {
   group: "G4",
   educatorLabel: "Mid-call threshold",
   helpText:
-    "Minimum LO score delta to trigger the mid-call narrative when cadence is `on_threshold_crossing`. Default 0.1. (#779)",
+    "Minimum LO score delta to trigger the mid-call narrative when cadence is `on_threshold_crossing`. Default 0.1.",
   storagePath: "config.progressNarrative.minScoreDelta",
   control: "number",
   cascadeSources: [],
@@ -811,7 +811,7 @@ const G4_PROGRESS_NARRATIVE_SKIP_FIRST: JourneySettingContract = {
   group: "G4",
   educatorLabel: "Skip on Call 1",
   helpText:
-    "Suppress the mid-call narrative on Call 1 (no prior context to compare against). Default true. (#779)",
+    "Suppress the mid-call narrative on Call 1 (no prior context to compare against). Default true.",
   storagePath: "config.progressNarrative.skipFirstCall",
   control: "toggle",
   cascadeSources: [],
@@ -829,7 +829,7 @@ const G4_PRIOR_CALL_RECAP_ENABLED: JourneySettingContract = {
   group: "G4",
   educatorLabel: "AI-synthesized recap",
   helpText:
-    "When on, the prior-call recap is AI-synthesized (uses depth picker below); when off, the templated minimal recap is used. (#599 Slice 1)",
+    "When on, the prior-call recap is AI-synthesized (uses depth picker below); when off, the templated minimal recap is used.",
   storagePath: "config.priorCallRecap.enabled",
   control: "toggle",
   cascadeSources: [],
@@ -847,7 +847,7 @@ const G4_PRIOR_CALL_RECAP_DEPTH: JourneySettingContract = {
   group: "G4",
   educatorLabel: "Recap synthesis depth",
   helpText:
-    "Minimal (templated, no AI), standard (2-3 sentences), or rich (3-4 sentences + transcript observation). Only relevant when AI-synthesized recap is on. (#599)",
+    "Minimal (templated, no AI), standard (2-3 sentences), or rich (3-4 sentences + transcript observation). Only relevant when AI-synthesized recap is on.",
   storagePath: "config.priorCallRecap.depth",
   control: "select",
   cascadeSources: [],
@@ -870,7 +870,7 @@ const G4_PRIOR_CALL_RECAP_DAILY_CAP: JourneySettingContract = {
   group: "G4",
   educatorLabel: "Recap synthesis daily cap",
   helpText:
-    "Per-playbook per-UTC-day cap on recap synthesis AI calls. Default 50; server clamp 500. When the cap is hit, the loader falls back to the templated path. (#599)",
+    "Per-playbook per-UTC-day cap on recap synthesis AI calls. Default 50; server clamp 500. When the cap is hit, the loader falls back to the templated path.",
   storagePath: "config.priorCallRecap.dailyCap",
   control: "number",
   cascadeSources: [],
@@ -1155,7 +1155,7 @@ const G6_OFFBOARDING_SUMMARY_ENABLED: JourneySettingContract = {
   group: "G6",
   educatorLabel: "Structured offboarding summary",
   helpText:
-    "Off-switch for the structured progress block at offboarding. When on, the AI's closing turn cites concrete module / goal / skill numbers. (#780 Felt Progress S2)",
+    "Off-switch for the structured progress block at offboarding. When on, the AI's closing turn cites concrete module / goal / skill numbers.",
   storagePath: "config.offboardingSummary.enabled",
   control: "toggle",
   cascadeSources: [],
@@ -1173,7 +1173,7 @@ const G6_OFFBOARDING_SUMMARY_CADENCE: JourneySettingContract = {
   group: "G6",
   educatorLabel: "Summary cadence",
   helpText:
-    "When the summary fires. `final_only` preserves the existing final-session gate; `every_session_with_data` fires on every post-Call-1 session with data. (#780)",
+    "When the summary fires. `final_only` preserves the existing final-session gate; `every_session_with_data` fires on every post-Call-1 session with data.",
   storagePath: "config.offboardingSummary.cadence",
   control: "select",
   cascadeSources: [],
@@ -1194,7 +1194,7 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY: JourneySettingContract = {
   menuGroupKey: "M_end_of_course",
   group: "G6",
   educatorLabel: "Summary: include module mastery",
-  helpText: "Include per-module mastery numbers in the offboarding summary. (#780)",
+  helpText: "Include per-module mastery numbers in the offboarding summary.",
   storagePath: "config.offboardingSummary.includeModuleMastery",
   control: "toggle",
   cascadeSources: [],
@@ -1211,7 +1211,7 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS: JourneySettingContract = {
   menuGroupKey: "M_end_of_course",
   group: "G6",
   educatorLabel: "Summary: include goal progress",
-  helpText: "Include per-goal progress numbers in the offboarding summary. (#780)",
+  helpText: "Include per-goal progress numbers in the offboarding summary.",
   storagePath: "config.offboardingSummary.includeGoalProgress",
   control: "toggle",
   cascadeSources: [],
@@ -1228,7 +1228,7 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE: JourneySettingContract = {
   menuGroupKey: "M_end_of_course",
   group: "G6",
   educatorLabel: "Summary: include skill scores",
-  helpText: "Include per-skill current scores in the offboarding summary. (#780)",
+  helpText: "Include per-skill current scores in the offboarding summary.",
   storagePath: "config.offboardingSummary.includeSkillCurrentScore",
   control: "toggle",
   cascadeSources: [],
@@ -1333,7 +1333,7 @@ const G7_TOL_MASTERY_THRESHOLD: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Mastery threshold override",
   helpText:
-    "Course-level override of the mastery threshold (default 0.7). Higher = stricter passing bar. (#598)",
+    "Course-level override of the mastery threshold (default 0.7). Higher = stricter passing bar.",
   storagePath: "config.tolerances.masteryThreshold",
   control: "slider",
   cascadeSources: [],
@@ -1351,7 +1351,7 @@ const G7_TOL_RETRIEVAL_CADENCE: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Retrieval cadence override",
   helpText:
-    "Absolute override (positive integer) for the SchedulerPolicy retrieval cadence — replaces the preset value, not a multiplier. Cadence = how many calls between retrieval sessions: 1 retrieves every call, 4 retrieves every 4th. Lower = faster spaced-repetition cycle. Typical range 1–5 (presets pick 2–4). Per-learner override intentionally NOT supported (would defeat interleaving). (#598)",
+    "Absolute override (positive integer) for the SchedulerPolicy retrieval cadence — replaces the preset value, not a multiplier. Cadence = how many calls between retrieval sessions: 1 retrieves every call, 4 retrieves every 4th. Lower = faster spaced-repetition cycle. Typical range 1–5 (presets pick 2–4). Per-learner override intentionally NOT supported (would defeat interleaving).",
   storagePath: "config.tolerances.retrievalCadenceOverride",
   control: "number",
   cascadeSources: [],
@@ -1369,7 +1369,7 @@ const G7_TOL_MEMORY_DECAY: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Memory decay scale",
   helpText:
-    "0.1–1.0 multiplier applied to category decay defaults in the forgetting-curve calculation. Lower = slower decay (good for long-cycle courses). (#598)",
+    "0.1–1.0 multiplier applied to category decay defaults in the forgetting-curve calculation. Lower = slower decay (good for long-cycle courses).",
   storagePath: "config.tolerances.memoryDecayScale",
   control: "slider",
   cascadeSources: [],
@@ -1387,7 +1387,7 @@ const G7_TOL_CARRY_FORWARD: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Carry-forward priority boost",
   helpText:
-    "Magnitude of the priority bump given to TPs that were planned in the prior call but never covered (learner hangup, time ran out). 0 disables the feature. Default 0.5. (#918)",
+    "Magnitude of the priority bump given to TPs that were planned in the prior call but never covered (learner hangup, time ran out). 0 disables the feature. Default 0.5.",
   storagePath: "config.tolerances.carryForwardBoost",
   control: "slider",
   cascadeSources: [],
@@ -1407,7 +1407,7 @@ const G7_FIRST_CALL_MODULE_VISIBILITY: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Module visibility on Call 1",
   helpText:
-    "When the AI starts naming modules in framing on Call 1. ONLY affects orientation/framing sections; learner's explicit module pick still overrides. (#1405)",
+    "When the AI starts naming modules in framing on Call 1. ONLY affects orientation/framing sections; learner's explicit module pick still overrides.",
   storagePath: "config.firstCall.firstCallModuleVisibility",
   control: "select",
   cascadeSources: [],
@@ -1430,7 +1430,7 @@ const G7_COMPLETION_MODE: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Completion mode",
   helpText:
-    "When the course counts as 'done'. terminal-only (default): playbook's terminal module mastered. all-modules: every module mastered. any: at least one module mastered. (#494)",
+    "When the course counts as 'done'. terminal-only (default): playbook's terminal module mastered. all-modules: every module mastered. any: at least one module mastered.",
   storagePath: "config.completionMode",
   control: "select",
   cascadeSources: [],
@@ -1453,7 +1453,7 @@ const G7_STRICT_PREREQUISITES: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Strict prerequisites",
   helpText:
-    "When on, hard-lock terminal modules with unmet prerequisites in the module picker. Off (default) = soft-warning override modal. On for assessment courses where premature attempts must be blocked. (#494)",
+    "When on, hard-lock terminal modules with unmet prerequisites in the module picker. Off (default) = soft-warning override modal. On for assessment courses where premature attempts must be blocked.",
   storagePath: "config.strictPrerequisites",
   control: "toggle",
   cascadeSources: [],
@@ -1490,7 +1490,7 @@ const G7_INTERLEAVE_REVIEW_MIN_DAYS: JourneySettingContract = {
   group: "G7",
   educatorLabel: "Interleave-review freshness (days)",
   helpText:
-    "Minimum days since last call before a mastered module qualifies for review. Default 3 (typical 2-3 day spacing window). Higher (~7) for deeper-cycle courses; lower (~1) for daily drills. (#492)",
+    "Minimum days since last call before a mastered module qualifies for review. Default 3 (typical 2-3 day spacing window). Higher (~7) for deeper-cycle courses; lower (~1) for daily drills.",
   storagePath: "config.interleaveReviewMinDays",
   control: "number",
   cascadeSources: [],
