@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
 const { mockPrisma, mockStudentAllowed } = vi.hoisted(() => ({
   mockPrisma: {
@@ -55,14 +56,14 @@ describe("GET /api/calls/[callId]/post-call-redirect", () => {
       curriculumModule: { coversModules: ["part1", "part2", "part3"] },
     });
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x"), PARAMS);
     expect(res.status).toBe(403);
   });
 
   it("returns 404 when call not found", async () => {
     mockPrisma.call.findUnique.mockResolvedValue(null);
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x"), PARAMS);
     expect(res.status).toBe(404);
   });
 
@@ -74,7 +75,7 @@ describe("GET /api/calls/[callId]/post-call-redirect", () => {
       curriculumModule: { coversModules: ["part1", "part2", "part3"] },
     });
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x"), PARAMS);
     const body = (await res.json()) as { ok: true; target: string };
     expect(res.status).toBe(200);
     expect(body.target).toBe("/x/student/pb-1/results/sess-1");
@@ -88,7 +89,7 @@ describe("GET /api/calls/[callId]/post-call-redirect", () => {
       curriculumModule: { coversModules: [] },
     });
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x"), PARAMS);
     const body = (await res.json()) as { ok: true; target: string };
     expect(body.target).toBe("/x/student");
   });
@@ -101,7 +102,7 @@ describe("GET /api/calls/[callId]/post-call-redirect", () => {
       curriculumModule: null,
     });
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x"), PARAMS);
     const body = (await res.json()) as { ok: true; target: string };
     expect(body.target).toBe("/x/student");
   });
@@ -114,7 +115,7 @@ describe("GET /api/calls/[callId]/post-call-redirect", () => {
       curriculumModule: { coversModules: ["part1"] },
     });
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x"), PARAMS);
     const body = (await res.json()) as { ok: true; target: string };
     expect(body.target).toBe("/x/student");
   });
@@ -127,7 +128,7 @@ describe("GET /api/calls/[callId]/post-call-redirect", () => {
       curriculumModule: { coversModules: ["part1"] },
     });
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x"), PARAMS);
     const body = (await res.json()) as { ok: true; target: string };
     expect(body.target).toBe("/x/student");
   });
