@@ -11,6 +11,33 @@ import { deriveParameterMap } from '@/lib/agent-tuner/derive';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
 
 /**
+ * Epic #1700 missing-surface sweep — Mock learner post-call redirect.
+ *
+ * Resolves the target URL for a STUDENT learner returning from a call.
+ * For Mock-style calls (bound module declares `coversModules.length > 0`
+ * — the canonical "multi-part Mock" discriminator established in
+ * #1702/#1785), routes to the Mock Results screen at
+ * `/x/student/<playbookId>/results/<sessionId>`. Falls back to
+ * `/x/student` for anything else (regular tutor calls, errors, missing
+ * data).
+ *
+ * Network-best-effort: on any fetch or parse failure, return the
+ * fallback URL. Never throws.
+ */
+async function resolvePostCallRedirect(callId: string | undefined): Promise<string> {
+  const fallback = '/x/student';
+  if (!callId) return fallback;
+  try {
+    const res = await fetch(`/api/calls/${callId}/post-call-redirect`);
+    if (!res.ok) return fallback;
+    const body = (await res.json()) as { ok?: boolean; target?: string };
+    return body?.ok && typeof body.target === 'string' ? body.target : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * /x/sim/[callerId] — standalone simulator page (#1448).
  *
  * Page-level responsibilities:
@@ -158,8 +185,18 @@ export default function SimConversationPage() {
       onBack={isDesktop ? undefined : () => router.push('/x/sim')}
       onCallEnd={
         isStudent
-          ? () => {
-              setTimeout(() => router.push('/x/student'), 1500);
+          ? (info) => {
+              // Epic #1700 missing-surface sweep — Mock learners should
+              // land on the Mock Results screen (Theme 13a / #1751)
+              // instead of the generic /x/student home. Fetches the
+              // just-ended call's session + playbook + bound module
+              // mode/terminal flags and routes accordingly. Falls back
+              // to /x/student on any error or for non-Mock modules.
+              setTimeout(() => {
+                void resolvePostCallRedirect(info?.callId).then((target) => {
+                  router.push(target);
+                });
+              }, 1500);
             }
           : undefined
       }

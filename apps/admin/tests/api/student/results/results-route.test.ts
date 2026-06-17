@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
 const { mockPrisma, mockStudentAllowed, mockMapping } = vi.hoisted(() => ({
   mockPrisma: {
@@ -76,7 +77,7 @@ describe("GET /api/student/[courseId]/results/[sessionId]", () => {
     mockStudentAllowed.mockReturnValue(false);
     mockPrisma.session.findUnique.mockResolvedValue(makeSession());
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x/results"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x/results"), PARAMS);
     expect(res.status).toBe(403);
     expect(mockPrisma.callScore.findMany).not.toHaveBeenCalled();
   });
@@ -84,14 +85,14 @@ describe("GET /api/student/[courseId]/results/[sessionId]", () => {
   it("returns 404 when session not found", async () => {
     mockPrisma.session.findUnique.mockResolvedValue(null);
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x/results"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x/results"), PARAMS);
     expect(res.status).toBe(404);
   });
 
   it("returns 403 when session.playbookId !== courseId path param", async () => {
     mockPrisma.session.findUnique.mockResolvedValue(makeSession({ playbookId: "other-course" }));
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x/results"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x/results"), PARAMS);
     expect(res.status).toBe(403);
     expect(mockPrisma.callScore.findMany).not.toHaveBeenCalled();
   });
@@ -100,7 +101,7 @@ describe("GET /api/student/[courseId]/results/[sessionId]", () => {
     mockPrisma.session.findUnique.mockResolvedValue(makeSession({ status: "STARTED", endedAt: null }));
     mockPrisma.callScore.findMany.mockResolvedValue([]);
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x/results"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x/results"), PARAMS);
     const body = (await res.json()) as { ok: true; processing: boolean };
     expect(res.status).toBe(200);
     expect(body.processing).toBe(true);
@@ -110,7 +111,7 @@ describe("GET /api/student/[courseId]/results/[sessionId]", () => {
     mockPrisma.session.findUnique.mockResolvedValue(makeSession({ status: "COMPLETED" }));
     mockPrisma.callScore.findMany.mockResolvedValue([]);
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x/results"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x/results"), PARAMS);
     const body = (await res.json()) as { ok: true; processing: boolean };
     expect(body.processing).toBe(true);
   });
@@ -136,7 +137,7 @@ describe("GET /api/student/[courseId]/results/[sessionId]", () => {
     mockPrisma.callScore.findMany.mockResolvedValue(rows);
 
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x/results"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x/results"), PARAMS);
     const body = (await res.json()) as {
       ok: true;
       processing: boolean;
@@ -167,7 +168,7 @@ describe("GET /api/student/[courseId]/results/[sessionId]", () => {
       { parameterId: "fc", segmentKey: "part1", score: 0.5, parameter: { name: "Fluency" } },
     ]);
     const route = await loadRoute();
-    const res = await route.GET(new Request("http://x/results"), PARAMS);
+    const res = await route.GET(new NextRequest("http://x/results"), PARAMS);
     const body = (await res.json()) as {
       overallBand: number;
       overallBandSource: "metadata" | "computed" | null;

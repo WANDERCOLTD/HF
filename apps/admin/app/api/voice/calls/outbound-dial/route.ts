@@ -19,6 +19,7 @@ import {
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
 import { createSession } from "@/lib/voice/create-session";
 import { recordCallFailure } from "@/lib/voice/record-call-failure";
+import { registerModuleScheduledCues } from "@/lib/voice/register-module-cues";
 import { startVoiceSpan, logVoiceEvent } from "@/lib/voice/telemetry";
 import { log } from "@/lib/logger";
 import { voiceDiagDump } from "@/lib/voice/diag";
@@ -457,6 +458,26 @@ export async function POST(request: Request) {
         },
         { status: 502 },
       );
+    }
+
+    // #1743 (epic #1700 Theme 2b) — register module-scoped scheduled cues
+    // now that we have a stable externalCallId. Best-effort: a registration
+    // failure must not break the dial. Flag-off / no-module / no-cues are
+    // structured returns, not throws — the helper logs the reason itself.
+    try {
+      await registerModuleScheduledCues({
+        externalCallId: vapiCallId,
+        callId: placeholderCall.id,
+        playbookId: sessionResult.playbookId,
+        moduleSlug: sessionResult.requestedModuleId,
+      });
+    } catch (cueErr) {
+      log("system", "voice.cue_registration.failed", {
+        level: "warn",
+        callId: placeholderCall.id,
+        externalCallId: vapiCallId,
+        error: cueErr instanceof Error ? cueErr.message : String(cueErr),
+      });
     }
 
     logVoiceEvent({

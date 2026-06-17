@@ -34,6 +34,7 @@ import {
   Lock,
 } from "lucide-react";
 import type { AuthoredModule } from "@/lib/types/json-fields";
+import { prerequisiteSlugs } from "@/lib/curriculum/check-module-unlock";
 import {
   PrereqsSoftWarningModal,
   type UnmetPrereq,
@@ -268,11 +269,9 @@ function computeUnmetPrereqs(
   candidate: AuthoredModule,
   modulesById: Map<string, AuthoredModule>,
 ): UnmetPrereq[] {
-  const prereqs = Array.isArray(candidate.prerequisites)
-    ? candidate.prerequisites
-    : [];
+  const slugs = prerequisiteSlugs(candidate.prerequisites);
   const unmet: UnmetPrereq[] = [];
-  for (const slug of prereqs) {
+  for (const slug of slugs) {
     const ref = modulesById.get(slug);
     if (!ref) continue; // stale slug — silently skip
     if (ref.progress?.status === "MASTERED") continue;
@@ -510,7 +509,9 @@ function RailLayout({
         const isInProgress = inProgress.has(m.id) && !isComplete;
         const isLocked = lockedModuleIds.has(m.id);
         const Tag = onSelect ? "button" : "div";
-        const prereqsUnmet = m.prerequisites.filter((p) => !completed.has(p));
+        const prereqsUnmet = prerequisiteSlugs(m.prerequisites).filter(
+          (slug) => !completed.has(slug),
+        );
         const advisoryHint =
           prereqsUnmet.length > 0
             ? `Recommended after ${prereqsUnmet.join(", ")}`

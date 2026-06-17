@@ -998,6 +998,13 @@ export interface AuthoredModuleSettings {
   /** Time-keyed tutor/examiner cues, consumed at runtime by the Theme 2 cue scheduler. */
   scheduledCues?: Array<{ at: number; text: string }>;
   /**
+   * #1743 (epic #1700 Theme 2b — Theme 1 extension) — pool of subtle
+   * scaffold strings the client-side stall detector picks from when the
+   * learner goes silent. Module slug is the implicit discriminator
+   * (Part 2 monologue pool vs Part 3 discussion pool).
+   */
+  scaffoldPool?: string[];
+  /**
    * #1704 Theme 10 — declared conversational profile fields the AI should
    * capture during the session. EXTRACT (`extract-profile-fields.ts`) walks
    * this list, validates, and writes `CallerAttribute` rows under `profile:*`.

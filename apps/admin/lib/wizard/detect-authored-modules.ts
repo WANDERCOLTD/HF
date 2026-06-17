@@ -35,6 +35,7 @@ import type {
   ModuleDefaults,
   ValidationWarning,
 } from "@/lib/types/json-fields";
+import { prerequisiteSlugs } from "@/lib/curriculum/check-module-unlock";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -446,11 +447,11 @@ function validateCrossReferences(
 
   // Prerequisite references must point to existing modules
   for (const m of modules) {
-    for (const p of m.prerequisites) {
-      if (!ids.has(p)) {
+    for (const slug of prerequisiteSlugs(m.prerequisites)) {
+      if (!ids.has(slug)) {
         warnings.push({
           code: "MODULE_PREREQUISITE_UNKNOWN",
-          message: `Module "${m.id}" lists prerequisite "${p}" which is not a sibling module ID.`,
+          message: `Module "${m.id}" lists prerequisite "${slug}" which is not a sibling module ID.`,
           path: `modules.${m.id}.prerequisites`,
           severity: "error",
         });

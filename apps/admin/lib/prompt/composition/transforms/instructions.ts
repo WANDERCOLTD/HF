@@ -6,6 +6,13 @@
  * This is the meta-transform that references prior section outputs
  * (memories, personality, targets, curriculum, goals, identity, content)
  * and assembles the `instructions` object.
+ *
+ * @renderer-consumed-at lib/prompt/composition/renderPromptSummary.ts
+ * Producer↔consumer pairing sentinel — `composition-directive-needs-renderer`
+ * ESLint rule + `tests/lib/prompt/composition/coverage-producer-consumer.test.ts`
+ * vitest enforce that every `directive: "…"` field below has a paired
+ * push in renderPromptSummary.ts. Born of PR #1768 silently dropping
+ * 5 consumer pushes; see `.claude/rules/lattice-survey.md`.
  */
 
 import { registerTransform } from "../TransformRegistry";
@@ -335,6 +342,24 @@ registerTransform("computeInstructions", (
       (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
       sharedState,
     ),
+
+    // #1735 (epic #1730 G8 consumer D) — module-scoped first-time
+    // orientation line. Renders ONLY when the learner has never seen
+    // this module's orientation yet (`CallerModuleProgress.orientationShown
+    // === false`). After the line renders, `endSession` writes
+    // orientationShown=true so subsequent calls skip it. Gated by
+    // `HF_FLAG_IELTS_MODULE_SETTINGS` per epic #1700 decision 5.
+    //
+    // RESTORED 2026-06-17 after the producer was silently dropped by
+    // PR #1768 (Theme 10 profile capture) along with its renderer
+    // consumer. The composition-coverage test at
+    // `tests/lib/prompt/composition/coverage-producer-consumer.test.ts`
+    // now structurally guards against this regression class.
+    module_orientation_line: resolveModuleOrientationLine(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+      loadedData,
+    ),
   };
 });
 
@@ -456,5 +481,66 @@ function resolveModuleCueCard(
     topic: picked.topic,
     bullets,
     directive,
+  };
+}
+
+/**
+ * #1735 (epic #1730 G8 consumer D) — first-time-only orientation line.
+ *
+ * Returns the verbatim string when ALL hold:
+ *   - `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic #1700 decision 5)
+ *   - `sharedState.lockedModule` is set
+ *   - Matching `AuthoredModule` in `Playbook.config.modules[]` has a
+ *     non-empty `settings.firstTimeOrientationLine` string
+ *   - The corresponding `CallerModuleProgress.orientationShown` for
+ *     `(callerId, moduleId)` is `false` (or row absent — first attempt)
+ *
+ * Returns `null` otherwise — the orientation line was already shown
+ * (gate hit) OR the operator hasn't set one.
+ *
+ * The "has it been shown" lookup uses `loadedData.callerModuleProgress`
+ * (loaded by the modules section).
+ *
+ * After this line renders for the first time, `endSession`'s
+ * `markOrientationShownIfApplicable` writes `orientationShown = true`
+ * so the next composition for this caller skips the line.
+ *
+ * RESTORED 2026-06-17 after PR #1768 silently deleted it.
+ */
+function resolveModuleOrientationLine(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+  loadedData: AssembledContext["loadedData"],
+): { line: string; directive: string } | null {
+  if (!isIeltsModuleSettingsEnabled()) return null;
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+
+  const line = matched.settings?.firstTimeOrientationLine;
+  if (typeof line !== "string" || line.trim().length === 0) return null;
+
+  // Has the learner seen this module's orientation already? The
+  // `callerModuleProgress` rows live on `loadedData` when the modules
+  // loader has run; treat an absent row as "not yet seen" so the line
+  // fires on first attempt.
+  const progressRows = (
+    loadedData as {
+      callerModuleProgress?: Array<{ moduleId: string; orientationShown?: boolean }>;
+    }
+  ).callerModuleProgress ?? [];
+  const progressRow = progressRows.find(
+    (r) => r.moduleId === matched.id || r.moduleId === lockedModule.id,
+  );
+  if (progressRow?.orientationShown === true) return null;
+
+  return {
+    line,
+    directive: `FIRST-TIME ORIENTATION (one-shot — speak these exact words once before starting the module): "${line}"`,
   };
 }

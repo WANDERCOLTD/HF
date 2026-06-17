@@ -1,10 +1,4 @@
-/* eslint-disable hf-security/no-unscoped-caller-id-route --
- * Course-scoped route. The rule's path-param-IDOR class fires on the
- * `[courseId]` segment because the path bracket matches the heuristic,
- * but Course is the educator-owned authoring surface, not a per-learner
- * read. OPERATOR+ gate at requireAuth is the right boundary; there is
- * no STUDENT-readable shape of this data.
- */
+ 
 /**
  * @api GET /api/courses/[courseId]/skills-source-lineage
  *

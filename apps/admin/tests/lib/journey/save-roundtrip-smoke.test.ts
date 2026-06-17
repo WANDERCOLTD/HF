@@ -93,12 +93,25 @@ function representativeValue(
       return { tierPresetId: "Generic" };
     case "voice-picker":
       return { voiceProvider: "vapi", voiceId: "test-voice" };
-    case "stop":
+    case "stop": {
+      // Structured stop contracts address an array element by
+      // `arrayKey: "id"` + a canonical `selectorValue` (`"pre-test"` /
+      // `"mid-test"` / `"post-test"` / `"nps"`). The applier injects the
+      // selector onto pushed elements, so the round-trip read-back will
+      // carry the id; mirror it in the written value so the comparison
+      // matches.
+      const struct = typeof c.storagePath === "object" ? c.storagePath : null;
+      const id =
+        struct?.arrayKey === "id" && struct.selectorValue
+          ? struct.selectorValue
+          : undefined;
       return {
+        ...(id ? { id } : {}),
         kind: "pre_test",
         enabled: true,
         trigger: { type: "first_session" },
       };
+    }
     case "min-target":
       return { min: 1, target: 2 };
     case "array-editor":
@@ -274,6 +287,6 @@ describe("Journey settings save round-trip smoke test", () => {
     // Today: intakeSpecId + onboardingFlowPhases.
     expect(get("skipped-domain").length).toBe(2);
     expect(get("skipped-behavior-targets").length).toBe(1); // first session targets
-    expect(get("skipped-module-scope").length).toBe(7);    // G8 — Theme 1 + #1704
+    expect(get("skipped-module-scope").length).toBe(8);    // G8 — Theme 1 + #1704 + #1743 moduleScaffoldPool
   });
 });

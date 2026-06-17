@@ -27,6 +27,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { AuthoredModule } from "@/lib/types/json-fields";
+import { prerequisiteSlugs } from "@/lib/curriculum/check-module-unlock";
 import { detectMockShapeCovers } from "./detect-mock-shape-modules";
 import { assertValidLoRefBatch } from "@/lib/curriculum/validate-lo-refs";
 
@@ -127,6 +128,12 @@ export async function syncAuthoredModulesToCurriculum(
 
   for (const [idx, m] of modules.entries()) {
     const coversModules = coversBySlug.get(m.id) ?? [];
+    // `CurriculumModule.prerequisites` is `String[]` in the DB. The
+    // AuthoredModule type widens to allow `{moduleId, minCompletions}`
+    // (Theme 5). Serialise to slug list here — the count-based gate
+    // lives at read time in `lib/curriculum/check-module-unlock.ts`,
+    // which reads the richer shape directly from `Playbook.config.modules`.
+    const prereqSlugs = prerequisiteSlugs(m.prerequisites);
     const result = await tx.curriculumModule.upsert({
       where: {
         curriculumId_slug: { curriculumId, slug: m.id },
@@ -136,7 +143,7 @@ export async function syncAuthoredModulesToCurriculum(
         slug: m.id,
         title: m.label,
         sortOrder: m.position ?? idx,
-        prerequisites: m.prerequisites,
+        prerequisites: prereqSlugs,
         coversModules,
       },
       update: {
@@ -146,7 +153,7 @@ export async function syncAuthoredModulesToCurriculum(
         // shape today.
         title: m.label,
         sortOrder: m.position ?? idx,
-        prerequisites: m.prerequisites,
+        prerequisites: prereqSlugs,
         coversModules,
       },
       select: { id: true, createdAt: true, updatedAt: true },

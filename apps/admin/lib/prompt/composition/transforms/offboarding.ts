@@ -1,6 +1,12 @@
 /**
  * Offboarding Transform
  *
+ * @renderer-consumed-at lib/prompt/composition/renderPromptSummary.ts
+ * Producer↔consumer pairing sentinel — `composition-directive-needs-renderer`
+ * ESLint rule + `tests/lib/prompt/composition/coverage-producer-consumer.test.ts`
+ * vitest enforce that the `moduleClosingLine` directive below has a
+ * paired push in renderPromptSummary.ts. See `.claude/rules/lattice-survey.md`.
+ *
  * When the cadence gate fires, emits offboarding guidance instructing the AI
  * to summarise the learning journey, invite reflection, and suggest next
  * steps. With Felt Progress S2 (#780) the transform can now also emit a

@@ -110,6 +110,14 @@ export interface AttainmentModuleProgress {
   mastery: number;
   status: string;
   attemptsCount: number;
+  /**
+   * #1703 Theme 9 — count of incomplete attempts on this module. Incremented
+   * by `markModuleIncomplete()` when a Session ends below the module's
+   * `minSpeakingSec` threshold OR with outcome GHOST/FAILED. Surfaced in
+   * the AttainmentTab ModulesSection as a chip when > 0 — Epic #1700
+   * missing-surface sweep (surface 3 of 3).
+   */
+  incompleteAttempts: number;
   /** True when the caller is on a `useFreshMastery: true` playbook —
    *  per-LO mastery for THIS playbook lives on `Call.scratchMastery`
    *  per-call, NOT this `mastery` field. Drives the UI's per-section
@@ -394,6 +402,7 @@ export async function GET(
         mastery: m.mastery,
         status: m.status,
         attemptsCount: m.callCount ?? 0,
+        incompleteAttempts: m.incompleteAttempts ?? 0,
         freshMasteryActive: useFreshMastery,
       }));
   }

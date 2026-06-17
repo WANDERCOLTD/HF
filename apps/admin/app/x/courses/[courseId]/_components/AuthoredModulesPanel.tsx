@@ -35,6 +35,7 @@ import type {
   ModuleSource,
   ValidationWarning,
 } from "@/lib/types/json-fields";
+import { prerequisiteSlugs } from "@/lib/curriculum/check-module-unlock";
 import { ImportModulesDialog } from "./ImportModulesDialog";
 import { LearnerModulePicker } from "./LearnerModulePicker";
 import "./authored-modules-panel.css";
@@ -504,21 +505,25 @@ function ModuleDetail({
           <h4 className="authored-modules-detail__section-title">
             Prerequisites
           </h4>
-          {m.prerequisites.length === 0 ? (
-            <p className="hf-text-sm hf-text-muted">None — open from session 1.</p>
-          ) : (
-            <div className="authored-modules-detail__chips">
-              {m.prerequisites.map((id) => (
-                <span
-                  key={id}
-                  className="hf-badge hf-badge-sm hf-badge-muted"
-                  title="Advisory only — picker shows 'Recommended after' but does not gate"
-                >
-                  {id}
-                </span>
-              ))}
-            </div>
-          )}
+          {(() => {
+            const slugs = prerequisiteSlugs(m.prerequisites);
+            if (slugs.length === 0) {
+              return <p className="hf-text-sm hf-text-muted">None — open from session 1.</p>;
+            }
+            return (
+              <div className="authored-modules-detail__chips">
+                {slugs.map((id) => (
+                  <span
+                    key={id}
+                    className="hf-badge hf-badge-sm hf-badge-muted"
+                    title="Advisory only — picker shows 'Recommended after' but does not gate"
+                  >
+                    {id}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
         </section>
 
         {/* Content source */}

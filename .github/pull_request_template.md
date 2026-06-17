@@ -17,3 +17,4 @@ What should the reviewer look for?
 - [ ] Tests pass (`npm test`)
 - [ ] New API routes have `requireAuth()` + `@api` JSDoc annotation
 - [ ] Architecture docs updated if applicable
+- [ ] **Producer ↔ consumer pairing** — if I touched a transform in `lib/prompt/composition/transforms/` and added or modified a `directive: "…"` output field, the matching `parts.push(...)` consumer in `lib/prompt/composition/renderPromptSummary.ts` is present AND the file carries the `// @renderer-consumed-at lib/prompt/composition/renderPromptSummary.ts` sentinel comment. (Born of PR #1768 silently dropping 5 consumer pushes; enforced by `hf-compose/composition-directive-needs-renderer` ESLint rule + `tests/lib/prompt/composition/coverage-producer-consumer.test.ts` coverage vitest. See `.claude/rules/lattice-survey.md` §"Producer ↔ consumer pairing — deeper layer".)
