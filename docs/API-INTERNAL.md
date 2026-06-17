@@ -10054,6 +10054,34 @@ Returns the most recent COURSE_REFERENCE markdown document
 
 ---
 
+### `GET` /api/courses/:courseId/modules
+
+Returns the AuthoredModule list from `Playbook.config.modules`.
+
+**Auth**: session (OPERATOR+) · **Scope**: `courses:read`
+
+**Response** `200`
+```json
+{ ok: true, modules: ModuleSummary[] }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `POST` /api/courses/:courseId/recompose-section
 
 Recompose one section across every active enrolled caller's
@@ -16326,8 +16354,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 541 |
-| Files with annotations | 527 |
+| Route files found | 542 |
+| Files with annotations | 528 |
 | Files missing annotations | 14 |
 | Coverage | 97.4% |
 
