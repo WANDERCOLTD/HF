@@ -81,7 +81,7 @@ Three structural patterns, in order of preference:
 | Voice settings registry → Settings tab render | `lib/settings/voice-setting-contracts.ts::VOICE_SETTINGS` | `components/voice-section/VoiceSettings.tsx` | ❌ GAP | — | MED | No test pins render against registry. New voice setting could fail to mount. |
 | Parameter rows → AgentTuner UI | `prisma.parameter.findMany()` at `lib/agent-tuner/params.ts:37` | `components/sim/tuner/**/*.tsx` | ⚠️ PARTIAL | Runtime (auto-discover) | LOW | No test pins that all params render; runtime self-corrects on next page load. |
 | Parameter rows → JOURNEY_SETTINGS LH-menu exposure | `behavior-parameters.registry.json` | `JourneySettingContract` entries targeting `behaviorTargets[<paramId>]` | ❌ GAP | — | MED | New parameter doesn't auto-appear in Journey Inspector LH menu. Convention only. Per-param `JourneySettingContract` filing needed. |
-| Parameter rows → AnalysisSpec.measurements soft-FK | `behavior-parameters.registry.json::parameterId` | `AnalysisSpec.measurements[].parameterId` | ❌ GAP | — | HIGH | Soft-FK only — dangling ID causes silent measurement skip at read. Needs SQL check in `scripts/check-fk-consistency.ts`. |
+| Parameter rows → AnalysisSpec.measurements soft-FK | `behavior-parameters.registry.json::parameterId` | `AnalysisSpec.measurements[].parameterId` | ❌ GAP | — | HIGH | Soft-FK only — dangling ID causes silent measurement skip at read. Needs SQL check in `apps/admin/scripts/check-fk-consistency.ts`. |
 | Parameter rows → runtime consumer (compose/score/cascade) | `behavior-parameters.registry.json` | concat of `lib/prompt/composition/**` + `lib/pipeline/**` + `lib/cascade/resolvers/**` + others | ✅ PROTECTED | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | — | Exempt list (118 entries) with ratchet |
 
 ### Pipeline
@@ -132,7 +132,7 @@ Three structural patterns, in order of preference:
 | Cue scheduler tick → `CueScheduleEntry` persistence | `lib/voice/cue-scheduler.ts` | `prisma.cueScheduleEntry` (model exists) | ✅ PROTECTED | Runtime + `tests/lib/voice/cue-scheduler.test.ts` | — | `CueScheduleEntry` has `scheduledFor` + `firedAt` + `status` |
 | Stall detector event → server persistence | `hooks/use-stall-detector.ts` | (no server-side persistence today) | ❌ GAP | — | MED | Client-only. Needed before `BEH-STALL-RECOVERY-MS` can ship (epic #1860) |
 | `Session.voiceConfigSnapshot` → reproducibility consumer | `lib/voice/create-session.ts` snapshot at session-start | (forensics + reproducibility — no automated consumer) | ⚠️ PARTIAL | Schema field + create-session test pins write | LOW | Snapshot stored; no test that it enables replay |
-| `Session.sequenceNumber` → call ordering | atomic upsert at `CallerSequenceCounter` | pipeline + reads | ✅ PROTECTED | `ai-to-db-guard.md` (createSession atomic increment) + `tests/lib/voice/session-sequence.test.ts` | — | Postgres row-level lock serialises concurrent webhooks |
+| `Session.sequenceNumber` → call ordering | atomic upsert at `CallerSequenceCounter` | pipeline + reads | ✅ PROTECTED | `ai-to-db-guard.md` (createSession atomic increment) + `apps/admin/tests/lib/voice/create-session.test.ts` | — | Postgres row-level lock serialises concurrent webhooks |
 | Session.kind → `skipStages` pipeline gate | `lib/voice/create-session.ts` | `lib/pipeline/run-spec-driven.ts` | ⚠️ PARTIAL | Runtime + `tests/lib/voice/create-session.test.ts` | MED | Mapping logic tested at write but no coverage test that all 5 kinds map correctly |
 
 ### Schema / migration
@@ -157,7 +157,7 @@ Three structural patterns, in order of preference:
 
 | Chain | Producer | Consumer | Status | Gate | Severity | Notes |
 |---|---|---|---|---|---|---|
-| Skill spec → tier mapping | course Subject + AnalysisSpec | `lib/banding/derive-skill-tier-mapping-from-source.ts` + `TIER_PRESETS` | ✅ PROTECTED | `tests/lib/journey/registry-options-coverage.test.ts` (tierPresetId row, #1808) + `tests/lib/banding/*.test.ts` (#1635) | — | Cascade-gated source-derived banding |
+| Skill spec → tier mapping | course Subject + AnalysisSpec | `lib/banding/derive-skill-tier-mapping-from-source.ts` + `TIER_PRESETS` | ✅ PROTECTED | `tests/lib/journey/registry-options-coverage.test.ts` (tierPresetId row, #1808) (banding-contract test — TODO file path verification) (#1635) | — | Cascade-gated source-derived banding |
 
 ### AI safety
 
@@ -201,7 +201,7 @@ Three structural patterns, in order of preference:
 
 | Gap | Severity | Effort | Ship plan |
 |---|---|---|---|
-| Parameter ↔ AnalysisSpec.measurements FK consistency | HIGH | 1–2 hr | SQL check in `scripts/check-fk-consistency.ts` |
+| Parameter ↔ AnalysisSpec.measurements FK consistency | HIGH | 1–2 hr | SQL check in `apps/admin/scripts/check-fk-consistency.ts` |
 | AnalysisSpec.outputType → stage dispatch enum guard | HIGH | 1–2 hr | TS const enum + ESLint rule + ratchet |
 | VAPI webhook subject whitelist | HIGH | 1 hr | Allowlist constant + handler guard + test |
 | Parameter ↔ JOURNEY_SETTINGS LH-menu exposure | MED | 2 hr | Coverage vitest in #1849 pattern |
