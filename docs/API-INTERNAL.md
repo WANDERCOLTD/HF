@@ -16326,8 +16326,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 539 |
-| Files with annotations | 525 |
+| Route files found | 541 |
+| Files with annotations | 527 |
 | Files missing annotations | 14 |
 | Coverage | 97.4% |
 

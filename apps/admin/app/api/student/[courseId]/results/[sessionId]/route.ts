@@ -35,6 +35,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 import { scoreToTier, getSkillTierMapping } from "@/lib/goals/track-progress";
+import {
+  computeOverallBandFromScores,
+  roundHalfBand,
+} from "@/lib/pipeline/compute-overall-band";
 import type { SessionMetadata } from "@/lib/types/json-fields";
 
 export interface ResultsScore {
@@ -81,10 +85,6 @@ export interface ResultsPayload {
 export type ResultsResponse =
   | ResultsPayload
   | { ok: false; error: string };
-
-function roundHalfBand(value: number): number {
-  return Math.round(value * 2) / 2;
-}
 
 export async function GET(
   _req: NextRequest,
@@ -203,10 +203,15 @@ export async function GET(
 
     let overallBand: number | null = overallBandFromMeta;
     let overallBandSource: ResultsPayload["overallBandSource"] = overallBandFromMeta !== null ? "metadata" : null;
-    if (overallBand === null && aggregated.length > 0) {
-      const meanBand = aggregated.reduce((acc, c) => acc + c.band, 0) / aggregated.length;
-      overallBand = roundHalfBand(meanBand);
-      overallBandSource = "computed";
+    if (overallBand === null) {
+      // #1823 — fallback uses the same canonical helper the pipeline writer
+      // uses, so the on-the-fly value and the eventual metadata value cannot
+      // disagree on the same input.
+      overallBand = computeOverallBandFromScores(
+        scores.map((s) => ({ parameterId: s.parameterId, segmentKey: s.segmentKey, score: s.score })),
+        mapping,
+      );
+      if (overallBand !== null) overallBandSource = "computed";
     }
 
     // `processing` is true until the pipeline has both ended the Session AND

@@ -29,6 +29,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { runAggregateSpecs } from "@/lib/pipeline/aggregate-runner";
 import { runProsodyStage } from "@/lib/pipeline/prosody-runner";
+import { writeOverallBandForCall } from "@/lib/pipeline/write-overall-band";
 import { applyProsodyContractToAggregate } from "@/lib/pipeline/prosody-consumer";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
@@ -1291,6 +1292,18 @@ async function runBatchedCallerAnalysis(
             userName,
           );
           scoresCreated += segmentScores;
+
+          // #1823 — canonical Session.metadata.overallBand write. Runs only
+          // when per-segment rows actually landed; the writer itself is
+          // idempotent and best-effort (non-throwing).
+          if (segmentScores > 0) {
+            await writeOverallBandForCall(
+              call.id,
+              (call as { sessionId?: string | null }).sessionId ?? null,
+              (call as { playbookId?: string | null }).playbookId ?? null,
+              log,
+            );
+          }
         } catch (err: any) {
           log.warn("Per-part MEASURE pass failed (non-blocking)", {
             error: err?.message ?? "unknown",
