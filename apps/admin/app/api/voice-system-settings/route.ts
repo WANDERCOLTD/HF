@@ -39,6 +39,9 @@ const patchSchema = z
     maxDurationSeconds: z.number().int().min(30).max(7200).optional(),
     voicemailDetectionEnabled: z.boolean().optional(),
     endCallPhrases: z.array(z.string().min(1).max(80)).max(20).optional(),
+    // PROSODY knobs (#1119 + #1870)
+    vendorTimeoutMs: z.number().int().min(1000).max(120000).optional(),
+    maxSegmentsPerCall: z.number().int().min(1).max(20).optional(),
   })
   .strict();
 

@@ -34,6 +34,7 @@ import {
 import type {
   GeneralSignals,
   IeltsScores,
+  ProsodyPhaseEnvelope,
   VoiceProsodyFeatures,
 } from "./prosody-types";
 
@@ -92,8 +93,43 @@ export async function applyProsodyContractToAggregate(
 
   const envelope = call.voiceProsody as unknown as VoiceProsodyFeatures;
 
-  if (envelope.mode === "unavailable") {
+  if (envelope.mode === "unavailable" && !envelope.bySegment) {
     return { applied: false, mode: "unavailable", scoresWritten: 0 };
+  }
+
+  // #1870 — segmented path. When `bySegment` is present, iterate it and
+  // write per-phase CallScore rows with namespace-prefixed segmentKey
+  // (`phase:<phaseKey>` per #1872 Option 2). The top-level mean
+  // aggregate is ALSO written so existing whole-call readers keep
+  // working — segmentKey null on the aggregate row to distinguish it
+  // from per-phase rows in the unique-key collision-free namespace.
+  if (envelope.bySegment) {
+    let written = 0;
+    for (const [phaseKey, phase] of Object.entries(envelope.bySegment)) {
+      written += await writePhaseEnvelope(
+        callId,
+        callerId,
+        phaseKey,
+        phase,
+      );
+    }
+    // Aggregate write — segmentKey null preserves the existing whole-call
+    // row shape that AGGREGATE EMA + Snapshot read. Skip when top-level
+    // is "unavailable" (every phase failed).
+    if (envelope.mode === "ielts" && envelope.ieltsScores) {
+      written += await writeIeltsCallScores(
+        callId,
+        callerId,
+        envelope.ieltsScores,
+      );
+    } else if (envelope.mode === "general" && envelope.generalSignals) {
+      written += await writeGeneralCallScores(
+        callId,
+        callerId,
+        envelope.generalSignals,
+      );
+    }
+    return { applied: true, mode: envelope.mode, scoresWritten: written };
   }
 
   if (envelope.mode === "ielts" && envelope.ieltsScores) {
@@ -117,10 +153,33 @@ export async function applyProsodyContractToAggregate(
   return { applied: false, mode: envelope.mode, scoresWritten: 0 };
 }
 
+/**
+ * Write per-phase CallScore rows for one phase's envelope. The
+ * `segmentKey` carries the namespace-prefixed phaseKey
+ * (`phase:<phaseKey>`) so the writes don't collide with the existing
+ * text segmenter's `"part1"` / `"part2"` / `"part3"` keys (#1872
+ * Option 2 namespace decision).
+ *
+ * "unavailable" phases are skipped silently — no row written.
+ */
+async function writePhaseEnvelope(
+  callId: string,
+  callerId: string | null,
+  phaseKey: string,
+  phase: ProsodyPhaseEnvelope,
+): Promise<number> {
+  if (phase.mode === "unavailable") return 0;
+  if (phase.mode === "ielts") {
+    return writeIeltsCallScores(callId, callerId, phase.ieltsScores, phaseKey);
+  }
+  return writeGeneralCallScores(callId, callerId, phase.generalSignals, phaseKey);
+}
+
 async function writeIeltsCallScores(
   callId: string,
   callerId: string | null,
   ielts: IeltsScores,
+  segmentKey?: string,
 ): Promise<number> {
   const rows: Array<{ parameterId: string; band: number }> = [
     { parameterId: IELTS_PARAM_IDS.fluencyCoherence, band: ielts.fluencyCoherence },
@@ -137,12 +196,16 @@ async function writeIeltsCallScores(
     // structurally spec-shaped (deterministic adapter output) but not
     // backed by an AnalysisSpec.promptTemplate row. The sentinel
     // surfaces "produced by PROSODY, not LLM" lineage honestly.
+    // #1870 — `segmentKey` carries the namespace-prefixed phaseKey
+    // (`phase:<name>`) for per-phase rows; undefined for the
+    // whole-call / aggregate row.
     await writeCallScore({
       callId,
       callerId,
       parameterId: row.parameterId,
       analysisSpecId: MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY,
       moduleId: null,
+      segmentKey: segmentKey ?? null,
       score: normalisedScore,
       confidence: 0.9,
       evidence: [`prosody/ielts:band=${row.band.toFixed(1)}`],
@@ -158,6 +221,7 @@ async function writeGeneralCallScores(
   callId: string,
   callerId: string | null,
   signals: GeneralSignals,
+  segmentKey?: string,
 ): Promise<number> {
   // Map the two confirmed general-mode signals to BehaviorParameter-id'd
   // CallScore rows. Score normalised to 0–1:
@@ -193,12 +257,16 @@ async function writeGeneralCallScores(
   let written = 0;
   for (const w of writes) {
     // #1539 — same PROSODY sentinel for the general-mode writes.
+    // #1870 — `segmentKey` carries the namespace-prefixed phaseKey
+    // (`phase:<name>`) for per-phase rows; undefined for the
+    // whole-call / aggregate row.
     await writeCallScore({
       callId,
       callerId,
       parameterId: w.parameterId,
       analysisSpecId: MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY,
       moduleId: null,
+      segmentKey: segmentKey ?? null,
       score: w.score,
       confidence: 0.7,
       evidence: [w.evidence],
