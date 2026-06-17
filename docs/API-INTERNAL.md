@@ -2782,6 +2782,33 @@ Update an enrollment status (pause, resume, complete, drop).
 
 ---
 
+### `GET` /api/callers/:callerId/exam-mode-check?moduleSlug=mock
+
+Returns whether the supplied module slug should mount the
+
+**Auth**: session (VIEWER+ — STUDENT scoped to own caller) · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller.id |
+
+**Response** `200`
+```json
+{ ok: true, examMode: boolean }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/callers/:callerId/exam-readiness
 
 Compute exam readiness for a caller across all active curricula (or one specific)

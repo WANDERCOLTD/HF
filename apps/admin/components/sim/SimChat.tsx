@@ -14,6 +14,7 @@ import { ContentPicker } from './ContentPicker';
 import { MediaLibraryPanel } from './MediaLibraryPanel';
 import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
+import { ExamModeShell } from './ExamModeShell';
 import { useProviderCall } from './useProviderCall';
 import { labelForEndSource } from '@/lib/voice/end-source';
 import { useOutboundDial } from './useOutboundDial';
@@ -268,6 +269,33 @@ export function SimChat({
     lastSpeechAt,
     pool: stallPool,
   });
+
+  // #1745 closeout (Epic #1700 missing-surface sweep) — Mock-style modules
+  // (CurriculumModule.coversModules.length > 0) mount the ExamModeShell
+  // overlay during an active call. Sibling fetch to module-stall-pool
+  // above; same lifecycle.
+  const [examMode, setExamMode] = useState(false);
+  useEffect(() => {
+    if (!requestedModuleId) {
+      setExamMode(false);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(
+      `/api/callers/${encodeURIComponent(callerId)}/exam-mode-check?moduleSlug=${encodeURIComponent(requestedModuleId)}`,
+      { signal: controller.signal, credentials: 'same-origin' },
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { ok?: boolean; examMode?: boolean } | null) => {
+        if (!body?.ok) return;
+        setExamMode(Boolean(body.examMode));
+      })
+      .catch((err) => {
+        if ((err as Error)?.name === 'AbortError') return;
+        // Best-effort — fallback is examMode=false (no shell mounted).
+      });
+    return () => controller.abort();
+  }, [callerId, requestedModuleId]);
 
   // Voice mode — wired so transcribed speech sends as user message
   const voiceMode = useVoiceMode(useCallback((transcript: string) => {
@@ -1239,6 +1267,23 @@ export function SimChat({
     onNameChange?.(next);
   }, [callerId, onNameChange]);
 
+  // #1745 closeout — ExamModeShell overlay state. Renders only when the
+  // bound module is Mock-style (resolved server-side via
+  // /api/callers/[id]/exam-mode-check) AND the call is currently active.
+  const showExamShell = examMode && callPhase === 'active';
+  const examSpeakerRole: 'examiner' | 'learner' | 'idle' =
+    voiceMode.state === 'ai-speaking'
+      ? 'examiner'
+      : voiceMode.state === 'recording'
+      ? 'learner'
+      : 'idle';
+  // Examiner amplitude — Safari can't drive an AnalyserNode off a remote
+  // MediaStream reliably, so we use a binary proxy from `voiceMode.state`
+  // (the same signal the chat rail uses to flip its "AI speaking…" pill).
+  // Native AnalyserNode wiring via `useRemoteAudioLevel` is a follow-on
+  // once the TTS audio element is exposed by `useVoiceMode`.
+  const examExaminerLevel = voiceMode.state === 'ai-speaking' ? 0.6 : 0;
+
   const content = (
     <>
       {/* Header */}
@@ -2174,10 +2219,30 @@ export function SimChat({
     </>
   );
 
+  // #1745 closeout — wrap the standalone surface in the ExamModeShell
+  // overlay when active on a Mock-style module. The shell is a
+  // position-fixed full-screen layer that visually replaces the chat UI
+  // beneath; the underlying SimChat keeps running so transcript +
+  // pipeline + voiceMode lifecycle continue uninterrupted. Embedded
+  // mode skips the shell — operator views need the chat feed.
+  const examShell = showExamShell && !isEmbedded ? (
+    <ExamModeShell
+      examinerLevel={examExaminerLevel}
+      learnerLevel={voiceMode.waveformLevel}
+      speakerRole={examSpeakerRole}
+      banner="Mock exam — speak naturally"
+    />
+  ) : null;
+
   if (isEmbedded) {
     return <div className="sim-embedded">{content}</div>;
   }
 
   // Standalone: rendered inside sim layout (which provides the container)
-  return content;
+  return (
+    <>
+      {content}
+      {examShell}
+    </>
+  );
 }
