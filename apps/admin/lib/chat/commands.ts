@@ -194,9 +194,9 @@ const COMMANDS: ChatCommand[] = [
       }
 
       const category = args[0]?.toUpperCase();
-      const validCategories = ["FACT", "PREFERENCE", "EVENT", "TOPIC", "RELATIONSHIP", "CONTEXT"];
+      const validCategories = Object.values(MemoryCategory);
 
-      if (category && !validCategories.includes(category)) {
+      if (category && !(validCategories as string[]).includes(category)) {
         return {
           ok: false,
           message: `Invalid category: ${category}\n\nValid categories: ${validCategories.join(", ")}`,
