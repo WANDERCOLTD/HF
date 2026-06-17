@@ -154,11 +154,11 @@ const EXPECTED_OPTION_VALUES: Record<string, OptionPin> = {
   },
 
   // ── L_mid_journey ───────────────────────────────────────────────
-  midJourneyStopTrigger: {
-    values: ["mastery_threshold", "session_count"],
-    canonical:
-      "lib/types/json-fields.ts::JourneyStopTrigger discriminated union",
-  },
+  // midJourneyStopTrigger removed in fix/journey-stops-structured-paths —
+  // the contract was deleted because its storagePath
+  // (`sessionFlow.stops.midJourney.trigger`) was unrepresentable in the
+  // applier (nested write into an array element). The trigger picker now
+  // lives only inside the `midJourneyStop` compound editor.
   npsTrigger: {
     values: ["mastery", "session_count"],
     canonical: "lib/types/json-fields.ts::NpsConfig.trigger",
