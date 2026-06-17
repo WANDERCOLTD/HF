@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { TEACHING_CALLER_ROLES } from "@/lib/caller-roles";
 
 /**
  * @api POST /api/courses/:courseId/learners/ensure-cohort
@@ -56,7 +57,7 @@ export async function POST(
     // 3. Find-or-create a teacher caller for the admin (required as cohort owner)
     const session = auth.session;
     let ownerCaller = await prisma.caller.findFirst({
-      where: { userId: session.user.id, domainId: playbook.domainId, role: { in: ["TEACHER", "TUTOR"] } },
+      where: { userId: session.user.id, domainId: playbook.domainId, role: { in: TEACHING_CALLER_ROLES } },
       select: { id: true },
     });
     if (!ownerCaller) {

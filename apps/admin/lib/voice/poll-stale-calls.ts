@@ -46,6 +46,7 @@ import { prisma } from "@/lib/prisma";
 import { persistEndOfCall } from "@/lib/voice/route-handlers";
 import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { logVoiceEvent } from "@/lib/voice/telemetry";
+import { DEFAULT_VOICE_PROVIDER_SLUG } from "@/lib/voice/default-provider";
 
 export interface PollBatchResult {
   /** Total stale rows considered for polling this cycle. */
@@ -109,7 +110,7 @@ export async function pollStaleVoiceCalls(
   options: PollOptions = {},
 ): Promise<PollBatchResult> {
   const startMs = Date.now();
-  const slug = options.slug ?? "vapi";
+  const slug = options.slug ?? DEFAULT_VOICE_PROVIDER_SLUG;
   const staleAfterMs = options.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
   const batchLimit = options.batchLimit ?? DEFAULT_BATCH_LIMIT;
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;

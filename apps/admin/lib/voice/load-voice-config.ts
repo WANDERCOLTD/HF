@@ -23,6 +23,7 @@ import { getVoiceCallSettings, type VoiceCallSettings } from "@/lib/system-setti
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { resolveVoiceConfig, type ResolvedVoiceConfig } from "@/lib/voice/config";
+import { DEFAULT_VOICE_PROVIDER_SLUG } from "@/lib/voice/default-provider";
 
 interface LoadArgs {
   callerId?: string | null;
@@ -45,7 +46,7 @@ export async function loadResolvedVoiceConfig(args: LoadArgs): Promise<ResolvedV
   // `VoiceSystemSettings.defaultProviderSlug` is blank but a VAPI row
   // exists. Pick a real voice provider: explicit setting → vapi default.
   const explicit = sys.defaultProviderSlug?.trim();
-  const enabledSlug = explicit && explicit.length > 0 ? explicit : "vapi";
+  const enabledSlug = explicit && explicit.length > 0 ? explicit : DEFAULT_VOICE_PROVIDER_SLUG;
 
   const [vpRow, adapter, domainConfig, courseConfig] = await Promise.all([
     prisma.voiceProvider.findUnique({
