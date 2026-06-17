@@ -36,6 +36,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { log } from "@/lib/logger";
 import { getVoiceProvider } from "./provider-factory";
+import { appendPhaseTransition } from "./phase-boundaries";
 import type { SayMessageOptions } from "./types";
 
 const CUE_STATUS = {
@@ -56,6 +57,13 @@ export interface ScheduleCueArgs {
   noInterruption?: boolean;
   queueOnly?: boolean;
   traceId?: string;
+  /**
+   * #1762 Story C — when set, dispatching this cue records a phase
+   * transition in `Session.metadata.phaseBoundaries` via
+   * `appendPhaseTransition`. Non-empty string is treated as the phase
+   * name; falsy / missing means "no phase boundary side-effect".
+   */
+  phase?: string;
 }
 
 export interface ScheduledCue {
@@ -222,6 +230,20 @@ export async function drainDueCues(
         outcome: result.status,
       });
       await markCueTerminal(row.id, CUE_STATUS.fired, result.status);
+      // #1762 Story C — phase-boundary side-effect. Only fires for
+      // cues that carry a `phase` tag; speech-only cues stay zero-cost.
+      // Helper catches its own errors + logs; we await it so the loop
+      // is deterministic for tests, but we NEVER throw out of this
+      // block on persistence failure (the helper returns false, we
+      // continue the drain).
+      const phase = extractPhase(row.options);
+      if (phase && row.callId) {
+        await tryPersistPhaseBoundary({
+          callId: row.callId,
+          phase,
+          scheduledFor: row.scheduledFor,
+        });
+      }
       fired += 1;
     } else if (result.status === "skipped") {
       await markCueTerminal(row.id, CUE_STATUS.skipped, "provider_skipped");
@@ -279,7 +301,72 @@ function serialiseOptions(args: ScheduleCueArgs): Record<string, unknown> {
   if (args.noInterruption !== undefined) out.noInterruption = args.noInterruption;
   if (args.queueOnly !== undefined) out.queueOnly = args.queueOnly;
   if (args.traceId !== undefined) out.traceId = args.traceId;
+  if (typeof args.phase === "string" && args.phase.trim().length > 0) {
+    out.phase = args.phase;
+  }
   return out;
+}
+
+/**
+ * Extract the optional phase tag from a persisted cue's options blob.
+ * Returns null when the row carries no phase (the normal speech-only
+ * case).
+ */
+function extractPhase(options: unknown): string | null {
+  if (!options || typeof options !== "object") return null;
+  const phase = (options as Record<string, unknown>).phase;
+  if (typeof phase !== "string" || phase.trim().length === 0) return null;
+  return phase;
+}
+
+/**
+ * #1762 Story C — best-effort phase-boundary persistence. Looks up
+ * the Session attached to the Call (Call.sessionId, from epic #1338
+ * Session model), computes `startSec` from
+ * `(scheduledFor - Session.startedAt) / 1000`, and appends. Failures
+ * are caught + logged inside `appendPhaseTransition`; this wrapper
+ * adds a second guard to swallow lookup errors (e.g. Call row gone)
+ * so the cue-scheduler drain loop is never derailed.
+ */
+async function tryPersistPhaseBoundary(args: {
+  callId: string;
+  phase: string;
+  scheduledFor: Date;
+}): Promise<void> {
+  try {
+    const call = await prisma.call.findUnique({
+      where: { id: args.callId },
+      select: {
+        sessionId: true,
+        session: { select: { startedAt: true } },
+      },
+    });
+    if (!call?.sessionId || !call.session) {
+      log("system", "voice.cue.phase_boundary_persist_failed", {
+        level: "warn",
+        callId: args.callId,
+        phase: args.phase,
+        reason: "no_session_for_call",
+      });
+      return;
+    }
+    const startedAtMs = call.session.startedAt.getTime();
+    const scheduledMs = args.scheduledFor.getTime();
+    const startSec = Math.max(0, (scheduledMs - startedAtMs) / 1000);
+    await appendPhaseTransition(call.sessionId, {
+      phase: args.phase,
+      startSec,
+      // Open boundary — the NEXT phase-tagged cue closes it.
+      endSec: startSec,
+    });
+  } catch (err) {
+    log("system", "voice.cue.phase_boundary_persist_failed", {
+      level: "warn",
+      callId: args.callId,
+      phase: args.phase,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 function deserialiseOptions(
