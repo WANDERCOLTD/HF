@@ -47,6 +47,28 @@ import type { JourneyGroup } from "./setting-groups";
 type SettingsGroupKey = "S1_voice" | "S2_integration" | "S3_demo" | "S4_access";
 
 // =============================================================
+// CourseShape — the shape envelope a setting applies to
+// =============================================================
+
+/** The course shapes a setting can be tagged against. Distinct from the
+ *  runtime `CourseStyle` (`lib/pipeline/course-style.ts`) which only
+ *  resolves `"structured" | "continuous"` from `PlaybookConfig.lessonPlanMode`.
+ *
+ *  `appliesTo` is the *editor-facing* envelope: it tells the Inspector
+ *  whether to render a setting at all for a given course. The runtime
+ *  course-style resolver is unchanged — exam courses still resolve to
+ *  their pipeline-relevant shape via the existing helper. This field is
+ *  about UX visibility, not runtime behaviour.
+ *
+ *  Continuous courses don't have AuthoredModules; module-scoped and
+ *  module-sequence settings declare `["structured"]` so the editor hides
+ *  them when an operator opens a continuous course. IELTS-specific
+ *  settings (cue cards, scheduled cues, first-time orientation) declare
+ *  `["exam"]` only.
+ */
+export type CourseShape = "structured" | "continuous" | "exam";
+
+// =============================================================
 // StoragePath — where a setting binds in the DB
 // =============================================================
 
@@ -292,6 +314,48 @@ export interface JourneySettingContract {
    *  contract id resolves through `skillScoringEmaHalfLifeDays` knob).
    *  `isResolvableKnob(cascadeKnobKey)` is the runtime gate. */
   cascadeKnobKey?: string;
+
+  /** Phase 0 of Journey-Design tab refactor — course shapes this setting
+   *  affects. Omit (undefined) → applies to all shapes (default).
+   *
+   *  Continuous courses don't have AuthoredModules; module-scoped +
+   *  module-sequence settings declare `["structured"]`. IELTS-specific
+   *  settings (cue-card pool, scheduled cues, first-time orientation
+   *  line) declare `["exam"]` only.
+   *
+   *  The `RelevanceWrapper` reads this field to render the
+   *  `"out-of-shape"` overlay when the course's resolved shape is not
+   *  in the array. The `registry-schema-coverage` vitest pins coverage —
+   *  every entry must either declare `appliesTo` or be on the
+   *  `APPLIES_TO_ALL` allow-list. */
+  appliesTo?: readonly CourseShape[];
+
+  /** Phase 0 of Journey-Design tab refactor — explicit parent-setting
+   *  gates. When the parent is in the listed `inactiveValues`, this
+   *  control is structurally rendered as `gated-off` in the Inspector.
+   *
+   *  Distinct from `autoEnableLinks`:
+   *  - `autoEnableLinks` is the WRITE-side discipline (server forces a
+   *    child value when a parent has a specific value).
+   *  - `gatedBy` is the READ-side discipline (Inspector grays out the
+   *    child control entirely when the parent says "off-equivalent").
+   *
+   *  Most gating relationships are derivable from `autoEnableLinks` but
+   *  some (e.g. progressNarrativeCadence depending on
+   *  progressNarrativeEnabled) don't model as auto-enables and benefit
+   *  from explicit declaration here.
+   *
+   *  `isGatedBy()` in `lib/journey/is-gated-by.ts` reads this field
+   *  (and falls back to autoEnableLinks-derivation) to decide whether
+   *  to wrap the control in a `<RelevanceWrapper state="gated-off">`. */
+  gatedBy?: {
+    /** Contract id of the parent that gates this one. */
+    parentId: string;
+    /** Parent values that make this control irrelevant. The Inspector
+     *  renders the child as `gated-off` when the parent's effective
+     *  value is in this set. */
+    inactiveValues: readonly unknown[];
+  };
 }
 
 // Re-export for sibling registries (Settings tab Voice subset).

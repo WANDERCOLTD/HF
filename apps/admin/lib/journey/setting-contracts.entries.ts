@@ -446,6 +446,7 @@ const G3_MODULE_SEQUENCE_POLICY: JourneySettingContract = {
     { value: "interleaved", label: "Interleaved review" },
     { value: "learner_led", label: "Learner picks next" },
   ],
+  appliesTo: ["structured"],
 };
 
 const G3_FIRST_CALL_CURRICULUM_FOCUS: JourneySettingContract = {
@@ -1422,6 +1423,7 @@ const G7_FIRST_CALL_MODULE_VISIBILITY: JourneySettingContract = {
     { value: "hide_until_call_2", label: "Hide until Call 2" },
     { value: "hide_until_learner_picks", label: "Hide until learner picks" },
   ],
+  appliesTo: ["structured"],
 };
 
 const G7_COMPLETION_MODE: JourneySettingContract = {
@@ -1463,6 +1465,7 @@ const G7_STRICT_PREREQUISITES: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "modulesGate" }],
+  appliesTo: ["structured"],
 };
 
 const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
@@ -1633,6 +1636,7 @@ const G8_MODULE_QUESTION_TARGET: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "instructions", hint: "question count directive" }],
+  appliesTo: ["structured", "exam"],
 };
 
 const G8_MODULE_MIN_SPEAKING_SEC: JourneySettingContract = {
@@ -1654,6 +1658,7 @@ const G8_MODULE_MIN_SPEAKING_SEC: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  appliesTo: ["structured", "exam"],
 };
 
 const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
@@ -1675,6 +1680,7 @@ const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "instructions", hint: "cue card content" }],
+  appliesTo: ["exam"],
 };
 
 const G8_MODULE_CLOSING_LINE: JourneySettingContract = {
@@ -1696,6 +1702,7 @@ const G8_MODULE_CLOSING_LINE: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "offboarding", hint: "closing line" }],
+  appliesTo: ["structured", "exam"],
 };
 
 const G8_MODULE_FIRST_TIME_ORIENTATION_LINE: JourneySettingContract = {
@@ -1717,6 +1724,7 @@ const G8_MODULE_FIRST_TIME_ORIENTATION_LINE: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "onboarding", hint: "orientation line" }],
+  appliesTo: ["exam"],
 };
 
 const G8_MODULE_SCHEDULED_CUES: JourneySettingContract = {
@@ -1738,6 +1746,7 @@ const G8_MODULE_SCHEDULED_CUES: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  appliesTo: ["exam"],
 };
 
 // #1743 (epic #1700 Theme 2b — Theme 1 extension) — module-scoped pool
@@ -1764,6 +1773,7 @@ const G8_MODULE_SCAFFOLD_POOL: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  appliesTo: ["structured", "exam"],
 };
 
 // #1704 Theme 10 — generic profile capture. EXTRACT walks this list and
@@ -1790,6 +1800,7 @@ const G8_MODULE_PROFILE_FIELDS_TO_CAPTURE: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "instructions", hint: "profile capture prompts" }],
+  appliesTo: ["structured", "exam"],
 };
 
 // =============================================================
