@@ -192,7 +192,7 @@ export function SessionFlowEditor({ courseId, activeSection }: SessionFlowEditor
       if (!data || !data.ok) return;
       // Find the existing NPS shape from the synthesised stop. The resolver
       // exposes nps via stops[id="nps"]; reconstruct trigger + threshold.
-      const npsStop = data.sessionFlow.stops.find(s => s.id === "nps");
+      const npsStop = data.sessionFlow.stops.find(s => s.kind === "nps");
       const currentTrigger = npsStop && npsStop.trigger.type === "session_count"
         ? "session_count" as const
         : "mastery" as const;

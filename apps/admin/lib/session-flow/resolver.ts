@@ -29,6 +29,24 @@ import {
 } from "@/lib/types/json-fields";
 import { isPreSurveyEnabled } from "@/lib/learner/survey-config";
 
+/**
+ * Canonical IDs for the resolver-synthesized `JourneyStop`s.
+ *
+ * These IDs are part of the resolver's contract — every consumer that needs
+ * to refer to "the pre-test stop" by ID must import this map. Consumers
+ * that need behaviour-level discrimination should switch on `stop.kind`
+ * (`assessment` / `nps` / `survey` / `reflection`) plus the trigger /
+ * domain state, not the synthetic ID.
+ */
+export const SYNTHETIC_STOP_IDS = {
+  PRE_TEST: "pre-test",
+  POST_TEST: "post-test",
+  NPS: "nps",
+} as const;
+
+export type SyntheticStopId =
+  (typeof SYNTHETIC_STOP_IDS)[keyof typeof SYNTHETIC_STOP_IDS];
+
 interface DomainLike {
   slug?: string | null;
   onboardingFlowPhases?: unknown;
@@ -228,7 +246,7 @@ function synthesizeStopsFromLegacy(
   if (preTestEnabled && deliveryMode === "mcq") {
     const count = pbConfig.assessment?.preTest?.questionCount ?? 5;
     stops.push({
-      id: "pre-test",
+      id: SYNTHETIC_STOP_IDS.PRE_TEST,
       kind: "assessment",
       trigger: { type: "after_session", index: 1 },
       delivery: { mode: "either" },
@@ -243,7 +261,7 @@ function synthesizeStopsFromLegacy(
     ?? false;
   if (postTestEnabled) {
     stops.push({
-      id: "post-test",
+      id: SYNTHETIC_STOP_IDS.POST_TEST,
       kind: "assessment",
       trigger: { type: "course_complete" },
       delivery: { mode: "either" },
@@ -256,7 +274,7 @@ function synthesizeStopsFromLegacy(
   const nps: NpsConfig = { ...DEFAULT_NPS_CONFIG, ...pbConfig.nps };
   if (nps.enabled) {
     stops.push({
-      id: "nps",
+      id: SYNTHETIC_STOP_IDS.NPS,
       kind: "nps",
       trigger: nps.trigger === "session_count"
         ? { type: "session_count", count: nps.threshold }

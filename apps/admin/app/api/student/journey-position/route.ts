@@ -19,31 +19,48 @@ import { DEFAULT_NPS_CONFIG } from "@/lib/types/json-fields";
 import type { PlaybookConfig, NpsConfig, JourneyStop } from "@/lib/types/json-fields";
 import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 import { config } from "@/lib/config";
-import { resolveSessionFlow } from "@/lib/session-flow/resolver";
+import { resolveSessionFlow, SYNTHETIC_STOP_IDS } from "@/lib/session-flow/resolver";
 import { evaluateStops, type JourneyStopState } from "@/lib/session-flow/journey-stop-runner";
 import { PlaybookCurriculumRole } from "@prisma/client";
 
 /**
  * Translate a fired JourneyStop into the legacy nextStop response shape.
- * Mapping is centralised here so tests + server agree on representation.
+ *
+ * Discrimination is by `stop.kind` (the canonical contract field) plus
+ * the pre-test completion state for the `assessment` kind, which is used
+ * for both the pre-test (fires before any survey submission) and the
+ * post-test (fires after the pre-test has been completed).
  */
-function stopToNextStop(
+export function stopToNextStop(
   stop: JourneyStop,
   ctx: { preTestCompleted: boolean },
 ): { type: string; session: number; redirect: string; includePostTest?: boolean } {
-  switch (stop.id) {
-    case "pre-test":
-      return { type: "pre_survey", session: 1, redirect: "/x/student/welcome" };
+  switch (stop.kind) {
+    case "assessment":
+      // Pre-test: assessment stop that fires while pre-test hasn't been
+      // submitted. Post-test: assessment stop that fires after pre-test
+      // is complete (uplift measurement).
+      return ctx.preTestCompleted
+        ? {
+            type: "post_survey",
+            session: 1,
+            redirect: "/x/student/survey/post",
+            includePostTest: true,
+          }
+        : { type: "pre_survey", session: 1, redirect: "/x/student/welcome" };
     case "nps":
-    case "post-test":
       return {
         type: "post_survey",
         session: 1,
         redirect: "/x/student/survey/post",
         includePostTest: ctx.preTestCompleted,
       };
+    case "survey":
+    case "reflection":
     default:
-      // Unknown stop id — fall back to a generic survey route.
+      // Other kinds — fall back to a generic survey route. New kinds added
+      // to `JourneyStopKind` land here until a case is added; vitest covers
+      // each known kind.
       return { type: stop.kind, session: 1, redirect: "/x/student/survey/post" };
   }
 }
@@ -163,10 +180,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           playbook: { name: null, config: pbConfig },
         });
         const completedStopIds = new Set<string>();
-        if (preSurveyDone) completedStopIds.add("pre-test");
+        if (preSurveyDone) completedStopIds.add(SYNTHETIC_STOP_IDS.PRE_TEST);
         if (postSurveyDone) {
-          completedStopIds.add("nps");
-          completedStopIds.add("post-test");
+          completedStopIds.add(SYNTHETIC_STOP_IDS.NPS);
+          completedStopIds.add(SYNTHETIC_STOP_IDS.POST_TEST);
         }
         const state: JourneyStopState = {
           currentSession: callCount + 1,
@@ -271,8 +288,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           : 0;
         const completedStopIds = new Set<string>();
         if (surveyAttrs.length > 0) {
-          completedStopIds.add("nps");
-          completedStopIds.add("post-test");
+          completedStopIds.add(SYNTHETIC_STOP_IDS.NPS);
+          completedStopIds.add(SYNTHETIC_STOP_IDS.POST_TEST);
         }
         const verdict = evaluateStops(
           {
