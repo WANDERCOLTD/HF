@@ -66,6 +66,10 @@ function makeAttainmentResponse() {
     ],
     modules: [],
     goals: [],
+    // #1768 (Theme 10) — AttainmentTab now renders a ProfileSection that
+    // reads `profile: ProfileField[]`. The component throws on undefined,
+    // so the mock must include the (empty) array.
+    profile: [],
     empty: false,
   };
 }

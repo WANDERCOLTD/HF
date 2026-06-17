@@ -107,15 +107,6 @@ jobs:
       - name: AI-CAPABILITIES.md drift guard
         run: npm run docs:ai-capabilities:check
 
-      # KB integrity. Blocking. Runs the meta-ratchet that holds every
-      # custom ESLint rule pointing back at its guard-registry anchor
-      # (check-guard-kb-links.ts), and the freshness check that fails
-      # if docs/kb/generated/*.json drifted from the schema/route walk
-      # (check-kb-fresh.sh, ignores the volatile generatedAt). See
-      # docs/kb/README.md. Same one-liner as `ctl check` step 8/8.
-      - name: KB integrity (guard back-links + generated-fact freshness)
-        run: npm run kb:check
-
       # Incident → invariant → guard ritual (#1424). Only fires when this PR
       # closes an issue labelled `incident` AND that issue has a post-mortem
       # KB-additions comment. No-op for normal PRs. See:
@@ -127,7 +118,50 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx tsx scripts/capture/check-incident-guard-ritual.ts
 
-  # Job 2: Unit Tests
+  # Job 2: KB integrity
+  #
+  # Split out of the lint job so an unrelated ESLint, tsc, or ratchet
+  # error doesn't mask staleness. The lint step exiting 1 prevents every
+  # later step in its job from running — that let docs/kb/generated/*.json
+  # drift silently for three days in mid-June while admin-merges shipped
+  # over red CI. Closing that gap here.
+  kb-integrity:
+    name: KB Integrity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Needed by check-tsc-protected-files.ts — invokes tsc against files
+      # that reference the Prisma client; without a generated client they
+      # report phantom errors masking the real protected-file checks.
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # KB integrity. Blocking. Runs the meta-ratchet that holds every
+      # custom ESLint rule pointing back at its guard-registry anchor
+      # (check-guard-kb-links.ts), and the freshness check that fails
+      # if docs/kb/generated/*.json drifted from the schema/route walk
+      # (check-kb-fresh.sh, ignores the volatile generatedAt). See
+      # docs/kb/README.md. Same one-liner as `ctl check` step 8/8.
+      - name: KB integrity (guard back-links + generated-fact freshness)
+        run: npm run kb:check
+
+  # Job 3: Unit Tests
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -168,7 +202,7 @@ jobs:
             exit 1
           fi
 
-  # Job 3: Integration Tests
+  # Job 4: Integration Tests
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
@@ -248,7 +282,7 @@ jobs:
           name: integration-tests
           fail_ci_if_error: false
 
-  # Job 4: Build Check
+  # Job 5: Build Check
   build:
     name: Build Check
     runs-on: ubuntu-latest
@@ -287,12 +321,13 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [lint, unit-tests, integration-tests, build]
+    needs: [lint, kb-integrity, unit-tests, integration-tests, build]
     if: always()
     steps:
       - name: Check all jobs
         run: |
           if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.kb-integrity.result }}" != "success" ] || \
              [ "${{ needs.unit-tests.result }}" != "success" ] || \
              [ "${{ needs.integration-tests.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then

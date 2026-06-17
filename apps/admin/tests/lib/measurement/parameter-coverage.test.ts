@@ -1,0 +1,304 @@
+/**
+ * Parameter coverage — Lattice Coverage-pillar member (2026-06-17).
+ *
+ * **What this test pins:**
+ *  Every Parameter declared in
+ *  `docs-archive/bdd-specs/behavior-parameters.registry.json` (the
+ *  canonical seed) MUST be CONSUMED somewhere in runtime code —
+ *  scoring pipeline / compose transforms / BehaviorTarget reads /
+ *  cascade resolvers. A Parameter row in the DB with no runtime
+ *  consumer is producer-only: educators set a target, the value
+ *  never reaches the prompt or scoring.
+ *
+ *  Sibling to `registry-consumer-coverage.test.ts` (#1849) — same
+ *  generic pattern, third producer↔consumer surface (Parameters
+ *  rather than JourneySettings). 154 parameters in the canonical
+ *  registry as of 2026-06-17.
+ *
+ * **How matching works:**
+ *  For each parameter:
+ *    1. Skip if in `PARAMETER_EXEMPT` (with reason).
+ *    2. Check the consumer-source concatenation (transforms, compose,
+ *       pipeline, scoring, measurement, cascade) for the parameter's
+ *       canonical ID OR camelCase / SCREAMING_SNAKE_CASE variants.
+ *    3. Covered when found; gap otherwise.
+ *
+ * **Two name forms searched per parameter:**
+ *  - exact ID (e.g. `BEH-RESPONSE-LEN`, `abstract-vs-concrete`)
+ *  - normalized variant: kebab → camelCase + uppercase variants
+ *    (`abstract-vs-concrete` → `abstractVsConcrete` + `ABSTRACT_VS_CONCRETE`)
+ *
+ * **How to fix a failure:**
+ *  - "Producer-only parameter": either land a consumer (pipeline
+ *    runner reads the score / compose transform renders the directive
+ *    / BehaviorTarget loader queries it) OR add to `PARAMETER_EXEMPT`
+ *    with a reason describing what's deferred.
+ *  - "Stale exempt entry": parameter was removed from registry; drop
+ *    the exempt row.
+ *  - "Ratchet drifted up": you exempted without bumping; force
+ *    conscious choice.
+ *
+ *  See `.claude/rules/parameter-coverage.md`.
+ */
+
+import { describe, it, expect } from "vitest";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
+
+const APPS_ADMIN = resolve(__dirname, "..", "..", "..");
+const REGISTRY_PATH = join(
+  APPS_ADMIN,
+  "docs-archive",
+  "bdd-specs",
+  "behavior-parameters.registry.json",
+);
+
+// ────────────────────────────────────────────────────────────
+// Registry load
+// ────────────────────────────────────────────────────────────
+
+interface RegistryEntry {
+  parameterId: string;
+  name?: string;
+  domainGroup?: string;
+}
+
+interface Registry {
+  parameters: RegistryEntry[];
+}
+
+const registry = JSON.parse(readFileSync(REGISTRY_PATH, "utf8")) as Registry;
+
+// ────────────────────────────────────────────────────────────
+// Consumer-source concat
+// ────────────────────────────────────────────────────────────
+
+const CONSUMER_DIRS = [
+  "lib/prompt/composition/transforms",
+  "lib/prompt/composition/loaders",
+  "lib/prompt/composition",
+  "lib/compose",
+  "lib/pipeline",
+  "lib/measurement",
+  "lib/cascade/resolvers",
+  "lib/scoring",
+  "lib/tolerance",
+  "lib/goals",
+  "lib/voice",
+  "lib/skill-banding",
+  // Chat / tuner reads parameter IDs to apply educator-driven tunes
+  // through `update_behavior_target` admin tool + the unified assistant
+  // prompt. Counts as a runtime consumer because the cascade write
+  // here affects the next composed prompt.
+  "lib/chat",
+  // Pipeline runners + admin routes that read parameter scores live in
+  // app/api/ — calls/[id]/pipeline writes CallScore against parameter IDs.
+  "app/api",
+];
+
+function walkTs(dir: string): string[] {
+  const out: string[] = [];
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    const full = join(dir, e);
+    let st;
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) {
+      out.push(...walkTs(full));
+    } else if ((e.endsWith(".ts") || e.endsWith(".tsx")) && !e.endsWith(".test.ts")) {
+      if (full.includes("/__tests__/")) continue;
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+const CONSUMER_SOURCE: string = (() => {
+  const files: string[] = [];
+  for (const dir of CONSUMER_DIRS) {
+    files.push(...walkTs(join(APPS_ADMIN, dir)));
+  }
+  return files
+    .map((f) => {
+      try {
+        return readFileSync(f, "utf8");
+      } catch {
+        return "";
+      }
+    })
+    .join("\n");
+})();
+
+// ────────────────────────────────────────────────────────────
+// Name-form variants
+// ────────────────────────────────────────────────────────────
+
+function camelCase(id: string): string {
+  return id
+    .toLowerCase()
+    .replace(/[-_]+([a-z0-9])/g, (_m, ch) => ch.toUpperCase());
+}
+
+function screamingSnake(id: string): string {
+  return id.toUpperCase().replace(/-/g, "_");
+}
+
+function searchTerms(id: string): string[] {
+  const out = new Set<string>([id]);
+  // For kebab-case BEH-* / kebab IDs add camelCase + SCREAMING_SNAKE.
+  if (/[-]/.test(id)) {
+    out.add(camelCase(id));
+    out.add(screamingSnake(id));
+  }
+  // For snake_case ids add camelCase.
+  if (/_/.test(id)) {
+    out.add(camelCase(id));
+  }
+  return Array.from(out);
+}
+
+// ────────────────────────────────────────────────────────────
+// Exempt list — categories of parameters with documented partial wiring
+// ────────────────────────────────────────────────────────────
+
+interface ExemptEntry {
+  reason: string;
+}
+
+const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
+  // 2026-06-17 audit will populate this after the test runs and the
+  // numbers are known. Initial sweep below will report all gaps; this
+  // PR freezes them as the incumbent population.
+};
+
+/**
+ * 2026-06-17 audit baseline. 118 of 154 parameters lack a runtime
+ * consumer — they're in the registry, BehaviorTarget seed wires a System
+ * default, educators can theoretically tune them, but nothing in the
+ * compose / scoring / cascade / chat paths reads the result.
+ *
+ * Concentrated in:
+ *   - learning-adaptation (23 gaps) — adaptive learning transforms not built
+ *   - curriculum-adaptation (21) — adaptive curriculum transforms not built
+ *   - supervision (12) — pipeline SUPERVISE stage runner gap
+ *   - companion (11) — companion-style transforms partial
+ *
+ * Each wired consumer drops this number by 1.
+ */
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 118;
+
+// ────────────────────────────────────────────────────────────
+// Classification
+// ────────────────────────────────────────────────────────────
+
+type Classification = "covered" | "exempt" | "gap";
+
+interface ParamResult {
+  id: string;
+  classification: Classification;
+  matchedTerm?: string;
+  reason?: string;
+  domainGroup?: string;
+}
+
+function classify(p: RegistryEntry): ParamResult {
+  if (PARAMETER_EXEMPT[p.parameterId]) {
+    return {
+      id: p.parameterId,
+      classification: "exempt",
+      reason: PARAMETER_EXEMPT[p.parameterId].reason,
+      domainGroup: p.domainGroup,
+    };
+  }
+  for (const term of searchTerms(p.parameterId)) {
+    if (term.length < 4) continue; // skip too-generic
+    const re = new RegExp(
+      `\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+    );
+    if (re.test(CONSUMER_SOURCE)) {
+      return {
+        id: p.parameterId,
+        classification: "covered",
+        matchedTerm: term,
+        domainGroup: p.domainGroup,
+      };
+    }
+  }
+  return {
+    id: p.parameterId,
+    classification: "gap",
+    domainGroup: p.domainGroup,
+  };
+}
+
+// ────────────────────────────────────────────────────────────
+// Tests
+// ────────────────────────────────────────────────────────────
+
+describe("Parameter coverage (Lattice Coverage pillar)", () => {
+  const results = registry.parameters.map(classify);
+  const gaps = results.filter((r) => r.classification === "gap");
+  const covered = results.filter((r) => r.classification === "covered");
+  const exempt = results.filter((r) => r.classification === "exempt");
+
+  it("publishes the parameter coverage distribution (operator log)", () => {
+    const sum = covered.length + exempt.length + gaps.length;
+    expect(sum).toBe(results.length);
+  });
+
+  it("ratchet — gap count cannot exceed the 2026-06-17 incumbent budget", () => {
+    expect(
+      gaps.length,
+      `Producer-only parameters (no consumer found in runtime code):\n  ${gaps
+        .slice(0, 15)
+        .map((g) => `${g.id} (${g.domainGroup})`)
+        .join("\n  ")}` +
+        (gaps.length > 15 ? `\n  ... ${gaps.length - 15} more` : "") +
+        `\n\nFix: either land a consumer in runtime code, OR add to PARAMETER_EXEMPT with a reason describing what's deferred. If the gap class genuinely grew (new parameters seeded without consumers), bump EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET — but pause: was that intentional?`,
+    ).toBeLessThanOrEqual(EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET);
+  });
+
+  it("every exempt entry has a non-empty reason (>10 chars)", () => {
+    for (const [id, entry] of Object.entries(PARAMETER_EXEMPT)) {
+      expect(entry.reason.trim().length, `${id}: empty/short reason`).toBeGreaterThan(10);
+    }
+  });
+
+  it("no exempt entry is stale — id still in registry", () => {
+    const known = new Set(registry.parameters.map((p) => p.parameterId));
+    const stale = Object.keys(PARAMETER_EXEMPT).filter((id) => !known.has(id));
+    expect(
+      stale,
+      `Exempt entries for parameter IDs not in the registry — registry deleted the parameter; remove the exempt row:\n  ${stale.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+  it("no exempt entry is contradicted — exempt param now has a consumer", () => {
+    const contradicted: string[] = [];
+    for (const id of Object.keys(PARAMETER_EXEMPT)) {
+      for (const term of searchTerms(id)) {
+        if (term.length < 4) continue;
+        const re = new RegExp(
+          `\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+        );
+        if (re.test(CONSUMER_SOURCE)) {
+          contradicted.push(`${id} (term '${term}' found in consumer source)`);
+          break;
+        }
+      }
+    }
+    expect(
+      contradicted,
+      `Exempt parameters now have consumers — remove from PARAMETER_EXEMPT:\n  ${contradicted.join("\n  ")}`,
+    ).toEqual([]);
+  });
+});

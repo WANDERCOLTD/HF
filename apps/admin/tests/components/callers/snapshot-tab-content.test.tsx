@@ -119,12 +119,19 @@ describe("SnapshotTabContent — cold-load behaviour", () => {
 
     render(<SnapshotTabContent callerId={CALLER_ID} domainId="d1" />);
 
-    // 9 parallel fetches at mount: 2 foundation + 1 each of SubSkills,
+    // 9+ parallel fetches at mount: 2 foundation + 1 each of SubSkills,
     // CarryOverActions, WhyThisCall, PersonalityBlock, MemoryBlock,
     // EnrollmentBlock (inner section), InsightsBlock (Wave B).
     // Per-module lo-mastery fetches from SnapshotLoHeatmap only fire
     // AFTER attainment lands.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(9));
+    //
+    // Wave C1/C2/C3 (2026-06-13/15) added 5 more cold-load sources via the
+    // shared `useUpliftData` hook: ScoreTrends, SkillChart, TopicsBlock,
+    // EngagementSection (deduped), TrustFooter — each fires its own
+    // `/uplift` fetch. Plus trajectory + calls fetches from the header
+    // slot push total to ~18. Assert a floor on the count, then pin the
+    // specific URLs that are load-bearing for cold-load coverage.
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(9));
     expect(calls.some((u) => u.includes("/attainment"))).toBe(true);
     expect(calls.some((u) => u.includes("/skills-evidence"))).toBe(true);
     expect(calls.some((u) => u.includes("/sub-skills"))).toBe(true);

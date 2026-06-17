@@ -171,7 +171,7 @@ export function useRemoteAudioLevel(audio: HTMLAudioElement | null): {
         // and on some audio MIME types — switch to proxy mode.
         setFallbackMode(true);
         setLevel(proxyRef.current);
-        // eslint-disable-next-line no-console
+         
         console.warn("[useRemoteAudioLevel] AnalyserNode unavailable — proxy mode", err);
       }
     }

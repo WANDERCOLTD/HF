@@ -1,6 +1,6 @@
 {
   "$schema": "operator-surfaces/v1",
-  "generatedAt": "2026-06-17T08:48:53.940Z",
+  "generatedAt": "2026-06-17T11:44:03.266Z",
   "generator": "scripts/capture/operator-surfaces.ts",
   "note": "Tier-2 generated KB. Only routes tagged @operator-surface yes. Do not hand-edit — re-run the generator (npm run kb:operator-surfaces).",
   "surfaces": [
@@ -53,6 +53,18 @@
         "VIEWER"
       ],
       "description": "Returns learning trajectory for a caller. The shape adapts to",
+      "category": "callers"
+    },
+    {
+      "route": "/api/callers/[callerId]/module-stall-pool",
+      "file": "apps/admin/app/api/callers/[callerId]/module-stall-pool/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "description": "* @method GET",
       "category": "callers"
     },
     {

@@ -148,7 +148,7 @@ async function drainChunk(
 
 async function main(): Promise<void> {
   const apply = process.argv.includes("--apply");
-  // eslint-disable-next-line no-console
+   
   console.log(
     `[backfill #1539] ${apply ? "APPLY" : "DRY-RUN"} — backfilling CallScore.analysisSpecId on NULL rows.`,
   );
@@ -156,7 +156,7 @@ async function main(): Promise<void> {
   await ensureLegacySentinel(apply);
 
   const paramToSpecs = await buildParameterToSpecsMap();
-  // eslint-disable-next-line no-console
+   
   console.log(
     `[backfill #1539] resolved ${paramToSpecs.size} parameters from active MEASURE/LEARN specs.`,
   );
@@ -173,16 +173,16 @@ async function main(): Promise<void> {
     cursor = await drainChunk(paramToSpecs, cursor, counts, apply);
     if (cursor === null) break;
     if (counts.scanned % 5000 === 0) {
-      // eslint-disable-next-line no-console
+       
       console.log(
         `[backfill #1539] progress — scanned=${counts.scanned} attributed=${counts.attributed} legacy=${counts.legacyMarked}`,
       );
     }
   }
 
-  // eslint-disable-next-line no-console
+   
   console.log(`[backfill #1539] DONE — ${JSON.stringify(counts)}`);
-  // eslint-disable-next-line no-console
+   
   console.log(
     apply
       ? `[backfill #1539] APPLIED — historical NULL rows are drained. Run I-AL6 audit query to verify zero remain.`
@@ -195,7 +195,7 @@ main()
     await prisma.$disconnect();
   })
   .catch(async (err) => {
-    // eslint-disable-next-line no-console
+     
     console.error(err);
     await prisma.$disconnect();
     process.exit(1);

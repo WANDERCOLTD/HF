@@ -1,11 +1,11 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-17T08:48:52.734Z",
+  "generatedAt": "2026-06-17T11:44:00.157Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1807,
-  "edgeCount": 4208,
-  "skippedEdges": 2,
+  "fileCount": 1818,
+  "edgeCount": 4254,
+  "skippedEdges": 1,
   "edges": [
     {
       "from": "app/api/account/route.ts",
@@ -916,6 +916,18 @@
       "to": "lib/prompts/prompt-settings.ts"
     },
     {
+      "from": "app/api/callers/[callerId]/exam-mode-check/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/exam-mode-check/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/exam-mode-check/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "app/api/callers/[callerId]/exam-readiness/route.ts",
       "to": "lib/curriculum/exam-readiness.ts"
     },
@@ -1086,6 +1098,30 @@
     {
       "from": "app/api/callers/[callerId]/module-progress/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/module-stall-pool/route.ts",
+      "to": "lib/caller/resolve-active-playbook.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/module-stall-pool/route.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/module-stall-pool/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/module-stall-pool/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/module-stall-pool/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/module-stall-pool/route.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "app/api/callers/[callerId]/personality/route.ts",
@@ -1472,6 +1508,26 @@
       "to": "lib/permissions.ts"
     },
     {
+      "from": "app/api/calls/[callId]/pinned-card/route.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pinned-card/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pinned-card/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pinned-card/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pinned-card/route.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/actions/extract-actions.ts"
     },
@@ -1686,6 +1742,18 @@
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/voice/carry-through-compose.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/post-call-redirect/route.ts",
+      "to": "lib/learner-scope.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/post-call-redirect/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/post-call-redirect/route.ts",
+      "to": "lib/prisma.ts"
     },
     {
       "from": "app/api/calls/[callId]/route.ts",
@@ -7081,6 +7149,10 @@
     },
     {
       "from": "app/api/voice/calls/outbound-dial/route.ts",
+      "to": "lib/voice/register-module-cues.ts"
+    },
+    {
+      "from": "app/api/voice/calls/outbound-dial/route.ts",
       "to": "lib/voice/resolve-voice-provider.ts"
     },
     {
@@ -8469,6 +8541,10 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/AuthoredModulesPanel.tsx",
+      "to": "lib/curriculum/check-module-unlock.ts"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/AuthoredModulesPanel.tsx",
       "to": "lib/types/json-fields.ts"
     },
     {
@@ -8522,6 +8598,10 @@
     {
       "from": "app/x/courses/[courseId]/_components/LearnerModulePicker.tsx",
       "to": "app/x/courses/[courseId]/_components/PrereqsSoftWarningModal.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/LearnerModulePicker.tsx",
+      "to": "lib/curriculum/check-module-unlock.ts"
     },
     {
       "from": "app/x/courses/[courseId]/_components/LearnerModulePicker.tsx",
@@ -10908,6 +10988,22 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "app/x/test/[playbookSlug]/[moduleSlug]/page.tsx",
+      "to": "lib/test-harness/clone-demo-caller.ts"
+    },
+    {
+      "from": "app/x/test/page.tsx",
+      "to": "app/x/test/test-index.css"
+    },
+    {
+      "from": "app/x/test/page.tsx",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/x/test/page.tsx",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "app/x/testimony/[specId]/page.tsx",
       "to": "app/x/testimony/[specId]/testimony.css"
     },
@@ -11542,6 +11638,10 @@
     {
       "from": "lib/cascade/set-at-layer.ts",
       "to": "lib/playbook/update-playbook-config.ts"
+    },
+    {
+      "from": "lib/cascade/use-effective-value.ts",
+      "to": "lib/cascade/effective-value.ts"
     },
     {
       "from": "lib/cascade/use-effective-value.ts",
@@ -12722,6 +12822,14 @@
     {
       "from": "lib/contracts/registry.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/curriculum/check-module-unlock.ts",
+      "to": "lib/pipeline/course-style.ts"
+    },
+    {
+      "from": "lib/curriculum/check-module-unlock.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/curriculum/course-completion.ts",
@@ -15524,6 +15632,26 @@
       "to": "lib/terminology/types.ts"
     },
     {
+      "from": "lib/test-harness/clone-demo-caller.ts",
+      "to": "lib/enrollment/index.ts"
+    },
+    {
+      "from": "lib/test-harness/clone-demo-caller.ts",
+      "to": "lib/enrollment/instantiate-goals.ts"
+    },
+    {
+      "from": "lib/test-harness/clone-demo-caller.ts",
+      "to": "lib/enrollment/instantiate-module-progress.ts"
+    },
+    {
+      "from": "lib/test-harness/clone-demo-caller.ts",
+      "to": "lib/enrollment/instantiate-targets.ts"
+    },
+    {
+      "from": "lib/test-harness/clone-demo-caller.ts",
+      "to": "lib/fake-names.ts"
+    },
+    {
       "from": "lib/test-harness/sim-runner.ts",
       "to": "lib/config.ts"
     },
@@ -15713,7 +15841,15 @@
     },
     {
       "from": "lib/voice/create-session.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/voice/create-session.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/voice/create-session.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/voice/create-session.ts",
@@ -15725,7 +15861,19 @@
     },
     {
       "from": "lib/voice/create-session.ts",
+      "to": "lib/voice/select-pinned-card.ts"
+    },
+    {
+      "from": "lib/voice/create-session.ts",
       "to": "lib/voice/session-rules.ts"
+    },
+    {
+      "from": "lib/voice/cue-scheduler-runner.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/voice/cue-scheduler-runner.ts",
+      "to": "lib/voice/cue-scheduler.ts"
     },
     {
       "from": "lib/voice/cue-scheduler.ts",
@@ -15920,6 +16068,26 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/voice/register-module-cues.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/voice/register-module-cues.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/voice/register-module-cues.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/voice/register-module-cues.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/voice/register-module-cues.ts",
+      "to": "lib/voice/cue-scheduler.ts"
+    },
+    {
       "from": "lib/voice/resolve-speech-assessment-provider.ts",
       "to": "lib/speech-assessment/provider-factory.ts"
     },
@@ -16009,6 +16177,10 @@
     },
     {
       "from": "lib/voice/route-handlers.ts",
+      "to": "lib/voice/register-module-cues.ts"
+    },
+    {
+      "from": "lib/voice/route-handlers.ts",
       "to": "lib/voice/resolve-voice-provider.ts"
     },
     {
@@ -16050,6 +16222,10 @@
     {
       "from": "lib/voice/runtime-features.ts",
       "to": "lib/voice/sse-registry.ts"
+    },
+    {
+      "from": "lib/voice/select-pinned-card.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/voice/stamp-enrollment-session-prompt.ts",
@@ -16213,6 +16389,10 @@
     },
     {
       "from": "lib/wizard/detect-authored-modules.ts",
+      "to": "lib/curriculum/check-module-unlock.ts"
+    },
+    {
+      "from": "lib/wizard/detect-authored-modules.ts",
       "to": "lib/types/json-fields.ts"
     },
     {
@@ -16314,6 +16494,10 @@
     {
       "from": "lib/wizard/run-projection-for-playbook.ts",
       "to": "lib/wizard/project-course-reference.ts"
+    },
+    {
+      "from": "lib/wizard/sync-authored-modules-to-curriculum.ts",
+      "to": "lib/curriculum/check-module-unlock.ts"
     },
     {
       "from": "lib/wizard/sync-authored-modules-to-curriculum.ts",
@@ -17212,6 +17396,11 @@
       "outDegree": 6
     },
     {
+      "path": "app/api/callers/[callerId]/exam-mode-check/route.ts",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
       "path": "app/api/callers/[callerId]/exam-readiness/route.ts",
       "inDegree": 0,
       "outDegree": 4
@@ -17265,6 +17454,11 @@
       "path": "app/api/callers/[callerId]/module-progress/route.ts",
       "inDegree": 0,
       "outDegree": 3
+    },
+    {
+      "path": "app/api/callers/[callerId]/module-stall-pool/route.ts",
+      "inDegree": 0,
+      "outDegree": 6
     },
     {
       "path": "app/api/callers/[callerId]/personality/route.ts",
@@ -17392,9 +17586,19 @@
       "outDegree": 4
     },
     {
+      "path": "app/api/calls/[callId]/pinned-card/route.ts",
+      "inDegree": 0,
+      "outDegree": 5
+    },
+    {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
       "outDegree": 54
+    },
+    {
+      "path": "app/api/calls/[callId]/post-call-redirect/route.ts",
+      "inDegree": 0,
+      "outDegree": 3
     },
     {
       "path": "app/api/calls/[callId]/route.ts",
@@ -19449,7 +19653,7 @@
     {
       "path": "app/api/voice/calls/outbound-dial/route.ts",
       "inDegree": 0,
-      "outDegree": 10
+      "outDegree": 11
     },
     {
       "path": "app/api/voice/calls/start/route.ts",
@@ -20089,7 +20293,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/AuthoredModulesPanel.tsx",
       "inDegree": 1,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
@@ -20104,7 +20308,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/LearnerModulePicker.tsx",
       "inDegree": 2,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/x/courses/[courseId]/_components/PrereqsHardLockModal.tsx",
@@ -21159,7 +21363,17 @@
     {
       "path": "app/x/test/[playbookSlug]/[moduleSlug]/page.tsx",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
+    },
+    {
+      "path": "app/x/test/page.tsx",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
+      "path": "app/x/test/test-index.css",
+      "inDegree": 1,
+      "outDegree": 0
     },
     {
       "path": "app/x/testimony/[specId]/page.tsx",
@@ -22398,7 +22612,7 @@
     },
     {
       "path": "lib/caller/resolve-active-playbook.ts",
-      "inDegree": 2,
+      "inDegree": 3,
       "outDegree": 1
     },
     {
@@ -22408,7 +22622,7 @@
     },
     {
       "path": "lib/cascade/effective-value.ts",
-      "inDegree": 12,
+      "inDegree": 13,
       "outDegree": 7
     },
     {
@@ -22459,7 +22673,7 @@
     {
       "path": "lib/cascade/use-effective-value.ts",
       "inDegree": 0,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/cascade/voice-explain.ts",
@@ -23122,6 +23336,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/curriculum/check-module-unlock.ts",
+      "inDegree": 4,
+      "outDegree": 2
+    },
+    {
       "path": "lib/curriculum/compute-mastery.ts",
       "inDegree": 2,
       "outDegree": 0
@@ -23448,22 +23667,22 @@
     },
     {
       "path": "lib/enrollment/index.ts",
-      "inDegree": 24,
+      "inDegree": 25,
       "outDegree": 2
     },
     {
       "path": "lib/enrollment/instantiate-goals.ts",
-      "inDegree": 3,
+      "inDegree": 4,
       "outDegree": 3
     },
     {
       "path": "lib/enrollment/instantiate-module-progress.ts",
-      "inDegree": 2,
+      "inDegree": 3,
       "outDegree": 3
     },
     {
       "path": "lib/enrollment/instantiate-targets.ts",
-      "inDegree": 3,
+      "inDegree": 4,
       "outDegree": 1
     },
     {
@@ -23478,7 +23697,7 @@
     },
     {
       "path": "lib/fake-names.ts",
-      "inDegree": 2,
+      "inDegree": 3,
       "outDegree": 0
     },
     {
@@ -23808,7 +24027,7 @@
     },
     {
       "path": "lib/journey/module-settings-flag.ts",
-      "inDegree": 3,
+      "inDegree": 7,
       "outDegree": 0
     },
     {
@@ -23888,7 +24107,7 @@
     },
     {
       "path": "lib/learner-scope.ts",
-      "inDegree": 52,
+      "inDegree": 56,
       "outDegree": 1
     },
     {
@@ -23958,7 +24177,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 31,
+      "inDegree": 33,
       "outDegree": 3
     },
     {
@@ -24098,7 +24317,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 467,
+      "inDegree": 472,
       "outDegree": 3
     },
     {
@@ -24123,7 +24342,7 @@
     },
     {
       "path": "lib/pipeline/course-style.ts",
-      "inDegree": 8,
+      "inDegree": 9,
       "outDegree": 1
     },
     {
@@ -24253,7 +24472,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 662,
+      "inDegree": 668,
       "outDegree": 0
     },
     {
@@ -24787,6 +25006,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/test-harness/clone-demo-caller.ts",
+      "inDegree": 1,
+      "outDegree": 5
+    },
+    {
       "path": "lib/test-harness/sim-runner.ts",
       "inDegree": 1,
       "outDegree": 10
@@ -24828,7 +25052,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 115,
+      "inDegree": 121,
       "outDegree": 0
     },
     {
@@ -24874,11 +25098,16 @@
     {
       "path": "lib/voice/create-session.ts",
       "inDegree": 7,
-      "outDegree": 7
+      "outDegree": 10
+    },
+    {
+      "path": "lib/voice/cue-scheduler-runner.ts",
+      "inDegree": 0,
+      "outDegree": 2
     },
     {
       "path": "lib/voice/cue-scheduler.ts",
-      "inDegree": 0,
+      "inDegree": 2,
       "outDegree": 4
     },
     {
@@ -24987,6 +25216,11 @@
       "outDegree": 1
     },
     {
+      "path": "lib/voice/register-module-cues.ts",
+      "inDegree": 2,
+      "outDegree": 5
+    },
+    {
       "path": "lib/voice/resolve-speech-assessment-provider.ts",
       "inDegree": 1,
       "outDegree": 1
@@ -25004,12 +25238,17 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 27
+      "outDegree": 28
     },
     {
       "path": "lib/voice/runtime-features.ts",
       "inDegree": 3,
       "outDegree": 2
+    },
+    {
+      "path": "lib/voice/select-pinned-card.ts",
+      "inDegree": 1,
+      "outDegree": 1
     },
     {
       "path": "lib/voice/session-flag.ts",
@@ -25149,7 +25388,7 @@
     {
       "path": "lib/wizard/detect-authored-modules.ts",
       "inDegree": 7,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/wizard/detect-course-config.ts",
@@ -25209,7 +25448,7 @@
     {
       "path": "lib/wizard/sync-authored-modules-to-curriculum.ts",
       "inDegree": 1,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "lib/wizard/validate-setup-fields.ts",
@@ -25880,17 +26119,17 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 662,
+      "inDegree": 668,
       "outDegree": 0
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 467,
+      "inDegree": 472,
       "outDegree": 3
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 115,
+      "inDegree": 121,
       "outDegree": 0
     },
     {
@@ -25904,6 +26143,11 @@
       "outDegree": 3
     },
     {
+      "path": "lib/learner-scope.ts",
+      "inDegree": 56,
+      "outDegree": 1
+    },
+    {
       "path": "lib/system-settings.ts",
       "inDegree": 52,
       "outDegree": 3
@@ -25912,11 +26156,6 @@
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
       "outDegree": 54
-    },
-    {
-      "path": "lib/learner-scope.ts",
-      "inDegree": 52,
-      "outDegree": 1
     },
     {
       "path": "app/x/courses/[courseId]/page.tsx",
@@ -25945,7 +26184,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 31,
+      "inDegree": 33,
       "outDegree": 3
     },
     {
@@ -25956,7 +26195,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 27
+      "outDegree": 28
     },
     {
       "path": "lib/playbook/update-playbook-config.ts",
@@ -25969,14 +26208,14 @@
       "outDegree": 28
     },
     {
+      "path": "lib/enrollment/index.ts",
+      "inDegree": 25,
+      "outDegree": 2
+    },
+    {
       "path": "app/x/domains/page.tsx",
       "inDegree": 0,
       "outDegree": 26
-    },
-    {
-      "path": "components/shared/FancySelect.tsx",
-      "inDegree": 26,
-      "outDegree": 0
     }
   ]
 }
