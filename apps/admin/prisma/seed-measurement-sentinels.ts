@@ -102,7 +102,7 @@ export async function seedMeasurementSentinels(): Promise<void> {
         isActive: true,
       },
     });
-    // eslint-disable-next-line no-console
+     
     console.log(`  ✓ ${sentinel.id} (${sentinel.slug})`);
   }
 }
@@ -110,12 +110,12 @@ export async function seedMeasurementSentinels(): Promise<void> {
 if (require.main === module) {
   seedMeasurementSentinels()
     .then(async () => {
-      // eslint-disable-next-line no-console
+       
       console.log(`Seeded ${SENTINELS.length} measurement sentinel spec(s).`);
       await prisma.$disconnect();
     })
     .catch(async (err) => {
-      // eslint-disable-next-line no-console
+       
       console.error(err);
       await prisma.$disconnect();
       process.exit(1);

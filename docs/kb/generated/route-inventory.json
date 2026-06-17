@@ -1,12 +1,12 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-17T08:48:51.882Z",
+  "generatedAt": "2026-06-17T11:43:58.872Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 537,
+    "routeCount": 541,
     "byAuthLevel": {
-      "VIEWER": 123,
+      "VIEWER": 127,
       "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
@@ -1560,6 +1560,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/callers/[callerId]/exam-mode-check",
+      "file": "apps/admin/app/api/callers/[callerId]/exam-mode-check/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/callers/[callerId]/exam-readiness",
       "file": "apps/admin/app/api/callers/[callerId]/exam-readiness/route.ts",
       "methods": [
@@ -1762,6 +1782,26 @@
     {
       "route": "/api/callers/[callerId]/module-progress",
       "file": "apps/admin/app/api/callers/[callerId]/module-progress/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/callers/[callerId]/module-stall-pool",
+      "file": "apps/admin/app/api/callers/[callerId]/module-stall-pool/route.ts",
       "methods": [
         "GET"
       ],
@@ -2280,6 +2320,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/calls/[callId]/pinned-card",
+      "file": "apps/admin/app/api/calls/[callId]/pinned-card/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/calls/[callId]/pipeline",
       "file": "apps/admin/app/api/calls/[callId]/pipeline/route.ts",
       "methods": [
@@ -2293,6 +2353,26 @@
         "acceptsCallerIdParam": true,
         "usesScopeHelper": true,
         "handlesInternalSecret": true,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/calls/[callId]/post-call-redirect",
+      "file": "apps/admin/app/api/calls/[callId]/post-call-redirect/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
         "rawPrisma": true,
         "possiblyUnscoped": false,
         "noAuthGate": false

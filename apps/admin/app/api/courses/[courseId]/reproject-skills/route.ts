@@ -1,7 +1,4 @@
-/* eslint-disable hf-security/no-unscoped-caller-id-route --
- * Course-scoped write. OPERATOR+ gate at requireAuth. Not a per-learner
- * read; rule's path-param-IDOR heuristic doesn't apply.
- */
+ 
 /**
  * @api POST /api/courses/[courseId]/reproject-skills
  *
