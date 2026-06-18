@@ -160,7 +160,11 @@ async function upsertParameters(
       data: {
         parameterId: p.name,
         name: p.description ?? p.name,
-        definition: p.description ?? `Skill behavior parameter auto-created by projection`,
+        // `definition` intentionally omitted — spec-readonly boundary
+        // (#1984). The canonical seed assigns it; let null be the
+        // default for wizard-projected params until pedagogy authors
+        // the canonical definition. See
+        // `.claude/rules/spec-readonly-boundary.md`.
         sectionId: "skill",
         domainGroup: "skill",
         scaleType: "0-1",

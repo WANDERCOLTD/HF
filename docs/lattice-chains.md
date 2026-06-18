@@ -83,6 +83,8 @@ Three structural patterns, in order of preference:
 | Parameter rows → JOURNEY_SETTINGS LH-menu exposure | `behavior-parameters.registry.json` | `JourneySettingContract` entries targeting `behaviorTargets[<paramId>]` | ❌ GAP | — | MED | New parameter doesn't auto-appear in Journey Inspector LH menu. Convention only. Per-param `JourneySettingContract` filing needed. |
 | Parameter rows → AnalysisSpec.config.parameters[].id soft-FK | `behavior-parameters.registry.json::parameterId` | `AnalysisSpec.config.parameters[].id` (JSON field — read at `lib/goals/strategies/resolve-strategy.ts:76`) | ✅ PROTECTED | `apps/admin/scripts/check-fk-consistency.ts` Query 11 (`analysis-spec-config-dangling-parameter-ref`, 2026-06-17) | — | SQL check via `jsonb_array_elements` + LEFT JOIN. Surfaces dangling `(specSlug, configParameterId)` pairs. Wrapped in try/catch so dev SQLite path tolerates JSON-syntax differences. |
 | Parameter rows → runtime consumer (compose/score/cascade) | `behavior-parameters.registry.json` | concat of `lib/prompt/composition/**` + `lib/pipeline/**` + `lib/cascade/resolvers/**` + others | ✅ PROTECTED | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | — | Exempt list (118 entries) with ratchet |
+| Spec-readonly Parameter fields → ESLint mirror | `lib/cascade/spec-readonly-fields.ts::PARAMETER_SPEC_READONLY_FIELDS` | `eslint-rules/no-customer-write-to-canonical-interpretation.mjs::SPEC_READONLY_FIELDS` | ✅ PROTECTED | `tests/lib/cascade/spec-readonly-fields-coverage.test.ts` (#1984 S2) | — | Symmetric set equality + sentinel count. New field requires same-PR update of both sources. |
+| Spec-readonly Parameter fields → customer-driven write block | `PARAMETER_SPEC_READONLY_FIELDS` | `prisma.parameter.{create,update,upsert}` payloads outside seed / scripts / /api/x/ / /api/lab/ / migrations / tests | ✅ PROTECTED | `eslint-rules/no-customer-write-to-canonical-interpretation.mjs` (#1984 S1) — error severity | — | 17 RuleTester cases; mitigated wizard + parameters POST in same PR; SUPERADMIN PUT + ADMIN sync allow-listed by suffix. |
 
 ### Pipeline
 
@@ -194,6 +196,7 @@ Three structural patterns, in order of preference:
 | `tier-visibility-coverage.md` | `tests/api/tier-visibility-coverage.test.ts` (#1855) | ✅ PROTECTED |
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
 | `fixture-type-coverage.md` | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | ✅ PROTECTED |
+| `spec-readonly-boundary.md` | `eslint-rules/no-customer-write-to-canonical-interpretation.mjs` (#1984 S1) + `tests/lib/cascade/spec-readonly-fields-coverage.test.ts` (#1984 S2) | ✅ PROTECTED |
 | `privacy-redaction.md` | ESLint `require-tiered-redactor` + `tier-visibility-coverage` (#1855) — same enforcer as `response-redaction.md`; this file is the privacy-specific framing | ✅ PROTECTED (5 leak ratchet, #1922) |
 | `data-retention.md` | `lib/privacy/stamp-regulatory-expiry.ts` chokepoint (#1917) + retention cron + `apps/admin/scripts/check-fk-consistency.ts` Query 12 | ✅ PROTECTED (3 voice paths adopted; 8 lower-priority writers adopt as touched) |
 | `vm-migration-lock.md` | `scripts/vm-migrate.sh` wrapper + session-start check | ✅ PROTECTED |
