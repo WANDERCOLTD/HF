@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T13:27:43.741Z",
+  "generatedAt": "2026-06-18T19:44:20.497Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1842,
-  "edgeCount": 4332,
+  "fileCount": 1845,
+  "edgeCount": 4344,
   "skippedEdges": 1,
   "edges": [
     {
@@ -238,6 +238,10 @@
     {
       "from": "app/api/admin/sync-parameters/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/admin/sync-parameters/route.ts",
+      "to": "lib/registry/resolve.ts"
     },
     {
       "from": "app/api/admin/terminology/route.ts",
@@ -4753,6 +4757,10 @@
     },
     {
       "from": "app/api/intake/bootstrap/route.ts",
+      "to": "lib/intake/hf-adapter/record-disclosure-with-tx.ts"
+    },
+    {
+      "from": "app/api/intake/bootstrap/route.ts",
       "to": "lib/intake/intake-session-cookie.ts"
     },
     {
@@ -4794,6 +4802,10 @@
     {
       "from": "app/api/intake/disclosure-acknowledge/route.ts",
       "to": "lib/intake/hf-adapter/disclosure-store.ts"
+    },
+    {
+      "from": "app/api/intake/disclosure-acknowledge/route.ts",
+      "to": "lib/intake/hf-adapter/record-disclosure-with-tx.ts"
     },
     {
       "from": "app/api/intake/disclosure-acknowledge/route.ts",
@@ -7217,6 +7229,10 @@
     },
     {
       "from": "app/api/voice/calls/outbound-dial/route.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
+    },
+    {
+      "from": "app/api/voice/calls/outbound-dial/route.ts",
       "to": "lib/voice/build-assistant-config.ts"
     },
     {
@@ -7254,6 +7270,10 @@
     {
       "from": "app/api/voice/calls/start/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/voice/calls/start/route.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
     },
     {
       "from": "app/api/voice/calls/start/route.ts",
@@ -13752,6 +13772,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/intake/hf-adapter/record-disclosure-with-tx.ts",
+      "to": "lib/intake/hf-adapter/disclosure-store.ts"
+    },
+    {
       "from": "lib/intake/prisma-event-store.ts",
       "to": "lib/intake/tallyseal/index.ts"
     },
@@ -14682,6 +14706,10 @@
     {
       "from": "lib/playbooks/create-variant.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/privacy/stamp-regulatory-expiry.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "lib/prompt/compose-content-section.ts",
@@ -15640,6 +15668,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/registry/resolve.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "lib/scheduler/mode-labels.ts",
       "to": "lib/pipeline/scheduler-decision.ts"
     },
@@ -15926,6 +15958,10 @@
     {
       "from": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts",
+      "to": "lib/registry/resolve.ts"
     },
     {
       "from": "lib/tolerance/resolve-tolerance.ts",
@@ -16385,6 +16421,10 @@
     },
     {
       "from": "lib/voice/route-handlers.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
+    },
+    {
+      "from": "lib/voice/route-handlers.ts",
       "to": "lib/prompt/composition/defaults/fallback-first-lines.ts"
     },
     {
@@ -16537,6 +16577,10 @@
     },
     {
       "from": "lib/wizard/__tests__/apply-projection.test.ts",
+      "to": "lib/registry/resolve.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/apply-projection.test.ts",
       "to": "lib/types/json-fields.ts"
     },
     {
@@ -16642,6 +16686,10 @@
     {
       "from": "lib/wizard/apply-projection.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/wizard/apply-projection.ts",
+      "to": "lib/registry/resolve.ts"
     },
     {
       "from": "lib/wizard/apply-projection.ts",
@@ -17440,7 +17488,7 @@
     {
       "path": "app/api/admin/sync-parameters/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/admin/terminology/route.ts",
@@ -18960,7 +19008,7 @@
     {
       "path": "app/api/intake/bootstrap/route.ts",
       "inDegree": 0,
-      "outDegree": 7
+      "outDegree": 8
     },
     {
       "path": "app/api/intake/chat/route.ts",
@@ -18970,7 +19018,7 @@
     {
       "path": "app/api/intake/disclosure-acknowledge/route.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/api/intake/disclosure-signal/route.ts",
@@ -19970,12 +20018,12 @@
     {
       "path": "app/api/voice/calls/outbound-dial/route.ts",
       "inDegree": 0,
-      "outDegree": 11
+      "outDegree": 12
     },
     {
       "path": "app/api/voice/calls/start/route.ts",
       "inDegree": 0,
-      "outDegree": 8
+      "outDegree": 9
     },
     {
       "path": "app/api/voice/costs/route.ts",
@@ -23364,7 +23412,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 93,
+      "inDegree": 94,
       "outDegree": 0
     },
     {
@@ -24194,7 +24242,7 @@
     },
     {
       "path": "lib/intake/hf-adapter/disclosure-store.ts",
-      "inDegree": 3,
+      "inDegree": 4,
       "outDegree": 2
     },
     {
@@ -24206,6 +24254,11 @@
       "path": "lib/intake/hf-adapter/projection.ts",
       "inDegree": 1,
       "outDegree": 0
+    },
+    {
+      "path": "lib/intake/hf-adapter/record-disclosure-with-tx.ts",
+      "inDegree": 2,
+      "outDegree": 1
     },
     {
       "path": "lib/intake/intake-session-cookie.ts",
@@ -24809,8 +24862,13 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 673,
+      "inDegree": 674,
       "outDegree": 0
+    },
+    {
+      "path": "lib/privacy/stamp-regulatory-expiry.ts",
+      "inDegree": 3,
+      "outDegree": 1
     },
     {
       "path": "lib/prompt-analyzer/section-map.ts",
@@ -25178,6 +25236,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/registry/resolve.ts",
+      "inDegree": 4,
+      "outDegree": 1
+    },
+    {
       "path": "lib/roles.ts",
       "inDegree": 16,
       "outDegree": 0
@@ -25390,7 +25453,7 @@
     {
       "path": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts",
       "inDegree": 4,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/tolerance/resolve-tolerance.ts",
@@ -25625,7 +25688,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 28
+      "outDegree": 29
     },
     {
       "path": "lib/voice/runtime-features.ts",
@@ -25715,7 +25778,7 @@
     {
       "path": "lib/wizard/__tests__/apply-projection.test.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "lib/wizard/__tests__/detect-authored-modules.test.ts",
@@ -25790,7 +25853,7 @@
     {
       "path": "lib/wizard/apply-projection.ts",
       "inDegree": 3,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/wizard/detect-authored-modules.ts",
@@ -26551,7 +26614,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 673,
+      "inDegree": 674,
       "outDegree": 0
     },
     {
@@ -26566,7 +26629,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 93,
+      "inDegree": 94,
       "outDegree": 0
     },
     {
@@ -26627,7 +26690,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 28
+      "outDegree": 29
     },
     {
       "path": "lib/playbook/update-playbook-config.ts",
