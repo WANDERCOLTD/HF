@@ -13,10 +13,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantCtx } from "@/lib/intake/hf-adapter/auth";
 import { loadDisclosureCopy } from "@/lib/intake/hf-adapter/disclosure-content";
-import {
-  getDisclosureStore,
-  deriveDisclosureId,
-} from "@/lib/intake/hf-adapter/disclosure-store";
+import { deriveDisclosureId } from "@/lib/intake/hf-adapter/disclosure-store";
+import { recordDisclosure } from "@/lib/intake/hf-adapter/record-disclosure-with-tx";
 import {
   openSession,
   appendEvent,
@@ -119,33 +117,25 @@ export async function POST(req: NextRequest) {
     // Q-CR9 write-path: populate tallyseal_disclosure alongside the
     // in-memory event. Best-effort — failure logs but doesn't block
     // intake (Q2 founder guidance; Q-BRIDGE-RECORDER-DURABILITY).
-    // Note: passing Date (not ISO string) because the underlying
-    // SQL column is `timestamptz` — the SDK's `Timestamp = Brand<string>`
-    // type contract is structurally satisfied by Date at runtime via
-    // Prisma's coercion; the cast bypasses the type-only mismatch.
-    try {
-      const store = await getDisclosureStore();
-      await store.record({
-        id: deriveDisclosureId(session.intentId, requirementId),
-        tenantId: session.tenant.id,
-        subject: subjectId,
-        requirementId,
-        content: copy.content,
-        contentHash: copy.contentHash,
-        deliveredAt,
-        // 'in-app' per the SDK CHECK constraint
-        // (delivery_method IN 'in-app','email','sms','mail','api').
-        // HF delivers via TallysealBanner — closest semantic match.
-        deliveryMethod: "in-app",
-        acknowledgedAt: null,
-        retractedAt: null,
-      } as never);
-    } catch (err) {
-      console.error(
-        "[intake/bootstrap] disclosureStore.record failed (continuing):",
-        err instanceof Error ? err.message : err,
-      );
-    }
+    //
+    // #1919 — routed through `recordDisclosure(...)` wrapper so the
+    // future Tallyseal Drop-1 tx-discipline upgrade is a one-line
+    // change in the wrapper rather than a refactor here. The wrapper
+    // accepts `tx?` for forward-compat (IGNORED today, used post-Drop-1).
+    // See `lib/intake/hf-adapter/record-disclosure-with-tx.ts` header.
+    await recordDisclosure({
+      id: deriveDisclosureId(session.intentId, requirementId),
+      tenantId: session.tenant.id,
+      subject: subjectId,
+      requirementId,
+      content: copy.content,
+      contentHash: copy.contentHash,
+      deliveredAt,
+      // 'in-app' per the SDK CHECK constraint
+      // (delivery_method IN 'in-app','email','sms','mail','api').
+      // HF delivers via TallysealBanner — closest semantic match.
+      deliveryMethod: "in-app",
+    });
   }
 
   // Resolve classroomToken (Option B routing): look up the cohort

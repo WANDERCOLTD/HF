@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T13:20:59.597Z",
+  "generatedAt": "2026-06-18T13:34:59.392Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1843,
-  "edgeCount": 4336,
+  "fileCount": 1844,
+  "edgeCount": 4339,
   "skippedEdges": 1,
   "edges": [
     {
@@ -4753,6 +4753,10 @@
     },
     {
       "from": "app/api/intake/bootstrap/route.ts",
+      "to": "lib/intake/hf-adapter/record-disclosure-with-tx.ts"
+    },
+    {
+      "from": "app/api/intake/bootstrap/route.ts",
       "to": "lib/intake/intake-session-cookie.ts"
     },
     {
@@ -4794,6 +4798,10 @@
     {
       "from": "app/api/intake/disclosure-acknowledge/route.ts",
       "to": "lib/intake/hf-adapter/disclosure-store.ts"
+    },
+    {
+      "from": "app/api/intake/disclosure-acknowledge/route.ts",
+      "to": "lib/intake/hf-adapter/record-disclosure-with-tx.ts"
     },
     {
       "from": "app/api/intake/disclosure-acknowledge/route.ts",
@@ -13760,6 +13768,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/intake/hf-adapter/record-disclosure-with-tx.ts",
+      "to": "lib/intake/hf-adapter/disclosure-store.ts"
+    },
+    {
       "from": "lib/intake/prisma-event-store.ts",
       "to": "lib/intake/tallyseal/index.ts"
     },
@@ -18976,7 +18988,7 @@
     {
       "path": "app/api/intake/bootstrap/route.ts",
       "inDegree": 0,
-      "outDegree": 7
+      "outDegree": 8
     },
     {
       "path": "app/api/intake/chat/route.ts",
@@ -18986,7 +18998,7 @@
     {
       "path": "app/api/intake/disclosure-acknowledge/route.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/api/intake/disclosure-signal/route.ts",
@@ -24210,7 +24222,7 @@
     },
     {
       "path": "lib/intake/hf-adapter/disclosure-store.ts",
-      "inDegree": 3,
+      "inDegree": 4,
       "outDegree": 2
     },
     {
@@ -24222,6 +24234,11 @@
       "path": "lib/intake/hf-adapter/projection.ts",
       "inDegree": 1,
       "outDegree": 0
+    },
+    {
+      "path": "lib/intake/hf-adapter/record-disclosure-with-tx.ts",
+      "inDegree": 2,
+      "outDegree": 1
     },
     {
       "path": "lib/intake/intake-session-cookie.ts",
