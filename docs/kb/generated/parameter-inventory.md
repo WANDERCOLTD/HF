@@ -92,17 +92,17 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
 | `BEH-CALL-FREQUENCY-ADAPTATION` | gap | H/L | call_frequency_adaptation | — |
-| `BEH-CHUNK-SIZE` | covered | —/— | chunk-size | `lib/voice/audio-slice.ts` |
+| `BEH-CHUNK-SIZE` | covered | H/L | chunk-size | `lib/voice/audio-slice.ts` |
 | `BEH-COGNITIVE-ACTIVATION` | gap | H/L | CP-004 | — |
 | `BEH-COMMUNICATION-COMPLEXITY-ADAPTATION` | gap | H/L | communication_complexity_adaptation | — |
 | `BEH-CONV-DOM` | gap | H/L | CONV_DOM | — |
 | `BEH-ENGAGEMENT-ADAPTATION` | gap | H/L | engagement_adaptation | — |
 | `BEH-LEARNING-VELOCITY-ADAPTATION` | gap | H/L | learning_velocity_adaptation | — |
-| `BEH-PAUSE-FOR-QUESTIONS` | gap | —/— | pause-for-questions | — |
+| `BEH-PAUSE-FOR-QUESTIONS` | gap | H/L | pause-for-questions | — |
 | `BEH-TONE-ASSERT` | gap | H/L | TONE_ASSERT | — |
 | `BEH-TURN-LENGTH` | covered | H/L | — | `lib/chat/unified-assistant-prompt.ts`, `lib/prompt/composition/transforms/quickstart.ts` |
 | `BEH-WARMTH` | covered | H/L | BEH-CONVERSATIONAL-TONE, warmth_actual | `app/api/cascade/resolve/route.ts`, `app/api/chat/factual-grounding-intercept.ts`, `app/api/x/seed-domains/route.ts`, +7 more |
-| `check-for-understanding` | gap | —/— | — | — |
+| `check-for-understanding` | gap | H/L | — | — |
 | `CONV_PACE` | deprecated | H/L | — | `lib/chat/admin-tools.ts`, `lib/pipeline/prosody-consumer.ts`, `lib/pipeline/prosody-types.ts` |
 
 ## `learning-adaptation` (49)
@@ -111,22 +111,22 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 |---|---|---|---|---|
 | `adapt_to_learning_style` | deprecated | —/— | — | — |
 | `adapt_to_pace_preference` | deprecated | —/— | — | — |
-| `analogy-usage` | gap | —/— | — | — |
+| `analogy-usage` | gap | H/L | — | — |
 | `auditory_adaptation` | deprecated | H/L | — | — |
 | `BEH-ABSTRACT-OK` | gap | H/L | — | — |
-| `BEH-ABSTRACT-VS-CONCRETE` | promptInjection-dispatcher | —/— | abstract-vs-concrete | — |
+| `BEH-ABSTRACT-VS-CONCRETE` | promptInjection-dispatcher | H/L | abstract-vs-concrete | — |
 | `BEH-ACTION-VERBS` | gap | H/L | — | — |
-| `BEH-ADAPT-TO-FEEDBACK-STYLE` | gap | —/— | adapt_to_feedback_style | — |
-| `BEH-ADAPT-TO-INTERACTION-STYLE` | gap | —/— | adapt_to_interaction_style | — |
-| `BEH-ADAPT-TO-QUESTION-FREQUENCY` | gap | —/— | adapt_to_question_frequency | — |
-| `BEH-AGGREGATE-PROFILE` | gap | —/— | aggregate_profile | — |
+| `BEH-ADAPT-TO-FEEDBACK-STYLE` | gap | H/L | adapt_to_feedback_style | — |
+| `BEH-ADAPT-TO-INTERACTION-STYLE` | gap | H/L | adapt_to_interaction_style | — |
+| `BEH-ADAPT-TO-QUESTION-FREQUENCY` | gap | H/L | adapt_to_question_frequency | — |
+| `BEH-AGGREGATE-PROFILE` | gap | H/L | aggregate_profile | — |
 | `BEH-APPROACH-SWITCHING` | gap | H/L | — | — |
 | `BEH-CONVERSATIONAL-TONE` | deprecated | H/L | — | `lib/chat/unified-assistant-prompt.ts` |
 | `BEH-DEFINITION-PRECISION` | gap | H/L | — | — |
 | `BEH-DIAGRAM-LANGUAGE` | gap | H/L | — | — |
-| `BEH-ENGAGEMENT-PROMPTS` | gap | —/— | engagement-prompts | — |
+| `BEH-ENGAGEMENT-PROMPTS` | gap | H/L | engagement-prompts | — |
 | `BEH-ENGAGEMENT-WITH-EXAMPLES` | gap | H/L | engagement_with_examples | — |
-| `BEH-EXPLANATION-DEPTH` | covered | —/— | explanation-depth | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
+| `BEH-EXPLANATION-DEPTH` | covered | H/L | explanation-depth | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
 | `BEH-FEELING-LANGUAGE` | gap | H/L | — | — |
 | `BEH-IMAGERY-DENSITY` | gap | H/L | — | — |
 | `BEH-LIST-STRUCTURE` | gap | H/L | — | — |
@@ -140,18 +140,18 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 | `BEH-REPETITION-OFFER` | gap | H/L | — | — |
 | `BEH-RESPONSE-LENGTH-PREFERENCE` | gap | H/L | response_length_preference | — |
 | `BEH-RHYTHM-ATTENTION` | gap | H/L | — | — |
-| `BEH-SOCRATIC-QUESTIONING` | covered | —/— | socratic-questioning | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
+| `BEH-SOCRATIC-QUESTIONING` | covered | H/L | socratic-questioning | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
 | `BEH-SPATIAL-METAPHOR` | gap | H/L | — | — |
 | `BEH-TERMINOLOGY-FORMAL` | gap | H/L | — | — |
 | `BEH-VERBAL-ELABORATION` | gap | H/L | — | — |
 | `BEH-WRITTEN-ALTERNATIVE` | gap | H/L | — | — |
-| `concept-density` | covered | —/— | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
-| `example-richness` | covered | —/— | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
+| `concept-density` | covered | H/L | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
+| `example-richness` | covered | H/L | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
 | `formality-level` | deprecated | —/— | — | — |
 | `kinesthetic_adaptation` | deprecated | H/L | — | — |
 | `pace_indicators` | deprecated | H/L | — | `lib/chat/admin-tools.ts`, `lib/pipeline/prosody-consumer.ts`, `lib/pipeline/prosody-types.ts` |
-| `repetition-frequency` | gap | —/— | — | — |
-| `scaffolding` | covered | —/— | — | `app/api/communities/route.ts`, `app/api/content-sources/[sourceId]/extract/route.ts`, `app/api/course-pack/analyze/route.ts`, +11 more |
+| `repetition-frequency` | gap | H/L | — | — |
+| `scaffolding` | covered | H/L | — | `app/api/communities/route.ts`, `app/api/content-sources/[sourceId]/extract/route.ts`, `app/api/course-pack/analyze/route.ts`, +11 more |
 | `VARK-A` | covered | H/L | — | `app/api/parameters/display-config/route.ts` |
 | `VARK-K` | covered | H/L | — | `app/api/parameters/display-config/route.ts` |
 | `VARK-PROFILE` | gap | H/L | — | — |
@@ -194,7 +194,7 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 |---|---|---|---|---|
 | `BEH-COMPOSITE-REWARD` | covered | H/L | composite_reward | `app/api/playbooks/[playbookId]/parameters/route.ts` |
 | `BEH-ENGAGEMENT-REWARD` | gap | H/L | engagement_reward | — |
-| `BEH-ERROR-ELABORATION` | gap | —/— | error-elaboration | — |
+| `BEH-ERROR-ELABORATION` | gap | H/L | error-elaboration | — |
 | `BEH-GOAL-PROGRESS-REWARD` | gap | H/L | goal_progress_reward | — |
 | `BEH-LEARNING-REWARD` | gap | H/L | learning_reward | — |
 | `BEH-RAPPORT-REWARD` | gap | H/L | rapport_reward | — |

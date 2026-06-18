@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-18T21:16:47.766Z",
+  "generatedAt": "2026-06-18T21:39:49.157Z",
   "generator": "scripts/capture/parameter-inventory.ts",
   "parameterCount": 154,
   "active": 139,
@@ -11,8 +11,8 @@
       "name": "Abstract Vs Concrete",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "abstract-vs-concrete"
@@ -25,8 +25,8 @@
       "name": "Adapt to Feedback Style",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "adapt_to_feedback_style"
@@ -39,8 +39,8 @@
       "name": "Adapt to Interaction Style",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "adapt_to_interaction_style"
@@ -77,8 +77,8 @@
       "name": "Adapt to Question Frequency",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "adapt_to_question_frequency"
@@ -91,8 +91,8 @@
       "name": "Aggregate Learner Profile",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "aggregate_profile"
@@ -119,8 +119,8 @@
       "name": "Analogy Usage",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
@@ -1019,8 +1019,8 @@
       "name": "Check For Understanding",
       "domainGroup": "engagement",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
@@ -1031,8 +1031,8 @@
       "name": "Chunk Size",
       "domainGroup": "engagement",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "chunk-size"
@@ -1175,8 +1175,8 @@
       "name": "Concept Density",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [
@@ -1344,8 +1344,8 @@
       "name": "Engagement Prompts",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "engagement-prompts"
@@ -1400,8 +1400,8 @@
       "name": "Error Elaboration",
       "domainGroup": "reinforcement",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "error-elaboration"
@@ -1414,8 +1414,8 @@
       "name": "Example Richness",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [
@@ -1428,8 +1428,8 @@
       "name": "Explanation Depth",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "explanation-depth"
@@ -1709,8 +1709,8 @@
       "name": "Pause For Questions",
       "domainGroup": "engagement",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "pause-for-questions"
@@ -1807,8 +1807,8 @@
       "name": "Repetition Frequency",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
@@ -1901,8 +1901,8 @@
       "name": "Scaffolding",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [
@@ -1928,8 +1928,8 @@
       "name": "Socratic Questioning",
       "domainGroup": "learning-adaptation",
       "deprecatedAt": null,
-      "hasInterpretationHigh": false,
-      "hasInterpretationLow": false,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [
         "socratic-questioning"
