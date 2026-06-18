@@ -42,9 +42,10 @@ interface MockCallRow {
   createdAt: Date;
   playbookId: string | null;
   usedPromptId: string | null;
-  // #1917 — regulatory expiry column; nullable, populated by
-  // stampRegulatoryExpiry() at create-time via the fresh-arrival path.
-  regulatoryExpiresAt: Date | null;
+  // #1917 — regulatory expiry column; nullable + optional in this mock
+  // because some fixtures pre-date S5a and don't populate it. The create
+  // mock at line 113 defaults to null when omitted.
+  regulatoryExpiresAt?: Date | null;
 }
 
 const stores = vi.hoisted(() => ({
