@@ -56,6 +56,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-ai-forbidden-fields`](#guard-no-ai-forbidden-fields) | AI `input_schema.properties` declaring globally forbidden fields (`role`, `domainId`, `ownerId`) — privilege escalation / cross-tenant moves | — | **a** |
 | [`no-direct-playbook-config-write`](#guard-no-direct-playbook-config-write) | Direct writes to `Playbook.config`; must use `updatePlaybookConfig` | #826 | **a** |
 | [`no-direct-spec-config-write`](#guard-no-direct-spec-config-write) | Direct writes to compose-affecting `AnalysisSpec` fields outside `lib/analysis-spec/` | #829 | **a** |
+| [`no-customer-write-to-canonical-interpretation`](#guard-no-customer-write-to-canonical-interpretation) | Customer-driven writes to spec-readonly `Parameter` fields (`definition`, `interpretationHigh`, `interpretationLow`). They're HF-canonical IP — only seeds, the registry generator, scripts, /api/x/, and migrations may write them. Companion to S4 declarative boundary (#1979). | #1984 | **a** |
 | [`no-direct-domain-onboarding-write`](#guard-no-direct-domain-onboarding-write) | Direct writes to Domain `onboarding*`/`identitySpec` outside `lib/domain/update*` | #828 | **a** |
 | [`no-orphan-instruction-fallback`](#guard-no-orphan-instruction-fallback) | Generic-noun fallbacks for missing module/LO names in prompt transforms (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-C4) | #1006/#1008 | **a** |
 | [`no-undeclared-field-require`](#guard-no-undeclared-field-require) | `has(...)` refs to field keys not declared in the enclosing spec `define` | #1078 | **a** |
@@ -119,6 +120,32 @@ bypasses both. **Survives hardening:** the choke-point pattern is architecture-i
 Compose-affecting `AnalysisSpec` fields may only be written via
 `lib/analysis-spec/update-analysis-spec-config.ts`. Same choke-point rationale as the
 Playbook rule above.
+
+<a id="guard-no-customer-write-to-canonical-interpretation"></a>
+**`no-customer-write-to-canonical-interpretation`** · class **(a) invariant** · born #1984 ·
+[rule source](../../apps/admin/eslint-rules/no-customer-write-to-canonical-interpretation.mjs)
+
+Customer-driven writes to `Parameter.{definition, interpretationHigh, interpretationLow}` are blocked.
+These three fields are spec-readonly — declared canonically in
+[`lib/cascade/spec-readonly-fields.ts::PARAMETER_SPEC_READONLY_FIELDS`](../../apps/admin/lib/cascade/spec-readonly-fields.ts)
+and emitted verbatim to the LLM via the `behavior_targets_semantics` composition block (#1951 S4).
+Customer-driven writes from wizard / operator-UI / sync paths would corrupt every other tenant's composed prompt.
+
+Allow-list: `/prisma/seed*`, `/prisma/migrations/`, `/scripts/`, `/app/api/x/`, `/app/api/lab/features/`,
+plus the two HF-internal admin routes (`app/api/parameters/[id]/route.ts` SUPERADMIN PUT,
+`app/api/admin/sync-parameters/route.ts` ADMIN sync). Tests + fixtures pass.
+
+Same-PR mitigation:
+- `lib/wizard/apply-projection.ts::upsertParameters` — `definition` dropped from the create payload
+- `app/api/parameters/route.ts` POST — `definition` / `interpretationLow` / `interpretationHigh` dropped from the create payload
+
+Coverage-pillar gate: `tests/lib/cascade/spec-readonly-fields-coverage.test.ts` pins symmetric set equality
+between the canonical TypeScript constant and the rule's hardcoded mirror. Adding a 4th spec-readonly field
+requires the same change in both places + bumping the sentinel — surfaced at PR time.
+
+Companion: discipline doc [`.claude/rules/spec-readonly-boundary.md`](../../.claude/rules/spec-readonly-boundary.md).
+**Survives hardening:** the declarative-source-of-truth pattern (TypeScript const ↔ rule mirror ↔ coverage gate)
+is architecture-independent. Any new HF-canonical Parameter field extends the same triple.
 
 <a id="guard-no-direct-domain-onboarding-write"></a>
 **`no-direct-domain-onboarding-write`** · class **(a) invariant** · born #828 ·

@@ -28,6 +28,7 @@ import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
 import requireAiScopeInCascadeZone from "./eslint-rules/require-ai-scope-in-cascade-zone.mjs";
+import noCustomerWriteToCanonicalInterpretation from "./eslint-rules/no-customer-write-to-canonical-interpretation.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -98,6 +99,12 @@ const eslintConfig = defineConfig([
       "hf-spec": {
         rules: {
           "no-direct-config-write": noDirectSpecConfigWrite,
+          // Epic #1984 — block customer-driven writes to spec-readonly
+          // Parameter fields (definition / interpretationHigh /
+          // interpretationLow). These are HF-canonical IP — only
+          // seeds, the registry generator, and migrations may write them.
+          "no-customer-write-to-canonical-interpretation":
+            noCustomerWriteToCanonicalInterpretation,
         },
       },
       // #854 / Story #855 — block AI tool executors from requesting
@@ -296,6 +303,15 @@ const eslintConfig = defineConfig([
       "hf-playbook/no-direct-config-write": "error",
       "hf-domain/no-direct-onboarding-write": "error",
       "hf-spec/no-direct-config-write": "error",
+      // Epic #1984 — error severity from day 1. The boundary is
+      // declarative; the one pre-existing customer-driven write to a
+      // spec field (lib/wizard/apply-projection.ts:163 setting
+      // `definition` on Parameter.create) is repaired in the same PR
+      // by dropping the field — the canonical seed assigns it.
+      // Allow-list (in the rule): seeds, prisma migrations, the
+      // registry generator, and test files.
+      // See .claude/rules/spec-readonly-boundary.md.
+      "hf-spec/no-customer-write-to-canonical-interpretation": "error",
       "hf-recompose/no-ai-fanout-all": "error",
       "hf-ai-tools/no-forbidden-fields": "error",
       // Lands as `warn` so commits 4-6 land cleanly. Promoted to `error`
