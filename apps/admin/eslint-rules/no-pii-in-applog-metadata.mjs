@@ -80,11 +80,38 @@ function isAllowedPath(filename) {
 }
 
 function hasEscapeComment(sourceCode, node) {
+  if (!node || !sourceCode || typeof sourceCode.getCommentsBefore !== "function") {
+    return false;
+  }
   const comments = sourceCode.getCommentsBefore(node);
   for (const c of comments) {
     if (c.value.includes(ESCAPE_COMMENT)) return true;
   }
   return false;
+}
+
+/** Walk up the AST to find the nearest Statement-ish ancestor (i.e.
+ *  the node where authors would write `// @piiRedacted`). Falls back
+ *  to the original node when nothing matches. */
+function findStatementAncestor(node) {
+  const STATEMENT_LIKE = new Set([
+    "ExpressionStatement",
+    "VariableDeclaration",
+    "ReturnStatement",
+    "IfStatement",
+    "ForStatement",
+    "ForOfStatement",
+    "ForInStatement",
+    "WhileStatement",
+    "BlockStatement",
+    "Program",
+  ]);
+  let current = node.parent;
+  while (current) {
+    if (STATEMENT_LIKE.has(current.type)) return current;
+    current = current.parent;
+  }
+  return node;
 }
 
 /** Walk an ObjectExpression's keys, return the first forbidden key found. */
@@ -102,11 +129,14 @@ function findForbiddenKey(objExpr) {
   return null;
 }
 
-/** Detect `obj.metadata` property where the value is a literal with PII keys. */
-function checkMetadataLiteral(context, node, ancestorSiteLabel) {
+/** Detect `obj.metadata` property where the value is a literal with PII keys.
+ *  `escapeCheckNode` is the AST node whose preceding comments are scanned for
+ *  the `@piiRedacted` escape — typically the outer CallExpression statement
+ *  (where the author would write the comment), not the inner literal. */
+function checkMetadataLiteral(context, node, ancestorSiteLabel, escapeCheckNode) {
   const filename = context.filename || context.getFilename?.() || "";
   if (isAllowedPath(filename)) return;
-  if (hasEscapeComment(context.sourceCode, node)) return;
+  if (hasEscapeComment(context.sourceCode, escapeCheckNode ?? node)) return;
 
   if (!node || node.type !== "ObjectExpression") return;
   for (const prop of node.properties) {
@@ -141,6 +171,12 @@ export default {
     return {
       // prisma.appLog.create({ data: { metadata: { ... } } })
       CallExpression(node) {
+        // The escape-comment check looks at comments preceding the
+        // enclosing statement (where authors write `// @piiRedacted`),
+        // not the inner literal. Walk up to the nearest Statement-ish
+        // ancestor for the lookup.
+        const escapeAnchor = findStatementAncestor(node);
+
         // Match `prisma.appLog.create({ data: ... })`
         if (
           node.callee.type === "MemberExpression" &&
@@ -162,6 +198,7 @@ export default {
                   context,
                   prop.value,
                   "prisma.appLog.create",
+                  escapeAnchor,
                 );
               }
             }
@@ -175,7 +212,12 @@ export default {
         ) {
           for (const arg of node.arguments) {
             if (arg && arg.type === "ObjectExpression") {
-              checkMetadataLiteral(context, arg, `${node.callee.name}()`);
+              checkMetadataLiteral(
+                context,
+                arg,
+                `${node.callee.name}()`,
+                escapeAnchor,
+              );
             }
           }
         }
