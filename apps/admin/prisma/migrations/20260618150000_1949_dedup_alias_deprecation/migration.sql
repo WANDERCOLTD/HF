@@ -19,7 +19,7 @@
 -- re-run.
 --
 -- Sibling-writer survey result: BehaviorTarget unique constraint is
--- (parameterId, scope, playbookId, callerIdentityId, effectiveUntil).
+-- (parameterId, scope, playbookId, callerId, effectiveUntil).
 -- Re-pointing loser → winner can cause UNIQUE collisions when the
 -- winner already has a row at the same scope. The migration handles
 -- this with a TWO-PASS pattern: first delete colliding-source rows
@@ -44,7 +44,7 @@ AND EXISTS (
   WHERE w."parameterId" = 'BEH-WARMTH'
   AND w."scope" = "BehaviorTarget"."scope"
   AND COALESCE(w."playbookId", '') = COALESCE("BehaviorTarget"."playbookId", '')
-  AND COALESCE(w."callerIdentityId", '') = COALESCE("BehaviorTarget"."callerIdentityId", '')
+  AND COALESCE(w."callerId", '') = COALESCE("BehaviorTarget"."callerId", '')
   AND w."effectiveUntil" IS NULL
   AND "BehaviorTarget"."effectiveUntil" IS NULL
 );
@@ -79,7 +79,7 @@ AND EXISTS (
   WHERE w."parameterId" = 'BEH-PACE-MATCH'
   AND w."scope" = "BehaviorTarget"."scope"
   AND COALESCE(w."playbookId", '') = COALESCE("BehaviorTarget"."playbookId", '')
-  AND COALESCE(w."callerIdentityId", '') = COALESCE("BehaviorTarget"."callerIdentityId", '')
+  AND COALESCE(w."callerId", '') = COALESCE("BehaviorTarget"."callerId", '')
   AND w."effectiveUntil" IS NULL
   AND "BehaviorTarget"."effectiveUntil" IS NULL
 );
@@ -114,7 +114,7 @@ AND EXISTS (
   WHERE w."parameterId" = 'BEH-FORMALITY'
   AND w."scope" = "BehaviorTarget"."scope"
   AND COALESCE(w."playbookId", '') = COALESCE("BehaviorTarget"."playbookId", '')
-  AND COALESCE(w."callerIdentityId", '') = COALESCE("BehaviorTarget"."callerIdentityId", '')
+  AND COALESCE(w."callerId", '') = COALESCE("BehaviorTarget"."callerId", '')
   AND w."effectiveUntil" IS NULL
   AND "BehaviorTarget"."effectiveUntil" IS NULL
 );
@@ -147,7 +147,7 @@ AND EXISTS (
   WHERE w."parameterId" = 'BEH-DIRECTNESS'
   AND w."scope" = "BehaviorTarget"."scope"
   AND COALESCE(w."playbookId", '') = COALESCE("BehaviorTarget"."playbookId", '')
-  AND COALESCE(w."callerIdentityId", '') = COALESCE("BehaviorTarget"."callerIdentityId", '')
+  AND COALESCE(w."callerId", '') = COALESCE("BehaviorTarget"."callerId", '')
   AND w."effectiveUntil" IS NULL
   AND "BehaviorTarget"."effectiveUntil" IS NULL
 );
@@ -178,7 +178,7 @@ AND EXISTS (
   WHERE w."parameterId" = 'BEH-EMPATHY-RATE'
   AND w."scope" = "BehaviorTarget"."scope"
   AND COALESCE(w."playbookId", '') = COALESCE("BehaviorTarget"."playbookId", '')
-  AND COALESCE(w."callerIdentityId", '') = COALESCE("BehaviorTarget"."callerIdentityId", '')
+  AND COALESCE(w."callerId", '') = COALESCE("BehaviorTarget"."callerId", '')
   AND w."effectiveUntil" IS NULL
   AND "BehaviorTarget"."effectiveUntil" IS NULL
 );
