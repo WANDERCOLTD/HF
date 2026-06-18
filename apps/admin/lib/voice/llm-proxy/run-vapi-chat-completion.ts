@@ -394,7 +394,7 @@ async function injectCurrentFocusDirective(
 ): Promise<void> {
   if (!externalCallId) return;
   try {
-    const call = await prisma.call.findUnique({
+    const call = await prisma.call.findFirst({
       where: { externalId: externalCallId },
       select: { callerId: true },
     });
@@ -412,14 +412,13 @@ async function injectCurrentFocusDirective(
     // FK has already gone stale (deleted module).
     const mod = await prisma.curriculumModule.findUnique({
       where: { id: caller.lastSelectedModuleId },
-      select: { slug: true, name: true },
+      select: { slug: true },
     });
     const slug = mod?.slug ?? caller.lastSelectedModuleId;
-    const name = mod?.name ?? slug;
 
     const directive =
       `## CURRENT FOCUS\n\n` +
-      `The learner is working on module \`${slug}\` (${name}).\n` +
+      `The learner is working on module \`${slug}\`.\n` +
       `Anchor your responses to THIS module's content from the bundle above. ` +
       `If the learner explicitly asks to switch modules, narrate a clean ` +
       `bridge ("nice work on X — let's move to Y") and proceed with the new ` +

@@ -1254,9 +1254,17 @@ registerTransform("computeModuleProgress", (
     }
     return sum + descSize + contentSize;
   }, 0);
+  // When the course is complete, there is no module being taught — the
+  // module list is context only. The pre-#1906 thin-everything shape
+  // applies (no body for any module). Skip bundle mode.
   const bundleAllModuleContent =
-    projectedBundleSize <= PROMPT_MODULE_BUNDLE_BUDGET_CHARS;
-  if (!bundleAllModuleContent && modules.length > 1) {
+    !courseComplete && projectedBundleSize <= PROMPT_MODULE_BUNDLE_BUDGET_CHARS;
+  if (
+    !bundleAllModuleContent &&
+    modules.length > 1 &&
+    !courseComplete &&
+    projectedBundleSize > PROMPT_MODULE_BUNDLE_BUDGET_CHARS
+  ) {
     console.warn(
       `[transforms/modules] bundle budget exceeded: ${projectedBundleSize} chars across ${modules.length} modules (budget ${PROMPT_MODULE_BUNDLE_BUDGET_CHARS}); falling back to current-only`,
     );
