@@ -1,3 +1,7 @@
+---
+hf-template-version: "5.1"
+---
+
 # Course Reference — IELTS Speaking Practice  
   
 **Built from:** HumanFirst Course Reference Template v5.1  
@@ -1054,6 +1058,10 @@ Content sources are the cue cards, Part 1 topic sets, Part 3 themes, and worked 
   
 A bank of Part 1 topics, each with 5 to 8 questions covering the four most common topic clusters (Home, Work or Study, Hobbies, Hometown) and a wider set of secondary topics (Food, Travel, Technology, Weather, Routines).  
   
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-question-bank-part1.md`  
+- *format:* topic-pool  
+- *moduleRef:* part1  
+- *settingRef:* moduleTopicPool  
 - *Outcomes served:* OUT-01, OUT-02, OUT-05, OUT-06, OUT-07.  
 - *Ordering:* student-led — the tutor offers a topic if asked, otherwise the student chooses.  
 - *Notes:* Every topic set is tagged for difficulty (basic / intermediate / advanced) and is reviewed against the topic packaging standards above.  
@@ -1074,6 +1082,10 @@ A bank of Part 2 cue cards in the standard IELTS structure (single-sentence topi
   
 A bank of Part 3 themes, each with 4 to 6 abstract follow-up questions across the seven Part 3 question types, designed to escalate from concrete to abstract within a drill.  
   
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-question-bank-part3.md`  
+- *format:* theme-pool  
+- *moduleRef:* part3  
+- *settingRef:* moduleTopicPool  
 - *Outcomes served:* OUT-03, OUT-13, OUT-14, OUT-15, OUT-16, OUT-17, OUT-19, OUT-20, OUT-21.  
 - *Ordering:* the tutor's default is to follow a Part 2 cue card with a thematically connected Part 3 theme, mirroring real exam structure.  
 - *Notes:* Each theme is tagged with the question types it covers, so the tutor can select themes that drill specific question types the student is weak on.  

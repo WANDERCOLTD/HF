@@ -1743,6 +1743,38 @@ const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
   appliesTo: ["exam"],
 };
 
+// #1932 (epic #1931 Template Authority) — module-scoped topic library.
+// Parallel to `moduleCueCardPool` (Part 2 monologue) but the unit-of-
+// content is QUESTIONS not BULLETS — used by student-led practice
+// modules (Part 1, Part 3) where the tutor picks a topic frame and asks
+// pre-authored questions one at a time. Source-ref form lives in the
+// course-ref doc (`topicPool: source:<id>`); the resolver inlines
+// `Array<{ topic, questions[] }>` at projection time.
+// Phase 1 ships as `json-fallback` — the Theme 1b JourneyArrayEditor
+// primitive is deferred per epic #1700 decision 5.
+const G8_MODULE_TOPIC_POOL: JourneySettingContract = {
+  id: "moduleTopicPool",
+  menuGroupKey: "E_learner_visual",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Topic pool",
+  helpText:
+    "Array of {topic, questions} for student-led practice (Part 1 frames, Part 3 themes). Composer picks one deterministically by callNumber and emits a directive naming the topic + listing the questions.",
+  storagePath: {
+    path: "config.modules[].settings.topicPool",
+    arrayKey: "id",
+  },
+  control: "json-fallback",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions", hint: "topic pool content" }],
+  appliesTo: ["structured", "exam"],
+};
+
 const G8_MODULE_CLOSING_LINE: JourneySettingContract = {
   id: "moduleClosingLine",
   menuGroupKey: "H_closing",
@@ -1953,10 +1985,11 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G7_ASSESSMENT_READINESS_THRESHOLD,
   G7_REWARD_STRATEGY,
   G7_TALK_TIME_BUDGETS,
-  // G8 (8) — #1701 module-scoped settings + #1704 profile capture + #1743 scaffold pool
+  // G8 (9) — #1701 module-scoped settings + #1704 profile capture + #1743 scaffold pool + #1932 topic pool
   G8_MODULE_QUESTION_TARGET,
   G8_MODULE_MIN_SPEAKING_SEC,
   G8_MODULE_CUE_CARD_POOL,
+  G8_MODULE_TOPIC_POOL,
   G8_MODULE_CLOSING_LINE,
   G8_MODULE_FIRST_TIME_ORIENTATION_LINE,
   G8_MODULE_SCHEDULED_CUES,
