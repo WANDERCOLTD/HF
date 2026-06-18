@@ -112,3 +112,56 @@ Operator asked: verify the dedup doesn't break IELTS Speaking — the active mar
 **Verdict: SAFE for IELTS Speaking.** Canonical winners (`BEH-WARMTH`, `BEH-DIRECTNESS`, `BEH-FORMALITY`) carry the course's tonal requirements; SKILL-tier params are out-of-scope of this migration; losers + VARK have no IELTS use case.
 
 No new behaviour parameters required to run IELTS Speaking post-dedup.
+
+## Other market-test courses cross-check (2026-06-18)
+
+Extended audit to the 4 other live market-test courses on hf_staging:
+
+### Big Five OCEAN (PAW Training Ltd)
+
+- Searched `docs/courses/big-five-personality/*.md` (course-ref, glossary, question bank, BFI-2 summary): **no dedup-loser references**
+- No seed file writes `BehaviorTarget` rows with loser parameterIds
+- **SAFE** — no changes needed
+
+### Intro to Psychology (Abacus Academy)
+
+- No course-ref doc found under `docs/courses/`; standard educator-authored playbook
+- No seed file writes loser parameterIds
+- **SAFE** — uses runtime educator tuning only; existing `BehaviorTarget` rows (if any) re-pointed by the migration's two-pass dedup
+
+### Spot the Spin / Persuasion Literacy (Abacus Academy)
+
+- Searched `docs/courses/seducing-strangers/*.md`: **no dedup-loser references**
+- No seed file writes loser parameterIds
+- **SAFE** — no changes needed
+
+### CIO/CTO Standard — Pop Quiz + Revision Aid + Exam Assessment (FC Academy)
+
+⚠️ **Required a seed update.**
+
+`apps/admin/prisma/seed-cio-cto-beh-targets.ts` lines 52, 71, 85 wrote `BehaviorTarget(parameterId: "BEH-CONVERSATIONAL-TONE")` for all 3 cohort levels (discover/teach/certify), at the same values as `BEH-WARMTH` written at the same scope. Operators had been treating them as the same concept — confirming the dedup decision.
+
+Fix bundled in this PR:
+- Removed the 3 BEH-CONVERSATIONAL-TONE rows from the seed (BEH-WARMTH at the same scope already carries the operator's intended value)
+- Inline comments document the #1949 fold
+- Net behaviour on hf_staging: unchanged (operators see same warmth tuning)
+
+Course-reference docs `docs/courses/cio-cto-standard/*.md` (Pop Quiz / Revision Aid / Exam Assessment): **no dedup-loser references**.
+
+### Cross-cutting non-issues
+
+- `seed-clean.ts:473` references `CONV_PACE` / `pace_indicators` in a **comment** about prosody vs AI-judged params — not a write
+- `seed-prosody-parameters.ts` references `CONV_PACE` + `pace_indicators` in **definition-text** for prosody parameters; the prosody params themselves use different parameterIds and are unaffected
+- Comments left in place as historical context; future engineers should mentally substitute `BEH-PACE-MATCH` (the canonical winner)
+
+### Verdict for the full market-test cohort
+
+| Course | Dedup-loser references | Action | Status |
+|---|---|---|---|
+| IELTS Speaking Practice | None | None | ✓ Safe |
+| Big Five OCEAN | None | None | ✓ Safe |
+| Intro to Psychology | None | None | ✓ Safe |
+| Spot the Spin | None | None | ✓ Safe |
+| CIO/CTO Pop Quiz / Revision Aid / Exam Assessment | 3 seed lines writing `BEH-CONVERSATIONAL-TONE` | Removed (canonical `BEH-WARMTH` already present at same value) | ✓ Fixed in this PR |
+
+All 5 live market-test courses are safe to run on the dedup'd parameter registry. The single seed update bundled here keeps `db:seed` runs clean post-migration.
