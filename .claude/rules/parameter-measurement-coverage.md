@@ -103,7 +103,7 @@ Author checklist (same PR):
 |---|---|---|
 | `tests/lib/measurement/parameter-measurement-coverage.test.ts` | Substantive cross-check + ratchet | Stale citations, missing usage blocks, gap-count regressions |
 | `tests/lib/registry/parameter-usage-coverage.test.ts` | Schema shape | Malformed usage blocks |
-| Sibling future ESLint rule (M3) | `hf-measurement/no-direct-callscore-write` | Bypassing the canonical CallScore writer |
+| `eslint-rules/no-bare-call-score-write.mjs` (rule `hf-measurement/no-bare-call-score-write`, #1539 / epic #1967 M3) | Edit-time, error severity | Bare `prisma.callScore.{create,update,upsert}` outside the chokepoint — guarantees every CallScore row carries a real `analysisSpecId` (producer side of measurement-loop closure). Behavioural tests at `tests/eslint-rules/no-bare-call-score-write.test.ts`. |
 
 ## Related
 
