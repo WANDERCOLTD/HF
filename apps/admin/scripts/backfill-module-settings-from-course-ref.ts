@@ -29,6 +29,7 @@ import { readFileSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
 import { prisma } from "@/lib/prisma";
 import { detectModuleSettings } from "@/lib/wizard/detect-module-settings";
+import { resolveModuleSourceRefs } from "@/lib/wizard/resolve-module-source-refs";
 import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
 import type {
   AuthoredModule,
@@ -111,21 +112,58 @@ export function mergeModuleSettings(
 /**
  * Pure helper — compute the diff + next-config without touching the DB.
  * Exposed for unit tests (no Prisma dependency).
+ *
+ * Optional `repoRoot` enables P3f source-ref resolution: source-ref
+ * fields (`cueCardPool`, `scaffoldPool`) referenced as `source:<id>`
+ * in the YAML blocks are resolved against the course-ref body's
+ * `## Content Sources` block + the named files on disk. When omitted,
+ * source-ref fields stay unresolved (the P3e baseline behaviour).
  */
 export function computeBackfillPlan(
   config: PlaybookConfig,
   courseRefText: string,
+  repoRoot?: string,
 ): {
   diffs: ModuleDiff[];
   nextConfig: PlaybookConfig;
   parserWarnings: number;
   yamlBlockCount: number;
+  /**
+   * P3f — Per source-ref resolution row, in source-doc order. Empty when
+   * `repoRoot` is undefined (resolver not invoked).
+   */
+  sourceRefResolutions: Array<{
+    moduleId: string;
+    field: keyof AuthoredModuleSettings;
+    sourceHeader?: string;
+    itemCount: number;
+    status: "resolved" | "skipped";
+    reason?: string;
+  }>;
 } {
   const modules = config.modules ?? [];
   const detectedIds = modules
     .map((m) => m.id)
     .filter((s): s is string => typeof s === "string" && s.length > 0);
   const parsed = detectModuleSettings(courseRefText, detectedIds);
+  let parserWarningCount = parsed.validationWarnings.length;
+  const sourceRefResolutions: ReturnType<typeof computeBackfillPlan>["sourceRefResolutions"] = [];
+  if (repoRoot) {
+    const resolution = resolveModuleSourceRefs(parsed.byModuleId, courseRefText, {
+      repoRoot,
+    });
+    parserWarningCount += resolution.validationWarnings.length;
+    for (const r of resolution.resolutions) {
+      sourceRefResolutions.push({
+        moduleId: r.moduleId,
+        field: r.field,
+        sourceHeader: r.sourceHeader,
+        itemCount: r.itemCount,
+        status: r.status,
+        reason: r.reason,
+      });
+    }
+  }
   const diffs: ModuleDiff[] = [];
 
   const nextModules: AuthoredModule[] = modules.map((m) => {
@@ -159,8 +197,9 @@ export function computeBackfillPlan(
   return {
     diffs,
     nextConfig,
-    parserWarnings: parsed.validationWarnings.length,
+    parserWarnings: parserWarningCount,
     yamlBlockCount: parsed.blockCount,
+    sourceRefResolutions,
   };
 }
 
@@ -200,11 +239,27 @@ async function main(): Promise<void> {
   console.log("");
 
   const config = (pb.config ?? {}) as PlaybookConfig;
-  const plan = computeBackfillPlan(config, courseRefText);
+  // P3f — pass repoRoot so the resolver can read `## Content Sources`
+  // files (the parent of `apps/admin/` is the repo root when invoked
+  // from inside `apps/admin/`).
+  const repoRoot = resolvePath(__dirname, "..", "..", "..");
+  const plan = computeBackfillPlan(config, courseRefText, repoRoot);
 
   console.log(
     `Parser: ${plan.yamlBlockCount} YAML block(s) found; ${plan.parserWarnings} warning(s).`,
   );
+  if (plan.sourceRefResolutions.length > 0) {
+    console.log("Source-ref resolutions:");
+    for (const r of plan.sourceRefResolutions) {
+      if (r.status === "resolved") {
+        console.log(
+          `  - ${r.moduleId}.${String(r.field)}: ${r.itemCount} item(s) from ${r.sourceHeader ?? "?"}`,
+        );
+      } else {
+        console.log(`  - ${r.moduleId}.${String(r.field)}: SKIPPED — ${r.reason}`);
+      }
+    }
+  }
   console.log("Diff:");
   console.log(formatDiff(plan.diffs));
 
