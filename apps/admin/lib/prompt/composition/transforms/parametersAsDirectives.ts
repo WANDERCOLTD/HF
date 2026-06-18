@@ -46,6 +46,7 @@ import { resolve } from "node:path";
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext } from "../types";
 import { getEffectiveBehaviorTargetsForCaller } from "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller";
+import { NEUTRAL_PARAMETER_TARGET } from "@/lib/measurement/neutral-target";
 
 // ── Registry shape ──────────────────────────────────────────────────────
 // Mirror of the JSON shape; promptInjection is optional. Only entries
@@ -128,7 +129,7 @@ function pickTemplate(
     return cfg.template.replace(/\{value\}/g, formatValue(effectiveValue));
   }
   // Bipolar template path
-  const threshold = cfg.threshold ?? 0.5;
+  const threshold = cfg.threshold ?? NEUTRAL_PARAMETER_TARGET;
   if (effectiveValue >= threshold) {
     return cfg.templateHigh ?? cfg.templateLow ?? null;
   }
