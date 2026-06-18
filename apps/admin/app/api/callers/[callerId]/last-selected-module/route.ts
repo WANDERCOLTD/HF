@@ -36,6 +36,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
+import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 const bodySchema = z.object({
   moduleId: z.string().min(1).max(64).nullable(),
@@ -109,6 +110,13 @@ export async function POST(
       data: { lastSelectedModuleId: moduleId },
       select: { id: true, lastSelectedModuleId: true },
     });
+    // Module selection is a compose-affecting per-caller write — the
+    // composed prompt's `modules` section (transforms/modules.ts) renders
+    // around `currentModuleSlug`. Without this bump, the next call serves
+    // the previous module's pre-composed prompt via I-CT2 cascade Step 1
+    // (Session.producedComposedPromptId) or Step 2 (most-recent ACTIVE
+    // ComposedPrompt). Stale runs persist until an unrelated bump fires.
+    await bumpCallerComposeTimestamp(callerId);
     return NextResponse.json({
       ok: true,
       lastSelectedModuleId: updated.lastSelectedModuleId,

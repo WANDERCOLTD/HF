@@ -23,6 +23,7 @@ import { config } from "@/lib/config";
 import { log } from "@/lib/logger";
 import { logAIUsage } from "@/lib/metering/usage-logger";
 import { logVoiceEvent, startVoiceSpan } from "@/lib/voice/telemetry";
+import { prisma } from "@/lib/prisma";
 
 import {
   translateOpenAIRequestToAnthropic,
@@ -95,6 +96,16 @@ export async function runVapiChatCompletion(request: Request): Promise<Response>
       : 0,
     stream: Boolean((body as Record<string, unknown>).stream),
   });
+
+  // #1906 — Per-turn CURRENT FOCUS directive. The bundle transform
+  // (`lib/prompt/composition/transforms/modules.ts`) ships every module's
+  // content in the cached system block. The proxy reads the caller's
+  // live `lastSelectedModuleId` here and pushes a small fresh system
+  // message with the directive — the translator emits it as a separate
+  // non-cached block so the bundle cache stays warm across module
+  // switches. Look-up is best-effort; any failure logs + proceeds
+  // without the directive (the bundle still contains all modules).
+  await injectCurrentFocusDirective(body, callIdHeader);
 
   let translated;
   try {
@@ -364,4 +375,63 @@ async function observeStreamEnd(
 
 function cryptoRandomId(): string {
   return Math.random().toString(36).slice(2, 14);
+}
+
+/**
+ * #1906 — Inject a per-turn CURRENT FOCUS directive based on the caller's
+ * current module selection. Best-effort: any lookup failure logs once and
+ * proceeds without the directive — the cached bundle still contains every
+ * module's content, so the assistant can fall back to its system-prompt
+ * understanding of the course shape.
+ *
+ * The directive arrives as a SECOND system message so the translator
+ * emits it as a fresh non-cached Anthropic block, preserving the cache
+ * hit on the bundle block.
+ */
+async function injectCurrentFocusDirective(
+  body: OpenAIChatCompletionRequest,
+  externalCallId: string | null,
+): Promise<void> {
+  if (!externalCallId) return;
+  try {
+    const call = await prisma.call.findUnique({
+      where: { externalId: externalCallId },
+      select: { callerId: true },
+    });
+    if (!call?.callerId) return;
+
+    const caller = await prisma.caller.findUnique({
+      where: { id: call.callerId },
+      select: { lastSelectedModuleId: true },
+    });
+    if (!caller?.lastSelectedModuleId) return;
+
+    // lastSelectedModuleId is written as a CurriculumModule.id (UUID) by
+    // the `/api/callers/[callerId]/last-selected-module` route. Resolve
+    // to a slug for the directive; fall back to the raw value when the
+    // FK has already gone stale (deleted module).
+    const mod = await prisma.curriculumModule.findUnique({
+      where: { id: caller.lastSelectedModuleId },
+      select: { slug: true, name: true },
+    });
+    const slug = mod?.slug ?? caller.lastSelectedModuleId;
+    const name = mod?.name ?? slug;
+
+    const directive =
+      `## CURRENT FOCUS\n\n` +
+      `The learner is working on module \`${slug}\` (${name}).\n` +
+      `Anchor your responses to THIS module's content from the bundle above. ` +
+      `If the learner explicitly asks to switch modules, narrate a clean ` +
+      `bridge ("nice work on X — let's move to Y") and proceed with the new ` +
+      `module's content. Otherwise stay focused on this module.`;
+
+    body.messages = body.messages ?? [];
+    body.messages.push({ role: "system", content: directive });
+  } catch (err) {
+    log("system", "voice.llm_proxy.current_focus_inject_failed", {
+      level: "warn",
+      callId: externalCallId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
