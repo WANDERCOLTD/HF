@@ -98,14 +98,21 @@ function buildEvidenceMap(): Map<string, Set<string>> {
 const EVIDENCE = buildEvidenceMap();
 
 /**
- * 2026-06-18 incumbent — every active parameter that does NOT yet
- * have a real AnalysisSpec measuring it. M1 backfilled 82 params
- * from the existing spec corpus; 57 active params remain producer-
- * only debt. Pedagogy review + spec authoring (M4) drives this to 0.
+ * 2026-06-18 incumbent (post-M4) — M1 backfilled 82 params from the
+ * existing spec corpus; M4 reclassified 9 more (3 measured via
+ * STYLE-001 alias, 6 operator-only), leaving 48 active params still
+ * producer-only debt. Pedagogy review per
+ * `docs/M4-pedagogy-review.md` drives the remaining 48 toward 0.
  */
-const EXPECTED_GAP_COUNT = 57;
+const EXPECTED_GAP_COUNT = 48;
 
-type Classification = "measured" | "deferred" | "deprecated" | "stale" | "gap-no-usage";
+type Classification =
+  | "measured"
+  | "deferred"
+  | "deprecated"
+  | "operator-only"
+  | "stale"
+  | "gap-no-usage";
 
 function classifyMeasurement(p: RegistryEntry): {
   kind: Classification;
@@ -117,6 +124,11 @@ function classifyMeasurement(p: RegistryEntry): {
   if (m === "deferred-#1967") return { kind: "deferred" };
   if (m === "deprecated") return { kind: "deprecated" };
   if (typeof m === "object" && m !== null) {
+    // M4 — explicit non-measurable tutor knob.
+    const op = m as { kind?: string; reason?: string };
+    if (op.kind === "operator-only") {
+      return { kind: "operator-only", detail: op.reason };
+    }
     const slugs: string[] = [];
     if (typeof m.specSlug === "string") slugs.push(m.specSlug);
     if (Array.isArray(m.specSlugs)) slugs.push(...m.specSlugs);
@@ -151,6 +163,7 @@ describe("Parameter measurement coverage (M1 — link 7 of the Lattice chain)", 
   const measured = classified.filter((x) => x.c.kind === "measured");
   const deferred = classified.filter((x) => x.c.kind === "deferred");
   const deprecated = classified.filter((x) => x.c.kind === "deprecated");
+  const operatorOnly = classified.filter((x) => x.c.kind === "operator-only");
   const stale = classified.filter((x) => x.c.kind === "stale");
   const gapNoUsage = classified.filter((x) => x.c.kind === "gap-no-usage");
 
@@ -159,11 +172,24 @@ describe("Parameter measurement coverage (M1 — link 7 of the Lattice chain)", 
       measured.length +
       deferred.length +
       deprecated.length +
+      operatorOnly.length +
       stale.length +
       gapNoUsage.length;
     expect(sum).toBe(classified.length);
     // Sanity: at least half the actives have real AnalysisSpec coverage.
     expect(measured.length).toBeGreaterThan(50);
+  });
+
+  it("every operator-only entry has a substantive reason (>20 chars)", () => {
+    const tooShort = operatorOnly.filter(
+      (x) => (x.c.detail ?? "").trim().length < 20,
+    );
+    expect(
+      tooShort.length,
+      `operator-only params with empty/short reason:\n  ${tooShort
+        .map((x) => x.p.parameterId)
+        .join("\n  ")}`,
+    ).toBe(0);
   });
 
   it("no stale declarations — every cited specSlug is verifiable", () => {
@@ -210,6 +236,7 @@ describe("Parameter measurement coverage (M1 — link 7 of the Lattice chain)", 
       measured: measured.length,
       deferred: deferred.length,
       deprecated: deprecated.length,
+      operatorOnly: operatorOnly.length,
       stale: stale.length,
       gapNoUsage: gapNoUsage.length,
       total: classified.length,

@@ -28,6 +28,12 @@ When you add or modify a parameter row in
      aliases.
    - `usage.measurement: { specSlugs: [...] }` — same, but multiple
      specs measure this param.
+   - `usage.measurement: { kind: "operator-only", reason: "..." }` —
+     explicit non-measurable tutor knob (M4, 2026-06-18). The reason
+     must be >20 chars and explain why the param isn't learner-
+     derivable from transcript (typical case: tutor-emit behaviour
+     directive that the LLM expresses but no learner-side signal
+     reflects). Excluded from the gap ratchet.
    - `usage.measurement: "deferred-#1967"` — explicit producer-only
      debt. Acceptable but counts against the gap ratchet.
    - `usage.measurement: "deprecated"` — only valid when
@@ -58,6 +64,7 @@ or update the citation.
 | Classification | Meaning | Counts toward gap ratchet? |
 |---|---|---|
 | `measured` | At least one cited specSlug cross-checks | No |
+| `operator-only` | Declared `{ kind: "operator-only", reason }` with substantive reason | No (excluded) |
 | `deferred` | Declared `"deferred-#1967"` | **Yes — the ratchet** |
 | `deprecated` | Has `deprecatedAt` + measurement "deprecated" | No (excluded) |
 | `stale` | Citation present but cross-check fails | **Fails the test** |
@@ -65,10 +72,12 @@ or update the citation.
 
 ## Ratchet
 
-`EXPECTED_GAP_COUNT` caps the `deferred` count. 2026-06-18 incumbent:
-**57 active parameters** still declare `"deferred-#1967"` (the
-producer-only debt for params with no AnalysisSpec). M4 (pedagogy
-review + spec authoring) drives this monotonically toward 0.
+`EXPECTED_GAP_COUNT` caps the `deferred` count. 2026-06-18 incumbent
+post-M4: **48 active parameters** still declare `"deferred-#1967"`
+(M4 reclassified 9 of the original 57 — 3 measured via STYLE-001
+alias-citation, 6 operator-only). Pedagogy review per
+[`docs/M4-pedagogy-review.md`](../../docs/M4-pedagogy-review.md)
+drives the remaining 48 monotonically toward 0.
 
 ## When you DON'T need an AnalysisSpec
 
@@ -78,11 +87,15 @@ Some parameters are operator-only knobs that don't need scoring:
   set by the wizard; they aren't transcript-derivable.
 - Pure config knobs that drive prompt construction without ever
   needing a learner-state signal back.
+- Tutor-emit behaviour directives (`BEH-WARMTH`'s sibling knobs
+  like `BEH-PAUSE-TOLERANCE`, `BEH-RESPONSE-LEN`, `BEH-TURN-LENGTH`)
+  — the LLM expresses them but no learner-side signal reflects them
+  back as a measurable score. SUPERVISE-stage compliance checks are
+  a separate concern (see #1967 epic notes).
 
-For these, `"deferred-#1967"` is the wrong choice — they're
-genuinely not measurable. M4 will introduce a distinct
-`"exempt-operator-only"` value with a reason once pedagogy classifies
-the 57.
+For these, declare `usage.measurement: { kind: "operator-only",
+reason: "..." }` with a substantive (>20 char) reason. Excluded
+from the gap ratchet.
 
 ## When adding a new parameter
 
