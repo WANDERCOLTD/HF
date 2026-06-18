@@ -354,18 +354,22 @@ const PATTERN_LITERALS: PatternLiteral[] = (() => {
 // ────────────────────────────────────────────────────────────
 
 /**
- * 2026-06-18 incumbent — of the 82 parameters classified `measured`
- * by M1, this many have no AGGREGATE / ADAPT / REWARD consumer:
- *   - 15 close the loop (direct citation, pattern, or aggregator output)
- *   - 67 are gap (measured but no consumer reads the score)
+ * 2026-06-18 incumbent — of the parameters classified `measured` by
+ * M1, this many have no AGGREGATE / ADAPT / REWARD consumer.
  *
- * M4 (pedagogy review + spec authoring) drives this toward 0.
- * Closing the loop for parameter P means: extend an existing spec's
- * `aggregationRules` / `adaptationRules` to cite P as a
- * `sourceParameter` / `sourceParameterId`, OR author a new
- * AGGREGATE/ADAPT spec that consumes P.
+ * Post-M2 land: 82 measured / 15 closed / 67 gap.
+ * Post-M4 land: 85 measured (+ BEH-WARMTH/DIRECTNESS/FORMALITY via
+ * STYLE-001 alias) / 15 closed / 70 gap — the 3 newly-measured params
+ * appear as `targetParameter` (OUTPUT side) in COACH-ADAPT-001 /
+ * ADAPT-PERS-001 / COMP-ADAPT-001 but NOT as `sourceParameterId`
+ * (consumer side), so the loop doesn't close for them yet.
+ *
+ * M4 + spec-author follow-ons drive this toward 0. Closing the loop
+ * for parameter P means: extend an existing spec's `aggregationRules`
+ * / `adaptationRules` to cite P as a `sourceParameter` /
+ * `sourceParameterId`, OR author a new AGGREGATE/ADAPT spec.
  */
-const EXPECTED_GAP_COUNT = 67;
+const EXPECTED_GAP_COUNT = 70;
 
 // ────────────────────────────────────────────────────────────
 // Tests
