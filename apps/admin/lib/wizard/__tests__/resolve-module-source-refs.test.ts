@@ -67,32 +67,50 @@ describe("resolveModuleSourceRefs — IELTS v2.3 against real disk", () => {
     );
   });
 
-  it("skips source-refs with no Content Sources entry + emits a warning", () => {
-    // The Baseline module's cueCardPool references `source:cue-card-bank-baseline-v1`,
-    // but the fixture's Content Sources block declares Source 4 (Baseline pool)
-    // WITHOUT location/format/moduleRef/settingRef metadata. The resolver
-    // skips it; the fields untouched.
+  it("inlines baseline.cueCardPool + mock.cueCardPool via Source 2a/2b multi-route entries", () => {
+    // Source 2a (moduleRef: mock) and Source 2b (moduleRef: baseline) point the
+    // same Part 2 question-bank file at the Mock and Baseline contexts. Both
+    // resolve against the multi-route Content Sources entries; the legacy
+    // `source:mock-exam-scenario-pool-v1` / `source:cue-card-bank-baseline-v1`
+    // sentinels in the YAML are sentinels-only (the resolver matches by
+    // `(moduleRef, settingRef)`, not by the source id string).
     const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
     const out = resolveModuleSourceRefs(byModuleId, IELTS_V23, { repoRoot: REPO_ROOT });
     const baseline = out.byModuleId.get("baseline");
+    const mock = out.byModuleId.get("mock");
     expect(baseline).toBeDefined();
-    expect(baseline!.cueCardPool).toBeUndefined();
-    const skips = out.resolutions.filter((r) => r.status === "skipped");
-    expect(skips.length).toBeGreaterThanOrEqual(1);
-    expect(
-      skips.some(
-        (r) => r.moduleId === "baseline" && r.field === "cueCardPool",
-      ),
-    ).toBe(true);
+    expect(mock).toBeDefined();
+    expect(Array.isArray(baseline!.cueCardPool)).toBe(true);
+    expect(baseline!.cueCardPool!.length).toBeGreaterThanOrEqual(80);
+    expect(Array.isArray(mock!.cueCardPool)).toBe(true);
+    expect(mock!.cueCardPool!.length).toBeGreaterThanOrEqual(80);
+  });
+
+  it("inlines baseline.scaffoldPool + mock.scaffoldPool + part1.scaffoldPool via Source 6a/6b/7a", () => {
+    // Source 6a (moduleRef: baseline), 6b (moduleRef: mock) route the
+    // monologue stall scaffolds to Baseline + Mock Part 2 long-turn. Source
+    // 7a (moduleRef: part1) routes the discussion scaffolds to Part 1 short
+    // Q&A. All resolve against the multi-route Content Sources entries.
+    const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
+    const out = resolveModuleSourceRefs(byModuleId, IELTS_V23, { repoRoot: REPO_ROOT });
+    expect(out.byModuleId.get("baseline")!.scaffoldPool).toEqual(
+      expect.arrayContaining(["Take another moment.", "Take your time."]),
+    );
+    expect(out.byModuleId.get("mock")!.scaffoldPool).toEqual(
+      expect.arrayContaining(["Take another moment.", "Take your time."]),
+    );
+    expect(out.byModuleId.get("part1")!.scaffoldPool).toEqual(
+      expect.arrayContaining(["Could you give an example?"]),
+    );
   });
 
   it("returns a structured resolution log", () => {
     const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
     const out = resolveModuleSourceRefs(byModuleId, IELTS_V23, { repoRoot: REPO_ROOT });
     const resolved = out.resolutions.filter((r) => r.status === "resolved");
-    // part2.cueCardPool + 3 scaffoldPool resolutions (part2 + part3 + mock + baseline)
-    // Some may skip (baseline scaffoldPool source:stall-scaffolds-monologue resolves).
-    expect(resolved.length).toBeGreaterThanOrEqual(3);
+    // post-multi-route: 3 cueCardPool resolutions (part2 + mock + baseline)
+    // + 5 scaffoldPool resolutions (part2 + part3 + mock + baseline + part1) = 8
+    expect(resolved.length).toBeGreaterThanOrEqual(8);
     const part2Cue = resolved.find(
       (r) => r.moduleId === "part2" && r.field === "cueCardPool",
     );
