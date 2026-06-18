@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-17T18:24:49.786Z",
+  "generatedAt": "2026-06-18T10:57:00.282Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1837,
-  "edgeCount": 4311,
+  "fileCount": 1846,
+  "edgeCount": 4328,
   "skippedEdges": 1,
   "edges": [
     {
@@ -16316,6 +16316,10 @@
       "to": "lib/voice/cue-scheduler.ts"
     },
     {
+      "from": "lib/voice/require-capability.ts",
+      "to": "lib/voice/types.ts"
+    },
+    {
       "from": "lib/voice/resolve-speech-assessment-provider.ts",
       "to": "lib/speech-assessment/provider-factory.ts"
     },
@@ -16564,8 +16568,16 @@
       "to": "lib/wizard/graph-nodes.ts"
     },
     {
+      "from": "lib/wizard/__tests__/parse-content-sources.test.ts",
+      "to": "lib/wizard/parse-content-sources.ts"
+    },
+    {
       "from": "lib/wizard/__tests__/parse-rubric-bands.test.ts",
       "to": "lib/wizard/parse-rubric-bands.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/parse-source-content.test.ts",
+      "to": "lib/wizard/parse-source-content.ts"
     },
     {
       "from": "lib/wizard/__tests__/persist-authored-modules.test.ts",
@@ -16582,6 +16594,14 @@
     {
       "from": "lib/wizard/__tests__/project-course-reference.test.ts",
       "to": "lib/wizard/project-course-reference.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/resolve-module-source-refs.test.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/resolve-module-source-refs.test.ts",
+      "to": "lib/wizard/resolve-module-source-refs.ts"
     },
     {
       "from": "lib/wizard/__tests__/resolvers.test.ts",
@@ -16624,6 +16644,10 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/wizard/detect-authored-modules.ts",
+      "to": "lib/wizard/detect-module-settings.ts"
+    },
+    {
       "from": "lib/wizard/detect-course-config.ts",
       "to": "lib/content-trust/resolve-config.ts"
     },
@@ -16634,6 +16658,10 @@
     {
       "from": "lib/wizard/detect-course-config.ts",
       "to": "lib/prompt/composition/transforms/audience.ts"
+    },
+    {
+      "from": "lib/wizard/detect-module-settings.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/wizard/graph-evaluator.ts",
@@ -16676,6 +16704,18 @@
       "to": "lib/wizard/detect-pedagogy.ts"
     },
     {
+      "from": "lib/wizard/resolve-module-source-refs.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/wizard/resolve-module-source-refs.ts",
+      "to": "lib/wizard/parse-content-sources.ts"
+    },
+    {
+      "from": "lib/wizard/resolve-module-source-refs.ts",
+      "to": "lib/wizard/parse-source-content.ts"
+    },
+    {
       "from": "lib/wizard/resolvers.ts",
       "to": "lib/wizard/graph-evaluator.ts"
     },
@@ -16713,6 +16753,10 @@
     },
     {
       "from": "lib/wizard/run-projection-for-playbook.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/wizard/run-projection-for-playbook.ts",
       "to": "lib/wizard/apply-projection.ts"
     },
     {
@@ -16722,6 +16766,10 @@
     {
       "from": "lib/wizard/run-projection-for-playbook.ts",
       "to": "lib/wizard/project-course-reference.ts"
+    },
+    {
+      "from": "lib/wizard/run-projection-for-playbook.ts",
+      "to": "lib/wizard/resolve-module-source-refs.ts"
     },
     {
       "from": "lib/wizard/sync-authored-modules-to-curriculum.ts",
@@ -16878,6 +16926,26 @@
     {
       "from": "scripts/backfill-mcq-reconcile.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/compose/bump-timestamp.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/wizard/detect-module-settings.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/wizard/resolve-module-source-refs.ts"
     },
     {
       "from": "scripts/backfill-onboarding-flow-phases-mirror.ts",
@@ -23290,7 +23358,7 @@
     },
     {
       "path": "lib/compose/bump-timestamp.ts",
-      "inDegree": 18,
+      "inDegree": 19,
       "outDegree": 1
     },
     {
@@ -24775,7 +24843,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 671,
+      "inDegree": 672,
       "outDegree": 0
     },
     {
@@ -25355,7 +25423,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 129,
+      "inDegree": 134,
       "outDegree": 0
     },
     {
@@ -25539,6 +25607,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/voice/require-capability.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "lib/voice/resolve-speech-assessment-provider.ts",
       "inDegree": 1,
       "outDegree": 1
@@ -25620,7 +25693,7 @@
     },
     {
       "path": "lib/voice/types.ts",
-      "inDegree": 14,
+      "inDegree": 15,
       "outDegree": 0
     },
     {
@@ -25679,7 +25752,17 @@
       "outDegree": 1
     },
     {
+      "path": "lib/wizard/__tests__/parse-content-sources.test.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "lib/wizard/__tests__/parse-rubric-bands.test.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
+      "path": "lib/wizard/__tests__/parse-source-content.test.ts",
       "inDegree": 0,
       "outDegree": 1
     },
@@ -25692,6 +25775,11 @@
       "path": "lib/wizard/__tests__/project-course-reference.test.ts",
       "inDegree": 0,
       "outDegree": 1
+    },
+    {
+      "path": "lib/wizard/__tests__/resolve-module-source-refs.test.ts",
+      "inDegree": 0,
+      "outDegree": 2
     },
     {
       "path": "lib/wizard/__tests__/resolvers.test.ts",
@@ -25711,7 +25799,7 @@
     {
       "path": "lib/wizard/detect-authored-modules.ts",
       "inDegree": 7,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/wizard/detect-course-config.ts",
@@ -25722,6 +25810,11 @@
       "path": "lib/wizard/detect-mock-shape-modules.ts",
       "inDegree": 3,
       "outDegree": 0
+    },
+    {
+      "path": "lib/wizard/detect-module-settings.ts",
+      "inDegree": 2,
+      "outDegree": 1
     },
     {
       "path": "lib/wizard/detect-pedagogy.ts",
@@ -25744,7 +25837,17 @@
       "outDegree": 0
     },
     {
+      "path": "lib/wizard/parse-content-sources.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
       "path": "lib/wizard/parse-rubric-bands.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/wizard/parse-source-content.ts",
       "inDegree": 2,
       "outDegree": 0
     },
@@ -25759,6 +25862,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/wizard/resolve-module-source-refs.ts",
+      "inDegree": 3,
+      "outDegree": 3
+    },
+    {
       "path": "lib/wizard/resolvers.ts",
       "inDegree": 2,
       "outDegree": 3
@@ -25766,7 +25874,7 @@
     {
       "path": "lib/wizard/run-projection-for-playbook.ts",
       "inDegree": 2,
-      "outDegree": 9
+      "outDegree": 11
     },
     {
       "path": "lib/wizard/sync-authored-modules-to-curriculum.ts",
@@ -25932,6 +26040,11 @@
       "path": "scripts/backfill-mcq-reconcile.ts",
       "inDegree": 0,
       "outDegree": 3
+    },
+    {
+      "path": "scripts/backfill-module-settings-from-course-ref.ts",
+      "inDegree": 0,
+      "outDegree": 5
     },
     {
       "path": "scripts/backfill-onboarding-flow-phases-mirror.ts",
@@ -26442,7 +26555,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 671,
+      "inDegree": 672,
       "outDegree": 0
     },
     {
@@ -26452,7 +26565,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 129,
+      "inDegree": 134,
       "outDegree": 0
     },
     {
