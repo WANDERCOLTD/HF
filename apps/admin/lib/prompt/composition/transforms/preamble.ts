@@ -6,7 +6,7 @@
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext } from "../types";
 import type { SpecConfig, PlaybookConfig } from "@/lib/types/json-fields";
-import type { TeachingMode } from "@/lib/content-trust/resolve-config";
+import { isTeachingMode, type TeachingMode } from "@/lib/content-trust/resolve-config";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
 // #610 — code-side defaults for criticalRules live in `defaults/` so the
@@ -26,16 +26,26 @@ const PREAMBLE_FALLBACK = "You are receiving a structured context package for yo
  * pattern in `transforms/pedagogy-mode.ts:100-106` exactly — playbook
  * raw config wins over the first PlaybookItem spec's config; returns
  * undefined when neither is set (caller falls back to recall behaviour).
+ *
+ * Reads are runtime-guarded by `isTeachingMode` because the JSON column
+ * can hold any string. An invalid value (observed 2026-06-18: IELTS
+ * Speaking Practice playbook with `teachingMode: "directive"`, an
+ * `interactionPattern` value cross-wired into the wrong field) returns
+ * undefined here so the caller falls through to recall — same surface
+ * as the "not set at all" branch the comment above already promises.
+ * Without the guard, an unknown key indexes RETURNING_CALLER_BY_MODE to
+ * undefined and crashes ComposedPrompt.create on `criticalRules[3]`.
  */
 function readPlaybookTeachingMode(
   context: AssembledContext,
 ): TeachingMode | undefined {
   const playbooks = context.loadedData.playbooks;
   const pbConfig = playbooks?.[0]?.items?.[0]?.spec?.config as
-    | { teachingMode?: TeachingMode }
+    | { teachingMode?: unknown }
     | undefined;
-  const playbookRawConfig = (playbooks?.[0] as { config?: { teachingMode?: TeachingMode } } | undefined)?.config;
-  return playbookRawConfig?.teachingMode || pbConfig?.teachingMode;
+  const playbookRawConfig = (playbooks?.[0] as { config?: { teachingMode?: unknown } } | undefined)?.config;
+  const raw = playbookRawConfig?.teachingMode ?? pbConfig?.teachingMode;
+  return isTeachingMode(raw) ? raw : undefined;
 }
 
 registerTransform("computePreamble", async (
@@ -136,14 +146,22 @@ registerTransform("computePreamble", async (
       // `criticalRules.returningCallerByMode[mode]`); falls through to the
       // code-side default; falls through again to `recall` if the playbook
       // has no teachingMode set at all (pre-#604 behaviour).
+      //
+      // Defensive: `readPlaybookTeachingMode` guards the read against bad
+      // DB values, but we also defend the consumer — `RETURNING_CALLER_BY_MODE`
+      // is keyed by the TeachingMode union and an out-of-union key would
+      // return undefined, propagating into `criticalRules[3]` and breaking
+      // `composedPrompt.create` (observed 2026-06-18 on IELTS Speaking
+      // Practice). Both layers prevent the crash; either alone is enough,
+      // both together survive future regressions in either direction.
       const teachingMode = readPlaybookTeachingMode(context);
       const specCriticalRules = (context.specConfig as { criticalRules?: { returningCallerByMode?: Partial<Record<TeachingMode, string>> } } | undefined)?.criticalRules;
       const specOverride = teachingMode
         ? specCriticalRules?.returningCallerByMode?.[teachingMode]
         : undefined;
-      const codeDefault = teachingMode
-        ? RETURNING_CALLER_BY_MODE[teachingMode]
-        : RETURNING_CALLER_BY_MODE.recall;
+      const codeDefault =
+        (teachingMode ? RETURNING_CALLER_BY_MODE[teachingMode] : undefined) ??
+        RETURNING_CALLER_BY_MODE.recall;
       const returningCallerRule = specOverride ?? codeDefault;
 
       if (hasCurriculum) {
