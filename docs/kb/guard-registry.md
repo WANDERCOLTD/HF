@@ -56,6 +56,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-ai-forbidden-fields`](#guard-no-ai-forbidden-fields) | AI `input_schema.properties` declaring globally forbidden fields (`role`, `domainId`, `ownerId`) — privilege escalation / cross-tenant moves | — | **a** |
 | [`no-direct-playbook-config-write`](#guard-no-direct-playbook-config-write) | Direct writes to `Playbook.config`; must use `updatePlaybookConfig` | #826 | **a** |
 | [`no-direct-spec-config-write`](#guard-no-direct-spec-config-write) | Direct writes to compose-affecting `AnalysisSpec` fields outside `lib/analysis-spec/` | #829 | **a** |
+| [`no-customer-write-to-canonical-interpretation`](#guard-no-customer-write-to-canonical-interpretation) | Customer-driven writes to spec-readonly `Parameter` fields (`definition`, `interpretationHigh`, `interpretationLow`). They're HF-canonical IP — only seeds, the registry generator, scripts, /api/x/, and migrations may write them. Companion to S4 declarative boundary (#1979). | #1984 | **a** |
 | [`no-direct-domain-onboarding-write`](#guard-no-direct-domain-onboarding-write) | Direct writes to Domain `onboarding*`/`identitySpec` outside `lib/domain/update*` | #828 | **a** |
 | [`no-orphan-instruction-fallback`](#guard-no-orphan-instruction-fallback) | Generic-noun fallbacks for missing module/LO names in prompt transforms (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-C4) | #1006/#1008 | **a** |
 | [`no-undeclared-field-require`](#guard-no-undeclared-field-require) | `has(...)` refs to field keys not declared in the enclosing spec `define` | #1078 | **a** |
@@ -120,6 +121,32 @@ bypasses both. **Survives hardening:** the choke-point pattern is architecture-i
 Compose-affecting `AnalysisSpec` fields may only be written via
 `lib/analysis-spec/update-analysis-spec-config.ts`. Same choke-point rationale as the
 Playbook rule above.
+
+<a id="guard-no-customer-write-to-canonical-interpretation"></a>
+**`no-customer-write-to-canonical-interpretation`** · class **(a) invariant** · born #1984 ·
+[rule source](../../apps/admin/eslint-rules/no-customer-write-to-canonical-interpretation.mjs)
+
+Customer-driven writes to `Parameter.{definition, interpretationHigh, interpretationLow}` are blocked.
+These three fields are spec-readonly — declared canonically in
+[`lib/cascade/spec-readonly-fields.ts::PARAMETER_SPEC_READONLY_FIELDS`](../../apps/admin/lib/cascade/spec-readonly-fields.ts)
+and emitted verbatim to the LLM via the `behavior_targets_semantics` composition block (#1951 S4).
+Customer-driven writes from wizard / operator-UI / sync paths would corrupt every other tenant's composed prompt.
+
+Allow-list: `/prisma/seed*`, `/prisma/migrations/`, `/scripts/`, `/app/api/x/`, `/app/api/lab/features/`,
+plus the two HF-internal admin routes (`app/api/parameters/[id]/route.ts` SUPERADMIN PUT,
+`app/api/admin/sync-parameters/route.ts` ADMIN sync). Tests + fixtures pass.
+
+Same-PR mitigation:
+- `lib/wizard/apply-projection.ts::upsertParameters` — `definition` dropped from the create payload
+- `app/api/parameters/route.ts` POST — `definition` / `interpretationLow` / `interpretationHigh` dropped from the create payload
+
+Coverage-pillar gate: `tests/lib/cascade/spec-readonly-fields-coverage.test.ts` pins symmetric set equality
+between the canonical TypeScript constant and the rule's hardcoded mirror. Adding a 4th spec-readonly field
+requires the same change in both places + bumping the sentinel — surfaced at PR time.
+
+Companion: discipline doc [`.claude/rules/spec-readonly-boundary.md`](../../.claude/rules/spec-readonly-boundary.md).
+**Survives hardening:** the declarative-source-of-truth pattern (TypeScript const ↔ rule mirror ↔ coverage gate)
+is architecture-independent. Any new HF-canonical Parameter field extends the same triple.
 
 <a id="guard-no-direct-domain-onboarding-write"></a>
 **`no-direct-domain-onboarding-write`** · class **(a) invariant** · born #828 ·
@@ -438,6 +465,8 @@ data-safety invariant.
 | <a id="guard-registry-schema-coverage"></a>`tests/lib/journey/registry-schema-coverage.test.ts` (rule [`.claude/rules/registry-schema-coverage.md`](../../.claude/rules/registry-schema-coverage.md)) | Schema-vs-registry coverage — the 5th Lattice piece. Every educator-facing field on `PlaybookConfig` (+ sub-interfaces `IntakeConfig`, `NpsConfig`, `OffboardingConfig`, etc.) MUST be either covered by a `JourneySettingContract.storagePath` or exempted in `REGISTRY_EXEMPT_PATHS` with one of four documented reason types (wizard-owned / internal / derived / ai-only). The "catch-up" exempt sub-block tracks the ~20-entry shortfall the BA failure produced; a sentinel test ratchets it DOWN as Lane 3 contract PRs land. Companion: ADR [`docs/decisions/2026-06-16-registry-schema-coverage.md`](../decisions/2026-06-16-registry-schema-coverage.md). Born post-Slice-C audit (#1738 follow-on). | **a** |
 | <a id="guard-fixture-type-coverage"></a>`tests/lib/wizard/fixture-type-coverage.test.ts` (rule [`.claude/rules/fixture-type-coverage.md`](../../.claude/rules/fixture-type-coverage.md)) | Bidirectional Coverage gate between `AuthoredModuleSettings` (in `lib/types/json-fields.ts`) and the settings-block YAML keys authored in every `course-reference-ielts-v*.md` fixture under `lib/wizard/__tests__/fixtures/`. Producer→consumer: every fixture key must be a typed member OR in `FIXTURE_KEY_EXEMPT` with reason. Consumer→producer: every type member must be exercised by at least one fixture OR in `TYPE_MEMBER_EXEMPT`. 5 fixture keys exempt at land time (`prepSilenceSec`, `incompleteThresholdSec`, `scoringCriteria`, `scoreReadoutMode`, `topicPool`) — type additions deferred to follow-on. Closes the drift class surfaced by the 2026-06-18 #1903/#1904 grooming audit. Parent epic: #1909. | **a** |
 | <a id="guard-arraykey-writer-coverage"></a>`tests/lib/journey/arraykey-writer-coverage.test.ts` (rule [`.claude/rules/arraykey-writer-coverage.md`](../../.claude/rules/arraykey-writer-coverage.md)) | Bidirectional Coverage gate between `JOURNEY_SETTINGS` / `VOICE_SETTINGS` contracts whose `storagePath` declares `arrayKey: "..."` and writer routes that accept `arraySelector` in their body Zod schema. Producer→consumer: every `arrayKey`-bearing contract is either `covered-fixed-selector` (contract carries `selectorValue` baked in) or `covered-runtime-selector` (registered writer route accepts `arraySelector` — today: `app/api/courses/[courseId]/journey-setting/route.ts` after #1888 P3c). Consumer→producer: routes that accept `arraySelector` MUST reference both `arrayKey` and `selectorValue` in their handler source — pinned via regex source check. 14 arrayKey contracts at land time (5 fixed-selector for JourneyStop dispatch + firstCallTargets; 9 runtime-selector for G8 module-scoped settings). Exempt budget 0 — every known contract is covered. Closes the drift class where a future contract declares `arrayKey` without a fixed selector but the route refactor drops `arraySelector`, silently breaking every per-instance write. Parent epic: #1909. | **b** |
+| <a id="guard-parameter-measurement-coverage"></a>`tests/lib/measurement/parameter-measurement-coverage.test.ts` (rule [`.claude/rules/parameter-measurement-coverage.md`](../../.claude/rules/parameter-measurement-coverage.md)) | Link 7 of the Lattice chain (call behaviour → measurement). Every active parameter in `behavior-parameters.registry.json` must declare `usage.measurement` as `{ specSlug }` or `{ specSlugs }`, and the substantive cross-check verifies the cited spec exists AND its `parameters` array references the param by canonical id or alias. Producer-only debt is explicit (`"deferred-#1967"`) and ratcheted. Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M1; 2026-06-18 incumbent 57 deferred. | **a** |
+| <a id="guard-parameter-loop-closure"></a>`tests/lib/measurement/parameter-loop-closure.test.ts` (rule [`.claude/rules/parameter-loop-closure.md`](../../.claude/rules/parameter-loop-closure.md)) | Link 8 of the Lattice chain (measurement → next-call cascade). For every parameter M1 classifies `measured`, some `AGGREGATE` / `ADAPT` / `REWARD` spec must cite it via `sourceParameter` / `sourceParameterPattern` / `sourceParameterId`, OR it must itself be an AGGREGATE spec's output id (loop self-closes). Defends against the silent-gain-zero class: `CallScore` written every call, no consumer ever reads it. Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M2; 2026-06-18 incumbent 67 open loops; M4 + spec-author follow-ons drive to 0. | **a** |
 | <a id="guard-courses-template-version-coverage"></a>`tests/lib/courses/courses-template-version-coverage.test.ts` (rule [`.claude/rules/courses-template-version-coverage.md`](../../.claude/rules/courses-template-version-coverage.md)) | Bidirectional Coverage gate between production course-ref filesystem and the `hf-template-version: "X.Y"` YAML front-matter marker. Walks `docs/courses/**/*.course-ref.md` (first-party HF courses) AND `docs/external/**/Upload Docs/{course-ref.md,*.course-ref.md}` (partner imports), classifying each as `compliant` / `exempt` / `gap`. 6 production course-refs all on v5.1 at land time; ratchet at 0 exempt — new course-ref MUST land with marker. Closes the gate gap surfaced by the 2026-06-18 audit: course-refs had been migrated to v5.1 (commit `31e58e17`) but no structural gate enforced the marker on future authoring. Parent epic: #1986. | **a** |
 
 ## Plan-guard agents — `.claude/agents/`

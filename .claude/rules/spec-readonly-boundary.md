@@ -68,8 +68,9 @@ recomposed.
 |---|---|---|
 | Constant | **Lives at `lib/cascade/spec-readonly-fields.ts`** | #1951 (S4 PR) |
 | Discipline doc | **This file** | #1951 (S4 PR) |
-| ESLint rule `hf-spec/no-customer-write-to-canonical-interpretation` | Pending | Epic [#1984](https://github.com/WANDERCOLTD/HF/issues/1984) S1 |
-| Coverage test pinning the constant ↔ rule pairing | Pending | Epic [#1984](https://github.com/WANDERCOLTD/HF/issues/1984) S2 |
+| ESLint rule `hf-spec/no-customer-write-to-canonical-interpretation` | **Live, error severity** | #1984 S1 — `eslint-rules/no-customer-write-to-canonical-interpretation.mjs`; behavioural tests at `tests/eslint-rules/no-customer-write-to-canonical-interpretation.test.ts` |
+| Coverage test pinning the constant ↔ rule pairing | **Live** | #1984 S2 — `tests/lib/cascade/spec-readonly-fields-coverage.test.ts` (4 vitests pin symmetric set equality + sentinel count) |
+| Wizard mitigation — drop `definition` from `lib/wizard/apply-projection.ts::upsertParameters` Parameter.create payload | **Done** | #1984 — canonical seed assigns it; wizard-projected params get null until pedagogy authors. |
 
 ## When NOT to apply
 
