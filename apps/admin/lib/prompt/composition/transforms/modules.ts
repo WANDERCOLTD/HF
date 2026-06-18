@@ -1216,6 +1216,60 @@ registerTransform("computeModuleProgress", (
   const currentModuleTeachingInstructions: string[] =
     currentModule?.assessorOutcomes?.teachingInstruction ?? [];
 
+  // #1906 — Module-content bundle. Pre-#1906 the composed prompt carried
+  // full description+content ONLY for the current module; siblings were
+  // pruned to thin shapes (id/slug/name/status). That meant a mid-call
+  // module switch couldn't surface sibling content — the LLM proxy would
+  // have to recompose against the new module before the next turn.
+  //
+  // Bundle approach: include description+content for ALL modules when
+  // the prospective bundle fits within `PROMPT_MODULE_BUNDLE_BUDGET_CHARS`.
+  // The Anthropic ephemeral prompt cache (`cache_control: ephemeral`,
+  // threshold 4096 chars at `lib/voice/llm-proxy/translate-request.ts:146`)
+  // amortises the cost after the first turn — bundle bytes don't change
+  // across turns, so cache hit rate stays high.
+  //
+  // When the bundle would exceed budget (e.g. 20-module course with heavy
+  // content), we fall back to the legacy current-only shape and log
+  // `compose.module_bundle.budget_exceeded` so the operator can see the
+  // skip happened.
+  const PROMPT_MODULE_BUNDLE_BUDGET_CHARS = 80_000;
+  // Description is a plain string; content is structured data (the
+  // module's teachingPlan/passages/etc. shape). Both feed into the
+  // composed-prompt JSON, so we estimate the bundle size using
+  // JSON.stringify byte counts — a rough proxy for what the LLM proxy
+  // ships to Anthropic.
+  const projectedBundleSize = modules.reduce((sum: number, m: ModuleData) => {
+    const descSize = m.description ? m.description.length : 0;
+    let contentSize = 0;
+    if (m.content !== undefined && m.content !== null) {
+      try {
+        contentSize = JSON.stringify(m.content).length;
+      } catch {
+        // Circular / non-serialisable content — treat as small. The
+        // downstream JSON.stringify in the renderer would handle the
+        // failure separately.
+        contentSize = 0;
+      }
+    }
+    return sum + descSize + contentSize;
+  }, 0);
+  // When the course is complete, there is no module being taught — the
+  // module list is context only. The pre-#1906 thin-everything shape
+  // applies (no body for any module). Skip bundle mode.
+  const bundleAllModuleContent =
+    !courseComplete && projectedBundleSize <= PROMPT_MODULE_BUNDLE_BUDGET_CHARS;
+  if (
+    !bundleAllModuleContent &&
+    modules.length > 1 &&
+    !courseComplete &&
+    projectedBundleSize > PROMPT_MODULE_BUNDLE_BUDGET_CHARS
+  ) {
+    console.warn(
+      `[transforms/modules] bundle budget exceeded: ${projectedBundleSize} chars across ${modules.length} modules (budget ${PROMPT_MODULE_BUNDLE_BUDGET_CHARS}); falling back to current-only`,
+    );
+  }
+
   return {
     name: (sharedState as Record<string, any>).curriculumName || null,
     hasData: curriculumAttrs.length > 0 || modules.length > 0,
@@ -1248,16 +1302,21 @@ registerTransform("computeModuleProgress", (
           : learnerStatus === "NOT_STARTED" ? "not_started"
           : getModuleStatus(m, idx);
       const moduleKey = m.slug || m.id || '';
-      // #492 Slice 3.2: sibling modules get a thin shape — drop `description`
-      // and `content` (the heavy fields). Tutor only needs full body text for
-      // the current module. Saves ~6–12KB per compose. The full body lives on
-      // the top-level `nextModule` block emitted below for the current module.
+      // #1906 — Bundle mode: include `description` + `content` for ALL
+      // modules when `bundleAllModuleContent` is true. Legacy (#492
+      // Slice 3.2) thin-shape behaviour preserved when the bundle budget
+      // would be exceeded, so a 20-module heavy-content course doesn't
+      // balloon the prompt unboundedly. The LLM proxy's per-turn
+      // CURRENT FOCUS directive (`lib/voice/llm-proxy/`) tells the tutor
+      // which module is active; the bundle just keeps every module's
+      // content reachable without a recompose on switch.
       const isCurrentModule = currentModuleKey !== null && moduleKey === currentModuleKey;
+      const includeFullBody = bundleAllModuleContent || isCurrentModule;
       return {
         id: m.id,
         slug: moduleKey,
         name: m.name,
-        ...(isCurrentModule ? { description: m.description } : {}),
+        ...(includeFullBody ? { description: m.description } : {}),
         order: m.sortOrder ?? m.sequence,
         prerequisites: m.prerequisites,
         masteryThreshold: m.masteryThreshold ?? masteryThreshold,
@@ -1270,8 +1329,9 @@ registerTransform("computeModuleProgress", (
           learnerStatus
             ?? (renderedStatus === "completed" ? "COMPLETED" : renderedStatus === "in_progress" ? "IN_PROGRESS" : "NOT_STARTED")
         ],
-        // Include module content for LLM context — full only for currentModule.
-        ...(isCurrentModule ? { content: m.content } : {}),
+        // Module content for LLM context. Bundle mode = all modules;
+        // budget-exceeded fallback = current only (legacy behaviour).
+        ...(includeFullBody ? { content: m.content } : {}),
       };
     }),
     // #492 Slice 3.7: clear `nextModule` once the course is complete — there

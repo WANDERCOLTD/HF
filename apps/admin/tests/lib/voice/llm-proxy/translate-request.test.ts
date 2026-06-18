@@ -185,4 +185,68 @@ describe("translateOpenAIRequestToAnthropic", () => {
     expect(t.max_tokens).toBe(1024);
     expect(t.temperature).toBe(1.0);
   });
+
+  // #1906 — multi-block system for bundle + live directive
+  describe("#1906 multi-block system handling", () => {
+    it("emits multi-block system when more than one system message is present, caches only the first", () => {
+      const bigBundle = "x".repeat(5000);
+      const liveDirective = "## CURRENT FOCUS: module-b";
+      const req: OpenAIChatCompletionRequest = {
+        model: "claude-3-5-sonnet-20241022",
+        messages: [
+          { role: "system", content: bigBundle },
+          { role: "user", content: "hi" },
+          { role: "system", content: liveDirective },
+        ],
+      };
+      const t = translateOpenAIRequestToAnthropic(req);
+      expect(Array.isArray(t.system)).toBe(true);
+      if (Array.isArray(t.system)) {
+        expect(t.system).toHaveLength(2);
+        // First block (bundle) is cache-controlled
+        expect(t.system[0]).toEqual({
+          type: "text",
+          text: bigBundle,
+          cache_control: { type: "ephemeral" },
+        });
+        // Second block (live directive) is NOT cache-controlled — this is
+        // what preserves the cache hit when the directive changes per turn.
+        expect(t.system[1]).toEqual({
+          type: "text",
+          text: liveDirective,
+        });
+      }
+    });
+
+    it("first block stays uncached when below the 4096-char threshold (no point caching small content)", () => {
+      const smallBundle = "small bundle";
+      const liveDirective = "## CURRENT FOCUS: module-b";
+      const req: OpenAIChatCompletionRequest = {
+        model: "claude-3-5-sonnet-20241022",
+        messages: [
+          { role: "system", content: smallBundle },
+          { role: "system", content: liveDirective },
+        ],
+      };
+      const t = translateOpenAIRequestToAnthropic(req);
+      expect(Array.isArray(t.system)).toBe(true);
+      if (Array.isArray(t.system)) {
+        expect(t.system).toHaveLength(2);
+        expect((t.system[0] as { cache_control?: unknown }).cache_control).toBeUndefined();
+        expect((t.system[1] as { cache_control?: unknown }).cache_control).toBeUndefined();
+      }
+    });
+
+    it("preserves legacy string-system shape when only one system message is present", () => {
+      const req: OpenAIChatCompletionRequest = {
+        model: "claude-3-5-sonnet-20241022",
+        messages: [
+          { role: "system", content: "tiny system" },
+          { role: "user", content: "hi" },
+        ],
+      };
+      const t = translateOpenAIRequestToAnthropic(req);
+      expect(t.system).toBe("tiny system");
+    });
+  });
 });
