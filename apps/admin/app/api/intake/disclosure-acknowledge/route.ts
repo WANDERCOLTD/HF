@@ -18,10 +18,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  getDisclosureStore,
-  deriveDisclosureId,
-} from "@/lib/intake/hf-adapter/disclosure-store";
+import { deriveDisclosureId } from "@/lib/intake/hf-adapter/disclosure-store";
+import { markDisclosureAcknowledged } from "@/lib/intake/hf-adapter/record-disclosure-with-tx";
 import {
   appendEvent,
   getSession,
@@ -115,19 +113,16 @@ export async function POST(req: NextRequest) {
   // Q-CR9 write-path: stamp tallyseal_disclosure.acknowledged_at
   // alongside the in-memory event. Best-effort — failure logs but
   // doesn't block the learner (Q2 founder guidance).
-  try {
-    const store = await getDisclosureStore();
-    await store.markAcknowledged(
-      session.tenant.id as never,
-      disclosureId as never,
-      acknowledgedAt as never,
-    );
-  } catch (err) {
-    console.error(
-      "[intake/disclosure-acknowledge] disclosureStore.markAcknowledged failed (continuing):",
-      err instanceof Error ? err.message : err,
-    );
-  }
+  //
+  // #1919 — routed through `markDisclosureAcknowledged(...)` wrapper
+  // so the future Tallyseal Drop-1 tx-discipline upgrade is a one-line
+  // change in the wrapper rather than a refactor here. The wrapper
+  // accepts `tx?` for forward-compat (IGNORED today, used post-Drop-1).
+  await markDisclosureAcknowledged({
+    tenantId: session.tenant.id,
+    disclosureId,
+    acknowledgedAt,
+  });
 
   return NextResponse.json({ ok: true });
 }
