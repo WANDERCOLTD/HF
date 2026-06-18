@@ -35,7 +35,15 @@ export async function loadAdjustableParameters(
   overrideTargets?: Map<string, number>,
 ): Promise<LoadedParameters> {
   const allParams = await prisma.parameter.findMany({
-    where: { parameterType: "BEHAVIOR", isAdjustable: true },
+    // #1949 — also filter `deprecatedAt: null`. Pre-#1949 the Tune
+    // sidebar continued to render parameters whose Parameter row was
+    // marked deprecated (operator-set via S1 dedup), surfacing a
+    // sibling slider for an already-merged concept. TL Finding CC-1.
+    where: {
+      parameterType: "BEHAVIOR",
+      isAdjustable: true,
+      deprecatedAt: null,
+    },
     select: {
       parameterId: true,
       name: true,
