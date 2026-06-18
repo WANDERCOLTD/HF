@@ -25,8 +25,47 @@
  * Issue #236.
  */
 
-import type { PlaybookConfig } from "@/lib/types/json-fields";
+import type {
+  AuthoredModule,
+  AuthoredModuleSettings,
+  PlaybookConfig,
+} from "@/lib/types/json-fields";
 import type { DetectedAuthoredModules } from "./detect-authored-modules";
+
+/**
+ * Manual-edit-wins merge of per-module settings on re-projection (#1850).
+ *
+ * Given the prior config's modules (each potentially carrying manual
+ * Inspector edits in `settings`) and the freshly-parsed modules from the
+ * course-ref doc (each potentially carrying YAML-block-derived settings),
+ * preserve any setting that was already manually set per (moduleId, key).
+ *
+ * This is the same shape as the backfill-script merge — the persist path
+ * runs every time the doc is re-imported, so the YAML never clobbers a
+ * deliberate manual override.
+ */
+function preserveManualEdits(
+  existing: AuthoredModule[] | undefined,
+  parsed: AuthoredModule[],
+): AuthoredModule[] {
+  if (!existing || existing.length === 0) return parsed;
+  const existingById = new Map(existing.map((m) => [m.id, m] as const));
+  return parsed.map((freshMod) => {
+    const prior = existingById.get(freshMod.id);
+    if (!prior?.settings) return freshMod;
+    if (!freshMod.settings) {
+      // The parse produced no YAML settings for this module — keep the
+      // prior manual settings entirely.
+      return { ...freshMod, settings: prior.settings };
+    }
+    // Per-key: prior wins over freshly-parsed YAML.
+    const merged: AuthoredModuleSettings = {
+      ...freshMod.settings,
+      ...prior.settings,
+    };
+    return { ...freshMod, settings: merged };
+  });
+}
 
 export interface PersistOptions {
   /** Optional pointer to the source document — recorded on the Playbook for audit. */
@@ -77,11 +116,13 @@ export function applyAuthoredModules(
     ? { ...(existing.outcomes ?? {}), ...parsed.outcomes }
     : existing.outcomes;
 
+  const mergedModules = preserveManualEdits(existing.modules, parsed.modules);
+
   const next: PlaybookConfig = {
     ...existing,
     modulesAuthored: true,
     moduleSource: "authored",
-    modules: parsed.modules,
+    modules: mergedModules,
     moduleDefaults: { ...(existing.moduleDefaults ?? {}), ...parsed.moduleDefaults },
     ...(mergedOutcomes ? { outcomes: mergedOutcomes } : {}),
     validationWarnings: parsed.validationWarnings,

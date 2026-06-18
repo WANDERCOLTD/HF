@@ -9,6 +9,7 @@ import {
 
 const FIXTURES = join(__dirname, "fixtures");
 const IELTS_V22 = readFileSync(join(FIXTURES, "course-reference-ielts-v2.2.md"), "utf-8");
+const IELTS_V23 = readFileSync(join(FIXTURES, "course-reference-ielts-v2.3.md"), "utf-8");
 
 // ── IELTS v2.2 — full positive case ────────────────────────────────────
 
@@ -101,6 +102,46 @@ describe("detectAuthoredModules — IELTS v2.2 fixture", () => {
     expect(result.moduleDefaults.theoryDelivery).toBe("embedded_only");
     expect(result.moduleDefaults.bandVisibility).toBe("hidden_mid_module");
     expect(result.moduleDefaults.intake).toBe("none");
+  });
+});
+
+// ── IELTS v2.3 — per-module YAML settings extension (#1850) ────────────
+
+describe("detectAuthoredModules — IELTS v2.3 per-module settings", () => {
+  let result: DetectedAuthoredModules;
+
+  it("parses v2.3 without errors and produces 5 modules", () => {
+    result = detectAuthoredModules(IELTS_V23);
+    expect(result.modulesAuthored).toBe(true);
+    expect(result.modules).toHaveLength(5);
+  });
+
+  it("populates AuthoredModule.settings from the per-module YAML blocks", () => {
+    for (const m of result.modules) {
+      expect(m.settings).toBeDefined();
+      expect(typeof m.settings!.minSpeakingSec).toBe("number");
+      expect(m.settings!.questionTarget).toMatchObject({
+        min: expect.any(Number),
+        target: expect.any(Number),
+      });
+      expect(typeof m.settings!.closingLine).toBe("string");
+      expect(typeof m.settings!.firstTimeOrientationLine).toBe("string");
+      expect(Array.isArray(m.settings!.scheduledCues)).toBe(true);
+    }
+  });
+
+  it("carries the part2 cue-card cue schedule end-to-end", () => {
+    const part2 = result.modules.find((m) => m.id === "part2")!;
+    expect(part2.settings!.scheduledCues).toEqual([
+      { at: 45, text: "15 seconds left" },
+      { at: 60, text: "Your two minutes start now" },
+    ]);
+    expect(part2.settings!.minSpeakingSec).toBe(120);
+  });
+
+  it("emits no errors for the v2.3 fixture (warnings allowed for non-schema fields)", () => {
+    const errors = result.validationWarnings.filter((w) => w.severity === "error");
+    expect(errors).toEqual([]);
   });
 });
 

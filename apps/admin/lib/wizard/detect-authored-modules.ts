@@ -32,10 +32,12 @@ import type {
   AuthoredModule,
   AuthoredModuleFrequency,
   AuthoredModuleMode,
+  AuthoredModuleSettings,
   ModuleDefaults,
   ValidationWarning,
 } from "@/lib/types/json-fields";
 import { prerequisiteSlugs } from "@/lib/curriculum/check-module-unlock";
+import { detectModuleSettings } from "./detect-module-settings";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -575,6 +577,30 @@ export function detectAuthoredModules(bodyText: string): DetectedAuthoredModules
 
   validateCrossReferences(result.modules, result.validationWarnings);
   checkHeaderFooterConsistency(bodyText, result.validationWarnings);
+
+  // ── 5. Extract per-module YAML settings blocks (#1850) and merge into
+  // each module's `settings` field. The blocks are keyed by their own
+  // `moduleId:`, so reordering the headings is safe. Unknown fields and
+  // shape mismatches warn-and-skip (`validationWarnings` is shared).
+  const detectedIds = result.modules.map((m) => m.id);
+  const settingsDetection = detectModuleSettings(bodyText, detectedIds);
+  for (const w of settingsDetection.validationWarnings) {
+    result.validationWarnings.push(w);
+  }
+  if (settingsDetection.byModuleId.size > 0) {
+    result.modules = result.modules.map((m) => {
+      const fromYaml = settingsDetection.byModuleId.get(m.id);
+      if (!fromYaml) return m;
+      const merged: AuthoredModuleSettings = {
+        ...(m.settings ?? {}),
+        ...fromYaml,
+      };
+      return { ...m, settings: merged };
+    });
+    result.detectedFrom.push(
+      `parsed ${settingsDetection.byModuleId.size} per-module settings block(s)`,
+    );
+  }
 
   result.detectedFrom.push(`parsed ${result.modules.length} module(s) from catalogue`);
   return result;
