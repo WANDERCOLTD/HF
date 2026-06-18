@@ -54,7 +54,7 @@ const MIN_INTERPRETATION_CHARS = 20;
  * lands. When this hits 0, replace the ratchet assertion with
  * `gaps.length === 0` (strict mode).
  */
-const EXPECTED_MISSING_COUNT = 17;
+const EXPECTED_MISSING_COUNT = 0;
 
 interface RegistryRow {
   parameterId: string;
