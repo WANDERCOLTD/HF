@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T12:33:43.045Z",
+  "generatedAt": "2026-06-18T16:31:15.268Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1842,
-  "edgeCount": 4332,
+  "fileCount": 1843,
+  "edgeCount": 4333,
   "skippedEdges": 1,
   "edges": [
     {
@@ -16652,6 +16652,10 @@
       "to": "lib/wizard/project-course-reference.ts"
     },
     {
+      "from": "lib/wizard/course-ref-template-schema.ts",
+      "to": "lib/journey/setting-contracts.ts"
+    },
+    {
       "from": "lib/wizard/detect-authored-modules.ts",
       "to": "lib/curriculum/check-module-unlock.ts"
     },
@@ -24354,7 +24358,7 @@
     },
     {
       "path": "lib/journey/setting-contracts.ts",
-      "inDegree": 14,
+      "inDegree": 15,
       "outDegree": 2
     },
     {
@@ -25791,6 +25795,11 @@
       "path": "lib/wizard/apply-projection.ts",
       "inDegree": 3,
       "outDegree": 5
+    },
+    {
+      "path": "lib/wizard/course-ref-template-schema.ts",
+      "inDegree": 0,
+      "outDegree": 1
     },
     {
       "path": "lib/wizard/detect-authored-modules.ts",
