@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T16:47:52.696Z",
+  "generatedAt": "2026-06-18T21:02:52.490Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1846,
-  "edgeCount": 4342,
+  "fileCount": 1848,
+  "edgeCount": 4347,
   "skippedEdges": 1,
   "edges": [
     {
@@ -12864,6 +12864,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/crypto/envelope.ts",
+      "to": "lib/config.ts"
+    },
+    {
       "from": "lib/curriculum/check-module-unlock.ts",
       "to": "lib/pipeline/course-style.ts"
     },
@@ -12921,6 +12925,18 @@
     },
     {
       "from": "lib/curriculum/mark-module-incomplete.ts",
+      "to": "lib/pipeline/course-style.ts"
+    },
+    {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
       "to": "lib/pipeline/course-style.ts"
     },
     {
@@ -16154,6 +16170,10 @@
     {
       "from": "lib/voice/end-session.ts",
       "to": "lib/curriculum/mark-module-incomplete.ts"
+    },
+    {
+      "from": "lib/voice/end-session.ts",
+      "to": "lib/curriculum/mark-orientation-shown.ts"
     },
     {
       "from": "lib/voice/end-session.ts",
@@ -23404,7 +23424,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 94,
+      "inDegree": 95,
       "outDegree": 0
     },
     {
@@ -23658,6 +23678,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/crypto/envelope.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "lib/curriculum/build-per-segment-measure-prompt.ts",
       "inDegree": 1,
       "outDegree": 0
@@ -23721,6 +23746,11 @@
       "path": "lib/curriculum/mark-module-incomplete.ts",
       "inDegree": 1,
       "outDegree": 2
+    },
+    {
+      "path": "lib/curriculum/mark-orientation-shown.ts",
+      "inDegree": 1,
+      "outDegree": 3
     },
     {
       "path": "lib/curriculum/mastery-tiers.ts",
@@ -24384,7 +24414,7 @@
     },
     {
       "path": "lib/journey/module-settings-flag.ts",
-      "inDegree": 7,
+      "inDegree": 8,
       "outDegree": 0
     },
     {
@@ -24539,7 +24569,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 36,
+      "inDegree": 37,
       "outDegree": 3
     },
     {
@@ -24714,7 +24744,7 @@
     },
     {
       "path": "lib/pipeline/course-style.ts",
-      "inDegree": 10,
+      "inDegree": 11,
       "outDegree": 1
     },
     {
@@ -25550,7 +25580,7 @@
     {
       "path": "lib/voice/end-session.ts",
       "inDegree": 1,
-      "outDegree": 9
+      "outDegree": 10
     },
     {
       "path": "lib/voice/end-source.ts",
@@ -26626,7 +26656,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 94,
+      "inDegree": 95,
       "outDegree": 0
     },
     {
@@ -26671,7 +26701,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 36,
+      "inDegree": 37,
       "outDegree": 3
     },
     {
