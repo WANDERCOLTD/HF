@@ -159,6 +159,7 @@ Three structural patterns, in order of preference:
 | Curriculum / CurriculumModule / LO write → compose-input bump | educator-driven write | `lib/compose/bump-timestamp.ts::bumpPlaybookComposeTimestamp` | ✅ PROTECTED | `ai-to-db-guard.md` row + 4-route adoption (#1268) | — | Carve-out: pipeline-internal writes don't bump |
 | `CallerModuleProgress.incompleteAttempts` writers → single chokepoint | multiple write sites | `lib/curriculum/mark-module-incomplete.ts::markModuleIncomplete` | ✅ PROTECTED | `eslint-rules/no-bare-module-progress-update.mjs` (#1703) + sticky-waiver guard | — | Atomic increment, race-safe |
 | `Goal.progressStrategy` → strategy registry | Goal row | `lib/goals/strategies/types.ts::StrategyKey` enum | ✅ PROTECTED | `eslint-rules/no-bare-strategy-key.mjs` (#1599) + `tests/lib/mastery-roundtrip.test.ts` | — | Round-trip pin + enum + ESLint |
+| `AuthoredModuleSettings` type ↔ fixture YAML keys | `lib/types/json-fields.ts::AuthoredModuleSettings` | `lib/wizard/__tests__/fixtures/course-reference-ielts-v*.md` | ✅ PROTECTED | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | — | Bidirectional Coverage gate; 5 fixture keys exempt at land time (`prepSilenceSec`, `incompleteThresholdSec`, `scoringCriteria`, `scoreReadoutMode`, `topicPool`) — type additions deferred to follow-on |
 
 ### Skills / banding
 
@@ -192,6 +193,7 @@ Three structural patterns, in order of preference:
 | `route-auth-zod-coverage.md` | `tests/api/route-auth-zod-coverage.test.ts` (#1854) | ✅ PROTECTED |
 | `tier-visibility-coverage.md` | `tests/api/tier-visibility-coverage.test.ts` (#1855) | ✅ PROTECTED |
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
+| `fixture-type-coverage.md` | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | ✅ PROTECTED |
 | `vm-migration-lock.md` | `scripts/vm-migrate.sh` wrapper + session-start check | ✅ PROTECTED |
 | `pipeline-and-prompt.md` | `qmd search` mandate + docs cross-ref | ⚠️ CONVENTION-ONLY |
 | `database-patterns.md` | Author discipline | ⚠️ CONVENTION-ONLY |
