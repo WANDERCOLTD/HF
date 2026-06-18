@@ -90,4 +90,25 @@ Post-migration parameter count: **154 − 15 = 139 active** (the 15 deprecated r
 
 - `loadAdjustableParameters` already filters `deprecatedAt: null` (per the foundation PR commit) — deprecated params no longer reach the Tune sidebar
 - `getEffectiveBehaviorTargetsForCaller` follows aliases AND filters deprecation (same foundation PR)
-- `parameter-coverage.test.ts` ratchet drops 18 from the producer-only gap count (those rows are now correctly classified as deprecated)
+- `parameter-coverage.test.ts` ratchet drops 15 from the producer-only gap count (those rows are now correctly classified as deprecated)
+
+## IELTS Speaking cross-check (2026-06-18)
+
+Operator asked: verify the dedup doesn't break IELTS Speaking — the active market-test course. Audit result:
+
+**IELTS Speaking depends on (and DOES NOT lose):**
+- `BEH-WARMTH` (canonical winner) — referenced in `a-sample-docs/ielts-speaking-practice-content.md`: "tutor's tone is adult-to-adult throughout: professional, direct, warm without being patronising"
+- `BEH-DIRECTNESS` (canonical winner) — same passage
+- `BEH-FORMALITY` (canonical winner) — "professional" register
+- `BEH-SPACED-RETRIEVAL-PRIORITY` — central to IELTS Exam Prep preset
+- 4 IELTS SKILL-tier parameters: `skill_fluency_and_coherence_fc`, `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`, `skill_pronunciation_p` — these live in a separate `parameterType: "SKILL"` row family, **NOT touched by this migration** (which only operates on `BEHAVIOR` parameterIds enumerated above)
+
+**IELTS Speaking does NOT use:**
+- Any of the 11 dedup losers (`warmth_actual`, `BEH-CONVERSATIONAL-TONE`, `CONV_PACE`, `adapt_to_pace_preference`, `pace_indicators`, `pacing_actual`, `formality-level`, `formality_actual`, `directness_actual`, `empathy_expression`, `response_empathy_score`) — verified via grep against `a-sample-docs/ielts-speaking-*.md` and `lib/wizard/__tests__/fixtures/course-reference-ielts-v2.3.md`
+- Any of the 4 VARK deprecations (voice-only course; modality adaptation doesn't apply)
+
+**Gap analysis docs (`docs/draft-issues/ielts-pre-voice-gap-analysis*.md`)** reference module-scoped knobs (`closingTone`, `closingMaxLines`, `teachingStyle`) and a future `deriveFocusArea` selector — none of these are behaviour-parameter dependencies, so dedup is orthogonal.
+
+**Verdict: SAFE for IELTS Speaking.** Canonical winners (`BEH-WARMTH`, `BEH-DIRECTNESS`, `BEH-FORMALITY`) carry the course's tonal requirements; SKILL-tier params are out-of-scope of this migration; losers + VARK have no IELTS use case.
+
+No new behaviour parameters required to run IELTS Speaking post-dedup.
