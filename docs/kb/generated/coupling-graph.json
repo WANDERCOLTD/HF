@@ -1,9 +1,9 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T21:12:51.036Z",
+  "generatedAt": "2026-06-18T21:14:51.564Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1848,
+  "fileCount": 1849,
   "edgeCount": 4350,
   "skippedEdges": 1,
   "edges": [
@@ -23028,6 +23028,11 @@
       "path": "lib/cascade/set-at-layer.ts",
       "inDegree": 0,
       "outDegree": 5
+    },
+    {
+      "path": "lib/cascade/spec-readonly-fields.ts",
+      "inDegree": 0,
+      "outDegree": 0
     },
     {
       "path": "lib/cascade/use-effective-value.ts",

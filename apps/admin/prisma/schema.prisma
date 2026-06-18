@@ -236,6 +236,14 @@ model Parameter {
   measurementVoiceOnly String?
   interpretationHigh   String?
   interpretationLow    String?
+  // #1951 (epic #1946 S4) — Escape hatch for parameters whose
+  // interpretation text is legitimately shorter than the
+  // parameter-interpretation-coverage.test.ts 20-char minimum (binary
+  // states, axis labels). When true, the coverage ratchet skips the
+  // length check for this row. The interpretation MUST still be
+  // non-null and meaningful — operator should explain in the PR body
+  // why the escape hatch is justified.
+  skipInterpretationLengthCheck Boolean @default(false)
   scaleType            String
   directionality       String
   computedBy           String
