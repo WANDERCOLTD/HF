@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-17T18:24:49.786Z",
+  "generatedAt": "2026-06-18T11:22:24.974Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1837,
-  "edgeCount": 4311,
+  "fileCount": 1846,
+  "edgeCount": 4331,
   "skippedEdges": 1,
   "edges": [
     {
@@ -12948,6 +12948,18 @@
       "to": "lib/pipeline/course-style.ts"
     },
     {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
+      "to": "lib/pipeline/course-style.ts"
+    },
+    {
       "from": "lib/curriculum/playbook-mastery-config.ts",
       "to": "lib/curriculum/mastery-tiers.ts"
     },
@@ -16113,6 +16125,10 @@
     },
     {
       "from": "lib/voice/end-session.ts",
+      "to": "lib/curriculum/mark-orientation-shown.ts"
+    },
+    {
+      "from": "lib/voice/end-session.ts",
       "to": "lib/journey/module-settings-flag.ts"
     },
     {
@@ -16564,8 +16580,16 @@
       "to": "lib/wizard/graph-nodes.ts"
     },
     {
+      "from": "lib/wizard/__tests__/parse-content-sources.test.ts",
+      "to": "lib/wizard/parse-content-sources.ts"
+    },
+    {
       "from": "lib/wizard/__tests__/parse-rubric-bands.test.ts",
       "to": "lib/wizard/parse-rubric-bands.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/parse-source-content.test.ts",
+      "to": "lib/wizard/parse-source-content.ts"
     },
     {
       "from": "lib/wizard/__tests__/persist-authored-modules.test.ts",
@@ -16582,6 +16606,14 @@
     {
       "from": "lib/wizard/__tests__/project-course-reference.test.ts",
       "to": "lib/wizard/project-course-reference.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/resolve-module-source-refs.test.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/resolve-module-source-refs.test.ts",
+      "to": "lib/wizard/resolve-module-source-refs.ts"
     },
     {
       "from": "lib/wizard/__tests__/resolvers.test.ts",
@@ -16624,6 +16656,10 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/wizard/detect-authored-modules.ts",
+      "to": "lib/wizard/detect-module-settings.ts"
+    },
+    {
       "from": "lib/wizard/detect-course-config.ts",
       "to": "lib/content-trust/resolve-config.ts"
     },
@@ -16634,6 +16670,10 @@
     {
       "from": "lib/wizard/detect-course-config.ts",
       "to": "lib/prompt/composition/transforms/audience.ts"
+    },
+    {
+      "from": "lib/wizard/detect-module-settings.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/wizard/graph-evaluator.ts",
@@ -16676,6 +16716,18 @@
       "to": "lib/wizard/detect-pedagogy.ts"
     },
     {
+      "from": "lib/wizard/resolve-module-source-refs.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/wizard/resolve-module-source-refs.ts",
+      "to": "lib/wizard/parse-content-sources.ts"
+    },
+    {
+      "from": "lib/wizard/resolve-module-source-refs.ts",
+      "to": "lib/wizard/parse-source-content.ts"
+    },
+    {
       "from": "lib/wizard/resolvers.ts",
       "to": "lib/wizard/graph-evaluator.ts"
     },
@@ -16713,6 +16765,10 @@
     },
     {
       "from": "lib/wizard/run-projection-for-playbook.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/wizard/run-projection-for-playbook.ts",
       "to": "lib/wizard/apply-projection.ts"
     },
     {
@@ -16722,6 +16778,10 @@
     {
       "from": "lib/wizard/run-projection-for-playbook.ts",
       "to": "lib/wizard/project-course-reference.ts"
+    },
+    {
+      "from": "lib/wizard/run-projection-for-playbook.ts",
+      "to": "lib/wizard/resolve-module-source-refs.ts"
     },
     {
       "from": "lib/wizard/sync-authored-modules-to-curriculum.ts",
@@ -16878,6 +16938,26 @@
     {
       "from": "scripts/backfill-mcq-reconcile.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/compose/bump-timestamp.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/wizard/detect-module-settings.ts"
+    },
+    {
+      "from": "scripts/backfill-module-settings-from-course-ref.ts",
+      "to": "lib/wizard/resolve-module-source-refs.ts"
     },
     {
       "from": "scripts/backfill-onboarding-flow-phases-mirror.ts",
@@ -23290,7 +23370,7 @@
     },
     {
       "path": "lib/compose/bump-timestamp.ts",
-      "inDegree": 18,
+      "inDegree": 19,
       "outDegree": 1
     },
     {
@@ -23647,6 +23727,11 @@
       "path": "lib/curriculum/mark-module-incomplete.ts",
       "inDegree": 1,
       "outDegree": 2
+    },
+    {
+      "path": "lib/curriculum/mark-orientation-shown.ts",
+      "inDegree": 1,
+      "outDegree": 3
     },
     {
       "path": "lib/curriculum/mastery-tiers.ts",
@@ -24305,7 +24390,7 @@
     },
     {
       "path": "lib/journey/module-settings-flag.ts",
-      "inDegree": 7,
+      "inDegree": 8,
       "outDegree": 0
     },
     {
@@ -24460,7 +24545,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 36,
+      "inDegree": 37,
       "outDegree": 3
     },
     {
@@ -24635,7 +24720,7 @@
     },
     {
       "path": "lib/pipeline/course-style.ts",
-      "inDegree": 10,
+      "inDegree": 11,
       "outDegree": 1
     },
     {
@@ -24775,7 +24860,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 671,
+      "inDegree": 672,
       "outDegree": 0
     },
     {
@@ -25355,7 +25440,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 129,
+      "inDegree": 134,
       "outDegree": 0
     },
     {
@@ -25431,7 +25516,7 @@
     {
       "path": "lib/voice/end-session.ts",
       "inDegree": 1,
-      "outDegree": 9
+      "outDegree": 10
     },
     {
       "path": "lib/voice/end-source.ts",
@@ -25679,7 +25764,17 @@
       "outDegree": 1
     },
     {
+      "path": "lib/wizard/__tests__/parse-content-sources.test.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "lib/wizard/__tests__/parse-rubric-bands.test.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
+      "path": "lib/wizard/__tests__/parse-source-content.test.ts",
       "inDegree": 0,
       "outDegree": 1
     },
@@ -25692,6 +25787,11 @@
       "path": "lib/wizard/__tests__/project-course-reference.test.ts",
       "inDegree": 0,
       "outDegree": 1
+    },
+    {
+      "path": "lib/wizard/__tests__/resolve-module-source-refs.test.ts",
+      "inDegree": 0,
+      "outDegree": 2
     },
     {
       "path": "lib/wizard/__tests__/resolvers.test.ts",
@@ -25711,7 +25811,7 @@
     {
       "path": "lib/wizard/detect-authored-modules.ts",
       "inDegree": 7,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/wizard/detect-course-config.ts",
@@ -25722,6 +25822,11 @@
       "path": "lib/wizard/detect-mock-shape-modules.ts",
       "inDegree": 3,
       "outDegree": 0
+    },
+    {
+      "path": "lib/wizard/detect-module-settings.ts",
+      "inDegree": 2,
+      "outDegree": 1
     },
     {
       "path": "lib/wizard/detect-pedagogy.ts",
@@ -25744,7 +25849,17 @@
       "outDegree": 0
     },
     {
+      "path": "lib/wizard/parse-content-sources.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
       "path": "lib/wizard/parse-rubric-bands.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/wizard/parse-source-content.ts",
       "inDegree": 2,
       "outDegree": 0
     },
@@ -25759,6 +25874,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/wizard/resolve-module-source-refs.ts",
+      "inDegree": 3,
+      "outDegree": 3
+    },
+    {
       "path": "lib/wizard/resolvers.ts",
       "inDegree": 2,
       "outDegree": 3
@@ -25766,7 +25886,7 @@
     {
       "path": "lib/wizard/run-projection-for-playbook.ts",
       "inDegree": 2,
-      "outDegree": 9
+      "outDegree": 11
     },
     {
       "path": "lib/wizard/sync-authored-modules-to-curriculum.ts",
@@ -25932,6 +26052,11 @@
       "path": "scripts/backfill-mcq-reconcile.ts",
       "inDegree": 0,
       "outDegree": 3
+    },
+    {
+      "path": "scripts/backfill-module-settings-from-course-ref.ts",
+      "inDegree": 0,
+      "outDegree": 5
     },
     {
       "path": "scripts/backfill-onboarding-flow-phases-mirror.ts",
@@ -26442,7 +26567,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 671,
+      "inDegree": 672,
       "outDegree": 0
     },
     {
@@ -26452,7 +26577,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 129,
+      "inDegree": 134,
       "outDegree": 0
     },
     {
@@ -26502,7 +26627,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 36,
+      "inDegree": 37,
       "outDegree": 3
     },
     {
