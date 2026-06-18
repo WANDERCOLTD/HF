@@ -73,6 +73,7 @@ Three structural patterns, in order of preference:
 | Schema `@bucket` JSDoc → contract `menuGroupKey` | `lib/types/json-fields.ts` JSDoc | `JourneySettingContract.menuGroupKey` | ✅ PROTECTED | `eslint-rules/no-bucketless-journey-setting.mjs` (#1738) | — | Edit-time block |
 | Registry contract options → schema literal sets | `JOURNEY_SETTINGS[].options[].value` | `lib/types/json-fields.ts` literal unions + `lib/banding/presets.ts::TIER_PRESETS` | ✅ PROTECTED | `tests/lib/journey/registry-options-coverage.test.ts` (Lane 4) | — | 4 vitests, canonical derivation for `tierPresetId` |
 | Registry `storagePath` → transform reader | `JOURNEY_SETTINGS[].storagePath` | `lib/prompt/composition/transforms/**/*.ts` | ✅ PROTECTED | `tests/lib/journey/registry-consumer-coverage.test.ts` (#1849) | — | Exempt list (15 entries) with ratchet |
+| `JOURNEY_SETTINGS` arrayKey contracts ↔ journey-setting PATCH `arraySelector` | `JOURNEY_SETTINGS[].storagePath.arrayKey` | `app/api/courses/[courseId]/journey-setting/route.ts` body schema (#1888 P3c) | ✅ PROTECTED | `tests/lib/journey/arraykey-writer-coverage.test.ts` (#1912) | — | Bidirectional gate; 14 arrayKey contracts (5 fixed-selector + 9 runtime-selector); exempt budget 0 at launch |
 | Registry `composeImpact.sections` → ComposeSectionKey | `JOURNEY_SETTINGS[].composeImpact.sections` | `lib/compose/section.ts::ComposeSectionKey` | ✅ PROTECTED | `tests/lib/journey/registry-completeness.test.ts` item (3) | — | TypeScript `satisfies` + test pin |
 | Registry `composeImpact.kinds` → UI consumer | `JOURNEY_SETTINGS[].composeImpact.kinds` | (no consumer today) | ❌ GAP | — | LOW | Pure metadata. Documented intent ("icon + colour + ordering") never built. Drop the field or build the UI. |
 | Registry `previewLocators` → Preview lens highlight | `JOURNEY_SETTINGS[].previewLocators` | `components/journey-tab/PreviewLocatorHint.tsx:79-81` | ✅ PROTECTED | Runtime consumer + `tests/components/journey-tab/*.test.tsx` | — | — |
@@ -194,6 +195,7 @@ Three structural patterns, in order of preference:
 | `tier-visibility-coverage.md` | `tests/api/tier-visibility-coverage.test.ts` (#1855) | ✅ PROTECTED |
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
 | `fixture-type-coverage.md` | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | ✅ PROTECTED |
+| `arraykey-writer-coverage.md` | `tests/lib/journey/arraykey-writer-coverage.test.ts` (#1912) | ✅ PROTECTED |
 | `privacy-redaction.md` | ESLint `require-tiered-redactor` + `tier-visibility-coverage` (#1855) — same enforcer as `response-redaction.md`; this file is the privacy-specific framing | ✅ PROTECTED (5 leak ratchet, #1922) |
 | `data-retention.md` | `lib/privacy/stamp-regulatory-expiry.ts` chokepoint (#1917) + retention cron + `apps/admin/scripts/check-fk-consistency.ts` Query 12 | ✅ PROTECTED (3 voice paths adopted; 8 lower-priority writers adopt as touched) |
 | `vm-migration-lock.md` | `scripts/vm-migrate.sh` wrapper + session-start check | ✅ PROTECTED |
