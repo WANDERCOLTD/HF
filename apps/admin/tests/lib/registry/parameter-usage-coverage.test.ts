@@ -91,7 +91,7 @@ const ALLOWED_MEASUREMENT_STRING_VALUES = new Set([
  * AnalysisSpec mapping exists yet. #1967 backfills real `specSlug`
  * declarations; this ratchet shrinks as it lands.
  */
-const EXPECTED_DEFERRED_MEASUREMENT_COUNT = 139;
+const EXPECTED_DEFERRED_MEASUREMENT_COUNT = 57;
 
 describe("Parameter usage coverage (declarative Lattice Coverage pillar)", () => {
   it("every parameter has a usage block (data-driven invariant)", () => {
@@ -125,7 +125,7 @@ describe("Parameter usage coverage (declarative Lattice Coverage pillar)", () =>
     ).toEqual([]);
   });
 
-  it("every usage.measurement is either a {specSlug} or an allowed string", () => {
+  it("every usage.measurement is either a {specSlug}, {specSlugs}, or an allowed string", () => {
     const bad: Array<{ id: string; measurement: unknown }> = [];
     for (const p of registry.parameters) {
       if (!p.parameterId || !p.usage) continue;
@@ -135,10 +135,16 @@ describe("Parameter usage coverage (declarative Lattice Coverage pillar)", () =>
           bad.push({ id: p.parameterId, measurement: m });
         }
       } else if (typeof m === "object" && m !== null) {
-        if (
-          typeof (m as { specSlug?: unknown }).specSlug !== "string" ||
-          ((m as { specSlug: string }).specSlug.trim().length === 0)
-        ) {
+        // Allow EITHER { specSlug: "..." } (single) OR { specSlugs: ["...", ...] } (multi)
+        const single = (m as { specSlug?: unknown }).specSlug;
+        const multi = (m as { specSlugs?: unknown }).specSlugs;
+        const singleOk =
+          typeof single === "string" && single.trim().length > 0;
+        const multiOk =
+          Array.isArray(multi) &&
+          multi.length > 0 &&
+          multi.every((s) => typeof s === "string" && s.trim().length > 0);
+        if (!singleOk && !multiOk) {
           bad.push({ id: p.parameterId, measurement: m });
         }
       } else {
