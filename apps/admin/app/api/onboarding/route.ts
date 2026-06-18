@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
     });
 
     // Extract system defaults from parameters
-    const defaultTargetsParam = specConfig.parameters?.find((p: any) => p.id === "default_targets_quality");
-    const welcomeParam = specConfig.parameters?.find((p: any) => p.id === "welcome_quality");
+    const defaultTargetsParam = specConfig.parameters?.find((p: any) => p.id === "BEH-DEFAULT-TARGETS-QUALITY");
+    const welcomeParam = specConfig.parameters?.find((p: any) => p.id === "BEH-WELCOME-QUALITY");
     const systemDefaultTargets = defaultTargetsParam?.config?.defaultTargets || specConfig.defaultTargets || {};
     const systemWelcomeTemplates = welcomeParam?.config?.welcomeTemplates || specConfig.welcomeTemplates || {};
 

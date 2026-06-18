@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T21:02:52.490Z",
+  "generatedAt": "2026-06-18T21:12:51.036Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1848,
-  "edgeCount": 4347,
+  "edgeCount": 4350,
   "skippedEdges": 1,
   "edges": [
     {
@@ -238,6 +238,10 @@
     {
       "from": "app/api/admin/sync-parameters/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/admin/sync-parameters/route.ts",
+      "to": "lib/registry/resolve.ts"
     },
     {
       "from": "app/api/admin/terminology/route.ts",
@@ -16593,6 +16597,10 @@
     },
     {
       "from": "lib/wizard/__tests__/apply-projection.test.ts",
+      "to": "lib/registry/resolve.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/apply-projection.test.ts",
       "to": "lib/types/json-fields.ts"
     },
     {
@@ -16698,6 +16706,10 @@
     {
       "from": "lib/wizard/apply-projection.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/wizard/apply-projection.ts",
+      "to": "lib/registry/resolve.ts"
     },
     {
       "from": "lib/wizard/apply-projection.ts",
@@ -17500,7 +17512,7 @@
     {
       "path": "app/api/admin/sync-parameters/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/admin/terminology/route.ts",
@@ -25259,7 +25271,7 @@
     },
     {
       "path": "lib/registry/resolve.ts",
-      "inDegree": 1,
+      "inDegree": 4,
       "outDegree": 1
     },
     {
@@ -25800,7 +25812,7 @@
     {
       "path": "lib/wizard/__tests__/apply-projection.test.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "lib/wizard/__tests__/detect-authored-modules.test.ts",
@@ -25875,7 +25887,7 @@
     {
       "path": "lib/wizard/apply-projection.ts",
       "inDegree": 3,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/wizard/course-ref-template-schema.ts",

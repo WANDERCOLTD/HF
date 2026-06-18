@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveParameterIds } from "@/lib/registry/resolve";
 
 /**
  * @api POST /api/admin/sync-parameters
@@ -94,17 +95,32 @@ export async function POST(req: Request) {
 
     // 3. Check which parameters exist
     const referencedIds = Array.from(paramReferences.keys());
+
+    // #1950 — Resolve each referenced id through the alias map so a spec
+    // written against a legacy snake_case id is recognised as already-existing
+    // when the canonical row sits at the BEH-* form. Without this, the
+    // route's "missing" logic would try to CREATE a duplicate Parameter row
+    // (which then collides on the unique constraint of the legacy id stored
+    // in `aliases[]`).
+    const aliasResolved = await resolveParameterIds(referencedIds);
+    const referencedCanonicalIds = referencedIds.map(
+      (id) => aliasResolved.get(id)?.canonicalId ?? id,
+    );
+
     const existingParams = await prisma.parameter.findMany({
       where: {
-        parameterId: { in: referencedIds },
+        parameterId: { in: referencedCanonicalIds },
       },
       select: { parameterId: true },
     });
 
-    const existingIds = new Set(existingParams.map((p) => p.parameterId));
-    results.parametersExist = existingIds.size;
+    const existingCanonicalIds = new Set(existingParams.map((p) => p.parameterId));
+    results.parametersExist = existingCanonicalIds.size;
 
-    const missingIds = referencedIds.filter((id) => !existingIds.has(id));
+    const missingIds = referencedIds.filter((id) => {
+      const canonical = aliasResolved.get(id)?.canonicalId ?? id;
+      return !existingCanonicalIds.has(canonical);
+    });
     results.parametersMissing = missingIds.length;
 
     // Build list of missing parameters with context
