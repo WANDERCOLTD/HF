@@ -1,8 +1,10 @@
 /**
  * Course-level staleness aggregate — #1429.
  *
- * Powers `<StalePromptPillForCourse />` mounted in the
- * `CourseDesignConsole` header. Lists every demo caller
+ * Powered `<StalePromptPillForCourse />` mounted in the
+ * `CourseDesignConsole` header (retired P5 / #1850). The route still
+ * exists and is consumed by chat tools + can be re-mounted by Journey
+ * tab when a stale-pill surface is needed. Lists every demo caller
  * (`CallerPlaybook.policyMode='demo'`) enrolled in the course and
  * reports how many have a stale prompt by reusing the same
  * `isPromptStale` check that powers the per-caller `<StalePromptPill />`.
