@@ -170,6 +170,16 @@ describe("extractProfileFields — validate-before-write", () => {
     expect(res.skippedReason).toBe("no_fields");
     expect(mockAICompletion).not.toHaveBeenCalled();
   });
+
+  it("no-ops when the transcript is empty/whitespace (no LLM call, no write)", async () => {
+    const res = await extractProfileFields({
+      callId: "call-1", callerId: "caller-1", transcript: "   \n  \t ",
+      profileFields: FIELDS, engine: "claude", log: makeLog(),
+    });
+    expect(res).toEqual({ captured: 0, rejected: 0, skippedReason: "empty_transcript" });
+    expect(mockAICompletion).not.toHaveBeenCalled();
+    expect(mockedUpsert).not.toHaveBeenCalled();
+  });
 });
 
 describe("coerceProfileValue — type validation", () => {

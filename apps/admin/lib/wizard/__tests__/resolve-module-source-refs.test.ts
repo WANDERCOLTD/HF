@@ -136,19 +136,45 @@ describe("resolveModuleSourceRefs — IELTS v2.3 against real disk", () => {
     expect(part3!.topicPool![0].questions.length).toBeGreaterThan(0);
   });
 
+  it("inlines baseline.profileFieldsToCapture from Source 14 (P3g)", () => {
+    const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
+    const out = resolveModuleSourceRefs(byModuleId, IELTS_V23, { repoRoot: REPO_ROOT });
+    const baseline = out.byModuleId.get("baseline");
+    expect(baseline).toBeDefined();
+    expect(Array.isArray(baseline!.profileFieldsToCapture)).toBe(true);
+    expect(baseline!.profileFieldsToCapture!).toHaveLength(4);
+    const reason = baseline!.profileFieldsToCapture!.find(
+      (f) => f.key === "profile:reason",
+    );
+    expect(reason).toBeDefined();
+    expect(reason!.type).toBe("text");
+    expect(reason!.prompt.length).toBeGreaterThan(0);
+    const targetBand = baseline!.profileFieldsToCapture!.find(
+      (f) => f.key === "profile:targetBand",
+    );
+    expect(targetBand!.type).toBe("band");
+  });
+
   it("returns a structured resolution log", () => {
     const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
     const out = resolveModuleSourceRefs(byModuleId, IELTS_V23, { repoRoot: REPO_ROOT });
     const resolved = out.resolutions.filter((r) => r.status === "resolved");
-    // post-multi-route: 3 cueCardPool resolutions (part2 + mock + baseline)
-    // + 5 scaffoldPool resolutions (part2 + part3 + mock + baseline + part1)
-    // + 2 topicPool resolutions (#1932 — part1 + part3) = 10
-    expect(resolved.length).toBeGreaterThanOrEqual(10);
+    // post-multi-route + P3g + #1932: 3 cueCardPool (part2 + mock + baseline) +
+    // 5 scaffoldPool (part2 + part3 + mock + baseline + part1) +
+    // 2 topicPool (#1932 — part1 + part3) +
+    // 1 profileFieldsToCapture (baseline) = 11
+    expect(resolved.length).toBeGreaterThanOrEqual(11);
     const part2Cue = resolved.find(
       (r) => r.moduleId === "part2" && r.field === "cueCardPool",
     );
     expect(part2Cue).toBeDefined();
     expect(part2Cue!.itemCount).toBeGreaterThanOrEqual(80);
+    const baselineProfile = resolved.find(
+      (r) =>
+        r.moduleId === "baseline" && r.field === "profileFieldsToCapture",
+    );
+    expect(baselineProfile).toBeDefined();
+    expect(baselineProfile!.itemCount).toBe(4);
   });
 });
 

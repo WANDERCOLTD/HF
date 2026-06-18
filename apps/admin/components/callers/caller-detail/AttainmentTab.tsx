@@ -447,9 +447,9 @@ function ProfileSection({ profile }: { profile: ProfileField[] }) {
       </p>
       <div className="hf-attainment-goal-rows">
         {profile.map((field) => (
-          <div key={field.key} className="hf-attainment-goal-row">
-            <span className="hf-attainment-goal-name">{field.label}</span>
-            <span className="hf-attainment-goal-pct">{field.value}</span>
+          <div key={field.key} className="hf-attainment-profile-row">
+            <span className="hf-attainment-profile-label">{field.label}</span>
+            <span className="hf-attainment-profile-value">{field.value}</span>
           </div>
         ))}
       </div>

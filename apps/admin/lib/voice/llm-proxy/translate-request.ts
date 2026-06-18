@@ -135,24 +135,44 @@ export function translateOpenAIRequestToAnthropic(
 ): AnthropicTranslated {
   const messages = req.messages ?? [];
 
-  // 1. System message — extract and cache-control if large enough.
+  // 1. System message(s) — extract and cache-control the FIRST block when
+  // it crosses threshold. Single-system-message path preserves the legacy
+  // shape (one block, cached if large). Multi-system-message path emits
+  // a multi-block system so a stable cached prefix (e.g. the #1906 module
+  // bundle) can sit alongside a fresh per-turn block (e.g. the CURRENT
+  // FOCUS directive injected by `runVapiChatCompletion`) without busting
+  // the cache. Anthropic semantics: cache hit reuses up to the first
+  // cache-controlled block; subsequent blocks are appended uncached.
   const systemMessages = messages.filter((m) => m.role === "system");
   let system: AnthropicTranslated["system"] = undefined;
   if (systemMessages.length > 0) {
-    const concatenated = systemMessages
+    const texts = systemMessages
       .map((m) => extractText(m.content))
-      .filter((t): t is string => Boolean(t))
-      .join("\n\n");
-    if (concatenated.length >= CACHE_CONTROL_THRESHOLD_CHARS) {
-      system = [
-        {
-          type: "text",
-          text: concatenated,
-          cache_control: { type: "ephemeral" },
-        },
-      ];
-    } else if (concatenated.length > 0) {
-      system = concatenated;
+      .filter((t): t is string => Boolean(t));
+    if (texts.length === 1) {
+      const single = texts[0];
+      if (single.length >= CACHE_CONTROL_THRESHOLD_CHARS) {
+        system = [
+          {
+            type: "text",
+            text: single,
+            cache_control: { type: "ephemeral" },
+          },
+        ];
+      } else if (single.length > 0) {
+        system = single;
+      }
+    } else if (texts.length > 1) {
+      system = texts.map((text, idx) => {
+        if (idx === 0 && text.length >= CACHE_CONTROL_THRESHOLD_CHARS) {
+          return {
+            type: "text",
+            text,
+            cache_control: { type: "ephemeral" },
+          };
+        }
+        return { type: "text", text };
+      });
     }
   }
 

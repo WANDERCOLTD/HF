@@ -11,12 +11,13 @@
  * Format dispatch (today):
  *   - `cueCardBank`   → Array<{ topic, bullets[] }>
  *   - `stallScaffold` → string[]
+ *   - `profileFields` → Array<{ key, prompt, type }>  (P3g, #1850)
  *
- * Both parsers are deterministic, dependency-free, and tolerant of the
+ * All parsers are deterministic, dependency-free, and tolerant of the
  * cosmetic variations in the HFF-authored fixtures (extra blank lines,
  * `> ` quoted bodies, leading `## ` separators).
  *
- * Issue #1850 P3f.
+ * Issue #1850 P3f + P3g.
  */
 
 // ── Cue card bank (Source 2 — Part 2 cue cards) ──────────────────────
@@ -293,5 +294,97 @@ export function parseTopicPool(text: string): TopicPoolEntry[] {
     // ignore; the next question/heading resumes parsing.
   }
   flush();
+  return out;
+}
+
+// ── Profile fields (Source N — Baseline profile fields) ──────────────
+//
+// Input format (mirrors cue-card / scaffold convention):
+//
+//   ### Field 1 — reason
+//
+//   - **key:** `profile:reason`
+//   - **type:** text
+//   - **prompt:** What's bringing you to IELTS Speaking? Work, study, …
+//
+// Output: [{
+//   key: "profile:reason",
+//   type: "text",
+//   prompt: "What's bringing you to IELTS Speaking? Work, study, …",
+// }, ...]
+//
+// Shape matches `ProfileFieldToCapture` in `lib/types/json-fields.ts`.
+// The runtime consumer (`lib/pipeline/extract-profile-fields.ts`)
+// filters out anything that doesn't have all three fields with valid
+// `type` (text | number | band) — the parser drops malformed entries
+// rather than emit them and rely on the runtime filter.
+
+/** A declared profile field — mirrors `ProfileFieldToCapture`. */
+export interface ProfileFieldEntry {
+  key: string;
+  prompt: string;
+  type: "text" | "number" | "band";
+}
+
+const FIELD_HEADER = /^###\s+Field\s+\d+\s*[—–-]\s+.+?\s*$/i;
+/** `- **key:** \`profile:reason\`` — key inside backticks or bare. */
+const KEY_LINE = /^\s*-\s*\*\*key:\*\*\s*`?([A-Za-z0-9_:.-]+)`?\s*$/i;
+/** `- **type:** text|number|band`. */
+const TYPE_LINE = /^\s*-\s*\*\*type:\*\*\s*(text|number|band)\s*$/i;
+/** `- **prompt:** <free text up to end-of-line>`. */
+const PROMPT_LINE = /^\s*-\s*\*\*prompt:\*\*\s*(.+?)\s*$/i;
+const VALID_TYPES: ReadonlySet<string> = new Set(["text", "number", "band"]);
+
+/**
+ * Parse a profile-fields markdown file. Returns an array of
+ * `{ key, prompt, type }` entries — one per `### Field N — …` heading.
+ * Order is preserved (the tutor asks fields in source order). Entries
+ * missing any of the three required attributes, or with an out-of-set
+ * `type`, are dropped — the resolver would otherwise emit shapes the
+ * runtime filter rejects.
+ */
+export function parseProfileFields(text: string): ProfileFieldEntry[] {
+  const lines = text.split(/\r?\n/);
+  const out: ProfileFieldEntry[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (!FIELD_HEADER.test(lines[i])) {
+      i++;
+      continue;
+    }
+    i++;
+    // Collect key / type / prompt within the field block — stop at the
+    // next `### ` heading or a top-level `## ` section.
+    let key: string | undefined;
+    let type: ProfileFieldEntry["type"] | undefined;
+    let prompt: string | undefined;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (/^##\s/.test(line) || /^###\s/.test(line)) break;
+      const kMatch = line.match(KEY_LINE);
+      if (kMatch) {
+        key = kMatch[1].trim();
+        i++;
+        continue;
+      }
+      const tMatch = line.match(TYPE_LINE);
+      if (tMatch) {
+        const t = tMatch[1].toLowerCase();
+        if (VALID_TYPES.has(t)) type = t as ProfileFieldEntry["type"];
+        i++;
+        continue;
+      }
+      const pMatch = line.match(PROMPT_LINE);
+      if (pMatch) {
+        prompt = pMatch[1].trim();
+        i++;
+        continue;
+      }
+      i++;
+    }
+    if (key && type && prompt) {
+      out.push({ key, prompt, type });
+    }
+  }
   return out;
 }
