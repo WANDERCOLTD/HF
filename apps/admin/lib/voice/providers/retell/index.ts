@@ -261,6 +261,18 @@ export class RetellProvider implements VoiceProvider {
       // mode still delegates to a Retell-managed orchestrator via WSS),
       // so it's "vendor-cloud" — same dispatch class as VAPI.
       orchestrationMode: "vendor-cloud",
+      // #1908 — Retell's custom-LLM path is WSS-based, not the
+      // OpenAI-compatible HTTP `chat/completions` shape HF's LLM proxy
+      // expects. TODO(#1079 follow-on): wire Retell's WSS handler into
+      // the proxy + flip this true.
+      supportsCustomLLMProxy: false,
+      // #1908 — Retell does not expose a documented HTTP `add-message`
+      // op equivalent to VAPI's controlUrl. Server-injected system
+      // messages would need a separate primitive.
+      supportsInBandSystemMessage: false,
+      // #1908 — Retell does not document a mid-call assistant-handoff
+      // primitive equivalent to VAPI's `handoff` op.
+      supportsHandoff: false,
     };
   }
 

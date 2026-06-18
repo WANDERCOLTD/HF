@@ -27,7 +27,11 @@ const VAPI_CAPS: VoiceProviderCapabilities = {
   hasKnowledgeCallback: true,
   toolCallsOverWebSocket: false,
   supportsRequestEndCall: true,
+  supportsProactiveSpeech: true,
   orchestrationMode: "vendor-cloud",
+  supportsCustomLLMProxy: true,
+  supportsInBandSystemMessage: true,
+  supportsHandoff: true,
 };
 
 const RETELL_CAPS: VoiceProviderCapabilities = {
@@ -35,7 +39,11 @@ const RETELL_CAPS: VoiceProviderCapabilities = {
   hasKnowledgeCallback: false,
   toolCallsOverWebSocket: true,
   supportsRequestEndCall: true,
+  supportsProactiveSpeech: false,
   orchestrationMode: "vendor-cloud",
+  supportsCustomLLMProxy: false,
+  supportsInBandSystemMessage: false,
+  supportsHandoff: false,
 };
 
 const CHAT_RAIL_RUNTIME: VoiceRuntimeFeatures = {
