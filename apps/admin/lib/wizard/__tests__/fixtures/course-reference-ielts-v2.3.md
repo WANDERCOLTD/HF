@@ -191,7 +191,7 @@ settings:
     follow-up questions. About twenty minutes total.
   scheduledCues: []             # Baseline uses the warmer framing — no aloud cue countdown
   scaffoldPool: source:stall-scaffolds-monologue   # examiner-mode silence rules; Part 2 long-turn nudges only
-  profileFieldsToCapture: [reason, targetBand, timeline, selfLevel]
+  profileFieldsToCapture: source:ielts-speaking-profile-fields   # Source 14 — per-key {prompt, type} metadata
   prepSilenceSec: 60            # Part 2 prep phase inside Baseline
   incompleteThresholdSec: 600   # below 10 min = abandoned (50% of expected) — does not count
   scoringCriteria: [FC, LR, GRA, Pron]
@@ -1172,6 +1172,17 @@ Part 1 short Q&A reuses the discussion stall scaffolds — single-question stall
 - *format:* structured-md  
 - *moduleRef:* part1  
 - *settingRef:* moduleScaffoldPool  
+  
+### Source 14 — IELTS profile fields (Baseline)  
+  
+A short list of conversational profile fields the tutor weaves into the Baseline warm-up. Each field carries a verbatim tutor prompt + a coercion type (`text` / `number` / `band`). Extracted at end-of-session by `lib/pipeline/extract-profile-fields.ts` and written to `CallerAttribute` rows under the course-agnostic `profile:*` namespace. Replaces the v2.3-pre-P3g inline shortlist `[reason, targetBand, timeline, selfLevel]`, which the runtime filter silently dropped because each entry lacked `prompt` + `type`.  
+  
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-profile-fields.md`  
+- *format:* structured-md  
+- *moduleRef:* baseline  
+- *settingRef:* moduleProfileFieldsToCapture  
+- *Outcomes served:* none directly — profile data drives downstream personalisation (`profile:reason` motivational hooks; `profile:targetBand` stretch threshold; `profile:timeline` urgency framing; `profile:selfLevel` calibration of first-question difficulty).  
+- *Ordering:* the tutor asks fields in source-file order during warm-up; no re-prompting mid-session.  
   
 ### Content preferences  
   
