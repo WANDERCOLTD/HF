@@ -416,13 +416,21 @@ async function injectCurrentFocusDirective(
     });
     const slug = mod?.slug ?? caller.lastSelectedModuleId;
 
+    // NOTE — the wording deliberately does NOT reference "the bundle"
+    // or any other in-prompt cross-reference. `renderPromptSummary.ts`
+    // surfaces only the CURRENT module's description in the rendered
+    // prose today; sibling-module content lives on the `llmPrompt`
+    // JSON but does not reach the LLM's input. Until a renderer
+    // fan-out pass lands (Story A follow-on), this directive functions
+    // purely as a per-turn focus hint, not a pointer to in-context
+    // sibling content.
     const directive =
       `## CURRENT FOCUS\n\n` +
-      `The learner is working on module \`${slug}\`.\n` +
-      `Anchor your responses to THIS module's content from the bundle above. ` +
+      `The learner is working on module \`${slug}\`. ` +
+      `Anchor your responses to that module's teaching context. ` +
       `If the learner explicitly asks to switch modules, narrate a clean ` +
-      `bridge ("nice work on X — let's move to Y") and proceed with the new ` +
-      `module's content. Otherwise stay focused on this module.`;
+      `bridge ("nice work on X — let's move to Y") and proceed with the ` +
+      `new module on the next turn. Otherwise stay focused on this module.`;
 
     body.messages = body.messages ?? [];
     body.messages.push({ role: "system", content: directive });
