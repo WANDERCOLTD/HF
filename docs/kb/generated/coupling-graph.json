@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T11:29:47.951Z",
+  "generatedAt": "2026-06-18T11:43:56.065Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1847,
-  "edgeCount": 4334,
+  "fileCount": 1837,
+  "edgeCount": 4313,
   "skippedEdges": 1,
   "edges": [
     {
@@ -8592,46 +8592,6 @@
       "to": "lib/types/json-fields.ts"
     },
     {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "app/x/courses/[courseId]/_components/PreviewLens.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/callers/caller-detail/StalePromptPillForCourse.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/course-design/FeltProgressSettings.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/course-design/FirstSessionSettings.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/course-design/ModuleVisibilitySettings.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/course-design/TolerancesSettings.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/session-flow/SessionFlowEditor.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/shared/BandingPicker.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "components/shared/console-shell/index.ts"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "to": "lib/types/json-fields.ts"
-    },
-    {
       "from": "app/x/courses/[courseId]/_components/ImportModulesDialog.tsx",
       "to": "app/x/courses/[courseId]/_components/authored-modules-panel.css"
     },
@@ -8712,34 +8672,6 @@
       "to": "lib/types/json-fields.ts"
     },
     {
-      "from": "app/x/courses/[courseId]/_tab/DesignTab.tsx",
-      "to": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_tab/DesignTab.tsx",
-      "to": "components/shared/designer-shell/index.ts"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_tab/DesignTab.tsx",
-      "to": "components/shared/preview-renderers/_journey-setting-context.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_tab/DesignTab.tsx",
-      "to": "components/shared/preview-renderers/index.ts"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_tab/DesignTab.tsx",
-      "to": "components/shared/preview-renderers/index.ts"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_tab/DesignTab.tsx",
-      "to": "lib/compose/index.ts"
-    },
-    {
-      "from": "app/x/courses/[courseId]/_tab/DesignTab.tsx",
-      "to": "lib/types/json-fields.ts"
-    },
-    {
       "from": "app/x/courses/[courseId]/chat/ChatLauncher.tsx",
       "to": "app/x/courses/[courseId]/chat/page.tsx"
     },
@@ -8806,22 +8738,6 @@
     {
       "from": "app/x/courses/[courseId]/CourseCurriculumTab.tsx",
       "to": "lib/content-trust/validate-lo-linkage.ts"
-    },
-    {
-      "from": "app/x/courses/[courseId]/CourseDesignTab.tsx",
-      "to": "app/x/courses/[courseId]/_tab/DesignTab.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/CourseDesignTab.tsx",
-      "to": "components/shared/CourseSetupTracker.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/CourseDesignTab.tsx",
-      "to": "hooks/useCourseSetupStatus.ts"
-    },
-    {
-      "from": "app/x/courses/[courseId]/CourseDesignTab.tsx",
-      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "app/x/courses/[courseId]/CourseGenomeTab.tsx",
@@ -9029,6 +8945,10 @@
     },
     {
       "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "app/x/courses/[courseId]/_lib/tab-redirects.ts"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
       "to": "app/x/courses/[courseId]/course-detail.css"
     },
     {
@@ -9038,10 +8958,6 @@
     {
       "from": "app/x/courses/[courseId]/page.tsx",
       "to": "app/x/courses/[courseId]/CourseCurriculumTab.tsx"
-    },
-    {
-      "from": "app/x/courses/[courseId]/page.tsx",
-      "to": "app/x/courses/[courseId]/CourseDesignTab.tsx"
     },
     {
       "from": "app/x/courses/[courseId]/page.tsx",
@@ -20536,11 +20452,6 @@
       "outDegree": 4
     },
     {
-      "path": "app/x/courses/[courseId]/CourseDesignTab.tsx",
-      "inDegree": 1,
-      "outDegree": 4
-    },
-    {
       "path": "app/x/courses/[courseId]/CourseGenomeTab.tsx",
       "inDegree": 1,
       "outDegree": 3
@@ -20621,11 +20532,6 @@
       "outDegree": 5
     },
     {
-      "path": "app/x/courses/[courseId]/_components/CourseDesignConsole.tsx",
-      "inDegree": 1,
-      "outDegree": 10
-    },
-    {
       "path": "app/x/courses/[courseId]/_components/ImportModulesDialog.tsx",
       "inDegree": 1,
       "outDegree": 1
@@ -20647,7 +20553,7 @@
     },
     {
       "path": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
-      "inDegree": 1,
+      "inDegree": 0,
       "outDegree": 12
     },
     {
@@ -20666,9 +20572,9 @@
       "outDegree": 0
     },
     {
-      "path": "app/x/courses/[courseId]/_tab/DesignTab.tsx",
+      "path": "app/x/courses/[courseId]/_lib/tab-redirects.ts",
       "inDegree": 1,
-      "outDegree": 7
+      "outDegree": 0
     },
     {
       "path": "app/x/courses/[courseId]/chat/ChatLauncher.tsx",
@@ -21801,11 +21707,6 @@
       "outDegree": 0
     },
     {
-      "path": "components/callers/caller-detail/StalePromptPillForCourse.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
       "path": "components/callers/caller-detail/types.ts",
       "inDegree": 1,
       "outDegree": 0
@@ -21836,22 +21737,7 @@
       "outDegree": 0
     },
     {
-      "path": "components/course-design/FeltProgressSettings.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "components/course-design/FirstSessionSettings.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
       "path": "components/course-design/ModuleVisibilitySettings.tsx",
-      "inDegree": 2,
-      "outDegree": 0
-    },
-    {
-      "path": "components/course-design/TolerancesSettings.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
@@ -21967,7 +21853,7 @@
     },
     {
       "path": "components/session-flow/SessionFlowEditor.tsx",
-      "inDegree": 2,
+      "inDegree": 1,
       "outDegree": 0
     },
     {
@@ -22082,7 +21968,7 @@
     },
     {
       "path": "components/shared/BandingPicker.tsx",
-      "inDegree": 2,
+      "inDegree": 1,
       "outDegree": 0
     },
     {
@@ -22137,7 +22023,7 @@
     },
     {
       "path": "components/shared/CourseSetupTracker.tsx",
-      "inDegree": 2,
+      "inDegree": 1,
       "outDegree": 0
     },
     {
@@ -22401,28 +22287,8 @@
       "outDegree": 0
     },
     {
-      "path": "components/shared/console-shell/index.ts",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "components/shared/designer-shell/index.ts",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
       "path": "components/shared/onboarding-preview.css",
       "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "components/shared/preview-renderers/_journey-setting-context.tsx",
-      "inDegree": 1,
-      "outDegree": 0
-    },
-    {
-      "path": "components/shared/preview-renderers/index.ts",
-      "inDegree": 2,
       "outDegree": 0
     },
     {
@@ -22612,7 +22478,7 @@
     },
     {
       "path": "hooks/useCourseSetupStatus.ts",
-      "inDegree": 2,
+      "inDegree": 1,
       "outDegree": 0
     },
     {
@@ -23392,7 +23258,7 @@
     },
     {
       "path": "lib/compose/index.ts",
-      "inDegree": 8,
+      "inDegree": 7,
       "outDegree": 0
     },
     {
@@ -25452,7 +25318,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 134,
+      "inDegree": 131,
       "outDegree": 0
     },
     {
@@ -26594,7 +26460,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 134,
+      "inDegree": 131,
       "outDegree": 0
     },
     {

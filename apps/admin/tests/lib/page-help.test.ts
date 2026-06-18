@@ -1,6 +1,4 @@
 import { describe, it, expect } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
 import {
   PAGE_HELP_REGISTRY,
   getPageHelp,
@@ -32,12 +30,13 @@ describe("page-help registry", () => {
       // because it drifted twice in 24h (#1572 added Skills; PR #1852
       // added Teaching/Scoring/Modules — both required a separate edit
       // to bump the count next to the array).
+      // P5 (#1850): "Design" removed — every lens is now reachable
+      // from Journey / Teaching / Scoring / Voice / Modules.
       expect(labels).toEqual([
         "Teaching",
         "Scoring",
         "Modules",
         "Content",
-        "Design",
         "Curriculum",
         "Learners",
         "Proof Points",
@@ -174,67 +173,30 @@ describe("page-help registry", () => {
   });
 
   /**
-   * #810 freshness guard.
+   * #810 freshness guard — retired in P5 (#1850).
    *
-   * The Felt Progress regression (epic #808) shipped a new `<CollapsibleCard
-   * title="Felt Progress">` on the Design tab across 5 PRs without anyone
-   * updating PAGE_HELP_REGISTRY. The Help modal stayed silent; the DATA-mode
-   * AI assistant answered "I don't see that section". This block parses the
-   * source TSX for every `<CollapsibleCard title="X">` on the Design tab and
-   * asserts each title is registered under `tabs.find(design).sections[]`.
-   *
-   * To extend to a new tabbed page: copy the parse block, point `sourceFile`
-   * at the tab component, and add the registry assertion.
+   * The freshness guard parsed `CourseDesignTab.tsx` for `<CollapsibleCard>`
+   * titles and asserted each had a matching `sections[]` entry in
+   * PAGE_HELP_REGISTRY → tabs[design]. The Design tab + the file it parsed
+   * are now gone. The pattern (parse source for named sections, assert each
+   * is registered) can be reapplied to a future tabbed page that grows
+   * named sections — copy the parse block, point `sourceFile` at the new
+   * tab component, and add the registry assertion. The retirement of this
+   * block is part of the same PR that removed the Design tab.
    */
-  describe("freshness guard — Course detail Design tab (#810)", () => {
-    const sourceFile = path.resolve(
-      __dirname,
-      "../../app/x/courses/[courseId]/CourseDesignTab.tsx",
-    );
-    const source = fs.readFileSync(sourceFile, "utf-8");
-    const cardTitles = Array.from(
-      source.matchAll(/<CollapsibleCard\s+title="([^"]+)"/g),
-      (m) => m[1],
-    );
-
-    // The Design tab refactored away from <CollapsibleCard> structure into
-    // <CourseDesignConsole> (an embedded grid). The freshness guard's parse
-    // mechanism — "regex CollapsibleCard titles, assert each is registered"
-    // — no longer applies because there are no CollapsibleCards to scan.
-    // Skip the sanity assertion + the registry loop below until someone
-    // builds a freshness check for the new console structure. Tracked in
-    // the test body — promote back to `it.skip → it` when CourseDesignConsole
-    // gains its own card surface or the Help registry validation moves to
-    // a different anchor.
-    it.skip("source parse finds at least one CollapsibleCard (sanity) — refactored away", () => {
-      expect(cardTitles.length).toBeGreaterThan(0);
-    });
-
-    it.skip("every CollapsibleCard rendered on the Design tab has a registry entry — refactored away", () => {
+  describe("P5 (#1850) — Design tab retirement", () => {
+    it("Design tab no longer appears in the Course detail registry", () => {
       const entry = getPageHelp("/x/courses/abc-123");
       const designTab = entry?.tabs?.find((t) => t.id === "design");
-      expect(designTab, "Design tab missing from Course detail registry").toBeDefined();
-      const registeredTitles = (designTab?.sections ?? []).map((s) => s.title);
-      for (const title of cardTitles) {
-        expect(
-          registeredTitles,
-          `CourseDesignTab.tsx renders <CollapsibleCard title="${title}"> but no matching entry exists in PAGE_HELP_REGISTRY → tabs[design].sections. Add it to apps/admin/lib/help/page-help.ts so the Help modal and AI assistant know about it.`,
-        ).toContain(title);
-      }
+      expect(designTab).toBeUndefined();
     });
 
-    it("Design tab `about` mentions Progress Signals so the Help modal surfaces it without HelpOverlay changes", () => {
+    it("Design chord is no longer registered (no D → tab:design binding)", () => {
       const entry = getPageHelp("/x/courses/abc-123");
-      const designTab = entry?.tabs?.find((t) => t.id === "design");
-      expect(designTab?.about.toLowerCase()).toContain("progress signals");
-    });
-
-    it("the Progress Signals section explicitly exists in the registry", () => {
-      const entry = getPageHelp("/x/courses/abc-123");
-      const designTab = entry?.tabs?.find((t) => t.id === "design");
-      const progressSignals = designTab?.sections?.find((s) => s.title === "Progress Signals");
-      expect(progressSignals).toBeDefined();
-      expect(progressSignals?.about.length).toBeGreaterThan(20);
+      const designChord = entry?.chords?.find(
+        (c) => c.callbackId === "tab:design",
+      );
+      expect(designChord).toBeUndefined();
     });
   });
 
