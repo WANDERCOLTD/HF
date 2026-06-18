@@ -138,7 +138,7 @@
     "@auth/prisma-adapter": "^2.11.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@google-cloud/kms": "^4.7.0",
+    "@google-cloud/kms": "^5.5.1",
     "@google-cloud/storage": "^7.19.0",
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.6",
