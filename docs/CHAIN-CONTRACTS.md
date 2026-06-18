@@ -689,6 +689,151 @@ The story body of #1511 forward-declares an `hf-pipeline/no-silent-stage-skip` E
 
 ---
 
+## 6a. Privacy & consent invariants (epic #1915)
+
+The links in §3 / §3a / §3c / §3d describe **structural** contracts at stage boundaries. §6 adds **observability** contracts for the adaptive loop. This section adds **privacy** contracts — the cross-cutting invariants that govern PII at every stage. They are the answer to the 2026-06-18 audit finding that `grep -in "privacy\|PII\|retention\|disclosure\|consent" docs/CHAIN-CONTRACTS.md` returned zero hits.
+
+> **Verified at write time (2026-06-18):** 0 prior privacy rows existed in this doc.
+
+Scope discipline:
+
+- **In scope here:** invariants the Lattice can enforce for the *current enrolment route* (intake-v2) and the *upfront patterns voice cannot retrofit*. Children of epic #1915 ship the enforcers.
+- **Out of scope (deferred children of #1915):** preset-aware redaction (#1922/#1923), `PrivacyPolicyPreset` cascade (#1924/#1925), AppLog PII scrubbing (#1926), consent-version re-ack (#1927), admin UI (#1928). When those ship, this section grows.
+- **Out of scope (separate ADRs):** Caller PII encryption (`Caller.email`, `Caller.phone`) — deferred per 2026-06-13 ADR; HIPAA/COPPA/FERPA preset content (legal sign-off required).
+
+### Invariant inventory (8 invariants — I-PR1..I-PR8)
+
+#### I-PR1 — Intake-v2 disclosure delivery is atomic with intake state
+
+| Field | Value |
+|---|---|
+| **Producer** | `app/api/intake/bootstrap/route.ts:115-137` writes `tallyseal_disclosure` rows for `gdpr.art13.privacy-notice` + `eu-ai-act.art50.ai-interaction-disclosure` via `getDisclosureStore().record(...)`. |
+| **Consumer** | `lib/intake/audit-bundle.ts` (audit-bundle reads) + `tallyseal_disclosure_signal` joins on `disclosure_id`. |
+| **Data shape** | For any successful intake-v2 bootstrap, two `tallyseal_disclosure` rows MUST exist with deterministic ids `deriveDisclosureId(intentId, requirementId)`. The write must be atomic with the intake-state mutation — not a best-effort try/catch outside the transaction. |
+| **Severity** | ERROR. Intake completes without the disclosure pair = audit-trail-incomplete enrolment. |
+| **Detection rule** | Integration test: kill the intake-state transaction mid-flow; verify both the intake state AND the disclosure rows rolled back. No silent split-write. |
+| **Test** | `tests/api/intake/bootstrap.test.ts` (extended by #1919 ST). |
+| **Memory doc** | This row + `lib/intake/hf-adapter/disclosure-store.ts` JSDoc when `tx`-accepting signature lands. |
+| **Audit counter** | `iPR1IntakeWithoutDisclosure` (target 0) — counts `intake_event` rows of kind `ProjectionCommit` for which the paired `tallyseal_disclosure` rows are absent. |
+| **Enforcer** | #1919 (ST: Tallyseal tx-discipline). Depends on Tallyseal-side Ask #2 (`opts?: { tx?: PrismaTxLike }` on `*Store.record()`). Pending. |
+
+#### I-PR2 — Voice consent stamped before any recorded `Call`
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/voice/create-session.ts::createSession` (#1342 chokepoint) creates `Call` + `Session` rows that will record audio. |
+| **Consumer** | VAPI provider receives the call; transcripts + recordings flow to `Call.transcript` / `Call.recordingUrl` / `Call.stereoRecordingUrl`. |
+| **Data shape** | For any `Caller` enrolled via intake-v2, an acknowledged `tallyseal_disclosure` row with `requirement_id = "voice-call-recording"` MUST exist before `createSession({kind: VOICE_CALL \| SIM_CALL})` returns. Lazy gate (re-surface at next intake) — not a blocking modal at call-start (TL guidance: UX-hostile default). |
+| **Severity** | WARN at intake-v2 surface (re-surface disclosure on next intake). Per-preset escalation to ERROR/blocking when #1924 ships HIPAA/COPPA presets. |
+| **Mock-engine carve-out** | Excluded: legacy `/api/join/[token]` flow (no intake step). Documented gap in I-PR8. |
+| **Detection rule** | `createSession` reads `tallyseal_disclosure` for `(callerId, "voice-call-recording")`. Missing ack on an intake-v2 caller → emit `log.warn({ event: "I-PR2-no-voice-consent", callerId, sessionId })`. |
+| **Test** | `tests/lib/voice/create-session.test.ts` (extended by #1918). |
+| **Memory doc** | This row + `lib/voice/create-session.ts` JSDoc when consent-read lands. |
+| **Audit counter** | `iPR2VoiceSessionNoConsent` (target 0). |
+| **Enforcer** | #1918 (S8a: voice-consent disclosure). Pending — copy authored at `lib/intake/copy/voice-call-recording.v0.1.0-rc.1.mdx`. |
+
+#### I-PR3 — Every `Call` row stamps `regulatoryExpiresAt` at create-time
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/voice/create-session.ts::createSession` + `lib/voice/route-handlers.ts:638` (`persistEndOfCall`) + `lib/ops/transcripts-process.ts:397` + `app/api/transcripts/import/route.ts:928,957`. Five writers, one chokepoint preferred. |
+| **Consumer** | `POST /api/admin/retention/cleanup` purges by `WHERE regulatoryExpiresAt <= NOW()`. |
+| **Data shape** | New `Call` rows MUST have `regulatoryExpiresAt: Timestamp \| null`. Stamp is computed from `RETENTION_CALLER_DATA_DAYS` env (fallback) or preset (when #1925 ships). Backfill of existing rows = NULL (TL guidance: computed dates pick wrong preset, extend DSR-pending callers, drift on later preset change). |
+| **Severity** | WARN. Null-on-old-row is normal during the migration grace window; null-on-new-row after enforcer ships is a violation. |
+| **Naming discipline** | Column is `regulatoryExpiresAt`, NOT `retentionExpiry` or `expiresAt`. `CallerMemory.expiresAt` already exists for content decay ("traveling next week"). Silent conflation is the failure mode this naming prevents. |
+| **Detection rule** | `scripts/check-fk-consistency.ts` Query (new): `SELECT COUNT(*) FROM "Call" WHERE "regulatoryExpiresAt" IS NULL AND "createdAt" < NOW() - INTERVAL '<configured>' DAYS`. |
+| **Test** | `tests/lib/voice/create-session.test.ts` (extended by #1917). |
+| **Memory doc** | This row + `lib/voice/create-session.ts` JSDoc when the stamp lands. |
+| **Audit counter** | `iPR3CallWithoutRegulatoryExpiry` (target 0 after grace window). |
+| **Enforcer** | #1917 (S5a: `Call.regulatoryExpiresAt` migration + stamp). Pending. |
+
+#### I-PR4 — `ComposedPrompt` must not embed a transcript beyond `regulatoryExpiresAt`
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/prompt/composition/transforms/**/*.ts` — the priorCallRecap and transcript-citing transforms. |
+| **Consumer** | `ComposedPrompt.prompt` + downstream voice provider payload. |
+| **Data shape** | For any transform that reads `Call.transcript`, the source `Call.regulatoryExpiresAt` MUST be in the future (or null). Transcript that has expired regulatorily MUST be filtered out of the composition input set. |
+| **Severity** | WARN (pre-preset shipment); ERROR once #1925 ships per-preset retention enforcement. |
+| **Mock-engine carve-out** | None. The invariant applies to all engines. |
+| **Detection rule** | Slice 1 of #1917 documents the contract. Runtime enforcement deferred to a follow-on once retention purging proves stable. For now, the cleanup cron's WHERE clause is the load-bearing enforcement — purged rows don't appear in `prisma.call.findMany`. |
+| **Test** | Documented only; runtime test follows when the enforcement enabler lands. |
+| **Memory doc** | This row + `.claude/rules/data-retention.md` (shipped by #1920). |
+| **Audit counter** | `iPR4ComposeReadsExpiredTranscript` (target 0). Wired by a follow-on, not by #1917 directly. |
+| **Enforcer** | #1917 (S5a) provides the column; runtime detection lands in a follow-on after retention purging proves stable. |
+
+#### I-PR5 — Caller-scoped PII reads route through `resolveCallerScopeForReading`
+
+| Field | Value |
+|---|---|
+| **Producer** | Any GET route under `app/api/**` that accepts a `?callerId=` param (or path-param `callerId`) AND admits STUDENT+ tier sessions. |
+| **Consumer** | The Prisma `where` clause that scopes the read. |
+| **Data shape** | The route MUST call `resolveCallerScopeForReading(session, queryCallerId)` before constructing the Prisma `where`. STUDENT sessions get locked to their own LEARNER `Caller` regardless of the supplied param; OPERATOR+ passes through unchanged. |
+| **Severity** | ERROR. A STUDENT session reading another learner's data via foreign `?callerId=` is a confirmed leak class (closed for 3 routes by #977). |
+| **Detection rule** | Convention rule today. No coverage gate ensures new routes adopt. Tracked under `lattice-chains.md` matrix row as ⚠️ PARTIAL. |
+| **Test** | `tests/lib/learner-scope.test.ts` (9 cases, #977) pins the helper; per-route adoption is convention. |
+| **Memory doc** | This row + `lib/learner-scope.ts` JSDoc. |
+| **Audit counter** | Manual until a coverage test lands. |
+| **Enforcer** | #977 (`resolveCallerScopeForReading`) — already shipped. Coverage-pillar follow-on TBD. |
+
+#### I-PR6 — PII deletion cascades via `lib/gdpr/delete-caller-data.ts`
+
+| Field | Value |
+|---|---|
+| **Producer** | `DELETE /api/callers/[callerId]/route.ts` + `POST /api/admin/retention/cleanup` + any future erasure route. |
+| **Consumer** | 22 cascading tables under the `Caller` FK (transcripts, memories, scores, identities, ...). |
+| **Data shape** | Erasure MUST call `lib/gdpr/delete-caller-data.ts::deleteCallerData(callerId)`. Hand-rolled `prisma.caller.delete` calls miss cascading tables and leave orphan rows. |
+| **Severity** | ERROR. Orphan rows after a DSR erasure violate GDPR Art 17. |
+| **Detection rule** | `scripts/check-fk-consistency.ts` already detects orphan rows. Add a privacy-specific scan: `SELECT COUNT(*) FROM "CallerMemory" m LEFT JOIN "Caller" c ON c.id = m."callerId" WHERE c.id IS NULL` and equivalents for the other 21 tables. |
+| **Test** | `tests/lib/gdpr/delete-caller-data.test.ts` (existing). |
+| **Memory doc** | This row + `lib/gdpr/delete-caller-data.ts` JSDoc. |
+| **Audit counter** | `iPR6OrphanPIIRowsPostErasure` (target 0). |
+| **Enforcer** | `lib/gdpr/delete-caller-data.ts` — shipped. ESLint rule blocking `prisma.caller.delete` outside the helper is a Coverage-pillar follow-on. |
+
+#### I-PR7 — Mixed-tier-payload routes admitting STUDENT MUST add `@tieredVisibility` tag
+
+| Field | Value |
+|---|---|
+| **Producer** | Any GET route returning a payload with operator-only fields alongside learner-safe fields, where the route admits STUDENT or VIEWER tier. |
+| **Consumer** | `eslint-rules/require-tiered-redactor.mjs` + `tests/api/tier-visibility-coverage.test.ts`. |
+| **Data shape** | Route header JSDoc carries `@tieredVisibility` tag → ESLint rule enforces import + invocation of `visibilityTierForRole` + `redact<X>ForTier`. |
+| **Severity** | WARN today (5 known leaks ratcheted); ERROR once #1922 wires the 5 redactors and #1923 lands the preset-aware layer. |
+| **Detection rule** | `tests/api/tier-visibility-coverage.test.ts::TIER_VISIBILITY_EXEMPT` ratchet (5 confirmed leak routes). |
+| **Test** | `tests/api/tier-visibility-coverage.test.ts` — exempt list ratchet pinning the 5 confirmed leaks. |
+| **Memory doc** | This row + `.claude/rules/response-redaction.md` (already exists) + `.claude/rules/privacy-redaction.md` (shipped by #1920). |
+| **Audit counter** | `iPR7TierSensitiveRouteNoRedactor` (current value 5, target 0). |
+| **Enforcer** | #1922 (S2a: tier redactors). Pending. #1923 (S2b: preset-aware) deferred until #1924 ships. |
+
+#### I-PR8 — Legacy `/api/join/[token]` retroactive-enforcement carve-out
+
+| Field | Value |
+|---|---|
+| **Producer** | `app/api/join/[token]/route.ts:185-588` — legacy form-post enrolment that does NOT route through intake-v2's Tallyseal disclosure flow. |
+| **Consumer** | Downstream `Caller` + `CallerCohortMembership` + `CallerPlaybook` writes. |
+| **Data shape** | The privacy invariants I-PR1, I-PR2, I-PR3 (intake-time enforcers) DO NOT apply retroactively to callers who enrolled via the legacy join. They were enrolled under the pre-#1915 contract; that contract had no disclosure-pair requirement and no `regulatoryExpiresAt` column. Treat them as a grandfathered cohort. |
+| **Severity** | INFO. This is a declared gap, not a violation. |
+| **Detection rule** | When future enforcer code (S5a stamp, S8a voice-gate, S7 re-ack) checks `caller.createdAt`, gate on `> ENFORCEMENT_DATE` constant before blocking. Legacy callers continue under their original contract. |
+| **Test** | `tests/lib/voice/create-session.test.ts` covers `caller.createdAt < ENFORCEMENT_DATE` is NOT blocked by I-PR2 / I-PR3 enforcer checks. |
+| **Memory doc** | This row + `app/api/join/[token]/route.ts:185` JSDoc tag `@privacy-legacy-carveout`. |
+| **Audit counter** | `iPR8LegacyCallerCount` (informational — tracks shrinking cohort). |
+| **Enforcer** | Convention rule. Enforced via documentation + the `ENFORCEMENT_DATE` constant referenced by S5a/S8a/S7. |
+
+### Where the runner lives — privacy
+
+There is no single runner for §6a yet. Each invariant has its own enforcer landing in the named child of #1915:
+
+- I-PR1 / I-PR2 / I-PR3 / I-PR7 — runtime enforcers in the respective routes
+- I-PR4 — runtime enforcer deferred to a follow-on after retention purging proves stable
+- I-PR5 / I-PR6 / I-PR8 — convention enforcement today; promoted to runtime/Coverage-pillar gates when adoption sweep stories file
+
+When 3+ runtime emits land in `AppLog`, a privacy-counters runner sibling to `apps/admin/lib/pipeline/adaptive-loop-invariants.ts` becomes worth building. Not before.
+
+### Pre-change checklist — privacy
+
+When touching ANY route under `app/api/intake/*` or `lib/voice/create-session.ts` or `lib/gdpr/*`, run the privacy survey from `.claude/rules/data-retention.md` (shipped by #1920). Skipping the survey is how the 2026-06-18 audit found 5 leak routes — and zero contract rows.
+
+---
+
 ## 7. Pre-change checklist
 
 ### Adding a new producer
