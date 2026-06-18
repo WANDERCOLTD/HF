@@ -66,6 +66,13 @@ export const PROFILE_SOURCE_SPEC_SLUG = "profile-capture";
 /** AppLog subject for any field rejected by the validate-before-write guard. */
 export const PROFILE_VALIDATION_FAILED_SUBJECT = "profile.capture.validation_failed";
 
+/**
+ * Max transcript characters sent to the extraction model. Mirrors the slice in
+ * `lib/goals/extract-goals.ts`. Named here for tunability — if other EXTRACT
+ * routines start drifting, promote to a system-setting. (#1803 follow-up.)
+ */
+export const TRANSCRIPT_MAX_CHARS = 6000;
+
 export interface ExtractProfileFieldsInput {
   callId: string;
   callerId: string;
@@ -221,7 +228,7 @@ export async function extractProfileFields(
         scope: { callId },
         messages: [
           { role: "system", content: buildSystemPrompt() },
-          { role: "user", content: buildUserPrompt(profileFields, transcript, 6000) },
+          { role: "user", content: buildUserPrompt(profileFields, transcript, TRANSCRIPT_MAX_CHARS) },
         ],
         maxTokens: Math.max(512, profileFields.length * 120),
         temperature: 0,
