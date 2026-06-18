@@ -1,14 +1,27 @@
 {
   "version": "2.0",
   "description": "GENERATED FROM DATABASE - enriched BEH-* names 2026-04-16",
+  "taxonomyVersion": "v1.0",
+  "domainGroups": [
+    "behavior-core",
+    "learning-adaptation",
+    "curriculum-adaptation",
+    "personality-adaptation",
+    "supervision",
+    "companion",
+    "engagement",
+    "reinforcement",
+    "onboarding",
+    "voice-delivery"
+  ],
   "generatedAt": "2026-04-16T17:47:52.532Z",
-  "sourceOfTruth": "Parameter table in database",
+  "sourceOfTruth": "Canonical spec — DB caches this. Pre-#1946 header said \"GENERATED FROM DATABASE\"; post-#1946 the registry is HF-canonical IP and `db:seed` drives the DB in the spec→DB direction.",
   "parameters": [
     {
       "parameterId": "abstract-vs-concrete",
       "name": "Abstract Vs Concrete",
       "definition": "Visual learners prefer concrete over abstract",
-      "domainGroup": "learning_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "promptInjection": {
         "section": "STYLE",
@@ -22,42 +35,42 @@
       "parameterId": "adapt_to_feedback_style",
       "name": "Adapt to Feedback Style",
       "definition": "Adjust feedback detail based on learner preference",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "adapt_to_interaction_style",
       "name": "Adapt to Interaction Style",
       "definition": "Adjust questioning and engagement based on interaction preference",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "adapt_to_learning_style",
       "name": "Adapt to Learning Style",
       "definition": "Adjust behavior targets based on visual/auditory/reading learning style",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "adapt_to_pace_preference",
       "name": "Adapt to Pace Preference",
       "definition": "Adjust pacing and depth based on learner's preferred speed",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "adapt_to_question_frequency",
       "name": "Adapt to Question Frequency",
       "definition": "Adjust responsiveness based on how often learner asks questions",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "aggregate_profile",
       "name": "Aggregate Learner Profile",
       "definition": "Combines recent observations into stable profile attributes",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
@@ -73,7 +86,7 @@
       "parameterId": "analogy-usage",
       "name": "Analogy Usage",
       "definition": "Visual learners respond well to analogies",
-      "domainGroup": "learning_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
@@ -89,7 +102,7 @@
       "parameterId": "application_score",
       "name": "Application Score",
       "definition": "Measures learner's ability to apply concepts to new situations",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Expert Application: Applies fluently to novel situations",
       "interpretationLow": "No Application: Cannot apply concept"
@@ -107,7 +120,7 @@
       "parameterId": "B5-A",
       "name": "agreeableness",
       "definition": "Agreeableness - cooperation, trust, empathy, tendency to be helpful and avoid conflict",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Agreeable: Very accommodating; may not voice concerns; needs explicit invitation to disagree",
       "interpretationLow": "Challenging/Skeptical: Will question and push back; needs to be convinced; values their own judgment"
@@ -116,7 +129,7 @@
       "parameterId": "B5-C",
       "name": "conscientiousness",
       "definition": "Conscientiousness - organization, dependability, self-discipline, preference for planned behavior",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Conscientious: Needs detailed plans, precise information, clear expectations",
       "interpretationLow": "Flexible/Spontaneous: Prefers flexibility, may resist rigid processes, comfortable with ambiguity"
@@ -125,7 +138,7 @@
       "parameterId": "B5-E",
       "name": "extraversion",
       "definition": "Extraversion - energy, positive emotions, assertiveness, sociability, talkativeness",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Extraverted: Energized by interaction; wants rapport and engagement",
       "interpretationLow": "Introverted: Prefers focused, task-oriented interaction; may find chattiness draining"
@@ -134,7 +147,7 @@
       "parameterId": "B5-N",
       "name": "neuroticism",
       "definition": "Neuroticism - tendency to experience negative emotions, emotional reactivity, anxiety",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Anxious: Needs significant reassurance; sensitive to uncertainty; provide extra support",
       "interpretationLow": "Emotionally Stable: Calm under pressure; doesn't need much reassurance; handles stress well"
@@ -143,7 +156,7 @@
       "parameterId": "B5-O",
       "name": "openness",
       "definition": "Openness to Experience - intellectual curiosity, creativity, preference for novelty and variety",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Open: Seeks novelty, abstract thinker, creative problem-solver",
       "interpretationLow": "Traditional/Practical: Prefers familiar approaches, concrete information, proven methods"
@@ -341,7 +354,7 @@
       "parameterId": "BEH-INSIGHT-FREQUENCY",
       "name": "Insight Frequency",
       "definition": "How often the agent shares interesting knowledge, facts, anecdotes, or connections during a call",
-      "domainGroup": "companion-behavior",
+      "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Knowledge-Rich: 3+ insights per call. Actively look for opportunities to share interesting connections.",
       "interpretationLow": "Listener: Pure listening mode. Share knowledge only if directly asked."
@@ -665,14 +678,14 @@
       "parameterId": "check-for-understanding",
       "name": "Check For Understanding",
       "definition": "Rare questioners need proactive comprehension checks",
-      "domainGroup": "engagement_adaptation",
+      "domainGroup": "engagement",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "chunk-size",
       "name": "Chunk Size",
       "definition": "Frequent questioners need smaller chunks to digest",
-      "domainGroup": "engagement_adaptation",
+      "domainGroup": "engagement",
       "defaultTarget": 0.5
     },
     {
@@ -742,7 +755,7 @@
       "parameterId": "comprehension_score",
       "name": "Comprehension Score",
       "definition": "Measures learner's demonstrated understanding of concepts",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Comprehension: Can explain accurately in own words",
       "interpretationLow": "No Comprehension: Cannot demonstrate understanding"
@@ -760,14 +773,14 @@
       "parameterId": "concept-density",
       "name": "Concept Density",
       "definition": "Fast pace learners can handle more concepts at once",
-      "domainGroup": "pacing_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "concept_exposure",
       "name": "Concept Exposure Depth",
       "definition": "Measures how deeply a concept has been explored across conversations",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep Exposure: Multiple examples, contexts, and applications",
       "interpretationLow": "Minimal Exposure: Concept mentioned briefly"
@@ -839,7 +852,7 @@
       "parameterId": "directness_actual",
       "name": "Directness (Actual)",
       "definition": "Measured directness - clarity of communication, use of hedging, assertion level",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Direct: Clear assertions, no hedging",
       "interpretationLow": "Very Indirect: Evasive, overly tentative"
@@ -848,7 +861,7 @@
       "parameterId": "empathy_expression",
       "name": "Empathy Expression",
       "definition": "Measured level of empathic response to caller emotions",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Empathic: Deep emotional attunement",
       "interpretationLow": "None: Ignores emotional content"
@@ -866,7 +879,7 @@
       "parameterId": "engagement-prompts",
       "name": "Engagement Prompts",
       "definition": "Conversational learners like to be drawn into dialogue",
-      "domainGroup": "interaction_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
@@ -891,7 +904,7 @@
       "parameterId": "engagement_with_examples",
       "name": "Example Engagement",
       "definition": "How much learner engages with concrete examples vs abstract concepts",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Example-Driven: Learns best through concrete examples",
       "interpretationLow": "Abstract-Focused: Comfortable with abstract concepts"
@@ -900,28 +913,28 @@
       "parameterId": "error-elaboration",
       "name": "Error Elaboration",
       "definition": "Detailed feedback learners want thorough error explanations",
-      "domainGroup": "feedback_adaptation",
+      "domainGroup": "reinforcement",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "example-richness",
       "name": "Example Richness",
       "definition": "Visual learners benefit from concrete examples",
-      "domainGroup": "learning_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "explanation-depth",
       "name": "Explanation Depth",
       "definition": "Reading learners can handle detailed explanations",
-      "domainGroup": "learning_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "exploration_structure",
       "name": "Exploration vs Structure Balance",
       "definition": "Measured balance between exploratory tangents and structured progression",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Exploratory: Follows curiosity, many tangents",
       "interpretationLow": "Highly Structured: Rigid agenda, no tangents"
@@ -939,7 +952,7 @@
       "parameterId": "formality_actual",
       "name": "Formality (Actual)",
       "definition": "Measured formality level - vocabulary sophistication, sentence structure, register",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Formal: Professional, structured, sophisticated vocabulary",
       "interpretationLow": "Very Casual: Informal, colloquial"
@@ -948,7 +961,7 @@
       "parameterId": "formality-level",
       "name": "Formality Level",
       "definition": "Conversational learners prefer informal tone",
-      "domainGroup": "interaction_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
@@ -973,7 +986,7 @@
       "parameterId": "insight_quality",
       "name": "Insight Quality",
       "definition": "Whether shared insights are relevant, brief, conversational, and genuinely interesting",
-      "domainGroup": "companion-behavior",
+      "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Excellent: Insights feel like a well-read friend sharing something they just thought of — brief, relevant, delightful",
       "interpretationLow": "Poor: Insights are irrelevant, too long, or feel like Wikipedia dumps"
@@ -1027,7 +1040,7 @@
       "parameterId": "module_introduction",
       "name": "Module Introduction Status",
       "definition": "Tracks whether and when a curriculum module was introduced to the learner",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fully Introduced: All core concepts presented",
       "interpretationLow": "Mentioned: Topic referenced but not taught"
@@ -1036,7 +1049,7 @@
       "parameterId": "module_mastery",
       "name": "Module Mastery Level",
       "definition": "Overall mastery assessment combining comprehension and application",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Expert: Can teach others, handle edge cases",
       "interpretationLow": "Beginner: Still learning fundamentals"
@@ -1072,7 +1085,7 @@
       "parameterId": "pace_indicators",
       "name": "Learning Pace Signals",
       "definition": "Signals about whether learner wants to speed up or slow down",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Requests Faster: Learner wants to move faster",
       "interpretationLow": "Needs Slower: Learner needs more time"
@@ -1081,7 +1094,7 @@
       "parameterId": "pacing_actual",
       "name": "Pacing (Actual)",
       "definition": "Measured pacing - response length, information density, conversation tempo",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast/Dense: Rapid, information-rich responses",
       "interpretationLow": "Slow/Sparse: Very measured, minimal density"
@@ -1090,7 +1103,7 @@
       "parameterId": "pause-for-questions",
       "name": "Pause For Questions",
       "definition": "Frequent questioners need space to ask",
-      "domainGroup": "engagement_adaptation",
+      "domainGroup": "engagement",
       "defaultTarget": 0.5
     },
     {
@@ -1115,7 +1128,7 @@
       "parameterId": "prerequisite_check",
       "name": "Prerequisite Readiness",
       "definition": "Checks if prerequisites are met before advancing",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Ready: All prerequisites at competent+ level",
       "interpretationLow": "Not Ready: Prerequisites need more work"
@@ -1124,7 +1137,7 @@
       "parameterId": "question_asking_rate",
       "name": "Question Asking Rate",
       "definition": "How frequently learner asks questions during instruction",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Question Frequency: Learner prefers interactive, conversational style",
       "interpretationLow": "Low Question Frequency: Learner prefers direct instruction or self-directed exploration"
@@ -1151,7 +1164,7 @@
       "parameterId": "repetition-frequency",
       "name": "Repetition Frequency",
       "definition": "Slow pace learners benefit from repetition",
-      "domainGroup": "pacing_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
@@ -1167,7 +1180,7 @@
       "parameterId": "response_length_preference",
       "name": "Response Length Preference",
       "definition": "Whether learner engages more with short or detailed explanations",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Prefers Detailed: Engages more with comprehensive explanations",
       "interpretationLow": "Prefers Concise: Responds better to brief, focused explanations"
@@ -1194,7 +1207,7 @@
       "parameterId": "review_status",
       "name": "Review Status Tracking",
       "definition": "Tracks spaced retrieval schedule and review eligibility for curriculum units",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Review Current: Recently reviewed, mastery stable or improving",
       "interpretationLow": "Urgent Review: Mastery declining or significantly overdue"
@@ -1212,14 +1225,14 @@
       "parameterId": "scaffolding",
       "name": "Scaffolding",
       "definition": "Guided learners need structured support",
-      "domainGroup": "interaction_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
       "parameterId": "socratic-questioning",
       "name": "Socratic Questioning",
       "definition": "Conversational learners engage well with questions",
-      "domainGroup": "interaction_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5
     },
     {
@@ -1289,7 +1302,7 @@
       "parameterId": "VARK-A",
       "name": "auditory_modality",
       "definition": "Auditory learning preference - processing information through listening, verbal discussion, rhythm, and sound-based language",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Auditory: Auditory processing is primary mode - everything through verbal dialogue and sound",
       "interpretationLow": "Low Auditory: Verbal-heavy teaching may be ineffective - use other modalities"
@@ -1298,7 +1311,7 @@
       "parameterId": "VARK-K",
       "name": "kinesthetic_modality",
       "definition": "Kinesthetic learning preference - processing information through physical experience, practice, emotions, and embodied understanding",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Kinesthetic: Experiential processing is primary mode - everything through doing and feeling",
       "interpretationLow": "Low Kinesthetic: Experiential approaches may not be necessary - theoretical explanation works"
@@ -1307,7 +1320,7 @@
       "parameterId": "VARK-PROFILE",
       "name": "multimodal_profile",
       "definition": "Classification of learner's multimodal profile based on relative strengths across all four modalities",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Quadmodal: All modalities strong - vary approaches freely",
       "interpretationLow": "Unimodal: Single dominant modality - strongly favor that approach"
@@ -1316,7 +1329,7 @@
       "parameterId": "VARK-R",
       "name": "reading_writing_modality",
       "definition": "Reading/Writing learning preference - processing information through written text, lists, definitions, and structured prose",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Read/Write: Text-based processing is primary mode - structure everything as organized prose/lists",
       "interpretationLow": "Low Read/Write: Text-heavy teaching unlikely to resonate - use verbal or experiential"
@@ -1325,7 +1338,7 @@
       "parameterId": "VARK-V",
       "name": "visual_modality",
       "definition": "Visual learning preference - processing information through mental imagery, spatial relationships, diagrams, and visual metaphors",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Visual: Visual processing is primary mode - structure everything spatially with vivid imagery",
       "interpretationLow": "Low Visual: Visual approaches unlikely to resonate - use other modalities"
@@ -1343,7 +1356,7 @@
       "parameterId": "warmth_actual",
       "name": "Warmth (Actual)",
       "definition": "Measured warmth level in agent's communication - emotional tone, friendliness, care",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Warm: Highly friendly, emotionally engaged",
       "interpretationLow": "Cold: Detached, impersonal"
