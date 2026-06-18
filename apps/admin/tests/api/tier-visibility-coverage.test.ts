@@ -72,31 +72,21 @@ interface ExemptEntry {
 /**
  * Tier-sensitive routes that don't yet have a redactor. Each entry
  * documents what's deferred. Ratchet drops as redactors ship.
+ *
+ * 2026-06-18: All 5 confirmed leak routes wired with redactors in
+ * PR #1922 (S2a of epic #1915):
+ *   - skills-evidence → redactSkillsEvidenceForTier
+ *   - lo-mastery      → redactLoMasteryForTier
+ *   - uplift          → redactUpliftForTier
+ *   - memories        → redactMemoriesForTier
+ *   - insights        → redactInsightsForTier
+ * EXPECTED_EXEMPT_COUNT dropped from 5 to 0. The structural enforcer
+ * (`hf-rbac/require-tiered-redactor` ESLint rule) now keeps them
+ * honest via the `@tieredVisibility` JSDoc tag on each route.
  */
-const TIER_VISIBILITY_EXEMPT: Record<string, ExemptEntry> = {
-  "callers/[callerId]/skills-evidence/route.ts": {
-    reason:
-      "Returns reasoning text + analysisSpecName + evidenceQuality + scoredBy. STUDENT-tier should see learner-evidence excerpts only. Needs redactSkillsEvidenceForTier.",
-  },
-  "callers/[callerId]/lo-mastery/route.ts": {
-    reason:
-      "Returns mastery (0-1 numeric) + tier + bandLabel. STUDENT-tier should see categorical status only (mastered / in_progress / not_started). Needs redactLoMasteryForTier.",
-  },
-  "callers/[callerId]/uplift/route.ts": {
-    reason:
-      "Returns callScores with confidence + hasLearnerEvidence + reasoning. STUDENT-tier should see engagement signals only. Needs redactUpliftForTier.",
-  },
-  "callers/[callerId]/memories/route.ts": {
-    reason:
-      "Returns confidence + evidence + decayFactor (operator-only adaptive signal). STUDENT-tier should see memory categories only. Needs redactMemoriesForTier.",
-  },
-  "callers/[callerId]/insights/route.ts": {
-    reason:
-      "Returns recommendation + reason (tutor's internal reasoning). STUDENT-tier should see high-level categories only. Needs redactInsightsForTier.",
-  },
-};
+const TIER_VISIBILITY_EXEMPT: Record<string, ExemptEntry> = {};
 
-const EXPECTED_EXEMPT_COUNT = 5;
+const EXPECTED_EXEMPT_COUNT = 0;
 
 // ────────────────────────────────────────────────────────────
 // Detection

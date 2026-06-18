@@ -30,6 +30,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { resolveCallerIdentityIds } from "@/lib/agent-tuner/write-target";
+import { resolveParameterIds } from "@/lib/registry/resolve";
 
 export type EffectiveBehaviorTargetSourceScope = "SYSTEM" | "PLAYBOOK" | "CALLER";
 
@@ -105,17 +106,72 @@ export async function getEffectiveBehaviorTargetsForCaller(
 
   // ── Merge ──────────────────────────────────────────────────────────────
   // Union of parameterIds touched by any layer.
-  const parameterIds = new Set<string>([
+  const rawParameterIds = new Set<string>([
     ...systemByParam.keys(),
     ...playbookByParam.keys(),
     ...callerByParam.keys(),
   ]);
 
+  // #1949 — alias resolution + deprecation filter (TL Finding CC-1).
+  //
+  // Pre-#1949 the cascade returned values keyed by whatever raw
+  // parameterId sat on the BehaviorTarget row, including:
+  //   (a) ids that have been aliased (loser of a dedup merge, kept as
+  //       alias on the winner's row); and
+  //   (b) ids whose Parameter row is `deprecatedAt != null`.
+  // Neither case should reach the composed prompt.
+  //
+  // Resolve each raw id through `resolveParameterId`:
+  //   - if it matches an alias, fold its layer values onto the canonical id
+  //   - if the canonical row is deprecated, skip the entire entry
+  //   - if the raw id is unknown, pass through (defensive — operator
+  //     may have authored a brand-new id before the registry seed runs)
+  const aliasResolved = await resolveParameterIds(Array.from(rawParameterIds));
+
+  /** Per-canonical-id merged layer values. */
+  const mergedByCanon = new Map<
+    string,
+    {
+      systemValue: number | null;
+      playbookValue: number | null;
+      callerValue: number | null;
+    }
+  >();
+  for (const rawId of rawParameterIds) {
+    const resolution = aliasResolved.get(rawId);
+    // Skip deprecated rows — operator deprecated the param; downstream
+    // consumers should NOT see its value flow through to the prompt.
+    if (resolution && resolution.found && resolution.deprecatedAt !== null) {
+      continue;
+    }
+    const canonicalId = resolution?.canonicalId ?? rawId;
+    const existing = mergedByCanon.get(canonicalId) ?? {
+      systemValue: null,
+      playbookValue: null,
+      callerValue: null,
+    };
+    // Fold raw-id layer values onto the canonical id. When two raw ids
+    // (loser alias + canonical) both have a layer value, the higher
+    // value wins — same MAX semantics as the multi-identity caller
+    // merge above. Mirrors the most-favourable-override rule.
+    const sysIn = systemByParam.get(rawId);
+    if (sysIn !== undefined) {
+      existing.systemValue = Math.max(existing.systemValue ?? sysIn, sysIn);
+    }
+    const pbIn = playbookByParam.get(rawId);
+    if (pbIn !== undefined) {
+      existing.playbookValue = Math.max(existing.playbookValue ?? pbIn, pbIn);
+    }
+    const cIn = callerByParam.get(rawId);
+    if (cIn !== undefined) {
+      existing.callerValue = Math.max(existing.callerValue ?? cIn, cIn);
+    }
+    mergedByCanon.set(canonicalId, existing);
+  }
+
   const out: EffectiveBehaviorTarget[] = [];
-  for (const parameterId of parameterIds) {
-    const systemValue = systemByParam.get(parameterId) ?? null;
-    const playbookValue = playbookByParam.get(parameterId) ?? null;
-    const callerValue = callerByParam.get(parameterId) ?? null;
+  for (const [parameterId, layers] of mergedByCanon) {
+    const { systemValue, playbookValue, callerValue } = layers;
 
     let effectiveValue: number;
     let sourceScope: EffectiveBehaviorTargetSourceScope;

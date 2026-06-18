@@ -194,6 +194,8 @@ Three structural patterns, in order of preference:
 | `tier-visibility-coverage.md` | `tests/api/tier-visibility-coverage.test.ts` (#1855) | ✅ PROTECTED |
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
 | `fixture-type-coverage.md` | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | ✅ PROTECTED |
+| `privacy-redaction.md` | ESLint `require-tiered-redactor` + `tier-visibility-coverage` (#1855) — same enforcer as `response-redaction.md`; this file is the privacy-specific framing | ✅ PROTECTED (5 leak ratchet, #1922) |
+| `data-retention.md` | `lib/privacy/stamp-regulatory-expiry.ts` chokepoint (#1917) + retention cron + `apps/admin/scripts/check-fk-consistency.ts` Query 12 | ✅ PROTECTED (3 voice paths adopted; 8 lower-priority writers adopt as touched) |
 | `vm-migration-lock.md` | `scripts/vm-migrate.sh` wrapper + session-start check | ✅ PROTECTED |
 | `pipeline-and-prompt.md` | `qmd search` mandate + docs cross-ref | ⚠️ CONVENTION-ONLY |
 | `database-patterns.md` | Author discipline | ⚠️ CONVENTION-ONLY |
@@ -205,6 +207,20 @@ Three structural patterns, in order of preference:
 |---|---|---|---|---|---|---|
 | Pipeline-stage output → learner-facing sanitiser | pipeline output strings | `app/api/student/scheduler-decision` + SCHEDULER_REASONS constant | ✅ PROTECTED | `epic-100-chain-walk.md` Link L1 (2026-05-27) + #923 / PR #924 + tests | — | Regex guard blocks log-prefix strings; read-side sanitizer + stale guard |
 | Composed prompt → ComposedPrompt persistence | `lib/prompt/composition/persist.ts` | `Call.usedPromptId` FK + `next call read` | ✅ PROTECTED | `docs/CHAIN-CONTRACTS.md` Link 3 (Session boundary I-CT2 cascade) + atomic create-session helper | — | Most-recent-active ComposedPrompt resolution cascade |
+
+### Privacy / consent (epic #1915)
+
+| Chain | Producer | Consumer | Status | Gate | Severity | Notes |
+|---|---|---|---|---|---|---|
+| I-PR1 Intake-v2 disclosure delivery atomicity | `app/api/intake/bootstrap/route.ts:115-137` (best-effort today) | `tallyseal_disclosure` rows + audit-bundle reads | ❌ GAP | — | HIGH | Disclosure writes outside the intake-state tx. #1919 lands `opts?: { tx }` adoption when Tallyseal Ask #2 ships. CHAIN-CONTRACTS.md §6a I-PR1. |
+| I-PR2 Voice consent before recorded `Call` | `lib/voice/create-session.ts::createSession` | `tallyseal_disclosure` ack for `voice-call-recording` | ❌ GAP | — | HIGH | Copy authored at `lib/intake/copy/voice-call-recording.v0.1.0-rc.1.mdx` only when #1918 lands. Lazy gate, not blocking modal. CHAIN-CONTRACTS.md §6a I-PR2. |
+| I-PR3 `Call.regulatoryExpiresAt` stamp at create-time | `createSession` + 4 sibling writers | `POST /api/admin/retention/cleanup` purge WHERE | ❌ GAP | — | HIGH | Migration + stamp + NULL backfill discipline lands in #1917. Column name discipline pins `regulatoryExpiresAt` not `expiresAt` (collision with `CallerMemory.expiresAt`). CHAIN-CONTRACTS.md §6a I-PR3. |
+| I-PR4 Compose must not read expired transcript | composition transforms | `ComposedPrompt.prompt` | ❌ GAP | — | MED | Runtime detection deferred to follow-on after retention purging stabilises. Cleanup-cron purged rows are the load-bearing enforcer until then. CHAIN-CONTRACTS.md §6a I-PR4. |
+| I-PR5 Caller-scoped PII read → `resolveCallerScopeForReading` | GET routes accepting `?callerId=` + admitting STUDENT+ | Prisma `where` clause | ⚠️ PARTIAL | `tests/lib/learner-scope.test.ts` (#977, 9 cases) | MED | Helper exists + wired into 3 routes. Coverage-pillar gate ensuring new routes adopt is a follow-on. CHAIN-CONTRACTS.md §6a I-PR5. |
+| I-PR6 PII erasure cascades via `delete-caller-data.ts` | `DELETE /api/callers/[id]` + admin retention cleanup | 22 cascading tables | ✅ PROTECTED | `lib/gdpr/delete-caller-data.ts` runtime + existing tests | — | ESLint rule blocking `prisma.caller.delete` outside the helper is a Coverage follow-on. CHAIN-CONTRACTS.md §6a I-PR6. |
+| I-PR7 Mixed-tier route → `@tieredVisibility` + redactor | `app/api/**/route.ts` returning mixed-tier payload | `eslint-rules/require-tiered-redactor.mjs` + `tests/api/tier-visibility-coverage.test.ts` | ⚠️ PARTIAL | ESLint rule + ratchet at 5 exempt | HIGH (5 known leaks) | Sibling row exists under RBAC / API. Listed here for the privacy cross-cut. #1922 wires the 5 redactors; #1923 adds preset-aware layer. CHAIN-CONTRACTS.md §6a I-PR7. |
+| I-PR8 Legacy `/api/join/[token]` retroactive-enforcement carve-out | `app/api/join/[token]/route.ts:185-588` | n/a (declared gap) | INFO | Convention + `ENFORCEMENT_DATE` constant referenced by future enforcers | — | Grandfathered cohort under pre-#1915 contract. Not a violation. CHAIN-CONTRACTS.md §6a I-PR8. |
+| I-PR9 Encrypted columns → `lib/crypto/envelope.ts` chokepoint | Any code path writing/reading a column declared encrypted per ADR `docs/decisions/2026-06-13-pii-encryption-scope.md` | `lib/crypto/envelope.ts::encryptColumn` / `decryptColumn` | ⚠️ PARTIAL | `lib/crypto/envelope.ts` chokepoint (#1977) + `lib/config.ts` prod-safety guard + per-column ESLint rules (#1978, #1980 pending) | HIGH (no encrypted columns wired yet) | Privacy II epic #1976. Substrate ships in #1977; first column adoption in #1978 (`VoiceProvider.credentials`). CHAIN-CONTRACTS.md §6a I-PR9. |
 
 ## Verified gaps (HIGH-severity to-do)
 

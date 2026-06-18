@@ -1,5 +1,5 @@
 /**
- * resolve-module-source-refs.ts (#1850 P3f)
+ * resolve-module-source-refs.ts (#1850 P3f + P3g)
  *
  * @canonical-doc docs/CONTENT-PIPELINE.md §"Per-module YAML settings blocks"
  *
@@ -9,8 +9,10 @@
  * strings (`source:<id>`) instead of resolved structured values:
  *   - `cueCardPool`               (e.g. `source:cue-card-bank-v1`)
  *   - `scaffoldPool`              (e.g. `source:stall-scaffolds-monologue`)
- *   - `profileFieldsToCapture`    (e.g. `[reason, targetBand, …]` shortform —
- *      not a source-ref today; deferred to P3g, see below)
+ *   - `profileFieldsToCapture`    (e.g. `source:ielts-speaking-profile-fields`,
+ *      P3g — was an inline shortlist `[reason, targetBand, …]` pre-P3g
+ *      which the runtime filter at `extract-profile-fields.ts:362-378`
+ *      dropped silently because each entry lacked `prompt` + `type`.)
  *
  * This module IS the resolver stage. Given the per-module YAML output
  * (as it would appear pre-skip — the caller re-parses raw YAML and
@@ -33,14 +35,7 @@
  *
  * Pure (no Prisma, no network); injectable file reader for tests.
  *
- * The `profileFieldsToCapture` field is intentionally NOT resolved here
- * — the v2.3 fixture supplies it as an inline shortlist
- * (`[reason, targetBand, timeline, selfLevel]`) without per-key prompt
- * + type metadata, and the source file doesn't exist on disk yet. P3g
- * will introduce a profile-fields-source markdown convention and the
- * matching parser. The resolver leaves the field unset on this PR.
- *
- * Issue #1850 P3f.
+ * Issue #1850 P3f + P3g.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -55,7 +50,9 @@ import {
 } from "./parse-content-sources";
 import {
   parseCueCardBank,
+  parseProfileFields,
   parseStallScaffolds,
+  parseTopicPool,
 } from "./parse-source-content";
 
 // ── YAML-block source-ref extractor ──────────────────────────────────
@@ -159,6 +156,13 @@ export function extractSourceRefsFromYamlBlocks(
 const RESOLVABLE_FIELDS = new Set<keyof AuthoredModuleSettings>([
   "cueCardPool",
   "scaffoldPool",
+  // #1932 (epic #1931 Template Authority) — Part 1 / Part 3 question
+  // banks. Source format `topic-pool` (Part 1 `## Frame N — Topic`
+  // shape) OR `theme-pool` (Part 3 `## Theme: X / ### Set N` shape).
+  // Both formats normalise to `Array<{ topic, questions[] }>` via
+  // `parseTopicPool` in `parse-source-content.ts`.
+  "topicPool",
+  "profileFieldsToCapture",
 ]);
 
 /** Injectable file reader so the resolver is unit-testable without disk. */
@@ -258,6 +262,32 @@ function parseByFormat(
     }
     return { ok: true, value: items, itemCount: items.length };
   }
+  if (field === "topicPool") {
+    // Accept "topic-pool" (Part 1 `## Frame N — Topic`) AND "theme-pool"
+    // (Part 3 `## Theme: X / ### Set N — Title`). Both formats normalise
+    // to `Array<{ topic, questions[] }>` inside `parseTopicPool`.
+    if (normalisedFormat !== "topic-pool" && normalisedFormat !== "theme-pool") {
+      return { ok: false, reason: `unexpected format "${format}" for topicPool` };
+    }
+    const topics = parseTopicPool(fileText);
+    if (topics.length === 0) {
+      return { ok: false, reason: "topic-pool parser produced 0 topics" };
+    }
+    return { ok: true, value: topics, itemCount: topics.length };
+  }
+  if (field === "profileFieldsToCapture") {
+    if (normalisedFormat !== "structured-md") {
+      return {
+        ok: false,
+        reason: `unexpected format "${format}" for profileFieldsToCapture`,
+      };
+    }
+    const items = parseProfileFields(fileText);
+    if (items.length === 0) {
+      return { ok: false, reason: "profile-fields parser produced 0 items" };
+    }
+    return { ok: true, value: items, itemCount: items.length };
+  }
   return { ok: false, reason: `no parser registered for field "${field}"` };
 }
 
@@ -297,7 +327,7 @@ export function resolveModuleSourceRefs(
     for (const [field, sourceRefValue] of fieldRefs) {
       if (!RESOLVABLE_FIELDS.has(field)) {
         // Field exists in YAML but isn't one we know how to inline
-        // (e.g. `topicPool: source:…` — not in AuthoredModuleSettings).
+        // — leave it for a future resolver pass.
         continue;
       }
       // Affirm the value-shape is what we expect (defensive — the

@@ -153,6 +153,13 @@ interface LLMPrompt {
     } | null;
     /** #1735 (epic #1730 G8 consumer D) — first-time orientation line. */
     module_orientation_line?: { line: string; directive: string } | null;
+    /** #1932 (epic #1931 Template Authority) — module-scoped topic pool. */
+    module_topic_pool?: {
+      kind: "topicPool";
+      topic: string;
+      questions: string[];
+      directive: string;
+    } | null;
   };
   /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close). */
   offboarding?: {
@@ -470,6 +477,15 @@ export function renderProviderPrompt(
   if (cueCard?.directive) {
     parts.push("");
     parts.push(cueCard.directive);
+  }
+  // #1932 (epic #1931 Template Authority) — module-scoped topic pool.
+  // Deterministic per-call pick from topicPool. Parallel to cueCardPool
+  // but emits a TOPIC LIBRARY directive (questions, not bullets) for
+  // student-led practice modules (Part 1 frames, Part 3 themes).
+  const topicPool = llmPrompt.instructions?.module_topic_pool;
+  if (topicPool?.directive) {
+    parts.push("");
+    parts.push(topicPool.directive);
   }
   // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
   // Surfaces the summary line + the per-criterion scoreboard from the

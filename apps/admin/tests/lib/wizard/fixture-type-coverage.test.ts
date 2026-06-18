@@ -65,8 +65,6 @@ const FIXTURE_KEY_EXEMPT: Record<string, string> = {
     "per-module whitelist of scoring criteria (e.g. [FC, LR, GRA, Pron]). Type addition deferred — pairs with Theme 6 segmentKey work.",
   scoreReadoutMode:
     "per-module score readout policy (on-screen / end-of-module-on-screen / aloud). Type addition deferred — paired with Mock Results screen.",
-  topicPool:
-    "module-scoped topic pool source reference (Part 1 / Part 3 question banks). Type addition deferred — pairs with cueCardPool semantics rework.",
 };
 
 /** `AuthoredModuleSettings` type members deliberately not exercised by any
@@ -74,7 +72,10 @@ const FIXTURE_KEY_EXEMPT: Record<string, string> = {
 const TYPE_MEMBER_EXEMPT: Record<string, string> = {};
 
 /** Pin current state; new additions fail CI until consciously bumped. */
-const EXPECTED_FIXTURE_KEY_EXEMPT_COUNT = 5;
+// #1932 (epic #1931 S0): dropped from 5 → 4 — `topicPool` joined
+// `AuthoredModuleSettings` with a full type + registry + consumer
+// + resolver wiring; it is no longer exempt.
+const EXPECTED_FIXTURE_KEY_EXEMPT_COUNT = 4;
 const EXPECTED_TYPE_MEMBER_EXEMPT_COUNT = 0;
 
 // ────────────────────────────────────────────────────────────────────

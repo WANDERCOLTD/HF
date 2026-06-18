@@ -23,10 +23,10 @@
  *   the section shipped, the Help modal didn't know, and the AI assistant
  *   answered "I don't see that section" when users asked about it.
  *
- *   `tests/lib/page-help.test.ts` enforces this for the Design tab by
- *   parsing `CourseDesignTab.tsx` and asserting every `<CollapsibleCard
- *   title="X">` has a matching entry in `tabs.find(design).sections[]`.
- *   Mirror the test for new tabbed pages that grow named sections.
+ *   `tests/lib/page-help.test.ts` previously enforced this for the
+ *   Design tab by parsing `CourseDesignTab.tsx`. P5 (#1850) retired the
+ *   Design tab + the freshness guard with it; mirror the test for new
+ *   tabbed pages that grow named sections.
  */
 
 export interface PageHelp {
@@ -156,34 +156,13 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
         about: "Source files and the extracted assertions that drive what the AI teaches.",
         whenToUse: "When you want to add new material or check what the AI has actually learned from your uploads.",
       },
-      {
-        id: "design",
-        label: "Design",
-        about: "Welcome flow, session flow, Progress Signals acknowledgements, first-session behaviour, tolerances, and skill banding — the shape of how a learner experiences the course. Tolerances cover the mastery threshold (how high a learner has to score before the AI moves on), retrieval cadence (how often the AI fires recall questions), and memory decay scale (how fast prior-call memories fade).",
-        whenToUse: "When you want to change how sessions begin, what's acknowledged mid-call, how Call 1 behaves differently from later calls, who the course is for, or how strict the AI is about mastery before advancing.",
-        sections: [
-          {
-            title: "Session Flow",
-            about: "Canonical session-flow editor — before / during / after phases, intake, NPS, welcome. Absorbed from the retired Session Flow tab.",
-          },
-          {
-            title: "Progress Signals",
-            about: "Mid-call acknowledgement cues + structured offboarding summary. Lets the AI say 'here's what we covered today' before hanging up so learners feel forward motion. Internally referred to as the Felt Progress epic (#779, #780, #784, #790, #795).",
-          },
-          {
-            title: "Call 1 / First Session",
-            about: "First-session-only behaviour: firstCallMode preset, behaviour-target overrides for the opening call, and a course-ref preview of what the AI will say.",
-          },
-          {
-            title: "Tolerances",
-            about: "Course-default Mastery Threshold (how high a learner scores before the AI advances), Retrieval Cadence Override (how often recall questions fire), and Memory Decay Scale (how fast prior-call memories fade). The per-learner Mastery Threshold override lives in PromptTunerSidebar on the caller page.",
-          },
-          {
-            title: "Skill Banding",
-            about: "Per-course tier-mapping override for skill scoring. Lets a course use a stricter or gentler banding curve than the system default.",
-          },
-        ],
-      },
+      // P5 (#1850): Design tab retired. Every lens now lives elsewhere:
+      //   Session Flow / Welcome / Intake / Onboarding / Stops /
+      //   Offboarding → Journey tab.
+      //   Progress Signals / Call 1 mode / First-call targets → Teaching tab.
+      //   Tolerances / Skill Banding → Scoring tab.
+      //   Module visibility → Modules tab.
+      //   Voice Flow lens (already retired in #1708) → Voice tab.
       {
         id: "curriculum",
         label: "Curriculum",
@@ -232,7 +211,7 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
     ],
     chords: [
       { keys: "C", action: "callback", callbackId: "tab:intelligence", label: "Content tab" },
-      { keys: "D", action: "callback", callbackId: "tab:design", label: "Design tab" },
+      // P5 (#1850): 'D' for Design chord retired with the tab.
       { keys: "U", action: "callback", callbackId: "tab:curriculum", label: "Curriculum tab (cUrriculum)" },
       { keys: "E", action: "callback", callbackId: "tab:learners", label: "Learners tab (Enrolled)" },
       { keys: "P", action: "callback", callbackId: "tab:proof", label: "Proof Points tab" },

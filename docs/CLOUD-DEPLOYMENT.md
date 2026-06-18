@@ -337,12 +337,12 @@ All envs live in the same GCP project (`hf-admin-prod`, region `europe-west2`). 
 | **pilot** | `pilot.humanfirstfoundation.com` | `hf-admin-pilot` | `DATABASE_URL_PILOT` | `hf_pilot` | `hf-seed-pilot` | `hf-migrate-pilot` |
 | **prod** | `app.humanfirstfoundation.com` | `hf-admin-prod` | `DATABASE_URL_PROD` | `hf_prod` | `hf-seed-prod` | `hf-migrate-prod` |
 
-### Current state (as of #726 Phase 1 complete)
+### Current state (as of 2026-06-18 — Phase 3 complete; Phase 4 partial)
 
 | Env | Status | Notes |
 |-----|--------|-------|
-| **sandbox** (VM) | ✅ alive | Still uses `hf_dev` DB until Phase 3 renames to `hf_sandbox` |
-| **staging** | 🟡 transitional | Cloud Run `hf-admin-dev` is alive at `dev.humanfirstfoundation.com`; renames to `hf-admin-staging` at `staging.humanfirstfoundation.com` in Phase 4 |
+| **sandbox** (VM) | ✅ alive | `hf-dev` VM uses `hf_sandbox` DB (Phase 3 done 2026-06-07) |
+| **staging** | 🟡 transitional | Cloud Run service is still named `hf-admin-dev`, public URL still `dev.humanfirstfoundation.com`. **DB binding:** historically bound to `DATABASE_URL_SANDBOX` (shared with the VM). **2026-06-18 stable-DEV rebuild:** clean `hf_staging` rebuilt with 7 PUBLISHED playbooks (IELTS Speaking, Big Five, Intro to Psychology, Spot the Spin, 3 CIO/CTO variants) + 4 institutions + 5 SUPERADMIN users + 0 callers. Pivot via `/db-route staging staging` re-binds Cloud Run to `DATABASE_URL_STAGING`. Service rename + DNS cut to `staging.humanfirstfoundation.com` remain Phase 4 work. |
 | **pilot** | ⏳ to be provisioned | Phase 5 — old `hf-admin-test` + `hf_test` DB killed in Phase 1 |
 | **prod** | ⏳ to be provisioned | Phase 6 — old `hf-admin` + `hf` DB + `lab.humanfirstfoundation.com` killed in Phase 1 (prod was broken/unused) |
 
@@ -353,7 +353,7 @@ All envs live in the same GCP project (`hf-admin-prod`, region `europe-west2`). 
 | **Cloud SQL** | `hf-db` — PostgreSQL 16, db-f1-micro, private IP only (172.23.0.3). Separate databases per env. **Automated daily backups enabled 2026-05-24** (14 retained, 7-day PITR, start time 02:00). |
 | **VPC Connector** | `hf-connector` — bridges Cloud Run → Cloud SQL |
 | **Artifact Registry** | `europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/` |
-| **Secrets Manager** | `DATABASE_URL_SANDBOX` (VM dev), `DATABASE_URL_STAGING` (hf-admin-dev Cloud Run, has A3 pool params), `AUTH_SECRET`, `HF_SUPERADMIN_TOKEN`, `ANTHROPIC_API_KEY`, `INTERNAL_API_SECRET`, `OPENAI_API_KEY`. (`DATABASE_URL_DEV` was deleted 2026-06-07 — renamed to `_STAGING` per the Phase 4 cutover.) |
+| **Secrets Manager** | `DATABASE_URL_SANDBOX` (VM + Cloud Run `hf-admin-dev` pre-pivot), `DATABASE_URL_STAGING` (Cloud Run `hf-admin-dev` post-pivot; A3 pool params), `AUTH_SECRET`, `HF_SUPERADMIN_TOKEN`, `ANTHROPIC_API_KEY`, `INTERNAL_API_SECRET`, `OPENAI_API_KEY`. (`DATABASE_URL_DEV` was deleted 2026-06-07.) Use `/db-route` to switch the Cloud Run binding atomically without rebuild. |
 | **Cloudflare Worker** | `still-cake-1d83` (canonical router) — see [CLOUDFLARE-WORKER-ROUTING.md](./CLOUDFLARE-WORKER-ROUTING.md) |
 | **Cloudflare Tunnel** | `00d2c2cc-...` on hf-dev VM — currently dead weight, may be decommissioned |
 

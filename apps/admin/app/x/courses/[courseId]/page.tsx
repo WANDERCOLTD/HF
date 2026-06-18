@@ -24,7 +24,6 @@ import { getAudienceOption } from '@/lib/prompt/composition/transforms/audience'
 import type { InteractionPattern } from '@/lib/content-trust/resolve-config';
 import { CourseWhoTab } from './CourseWhoTab';
 import { CourseGoalsTab } from './CourseGoalsTab';
-import { CourseDesignTab } from './CourseDesignTab';
 import { CourseJourneyTab } from '@/components/journey-tab/CourseJourneyTab';
 import { CourseTeachingTab } from '@/components/teaching-tab/CourseTeachingTab';
 import { CourseScoringTab } from '@/components/scoring-tab/CourseScoringTab';
@@ -154,10 +153,13 @@ type SessionTabData = {
 
 import { SectionHeader } from './SectionHeader';
 
-const VALID_TABS = ['journey', 'teaching', 'scoring', 'modules', 'intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'skills', 'voice', 'settings',
-  // Legacy tab IDs — redirected in handleTabChange
-  'overview', 'genome', 'audience', 'session-flow',
-];
+// P5 (#1850): tab redirects + initial-tab resolver moved to
+// `./_lib/tab-redirects.ts` so the unit test for ?tab=design redirect
+// behaviour can run without importing this 'use client' module.
+import {
+  LEGACY_TAB_REDIRECTS,
+  resolveInitialTab,
+} from './_lib/tab-redirects';
 
 const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
   draft: 'draft',
@@ -212,8 +214,10 @@ export default function CourseDetailPage() {
   const tabFromUrl = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<string>(
     // #1697 Phase 4: Journey tab is the new default landing surface.
-    // Existing Design tab kept (amber chip) until parity reached.
-    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'journey'
+    // P5 (#1850): Design tab retired — legacy ?tab=design is mapped
+    // through `resolveInitialTab` so deep links land on Journey instead
+    // of a blank panel.
+    resolveInitialTab(tabFromUrl)
   );
 
   // Sessions tab
@@ -251,11 +255,11 @@ export default function CourseDetailPage() {
   const [unassignedSearch, setUnassignedSearch] = useState('');
   const [dragMediaId, setDragMediaId] = useState<string | null>(null);
 
-  // Course setup readiness (reported from CourseSetupTracker via Design tab)
-  const [setupReadiness, setSetupReadiness] = useState<{ completedCount: number; allComplete: boolean } | null>(null);
-  const handleReadinessChange = useCallback((count: number, all: boolean) => {
-    setSetupReadiness(prev => (prev?.completedCount === count && prev?.allComplete === all) ? prev : { completedCount: count, allComplete: all });
-  }, []);
+  // P5 (#1850): course-setup-readiness pip used to be sourced from the
+  // Design tab's `<CourseSetupTracker>` callback. With the Design tab
+  // retired, the pip's data feed is severed; the hero badge is removed
+  // until a follow-on wires the tracker into the Journey tab. Removing
+  // the state + callback prevents the dead-code lint warning.
 
   // #418 — which curriculum source is in effect (authored vs derived).
   // Loaded once from setup-status so the header chip and the curriculum
@@ -416,18 +420,9 @@ export default function CourseDetailPage() {
     { id: 'scoring', label: <TabWithHelp tabId="scoring">Scoring</TabWithHelp>, icon: <Calculator size={14} /> },
     { id: 'modules', label: <TabWithHelp tabId="modules">Modules</TabWithHelp>, icon: <Layers size={14} /> },
     { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Content</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
-    {
-      id: 'design',
-      label: (
-        <TabWithHelp tabId="design">
-          Design
-          <span className="hf-journey-amber-chip" title="Retiring — will be removed when Journey reaches parity">
-            retiring
-          </span>
-        </TabWithHelp>
-      ),
-      icon: <Wand2 size={14} />,
-    },
+    // P5 (#1850): Design tab retired — every lens now lives on Journey /
+    // Teaching / Scoring / Voice / Modules tabs. Legacy deep links flow
+    // through `LEGACY_TAB_REDIRECTS` → 'journey'.
     { id: 'curriculum', label: <TabWithHelp tabId="curriculum">Curriculum</TabWithHelp>, icon: <GraduationCap size={14} /> },
     { id: 'learners', label: <TabWithHelp tabId="learners">Learners</TabWithHelp>, icon: <Users2 size={14} /> },
     { id: 'proof', label: <TabWithHelp tabId="proof">Proof Points</TabWithHelp>, icon: <BarChart3 size={14} /> },
@@ -443,11 +438,15 @@ export default function CourseDetailPage() {
     ...(isOperator ? [{ id: 'settings', label: <TabWithHelp tabId="settings">Settings</TabWithHelp>, icon: <SettingsIcon size={14} /> }] : []),
   ], [totalSources, isOperator]);
 
-  // Sync active tab from URL on popstate (browser back/forward)
+  // Sync active tab from URL on popstate (browser back/forward).
+  // P5 (#1850): route legacy ids through `resolveInitialTab` so a
+  // back-button navigation to ?tab=design doesn't leave the user staring
+  // at a blank panel.
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && VALID_TABS.includes(tabParam) && tabParam !== activeTab) {
-      setActiveTab(tabParam);
+    const resolved = resolveInitialTab(tabParam);
+    if (resolved !== activeTab) {
+      setActiveTab(resolved);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -465,14 +464,11 @@ export default function CourseDetailPage() {
 
   // ── Tab change: lazy load lesson plan data ──
   const handleTabChange = useCallback((tab: string) => {
-    // URL compat: redirect retired tab IDs to their new homes
-    const TAB_REDIRECTS: Record<string, string> = {
-      sessions: 'design', onboarding: 'design', overview: 'design',
-      // #1697 Phase 4: `journey` is now a real tab, not an alias for design.
-      genome: 'intelligence', audience: 'design',
-      content: 'intelligence', 'session-flow': 'design',
-    };
-    const resolvedTab = TAB_REDIRECTS[tab] ?? tab;
+    // URL compat: redirect retired tab IDs to their new homes.
+    // P5 (#1850): `design` retired → `journey`. Other Design-era aliases
+    // (sessions/onboarding/overview/audience/session-flow) also resolve to
+    // Journey since that is where their content lives post-retirement.
+    const resolvedTab = LEGACY_TAB_REDIRECTS[tab] ?? tab;
     setActiveTab(resolvedTab);
     // Sync tab to URL for browser back/forward
     const params = new URLSearchParams(window.location.search);
@@ -487,7 +483,11 @@ export default function CourseDetailPage() {
     // each other's response. Previously these were fire-and-forget siblings
     // but were sequenced one after another in source order; making the
     // concurrency explicit cuts ~600ms off Design-tab open time.
-    if ((resolvedTab === 'design' || resolvedTab === 'learners' || resolvedTab === 'curriculum') && sessions === null && !sessionsLoading) {
+    // P5 (#1850): 'design' is no longer reachable here — handler-side
+    // redirect maps it to 'journey' before this check runs. Kept the
+    // 'learners' / 'curriculum' branches (sessions endpoint feeds the
+    // curriculum tree + learner progress columns).
+    if ((resolvedTab === 'learners' || resolvedTab === 'curriculum') && sessions === null && !sessionsLoading) {
       setSessionsLoading(true);
       setSessionsError(null);
       fetch(`/api/courses/${courseId}/sessions?includeProgress=true`)
@@ -550,7 +550,7 @@ export default function CourseDetailPage() {
   // ── Load session data when landing on a tab that needs it via URL ──
   useEffect(() => {
     if (!courseId || sessions !== null || sessionsLoading) return;
-    if (!['design', 'learners', 'curriculum'].includes(activeTab)) return;
+    if (!['learners', 'curriculum'].includes(activeTab)) return;
     handleTabChange(activeTab);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, activeTab, handleTabChange]);
@@ -1260,13 +1260,9 @@ export default function CourseDetailPage() {
         </div>
         <div className="cd-hero-pills">
           <StatusBadge status={statusMap[detail.status.toLowerCase()] || 'draft'} />
-          {setupReadiness && (
-            <span className={`cd-readiness-pip ${setupReadiness.allComplete ? 'cd-readiness-pip--ready' : 'cd-readiness-pip--progress'}`}
-              title={setupReadiness.allComplete ? 'Ready to teach' : `Setup: ${setupReadiness.completedCount} of 6`}
-            >
-              {setupReadiness.allComplete ? 'Ready' : `${setupReadiness.completedCount}/6`}
-            </span>
-          )}
+          {/* P5 (#1850): readiness pip removed — its data source (the
+              Design tab's <CourseSetupTracker> callback) is retired.
+              Re-mount when a future tab wires the tracker. */}
           <ProgressionModePill
             modulesAuthored={(detail.config as Record<string, unknown> | null | undefined)?.modulesAuthored as boolean | null | undefined}
             onClickWhenUnset={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
@@ -1796,25 +1792,21 @@ export default function CourseDetailPage() {
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* DESIGN TAB                                     */}
+      {/* DESIGN TAB — RETIRED P5 (#1850)                */}
+      {/*                                                 */}
+      {/* Every Design lens now has a home:               */}
+      {/*  - intake / onboarding / stops / offboarding /  */}
+      {/*    welcome → Journey tab (CourseJourneyTab)     */}
+      {/*  - call1Mode / firstCallTargets / progressSignals */}
+      {/*    → Teaching tab                               */}
+      {/*  - tolerances / skillBanding → Scoring tab      */}
+      {/*  - moduleVisibility → Modules tab               */}
+      {/*  - Voice Flow lens (already retired in #1708)   */}
+      {/*    → Voice tab                                  */}
+      {/*  - Preview lens → mounted by Journey tab        */}
+      {/*  - agentTunerNlp → placeholder (see #1276),     */}
+      {/*    standalone AgentTuner still used in wizard   */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'design' && (
-        <CourseDesignTab
-          courseId={courseId!}
-          playbookConfig={detail?.config as Record<string, unknown> | null | undefined}
-          detail={detail ? { id: detail.id, name: detail.name, status: detail.status, config: detail.config, domain: detail.domain, publishedAt: detail.publishedAt, version: parseInt(detail.version || '1', 10) } : null}
-          subjects={subjects}
-          persona={persona}
-          sessionPlan={sessions?.plan ? { estimatedSessions: sessions.plan.estimatedSessions, totalDurationMins: totalSessionDuration, generatedAt: sessions.plan.generatedAt } : null}
-          sessions={sessions}
-          onSimCall={() => setShowSimModal(true)}
-          instructionTotal={instructionTotal}
-          categoryCounts={categoryCounts}
-          contentMethods={contentMethods}
-          onNavigate={handleTabChange}
-          onReadinessChange={handleReadinessChange}
-        />
-      )}
 
 
       {/* ═══════════════════════════════════════════════ */}
