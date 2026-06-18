@@ -64,3 +64,5 @@ export function stampRegulatoryExpiry({
   const base = now ?? new Date();
   return new Date(base.getTime() + days * 86400000);
 }
+
+// #1917 — re-trigger CI 2026-06-18 (GH Actions stuck on this branch)
