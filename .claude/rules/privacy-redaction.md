@@ -126,3 +126,4 @@ will pin the deferred work; `broken-windows` agent surfaces the TODO.
   consent matrix row for this rule
 - [`docs/kb/guard-registry.md`](../../docs/kb/guard-registry.md) —
   registry row for `require-tiered-redactor` + `tier-visibility-coverage`
+
