@@ -244,6 +244,42 @@ The two subsets are disjoint — no field is written by both. **Wizard never aut
 
 **Scope:** projection applies only to courses **created on or after 2026-05-12**. The `sourceContentId` FKs ship as nullable; existing rows are not backfilled. Legacy courses retain whatever Goals / BehaviorTargets / CurriculumModule rows they have (typically: none from this path).
 
+#### Per-module YAML settings blocks (#1850, v2.3 template)
+
+Course-ref authors declare per-module G8 settings — `minSpeakingSec`, `questionTarget`, `closingLine`, `firstTimeOrientationLine`, `scheduledCues` — via a fenced YAML block following each module's `#### Module N — <Label> — Settings` heading. The Course Reference Template v2.3 fixture (`apps/admin/lib/wizard/__tests__/fixtures/course-reference-ielts-v2.3.md`) is the canonical example.
+
+**Block shape:**
+
+````markdown
+#### Module 3 — Part 2: Cue Card Monologues — Settings
+
+```yaml
+moduleId: part2
+appliesTo: [exam, structured]
+settings:
+  minSpeakingSec: 120
+  questionTarget: { min: 1, target: 1 }
+  closingLine: |
+    That's the end of Part 2. Take a moment, then we'll move on.
+  firstTimeOrientationLine: |
+    In Part 2 you'll speak for two minutes on a single cue card. ...
+  scheduledCues:
+    - { at: 45, text: "15 seconds left" }
+    - { at: 60, text: "Your two minutes start now" }
+```
+````
+
+**Contract:**
+- `moduleId:` is **required** at the YAML top level — the parser maps the block to a module by id, NOT by heading position. Reordering the headings is safe.
+- Field names match `AuthoredModuleSettings` (`lib/types/json-fields.ts`). The doc-form `module<Field>` prefix (e.g. `moduleClosingLine`) is accepted — the parser strips it. Both `closingLine` and `moduleClosingLine` map to the same schema key.
+- Unknown fields warn-and-skip (other fields in the same block still emit).
+- Non-schema fields known to live in the doc (`appliesTo`, `prepSilenceSec`, `incompleteThresholdSec`, `scoringCriteria`, `scoreReadoutMode`, `topicPool`, plus source-ref shapes for `cueCardPool` / `scaffoldPool` / `profileFieldsToCapture`) are skipped silently — these are not part of the per-module settings surface and live elsewhere in the pipeline.
+- CIO/CTO-style conversational courses don't need these blocks. The G8 settings are exam/structured-only — non-exam courses ignore them entirely (the wizard's `examShape` declaration controls whether the projector emits them).
+
+**Parser:** `lib/wizard/detect-module-settings.ts::detectModuleSettings(bodyText, knownModuleIds)`. Returns `Map<moduleId, Partial<AuthoredModuleSettings>>`. Called from `detectAuthoredModules` to populate `AuthoredModule.settings` end-to-end.
+
+**Manual-edit-wins:** The backfill script (`scripts/backfill-module-settings-from-course-ref.ts`) and the wizard projector preserve any setting already on `module.settings`. Manual edits via the Module Inspector trump re-projection — the YAML block fills in the gaps, never overwrites.
+
 ### Phase 3: Classification (LO audience)
 
 `lib/content-trust/classify-lo.ts` — heuristic regex first, LLM fallback. Each LO gets a `systemRole` from `LoSystemRole` enum.
