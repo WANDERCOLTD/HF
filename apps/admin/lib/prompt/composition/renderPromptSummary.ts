@@ -216,6 +216,10 @@ export const DEFAULT_RENDER_CAPABILITIES: VoiceProviderCapabilities = {
   supportsProactiveSpeech: true,
   // #1337 — Mirrors VAPI (vendor-cloud) which is the only live provider.
   orchestrationMode: "vendor-cloud",
+  // #1908 — Mirrors VAPI's full mid-call capability set.
+  supportsCustomLLMProxy: true,
+  supportsInBandSystemMessage: true,
+  supportsHandoff: true,
 };
 
 /**

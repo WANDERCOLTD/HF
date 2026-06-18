@@ -401,6 +401,32 @@ export interface VoiceProviderCapabilities {
    *  their fine-grained meaning for vendor-cloud providers; they're
    *  ignored on the self-hosted path. */
   orchestrationMode: "vendor-cloud" | "self-hosted-agent";
+  /**
+   * #1908 — VP forwards every learner turn to HF's LLM proxy
+   * (`/api/voice/llm-proxy/chat/completions`) as an OpenAI-compatible
+   * request. When true, HF controls the system message every turn
+   * and can inject per-turn directives (e.g. #1906 CURRENT FOCUS)
+   * without any provider-specific PATCH/handoff plumbing. When false,
+   * the orchestrator falls back to `supportsInBandSystemMessage` or
+   * graceful end-and-restart.
+   */
+  supportsCustomLLMProxy: boolean;
+  /**
+   * #1908 — VP supports server-initiated insertion of a `role:"system"`
+   * message into the live conversation history (VAPI controlUrl
+   * `add-message`). Useful for live nudges that need to land WITHOUT a
+   * full LLM-proxy roundtrip. When the orchestrator can't use
+   * `supportsCustomLLMProxy`, this is the next-best mid-call lever.
+   */
+  supportsInBandSystemMessage: boolean;
+  /**
+   * #1908 — VP supports mid-call handoff to a different assistant with
+   * audio continuity (VAPI `handoff` controlUrl op or squad-handoff
+   * tool). When true, the orchestrator can swap the entire assistant
+   * config without dropping the call. When false, switching assistants
+   * requires a graceful end + new-call cycle (~2s gap).
+   */
+  supportsHandoff: boolean;
 }
 
 /**

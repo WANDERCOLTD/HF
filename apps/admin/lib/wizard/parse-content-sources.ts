@@ -13,6 +13,8 @@
  * Source block format (v2.3 fixture):
  *
  *   ### Source 2 — Part 2 cue card bank
+ *   ### Source 2a — Part 2 cue card bank (Mock)
+ *   ### Source 2b — Part 2 cue card bank (Baseline)
  *
  *   A bank of Part 2 cue cards in the standard IELTS structure ...
  *
@@ -66,8 +68,15 @@ export interface ParsedContentSources {
 // ── Detection ────────────────────────────────────────────────────────
 
 const SECTION_HEADER = /^##\s+Content\s+Sources\s*$/im;
-/** Matches `### Source N — Title`. Captures the full header text. */
-const SOURCE_HEADER = /^###\s+(Source\s+\d+\s*[—–-].+)$/i;
+/**
+ * Matches `### Source N — Title` or `### Source Na — Title`. Captures the
+ * full header text. The optional single lowercase letter suffix (e.g. `2a`,
+ * `6b`, `7c`) lets a parent source split into related sub-sources that route
+ * to different consumers — for example `Source 2a` (Mock cue card bank) and
+ * `Source 2b` (Baseline cue card bank). Sibling numbering preserves the
+ * semantic relationship that flat renumbering (Source 9 / 10 / 11) loses.
+ */
+const SOURCE_HEADER = /^###\s+(Source\s+\d+[a-z]?\s*[—–-].+)$/i;
 /** Heading of any depth that ends a source block (excluding our own ### Source rows). */
 const ANY_HEADING = /^#{1,6}\s/;
 
