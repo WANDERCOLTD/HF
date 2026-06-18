@@ -20,7 +20,7 @@
   "sourceOfTruth": "Canonical spec — DB caches this. Pre-#1946 header said \"GENERATED FROM DATABASE\"; post-#1946 the registry is HF-canonical IP and `db:seed` drives the DB in the spec→DB direction.",
   "parameters": [
     {
-      "parameterId": "abstract-vs-concrete",
+      "parameterId": "BEH-ABSTRACT-VS-CONCRETE",
       "name": "Abstract Vs Concrete",
       "definition": "Visual learners prefer concrete over abstract",
       "domainGroup": "learning-adaptation",
@@ -31,21 +31,30 @@
         "templateLow": "Favour concrete examples (specific, hands-on, observable) over abstract reasoning.",
         "templateHigh": "Lean into abstract reasoning (principles, generalisations) before concrete examples.",
         "threshold": 0.5
-      }
+      },
+      "aliases": [
+        "abstract-vs-concrete"
+      ]
     },
     {
-      "parameterId": "adapt_to_feedback_style",
+      "parameterId": "BEH-ADAPT-TO-FEEDBACK-STYLE",
       "name": "Adapt to Feedback Style",
       "definition": "Adjust feedback detail based on learner preference",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "adapt_to_feedback_style"
+      ]
     },
     {
-      "parameterId": "adapt_to_interaction_style",
+      "parameterId": "BEH-ADAPT-TO-INTERACTION-STYLE",
       "name": "Adapt to Interaction Style",
       "definition": "Adjust questioning and engagement based on interaction preference",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "adapt_to_interaction_style"
+      ]
     },
     {
       "parameterId": "adapt_to_learning_style",
@@ -64,27 +73,36 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "adapt_to_question_frequency",
+      "parameterId": "BEH-ADAPT-TO-QUESTION-FREQUENCY",
       "name": "Adapt to Question Frequency",
       "definition": "Adjust responsiveness based on how often learner asks questions",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "adapt_to_question_frequency"
+      ]
     },
     {
-      "parameterId": "aggregate_profile",
+      "parameterId": "BEH-AGGREGATE-PROFILE",
       "name": "Aggregate Learner Profile",
       "definition": "Combines recent observations into stable profile attributes",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "aggregate_profile"
+      ]
     },
     {
-      "parameterId": "agreeableness_adaptation",
+      "parameterId": "BEH-AGREEABLENESS-ADAPTATION",
       "name": "Agreeableness Adaptation Target",
       "definition": "Warmth and directness based on caller's agreeableness: high = warm cooperative, low = direct honest",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Warm Cooperative: Friendly, harmony-focused, relationship-building",
-      "interpretationLow": "Direct Honest: Straightforward, efficient, no-nonsense"
+      "interpretationLow": "Direct Honest: Straightforward, efficient, no-nonsense",
+      "aliases": [
+        "agreeableness_adaptation"
+      ]
     },
     {
       "parameterId": "analogy-usage",
@@ -94,22 +112,28 @@
       "defaultTarget": 0.5
     },
     {
-      "parameterId": "application_adaptation",
+      "parameterId": "BEH-APPLICATION-ADAPTATION",
       "name": "Practice vs Explanation Target",
       "definition": "Activity balance based on application ability: high = more practice, low = more explanation",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Application: Ready for complex practice",
-      "interpretationLow": "Weak Application: More explanation before practice"
+      "interpretationLow": "Weak Application: More explanation before practice",
+      "aliases": [
+        "application_adaptation"
+      ]
     },
     {
-      "parameterId": "application_score",
+      "parameterId": "BEH-APPLICATION-SCORE",
       "name": "Application Score",
       "definition": "Measures learner's ability to apply concepts to new situations",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Expert Application: Applies fluently to novel situations",
-      "interpretationLow": "No Application: Cannot apply concept"
+      "interpretationLow": "No Application: Cannot apply concept",
+      "aliases": [
+        "application_score"
+      ]
     },
     {
       "parameterId": "auditory_adaptation",
@@ -122,49 +146,64 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "B5-A",
+      "parameterId": "BEH-B5-A",
       "name": "agreeableness",
       "definition": "Agreeableness - cooperation, trust, empathy, tendency to be helpful and avoid conflict",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Agreeable: Very accommodating; may not voice concerns; needs explicit invitation to disagree",
-      "interpretationLow": "Challenging/Skeptical: Will question and push back; needs to be convinced; values their own judgment"
+      "interpretationLow": "Challenging/Skeptical: Will question and push back; needs to be convinced; values their own judgment",
+      "aliases": [
+        "B5-A"
+      ]
     },
     {
-      "parameterId": "B5-C",
+      "parameterId": "BEH-B5-C",
       "name": "conscientiousness",
       "definition": "Conscientiousness - organization, dependability, self-discipline, preference for planned behavior",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Conscientious: Needs detailed plans, precise information, clear expectations",
-      "interpretationLow": "Flexible/Spontaneous: Prefers flexibility, may resist rigid processes, comfortable with ambiguity"
+      "interpretationLow": "Flexible/Spontaneous: Prefers flexibility, may resist rigid processes, comfortable with ambiguity",
+      "aliases": [
+        "B5-C"
+      ]
     },
     {
-      "parameterId": "B5-E",
+      "parameterId": "BEH-B5-E",
       "name": "extraversion",
       "definition": "Extraversion - energy, positive emotions, assertiveness, sociability, talkativeness",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Extraverted: Energized by interaction; wants rapport and engagement",
-      "interpretationLow": "Introverted: Prefers focused, task-oriented interaction; may find chattiness draining"
+      "interpretationLow": "Introverted: Prefers focused, task-oriented interaction; may find chattiness draining",
+      "aliases": [
+        "B5-E"
+      ]
     },
     {
-      "parameterId": "B5-N",
+      "parameterId": "BEH-B5-N",
       "name": "neuroticism",
       "definition": "Neuroticism - tendency to experience negative emotions, emotional reactivity, anxiety",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Anxious: Needs significant reassurance; sensitive to uncertainty; provide extra support",
-      "interpretationLow": "Emotionally Stable: Calm under pressure; doesn't need much reassurance; handles stress well"
+      "interpretationLow": "Emotionally Stable: Calm under pressure; doesn't need much reassurance; handles stress well",
+      "aliases": [
+        "B5-N"
+      ]
     },
     {
-      "parameterId": "B5-O",
+      "parameterId": "BEH-B5-O",
       "name": "openness",
       "definition": "Openness to Experience - intellectual curiosity, creativity, preference for novelty and variety",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Open: Seeks novelty, abstract thinker, creative problem-solver",
-      "interpretationLow": "Traditional/Practical: Prefers familiar approaches, concrete information, proven methods"
+      "interpretationLow": "Traditional/Practical: Prefers familiar approaches, concrete information, proven methods",
+      "aliases": [
+        "B5-O"
+      ]
     },
     {
       "parameterId": "BEH-ABSTRACT-OK",
@@ -693,13 +732,16 @@
       "interpretationLow": "Verbal Only: Teaches entirely through conversation without written supplements"
     },
     {
-      "parameterId": "call_frequency_adaptation",
+      "parameterId": "BEH-CALL-FREQUENCY-ADAPTATION",
       "name": "Call Frequency Target",
       "definition": "Continuity approach based on time since last call: frequent callers = maintain continuity, infrequent = context refresh",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Frequent Caller: Maintain continuity, build on previous session",
-      "interpretationLow": "Returning After Break: Provide context refresh, welcome back warmly"
+      "interpretationLow": "Returning After Break: Provide context refresh, welcome back warmly",
+      "aliases": [
+        "call_frequency_adaptation"
+      ]
     },
     {
       "parameterId": "check-for-understanding",
@@ -709,92 +751,122 @@
       "defaultTarget": 0.5
     },
     {
-      "parameterId": "chunk-size",
+      "parameterId": "BEH-CHUNK-SIZE",
       "name": "Chunk Size",
       "definition": "Frequent questioners need smaller chunks to digest",
       "domainGroup": "engagement",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "chunk-size"
+      ]
     },
     {
-      "parameterId": "communication_complexity_adaptation",
+      "parameterId": "BEH-COMMUNICATION-COMPLEXITY-ADAPTATION",
       "name": "Communication Complexity Target",
       "definition": "Vocabulary and sentence complexity target based on caller's demonstrated language level",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Advanced Communication: Match their intellectual level, use precise terminology",
-      "interpretationLow": "Simple Communication: Use clear, simple language without jargon"
+      "interpretationLow": "Simple Communication: Use clear, simple language without jargon",
+      "aliases": [
+        "communication_complexity_adaptation"
+      ]
     },
     {
-      "parameterId": "COMP-DEPTH-PREFERENCE",
+      "parameterId": "BEH-DEPTH-PREFERENCE",
       "name": "Depth Preference",
       "definition": "Whether the person wants surface chat or deep intellectual exploration",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep: Wants deep discussion, analysis, nuance, complexity",
-      "interpretationLow": "Light: Prefers lighter conversation, social connection, simple topics"
+      "interpretationLow": "Light: Prefers lighter conversation, social connection, simple topics",
+      "aliases": [
+        "COMP-DEPTH-PREFERENCE"
+      ]
     },
     {
-      "parameterId": "COMP-ENERGY",
+      "parameterId": "BEH-ENERGY",
       "name": "Conversational Energy",
       "definition": "The energy level and stamina shown during the conversation",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Energy: Alert, energetic, wants to continue talking, lots to share",
-      "interpretationLow": "Low Energy: Tired, shorter responses, may need gentler pacing or wrap-up"
+      "interpretationLow": "Low Energy: Tired, shorter responses, may need gentler pacing or wrap-up",
+      "aliases": [
+        "COMP-ENERGY"
+      ]
     },
     {
-      "parameterId": "COMP-ENGAGEMENT",
+      "parameterId": "BEH-ENGAGEMENT",
       "name": "Intellectual Engagement",
       "definition": "How intellectually engaged and stimulated the person is in the conversation",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Engagement: Deeply engaged, asking thoughtful questions, making connections, enjoying the exchange",
-      "interpretationLow": "Low Engagement: Distracted, giving short answers, not pursuing topics"
+      "interpretationLow": "Low Engagement: Distracted, giving short answers, not pursuing topics",
+      "aliases": [
+        "COMP-ENGAGEMENT"
+      ]
     },
     {
-      "parameterId": "COMP-MOOD",
+      "parameterId": "BEH-MOOD",
       "name": "Emotional Tone",
       "definition": "The emotional tone and wellbeing signals in the conversation",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Positive Mood: Positive, warm, enjoying the interaction, sharing freely",
-      "interpretationLow": "Low Mood: Withdrawn, flat affect, brief responses, possible loneliness signals"
+      "interpretationLow": "Low Mood: Withdrawn, flat affect, brief responses, possible loneliness signals",
+      "aliases": [
+        "COMP-MOOD"
+      ]
     },
     {
-      "parameterId": "composite_reward",
+      "parameterId": "BEH-COMPOSITE-REWARD",
       "name": "Composite Reward Signal",
       "definition": "Weighted combination of all reward signals for overall optimization",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Excellent Outcome: Highly successful interaction",
-      "interpretationLow": "Neutral Outcome: Acceptable but unremarkable"
+      "interpretationLow": "Neutral Outcome: Acceptable but unremarkable",
+      "aliases": [
+        "composite_reward"
+      ]
     },
     {
-      "parameterId": "comprehension_adaptation",
+      "parameterId": "BEH-COMPREHENSION-ADAPTATION",
       "name": "Comprehension-Based Scaffolding Target",
       "definition": "Scaffolding intensity based on comprehension: low comprehension = heavy scaffolding, high = minimal",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Comprehension: Minimal scaffolding needed",
-      "interpretationLow": "Weak Comprehension: Heavy scaffolding required"
+      "interpretationLow": "Weak Comprehension: Heavy scaffolding required",
+      "aliases": [
+        "comprehension_adaptation"
+      ]
     },
     {
-      "parameterId": "comprehension_score",
+      "parameterId": "BEH-COMPREHENSION-SCORE",
       "name": "Comprehension Score",
       "definition": "Measures learner's demonstrated understanding of concepts",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Comprehension: Can explain accurately in own words",
-      "interpretationLow": "No Comprehension: Cannot demonstrate understanding"
+      "interpretationLow": "No Comprehension: Cannot demonstrate understanding",
+      "aliases": [
+        "comprehension_score"
+      ]
     },
     {
-      "parameterId": "COMP-REMINISCENCE",
+      "parameterId": "BEH-REMINISCENCE",
       "name": "Reminiscence Mode",
       "definition": "Whether the person is in a mood to share memories and life experiences",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Reminiscence Mode: Sharing stories, reflecting on past, connecting present to history",
-      "interpretationLow": "Present-Focused: Focused on present/future, not drawing on past experiences"
+      "interpretationLow": "Present-Focused: Focused on present/future, not drawing on past experiences",
+      "aliases": [
+        "COMP-REMINISCENCE"
+      ]
     },
     {
       "parameterId": "concept-density",
@@ -804,40 +876,52 @@
       "defaultTarget": 0.5
     },
     {
-      "parameterId": "concept_exposure",
+      "parameterId": "BEH-CONCEPT-EXPOSURE",
       "name": "Concept Exposure Depth",
       "definition": "Measures how deeply a concept has been explored across conversations",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep Exposure: Multiple examples, contexts, and applications",
-      "interpretationLow": "Minimal Exposure: Concept mentioned briefly"
+      "interpretationLow": "Minimal Exposure: Concept mentioned briefly",
+      "aliases": [
+        "concept_exposure"
+      ]
     },
     {
-      "parameterId": "conscientiousness_adaptation",
+      "parameterId": "BEH-CONSCIENTIOUSNESS-ADAPTATION",
       "name": "Conscientiousness Adaptation Target",
       "definition": "Structure and detail level based on caller's conscientiousness: high = organized details, low = flexible overview",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Structured Detail: Organized, detailed, action-oriented responses",
-      "interpretationLow": "Flexible Overview: Big picture focus, adaptable, less rigid"
+      "interpretationLow": "Flexible Overview: Big picture focus, adaptable, less rigid",
+      "aliases": [
+        "conscientiousness_adaptation"
+      ]
     },
     {
-      "parameterId": "context_setting_quality",
+      "parameterId": "BEH-CONTEXT-SETTING-QUALITY",
       "name": "Context Setting Quality",
       "definition": "Effectiveness of setting expectations for the relationship",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Clear Expectations: Caller knows what to expect",
-      "interpretationLow": "No Context: Caller may be unsure what to expect"
+      "interpretationLow": "No Context: Caller may be unsure what to expect",
+      "aliases": [
+        "context_setting_quality"
+      ]
     },
     {
-      "parameterId": "CONV_DOM",
+      "parameterId": "BEH-CONV-DOM",
       "name": "conversation_dominance",
       "definition": "Ratio indicating who controls the conversation flow - caller vs agent",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Caller Dominant: Caller controlling flow - ensure agent provides needed guidance",
-      "interpretationLow": "Agent Dominant: Agent controlling conversation - create space for caller input"
+      "interpretationLow": "Agent Dominant: Agent controlling conversation - create space for caller input",
+      "aliases": [
+        "CONV_DOM"
+      ]
     },
     {
       "parameterId": "CONV_PACE",
@@ -850,31 +934,40 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "CP-004",
+      "parameterId": "BEH-COGNITIVE-ACTIVATION",
       "name": "cognitive_activation",
       "definition": "Composite measure of caller's mental engagement and cognitive load during conversation",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Activated: Strong cognitive engagement - can introduce complexity",
-      "interpretationLow": "Disengaged: Caller showing minimal cognitive investment - simplify and re-engage"
+      "interpretationLow": "Disengaged: Caller showing minimal cognitive investment - simplify and re-engage",
+      "aliases": [
+        "CP-004"
+      ]
     },
     {
-      "parameterId": "crisis_detection_score",
+      "parameterId": "BEH-CRISIS-DETECTION-SCORE",
       "name": "Crisis Detection Score",
       "definition": "Detects potential crisis indicators requiring immediate escalation",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Crisis Indicators: IMMEDIATE ESCALATION - Human intervention required",
-      "interpretationLow": "No Crisis Detected: Conversation appears safe"
+      "interpretationLow": "No Crisis Detected: Conversation appears safe",
+      "aliases": [
+        "crisis_detection_score"
+      ]
     },
     {
-      "parameterId": "default_targets_quality",
+      "parameterId": "BEH-DEFAULT-TARGETS-QUALITY",
       "name": "Default Behavior Targets",
       "definition": "Quality of initial behavior target defaults for new callers",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Well Calibrated: Defaults appropriate for caller type",
-      "interpretationLow": "Poor Defaults: May create bad first impression"
+      "interpretationLow": "Poor Defaults: May create bad first impression",
+      "aliases": [
+        "default_targets_quality"
+      ]
     },
     {
       "parameterId": "directness_actual",
@@ -897,54 +990,72 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "engagement_adaptation",
+      "parameterId": "BEH-ENGAGEMENT-ADAPTATION",
       "name": "Engagement Level Target",
       "definition": "Content depth and complexity target based on caller engagement: high engagement = deeper content, low engagement = re-engage or simplify",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Engagement: Increase depth and complexity, encourage exploration",
-      "interpretationLow": "Low Engagement: Simplify, re-engage, or check for issues"
+      "interpretationLow": "Low Engagement: Simplify, re-engage, or check for issues",
+      "aliases": [
+        "engagement_adaptation"
+      ]
     },
     {
-      "parameterId": "engagement-prompts",
+      "parameterId": "BEH-ENGAGEMENT-PROMPTS",
       "name": "Engagement Prompts",
       "definition": "Conversational learners like to be drawn into dialogue",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "engagement-prompts"
+      ]
     },
     {
-      "parameterId": "engagement_reward",
+      "parameterId": "BEH-ENGAGEMENT-REWARD",
       "name": "Engagement Reward",
       "definition": "Reward signal based on caller engagement improvement relative to their baseline",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Positive: Significantly increased engagement",
-      "interpretationLow": "Positive: Moderate engagement improvement"
+      "interpretationLow": "Positive: Moderate engagement improvement",
+      "aliases": [
+        "engagement_reward"
+      ]
     },
     {
-      "parameterId": "engagement_trend_score",
+      "parameterId": "BEH-ENGAGEMENT-TREND-SCORE",
       "name": "Engagement Trend Score",
       "definition": "Monitors engagement trends across sessions to detect disengagement patterns",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Stable/Rising: Engagement maintained or improving",
-      "interpretationLow": "Significant Decline: Engagement dropping - intervention needed"
+      "interpretationLow": "Significant Decline: Engagement dropping - intervention needed",
+      "aliases": [
+        "engagement_trend_score"
+      ]
     },
     {
-      "parameterId": "engagement_with_examples",
+      "parameterId": "BEH-ENGAGEMENT-WITH-EXAMPLES",
       "name": "Example Engagement",
       "definition": "How much learner engages with concrete examples vs abstract concepts",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Example-Driven: Learns best through concrete examples",
-      "interpretationLow": "Abstract-Focused: Comfortable with abstract concepts"
+      "interpretationLow": "Abstract-Focused: Comfortable with abstract concepts",
+      "aliases": [
+        "engagement_with_examples"
+      ]
     },
     {
-      "parameterId": "error-elaboration",
+      "parameterId": "BEH-ERROR-ELABORATION",
       "name": "Error Elaboration",
       "definition": "Detailed feedback learners want thorough error explanations",
       "domainGroup": "reinforcement",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "error-elaboration"
+      ]
     },
     {
       "parameterId": "example-richness",
@@ -954,29 +1065,38 @@
       "defaultTarget": 0.5
     },
     {
-      "parameterId": "explanation-depth",
+      "parameterId": "BEH-EXPLANATION-DEPTH",
       "name": "Explanation Depth",
       "definition": "Reading learners can handle detailed explanations",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "explanation-depth"
+      ]
     },
     {
-      "parameterId": "exploration_structure",
+      "parameterId": "BEH-EXPLORATION-STRUCTURE",
       "name": "Exploration vs Structure Balance",
       "definition": "Measured balance between exploratory tangents and structured progression",
       "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Exploratory: Follows curiosity, many tangents",
-      "interpretationLow": "Highly Structured: Rigid agenda, no tangents"
+      "interpretationLow": "Highly Structured: Rigid agenda, no tangents",
+      "aliases": [
+        "exploration_structure"
+      ]
     },
     {
-      "parameterId": "extraversion_adaptation",
+      "parameterId": "BEH-EXTRAVERSION-ADAPTATION",
       "name": "Extraversion Adaptation Target",
       "definition": "Energy and conversational style based on caller's extraversion: high = energetic dialogue, low = measured pace",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Energetic Dialogue: Dynamic, enthusiastic, expressive conversation",
-      "interpretationLow": "Measured Pace: Quieter, space-giving, reflective style"
+      "interpretationLow": "Measured Pace: Quieter, space-giving, reflective style",
+      "aliases": [
+        "extraversion_adaptation"
+      ]
     },
     {
       "parameterId": "formality_actual",
@@ -997,31 +1117,40 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "goal_discovery_quality",
+      "parameterId": "BEH-GOAL-DISCOVERY-QUALITY",
       "name": "Goal Discovery Quality",
       "definition": "Effectiveness of understanding caller's objectives in first call",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Clear Goals: Caller's objectives well understood",
-      "interpretationLow": "Unclear Goals: Need more discovery in future sessions"
+      "interpretationLow": "Unclear Goals: Need more discovery in future sessions",
+      "aliases": [
+        "goal_discovery_quality"
+      ]
     },
     {
-      "parameterId": "goal_progress_reward",
+      "parameterId": "BEH-GOAL-PROGRESS-REWARD",
       "name": "Goal Progress Reward",
       "definition": "Reward signal based on progress toward caller's defined learning or engagement goals",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Significant Progress: Major advancement toward goals",
-      "interpretationLow": "Minor Progress: Small steps forward"
+      "interpretationLow": "Minor Progress: Small steps forward",
+      "aliases": [
+        "goal_progress_reward"
+      ]
     },
     {
-      "parameterId": "insight_quality",
+      "parameterId": "BEH-INSIGHT-QUALITY",
       "name": "Insight Quality",
       "definition": "Whether shared insights are relevant, brief, conversational, and genuinely interesting",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Excellent: Insights feel like a well-read friend sharing something they just thought of — brief, relevant, delightful",
-      "interpretationLow": "Poor: Insights are irrelevant, too long, or feel like Wikipedia dumps"
+      "interpretationLow": "Poor: Insights are irrelevant, too long, or feel like Wikipedia dumps",
+      "aliases": [
+        "insight_quality"
+      ]
     },
     {
       "parameterId": "kinesthetic_adaptation",
@@ -1034,85 +1163,112 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "learning_progress_score",
+      "parameterId": "BEH-LEARNING-PROGRESS-SCORE",
       "name": "Learning Progress Score",
       "definition": "Monitors caller learning progress and flags stagnation or regression",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Good Progress: Caller is advancing appropriately",
-      "interpretationLow": "Slow Progress: Progress slower than expected, may need adjustment"
+      "interpretationLow": "Slow Progress: Progress slower than expected, may need adjustment",
+      "aliases": [
+        "learning_progress_score"
+      ]
     },
     {
-      "parameterId": "learning_reward",
+      "parameterId": "BEH-LEARNING-REWARD",
       "name": "Learning Reward",
       "definition": "Reward signal based on quality and depth of information learned about the caller",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Learning: Rich new information extracted",
-      "interpretationLow": "Low Learning: Minimal new information"
+      "interpretationLow": "Low Learning: Minimal new information",
+      "aliases": [
+        "learning_reward"
+      ]
     },
     {
-      "parameterId": "learning_velocity_adaptation",
+      "parameterId": "BEH-LEARNING-VELOCITY-ADAPTATION",
       "name": "Learning Velocity Target",
       "definition": "Pacing target based on how quickly caller absorbs new information: fast learners = accelerated, slow learners = more reinforcement",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast Learner: Accelerate pacing, introduce advanced material earlier",
-      "interpretationLow": "Needs Reinforcement: Slow pacing, add reinforcement and practice"
+      "interpretationLow": "Needs Reinforcement: Slow pacing, add reinforcement and practice",
+      "aliases": [
+        "learning_velocity_adaptation"
+      ]
     },
     {
-      "parameterId": "mastery_adaptation",
+      "parameterId": "BEH-MASTERY-ADAPTATION",
       "name": "Mastery-Based Teaching Target",
       "definition": "Teaching approach based on current module mastery: high mastery = challenge/advance, low mastery = reinforce/scaffold",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Mastery: Ready for challenge, can advance to next module",
-      "interpretationLow": "Low Mastery: Needs reinforcement before advancement"
+      "interpretationLow": "Low Mastery: Needs reinforcement before advancement",
+      "aliases": [
+        "mastery_adaptation"
+      ]
     },
     {
-      "parameterId": "module_introduction",
+      "parameterId": "BEH-MODULE-INTRODUCTION",
       "name": "Module Introduction Status",
       "definition": "Tracks whether and when a curriculum module was introduced to the learner",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fully Introduced: All core concepts presented",
-      "interpretationLow": "Mentioned: Topic referenced but not taught"
+      "interpretationLow": "Mentioned: Topic referenced but not taught",
+      "aliases": [
+        "module_introduction"
+      ]
     },
     {
-      "parameterId": "module_mastery",
+      "parameterId": "BEH-MODULE-MASTERY",
       "name": "Module Mastery Level",
       "definition": "Overall mastery assessment combining comprehension and application",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Expert: Can teach others, handle edge cases",
-      "interpretationLow": "Beginner: Still learning fundamentals"
+      "interpretationLow": "Beginner: Still learning fundamentals",
+      "aliases": [
+        "module_mastery"
+      ]
     },
     {
-      "parameterId": "multimodal_adaptation",
+      "parameterId": "BEH-MULTIMODAL-ADAPTATION",
       "name": "Multimodal Profile Adaptation",
       "definition": "Teaching variety targets based on overall modality profile diversity",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Multimodal: Vary approaches freely - all modalities effective",
-      "interpretationLow": "Unimodal: Focus primarily on dominant modality"
+      "interpretationLow": "Unimodal: Focus primarily on dominant modality",
+      "aliases": [
+        "multimodal_adaptation"
+      ]
     },
     {
-      "parameterId": "neuroticism_adaptation",
+      "parameterId": "BEH-NEUROTICISM-ADAPTATION",
       "name": "Neuroticism Adaptation Target",
       "definition": "Emotional sensitivity based on caller's neuroticism: high = reassuring calm, low = straightforward",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Reassuring Calm: Extra reassurance, calm steady presence, acknowledge concerns",
-      "interpretationLow": "Straightforward: Direct communication, trust their resilience"
+      "interpretationLow": "Straightforward: Direct communication, trust their resilience",
+      "aliases": [
+        "neuroticism_adaptation"
+      ]
     },
     {
-      "parameterId": "openness_adaptation",
+      "parameterId": "BEH-OPENNESS-ADAPTATION",
       "name": "Openness Adaptation Target",
       "definition": "Communication style target based on caller's openness: high openness = exploratory style, low openness = practical style",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Exploratory Style: Explore ideas, creative discussions, intellectual curiosity",
-      "interpretationLow": "Practical Style: Concrete, practical, tried-and-true approaches"
+      "interpretationLow": "Practical Style: Concrete, practical, tried-and-true approaches",
+      "aliases": [
+        "openness_adaptation"
+      ]
     },
     {
       "parameterId": "pace_indicators",
@@ -1135,65 +1291,86 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "pause-for-questions",
+      "parameterId": "BEH-PAUSE-FOR-QUESTIONS",
       "name": "Pause For Questions",
       "definition": "Frequent questioners need space to ask",
       "domainGroup": "engagement",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "pause-for-questions"
+      ]
     },
     {
-      "parameterId": "preference_elicitation_quality",
+      "parameterId": "BEH-PREFERENCE-ELICITATION-QUALITY",
       "name": "Preference Elicitation Quality",
       "definition": "Effectiveness of discovering caller's communication preferences",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Preferences Clear: Can tailor style confidently",
-      "interpretationLow": "Unknown: Use balanced defaults, observe carefully"
+      "interpretationLow": "Unknown: Use balanced defaults, observe carefully",
+      "aliases": [
+        "preference_elicitation_quality"
+      ]
     },
     {
-      "parameterId": "prerequisite_adaptation",
+      "parameterId": "BEH-PREREQUISITE-ADAPTATION",
       "name": "Foundation Reinforcement Target",
       "definition": "Foundation focus based on prerequisite readiness: not ready = reinforce foundations",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Prerequisites Met: Safe to advance",
-      "interpretationLow": "Prerequisites Missing: Must reinforce foundations first"
+      "interpretationLow": "Prerequisites Missing: Must reinforce foundations first",
+      "aliases": [
+        "prerequisite_adaptation"
+      ]
     },
     {
-      "parameterId": "prerequisite_check",
+      "parameterId": "BEH-PREREQUISITE-CHECK",
       "name": "Prerequisite Readiness",
       "definition": "Checks if prerequisites are met before advancing",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Ready: All prerequisites at competent+ level",
-      "interpretationLow": "Not Ready: Prerequisites need more work"
+      "interpretationLow": "Not Ready: Prerequisites need more work",
+      "aliases": [
+        "prerequisite_check"
+      ]
     },
     {
-      "parameterId": "question_asking_rate",
+      "parameterId": "BEH-QUESTION-ASKING-RATE",
       "name": "Question Asking Rate",
       "definition": "How frequently learner asks questions during instruction",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Question Frequency: Learner prefers interactive, conversational style",
-      "interpretationLow": "Low Question Frequency: Learner prefers direct instruction or self-directed exploration"
+      "interpretationLow": "Low Question Frequency: Learner prefers direct instruction or self-directed exploration",
+      "aliases": [
+        "question_asking_rate"
+      ]
     },
     {
-      "parameterId": "rapport_reward",
+      "parameterId": "BEH-RAPPORT-REWARD",
       "name": "Rapport Reward",
       "definition": "Reward signal based on alignment between communication style and caller personality",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Rapport: Communication style well-matched to personality",
-      "interpretationLow": "Building Rapport: Acceptable style alignment"
+      "interpretationLow": "Building Rapport: Acceptable style alignment",
+      "aliases": [
+        "rapport_reward"
+      ]
     },
     {
-      "parameterId": "reading_writing_adaptation",
+      "parameterId": "BEH-READING-WRITING-ADAPTATION",
       "name": "Reading/Writing Modality Adaptation Target",
       "definition": "Teaching style targets based on reading/writing modality strength",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Read/Write: Use precise definitions, structured lists, and formal terminology",
-      "interpretationLow": "Low Read/Write: Keep it conversational; avoid heavy structure or formal definitions"
+      "interpretationLow": "Low Read/Write: Keep it conversational; avoid heavy structure or formal definitions",
+      "aliases": [
+        "reading_writing_adaptation"
+      ]
     },
     {
       "parameterId": "repetition-frequency",
@@ -1213,49 +1390,64 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "response_length_preference",
+      "parameterId": "BEH-RESPONSE-LENGTH-PREFERENCE",
       "name": "Response Length Preference",
       "definition": "Whether learner engages more with short or detailed explanations",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Prefers Detailed: Engages more with comprehensive explanations",
-      "interpretationLow": "Prefers Concise: Responds better to brief, focused explanations"
+      "interpretationLow": "Prefers Concise: Responds better to brief, focused explanations",
+      "aliases": [
+        "response_length_preference"
+      ]
     },
     {
-      "parameterId": "response_length_score",
+      "parameterId": "BEH-RESPONSE-LENGTH-SCORE",
       "name": "Response Length Appropriateness",
       "definition": "Validates that agent responses are appropriately sized - not too long or too short for the context",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Optimal Length: Response length matches context appropriately",
-      "interpretationLow": "Length Issue: Response too long or too short for context"
+      "interpretationLow": "Length Issue: Response too long or too short for context",
+      "aliases": [
+        "response_length_score"
+      ]
     },
     {
-      "parameterId": "review_adaptation",
+      "parameterId": "BEH-REVIEW-ADAPTATION",
       "name": "Review Priority Target",
       "definition": "Review urgency based on review status: overdue/declining = high priority",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Review Current: No urgent review needed",
-      "interpretationLow": "Review Urgent: Prioritize spaced retrieval"
+      "interpretationLow": "Review Urgent: Prioritize spaced retrieval",
+      "aliases": [
+        "review_adaptation"
+      ]
     },
     {
-      "parameterId": "review_status",
+      "parameterId": "BEH-REVIEW-STATUS",
       "name": "Review Status Tracking",
       "definition": "Tracks spaced retrieval schedule and review eligibility for curriculum units",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Review Current: Recently reviewed, mastery stable or improving",
-      "interpretationLow": "Urgent Review: Mastery declining or significantly overdue"
+      "interpretationLow": "Urgent Review: Mastery declining or significantly overdue",
+      "aliases": [
+        "review_status"
+      ]
     },
     {
-      "parameterId": "safety_compliance_score",
+      "parameterId": "BEH-SAFETY-COMPLIANCE-SCORE",
       "name": "Safety Compliance Score",
       "definition": "Validates that agent includes appropriate disclaimers for sensitive topics",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Compliant: All safety protocols followed",
-      "interpretationLow": "Compliance Issue: Safety disclaimers needed but missing"
+      "interpretationLow": "Compliance Issue: Safety disclaimers needed but missing",
+      "aliases": [
+        "safety_compliance_score"
+      ]
     },
     {
       "parameterId": "scaffolding",
@@ -1265,74 +1457,98 @@
       "defaultTarget": 0.5
     },
     {
-      "parameterId": "socratic-questioning",
+      "parameterId": "BEH-SOCRATIC-QUESTIONING",
       "name": "Socratic Questioning",
       "definition": "Conversational learners engage well with questions",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "aliases": [
+        "socratic-questioning"
+      ]
     },
     {
-      "parameterId": "student_application_score",
+      "parameterId": "BEH-STUDENT-APPLICATION-SCORE",
       "name": "Student Application Score",
       "definition": "Measures whether student can independently apply the taught framework/concepts to new situations",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Independent Application: Student applies concepts without guidance",
-      "interpretationLow": "Cannot Apply: Student struggles to apply concepts"
+      "interpretationLow": "Cannot Apply: Student struggles to apply concepts",
+      "aliases": [
+        "student_application_score"
+      ]
     },
     {
-      "parameterId": "style_consistency_score",
+      "parameterId": "BEH-STYLE-CONSISTENCY-SCORE",
       "name": "Style Consistency Score",
       "definition": "Measures consistency of agent communication style within a session",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Consistent: Style maintained throughout session",
-      "interpretationLow": "Inconsistent: Jarring style changes within session"
+      "interpretationLow": "Inconsistent: Jarring style changes within session",
+      "aliases": [
+        "style_consistency_score"
+      ]
     },
     {
-      "parameterId": "target_alignment_score",
+      "parameterId": "BEH-TARGET-ALIGNMENT-SCORE",
       "name": "Target Alignment Score",
       "definition": "Measures how well agent behavior matches computed adaptation targets",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Aligned: Agent behavior matches targets well",
-      "interpretationLow": "Misaligned: Significant deviation from computed targets"
+      "interpretationLow": "Misaligned: Significant deviation from computed targets",
+      "aliases": [
+        "target_alignment_score"
+      ]
     },
     {
-      "parameterId": "TONE_ASSERT",
+      "parameterId": "BEH-TONE-ASSERT",
       "name": "assertiveness_level",
       "definition": "Degree of confidence and directness in caller's communication style",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Assertive: Very direct caller - match their energy, don't over-explain",
-      "interpretationLow": "Deferential: Caller is very passive - may need encouragement to express preferences"
+      "interpretationLow": "Deferential: Caller is very passive - may need encouragement to express preferences",
+      "aliases": [
+        "TONE_ASSERT"
+      ]
     },
     {
-      "parameterId": "tutor_fidelity_score",
+      "parameterId": "BEH-TUTOR-FIDELITY-SCORE",
       "name": "Tutor Content Fidelity Score",
       "definition": "Validates that tutor sticks to source material - no invented facts, examples, or statistics",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Fidelity: All content from source materials",
-      "interpretationLow": "Fidelity Issues: Some invented or inaccurate content"
+      "interpretationLow": "Fidelity Issues: Some invented or inaccurate content",
+      "aliases": [
+        "tutor_fidelity_score"
+      ]
     },
     {
-      "parameterId": "tutor_intro_score",
+      "parameterId": "BEH-TUTOR-INTRO-SCORE",
       "name": "Tutor Introduction Score",
       "definition": "Validates that tutor properly introduces source material (book, authors, context) before diving into content",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Complete Introduction: All required elements mentioned before content",
-      "interpretationLow": "Incomplete Introduction: Key elements missing from introduction"
+      "interpretationLow": "Incomplete Introduction: Key elements missing from introduction",
+      "aliases": [
+        "tutor_intro_score"
+      ]
     },
     {
-      "parameterId": "tutor_sequence_score",
+      "parameterId": "BEH-TUTOR-SEQUENCE-SCORE",
       "name": "Tutor Sequence Score",
       "definition": "Validates that tutor establishes core concepts/frameworks before introducing critiques or complications",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Correct Sequence: Concepts established before critiques",
-      "interpretationLow": "Sequence Violation: Critiques introduced before concepts"
+      "interpretationLow": "Sequence Violation: Critiques introduced before concepts",
+      "aliases": [
+        "tutor_sequence_score"
+      ]
     },
     {
       "parameterId": "VARK-A",
@@ -1400,13 +1616,16 @@
       "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
-      "parameterId": "welcome_quality",
+      "parameterId": "BEH-WELCOME-QUALITY",
       "name": "Welcome Experience Quality",
       "definition": "Quality of the first-call welcome and orientation",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Excellent Welcome: Caller feels valued and oriented",
-      "interpretationLow": "Poor Welcome: Caller may feel confused or unwelcome"
+      "interpretationLow": "Poor Welcome: Caller may feel confused or unwelcome",
+      "aliases": [
+        "welcome_quality"
+      ]
     }
   ]
 }

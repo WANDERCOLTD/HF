@@ -22,6 +22,7 @@ import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
 import noBareStrategyKey from "./eslint-rules/no-bare-strategy-key.mjs";
+import noBareParameterId from "./eslint-rules/no-bare-parameter-id.mjs";
 import noBucketlessJourneySetting from "./eslint-rules/no-bucketless-journey-setting.mjs";
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
@@ -247,6 +248,18 @@ const eslintConfig = defineConfig([
           "no-bare-strategy-key": noBareStrategyKey,
         },
       },
+      // #1950 — block bare string literals referencing legacy parameter IDs
+      // renamed by S2 of epic #1946 to the BEH-* canonical convention.
+      // The alias resolver (#1949) handles READ-side fallback; this rule
+      // catches WRITE-side / literal-comparison drift so legacy ids don't
+      // re-enter via new code. Allow-list (in the rule): the registry seed,
+      // resolver, prisma seeds + migrations, scripts/generate-registry,
+      // docs/, and tests/.
+      "hf-registry": {
+        rules: {
+          "no-bare-parameter-id": noBareParameterId,
+        },
+      },
       // #1738 Slice C3 — every JOURNEY_SETTINGS entry must carry a
       // `menuGroupKey` so the Slice C bucket-grained LH menu can mount
       // it. registry-completeness vitest pins the same invariant at
@@ -343,6 +356,15 @@ const eslintConfig = defineConfig([
       // `StrategyKey` enum fails CI. Allow-list (in the rule itself):
       // `lib/goals/strategies/registry.ts` (the alias map) + test files.
       "hf-goals/no-bare-strategy-key": "error",
+
+      // #1950 — error severity from day 1. The migration + registry
+      // rename + alias entries land in the same PR so no pre-existing
+      // offences in non-allow-listed paths remain. Allow-list (in the
+      // rule): `lib/registry/`, `prisma/seed`, `prisma/migrations/`,
+      // `scripts/generate-registry`, `docs/`, `docs-archive/`, and
+      // test files. Per-site escape: route external ids through
+      // `resolveParameterId` from `lib/registry/resolve.ts`.
+      "hf-registry/no-bare-parameter-id": "error",
 
       // #1738 Slice C3 — error severity from day 1. No pre-existing
       // offences (registry-completeness vitest verified all 52 entries

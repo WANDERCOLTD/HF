@@ -48,6 +48,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { assertValidLoRefBatch } from "@/lib/curriculum/validate-lo-refs";
+import { resolveParameterId } from "@/lib/registry/resolve";
 import type {
   GoalTemplate,
   PlaybookConfig,
@@ -127,8 +128,16 @@ async function upsertParameters(
     }
     const config = Object.keys(configEntries).length > 0 ? configEntries : undefined;
 
+    // #1950 — Resolve the projected name through the alias map so a legacy
+    // snake_case / kebab-no-BEH id is treated as the same Parameter as its
+    // BEH-* canonical (which now carries the legacy id in `aliases[]`).
+    // Without this, a re-projection of a course-ref YAML written against
+    // pre-rename ids would create a duplicate row.
+    const resolved = await resolveParameterId(p.name);
+    const lookupId = resolved.found ? resolved.canonicalId : p.name;
+
     const existing = await tx.parameter.findUnique({
-      where: { parameterId: p.name },
+      where: { parameterId: lookupId },
       select: { parameterId: true, config: true },
     });
 
@@ -140,7 +149,7 @@ async function upsertParameters(
       if (config) {
         const merged = { ...((existing.config as Record<string, unknown>) ?? {}), ...config };
         await tx.parameter.update({
-          where: { parameterId: p.name },
+          where: { parameterId: existing.parameterId },
           data: { config: merged as any },
         });
       }
