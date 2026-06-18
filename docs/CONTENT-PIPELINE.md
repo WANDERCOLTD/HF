@@ -280,6 +280,30 @@ settings:
 
 **Manual-edit-wins:** The backfill script (`scripts/backfill-module-settings-from-course-ref.ts`) and the wizard projector preserve any setting already on `module.settings`. Manual edits via the Module Inspector trump re-projection — the YAML block fills in the gaps, never overwrites.
 
+**Source-ref resolution (#1850 P3f):** Three fields carry `source:<id>` strings in the YAML rather than fully-resolved structured shapes:
+
+| Field (`AuthoredModuleSettings`) | YAML form | Resolver | Disk format |
+|---|---|---|---|
+| `cueCardPool` | `cueCardPool: source:cue-card-bank-v1` | `lib/wizard/resolve-module-source-refs.ts` | `parseCueCardBank` → `Array<{topic, bullets[]}>` |
+| `scaffoldPool` | `scaffoldPool: source:stall-scaffolds-monologue` | same | `parseStallScaffolds` → `string[]` |
+| `profileFieldsToCapture` | `profileFieldsToCapture: [reason, targetBand, …]` (shortlist) | DEFERRED → P3g | DEFERRED — source file format TBD |
+
+P3f's detect→`resolveModuleSourceRefs` flow:
+
+1. P3e's `detect-module-settings.ts` parses the per-module YAML blocks AND intentionally skips fields whose value is a `source:*` string (they fail the per-field shape validators).
+2. `resolveModuleSourceRefs(byModuleId, courseRefBodyText, { repoRoot })` then:
+   - Re-walks the YAML blocks via `extractSourceRefsFromYamlBlocks` (an independent harvester so P3e's invariants stay intact).
+   - Parses the course-ref body's `## Content Sources` section via `parseContentSources` — each `### Source N — Title` block contributes `(moduleRef, settingRef) → { location, format }` to a lookup index.
+   - For each `(moduleId, field)` pair carrying a `source:*` value, looks up the matching source, reads the file at `entry.location`, parses it per `entry.format`, and writes the resolved value into `byModuleId.get(moduleId)[field]`.
+   - On any failure (no source entry, missing file, parser yields zero items, unknown format) the field is left untouched + a `MODULE_SOURCE_REF_UNRESOLVED` warning is pushed.
+3. Wired into:
+   - `lib/wizard/run-projection-for-playbook.ts` (after `projectCourseReference`, before `applyProjection` — every wizard-created course resolves source-refs at projection time).
+   - `scripts/backfill-module-settings-from-course-ref.ts` (when `--course-ref` and a repo-relative source-location are supplied — automatic, no flag).
+
+**Inlining strategy.** Cue-card pools are inlined verbatim into `Playbook.config.modules[].settings.cueCardPool` (option (c) of the brief — the Part 2 bank weighs ~22KB/playbook as JSON, well inside JSONB column limits, and avoids a new compose-time fetch edge). Scaffold pools are tiny (≤15 strings).
+
+**`profileFieldsToCapture` gap (P3g follow-on).** The v2.3 fixture supplies this field as an inline shortlist (`[reason, targetBand, timeline, selfLevel]`) without per-key prompt + type metadata. The schema requires `Array<{ key, prompt, type }>`. No source file exists on disk today. P3g will introduce a profile-fields-source markdown convention (`### Field N — <slug>` with `prompt:` + `type:`), the matching parser, and the third row in the resolver's format dispatch.
+
 ### Phase 3: Classification (LO audience)
 
 `lib/content-trust/classify-lo.ts` — heuristic regex first, LLM fallback. Each LO gets a `systemRole` from `LoSystemRole` enum.

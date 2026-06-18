@@ -165,3 +165,61 @@ describe("computeBackfillPlan — empty config short-circuit", () => {
     expect(plan.nextConfig.modules).toEqual([]);
   });
 });
+
+describe("computeBackfillPlan — P3f source-ref resolution (#1850 P3f)", () => {
+  const REPO_ROOT = join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "..",
+  );
+
+  const config: PlaybookConfig = {
+    modules: [
+      makeModule("baseline", "Baseline Assessment"),
+      makeModule("part1", "Part 1"),
+      makeModule("part2", "Part 2"),
+      makeModule("part3", "Part 3"),
+      makeModule("mock", "Mock Exam"),
+    ],
+  };
+
+  it("source-refs stay unresolved when repoRoot is not passed (P3e baseline)", () => {
+    const plan = computeBackfillPlan(config, IELTS_V23);
+    expect(plan.sourceRefResolutions).toEqual([]);
+    const part2 = plan.nextConfig.modules!.find((m) => m.id === "part2")!;
+    expect(part2.settings!.cueCardPool).toBeUndefined();
+    expect(part2.settings!.scaffoldPool).toBeUndefined();
+  });
+
+  it("inlines part2.cueCardPool + scaffoldPools when repoRoot is supplied", () => {
+    const plan = computeBackfillPlan(config, IELTS_V23, REPO_ROOT);
+    expect(plan.sourceRefResolutions.length).toBeGreaterThan(0);
+    const part2 = plan.nextConfig.modules!.find((m) => m.id === "part2")!;
+    expect(Array.isArray(part2.settings!.cueCardPool)).toBe(true);
+    expect(part2.settings!.cueCardPool!.length).toBeGreaterThan(80);
+    expect(Array.isArray(part2.settings!.scaffoldPool)).toBe(true);
+    expect(part2.settings!.scaffoldPool!.length).toBe(14);
+    const part3 = plan.nextConfig.modules!.find((m) => m.id === "part3")!;
+    expect(part3.settings!.scaffoldPool!.length).toBe(15);
+  });
+
+  it("preserves manual edits when source-refs are also inlined", () => {
+    const cfgWithEdit: PlaybookConfig = {
+      modules: [
+        makeModule("part2", "Part 2", {
+          cueCardPool: [{ topic: "Manual override", bullets: ["x"] }],
+        }),
+      ],
+    };
+    const plan = computeBackfillPlan(cfgWithEdit, IELTS_V23, REPO_ROOT);
+    const part2 = plan.nextConfig.modules!.find((m) => m.id === "part2")!;
+    // mergeModuleSettings preserves manual edits — the inlined value
+    // landed in the YAML-derived plan but the merge wins for existing
+    // keys. So manual edit survives.
+    expect(part2.settings!.cueCardPool).toEqual([
+      { topic: "Manual override", bullets: ["x"] },
+    ]);
+  });
+});

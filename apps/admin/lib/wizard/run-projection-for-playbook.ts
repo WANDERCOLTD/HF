@@ -26,6 +26,9 @@ import {
 } from "./apply-projection";
 import { projectCourseReference, type ParsedSkill } from "./project-course-reference";
 import { parseRubricBands } from "./parse-rubric-bands";
+import { resolveModuleSourceRefs } from "./resolve-module-source-refs";
+import type { AuthoredModuleSettings } from "@/lib/types/json-fields";
+import { resolve as resolvePath } from "node:path";
 import { deriveSkillTierMappingFromSkills } from "@/lib/banding/derive-skill-tier-mapping-from-source";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { resolveMasteryPolicyKnob } from "@/lib/cascade/resolvers/mastery-policy";
@@ -188,6 +191,39 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
     }
 
     const projection = projectCourseReference(text, { sourceContentId: source.id });
+
+    // P3f (#1850) — inline `source:<id>` references that the YAML blocks
+    // declare for `cueCardPool` / `scaffoldPool`. The resolver reads the
+    // `## Content Sources` block in `text` to find each source's location
+    // + format, then reads the file from disk and parses it into the
+    // structured shape `AuthoredModuleSettings` expects. Failures are
+    // warn-and-skip — the projection still applies, just without the
+    // inlined content. The cwd at runtime is `apps/admin/`; the repo
+    // root is two levels up.
+    if (projection.configPatch.modules && projection.configPatch.modules.length > 0) {
+      const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
+      for (const m of projection.configPatch.modules) {
+        if (m.settings) byModuleId.set(m.id, { ...m.settings });
+        else byModuleId.set(m.id, {});
+      }
+      const repoRoot = resolvePath(process.cwd(), "..", "..");
+      const resolution = resolveModuleSourceRefs(byModuleId, text, { repoRoot });
+      // Merge resolved settings back into the modules array.
+      projection.configPatch.modules = projection.configPatch.modules.map((m) => {
+        const resolved = resolution.byModuleId.get(m.id);
+        if (!resolved || Object.keys(resolved).length === 0) return m;
+        return { ...m, settings: { ...(m.settings ?? {}), ...resolved } };
+      });
+      for (const w of resolution.validationWarnings) {
+        projection.validationWarnings.push(w);
+      }
+      const resolvedCount = resolution.resolutions.filter((r) => r.status === "resolved").length;
+      if (resolvedCount > 0) {
+        console.log(
+          `[projection] P3f source-refs: ${resolvedCount} inlined from source=${source.id} (${source.name})`,
+        );
+      }
+    }
 
     // (3) Promote PROJECTION_NO_SKILLS_FRAMEWORK from a soft warning to a
     // launch blocker. Without skills no `skill_*` Parameters or BehaviorTargets
