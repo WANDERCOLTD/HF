@@ -83,6 +83,8 @@ Three structural patterns, in order of preference:
 | Parameter rows → JOURNEY_SETTINGS LH-menu exposure | `behavior-parameters.registry.json` | `JourneySettingContract` entries targeting `behaviorTargets[<paramId>]` | ❌ GAP | — | MED | New parameter doesn't auto-appear in Journey Inspector LH menu. Convention only. Per-param `JourneySettingContract` filing needed. |
 | Parameter rows → AnalysisSpec.config.parameters[].id soft-FK | `behavior-parameters.registry.json::parameterId` | `AnalysisSpec.config.parameters[].id` (JSON field — read at `lib/goals/strategies/resolve-strategy.ts:76`) | ✅ PROTECTED | `apps/admin/scripts/check-fk-consistency.ts` Query 11 (`analysis-spec-config-dangling-parameter-ref`, 2026-06-17) | — | SQL check via `jsonb_array_elements` + LEFT JOIN. Surfaces dangling `(specSlug, configParameterId)` pairs. Wrapped in try/catch so dev SQLite path tolerates JSON-syntax differences. |
 | Parameter rows → runtime consumer (compose/score/cascade) | `behavior-parameters.registry.json` | concat of `lib/prompt/composition/**` + `lib/pipeline/**` + `lib/cascade/resolvers/**` + others | ✅ PROTECTED | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | — | Exempt list (118 entries) with ratchet |
+| Parameter rows → AnalysisSpec measurement citation (link 7) | `behavior-parameters.registry.json::usage.measurement` | spec.json files under `docs-archive/bdd-specs/` referenced by specSlug | ✅ PROTECTED | `tests/lib/measurement/parameter-measurement-coverage.test.ts` (#1967 M1) | — | Substantive cross-check: cited spec exists AND lists the param. Ratchet caps `deferred-#1967` debt (57 incumbent). |
+| Measured parameter → AGGREGATE/ADAPT consumer (link 8 — loop closure) | M1's `measured` set | spec.json `aggregationRules.sourceParameter` / `adaptationRules.sourceParameterId` / `sourceParameterPattern` | ✅ PROTECTED | `tests/lib/measurement/parameter-loop-closure.test.ts` (#1967 M2) | — | Per-param closure walk + ratchet (67 incumbent open loops). Defends against silent-gain-zero: CallScore lands but nothing reads it. |
 
 ### Pipeline
 
@@ -194,6 +196,8 @@ Three structural patterns, in order of preference:
 | `route-auth-zod-coverage.md` | `tests/api/route-auth-zod-coverage.test.ts` (#1854) | ✅ PROTECTED |
 | `tier-visibility-coverage.md` | `tests/api/tier-visibility-coverage.test.ts` (#1855) | ✅ PROTECTED |
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
+| `parameter-measurement-coverage.md` | `tests/lib/measurement/parameter-measurement-coverage.test.ts` (#1967 M1) | ✅ PROTECTED |
+| `parameter-loop-closure.md` | `tests/lib/measurement/parameter-loop-closure.test.ts` (#1967 M2) | ✅ PROTECTED |
 | `fixture-type-coverage.md` | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | ✅ PROTECTED |
 | `courses-template-version-coverage.md` | `tests/lib/courses/courses-template-version-coverage.test.ts` (#1991) | ✅ PROTECTED |
 | `privacy-redaction.md` | ESLint `require-tiered-redactor` + `tier-visibility-coverage` (#1855) — same enforcer as `response-redaction.md`; this file is the privacy-specific framing | ✅ PROTECTED (5 leak ratchet, #1922) |

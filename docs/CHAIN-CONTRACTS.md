@@ -491,6 +491,47 @@ This section documents the six producer→consumer contracts that the variant wo
 
 ---
 
+## 3e. Measurement closure (#1967 M1 + M2)
+
+The runtime chain in §3 (Links 4 → 5 → 6) describes the structural
+adaptive-loop boundaries: pipeline writes `CallScore`, AGGREGATE
+rolls into mastery / `CallerTarget`, COMPOSE reads. Section 3e adds
+the **per-parameter** discipline: for every parameter the registry
+declares as `measured`, the loop must actually close — some spec
+must consume its `CallScore` and feed the cascade-readable state.
+
+The four classic loops can each run end-to-end while a specific
+parameter's gain is silently 0 (the LLM is graded on it, the score
+lands in `CallScore`, nothing reads it). Section 3e closes that gap
+parameter by parameter; the ratchet caps the producer-only debt.
+
+### Link M1 — REGISTRY → MEASURE (#1967 M1)
+
+| Field | Value |
+|---|---|
+| **Producer** | `behavior-parameters.registry.json` row with `usage.measurement: { specSlug }` (or `{ specSlugs }`). |
+| **Consumer** | Pipeline MEASURE runner (`runBatchedCallerAnalysis` + `buildParameterSpecMap`) — loads each spec, includes its `promptTemplate` in the batched prompt, calls `writeCallScore({ analysisSpecId })`. |
+| **Data shape** | The cited spec exists under `docs-archive/bdd-specs/<slug>.spec.json` AND its `parameters[].id` (or `.parameterId`) matches the registry param's canonical id OR one of its `aliases`. |
+| **Enforcement** | `tests/lib/measurement/parameter-measurement-coverage.test.ts` — substantive cross-check (citation ↔ spec file ↔ parameters array). Stale citations fail the test. `tests/lib/registry/parameter-usage-coverage.test.ts` pins the schema shape. |
+| **Ratchet** | `EXPECTED_GAP_COUNT = 57` (2026-06-18) — params still declaring `"deferred-#1967"`. M4 drives this to 0. |
+| **Memory doc** | [`.claude/rules/parameter-measurement-coverage.md`](../.claude/rules/parameter-measurement-coverage.md). |
+| **Reinforced by** | Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M1. |
+
+### Link M2 — MEASURE → AGGREGATE/ADAPT (per-parameter loop closure, #1967 M2)
+
+| Field | Value |
+|---|---|
+| **Producer** | Per-parameter `CallScore` row written by `writeCallScore({ parameterId, analysisSpecId, score })` after a MEASURE spec scores the transcript. |
+| **Consumer** | Some AGGREGATE / ADAPT / REWARD spec rule reads the param's CallScore via `sourceParameter` / `sourceParameterPattern` / `sourceParameterId` and writes the rolled-up result to `CallerTarget.currentScore` (EMA via `aggregate-runner.ts::accumulateSkillScores`), `CallerAttribute` (threshold mapping), or `CallerTarget.targetValue` (ADAPT via `adapt-runner.ts`). |
+| **Data shape** | For each measured param `P`, at least one of: (a) literal citation `sourceParameter: "P"` / `sourceParameterId: "P"` (matched against canonical id OR aliases); (b) suffix-glob `sourceParameterPattern: "<prefix>*"` whose prefix is a prefix of `P`'s id; (c) `P` is an AGGREGATE spec's output id (loop self-closes through the AGGREGATE write itself). |
+| **Enforcement** | `tests/lib/measurement/parameter-loop-closure.test.ts` — walks every `*.spec.json`, classifies each measured param `closed-direct` / `closed-pattern` / `closed-aggregator-output` / `gap`, ratchets the open-loop count. `_average` sentinel skipped (it's AGGREGATE-internal). |
+| **Ratchet** | `EXPECTED_GAP_COUNT = 67` (2026-06-18) — measured params with no consumer reading the score. Each new closure (extending an AGGREGATE / ADAPT spec's rules or authoring a new consumer spec) drops this by 1. |
+| **Memory doc** | [`.claude/rules/parameter-loop-closure.md`](../.claude/rules/parameter-loop-closure.md). |
+| **Defends against** | The silent-gain-zero class: registry says BEH-X is measured, MEASURE spec scores it, `CallScore` lands, no AGGREGATE / ADAPT touches the score, next compose reads only the educator-set BehaviorTarget baseline. The param tunes to the same value forever; the adaptive loop is structurally inert for that parameter. |
+| **Reinforced by** | Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M2. Sibling M3 — `hf-measurement/no-direct-callscore-write` — guarantees the producer side (every CallScore goes through the chokepoint with a real `parameterId`). M4 (pedagogy + spec authoring) closes the remaining gaps. |
+
+---
+
 ## 4. DataContract registry
 
 The runtime DataContract registry (`lib/contracts/`) is the DB-backed source of truth for storage-key patterns. Contract files live in `apps/admin/docs-archive/bdd-specs/contracts/` and are seeded into `DataContract` rows on `db:seed`.
