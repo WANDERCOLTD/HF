@@ -51,6 +51,13 @@ const PROJECTION = "IntakeApplication" as ProjectionName;
 
 const ART13_REQUIREMENT_ID = "gdpr.art13.privacy-notice";
 const ART50_REQUIREMENT_ID = "eu-ai-act.art50.ai-interaction-disclosure";
+// #1918 (epic #1915 §6a I-PR2) — voice-recording consent. Delivered at
+// intake-v2 alongside the two existing regulatory notices so by the time
+// a learner reaches `createSession({kind: VOICE_CALL})` the ack already
+// exists in `tallyseal_disclosure`. Synthetic HF-internal requirement,
+// not a regulatory citation — copy describes recording + analysis +
+// erasure rights under our existing contract lawful basis.
+const VOICE_CALL_RECORDING_REQUIREMENT_ID = "voice-call-recording";
 
 export async function POST(req: NextRequest) {
   let body: z.infer<typeof BodySchema>;
@@ -78,7 +85,11 @@ export async function POST(req: NextRequest) {
   // copy's contentHash. The runtime safety belt in
   // disclosure-content.ts throws DraftCopyInProductionError if any
   // copy is status=DRAFT and NODE_ENV=production.
-  for (const requirementId of [ART13_REQUIREMENT_ID, ART50_REQUIREMENT_ID]) {
+  for (const requirementId of [
+    ART13_REQUIREMENT_ID,
+    ART50_REQUIREMENT_ID,
+    VOICE_CALL_RECORDING_REQUIREMENT_ID,
+  ]) {
     let copy;
     try {
       copy = await loadDisclosureCopy(requirementId);
