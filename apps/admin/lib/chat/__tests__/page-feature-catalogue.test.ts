@@ -22,10 +22,9 @@ describe("buildPageFeatureCatalogue", () => {
 
   it("lists every tab label registered for Course detail", () => {
     const out = buildPageFeatureCatalogue("/x/courses/abc-123");
-    // #1850 P5 (#1943) retired the Design tab + CourseDesignConsole; the
-    // label is no longer registered in PAGE_HELP_REGISTRY. Drive-by fix
-    // bundled with the rebase against main since the upstream PR didn't
-    // update this assertion.
+    // "Design" tab retired in #1943 (P5 — Design tab + CourseDesignConsole
+    // moved to in-context Inspector). Test list updated to match the
+    // post-retirement tab registry.
     for (const label of ["Content", "Curriculum", "Learners", "Proof Points", "Goals", "Settings"]) {
       expect(out).toContain(label);
     }

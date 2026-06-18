@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireEntityAccess, isEntityAuthError } from "@/lib/access-control";
+import { visibilityTierForRole } from "@/lib/rbac/visibility";
+import {
+  redactUpliftForTier,
+  type UpliftResponseInput,
+} from "@/lib/rbac/policies/uplift";
 import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 
 type Params = { params: Promise<{ callerId: string }> };
 
 /**
  * @api GET /api/callers/:callerId/uplift
+ * @tieredVisibility — strips scoreTrends[].confidence + adaptationEvidence[].confidence
+ *                     + trustScores[].hasLearnerEvidence at the redacted tier.
+ *                     STUDENT sees engagement signals only (#1922, epic #1915).
  * @visibility public
  * @scope callers:read
  * @auth session
@@ -29,6 +37,8 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
   if (!studentAllowedToReadCaller(authResult.session, callerId)) {
     return callerScopeMismatchResponse();
   }
+
+  const viewerTier = visibilityTierForRole(authResult.session.user.role);
   // Verify caller exists
   const caller = await prisma.caller.findUnique({
     where: { id: callerId },
@@ -296,7 +306,7 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
     createdAt: c.createdAt.toISOString(),
   }));
 
-  return NextResponse.json({
+  const response: UpliftResponseInput = {
     ok: true,
     uplift: {
       confidencePre,
@@ -321,5 +331,6 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
       callFrequencyPerWeek,
       callDates,
     },
-  });
+  };
+  return NextResponse.json(redactUpliftForTier(response, viewerTier));
 }

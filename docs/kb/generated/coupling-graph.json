@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T12:54:53.040Z",
+  "generatedAt": "2026-06-18T13:12:31.006Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1837,
-  "edgeCount": 4313,
+  "fileCount": 1842,
+  "edgeCount": 4332,
   "skippedEdges": 1,
   "edges": [
     {
@@ -981,6 +981,14 @@
     },
     {
       "from": "app/api/callers/[callerId]/insights/route.ts",
+      "to": "lib/rbac/policies/insights.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/insights/route.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/insights/route.ts",
       "to": "lib/types/json-fields.ts"
     },
     {
@@ -1052,6 +1060,14 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "app/api/callers/[callerId]/lo-mastery/route.ts",
+      "to": "lib/rbac/policies/lo-mastery.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/lo-mastery/route.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
       "from": "app/api/callers/[callerId]/lo-progress/route.ts",
       "to": "lib/curriculum/track-progress.ts"
     },
@@ -1090,6 +1106,14 @@
     {
       "from": "app/api/callers/[callerId]/memories/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/memories/route.ts",
+      "to": "lib/rbac/policies/memories.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/memories/route.ts",
+      "to": "lib/rbac/visibility.ts"
     },
     {
       "from": "app/api/callers/[callerId]/module-progress/route.ts",
@@ -1276,6 +1300,14 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "app/api/callers/[callerId]/skills-evidence/route.ts",
+      "to": "lib/rbac/policies/skills-evidence.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/skills-evidence/route.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
       "from": "app/api/callers/[callerId]/slugs/route.ts",
       "to": "lib/learner-scope.ts"
     },
@@ -1390,6 +1422,14 @@
     {
       "from": "app/api/callers/[callerId]/uplift/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/uplift/route.ts",
+      "to": "lib/rbac/policies/uplift.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/uplift/route.ts",
+      "to": "lib/rbac/visibility.ts"
     },
     {
       "from": "app/api/callers/[callerId]/voice-provider/route.ts",
@@ -15556,6 +15596,42 @@
       "to": "lib/rbac/visibility.ts"
     },
     {
+      "from": "lib/rbac/policies/insights.ts",
+      "to": "app/api/callers/[callerId]/insights/route.ts"
+    },
+    {
+      "from": "lib/rbac/policies/insights.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "lib/rbac/policies/lo-mastery.ts",
+      "to": "app/api/callers/[callerId]/lo-mastery/route.ts"
+    },
+    {
+      "from": "lib/rbac/policies/lo-mastery.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "lib/rbac/policies/memories.ts",
+      "to": "app/api/callers/[callerId]/memories/route.ts"
+    },
+    {
+      "from": "lib/rbac/policies/memories.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "lib/rbac/policies/skills-evidence.ts",
+      "to": "app/api/callers/[callerId]/skills-evidence/route.ts"
+    },
+    {
+      "from": "lib/rbac/policies/skills-evidence.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "lib/rbac/policies/uplift.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
       "from": "lib/rbac/visibility.ts",
       "to": "lib/roles.ts"
     },
@@ -17648,8 +17724,8 @@
     },
     {
       "path": "app/api/callers/[callerId]/insights/route.ts",
-      "inDegree": 0,
-      "outDegree": 6
+      "inDegree": 1,
+      "outDegree": 8
     },
     {
       "path": "app/api/callers/[callerId]/journey-progress/route.ts",
@@ -17668,8 +17744,8 @@
     },
     {
       "path": "app/api/callers/[callerId]/lo-mastery/route.ts",
-      "inDegree": 0,
-      "outDegree": 6
+      "inDegree": 1,
+      "outDegree": 8
     },
     {
       "path": "app/api/callers/[callerId]/lo-progress/route.ts",
@@ -17683,8 +17759,8 @@
     },
     {
       "path": "app/api/callers/[callerId]/memories/route.ts",
-      "inDegree": 0,
-      "outDegree": 3
+      "inDegree": 1,
+      "outDegree": 5
     },
     {
       "path": "app/api/callers/[callerId]/module-progress/route.ts",
@@ -17733,8 +17809,8 @@
     },
     {
       "path": "app/api/callers/[callerId]/skills-evidence/route.ts",
-      "inDegree": 0,
-      "outDegree": 5
+      "inDegree": 1,
+      "outDegree": 7
     },
     {
       "path": "app/api/callers/[callerId]/slugs/route.ts",
@@ -17779,7 +17855,7 @@
     {
       "path": "app/api/callers/[callerId]/uplift/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 5
     },
     {
       "path": "app/api/callers/[callerId]/voice-provider/route.ts",
@@ -25057,8 +25133,33 @@
       "outDegree": 2
     },
     {
+      "path": "lib/rbac/policies/insights.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/rbac/policies/lo-mastery.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/rbac/policies/memories.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/rbac/policies/skills-evidence.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/rbac/policies/uplift.ts",
+      "inDegree": 1,
+      "outDegree": 1
+    },
+    {
       "path": "lib/rbac/visibility.ts",
-      "inDegree": 2,
+      "inDegree": 12,
       "outDegree": 1
     },
     {
