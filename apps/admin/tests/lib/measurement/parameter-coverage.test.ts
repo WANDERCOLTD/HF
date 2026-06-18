@@ -219,6 +219,19 @@ function classify(p: RegistryEntry): ParamResult {
       domainGroup: p.domainGroup,
     };
   }
+  // #1907 — dispatcher-covered classification. Parameters carrying a
+  // `promptInjection` block in the registry are read dynamically by the
+  // `parametersAsDirectives` transform (no literal mention in consumer
+  // source — would otherwise show as `gap`). Treat the registry block
+  // itself as the consumer signal.
+  if ((p as RegistryEntry & { promptInjection?: unknown }).promptInjection) {
+    return {
+      id: p.parameterId,
+      classification: "covered",
+      matchedTerm: "promptInjection (registry-driven dispatcher)",
+      domainGroup: p.domainGroup,
+    };
+  }
   for (const term of searchTerms(p.parameterId)) {
     if (term.length < 4) continue; // skip too-generic
     const re = new RegExp(
