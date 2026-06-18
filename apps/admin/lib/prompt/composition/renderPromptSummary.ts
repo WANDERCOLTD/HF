@@ -140,6 +140,21 @@ interface LLMPrompt {
       target: string;
       meaning?: string;
     }>;
+    /**
+     * #1951 (epic #1946 S4) — full behaviour-target semantics. Replaces the
+     * pre-#1951 top-5 cap on `behavior_targets_summary` as the LLM's
+     * primary signal for HOW to behave. `null` when the producer's budget
+     * guard fires (`PROMPT_SEMANTICS_BUDGET_CHARS` in
+     * `transforms/instructions.ts`) — renderer then falls back to the
+     * top-5 summary block.
+     */
+    behavior_targets_semantics?: Array<{
+      parameterId: string;
+      what: string;
+      targetLevel: string;
+      targetValue: number;
+      meaning: string;
+    }> | null;
     teaching_content?: string | null;
     /** #1732 (epic #1730 G8 consumer A) — module-scoped question count directive. */
     module_question_target?: { min: number; target: number; directive: string } | null;
@@ -971,13 +986,19 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
 
     if (highTargets.length) {
       parts.push("**HIGH priority**:");
-      highTargets.slice(0, 5).forEach(t => {
+      // #1951 — lifted from `slice(0, 5)` to all HIGH targets. The producer
+      // (transforms/instructions.ts) budget-guards the structured SEMANTICS
+      // directive; this prose block sits within the same budget envelope
+      // because it shares the source array. The follow-on `## Behavior
+      // Targets Semantics` block below provides the canonical full-list
+      // path for the LLM.
+      highTargets.forEach(t => {
         const guidance = t.targetLevel === "HIGH" && t.when_high ? ` → ${t.when_high}` : "";
         parts.push(`- ${t.name}: ${t.targetLevel} (${pct(t.targetValue)})${guidance}`);
       });
     }
 
-    // Summary from instructions
+    // Summary from instructions — top-5 fallback shape from the producer.
     const summary = llmPrompt.instructions?.behavior_targets_summary;
     if (summary?.length) {
       parts.push("\n**Summary**:");
@@ -985,6 +1006,24 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
         parts.push(`- ${s.what}: ${s.target}${s.meaning ? ` - ${s.meaning}` : ""}`);
       });
     }
+    parts.push("");
+  }
+
+  // #1951 (epic #1946 S4) — BEHAVIOR TARGETS SEMANTICS. Full per-parameter
+  // semantics block, the canonical replacement for the pre-#1951 top-5 cap.
+  // Producer: `transforms/instructions.ts::behavior_targets_semantics` (null
+  // when budget guard fired — see `PROMPT_SEMANTICS_BUDGET_CHARS`). When
+  // semantics is null the renderer relies on the legacy "## Behavior Targets"
+  // block above (top-5 summary). Pairing pinned by
+  // `tests/lib/prompt/composition/coverage-producer-consumer.test.ts` PAIRS
+  // row `behavior_targets_semantics`.
+  const semantics = llmPrompt.instructions?.behavior_targets_semantics;
+  if (semantics && semantics.length > 0) {
+    parts.push("## Behavior Targets Semantics\n");
+    parts.push("Each parameter below carries an HF-canonical interpretation. Use the meaning to choose how to behave at the resolved target value:\n");
+    semantics.forEach(s => {
+      parts.push(`- **${s.what}** — ${s.targetLevel} (${pct(s.targetValue)}): ${s.meaning}`);
+    });
     parts.push("");
   }
 

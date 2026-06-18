@@ -120,6 +120,12 @@ const PAIRS: Array<{
     consumerNeedle: "llmPrompt.priorCallFeedback",
     since: "#1749",
   },
+  {
+    key: "behavior_targets_semantics",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.behavior_targets_semantics",
+    since: "#1951",
+  },
 ];
 
 const RENDERER_PATH = "apps/admin/lib/prompt/composition/renderPromptSummary.ts";
