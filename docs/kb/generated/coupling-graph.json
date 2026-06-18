@@ -1,6 +1,6 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T21:16:44.364Z",
+  "generatedAt": "2026-06-18T21:39:45.278Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1850,

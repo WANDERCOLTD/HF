@@ -17,7 +17,7 @@
     "affect-motivation"
   ],
   "generatedAt": "2026-04-16T17:47:52.532Z",
-  "sourceOfTruth": "Canonical spec — DB caches this. Pre-#1946 header said \"GENERATED FROM DATABASE\"; post-#1946 the registry is HF-canonical IP and `db:seed` drives the DB in the spec→DB direction.",
+  "sourceOfTruth": "Canonical spec \u2014 DB caches this. Pre-#1946 header said \"GENERATED FROM DATABASE\"; post-#1946 the registry is HF-canonical IP and `db:seed` drives the DB in the spec\u2192DB direction.",
   "parameters": [
     {
       "parameterId": "BEH-ABSTRACT-VS-CONCRETE",
@@ -36,7 +36,11 @@
         "abstract-vs-concrete"
       ],
       "interpretationHigh": "Lead with theory and principles; demonstrate them through specific examples afterwards.",
-      "interpretationLow": "Lead with specific examples and demonstrations; abstract patterns emerge from them."
+      "interpretationLow": "Lead with specific examples and demonstrations; abstract patterns emerge from them.",
+      "usage": {
+        "compose": "prompt-injection",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ADAPT-TO-FEEDBACK-STYLE",
@@ -48,7 +52,11 @@
         "adapt_to_feedback_style"
       ],
       "interpretationHigh": "Give thorough multi-point feedback with specific examples and rationale for each note.",
-      "interpretationLow": "Give concise targeted feedback; one key point at a time without elaboration."
+      "interpretationLow": "Give concise targeted feedback; one key point at a time without elaboration.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ADAPT-TO-INTERACTION-STYLE",
@@ -60,7 +68,11 @@
         "adapt_to_interaction_style"
       ],
       "interpretationHigh": "Engage with frequent questions, dialogue, and back-and-forth; treat the session as a conversation.",
-      "interpretationLow": "Deliver content with minimal interruption; let the learner absorb before checking in."
+      "interpretationLow": "Deliver content with minimal interruption; let the learner absorb before checking in.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "adapt_to_learning_style",
@@ -68,7 +80,11 @@
       "definition": "Adjust behavior targets based on visual/auditory/reading learning style",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "adapt_to_pace_preference",
@@ -76,7 +92,11 @@
       "definition": "Adjust pacing and depth based on learner's preferred speed",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-ADAPT-TO-QUESTION-FREQUENCY",
@@ -88,7 +108,11 @@
         "adapt_to_question_frequency"
       ],
       "interpretationHigh": "Anticipate questions proactively; offer multiple pause points; welcome interruption.",
-      "interpretationLow": "Move through content steadily; check understanding via your own probes rather than waiting."
+      "interpretationLow": "Move through content steadily; check understanding via your own probes rather than waiting.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-AGGREGATE-PROFILE",
@@ -100,7 +124,11 @@
         "aggregate_profile"
       ],
       "interpretationHigh": "Trust recent observations as profile-defining; adapt session quickly to the emerging pattern.",
-      "interpretationLow": "Use cautious profile updates; treat recent observations as provisional and gather more before adapting."
+      "interpretationLow": "Use cautious profile updates; treat recent observations as provisional and gather more before adapting.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-AGREEABLENESS-ADAPTATION",
@@ -112,7 +140,11 @@
       "interpretationLow": "Direct Honest: Straightforward, efficient, no-nonsense",
       "aliases": [
         "agreeableness_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "analogy-usage",
@@ -121,7 +153,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Use analogies frequently; bridge new concepts to familiar ones the learner already knows.",
-      "interpretationLow": "Avoid analogies; explain concepts directly and on their own terms."
+      "interpretationLow": "Avoid analogies; explain concepts directly and on their own terms.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-APPLICATION-ADAPTATION",
@@ -133,7 +169,11 @@
       "interpretationLow": "Weak Application: More explanation before practice",
       "aliases": [
         "application_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-APPLICATION-SCORE",
@@ -145,7 +185,11 @@
       "interpretationLow": "No Application: Cannot apply concept",
       "aliases": [
         "application_score"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "auditory_adaptation",
@@ -155,7 +199,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "High Auditory: Use rich verbal elaboration, encourage talk-through, attend to rhythm",
       "interpretationLow": "Low Auditory: Keep verbal explanations concise; consider written or visual alternatives",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-B5-A",
@@ -167,7 +215,11 @@
       "interpretationLow": "Challenging/Skeptical: Will question and push back; needs to be convinced; values their own judgment",
       "aliases": [
         "B5-A"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-B5-C",
@@ -179,7 +231,11 @@
       "interpretationLow": "Flexible/Spontaneous: Prefers flexibility, may resist rigid processes, comfortable with ambiguity",
       "aliases": [
         "B5-C"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-B5-E",
@@ -191,7 +247,11 @@
       "interpretationLow": "Introverted: Prefers focused, task-oriented interaction; may find chattiness draining",
       "aliases": [
         "B5-E"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-B5-N",
@@ -203,7 +263,11 @@
       "interpretationLow": "Emotionally Stable: Calm under pressure; doesn't need much reassurance; handles stress well",
       "aliases": [
         "B5-N"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-B5-O",
@@ -215,7 +279,11 @@
       "interpretationLow": "Traditional/Practical: Prefers familiar approaches, concrete information, proven methods",
       "aliases": [
         "B5-O"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ABSTRACT-OK",
@@ -224,7 +292,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Abstract Thinker: Comfortable with theory, models, and generalisations",
-      "interpretationLow": "Concrete Thinker: Needs tangible examples and real-world grounding"
+      "interpretationLow": "Concrete Thinker: Needs tangible examples and real-world grounding",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ACTION-VERBS",
@@ -232,8 +304,12 @@
       "definition": "Whether the AI uses action-oriented, practical language versus abstract terminology.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Action-Oriented: Uses 'do', 'build', 'try' — grounds learning in activity",
-      "interpretationLow": "Conceptual: Uses 'consider', 'reflect', 'understand' — grounds learning in thought"
+      "interpretationHigh": "Action-Oriented: Uses 'do', 'build', 'try' \u2014 grounds learning in activity",
+      "interpretationLow": "Conceptual: Uses 'consider', 'reflect', 'understand' \u2014 grounds learning in thought",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ADVANCE-READINESS",
@@ -242,7 +318,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast Progression: Moves to new topics as soon as basic competence is shown",
-      "interpretationLow": "Thorough Mastery: Stays on a topic until deep understanding is confirmed"
+      "interpretationLow": "Thorough Mastery: Stays on a topic until deep understanding is confirmed",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ANALOGY-USAGE",
@@ -251,7 +331,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Analogy-Rich: Frequently uses comparisons and metaphors to explain ideas",
-      "interpretationLow": "Direct Explanation: Explains concepts in their own terms without analogies"
+      "interpretationLow": "Direct Explanation: Explains concepts in their own terms without analogies",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-APPROACH-SWITCHING",
@@ -260,7 +344,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Flexible: Switches freely between visual, auditory, and hands-on approaches",
-      "interpretationLow": "Consistent: Sticks with one approach throughout the session"
+      "interpretationLow": "Consistent: Sticks with one approach throughout the session",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CHALLENGE-LEVEL",
@@ -269,7 +357,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Stretching: Presents problems just beyond current ability to promote growth",
-      "interpretationLow": "Comfortable: Keeps problems within easy reach to build confidence"
+      "interpretationLow": "Comfortable: Keeps problems within easy reach to build confidence",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CHECK-FOR-UNDERSTANDING",
@@ -278,7 +370,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Frequent Checks: Regularly asks the learner to explain back or demonstrate understanding",
-      "interpretationLow": "Trust & Continue: Assumes understanding unless the learner signals confusion"
+      "interpretationLow": "Trust & Continue: Assumes understanding unless the learner signals confusion",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CONCEPT-DENSITY",
@@ -287,7 +383,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Dense: Introduces multiple connected ideas per exchange for fast learners",
-      "interpretationLow": "Sparse: One idea at a time with space to absorb before adding more"
+      "interpretationLow": "Sparse: One idea at a time with space to absorb before adding more",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CONVERSATIONAL-DEPTH",
@@ -296,7 +396,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep: Going deep into topics, nuanced exploration",
-      "interpretationLow": "Surface: Keeping conversation light and superficial"
+      "interpretationLow": "Surface: Keeping conversation light and superficial",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CONVERSATIONAL-TONE",
@@ -304,9 +408,13 @@
       "definition": "How casual and natural the AI's language is during teaching.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Chatty: Relaxed, informal, conversational — like talking to a friend",
-      "interpretationLow": "Formal: Structured, professional, precise — like a textbook",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "interpretationHigh": "Chatty: Relaxed, informal, conversational \u2014 like talking to a friend",
+      "interpretationLow": "Formal: Structured, professional, precise \u2014 like a textbook",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-DEFINITION-PRECISION",
@@ -315,7 +423,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Precise: Uses exact definitions, technical accuracy, formal terminology",
-      "interpretationLow": "Approximate: Uses plain-language descriptions, favours intuition over precision"
+      "interpretationLow": "Approximate: Uses plain-language descriptions, favours intuition over precision",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-DIAGRAM-LANGUAGE",
@@ -324,7 +436,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Visual Structures: Describes layouts, diagrams, and spatial relationships frequently",
-      "interpretationLow": "Narrative: Explains through stories and sequential descriptions"
+      "interpretationLow": "Narrative: Explains through stories and sequential descriptions",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-DIRECTNESS",
@@ -336,7 +452,11 @@
       "interpretationLow": "Diplomatic: Softens messages, uses hedging language, approaches topics gently",
       "aliases": [
         "directness_actual"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-EMPATHY-RATE",
@@ -349,7 +469,11 @@
       "aliases": [
         "empathy_expression",
         "response_empathy_score"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-EXAMPLE-RICHNESS",
@@ -358,7 +482,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Example-Rich: Multiple worked examples and illustrations for each concept",
-      "interpretationLow": "Minimal Examples: Brief or no examples — relies on abstract explanation"
+      "interpretationLow": "Minimal Examples: Brief or no examples \u2014 relies on abstract explanation",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-EXPLANATION-VARIETY",
@@ -367,7 +495,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Multi-Angle: Rephrases, uses different models, and tries new angles automatically",
-      "interpretationLow": "Consistent: Repeats and reinforces the same explanation with more detail"
+      "interpretationLow": "Consistent: Repeats and reinforces the same explanation with more detail",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-FEELING-LANGUAGE",
@@ -375,8 +507,12 @@
       "definition": "How much the AI uses sensory and emotional language (feel, sense, touch, experience).",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Kinaesthetic: Rich sensory language — 'feel the weight of', 'get a sense for'",
-      "interpretationLow": "Analytical: Factual, logical language — 'note that', 'observe that'"
+      "interpretationHigh": "Kinaesthetic: Rich sensory language \u2014 'feel the weight of', 'get a sense for'",
+      "interpretationLow": "Analytical: Factual, logical language \u2014 'note that', 'observe that'",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-FORMALITY",
@@ -389,7 +525,11 @@
       "aliases": [
         "formality-level",
         "formality_actual"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-FOUNDATION-FOCUS",
@@ -398,7 +538,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Gap-Filling: Pauses to address missing foundations before teaching new material",
-      "interpretationLow": "Forward-Moving: Focuses on current material, addressing gaps only when they block progress"
+      "interpretationLow": "Forward-Moving: Focuses on current material, addressing gaps only when they block progress",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-GUIDED-PRACTICE",
@@ -407,7 +551,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Heavily Guided: Walks through each step, provides hints and scaffolding",
-      "interpretationLow": "Independent: Sets the task and lets the learner work through it alone"
+      "interpretationLow": "Independent: Sets the task and lets the learner work through it alone",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-IMAGERY-DENSITY",
@@ -416,7 +564,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Image-Rich: Paints vivid mental pictures and asks learner to visualise",
-      "interpretationLow": "Text-Focused: Relies on logical reasoning and verbal explanation"
+      "interpretationLow": "Text-Focused: Relies on logical reasoning and verbal explanation",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-INSIGHT-FREQUENCY",
@@ -425,7 +577,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Knowledge-Rich: 3+ insights per call. Actively look for opportunities to share interesting connections.",
-      "interpretationLow": "Listener: Pure listening mode. Share knowledge only if directly asked."
+      "interpretationLow": "Listener: Pure listening mode. Share knowledge only if directly asked.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-INTELLECTUAL-CHALLENGE",
@@ -434,7 +590,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Challenging: Providing genuine intellectual challenge",
-      "interpretationLow": "Comfortable: Keeping things easy and comfortable"
+      "interpretationLow": "Comfortable: Keeping things easy and comfortable",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-INTERLEAVING",
@@ -443,7 +603,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Mixed Practice: Regularly weaves past topics into current sessions for retention",
-      "interpretationLow": "Focused Blocks: Concentrates on one topic at a time without mixing"
+      "interpretationLow": "Focused Blocks: Concentrates on one topic at a time without mixing",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-LIST-STRUCTURE",
@@ -452,7 +616,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Structured: Frequently uses numbered lists, bullet points, and clear hierarchies",
-      "interpretationLow": "Flowing: Uses natural prose and connected paragraphs"
+      "interpretationLow": "Flowing: Uses natural prose and connected paragraphs",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-MEMORY-REFERENCE",
@@ -461,7 +629,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Good Continuity: Appropriately referencing family names, interests, past conversations",
-      "interpretationLow": "No References: Not referencing past conversations or known facts"
+      "interpretationLow": "No References: Not referencing past conversations or known facts",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-MODALITY-CONSISTENCY",
@@ -470,7 +642,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Stick With What Works: Consistently uses the modality the learner responds to best",
-      "interpretationLow": "Mix It Up: Deliberately varies approaches even when one is working well"
+      "interpretationLow": "Mix It Up: Deliberately varies approaches even when one is working well",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-MODALITY-VARIETY",
@@ -479,7 +655,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Multi-Modal: Switches between visual, auditory, and kinesthetic based on content type",
-      "interpretationLow": "Single Channel: Relies on one primary teaching approach regardless of content"
+      "interpretationLow": "Single Channel: Relies on one primary teaching approach regardless of content",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-NEW-CONTENT-RATE",
@@ -488,7 +668,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast Introduction: Quickly moves to new material, minimal review time",
-      "interpretationLow": "Review First: Extensive review of existing material before introducing anything new"
+      "interpretationLow": "Review First: Extensive review of existing material before introducing anything new",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-NUANCE-EXPLORATION",
@@ -497,7 +681,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep Nuance: Probes edge cases, exceptions, and grey areas to deepen understanding",
-      "interpretationLow": "Core Only: Sticks to the main rule or concept without exploring exceptions"
+      "interpretationLow": "Core Only: Sticks to the main rule or concept without exploring exceptions",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PACE-MATCH",
@@ -512,7 +700,11 @@
         "adapt_to_pace_preference",
         "pace_indicators",
         "pacing_actual"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PATIENCE-LEVEL",
@@ -521,7 +713,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Patient: Unhurried, allowing time for thought, not rushing",
-      "interpretationLow": "Rushed: Moving too fast, not allowing time"
+      "interpretationLow": "Rushed: Moving too fast, not allowing time",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PAUSE-TOLERANCE",
@@ -530,7 +726,11 @@
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Patient Silences: Comfortable with long pauses, gives ample thinking time",
-      "interpretationLow": "Quick Fill: Fills silences quickly with prompts, hints, or new content"
+      "interpretationLow": "Quick Fill: Fills silences quickly with prompts, hints, or new content",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PRACTICE-EXERCISES",
@@ -539,7 +739,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Activity-Heavy: Lots of exercises, drills, and hands-on tasks",
-      "interpretationLow": "Discussion-Based: Learning through conversation and explanation, few exercises"
+      "interpretationLow": "Discussion-Based: Learning through conversation and explanation, few exercises",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PRACTICE-RATIO",
@@ -548,7 +752,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Practice-Heavy: Most of the session is spent on exercises and application",
-      "interpretationLow": "Explanation-Heavy: Most of the session is spent on teaching and explaining"
+      "interpretationLow": "Explanation-Heavy: Most of the session is spent on teaching and explaining",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PREREQUISITE-CALLBACK",
@@ -557,7 +765,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Frequent Links: Regularly connects new ideas to what was learned before",
-      "interpretationLow": "Standalone: Teaches each concept independently without referencing prior knowledge"
+      "interpretationLow": "Standalone: Teaches each concept independently without referencing prior knowledge",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PROACTIVE",
@@ -566,7 +778,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Proactive: Actively offering ideas, connections, questions",
-      "interpretationLow": "Passive: Only responding to what's asked"
+      "interpretationLow": "Passive: Only responding to what's asked",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PROBING-QUESTIONS",
@@ -575,7 +791,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Socratic: Frequently asks 'why' and 'what if' to push thinking further",
-      "interpretationLow": "Accepting: Accepts answers at face value without probing deeper"
+      "interpretationLow": "Accepting: Accepts answers at face value without probing deeper",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PRODUCTIVE-STRUGGLE",
@@ -584,7 +804,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Patient Struggle: Lets the learner wrestle with the problem, offering encouragement",
-      "interpretationLow": "Quick Rescue: Steps in quickly with hints or answers when difficulty is detected"
+      "interpretationLow": "Quick Rescue: Steps in quickly with hints or answers when difficulty is detected",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-QUESTION-RATE",
@@ -593,7 +817,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Question-Rich: Asking many thoughtful, probing questions",
-      "interpretationLow": "Few Questions: Mostly making statements, few questions"
+      "interpretationLow": "Few Questions: Mostly making statements, few questions",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-REAL-WORLD-EXAMPLES",
@@ -602,7 +830,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Practical: Frequently links ideas to real-life situations and applications",
-      "interpretationLow": "Theoretical: Stays within the academic or abstract domain"
+      "interpretationLow": "Theoretical: Stays within the academic or abstract domain",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-REPETITION-FREQUENCY",
@@ -611,7 +843,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Frequent Repetition: Deliberately restates key ideas multiple times per session",
-      "interpretationLow": "Say Once: States concepts once and moves on without repetition"
+      "interpretationLow": "Say Once: States concepts once and moves on without repetition",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-REPETITION-OFFER",
@@ -620,7 +856,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Proactive Repeats: Offers to say things again or differently without being asked",
-      "interpretationLow": "On Request: Only repeats when the learner explicitly asks"
+      "interpretationLow": "On Request: Only repeats when the learner explicitly asks",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-RESPECT-EXPERIENCE",
@@ -629,7 +869,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Honoring: Actively honoring wisdom, treating as intellectual equal",
-      "interpretationLow": "Dismissive: Not acknowledging experience, possibly condescending"
+      "interpretationLow": "Dismissive: Not acknowledging experience, possibly condescending",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-RESPONSE-LEN",
@@ -638,7 +882,11 @@
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Longer Turns: Extended responses with more content per exchange",
-      "interpretationLow": "Short Turns: Brief responses that encourage quick back-and-forth dialogue"
+      "interpretationLow": "Short Turns: Brief responses that encourage quick back-and-forth dialogue",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-RHYTHM-ATTENTION",
@@ -647,7 +895,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Rhythmic: Varies pace, uses pauses deliberately, attends to speech rhythm",
-      "interpretationLow": "Steady: Maintains a consistent pace without deliberate rhythmic variation"
+      "interpretationLow": "Steady: Maintains a consistent pace without deliberate rhythmic variation",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-SCAFFOLDING",
@@ -656,7 +908,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Heavy Scaffolding: Breaks tasks into small steps, provides frameworks and templates",
-      "interpretationLow": "Minimal Scaffolding: Presents the full task and lets the learner structure their approach"
+      "interpretationLow": "Minimal Scaffolding: Presents the full task and lets the learner structure their approach",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-SPACED-RETRIEVAL-PRIORITY",
@@ -665,7 +921,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Aggressive Review: Prioritises retrieval practice for declining mastery areas",
-      "interpretationLow": "Forward Focus: Prioritises new material over reviewing fading knowledge"
+      "interpretationLow": "Forward Focus: Prioritises new material over reviewing fading knowledge",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-SPATIAL-METAPHOR",
@@ -673,8 +933,12 @@
       "definition": "How much the AI uses spatial organisation and location-based metaphors.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Spatial: Uses 'above', 'below', 'left of', 'inside' — maps concepts to space",
-      "interpretationLow": "Sequential: Uses 'first', 'then', 'next' — maps concepts to time"
+      "interpretationHigh": "Spatial: Uses 'above', 'below', 'left of', 'inside' \u2014 maps concepts to space",
+      "interpretationLow": "Sequential: Uses 'first', 'then', 'next' \u2014 maps concepts to time",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-STORY-INVITATION",
@@ -683,7 +947,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Welcoming: Warmly inviting stories, creating space for sharing",
-      "interpretationLow": "No Invitations: Not inviting stories or personal sharing"
+      "interpretationLow": "No Invitations: Not inviting stories or personal sharing",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-TERMINOLOGY-FORMAL",
@@ -692,7 +960,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Technical: Uses proper subject terminology and expects learner to learn it",
-      "interpretationLow": "Plain Language: Avoids jargon, uses everyday words to explain concepts"
+      "interpretationLow": "Plain Language: Avoids jargon, uses everyday words to explain concepts",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-TURN-LENGTH",
@@ -701,7 +973,11 @@
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Extended: Longer, more content-rich turns with multiple points per exchange",
-      "interpretationLow": "Brief: Short, punchy turns that keep the conversation fast-paced"
+      "interpretationLow": "Brief: Short, punchy turns that keep the conversation fast-paced",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-VERBAL-ELABORATION",
@@ -710,7 +986,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Elaborate: Extended, detailed verbal explanations with multiple angles",
-      "interpretationLow": "Concise: Brief, to-the-point explanations — says it once, clearly"
+      "interpretationLow": "Concise: Brief, to-the-point explanations \u2014 says it once, clearly",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-WARMTH",
@@ -723,7 +1003,11 @@
       "aliases": [
         "BEH-CONVERSATIONAL-TONE",
         "warmth_actual"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-WORKED-EXAMPLES",
@@ -732,7 +1016,11 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Demo First: Shows fully worked examples before asking the learner to attempt",
-      "interpretationLow": "Try First: Asks the learner to attempt the problem before showing solutions"
+      "interpretationLow": "Try First: Asks the learner to attempt the problem before showing solutions",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-WRITTEN-ALTERNATIVE",
@@ -741,7 +1029,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Text Support: Frequently offers written summaries, key points, or reference notes",
-      "interpretationLow": "Verbal Only: Teaches entirely through conversation without written supplements"
+      "interpretationLow": "Verbal Only: Teaches entirely through conversation without written supplements",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CALL-FREQUENCY-ADAPTATION",
@@ -753,7 +1045,11 @@
       "interpretationLow": "Returning After Break: Provide context refresh, welcome back warmly",
       "aliases": [
         "call_frequency_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "check-for-understanding",
@@ -762,7 +1058,11 @@
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Check understanding frequently; ask the learner to summarise or apply each new idea before moving on.",
-      "interpretationLow": "Trust the learner's silence as understanding; check only at major content transitions."
+      "interpretationLow": "Trust the learner's silence as understanding; check only at major content transitions.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CHUNK-SIZE",
@@ -774,7 +1074,11 @@
         "chunk-size"
       ],
       "interpretationHigh": "Deliver content in larger blocks; cover multiple related points before pausing.",
-      "interpretationLow": "Break content into small chunks; pause after each idea for reflection or response."
+      "interpretationLow": "Break content into small chunks; pause after each idea for reflection or response.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-COMMUNICATION-COMPLEXITY-ADAPTATION",
@@ -786,7 +1090,11 @@
       "interpretationLow": "Simple Communication: Use clear, simple language without jargon",
       "aliases": [
         "communication_complexity_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-DEPTH-PREFERENCE",
@@ -798,7 +1106,11 @@
       "interpretationLow": "Light: Prefers lighter conversation, social connection, simple topics",
       "aliases": [
         "COMP-DEPTH-PREFERENCE"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ENERGY",
@@ -810,7 +1122,11 @@
       "interpretationLow": "Low Energy: Tired, shorter responses, may need gentler pacing or wrap-up",
       "aliases": [
         "COMP-ENERGY"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ENGAGEMENT",
@@ -822,7 +1138,11 @@
       "interpretationLow": "Low Engagement: Distracted, giving short answers, not pursuing topics",
       "aliases": [
         "COMP-ENGAGEMENT"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-MOOD",
@@ -834,7 +1154,11 @@
       "interpretationLow": "Low Mood: Withdrawn, flat affect, brief responses, possible loneliness signals",
       "aliases": [
         "COMP-MOOD"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-COMPOSITE-REWARD",
@@ -846,7 +1170,11 @@
       "interpretationLow": "Neutral Outcome: Acceptable but unremarkable",
       "aliases": [
         "composite_reward"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-COMPREHENSION-ADAPTATION",
@@ -858,7 +1186,11 @@
       "interpretationLow": "Weak Comprehension: Heavy scaffolding required",
       "aliases": [
         "comprehension_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-COMPREHENSION-SCORE",
@@ -870,7 +1202,11 @@
       "interpretationLow": "No Comprehension: Cannot demonstrate understanding",
       "aliases": [
         "comprehension_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-REMINISCENCE",
@@ -882,7 +1218,11 @@
       "interpretationLow": "Present-Focused: Focused on present/future, not drawing on past experiences",
       "aliases": [
         "COMP-REMINISCENCE"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "concept-density",
@@ -891,7 +1231,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Introduce multiple concepts in close succession; trust the learner to integrate them.",
-      "interpretationLow": "Introduce one concept at a time; allow each to settle before adding the next."
+      "interpretationLow": "Introduce one concept at a time; allow each to settle before adding the next.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CONCEPT-EXPOSURE",
@@ -903,7 +1247,11 @@
       "interpretationLow": "Minimal Exposure: Concept mentioned briefly",
       "aliases": [
         "concept_exposure"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CONSCIENTIOUSNESS-ADAPTATION",
@@ -915,7 +1263,11 @@
       "interpretationLow": "Flexible Overview: Big picture focus, adaptable, less rigid",
       "aliases": [
         "conscientiousness_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CONTEXT-SETTING-QUALITY",
@@ -927,7 +1279,11 @@
       "interpretationLow": "No Context: Caller may be unsure what to expect",
       "aliases": [
         "context_setting_quality"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CONV-DOM",
@@ -939,7 +1295,11 @@
       "interpretationLow": "Agent Dominant: Agent controlling conversation - create space for caller input",
       "aliases": [
         "CONV_DOM"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "CONV_PACE",
@@ -949,7 +1309,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "Rapid: Very fast pace - minimize pauses, quick turnarounds",
       "interpretationLow": "Deliberate: Slow, thoughtful pace - allow processing time, don't rush",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-COGNITIVE-ACTIVATION",
@@ -961,7 +1325,11 @@
       "interpretationLow": "Disengaged: Caller showing minimal cognitive investment - simplify and re-engage",
       "aliases": [
         "CP-004"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-CRISIS-DETECTION-SCORE",
@@ -973,7 +1341,11 @@
       "interpretationLow": "No Crisis Detected: Conversation appears safe",
       "aliases": [
         "crisis_detection_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-DEFAULT-TARGETS-QUALITY",
@@ -985,7 +1357,11 @@
       "interpretationLow": "Poor Defaults: May create bad first impression",
       "aliases": [
         "default_targets_quality"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "directness_actual",
@@ -995,7 +1371,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Direct: Clear assertions, no hedging",
       "interpretationLow": "Very Indirect: Evasive, overly tentative",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "empathy_expression",
@@ -1005,7 +1385,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Empathic: Deep emotional attunement",
       "interpretationLow": "None: Ignores emotional content",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-ENGAGEMENT-ADAPTATION",
@@ -1017,7 +1401,11 @@
       "interpretationLow": "Low Engagement: Simplify, re-engage, or check for issues",
       "aliases": [
         "engagement_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ENGAGEMENT-PROMPTS",
@@ -1029,7 +1417,11 @@
         "engagement-prompts"
       ],
       "interpretationHigh": "Use frequent engagement prompts; invite the learner to share thoughts, examples, or experiences.",
-      "interpretationLow": "Use few engagement prompts; deliver content cleanly without inviting tangents."
+      "interpretationLow": "Use few engagement prompts; deliver content cleanly without inviting tangents.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ENGAGEMENT-REWARD",
@@ -1041,7 +1433,11 @@
       "interpretationLow": "Positive: Moderate engagement improvement",
       "aliases": [
         "engagement_reward"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ENGAGEMENT-TREND-SCORE",
@@ -1053,7 +1449,11 @@
       "interpretationLow": "Significant Decline: Engagement dropping - intervention needed",
       "aliases": [
         "engagement_trend_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ENGAGEMENT-WITH-EXAMPLES",
@@ -1065,7 +1465,11 @@
       "interpretationLow": "Abstract-Focused: Comfortable with abstract concepts",
       "aliases": [
         "engagement_with_examples"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ERROR-ELABORATION",
@@ -1077,7 +1481,11 @@
         "error-elaboration"
       ],
       "interpretationHigh": "When the learner errs, explain the misconception, the correction, and why the correct form works.",
-      "interpretationLow": "When the learner errs, offer the correction without dwelling on the misconception."
+      "interpretationLow": "When the learner errs, offer the correction without dwelling on the misconception.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "example-richness",
@@ -1086,7 +1494,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Provide multiple examples per concept; vary the example contexts to anchor understanding.",
-      "interpretationLow": "Provide one focused example per concept; trust generalisation from a single case."
+      "interpretationLow": "Provide one focused example per concept; trust generalisation from a single case.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-EXPLANATION-DEPTH",
@@ -1098,7 +1510,11 @@
         "explanation-depth"
       ],
       "interpretationHigh": "Explain in depth; cover mechanism, edge cases, and the reasoning behind the answer.",
-      "interpretationLow": "Explain briefly; cover the headline answer and only the rationale the learner needs to act."
+      "interpretationLow": "Explain briefly; cover the headline answer and only the rationale the learner needs to act.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-EXPLORATION-STRUCTURE",
@@ -1110,7 +1526,11 @@
       "interpretationLow": "Highly Structured: Rigid agenda, no tangents",
       "aliases": [
         "exploration_structure"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-EXTRAVERSION-ADAPTATION",
@@ -1122,7 +1542,11 @@
       "interpretationLow": "Measured Pace: Quieter, space-giving, reflective style",
       "aliases": [
         "extraversion_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "formality_actual",
@@ -1132,7 +1556,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Formal: Professional, structured, sophisticated vocabulary",
       "interpretationLow": "Very Casual: Informal, colloquial",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "formality-level",
@@ -1140,7 +1568,11 @@
       "definition": "Conversational learners prefer informal tone",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-GOAL-DISCOVERY-QUALITY",
@@ -1152,7 +1584,11 @@
       "interpretationLow": "Unclear Goals: Need more discovery in future sessions",
       "aliases": [
         "goal_discovery_quality"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-GOAL-PROGRESS-REWARD",
@@ -1164,7 +1600,11 @@
       "interpretationLow": "Minor Progress: Small steps forward",
       "aliases": [
         "goal_progress_reward"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-INSIGHT-QUALITY",
@@ -1172,11 +1612,15 @@
       "definition": "Whether shared insights are relevant, brief, conversational, and genuinely interesting",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Excellent: Insights feel like a well-read friend sharing something they just thought of — brief, relevant, delightful",
+      "interpretationHigh": "Excellent: Insights feel like a well-read friend sharing something they just thought of \u2014 brief, relevant, delightful",
       "interpretationLow": "Poor: Insights are irrelevant, too long, or feel like Wikipedia dumps",
       "aliases": [
         "insight_quality"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "kinesthetic_adaptation",
@@ -1186,7 +1630,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "High Kinesthetic: Ground in practical experience, action, and feeling",
       "interpretationLow": "Low Kinesthetic: Theory-first approach is fine; practice is optional",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-LEARNING-PROGRESS-SCORE",
@@ -1198,7 +1646,11 @@
       "interpretationLow": "Slow Progress: Progress slower than expected, may need adjustment",
       "aliases": [
         "learning_progress_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-LEARNING-REWARD",
@@ -1210,7 +1662,11 @@
       "interpretationLow": "Low Learning: Minimal new information",
       "aliases": [
         "learning_reward"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-LEARNING-VELOCITY-ADAPTATION",
@@ -1222,7 +1678,11 @@
       "interpretationLow": "Needs Reinforcement: Slow pacing, add reinforcement and practice",
       "aliases": [
         "learning_velocity_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-MASTERY-ADAPTATION",
@@ -1234,7 +1694,11 @@
       "interpretationLow": "Low Mastery: Needs reinforcement before advancement",
       "aliases": [
         "mastery_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-MODULE-INTRODUCTION",
@@ -1246,7 +1710,11 @@
       "interpretationLow": "Mentioned: Topic referenced but not taught",
       "aliases": [
         "module_introduction"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-MODULE-MASTERY",
@@ -1258,7 +1726,11 @@
       "interpretationLow": "Beginner: Still learning fundamentals",
       "aliases": [
         "module_mastery"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-MULTIMODAL-ADAPTATION",
@@ -1270,7 +1742,11 @@
       "interpretationLow": "Unimodal: Focus primarily on dominant modality",
       "aliases": [
         "multimodal_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-NEUROTICISM-ADAPTATION",
@@ -1282,7 +1758,11 @@
       "interpretationLow": "Straightforward: Direct communication, trust their resilience",
       "aliases": [
         "neuroticism_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-OPENNESS-ADAPTATION",
@@ -1294,7 +1774,11 @@
       "interpretationLow": "Practical Style: Concrete, practical, tried-and-true approaches",
       "aliases": [
         "openness_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "pace_indicators",
@@ -1304,7 +1788,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "Requests Faster: Learner wants to move faster",
       "interpretationLow": "Needs Slower: Learner needs more time",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "pacing_actual",
@@ -1314,7 +1802,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast/Dense: Rapid, information-rich responses",
       "interpretationLow": "Slow/Sparse: Very measured, minimal density",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-PAUSE-FOR-QUESTIONS",
@@ -1326,7 +1818,11 @@
         "pause-for-questions"
       ],
       "interpretationHigh": "Pause regularly to invite questions; treat silence as an explicit prompt for the learner to respond.",
-      "interpretationLow": "Continue speaking through silence; the learner will signal if they need to interject."
+      "interpretationLow": "Continue speaking through silence; the learner will signal if they need to interject.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PREFERENCE-ELICITATION-QUALITY",
@@ -1338,7 +1834,11 @@
       "interpretationLow": "Unknown: Use balanced defaults, observe carefully",
       "aliases": [
         "preference_elicitation_quality"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PREREQUISITE-ADAPTATION",
@@ -1350,7 +1850,11 @@
       "interpretationLow": "Prerequisites Missing: Must reinforce foundations first",
       "aliases": [
         "prerequisite_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-PREREQUISITE-CHECK",
@@ -1362,7 +1866,11 @@
       "interpretationLow": "Not Ready: Prerequisites need more work",
       "aliases": [
         "prerequisite_check"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-QUESTION-ASKING-RATE",
@@ -1374,7 +1882,11 @@
       "interpretationLow": "Low Question Frequency: Learner prefers direct instruction or self-directed exploration",
       "aliases": [
         "question_asking_rate"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-RAPPORT-REWARD",
@@ -1386,7 +1898,11 @@
       "interpretationLow": "Building Rapport: Acceptable style alignment",
       "aliases": [
         "rapport_reward"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-READING-WRITING-ADAPTATION",
@@ -1398,7 +1914,11 @@
       "interpretationLow": "Low Read/Write: Keep it conversational; avoid heavy structure or formal definitions",
       "aliases": [
         "reading_writing_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "repetition-frequency",
@@ -1407,7 +1927,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Repeat key points across the session; restate each idea two or three times in different forms.",
-      "interpretationLow": "State each key point once; trust the learner to retain it without explicit repetition."
+      "interpretationLow": "State each key point once; trust the learner to retain it without explicit repetition.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "response_empathy_score",
@@ -1417,7 +1941,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "Empathic Response: Emotional content acknowledged appropriately",
       "interpretationLow": "Low Empathy: Emotional content may have been missed",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-RESPONSE-LENGTH-PREFERENCE",
@@ -1429,7 +1957,11 @@
       "interpretationLow": "Prefers Concise: Responds better to brief, focused explanations",
       "aliases": [
         "response_length_preference"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-RESPONSE-LENGTH-SCORE",
@@ -1441,7 +1973,11 @@
       "interpretationLow": "Length Issue: Response too long or too short for context",
       "aliases": [
         "response_length_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-REVIEW-ADAPTATION",
@@ -1453,7 +1989,11 @@
       "interpretationLow": "Review Urgent: Prioritize spaced retrieval",
       "aliases": [
         "review_adaptation"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-REVIEW-STATUS",
@@ -1465,7 +2005,11 @@
       "interpretationLow": "Urgent Review: Mastery declining or significantly overdue",
       "aliases": [
         "review_status"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-SAFETY-COMPLIANCE-SCORE",
@@ -1477,7 +2021,11 @@
       "interpretationLow": "Compliance Issue: Safety disclaimers needed but missing",
       "aliases": [
         "safety_compliance_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "scaffolding",
@@ -1486,7 +2034,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Provide strong scaffolding: previews, structure markers, and explicit transitions between sections.",
-      "interpretationLow": "Provide minimal scaffolding; let the learner build their own structure from the content flow."
+      "interpretationLow": "Provide minimal scaffolding; let the learner build their own structure from the content flow.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-SOCRATIC-QUESTIONING",
@@ -1498,7 +2050,11 @@
         "socratic-questioning"
       ],
       "interpretationHigh": "Lead with questions; draw out the learner's reasoning before offering your own answer.",
-      "interpretationLow": "Lead with direct explanation; offer questions only as comprehension checks."
+      "interpretationLow": "Lead with direct explanation; offer questions only as comprehension checks.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-STUDENT-APPLICATION-SCORE",
@@ -1510,7 +2066,11 @@
       "interpretationLow": "Cannot Apply: Student struggles to apply concepts",
       "aliases": [
         "student_application_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-STYLE-CONSISTENCY-SCORE",
@@ -1522,7 +2082,11 @@
       "interpretationLow": "Inconsistent: Jarring style changes within session",
       "aliases": [
         "style_consistency_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-TARGET-ALIGNMENT-SCORE",
@@ -1534,7 +2098,11 @@
       "interpretationLow": "Misaligned: Significant deviation from computed targets",
       "aliases": [
         "target_alignment_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-TONE-ASSERT",
@@ -1546,7 +2114,11 @@
       "interpretationLow": "Deferential: Caller is very passive - may need encouragement to express preferences",
       "aliases": [
         "TONE_ASSERT"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-TUTOR-FIDELITY-SCORE",
@@ -1558,7 +2130,11 @@
       "interpretationLow": "Fidelity Issues: Some invented or inaccurate content",
       "aliases": [
         "tutor_fidelity_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-TUTOR-INTRO-SCORE",
@@ -1570,7 +2146,11 @@
       "interpretationLow": "Incomplete Introduction: Key elements missing from introduction",
       "aliases": [
         "tutor_intro_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-TUTOR-SEQUENCE-SCORE",
@@ -1582,7 +2162,11 @@
       "interpretationLow": "Sequence Violation: Critiques introduced before concepts",
       "aliases": [
         "tutor_sequence_score"
-      ]
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "VARK-A",
@@ -1591,7 +2175,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Auditory: Auditory processing is primary mode - everything through verbal dialogue and sound",
-      "interpretationLow": "Low Auditory: Verbal-heavy teaching may be ineffective - use other modalities"
+      "interpretationLow": "Low Auditory: Verbal-heavy teaching may be ineffective - use other modalities",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "VARK-K",
@@ -1600,7 +2188,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Kinesthetic: Experiential processing is primary mode - everything through doing and feeling",
-      "interpretationLow": "Low Kinesthetic: Experiential approaches may not be necessary - theoretical explanation works"
+      "interpretationLow": "Low Kinesthetic: Experiential approaches may not be necessary - theoretical explanation works",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "VARK-PROFILE",
@@ -1609,7 +2201,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Quadmodal: All modalities strong - vary approaches freely",
-      "interpretationLow": "Unimodal: Single dominant modality - strongly favor that approach"
+      "interpretationLow": "Unimodal: Single dominant modality - strongly favor that approach",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "VARK-R",
@@ -1618,7 +2214,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Read/Write: Text-based processing is primary mode - structure everything as organized prose/lists",
-      "interpretationLow": "Low Read/Write: Text-heavy teaching unlikely to resonate - use verbal or experiential"
+      "interpretationLow": "Low Read/Write: Text-heavy teaching unlikely to resonate - use verbal or experiential",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "VARK-V",
@@ -1627,7 +2227,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Visual: Visual processing is primary mode - structure everything spatially with vivid imagery",
-      "interpretationLow": "Low Visual: Visual approaches unlikely to resonate - use other modalities"
+      "interpretationLow": "Low Visual: Visual approaches unlikely to resonate - use other modalities",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "visual_adaptation",
@@ -1637,7 +2241,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "High Visual: Use rich mental imagery, spatial metaphors, and visualization language",
       "interpretationLow": "Low Visual: Minimize visual-heavy explanations; use other approaches",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "warmth_actual",
@@ -1647,7 +2255,11 @@
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Warm: Highly friendly, emotionally engaged",
       "interpretationLow": "Cold: Detached, impersonal",
-      "deprecatedAt": "2026-06-18T15:00:00Z"
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-WELCOME-QUALITY",
@@ -1659,7 +2271,11 @@
       "interpretationLow": "Poor Welcome: Caller may feel confused or unwelcome",
       "aliases": [
         "welcome_quality"
-      ]
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": "deferred-#1967"
+      }
     }
   ]
 }
