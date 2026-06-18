@@ -1055,6 +1055,31 @@ export interface AuthoredModuleSettings {
    */
   scaffoldPool?: string[];
   /**
+   * #1932 (epic #1931 Template Authority) — module-scoped pool of topic
+   * frames + questions, used by student-led practice modules (IELTS
+   * Part 1 "Familiar Topics", IELTS Part 3 "Abstract Discussion", any
+   * conversational drill where the tutor picks a topic and asks
+   * pre-authored questions on it).
+   *
+   * Parallel to `cueCardPool` (Part 2 monologue) but the unit-of-content
+   * is QUESTIONS not BULLETS — the tutor asks the questions one at a
+   * time rather than treating the bullets as a single cue-card framing.
+   *
+   * Source-of-truth lives in a separate `## Frame N — Topic` (Part 1)
+   * or `## Theme: X / ### Set N — Title` (Part 3) markdown file
+   * referenced from the course-ref doc via
+   * `topicPool: source:<id>` and resolved by
+   * `lib/wizard/resolve-module-source-refs.ts` at projection time.
+   *
+   * Read by `lib/prompt/composition/transforms/instructions.ts::
+   * resolveModuleTopicPool` — picks one topic deterministically by
+   * `sharedState.callNumber % pool.length` and emits a directive
+   * naming the topic + listing the questions. Gated by
+   * `HF_FLAG_IELTS_MODULE_SETTINGS` during the migration window per
+   * epic #1700 decision 5.
+   */
+  topicPool?: Array<{ topic: string; questions: string[] }>;
+  /**
    * #1704 Theme 10 — declared conversational profile fields the AI should
    * capture during the session. EXTRACT (`extract-profile-fields.ts`) walks
    * this list, validates, and writes `CallerAttribute` rows under `profile:*`.

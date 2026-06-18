@@ -62,6 +62,14 @@ export interface ContentDeclaration {
    * Boaz guard then activates automatically once a call lands.
    */
   scoringMode?: "evidence-first";
+  /**
+   * #1932 (epic #1931 Template Authority) — the Course Reference
+   * Template version this instance was built from. Optional; consumed
+   * by future template↔instance conformance validators. Today the
+   * parser only records the declared value (after dot-separated digit
+   * shape check) — drift detection is S1+.
+   */
+  templateVersion?: string;
   /** Accumulated warnings from parsing (invalid enum, malformed block, etc.). */
   sourceWarnings: string[];
   /** True when at least one field was parsed and validated successfully. */
@@ -421,6 +429,23 @@ function applyDeclaredField(
       } else {
         result.sourceWarnings.push(
           `Ignored declared hf-question-assessment-use="${value}" — not a known AssessmentUse. Falling back to AI inference.`,
+        );
+      }
+      return;
+    }
+    case "hf-template-version":
+    case "hf-templateversion": {
+      // #1932 (epic #1931 Template Authority) — record the declared
+      // template version. Shape check: one or more dot-separated digit
+      // groups (e.g. "5.1", "5.1.2"). Anything else warns + falls
+      // back to no declaration (S1 will add a conformance verdict).
+      const normalized = value.trim().replace(/^["']|["']$/g, "");
+      if (/^\d+(\.\d+){0,2}$/.test(normalized)) {
+        result.templateVersion = normalized;
+        result.hasDeclaration = true;
+      } else {
+        result.sourceWarnings.push(
+          `Ignored declared hf-template-version="${value}" — expected dot-separated digits (e.g. "5.1"). Falling back to no template-version declaration.`,
         );
       }
       return;

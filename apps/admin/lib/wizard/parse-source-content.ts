@@ -163,3 +163,135 @@ export function parseStallScaffolds(text: string): string[] {
   }
   return out;
 }
+
+// ── Topic pool (Source 1 — Part 1 frames + Source 3 — Part 3 themes/sets)
+//
+// Two heading shapes are tolerated, both normalising to the same output
+// shape `Array<{ topic, questions[] }>`:
+//
+//   PART 1 — `ielts-speaking-question-bank-part1.md`
+//   ## Frame N — Topic title
+//
+//   _Optional signposting line (markdown italic)._
+//
+//   1. First question text?
+//   2. Second question text?
+//   ...
+//
+//   PART 3 — `ielts-speaking-question-bank-part3.md`
+//   ## Theme: Society and generations
+//
+//   ### Set 1 — Possessions and status (linked to Part 2 "Object" cards)
+//
+//   _Let's consider how people's values have changed._
+//
+//   1. First question?
+//   2. Second question?
+//   ...
+//
+// In the Part 1 shape each `## Frame N — ...` is a topic and the
+// numbered list under it is the question set.
+// In the Part 3 shape each `### Set N — ...` (under a `## Theme:`
+// parent) is a topic and the numbered list under it is the question
+// set; the `## Theme:` line is NOT itself a topic.
+//
+// Italic signposting lines (`_..._`) + footer `_(source: …)_` notes +
+// `---` separators are ignored. Output topics that produced 0
+// questions are dropped (defensive).
+
+export interface TopicPoolEntry {
+  topic: string;
+  questions: string[];
+}
+
+const FRAME_HEADER = /^##\s+Frame\s+\d+\s*[—–-]\s+(.+?)\s*$/i;
+const THEME_HEADER = /^##\s+Theme\s*:\s*(.+?)\s*$/i;
+const SET_HEADER = /^###\s+Set\s+\d+\s*[—–-]\s+(.+?)\s*$/i;
+const NUMBERED_QUESTION = /^\s*\d+\.\s+(.+?)\s*$/;
+const ITALIC_LINE = /^_.*_\s*$/;
+
+/**
+ * Parse a topic-bank / theme-bank markdown file into a flat list of
+ * `{ topic, questions[] }` entries.
+ *
+ * The function decides Part 1 ("Frame") vs Part 3 ("Theme + Set") shape
+ * dynamically by which heading types occur — the dispatcher in
+ * `resolve-module-source-refs.ts` accepts BOTH `format: topic-pool` AND
+ * `format: theme-pool` because they normalise to the same output shape.
+ *
+ * Tolerant: italic signposting lines + `_(source: …)_` footers +
+ * `---` separators are skipped. A topic with zero questions is dropped.
+ */
+export function parseTopicPool(text: string): TopicPoolEntry[] {
+  const lines = text.split(/\r?\n/);
+  const out: TopicPoolEntry[] = [];
+
+  let currentTopic: string | null = null;
+  let currentQuestions: string[] = [];
+
+  const flush = (): void => {
+    if (currentTopic && currentQuestions.length > 0) {
+      out.push({ topic: currentTopic, questions: [...currentQuestions] });
+    }
+    currentTopic = null;
+    currentQuestions = [];
+  };
+
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+
+    // Part 1 `## Frame N — Topic` — opens a topic.
+    const frameMatch = line.match(FRAME_HEADER);
+    if (frameMatch) {
+      flush();
+      currentTopic = frameMatch[1].trim();
+      continue;
+    }
+
+    // Part 3 `## Theme: X` — closes any open topic but does NOT itself
+    // open one (the `### Set N — Title` under it carries the topic).
+    if (THEME_HEADER.test(line)) {
+      flush();
+      continue;
+    }
+
+    // Part 3 `### Set N — Title` — opens a topic.
+    const setMatch = line.match(SET_HEADER);
+    if (setMatch) {
+      flush();
+      currentTopic = setMatch[1].trim();
+      continue;
+    }
+
+    // Any OTHER top-level `## ` heading ends the current topic and stops
+    // consumption inside it. Top-level `# ` headings (single-hash) live
+    // only at file-top in both fixtures and are tolerated as a no-op.
+    if (/^##\s/.test(line)) {
+      flush();
+      continue;
+    }
+
+    // `---` separator — ignore.
+    if (/^---+\s*$/.test(line)) continue;
+
+    // Italic signposting / source-footer — ignore.
+    if (ITALIC_LINE.test(line.trim())) continue;
+
+    // Empty line — ignore (doesn't close the topic; questions may carry
+    // blank lines between them in some authoring styles).
+    if (line.trim() === "") continue;
+
+    // Numbered question under the current topic.
+    const qMatch = line.match(NUMBERED_QUESTION);
+    if (qMatch && currentTopic !== null) {
+      const q = qMatch[1].trim();
+      if (q.length > 0) currentQuestions.push(q);
+      continue;
+    }
+
+    // Other prose (e.g. paragraph between heading and questions) —
+    // ignore; the next question/heading resumes parsing.
+  }
+  flush();
+  return out;
+}

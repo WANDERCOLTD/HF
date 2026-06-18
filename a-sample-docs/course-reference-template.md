@@ -1,5 +1,5 @@
 <!--
-HF Course Reference Template — v3.0
+HF Course Reference Template — v5.1
 
 WHAT THIS FILE IS
 A canonical, fill-in-the-blanks template. Duplicate it for a new course, then
@@ -79,6 +79,13 @@ FRONT-MATTER KEYS (each is optional; missing keys fall back to AI inference)
                            ⚠️ ANY other value (e.g. `ema`, `evidence`, `boaz`)
                            is rejected with a parse warning — the course
                            silently falls back to the legacy mode-gate.
+- hf-template-version      (Optional, since v5.x.) The version of THIS template
+                           the course-ref was built from (e.g. `"5.1"`). Shape:
+                           one or more dot-separated digit groups. Conformance
+                           validators (epic #1931 S1+) read this to decide
+                           which fields are expected. Omit on legacy course-
+                           refs — absence is tolerated, the conformance pass
+                           falls back to permissive mode.
 
 ALLOWED-VALUES REJECTION POLICY
 The parser logs a warning + falls back to AI inference (NOT a silent failure)
@@ -92,6 +99,7 @@ hf-document-type: COURSE_REFERENCE
 hf-default-category: teaching_rule
 hf-audience: tutor-only
 hf-lo-system-role: TEACHING_INSTRUCTION
+hf-template-version: "5.1"
 # Uncomment the next line to enable evidence-first scoring (per-skill EMA
 # with Boaz guard) — required for IELTS-style rubric-anchored courses:
 # hf-scoring-mode: evidence-first
@@ -634,11 +642,106 @@ trigger condition + what the tutor should do. One sentence each is fine.
 
 ---
 
+## Per-Module Settings
+
+<!-- HOW TO USE
+For exam-style or structured courses, each row in `## Modules` may be
+followed by a `#### Module N — <Label> — Settings` heading and a
+fenced YAML block declaring per-module tutor behaviour. The YAML block
+is parsed by `lib/wizard/detect-module-settings.ts` and projected onto
+`AuthoredModule.settings` for each matching module.
+
+VALUES the parser accepts (since v5.x — all 9 G8 fields):
+
+```yaml
+moduleId: <id matching the Module Catalogue row>
+appliesTo: [exam, structured]            # filter — only emit for matching courseStyle
+settings:
+  # Pacing
+  minSpeakingSec: <int>                  # module-scoped completion gate (seconds)
+  questionTarget: { min: <int>, target: <int> }
+
+  # Content libraries (use `source:<id>` refs that resolve via Content Sources)
+  cueCardPool: source:<id>               # Part-2-style monologue cards → Array<{topic,bullets[]}>
+  topicPool: source:<id>                 # Part-1/Part-3 frames → Array<{topic,questions[]}>
+  scaffoldPool: source:<id>              # stall-recovery scaffolds → string[]
+
+  # Verbatim tutor lines
+  closingLine: |
+    <verbatim closing line spoken at module end>
+  firstTimeOrientationLine: |
+    <one-shot per-module orientation, first attempt only>
+
+  # Time-keyed cues
+  scheduledCues:
+    - { at: <sec>, text: "<verbatim>" }
+
+  # Profile capture (#1704 Theme 10)
+  profileFieldsToCapture:
+    - { key: <profile:slug>, prompt: "<verbatim>", type: "text"|"number"|"band" }
+```
+
+PROJECTION: each known key projects onto the matching `AuthoredModule.settings.<key>` field
+(see `lib/types/json-fields.ts::AuthoredModuleSettings`). Source-ref strings (`source:<id>`)
+are resolved against the `## Content Sources` index (see below) by
+`lib/wizard/resolve-module-source-refs.ts` and inlined as the full
+structured value (e.g. `topicPool: source:part1-topic-library-v1`
+becomes `topicPool: Array<{topic,questions[]}>` after projection).
+
+CONSUMERS:
+- `questionTarget` → composer `lib/prompt/composition/transforms/instructions.ts::resolveModuleQuestionTarget`
+- `cueCardPool` → composer `lib/prompt/composition/transforms/instructions.ts::resolveModuleCueCard`
+- `topicPool` → composer `lib/prompt/composition/transforms/instructions.ts::resolveModuleTopicPool` (#1932)
+- `closingLine` → composer `lib/prompt/composition/transforms/offboarding.ts`
+- `firstTimeOrientationLine` → composer `lib/prompt/composition/transforms/instructions.ts::resolveModuleOrientationLine`
+- `scheduledCues` → runtime cue scheduler (Theme 2)
+- `scaffoldPool` → client-side stall detector (Theme 2b)
+- `profileFieldsToCapture` → EXTRACT pipeline (`lib/pipeline/extract-profile-fields.ts`)
+- `minSpeakingSec` → `endSession` completion gate (`lib/curriculum/mark-module-incomplete.ts`)
+
+All consumers gated on `HF_FLAG_IELTS_MODULE_SETTINGS=true` during the migration window
+(epic #1700 decision 5).
+
+REGISTRY: each field has a matching `G8_*` entry in
+`lib/journey/setting-contracts.entries.ts` so the educator-facing
+Module Inspector exposes per-key controls. The registry is the structural
+source of truth for `appliesTo` + `composeImpact` + control type.
+
+ELIDED FIELDS THE PARSER TOLERATES (warn-only): `prepSilenceSec`,
+`incompleteThresholdSec`, `scoringCriteria`, `scoreReadoutMode`. These
+fields are referenced by IELTS authoring practice but are NOT in
+`AuthoredModuleSettings` yet — they are read by runtime cue-scheduler
++ Mock Results screens via siblings of `AuthoredModuleSettings`. Adding
+each to the type promotes it to a parser-emitted field (story #1910).
+-->
+
+Per-module YAML blocks are optional. For courses that fit the structured/exam
+shape, declaring them gives operators precise control over per-module tutor
+behaviour without having to edit composed prompts by hand.
+
+---
+
 ## Document Version
 
-**Version:** 3.0
+**Version:** 5.1
 **Created:** 2026-05-11
+**Last updated:** 2026-06-18 (#1932 — Template Authority v5.1)
 **Author:** HF platform team
 **Status:** Canonical template
+
+### Changelog
+
+- **5.1 (2026-06-18, #1932 epic #1931 S0).** Course Reference Template
+  Authority v5.x. Added `## Per-Module Settings` section declaring the
+  9 G8 per-module YAML keys (8 existing — `minSpeakingSec`,
+  `questionTarget`, `cueCardPool`, `closingLine`, `firstTimeOrientationLine`,
+  `scheduledCues`, `scaffoldPool`, `profileFieldsToCapture` — plus the
+  new `topicPool` for Part 1 / Part 3 student-led practice with
+  question banks). Added `hf-template-version` front-matter declaration.
+  Bumped from `v3.0` → `v5.1` to match the version the IELTS
+  Speaking course-ref already cites — slots `v4.x` were planned for
+  the Curriculum-Console refactor but never publicly released, hence
+  the jump.
+- **3.0 (2026-05-11).** Initial canonical template.
 
 **Modules authored:** Yes

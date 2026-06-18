@@ -360,6 +360,20 @@ registerTransform("computeInstructions", (
       sharedState,
       loadedData,
     ),
+
+    // #1932 (epic #1931 Template Authority) — module-scoped topic pool.
+    // Reads `Playbook.config.modules[].settings.topicPool` for the locked
+    // module and picks ONE topic deterministically by
+    // `sharedState.callNumber % pool.length`. Same call sees the same
+    // topic across re-renders (idempotent). Drives student-led practice
+    // modules (Part 1 frames, Part 3 themes) — the tutor anchors on the
+    // picked topic and asks the listed questions.
+    //
+    // Gated by `HF_FLAG_IELTS_MODULE_SETTINGS` per epic #1700 decision 5.
+    module_topic_pool: resolveModuleTopicPool(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
   };
 });
 
@@ -542,5 +556,83 @@ function resolveModuleOrientationLine(
   return {
     line,
     directive: `FIRST-TIME ORIENTATION (one-shot — speak these exact words once before starting the module): "${line}"`,
+  };
+}
+
+/**
+ * #1932 (epic #1931 Template Authority) — module-scoped topic pool consumer.
+ *
+ * Reads `Playbook.config.modules[].settings.topicPool` for the locked
+ * module and picks ONE topic deterministically by
+ * `sharedState.callNumber % pool.length`. Same call sees the same topic
+ * across re-renders — idempotent for prompt-side reads, byte-identical
+ * Preview-lens previews + actual call composition.
+ *
+ * Parallel to `resolveModuleCueCard` (Part 2 monologue) but emits a
+ * "Topic library / Practice questions" directive — the tutor asks the
+ * listed questions one at a time, not a cue-card monologue. Used by
+ * student-led practice modules (IELTS Part 1, IELTS Part 3, any
+ * conversational drill with a pre-authored topic-question library).
+ *
+ * Returns `{ kind, topic, questions, directive }` when:
+ *   - `HF_FLAG_IELTS_MODULE_SETTINGS=true` (epic #1700 decision 5)
+ *   - `sharedState.lockedModule` is set
+ *   - A matching `AuthoredModule` in `Playbook.config.modules[]` carries
+ *     a non-empty `settings.topicPool`
+ *   - The picked entry has both a `topic` string and a non-empty
+ *     `questions` array
+ *
+ * Returns `null` otherwise — no topic-pool directive renders.
+ *
+ * Selection policy: `pool[(callNumber - 1) % pool.length]` — same shape
+ * as the cue-card pick so byte-identical Preview and call composition
+ * remain a property of the system.
+ */
+function resolveModuleTopicPool(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): {
+  kind: "topicPool";
+  topic: string;
+  questions: string[];
+  directive: string;
+} | null {
+  if (!isIeltsModuleSettingsEnabled()) return null;
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+
+  const pool = matched.settings?.topicPool;
+  if (!Array.isArray(pool) || pool.length === 0) return null;
+
+  // Deterministic pick — callNumber starts at 1 for first call.
+  const callIndex = Math.max(0, (sharedState.callNumber ?? 1) - 1);
+  const picked = pool[callIndex % pool.length];
+  if (
+    !picked ||
+    typeof picked.topic !== "string" ||
+    picked.topic.trim().length === 0
+  ) {
+    return null;
+  }
+  const questions = Array.isArray(picked.questions)
+    ? picked.questions.filter(
+        (q) => typeof q === "string" && q.trim().length > 0,
+      )
+    : [];
+  if (questions.length === 0) return null;
+
+  const questionsList = questions.map((q) => `  - ${q}`).join("\n");
+  const directive = `TOPIC LIBRARY for this module — anchor on this topic and ask these questions:\nTopic: ${picked.topic}\nPractice questions:\n${questionsList}`;
+  return {
+    kind: "topicPool",
+    topic: picked.topic,
+    questions,
+    directive,
   };
 }
