@@ -1,4 +1,5 @@
 ---
+hf-template-version: "5.1"
 hf-document-type: COURSE_REFERENCE_CANONICAL
 hf-default-category: teaching_rule
 hf-audience: tutor-only
