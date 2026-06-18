@@ -1,6 +1,6 @@
 {
   "$schema": "demo-knobs/v1",
-  "generatedAt": "2026-06-18T21:14:52.124Z",
+  "generatedAt": "2026-06-18T21:16:44.925Z",
   "knobs": [
     {
       "knobKey": "BEH-RESPONSE-LEN",

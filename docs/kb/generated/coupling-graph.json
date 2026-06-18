@@ -1,9 +1,9 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T21:14:51.564Z",
+  "generatedAt": "2026-06-18T21:16:44.364Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1849,
+  "fileCount": 1850,
   "edgeCount": 4350,
   "skippedEdges": 1,
   "edges": [
@@ -26246,6 +26246,11 @@
     },
     {
       "path": "scripts/capture/operator-surfaces.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/parameter-inventory.ts",
       "inDegree": 0,
       "outDegree": 0
     },
