@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T10:57:00.282Z",
+  "generatedAt": "2026-06-18T11:18:47.968Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1846,
-  "edgeCount": 4328,
+  "fileCount": 1847,
+  "edgeCount": 4332,
   "skippedEdges": 1,
   "edges": [
     {
@@ -15276,6 +15276,22 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "to": "lib/measurement/neutral-target.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "to": "lib/prompt/composition/TransformRegistry.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "to": "lib/prompt/composition/types.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "to": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts"
+    },
+    {
       "from": "lib/prompt/composition/transforms/pedagogy-mode.ts",
       "to": "lib/content-trust/resolve-config.ts"
     },
@@ -24543,7 +24559,7 @@
     },
     {
       "path": "lib/measurement/neutral-target.ts",
-      "inDegree": 2,
+      "inDegree": 3,
       "outDegree": 0
     },
     {
@@ -24873,7 +24889,7 @@
     },
     {
       "path": "lib/prompt/composition/TransformRegistry.ts",
-      "inDegree": 32,
+      "inDegree": 33,
       "outDegree": 1
     },
     {
@@ -25042,6 +25058,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "inDegree": 0,
+      "outDegree": 4
+    },
+    {
       "path": "lib/prompt/composition/transforms/pedagogy-mode.ts",
       "inDegree": 1,
       "outDegree": 4
@@ -25128,7 +25149,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 43,
+      "inDegree": 44,
       "outDegree": 1
     },
     {
@@ -25393,7 +25414,7 @@
     },
     {
       "path": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts",
-      "inDegree": 3,
+      "inDegree": 4,
       "outDegree": 2
     },
     {
@@ -26600,7 +26621,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 43,
+      "inDegree": 44,
       "outDegree": 1
     },
     {
@@ -26625,7 +26646,7 @@
     },
     {
       "path": "lib/prompt/composition/TransformRegistry.ts",
-      "inDegree": 32,
+      "inDegree": 33,
       "outDegree": 1
     },
     {
