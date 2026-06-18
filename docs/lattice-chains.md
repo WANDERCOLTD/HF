@@ -160,6 +160,7 @@ Three structural patterns, in order of preference:
 | `CallerModuleProgress.incompleteAttempts` writers → single chokepoint | multiple write sites | `lib/curriculum/mark-module-incomplete.ts::markModuleIncomplete` | ✅ PROTECTED | `eslint-rules/no-bare-module-progress-update.mjs` (#1703) + sticky-waiver guard | — | Atomic increment, race-safe |
 | `Goal.progressStrategy` → strategy registry | Goal row | `lib/goals/strategies/types.ts::StrategyKey` enum | ✅ PROTECTED | `eslint-rules/no-bare-strategy-key.mjs` (#1599) + `tests/lib/mastery-roundtrip.test.ts` | — | Round-trip pin + enum + ESLint |
 | `AuthoredModuleSettings` type ↔ fixture YAML keys | `lib/types/json-fields.ts::AuthoredModuleSettings` | `lib/wizard/__tests__/fixtures/course-reference-ielts-v*.md` | ✅ PROTECTED | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | — | Bidirectional Coverage gate; 5 fixture keys exempt at land time (`prepSilenceSec`, `incompleteThresholdSec`, `scoringCriteria`, `scoreReadoutMode`, `topicPool`) — type additions deferred to follow-on |
+| Course-ref doc filesystem → `hf-template-version` YAML front-matter | `docs/courses/**/*.course-ref.md` + `docs/external/**/Upload Docs/*.course-ref.md` | YAML front-matter `hf-template-version: "X.Y"` marker | ✅ PROTECTED | `tests/lib/courses/courses-template-version-coverage.test.ts` (#1991, S5 of epic #1986) | — | Bidirectional Coverage gate; 6 production course-refs on v5.1 at land time; ratchet at 0 exempt — new course-ref MUST land with marker. Rule: `.claude/rules/courses-template-version-coverage.md` |
 
 ### Skills / banding
 
@@ -194,6 +195,7 @@ Three structural patterns, in order of preference:
 | `tier-visibility-coverage.md` | `tests/api/tier-visibility-coverage.test.ts` (#1855) | ✅ PROTECTED |
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
 | `fixture-type-coverage.md` | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | ✅ PROTECTED |
+| `courses-template-version-coverage.md` | `tests/lib/courses/courses-template-version-coverage.test.ts` (#1991) | ✅ PROTECTED |
 | `privacy-redaction.md` | ESLint `require-tiered-redactor` + `tier-visibility-coverage` (#1855) — same enforcer as `response-redaction.md`; this file is the privacy-specific framing | ✅ PROTECTED (5 leak ratchet, #1922) |
 | `data-retention.md` | `lib/privacy/stamp-regulatory-expiry.ts` chokepoint (#1917) + retention cron + `apps/admin/scripts/check-fk-consistency.ts` Query 12 | ✅ PROTECTED (3 voice paths adopted; 8 lower-priority writers adopt as touched) |
 | `vm-migration-lock.md` | `scripts/vm-migrate.sh` wrapper + session-start check | ✅ PROTECTED |
