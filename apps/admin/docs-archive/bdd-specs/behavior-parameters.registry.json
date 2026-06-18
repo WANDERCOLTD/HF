@@ -55,7 +55,9 @@
       "interpretationLow": "Give concise targeted feedback; one key point at a time without elaboration.",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-LEARN-001-learner-profile-adaptation"
+        }
       }
     },
     {
@@ -71,7 +73,9 @@
       "interpretationLow": "Deliver content with minimal interruption; let the learner absorb before checking in.",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-LEARN-001-learner-profile-adaptation"
+        }
       }
     },
     {
@@ -111,7 +115,9 @@
       "interpretationLow": "Move through content steadily; check understanding via your own probes rather than waiting.",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-LEARN-001-learner-profile-adaptation"
+        }
       }
     },
     {
@@ -127,7 +133,9 @@
       "interpretationLow": "Use cautious profile updates; treat recent observations as provisional and gather more before adapting.",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "LEARN-PROF-001-learner-profile-aggregation"
+        }
       }
     },
     {
@@ -143,7 +151,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
       }
     },
     {
@@ -172,7 +182,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
       }
     },
     {
@@ -188,7 +200,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
       }
     },
     {
@@ -218,7 +232,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
       }
     },
     {
@@ -234,7 +250,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
       }
     },
     {
@@ -250,7 +268,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
       }
     },
     {
@@ -266,7 +286,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
       }
     },
     {
@@ -282,7 +304,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
       }
     },
     {
@@ -399,7 +423,9 @@
       "interpretationLow": "Surface: Keeping conversation light and superficial",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-CD-001-conversational-depth"
+        }
       }
     },
     {
@@ -472,7 +498,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-GG-001-gentle-guidance"
+        }
       }
     },
     {
@@ -580,7 +608,9 @@
       "interpretationLow": "Listener: Pure listening mode. Share knowledge only if directly asked.",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-INSIGHT-001-insight-cadence"
+        }
       }
     },
     {
@@ -593,7 +623,9 @@
       "interpretationLow": "Comfortable: Keeping things easy and comfortable",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-CD-001-conversational-depth"
+        }
       }
     },
     {
@@ -632,7 +664,9 @@
       "interpretationLow": "No References: Not referencing past conversations or known facts",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-MC-001-memory-continuity"
+        }
       }
     },
     {
@@ -703,7 +737,12 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlugs": [
+            "ADAPT-LEARN-001-learner-profile-adaptation",
+            "COMP-PP-001-patience-pacing"
+          ]
+        }
       }
     },
     {
@@ -716,7 +755,9 @@
       "interpretationLow": "Rushed: Moving too fast, not allowing time",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-PP-001-patience-pacing"
+        }
       }
     },
     {
@@ -781,7 +822,9 @@
       "interpretationLow": "Passive: Only responding to what's asked",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-IS-001-intellectual-stimulation"
+        }
       }
     },
     {
@@ -820,7 +863,9 @@
       "interpretationLow": "Few Questions: Mostly making statements, few questions",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-IS-001-intellectual-stimulation"
+        }
       }
     },
     {
@@ -872,7 +917,9 @@
       "interpretationLow": "Dismissive: Not acknowledging experience, possibly condescending",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-RE-001-respect-experience"
+        }
       }
     },
     {
@@ -950,7 +997,9 @@
       "interpretationLow": "No Invitations: Not inviting stories or personal sharing",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-GG-001-gentle-guidance"
+        }
       }
     },
     {
@@ -1048,7 +1097,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-ENG-001-engagement-adaptation"
+        }
       }
     },
     {
@@ -1093,7 +1144,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-ENG-001-engagement-adaptation"
+        }
       }
     },
     {
@@ -1109,7 +1162,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-IE-001-intellectual-engagement"
+        }
       }
     },
     {
@@ -1125,7 +1180,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-EW-001-emotional-wellbeing"
+        }
       }
     },
     {
@@ -1141,7 +1198,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-IE-001-intellectual-engagement"
+        }
       }
     },
     {
@@ -1157,7 +1216,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-EW-001-emotional-wellbeing"
+        }
       }
     },
     {
@@ -1173,7 +1234,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
       }
     },
     {
@@ -1189,7 +1252,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
       }
     },
     {
@@ -1205,7 +1270,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
       }
     },
     {
@@ -1221,7 +1288,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-CG-001-cognitive-patterns"
+        }
       }
     },
     {
@@ -1250,7 +1319,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
       }
     },
     {
@@ -1266,7 +1337,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
       }
     },
     {
@@ -1282,7 +1355,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
       }
     },
     {
@@ -1298,7 +1373,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CA-001-cognitive-activation"
+        }
       }
     },
     {
@@ -1328,7 +1405,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CA-001-cognitive-activation"
+        }
       }
     },
     {
@@ -1344,7 +1423,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -1360,7 +1441,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
       }
     },
     {
@@ -1404,7 +1487,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-ENG-001-engagement-adaptation"
+        }
       }
     },
     {
@@ -1436,7 +1521,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
       }
     },
     {
@@ -1452,7 +1539,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -1468,7 +1557,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "LEARN-STYLE-001-learning-style-detection"
+        }
       }
     },
     {
@@ -1529,7 +1620,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "STYLE-001-conversation-style"
+        }
       }
     },
     {
@@ -1545,7 +1638,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
       }
     },
     {
@@ -1587,7 +1682,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
       }
     },
     {
@@ -1603,7 +1700,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
       }
     },
     {
@@ -1619,7 +1718,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "COMP-INSIGHT-001-insight-cadence"
+        }
       }
     },
     {
@@ -1649,7 +1750,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -1665,7 +1768,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
       }
     },
     {
@@ -1681,7 +1786,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-ENG-001-engagement-adaptation"
+        }
       }
     },
     {
@@ -1697,7 +1804,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
       }
     },
     {
@@ -1713,7 +1822,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
       }
     },
     {
@@ -1729,7 +1840,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
       }
     },
     {
@@ -1745,7 +1858,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-VARK-001-modality-adaptation"
+        }
       }
     },
     {
@@ -1761,7 +1876,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
       }
     },
     {
@@ -1777,7 +1894,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
       }
     },
     {
@@ -1837,7 +1956,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
       }
     },
     {
@@ -1853,7 +1974,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
       }
     },
     {
@@ -1869,7 +1992,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
       }
     },
     {
@@ -1885,7 +2010,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "LEARN-STYLE-001-learning-style-detection"
+        }
       }
     },
     {
@@ -1901,7 +2028,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
       }
     },
     {
@@ -1917,7 +2046,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-VARK-001-modality-adaptation"
+        }
       }
     },
     {
@@ -1960,7 +2091,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "LEARN-STYLE-001-learning-style-detection"
+        }
       }
     },
     {
@@ -1976,7 +2109,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -1992,7 +2127,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
       }
     },
     {
@@ -2008,7 +2145,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
       }
     },
     {
@@ -2024,7 +2163,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -2069,7 +2210,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -2085,7 +2228,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -2101,7 +2246,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -2117,7 +2264,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "CA-001-cognitive-activation"
+        }
       }
     },
     {
@@ -2133,7 +2282,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -2149,7 +2300,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -2165,7 +2318,9 @@
       ],
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
       }
     },
     {
@@ -2178,7 +2333,9 @@
       "interpretationLow": "Low Auditory: Verbal-heavy teaching may be ineffective - use other modalities",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
       }
     },
     {
@@ -2191,7 +2348,9 @@
       "interpretationLow": "Low Kinesthetic: Experiential approaches may not be necessary - theoretical explanation works",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
       }
     },
     {
@@ -2204,7 +2363,9 @@
       "interpretationLow": "Unimodal: Single dominant modality - strongly favor that approach",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
       }
     },
     {
@@ -2217,7 +2378,9 @@
       "interpretationLow": "Low Read/Write: Text-heavy teaching unlikely to resonate - use verbal or experiential",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
       }
     },
     {
@@ -2230,7 +2393,9 @@
       "interpretationLow": "Low Visual: Visual approaches unlikely to resonate - use other modalities",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
       }
     },
     {
@@ -2274,7 +2439,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
       }
     }
   ]
