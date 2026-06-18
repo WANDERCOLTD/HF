@@ -72,6 +72,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`hf-config/no-hardcoded-spec-slug`](#guard-no-hardcoded-spec-slug) | Hardcoded spec-slug literals (`TUT-001`, `GOAL-001`, …) in `lib/`+`app/` runtime; use `config.specs.*`. **Active (error)** after HF-I sweep | HF-I / 2026-06-11 | **b** |
 | [`hf-goals/no-bare-strategy-key`](#guard-no-bare-strategy-key) | Bare string literals assigned to `Goal.progressStrategy` outside the canonical `StrategyKey` enum; allow-list covers the strategies registry alias map + test files | #1599 | **a** |
 | [`hf-rbac/require-tiered-redactor`](#guard-require-tiered-redactor) | Routes tagged `@tieredVisibility` (JSDoc) must import + invoke `visibilityTierForRole(...)` and a `redact<Resource>ForTier(...)` from `lib/rbac/policies/*`; hardens the whitelist-default-safe property of the visibility-policy pattern | #1685 Wave C5 | **a** |
+| [`hf-privacy/no-pii-in-applog-metadata`](#guard-no-pii-in-applog-metadata) | Block literal PII-keyed objects (`email` / `phone` / `transcript` / `name` / `value` / `promptPreview` / `responsePreview`) being passed as `metadata` to `prisma.appLog.create` or `log(...)` / `logAI(...)` calls. Allow-list: `lib/logger.ts`, `lib/metering/meter-call.ts`, `tests/**`, `scripts/**`, `prisma/fixtures/**`. Per-site escape via `// @piiRedacted` comment. CHAIN-CONTRACTS.md §6a I-PR3. | #1926 | **a** |
 | [`hf-curriculum/no-bare-module-progress-update`](#guard-no-bare-module-progress-update) | Bare `prisma.callerModuleProgress.{update,upsert}` outside allow-list; must use `markModuleIncomplete` (incomplete-attempt writes — atomic increment + waiver) or `track-progress.ts` (mastery writes) | #1703 | **a** |
 | [`hf-journey/no-bucketless-journey-setting`](#guard-no-bucketless-journey-setting) | `JOURNEY_SETTINGS` entries without `menuGroupKey` so the Slice C bucket-grained LH menu can mount them; allow-list covers the voice sibling registry + test files | #1738 | **a** |
 | [`registry-schema-coverage`](#guard-registry-schema-coverage) | Schema-vs-registry coverage: every educator-facing `PlaybookConfig` field must be either covered by a `JourneySettingContract.storagePath` or in `REGISTRY_EXEMPT_PATHS` with reason. The 5th Lattice piece — catches the drift class that produced the Slice C ~20-entry shortfall (the "AI Intro Call" fingerprint). | post-Slice-C audit | **a** |
@@ -169,6 +170,22 @@ is dropped from the schema.
 `CallerModuleProgress` reads/writes must sit behind a `courseStyle === 'structured'` guard
 (default-deny). **Survives hardening: conditionally** — tied to the current `courseStyle`
 modelling; revisit if course styles are reworked.
+
+<a id="guard-no-pii-in-applog-metadata"></a>
+**`hf-privacy/no-pii-in-applog-metadata`** · class **(a) invariant** · born #1926 ·
+[rule source](../../apps/admin/eslint-rules/no-pii-in-applog-metadata.mjs)
+
+Blocks literal PII-keyed objects from being passed as `metadata` to `AppLog` writers.
+The audit (2026-06-18) found `AppLog.metadata` is a free JSON column that accepts
+arbitrary keys — without a structural gate, a future `prisma.appLog.create({...,
+metadata: { email, phone, transcript }})` would persist the PII unredacted.
+Forbidden literal keys: `email`, `phone`, `transcript`, `name`, `value`,
+`promptPreview`, `responsePreview`. Allow-list covers `lib/logger.ts` (the canonical
+writer — receives arbitrary data from callers but doesn't author literal keys),
+`lib/metering/meter-call.ts`, tests, scripts, and prisma fixtures. Per-site escape
+via `// @piiRedacted` comment on the preceding line. Detects both bare
+`prisma.appLog.create({...})` calls AND `log(...)` / `logAI(...)` call shapes.
+**Survives hardening:** privacy-by-design is platform-independent.
 
 <a id="guard-no-bare-call-create"></a>
 **`no-bare-call-create`** · class **(a) invariant** · born #1333/#1342 ·

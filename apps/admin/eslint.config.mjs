@@ -16,6 +16,7 @@ import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-def
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
 import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
 import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
+import noPiiInApplogMetadata from "./eslint-rules/no-pii-in-applog-metadata.mjs";
 import noBareCallScoreWrite from "./eslint-rules/no-bare-call-score-write.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
@@ -191,6 +192,14 @@ const eslintConfig = defineConfig([
       // Defends the chain-contract pre-condition for Link 3
       // (CURRICULUM → CALL compose) and the Session-boundary invariants
       // in Link 3b.
+      "hf-privacy": {
+        rules: {
+          // #1926 — block literal PII-keyed objects in AppLog metadata
+          // writes. See `.claude/rules/data-retention.md` and
+          // CHAIN-CONTRACTS.md §6a I-PR3.
+          "no-pii-in-applog-metadata": noPiiInApplogMetadata,
+        },
+      },
       "hf-call": {
         rules: {
           "no-bare-call-create": noBareCallCreate,
@@ -310,6 +319,15 @@ const eslintConfig = defineConfig([
       // inline Call insert when needed) or add to the allow-list with a
       // documented bypass justification.
       "hf-call/no-bare-call-create": "error",
+
+      // #1926 (epic #1915 §6a I-PR3) — error severity from day 1. Allow-list
+      // covers lib/logger.ts (the canonical writer), lib/metering/meter-call.ts,
+      // tests/**, scripts/**, prisma/fixtures/**. Per-call-site escape via
+      // `// @piiRedacted` comment on the preceding line. Audit-confirmed
+      // sensitive keys: email, phone, transcript, name, value, promptPreview,
+      // responsePreview. See `.claude/rules/data-retention.md`.
+      "hf-privacy/no-pii-in-applog-metadata": "error",
+
       // #1539 — error severity from day 1. Allow-list covers every
       // pre-existing legitimate write site (the chokepoint helper itself,
       // the drain script, the demo-reset / seed-transcripts admin
