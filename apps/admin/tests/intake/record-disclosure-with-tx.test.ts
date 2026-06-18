@@ -19,8 +19,14 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const recordMock = vi.fn().mockResolvedValue(undefined);
-const markAcknowledgedMock = vi.fn().mockResolvedValue(undefined);
+// vi.mock factories are hoisted above all imports — top-level `const`
+// declarations aren't yet in TDZ-bound scope when the factory runs.
+// Use vi.hoisted() to declare the mock fns BEFORE the factory references
+// them. Standard vitest pattern.
+const { recordMock, markAcknowledgedMock } = vi.hoisted(() => ({
+  recordMock: vi.fn().mockResolvedValue(undefined),
+  markAcknowledgedMock: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/lib/intake/hf-adapter/disclosure-store", () => ({
   getDisclosureStore: vi.fn().mockResolvedValue({
