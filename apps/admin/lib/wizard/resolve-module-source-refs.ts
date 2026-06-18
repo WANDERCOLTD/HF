@@ -52,6 +52,7 @@ import {
   parseCueCardBank,
   parseProfileFields,
   parseStallScaffolds,
+  parseTopicPool,
 } from "./parse-source-content";
 
 // ── YAML-block source-ref extractor ──────────────────────────────────
@@ -155,6 +156,12 @@ export function extractSourceRefsFromYamlBlocks(
 const RESOLVABLE_FIELDS = new Set<keyof AuthoredModuleSettings>([
   "cueCardPool",
   "scaffoldPool",
+  // #1932 (epic #1931 Template Authority) — Part 1 / Part 3 question
+  // banks. Source format `topic-pool` (Part 1 `## Frame N — Topic`
+  // shape) OR `theme-pool` (Part 3 `## Theme: X / ### Set N` shape).
+  // Both formats normalise to `Array<{ topic, questions[] }>` via
+  // `parseTopicPool` in `parse-source-content.ts`.
+  "topicPool",
   "profileFieldsToCapture",
 ]);
 
@@ -255,6 +262,19 @@ function parseByFormat(
     }
     return { ok: true, value: items, itemCount: items.length };
   }
+  if (field === "topicPool") {
+    // Accept "topic-pool" (Part 1 `## Frame N — Topic`) AND "theme-pool"
+    // (Part 3 `## Theme: X / ### Set N — Title`). Both formats normalise
+    // to `Array<{ topic, questions[] }>` inside `parseTopicPool`.
+    if (normalisedFormat !== "topic-pool" && normalisedFormat !== "theme-pool") {
+      return { ok: false, reason: `unexpected format "${format}" for topicPool` };
+    }
+    const topics = parseTopicPool(fileText);
+    if (topics.length === 0) {
+      return { ok: false, reason: "topic-pool parser produced 0 topics" };
+    }
+    return { ok: true, value: topics, itemCount: topics.length };
+  }
   if (field === "profileFieldsToCapture") {
     if (normalisedFormat !== "structured-md") {
       return {
@@ -307,7 +327,7 @@ export function resolveModuleSourceRefs(
     for (const [field, sourceRefValue] of fieldRefs) {
       if (!RESOLVABLE_FIELDS.has(field)) {
         // Field exists in YAML but isn't one we know how to inline
-        // (e.g. `topicPool: source:…` — not in AuthoredModuleSettings).
+        // — leave it for a future resolver pass.
         continue;
       }
       // Affirm the value-shape is what we expect (defensive — the

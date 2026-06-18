@@ -113,10 +113,14 @@ const NON_SCHEMA_FIELDS: ReadonlySet<string> = new Set([
   "incompleteThresholdSec",
   "scoringCriteria",
   "scoreReadoutMode",
-  "topicPool",
   // Source-ref shapes (string instead of resolved structured value):
+  // `topicPool` joined this group after #1932 added it to the schema —
+  // its YAML form is a `source:<id>` string, the resolver substitutes
+  // the inlined `Array<{ topic, questions[] }>` in
+  // `lib/wizard/resolve-module-source-refs.ts`.
   "cueCardPool",
   "scaffoldPool",
+  "topicPool",
   "profileFieldsToCapture",
 ]);
 

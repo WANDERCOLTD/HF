@@ -701,7 +701,7 @@ Scope discipline:
 - **Out of scope (deferred children of #1915):** preset-aware redaction (#1922/#1923), `PrivacyPolicyPreset` cascade (#1924/#1925), AppLog PII scrubbing (#1926), consent-version re-ack (#1927), admin UI (#1928). When those ship, this section grows.
 - **Out of scope (separate ADRs):** Caller PII encryption (`Caller.email`, `Caller.phone`) — deferred per 2026-06-13 ADR; HIPAA/COPPA/FERPA preset content (legal sign-off required).
 
-### Invariant inventory (8 invariants — I-PR1..I-PR8)
+### Invariant inventory (9 invariants — I-PR1..I-PR9)
 
 #### I-PR1 — Intake-v2 disclosure delivery is atomic with intake state
 
@@ -818,13 +818,29 @@ Scope discipline:
 | **Audit counter** | `iPR8LegacyCallerCount` (informational — tracks shrinking cohort). |
 | **Enforcer** | Convention rule. Enforced via documentation + the `ENFORCEMENT_DATE` constant referenced by S5a/S8a/S7. |
 
+#### I-PR9 — Encrypted columns route through `encryptColumn` / `decryptColumn`
+
+| Field | Value |
+|---|---|
+| **Producer** | Any code path that writes a column declared as encrypted (per ADR `docs/decisions/2026-06-13-pii-encryption-scope.md`). Today: `VoiceProvider.credentials` (#1978, pending). Future: `Call.transcript` + `CallMessage.content` (#1980), `Caller.{email,phone,name}` (#1976 F1, deferred). |
+| **Consumer** | Any read site that needs the plaintext value. The 4-column tuple (`_ciphertext` / `_iv` / `_wrappedDek` / `_kekVersion`) is the wire format; `lib/crypto/envelope.ts::decryptColumn` is the only legitimate consumer. |
+| **Data shape** | Writes use `encryptColumn(plaintext)` from `lib/crypto/envelope.ts` (shipped in #1977) and spread the returned 4-field tuple into the Prisma payload. Reads fetch the 4 columns + invoke `decryptColumn`. List views use `decryptColumnBatch` to amortise KMS round-trips. |
+| **Severity** | ERROR. Bare reads of `_legacy_plaintext` columns (during the migration window) or direct reads of `_ciphertext` bytes outside the helper bypass the cipher and break the audit-trail guarantee KMS provides. |
+| **Bypass-mode carve-out** | When `KMS_KEK_NAME` is unset AND `NEXT_PUBLIC_APP_ENV !== "PROD"` — i.e., dev / test — the helper falls through a sentinel passthrough (`kekVersion: 0`, plaintext bytes in `_ciphertext`). The `lib/config.ts` build-time guard **fails the prod build** if both conditions resolve to "bypass" in production, so this branch cannot ship. |
+| **Detection rule** | Per-column ESLint rules `hf-privacy/no-direct-<column>-read` land alongside each column-encryption story (#1978 for credentials, #1980 for transcripts). Allow-list = backfill scripts + cleanup PR. |
+| **Test** | `tests/lib/crypto/envelope.test.ts` (#1977) — 8 vitests covering round-trip, sentinel shape, batch order, decrypt-shape rejection. Per-column tests follow each adoption story. |
+| **Memory doc** | This row + `lib/crypto/envelope.ts` JSDoc + `.claude/rules/at-rest-encryption.md` (shipped by #1977). |
+| **Audit counter** | `iPR9LegacyPlaintextRead` (target 0) — counts ESLint rule firings + grep against `prisma.<Model>.findX({ select: { <col>_legacy_plaintext: true } })`. Wired per column. |
+| **Enforcer** | `lib/crypto/envelope.ts` (substrate, #1977). Per-column adoption: #1978 (credentials), #1980 (transcripts). |
+
 ### Where the runner lives — privacy
 
-There is no single runner for §6a yet. Each invariant has its own enforcer landing in the named child of #1915:
+There is no single runner for §6a yet. Each invariant has its own enforcer landing in the named child of #1915 or #1976:
 
 - I-PR1 / I-PR2 / I-PR3 / I-PR7 — runtime enforcers in the respective routes
 - I-PR4 — runtime enforcer deferred to a follow-on after retention purging proves stable
 - I-PR5 / I-PR6 / I-PR8 — convention enforcement today; promoted to runtime/Coverage-pillar gates when adoption sweep stories file
+- I-PR9 — `lib/crypto/envelope.ts` chokepoint + per-column ESLint rules (Privacy II epic #1976)
 
 When 3+ runtime emits land in `AppLog`, a privacy-counters runner sibling to `apps/admin/lib/pipeline/adaptive-loop-invariants.ts` becomes worth building. Not before.
 

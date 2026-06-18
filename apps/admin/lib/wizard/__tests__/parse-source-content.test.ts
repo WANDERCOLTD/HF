@@ -11,6 +11,7 @@ import {
   parseCueCardBank,
   parseProfileFields,
   parseStallScaffolds,
+  parseTopicPool,
 } from "../parse-source-content";
 
 const REPO_ROOT = join(__dirname, "..", "..", "..", "..", "..");
@@ -108,6 +109,138 @@ describe("parseStallScaffolds — IELTS Part 2 + Part 3 scaffolds", () => {
 
   it("returns empty when no Scaffold pool section is present", () => {
     expect(parseStallScaffolds("# A doc without the section.\n")).toEqual([]);
+  });
+});
+
+// #1932 (epic #1931 Template Authority) — Part 1 + Part 3 question banks
+// normalise to a single `Array<{ topic, questions[] }>` shape.
+
+describe("parseTopicPool — IELTS Part 1 + Part 3 question banks", () => {
+  it("parses Part 1 `## Frame N — Topic` format", () => {
+    const text = [
+      "# Bank",
+      "",
+      "## Frame 1 — Home town / village",
+      "",
+      "_Let's talk about your home town or village._",
+      "",
+      "1. What kind of place is it?",
+      "2. What's the most interesting part of your town?",
+      "3. Has your home town changed much since you were a child?",
+      "",
+      "_(source: ielts.org official sample — `speaking-sample-tasks-2023.pdf`, p. 3.)_",
+      "",
+      "---",
+      "",
+      "## Frame 2 — Accommodation",
+      "",
+      "1. Tell me about the kind of accommodation you live in.",
+      "2. How long have you lived there?",
+      "",
+    ].join("\n");
+
+    const out = parseTopicPool(text);
+    expect(out.length).toBe(2);
+    expect(out[0].topic).toBe("Home town / village");
+    expect(out[0].questions).toEqual([
+      "What kind of place is it?",
+      "What's the most interesting part of your town?",
+      "Has your home town changed much since you were a child?",
+    ]);
+    expect(out[1].topic).toBe("Accommodation");
+    expect(out[1].questions.length).toBe(2);
+  });
+
+  it("parses Part 3 `## Theme: / ### Set N — Title` format (Theme is grouping, Set is topic)", () => {
+    const text = [
+      "# Bank",
+      "",
+      "## Theme: Society and generations",
+      "",
+      "### Set 1 — Possessions and status (linked to Part 2 \"Object\" cards)",
+      "",
+      "_Let's consider how people's values have changed._",
+      "",
+      "1. What kind of things give status?",
+      "2. Have things changed since your parents' time?",
+      "",
+      "### Set 2 — Generational differences",
+      "",
+      "1. In what ways are young people different?",
+      "2. Why do you think those differences exist?",
+      "3. Do older and younger people generally get on well?",
+      "",
+      "## Theme: Education",
+      "",
+      "### Set 3 — Schooling",
+      "",
+      "1. How important is formal schooling?",
+      "",
+    ].join("\n");
+
+    const out = parseTopicPool(text);
+    expect(out.length).toBe(3);
+    expect(out[0].topic).toBe('Possessions and status (linked to Part 2 "Object" cards)');
+    expect(out[0].questions).toEqual([
+      "What kind of things give status?",
+      "Have things changed since your parents' time?",
+    ]);
+    expect(out[1].topic).toBe("Generational differences");
+    expect(out[1].questions.length).toBe(3);
+    expect(out[2].topic).toBe("Schooling");
+    expect(out[2].questions.length).toBe(1);
+  });
+
+  it("drops topics that produced zero questions (defensive)", () => {
+    const text = [
+      "## Frame 1 — Empty frame",
+      "",
+      "_no question list — just prose._",
+      "",
+      "## Frame 2 — Real frame",
+      "",
+      "1. A real question?",
+      "",
+    ].join("\n");
+    const out = parseTopicPool(text);
+    expect(out.length).toBe(1);
+    expect(out[0].topic).toBe("Real frame");
+  });
+
+  it("returns empty for an empty doc", () => {
+    expect(parseTopicPool("")).toEqual([]);
+    expect(parseTopicPool("# A doc with no topic blocks.\n")).toEqual([]);
+  });
+
+  it("parses the real Part 1 question-bank file end-to-end", () => {
+    const text = readFileSync(
+      join(__dirname, "..", "..", "..", "..", "..", "docs", "external", "ielts", "ielts-speaking", "Upload Docs", "ielts-speaking-question-bank-part1.md"),
+      "utf-8",
+    );
+    const out = parseTopicPool(text);
+    // 52 `## Frame N` topics live in the file.
+    expect(out.length).toBeGreaterThanOrEqual(50);
+    expect(out.length).toBeLessThanOrEqual(52);
+    for (const t of out) {
+      expect(t.topic.length).toBeGreaterThan(0);
+      expect(t.questions.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("parses the real Part 3 question-bank file end-to-end", () => {
+    const text = readFileSync(
+      join(__dirname, "..", "..", "..", "..", "..", "docs", "external", "ielts", "ielts-speaking", "Upload Docs", "ielts-speaking-question-bank-part3.md"),
+      "utf-8",
+    );
+    const out = parseTopicPool(text);
+    // 64 `### Set N` topics under 13 `## Theme:` parents — Theme lines
+    // are NOT topics so the count matches Set headings.
+    expect(out.length).toBeGreaterThanOrEqual(60);
+    expect(out.length).toBeLessThanOrEqual(64);
+    for (const t of out) {
+      expect(t.topic.length).toBeGreaterThan(0);
+      expect(t.questions.length).toBeGreaterThan(0);
+    }
   });
 });
 
