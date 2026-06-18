@@ -60,6 +60,7 @@ import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { loadResolvedVoiceConfig } from "@/lib/voice/load-voice-config";
 import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
 import { createSession } from "@/lib/voice/create-session";
+import { stampRegulatoryExpiry } from "@/lib/privacy/stamp-regulatory-expiry";
 import { endSession } from "@/lib/voice/end-session";
 import { registerModuleScheduledCues } from "@/lib/voice/register-module-cues";
 import { broadcastToCall } from "@/lib/voice/sse-registry";
@@ -921,6 +922,14 @@ export async function persistEndOfCall(
     }
   }
 
+  // #1917 §6a I-PR3 — stamp regulatory expiry from preset (when #1925
+  // wires the cascade) or `RETENTION_CALLER_DATA_DAYS` env fallback.
+  // Inbound webhook fresh-arrival path: previously the call existed only
+  // as the end-of-call write, so the expiry stamp piggybacks on this
+  // create.
+  const regulatoryExpiresAt = stampRegulatoryExpiry({
+    presetRetentionDays: null,
+  });
   const newCall = await prisma.call.create({
     data: {
       externalId: externalCallId,
@@ -937,6 +946,7 @@ export async function persistEndOfCall(
       endSource: sourceTag === "fallback" ? "poll" : "webhook",
       ...(freshSessionId ? { sessionId: freshSessionId } : {}),
       ...(playbookId ? { playbookId } : {}),
+      ...(regulatoryExpiresAt ? { regulatoryExpiresAt } : {}),
       ...persistableCapture,
     },
   });
