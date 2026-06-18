@@ -52,14 +52,16 @@
       "name": "Adapt to Learning Style",
       "definition": "Adjust behavior targets based on visual/auditory/reading learning style",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "adapt_to_pace_preference",
       "name": "Adapt to Pace Preference",
       "definition": "Adjust pacing and depth based on learner's preferred speed",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "adapt_to_question_frequency",
@@ -116,7 +118,8 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Auditory: Use rich verbal elaboration, encourage talk-through, attend to rhythm",
-      "interpretationLow": "Low Auditory: Keep verbal explanations concise; consider written or visual alternatives"
+      "interpretationLow": "Low Auditory: Keep verbal explanations concise; consider written or visual alternatives",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "B5-A",
@@ -251,7 +254,8 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Chatty: Relaxed, informal, conversational — like talking to a friend",
-      "interpretationLow": "Formal: Structured, professional, precise — like a textbook"
+      "interpretationLow": "Formal: Structured, professional, precise — like a textbook",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "BEH-DEFINITION-PRECISION",
@@ -278,7 +282,10 @@
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Direct: Gets to the point quickly, no-nonsense, efficient communication",
-      "interpretationLow": "Diplomatic: Softens messages, uses hedging language, approaches topics gently"
+      "interpretationLow": "Diplomatic: Softens messages, uses hedging language, approaches topics gently",
+      "aliases": [
+        "directness_actual"
+      ]
     },
     {
       "parameterId": "BEH-EMPATHY-RATE",
@@ -287,7 +294,11 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Empathy: Responding empathetically, acknowledging feelings",
-      "interpretationLow": "Transactional: Responding without emotional acknowledgment"
+      "interpretationLow": "Transactional: Responding without emotional acknowledgment",
+      "aliases": [
+        "empathy_expression",
+        "response_empathy_score"
+      ]
     },
     {
       "parameterId": "BEH-EXAMPLE-RICHNESS",
@@ -323,7 +334,11 @@
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Formal: Professional, organised, uses proper grammar and structured delivery",
-      "interpretationLow": "Casual: Relaxed, conversational, uses colloquial language and flexible structure"
+      "interpretationLow": "Casual: Relaxed, conversational, uses colloquial language and flexible structure",
+      "aliases": [
+        "formality-level",
+        "formality_actual"
+      ]
     },
     {
       "parameterId": "BEH-FOUNDATION-FOCUS",
@@ -440,7 +455,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Well Matched: Adapting well to person's energy and rhythm",
-      "interpretationLow": "Mismatched: Not matching the person's pace"
+      "interpretationLow": "Mismatched: Not matching the person's pace",
+      "aliases": [
+        "CONV_PACE",
+        "adapt_to_pace_preference",
+        "pace_indicators",
+        "pacing_actual"
+      ]
     },
     {
       "parameterId": "BEH-PATIENCE-LEVEL",
@@ -647,7 +668,11 @@
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Warm: Friendly greetings, encouraging language, emotional warmth",
-      "interpretationLow": "Neutral: Professional and pleasant but emotionally reserved"
+      "interpretationLow": "Neutral: Professional and pleasant but emotionally reserved",
+      "aliases": [
+        "BEH-CONVERSATIONAL-TONE",
+        "warmth_actual"
+      ]
     },
     {
       "parameterId": "BEH-WORKED-EXAMPLES",
@@ -821,7 +846,8 @@
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Rapid: Very fast pace - minimize pauses, quick turnarounds",
-      "interpretationLow": "Deliberate: Slow, thoughtful pace - allow processing time, don't rush"
+      "interpretationLow": "Deliberate: Slow, thoughtful pace - allow processing time, don't rush",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "CP-004",
@@ -857,7 +883,8 @@
       "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Direct: Clear assertions, no hedging",
-      "interpretationLow": "Very Indirect: Evasive, overly tentative"
+      "interpretationLow": "Very Indirect: Evasive, overly tentative",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "empathy_expression",
@@ -866,7 +893,8 @@
       "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Empathic: Deep emotional attunement",
-      "interpretationLow": "None: Ignores emotional content"
+      "interpretationLow": "None: Ignores emotional content",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "engagement_adaptation",
@@ -957,14 +985,16 @@
       "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Formal: Professional, structured, sophisticated vocabulary",
-      "interpretationLow": "Very Casual: Informal, colloquial"
+      "interpretationLow": "Very Casual: Informal, colloquial",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "formality-level",
       "name": "Formality Level",
       "definition": "Conversational learners prefer informal tone",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "goal_discovery_quality",
@@ -1000,7 +1030,8 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Kinesthetic: Ground in practical experience, action, and feeling",
-      "interpretationLow": "Low Kinesthetic: Theory-first approach is fine; practice is optional"
+      "interpretationLow": "Low Kinesthetic: Theory-first approach is fine; practice is optional",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "learning_progress_score",
@@ -1090,7 +1121,8 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Requests Faster: Learner wants to move faster",
-      "interpretationLow": "Needs Slower: Learner needs more time"
+      "interpretationLow": "Needs Slower: Learner needs more time",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "pacing_actual",
@@ -1099,7 +1131,8 @@
       "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast/Dense: Rapid, information-rich responses",
-      "interpretationLow": "Slow/Sparse: Very measured, minimal density"
+      "interpretationLow": "Slow/Sparse: Very measured, minimal density",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "pause-for-questions",
@@ -1176,7 +1209,8 @@
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Empathic Response: Emotional content acknowledged appropriately",
-      "interpretationLow": "Low Empathy: Emotional content may have been missed"
+      "interpretationLow": "Low Empathy: Emotional content may have been missed",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "response_length_preference",
@@ -1352,7 +1386,8 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Visual: Use rich mental imagery, spatial metaphors, and visualization language",
-      "interpretationLow": "Low Visual: Minimize visual-heavy explanations; use other approaches"
+      "interpretationLow": "Low Visual: Minimize visual-heavy explanations; use other approaches",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "warmth_actual",
@@ -1361,7 +1396,8 @@
       "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Warm: Highly friendly, emotionally engaged",
-      "interpretationLow": "Cold: Detached, impersonal"
+      "interpretationLow": "Cold: Detached, impersonal",
+      "deprecatedAt": "2026-06-18T15:00:00Z"
     },
     {
       "parameterId": "welcome_quality",
