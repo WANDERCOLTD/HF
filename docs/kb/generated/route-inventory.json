@@ -1,6 +1,6 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-18T13:34:58.731Z",
+  "generatedAt": "2026-06-18T13:27:43.089Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
@@ -12,7 +12,7 @@
       "VIEWER+ADMIN": 5,
       "OPERATOR": 145,
       "OPERATOR+VIEWER": 8,
-      "VIEWER+OPERATOR": 67,
+      "VIEWER+OPERATOR": 66,
       "auth-gate(non-role)": 53,
       "VIEWER+OPERATOR+ADMIN": 4,
       "<none>": 31,
@@ -22,6 +22,7 @@
       "EDUCATOR": 1,
       "SUPERADMIN+ADMIN": 1,
       "ADMIN+OPERATOR": 1,
+      "VIEWER+SUPERADMIN": 1,
       "VIEWER+TESTER": 3
     },
     "noAuthGate": 30,
@@ -7553,7 +7554,7 @@
       ],
       "authLevels": [
         "VIEWER",
-        "OPERATOR"
+        "SUPERADMIN"
       ],
       "hasAuthGate": true,
       "tenantSignals": {
