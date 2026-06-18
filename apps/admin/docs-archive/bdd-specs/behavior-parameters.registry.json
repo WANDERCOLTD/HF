@@ -481,7 +481,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "STYLE-001-conversation-style"
+        }
       }
     },
     {
@@ -556,7 +558,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "STYLE-001-conversation-style"
+        }
       }
     },
     {
@@ -770,7 +774,10 @@
       "interpretationLow": "Quick Fill: Fills silences quickly with prompts, hints, or new content",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor wait-time before re-prompting; tutor-emit directive. SUPERVISE-stage validation could check compliance, but it's not learner-state derivable from transcript."
+        }
       }
     },
     {
@@ -932,7 +939,10 @@
       "interpretationLow": "Short Turns: Brief responses that encourage quick back-and-forth dialogue",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor response length; tutor-emit directive expressed via prompt composition. Not learner-derivable from transcript."
+        }
       }
     },
     {
@@ -1025,7 +1035,10 @@
       "interpretationLow": "Brief: Short, punchy turns that keep the conversation fast-paced",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor turn length / content density per turn; tutor-emit directive. Not learner-state derivable."
+        }
       }
     },
     {
@@ -1055,7 +1068,9 @@
       ],
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "specSlug": "STYLE-001-conversation-style"
+        }
       }
     },
     {
@@ -1112,7 +1127,10 @@
       "interpretationLow": "Trust the learner's silence as understanding; check only at major content transitions.",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor's proactive-comprehension-check rate; tutor-emit directive based on operator-set learner profile. Not measured from transcript."
+        }
       }
     },
     {
@@ -1128,7 +1146,10 @@
       "interpretationLow": "Break content into small chunks; pause after each idea for reflection or response.",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor information chunking; tutor-emit directive based on operator-set learner profile. Not measured from transcript."
+        }
       }
     },
     {
@@ -1940,7 +1961,10 @@
       "interpretationLow": "Continue speaking through silence; the learner will signal if they need to interject.",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor's question-pause behaviour; tutor-emit directive based on operator-set learner profile. Not measured from transcript."
+        }
       }
     },
     {

@@ -86,12 +86,12 @@ const ALLOWED_MEASUREMENT_STRING_VALUES = new Set([
 ]);
 
 /**
- * 2026-06-18 incumbent: every active parameter currently declares
- * `measurement: "deferred-#1967"` because no parameter-level
- * AnalysisSpec mapping exists yet. #1967 backfills real `specSlug`
- * declarations; this ratchet shrinks as it lands.
+ * 2026-06-18 incumbent (post-M4): of the original 57 `deferred-#1967`
+ * params, M4 reclassified 9 (3 measured via STYLE-001, 6 operator-only),
+ * leaving 48 still deferred pending pedagogy review per
+ * `docs/M4-pedagogy-review.md`.
  */
-const EXPECTED_DEFERRED_MEASUREMENT_COUNT = 57;
+const EXPECTED_DEFERRED_MEASUREMENT_COUNT = 48;
 
 describe("Parameter usage coverage (declarative Lattice Coverage pillar)", () => {
   it("every parameter has a usage block (data-driven invariant)", () => {
@@ -125,7 +125,7 @@ describe("Parameter usage coverage (declarative Lattice Coverage pillar)", () =>
     ).toEqual([]);
   });
 
-  it("every usage.measurement is either a {specSlug}, {specSlugs}, or an allowed string", () => {
+  it("every usage.measurement is either a {specSlug}, {specSlugs}, {kind:'operator-only'}, or an allowed string", () => {
     const bad: Array<{ id: string; measurement: unknown }> = [];
     for (const p of registry.parameters) {
       if (!p.parameterId || !p.usage) continue;
@@ -136,15 +136,22 @@ describe("Parameter usage coverage (declarative Lattice Coverage pillar)", () =>
         }
       } else if (typeof m === "object" && m !== null) {
         // Allow EITHER { specSlug: "..." } (single) OR { specSlugs: ["...", ...] } (multi)
+        // OR { kind: "operator-only", reason: "..." } (M4 — non-measurable tutor knob)
         const single = (m as { specSlug?: unknown }).specSlug;
         const multi = (m as { specSlugs?: unknown }).specSlugs;
+        const kind = (m as { kind?: unknown }).kind;
+        const reason = (m as { reason?: unknown }).reason;
         const singleOk =
           typeof single === "string" && single.trim().length > 0;
         const multiOk =
           Array.isArray(multi) &&
           multi.length > 0 &&
           multi.every((s) => typeof s === "string" && s.trim().length > 0);
-        if (!singleOk && !multiOk) {
+        const operatorOnlyOk =
+          kind === "operator-only" &&
+          typeof reason === "string" &&
+          reason.trim().length > 20;
+        if (!singleOk && !multiOk && !operatorOnlyOk) {
           bad.push({ id: p.parameterId, measurement: m });
         }
       } else {
@@ -155,7 +162,7 @@ describe("Parameter usage coverage (declarative Lattice Coverage pillar)", () =>
       bad,
       `Parameters with malformed usage.measurement:\n  ${bad
         .map((b) => `${b.id}: ${JSON.stringify(b.measurement)}`)
-        .join("\n  ")}\n\nAllowed shapes: {specSlug: "<slug>"} OR one of ${Array.from(ALLOWED_MEASUREMENT_STRING_VALUES).join(", ")}.`,
+        .join("\n  ")}\n\nAllowed shapes: {specSlug: "<slug>"}, {specSlugs: [...]}, {kind: "operator-only", reason: "..."}, OR one of ${Array.from(ALLOWED_MEASUREMENT_STRING_VALUES).join(", ")}.`,
     ).toEqual([]);
   });
 
