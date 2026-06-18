@@ -34,7 +34,9 @@
       },
       "aliases": [
         "abstract-vs-concrete"
-      ]
+      ],
+      "interpretationHigh": "Lead with theory and principles; demonstrate them through specific examples afterwards.",
+      "interpretationLow": "Lead with specific examples and demonstrations; abstract patterns emerge from them."
     },
     {
       "parameterId": "BEH-ADAPT-TO-FEEDBACK-STYLE",
@@ -44,7 +46,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "adapt_to_feedback_style"
-      ]
+      ],
+      "interpretationHigh": "Give thorough multi-point feedback with specific examples and rationale for each note.",
+      "interpretationLow": "Give concise targeted feedback; one key point at a time without elaboration."
     },
     {
       "parameterId": "BEH-ADAPT-TO-INTERACTION-STYLE",
@@ -54,7 +58,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "adapt_to_interaction_style"
-      ]
+      ],
+      "interpretationHigh": "Engage with frequent questions, dialogue, and back-and-forth; treat the session as a conversation.",
+      "interpretationLow": "Deliver content with minimal interruption; let the learner absorb before checking in."
     },
     {
       "parameterId": "adapt_to_learning_style",
@@ -80,7 +86,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "adapt_to_question_frequency"
-      ]
+      ],
+      "interpretationHigh": "Anticipate questions proactively; offer multiple pause points; welcome interruption.",
+      "interpretationLow": "Move through content steadily; check understanding via your own probes rather than waiting."
     },
     {
       "parameterId": "BEH-AGGREGATE-PROFILE",
@@ -90,7 +98,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "aggregate_profile"
-      ]
+      ],
+      "interpretationHigh": "Trust recent observations as profile-defining; adapt session quickly to the emerging pattern.",
+      "interpretationLow": "Use cautious profile updates; treat recent observations as provisional and gather more before adapting."
     },
     {
       "parameterId": "BEH-AGREEABLENESS-ADAPTATION",
@@ -109,7 +119,9 @@
       "name": "Analogy Usage",
       "definition": "Visual learners respond well to analogies",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Use analogies frequently; bridge new concepts to familiar ones the learner already knows.",
+      "interpretationLow": "Avoid analogies; explain concepts directly and on their own terms."
     },
     {
       "parameterId": "BEH-APPLICATION-ADAPTATION",
@@ -748,7 +760,9 @@
       "name": "Check For Understanding",
       "definition": "Rare questioners need proactive comprehension checks",
       "domainGroup": "engagement",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Check understanding frequently; ask the learner to summarise or apply each new idea before moving on.",
+      "interpretationLow": "Trust the learner's silence as understanding; check only at major content transitions."
     },
     {
       "parameterId": "BEH-CHUNK-SIZE",
@@ -758,7 +772,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "chunk-size"
-      ]
+      ],
+      "interpretationHigh": "Deliver content in larger blocks; cover multiple related points before pausing.",
+      "interpretationLow": "Break content into small chunks; pause after each idea for reflection or response."
     },
     {
       "parameterId": "BEH-COMMUNICATION-COMPLEXITY-ADAPTATION",
@@ -873,7 +889,9 @@
       "name": "Concept Density",
       "definition": "Fast pace learners can handle more concepts at once",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Introduce multiple concepts in close succession; trust the learner to integrate them.",
+      "interpretationLow": "Introduce one concept at a time; allow each to settle before adding the next."
     },
     {
       "parameterId": "BEH-CONCEPT-EXPOSURE",
@@ -1009,7 +1027,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "engagement-prompts"
-      ]
+      ],
+      "interpretationHigh": "Use frequent engagement prompts; invite the learner to share thoughts, examples, or experiences.",
+      "interpretationLow": "Use few engagement prompts; deliver content cleanly without inviting tangents."
     },
     {
       "parameterId": "BEH-ENGAGEMENT-REWARD",
@@ -1055,14 +1075,18 @@
       "defaultTarget": 0.5,
       "aliases": [
         "error-elaboration"
-      ]
+      ],
+      "interpretationHigh": "When the learner errs, explain the misconception, the correction, and why the correct form works.",
+      "interpretationLow": "When the learner errs, offer the correction without dwelling on the misconception."
     },
     {
       "parameterId": "example-richness",
       "name": "Example Richness",
       "definition": "Visual learners benefit from concrete examples",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Provide multiple examples per concept; vary the example contexts to anchor understanding.",
+      "interpretationLow": "Provide one focused example per concept; trust generalisation from a single case."
     },
     {
       "parameterId": "BEH-EXPLANATION-DEPTH",
@@ -1072,7 +1096,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "explanation-depth"
-      ]
+      ],
+      "interpretationHigh": "Explain in depth; cover mechanism, edge cases, and the reasoning behind the answer.",
+      "interpretationLow": "Explain briefly; cover the headline answer and only the rationale the learner needs to act."
     },
     {
       "parameterId": "BEH-EXPLORATION-STRUCTURE",
@@ -1298,7 +1324,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "pause-for-questions"
-      ]
+      ],
+      "interpretationHigh": "Pause regularly to invite questions; treat silence as an explicit prompt for the learner to respond.",
+      "interpretationLow": "Continue speaking through silence; the learner will signal if they need to interject."
     },
     {
       "parameterId": "BEH-PREFERENCE-ELICITATION-QUALITY",
@@ -1377,7 +1405,9 @@
       "name": "Repetition Frequency",
       "definition": "Slow pace learners benefit from repetition",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Repeat key points across the session; restate each idea two or three times in different forms.",
+      "interpretationLow": "State each key point once; trust the learner to retain it without explicit repetition."
     },
     {
       "parameterId": "response_empathy_score",
@@ -1454,7 +1484,9 @@
       "name": "Scaffolding",
       "definition": "Guided learners need structured support",
       "domainGroup": "learning-adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Provide strong scaffolding: previews, structure markers, and explicit transitions between sections.",
+      "interpretationLow": "Provide minimal scaffolding; let the learner build their own structure from the content flow."
     },
     {
       "parameterId": "BEH-SOCRATIC-QUESTIONING",
@@ -1464,7 +1496,9 @@
       "defaultTarget": 0.5,
       "aliases": [
         "socratic-questioning"
-      ]
+      ],
+      "interpretationHigh": "Lead with questions; draw out the learner's reasoning before offering your own answer.",
+      "interpretationLow": "Lead with direct explanation; offer questions only as comprehension checks."
     },
     {
       "parameterId": "BEH-STUDENT-APPLICATION-SCORE",
