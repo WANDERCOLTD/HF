@@ -98,6 +98,88 @@ describe("parseContentSources — tolerant of cosmetic variations", () => {
     expect(entry!.location).toBe("foo.md");
   });
 
+  it("parses `Source 2a` sub-numbering with a single lowercase suffix", () => {
+    const body = [
+      "## Content Sources",
+      "",
+      "### Source 2a — Part 2 cue card bank (Mock)",
+      "",
+      "- *location:* `docs/external/cue-cards-mock.md`",
+      "- *format:* structured-md",
+      "- *moduleRef:* part2Mock",
+      "- *settingRef:* moduleCueCardPool",
+      "",
+      "### Source 2b — Part 2 cue card bank (Baseline)",
+      "",
+      "- *location:* `docs/external/cue-cards-baseline.md`",
+      "- *format:* structured-md",
+      "- *moduleRef:* part2Baseline",
+      "- *settingRef:* moduleCueCardPool",
+      "",
+    ].join("\n");
+    const parsed = parseContentSources(body);
+    expect(parsed.all.length).toBe(2);
+    expect(parsed.all.map((e) => e.header)).toEqual([
+      "Source 2a — Part 2 cue card bank (Mock)",
+      "Source 2b — Part 2 cue card bank (Baseline)",
+    ]);
+    const mock = parsed.byModuleAndSetting.get("part2Mock:cueCardPool");
+    expect(mock?.location).toBe("docs/external/cue-cards-mock.md");
+    const baseline = parsed.byModuleAndSetting.get("part2Baseline:cueCardPool");
+    expect(baseline?.location).toBe("docs/external/cue-cards-baseline.md");
+  });
+
+  it("parses two-digit + suffix headers (`Source 10b`)", () => {
+    const body = [
+      "## Content Sources",
+      "",
+      "### Source 10b — Some pool",
+      "",
+      "- *location:* `docs/external/pool-10b.md`",
+      "- *format:* structured-md",
+      "- *moduleRef:* part3",
+      "- *settingRef:* moduleScaffoldPool",
+      "",
+    ].join("\n");
+    const parsed = parseContentSources(body);
+    expect(parsed.all.length).toBe(1);
+    expect(parsed.all[0].header).toBe("Source 10b — Some pool");
+    const entry = parsed.byModuleAndSetting.get("part3:scaffoldPool");
+    expect(entry?.location).toBe("docs/external/pool-10b.md");
+  });
+
+  it("rejects multi-letter suffixes (`Source 99x` parses; `Source 99xy` does NOT)", () => {
+    // Single letter is allowed; the regex uses `[a-z]?` (zero or one).
+    const single = parseContentSources(
+      [
+        "## Content Sources",
+        "",
+        "### Source 99x — Single letter ok",
+        "- *location:* ok.md",
+        "- *format:* structured-md",
+        "- *moduleRef:* m",
+        "- *settingRef:* moduleX",
+        "",
+      ].join("\n"),
+    );
+    expect(single.all.length).toBe(1);
+    expect(single.all[0].header).toBe("Source 99x — Single letter ok");
+
+    // Multi-letter suffix should NOT match — header parser silently skips it.
+    const multi = parseContentSources(
+      [
+        "## Content Sources",
+        "",
+        "### Source 99xy — Multi letter rejected",
+        "- *location:* skip.md",
+        "- *moduleRef:* m",
+        "- *settingRef:* moduleX",
+        "",
+      ].join("\n"),
+    );
+    expect(multi.all.length).toBe(0);
+  });
+
   it("stops at the next ## section header", () => {
     const body = [
       "## Content Sources",

@@ -462,13 +462,13 @@ describe("computeSharedState — #554 Fix 2 moduleToReview gating", () => {
 });
 
 // =====================================================
-// computeModuleProgress transform — sibling thinning still applies
+// computeModuleProgress transform — #1906 bundle mode + lock interaction
 // =====================================================
 
-describe("computeModuleProgress — sibling thinning with #492 Slice 3.1 lock", () => {
+describe("computeModuleProgress — #1906 bundle mode with #492 Slice 3.1 lock", () => {
   const transform = getTransform("computeModuleProgress")!;
 
-  it("the requestedModuleId target becomes the current module with full body, siblings are thin", () => {
+  it("the requestedModuleId target becomes the current module, ALL modules carry full body within budget (bundle mode)", () => {
     const modules: ModuleData[] = [
       { id: "MOD-1", slug: "mod-1", name: "Module 1", description: "d1", content: { x: 1 } as any },
       { id: "MOD-2", slug: "mod-2", name: "Module 2", description: "d2", content: { x: 2 } as any },
@@ -510,13 +510,15 @@ describe("computeModuleProgress — sibling thinning with #492 Slice 3.1 lock", 
     expect(out.modules[1].description).toBe("d2");
     expect(out.modules[1].content).toBeDefined();
 
-    // Siblings thinned — no description, no content, isCurrent=false.
+    // #1906 bundle mode: siblings also carry full body within budget so
+    // mid-call switch lands without recompose. isCurrent still correctly
+    // identifies the picker's choice.
     expect(out.modules[0]).toMatchObject({ id: "MOD-1", isCurrent: false });
-    expect(out.modules[0].description).toBeUndefined();
-    expect(out.modules[0].content).toBeUndefined();
+    expect(out.modules[0].description).toBe("d1");
+    expect(out.modules[0].content).toBeDefined();
     expect(out.modules[2]).toMatchObject({ id: "MOD-3", isCurrent: false });
-    expect(out.modules[2].description).toBeUndefined();
-    expect(out.modules[2].content).toBeUndefined();
+    expect(out.modules[2].description).toBe("d3");
+    expect(out.modules[2].content).toBeDefined();
 
     // currentModuleSlug + currentModuleTeachingInstructions still wired.
     expect(out.currentModuleSlug).toBe("mod-2");

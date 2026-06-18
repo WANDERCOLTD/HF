@@ -551,26 +551,57 @@ describe("computeModuleProgress transform", () => {
 
   // ── #492 Slice 3.2: sibling-module thinning ──
 
-  it("emits full shape (description + content) for the current module only", () => {
+  // #1906 — Bundle mode: when total module-content size is within the
+  // 80K-char budget, the transform emits description+content for EVERY
+  // module (mid-call switch can land on any module without recompose).
+  // The Anthropic ephemeral prompt cache amortises the cost — bundle
+  // bytes are stable across turns. Replaced the #492 Slice 3.2
+  // sibling-thinning behaviour for small/medium courses.
+  it("#1906 bundle mode: emits full shape (description + content) for ALL modules when within budget", () => {
     const modules: ModuleData[] = [
       { id: "m-1", slug: "part1", name: "Part 1", description: "Part 1 desc", content: { teachingPlan: "long body…" } as any },
       { id: "m-2", slug: "part2", name: "Part 2", description: "Part 2 desc", content: { teachingPlan: "long body…" } as any },
       { id: "m-3", slug: "part3", name: "Part 3", description: "Part 3 desc", content: { teachingPlan: "long body…" } as any },
     ];
     const ctx = makeContext(modules, undefined, false);
-    // Mark Part 2 as the current via nextModule
-    ctx.sharedState.nextModule = modules[1];
+    ctx.sharedState.nextModule = modules[1]; // Part 2 is current
     const out: any = transform({}, ctx, {} as any);
     expect(out.modules).toHaveLength(3);
-    // Current module (Part 2): full body
+    // All modules: full body (bundle mode is on for small content)
+    expect(out.modules[0]).toMatchObject({ slug: "part1", isCurrent: false });
+    expect(out.modules[0].description).toBe("Part 1 desc");
+    expect(out.modules[0].content).toBeDefined();
     expect(out.modules[1]).toMatchObject({ slug: "part2", isCurrent: true });
     expect(out.modules[1].description).toBe("Part 2 desc");
     expect(out.modules[1].content).toBeDefined();
-    // Siblings: NO description, NO content
-    expect(out.modules[0]).toMatchObject({ slug: "part1", isCurrent: false });
+    expect(out.modules[2]).toMatchObject({ slug: "part3", isCurrent: false });
+    expect(out.modules[2].description).toBe("Part 3 desc");
+    expect(out.modules[2].content).toBeDefined();
+    // isCurrent flag still correctly identifies the active module
+    expect(out.modules.filter((m: any) => m.isCurrent)).toHaveLength(1);
+  });
+
+  it("#1906 budget-exceeded fallback: emits full shape for current module only when bundle exceeds budget", () => {
+    // Build a bundle that overflows the 80K-char budget — each module
+    // carries ~30K chars of content; with 3 modules the projected bundle
+    // is ~90K chars and we fall back to current-only (legacy #492
+    // Slice 3.2 behaviour).
+    const bigContent = { teachingPlan: "x".repeat(30_000) };
+    const modules: ModuleData[] = [
+      { id: "m-1", slug: "part1", name: "Part 1", description: "Part 1 desc", content: bigContent as any },
+      { id: "m-2", slug: "part2", name: "Part 2", description: "Part 2 desc", content: bigContent as any },
+      { id: "m-3", slug: "part3", name: "Part 3", description: "Part 3 desc", content: bigContent as any },
+    ];
+    const ctx = makeContext(modules, undefined, false);
+    ctx.sharedState.nextModule = modules[1]; // Part 2 is current
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.modules).toHaveLength(3);
+    // Current module gets full shape
+    expect(out.modules[1].description).toBe("Part 2 desc");
+    expect(out.modules[1].content).toBeDefined();
+    // Siblings get thin shape (fallback path)
     expect(out.modules[0].description).toBeUndefined();
     expect(out.modules[0].content).toBeUndefined();
-    expect(out.modules[2]).toMatchObject({ slug: "part3", isCurrent: false });
     expect(out.modules[2].description).toBeUndefined();
     expect(out.modules[2].content).toBeUndefined();
   });
@@ -584,10 +615,12 @@ describe("computeModuleProgress transform", () => {
     ctx.sharedState.nextModule = modules[0]; // scheduler picks Part 1
     ctx.sharedState.lockedModule = modules[1]; // picker picks Part 2
     const out: any = transform({}, ctx, {} as any);
-    expect(out.modules[0].isCurrent).toBe(false); // Part 1 thinned
-    expect(out.modules[1].isCurrent).toBe(true);  // Part 2 full (picker wins)
+    // isCurrent still tracks the picker's choice regardless of bundle mode
+    expect(out.modules[0].isCurrent).toBe(false);
+    expect(out.modules[1].isCurrent).toBe(true);
     expect(out.modules[1].description).toBe("d2");
-    expect(out.modules[0].description).toBeUndefined();
+    // #1906 bundle mode: small modules fit budget → sibling also gets full body
+    expect(out.modules[0].description).toBe("d1");
   });
 
   // ── #492 Slice 3.4: surface currentModuleTeachingInstructions ──
@@ -652,15 +685,19 @@ describe("computeModuleProgress transform", () => {
       { id: "m-2", slug: "part2", name: "Part 2", description: "d2", content: { x: 2 } as any },
     ];
     const ctx = makeContext(modules, undefined, false);
-    // No nextModule, no lockedModule → currentModuleKey=null → ALL siblings (thin)
+    // No nextModule, no lockedModule → currentModuleKey=null. In #1906
+    // bundle mode (small content fits budget), every module gets
+    // description+content — there's no "current" to single out, but the
+    // bundle still ships the full library. isCurrent stays false on all.
     ctx.sharedState.nextModule = null;
     const out: any = transform({}, ctx, {} as any);
     expect(out.modules[0].isCurrent).toBe(false);
     expect(out.modules[1].isCurrent).toBe(false);
-    expect(out.modules[0].description).toBeUndefined();
-    expect(out.modules[1].description).toBeUndefined();
-    expect(out.modules[0].content).toBeUndefined();
-    expect(out.modules[1].content).toBeUndefined();
+    // #1906 — bundle mode: all modules carry their content.
+    expect(out.modules[0].description).toBe("d1");
+    expect(out.modules[1].description).toBe("d2");
+    expect(out.modules[0].content).toBeDefined();
+    expect(out.modules[1].content).toBeDefined();
   });
 });
 

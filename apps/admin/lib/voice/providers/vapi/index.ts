@@ -692,6 +692,19 @@ export class VapiProvider implements VoiceProvider {
       // HTTP for tools / knowledge / end-of-call. LiveKit/Pipecat-style
       // providers would declare "self-hosted-agent" here.
       orchestrationMode: "vendor-cloud",
+      // #1908 — VAPI's custom-LLM mode (this is what HF runs today).
+      // Every learner turn lands at `/api/voice/llm-proxy/chat/completions`,
+      // HF translates OpenAI→Anthropic and streams back. The #1906
+      // CURRENT FOCUS directive is injected here.
+      supportsCustomLLMProxy: true,
+      // #1908 — VAPI controlUrl supports `add-message` with `role:"system"`
+      // (the documented OpenAI message role enum); see
+      // `lib/voice/providers/vapi/index.ts` `add-message` op.
+      supportsInBandSystemMessage: true,
+      // #1908 — VAPI supports mid-call assistant handoff via the
+      // controlUrl `handoff` op + `contextEngineeringPlan`. Audio
+      // continuity preserved.
+      supportsHandoff: true,
     };
   }
 

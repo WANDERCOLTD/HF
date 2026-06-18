@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T11:22:24.974Z",
+  "generatedAt": "2026-06-18T11:42:58.179Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1846,
-  "edgeCount": 4331,
+  "fileCount": 1848,
+  "edgeCount": 4338,
   "skippedEdges": 1,
   "edges": [
     {
@@ -994,6 +994,10 @@
     {
       "from": "app/api/callers/[callerId]/journey-progress/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/last-selected-module/route.ts",
+      "to": "lib/compose/bump-timestamp.ts"
     },
     {
       "from": "app/api/callers/[callerId]/last-selected-module/route.ts",
@@ -15288,6 +15292,22 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "to": "lib/measurement/neutral-target.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "to": "lib/prompt/composition/TransformRegistry.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "to": "lib/prompt/composition/types.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "to": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts"
+    },
+    {
       "from": "lib/prompt/composition/transforms/pedagogy-mode.ts",
       "to": "lib/content-trust/resolve-config.ts"
     },
@@ -16169,6 +16189,10 @@
     },
     {
       "from": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
       "to": "lib/voice/llm-proxy/translate-request.ts"
     },
     {
@@ -16330,6 +16354,10 @@
     {
       "from": "lib/voice/register-module-cues.ts",
       "to": "lib/voice/cue-scheduler.ts"
+    },
+    {
+      "from": "lib/voice/require-capability.ts",
+      "to": "lib/voice/types.ts"
     },
     {
       "from": "lib/voice/resolve-speech-assessment-provider.ts",
@@ -17731,7 +17759,7 @@
     {
       "path": "app/api/callers/[callerId]/last-selected-module/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/callers/[callerId]/learning-trajectory/route.ts",
@@ -23370,7 +23398,7 @@
     },
     {
       "path": "lib/compose/bump-timestamp.ts",
-      "inDegree": 19,
+      "inDegree": 20,
       "outDegree": 1
     },
     {
@@ -24560,7 +24588,7 @@
     },
     {
       "path": "lib/measurement/neutral-target.ts",
-      "inDegree": 2,
+      "inDegree": 3,
       "outDegree": 0
     },
     {
@@ -24860,7 +24888,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 672,
+      "inDegree": 673,
       "outDegree": 0
     },
     {
@@ -24890,7 +24918,7 @@
     },
     {
       "path": "lib/prompt/composition/TransformRegistry.ts",
-      "inDegree": 32,
+      "inDegree": 33,
       "outDegree": 1
     },
     {
@@ -25059,6 +25087,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
+      "inDegree": 0,
+      "outDegree": 4
+    },
+    {
       "path": "lib/prompt/composition/transforms/pedagogy-mode.ts",
       "inDegree": 1,
       "outDegree": 4
@@ -25145,7 +25178,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 43,
+      "inDegree": 44,
       "outDegree": 1
     },
     {
@@ -25410,7 +25443,7 @@
     },
     {
       "path": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts",
-      "inDegree": 3,
+      "inDegree": 4,
       "outDegree": 2
     },
     {
@@ -25531,7 +25564,7 @@
     {
       "path": "lib/voice/llm-proxy/run-vapi-chat-completion.ts",
       "inDegree": 2,
-      "outDegree": 6
+      "outDegree": 7
     },
     {
       "path": "lib/voice/llm-proxy/translate-request.ts",
@@ -25624,6 +25657,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/voice/require-capability.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "lib/voice/resolve-speech-assessment-provider.ts",
       "inDegree": 1,
       "outDegree": 1
@@ -25705,7 +25743,7 @@
     },
     {
       "path": "lib/voice/types.ts",
-      "inDegree": 14,
+      "inDegree": 15,
       "outDegree": 0
     },
     {
@@ -26567,7 +26605,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 672,
+      "inDegree": 673,
       "outDegree": 0
     },
     {
@@ -26612,7 +26650,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 43,
+      "inDegree": 44,
       "outDegree": 1
     },
     {
@@ -26637,7 +26675,7 @@
     },
     {
       "path": "lib/prompt/composition/TransformRegistry.ts",
-      "inDegree": 32,
+      "inDegree": 33,
       "outDegree": 1
     },
     {

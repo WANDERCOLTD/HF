@@ -9,7 +9,14 @@
       "name": "Abstract Vs Concrete",
       "definition": "Visual learners prefer concrete over abstract",
       "domainGroup": "learning_adaptation",
-      "defaultTarget": 0.5
+      "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Favour concrete examples (specific, hands-on, observable) over abstract reasoning.",
+        "templateHigh": "Lean into abstract reasoning (principles, generalisations) before concrete examples.",
+        "threshold": 0.5
+      }
     },
     {
       "parameterId": "adapt_to_feedback_style",

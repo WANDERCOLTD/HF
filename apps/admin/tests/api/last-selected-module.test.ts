@@ -20,6 +20,7 @@ const mockCallerFindFirst = vi.fn();
 const mockCallerUpdate = vi.fn();
 const mockModuleFindUnique = vi.fn();
 const mockRequireAuth = vi.fn();
+const mockBumpCallerComposeTimestamp = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -37,6 +38,11 @@ vi.mock("@/lib/permissions", () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
   isAuthError: (v: unknown): v is { error: unknown } =>
     Boolean(v && typeof v === "object" && "error" in (v as Record<string, unknown>)),
+}));
+
+vi.mock("@/lib/compose/bump-timestamp", () => ({
+  bumpCallerComposeTimestamp: (...args: unknown[]) =>
+    mockBumpCallerComposeTimestamp(...args),
 }));
 
 function makeSession(
@@ -191,6 +197,50 @@ describe("POST /api/callers/[callerId]/last-selected-module", () => {
 
       expect(status).toBe(404);
       expect(json.error).toBe("Caller not found");
+    });
+  });
+
+  // #1906 Q1 bump fix — module selection is a compose-affecting per-caller
+  // write. Without this bump, the next call serves the previous module's
+  // pre-composed prompt via the I-CT2 cascade until an unrelated bump
+  // fires (1–3 stale calls in production).
+  describe("#1906 compose-input bump", () => {
+    it("bumps caller compose timestamp after a successful module-id write", async () => {
+      mockRequireAuth.mockResolvedValue(makeSession("OPERATOR"));
+      mockModuleFindUnique.mockResolvedValue({ id: "mod-1" });
+      mockCallerUpdate.mockResolvedValue({
+        id: "any-caller",
+        lastSelectedModuleId: "mod-1",
+      });
+
+      const { status } = await callPost("any-caller", { moduleId: "mod-1" });
+
+      expect(status).toBe(200);
+      expect(mockBumpCallerComposeTimestamp).toHaveBeenCalledWith("any-caller");
+    });
+
+    it("bumps caller compose timestamp after clearing the module pick (null moduleId)", async () => {
+      mockRequireAuth.mockResolvedValue(makeSession("OPERATOR"));
+      mockCallerUpdate.mockResolvedValue({
+        id: "any-caller",
+        lastSelectedModuleId: null,
+      });
+
+      const { status } = await callPost("any-caller", { moduleId: null });
+
+      expect(status).toBe(200);
+      expect(mockBumpCallerComposeTimestamp).toHaveBeenCalledWith("any-caller");
+    });
+
+    it("does NOT bump when the write itself fails (caller not found)", async () => {
+      mockRequireAuth.mockResolvedValue(makeSession("OPERATOR"));
+      mockModuleFindUnique.mockResolvedValue({ id: "mod-1" });
+      mockCallerUpdate.mockRejectedValue({ code: "P2025" });
+
+      const { status } = await callPost("ghost-caller", { moduleId: "mod-1" });
+
+      expect(status).toBe(404);
+      expect(mockBumpCallerComposeTimestamp).not.toHaveBeenCalled();
     });
   });
 });
