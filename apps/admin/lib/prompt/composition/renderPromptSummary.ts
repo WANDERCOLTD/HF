@@ -307,6 +307,21 @@ export function renderProviderPrompt(
   if (adapt?.length) {
     adapt.slice(0, 3).forEach(a => parts.push(`- ${a}`));
   }
+  // #1907 — parametersAsDirectives dispatcher emits per-section
+  // behaviour directives derived from registry entries with a
+  // `promptInjection` block. Each section's directives are pushed
+  // into the matching part of this renderer. The STYLE-section
+  // directives land here; AUDIENCE / PEDAGOGY / etc. land in their
+  // own blocks below.
+  const dispatcherSections = (llmPrompt as any).parametersAsDirectives?.sections as
+    | Array<{ section: string; directives: string[] }>
+    | undefined;
+  const styleDirectives = dispatcherSections?.find((s) => s.section === "STYLE");
+  if (styleDirectives?.directives?.length) {
+    for (const d of styleDirectives.directives) {
+      parts.push(`- ${d}`);
+    }
+  }
   parts.push("");
 
   // --- AUDIENCE ---
@@ -323,6 +338,15 @@ export function renderProviderPrompt(
     parts.push(`Tone: ${ins.emotionalTone}`);
     if (ins.fillers?.length) parts.push(`Fillers: ${ins.fillers.join(", ")}`);
     if (ins.checkIns?.length) parts.push(`Check-ins: ${ins.checkIns.join(", ")}`);
+    // #1907 — AUDIENCE-section directives from parametersAsDirectives.
+    const audienceDirectives = dispatcherSections?.find(
+      (s) => s.section === "AUDIENCE",
+    );
+    if (audienceDirectives?.directives?.length) {
+      for (const d of audienceDirectives.directives) {
+        parts.push(`- ${d}`);
+      }
+    }
     parts.push("");
   }
 
