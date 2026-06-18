@@ -485,6 +485,41 @@ async function runChecks(): Promise<CheckResult[]> {
     })),
   });
 
+  // Query 12 — #1917 (epic #1915 §6a I-PR3) — Calls without
+  // `regulatoryExpiresAt` stamped, older than the configured grace
+  // window. WARN-only — pre-#1917 rows are EXPECTED to be NULL
+  // (intentional NULL backfill, see migration body). After #1917 ships
+  // and an env preset becomes active, new rows should ALL be stamped;
+  // surfacing the count keeps the rollout state observable.
+  //
+  // Grace window: 7 days. Adjust upward if a wider rollout window is
+  // declared by the operator (set via env or admin UI when #1928
+  // ships).
+  const REGULATORY_EXPIRY_GRACE_DAYS = 7;
+  const callsWithoutRegulatoryExpiry = await prisma.$queryRaw<
+    Array<{ id: string; callerId: string | null; createdAt: Date }>
+  >`
+    SELECT "id", "callerId", "createdAt"
+    FROM "Call"
+    WHERE "regulatoryExpiresAt" IS NULL
+      AND "createdAt" < NOW() - (${REGULATORY_EXPIRY_GRACE_DAYS} || ' days')::interval
+    ORDER BY "createdAt" DESC
+    LIMIT 200
+  `;
+  results.push({
+    name: "call-without-regulatory-expiry",
+    description:
+      "#1917 (#1915 I-PR3) — Call rows older than the grace window with NULL regulatoryExpiresAt. Pre-migration rows are EXPECTED NULL (intentional NULL backfill). New rows after #1917 ships should be stamped unless `RETENTION_CALLER_DATA_DAYS` is 0 AND no preset is wired (#1925, pending). WARN-only: count plateauing post-rollout = healthy; growing = enforcer regression.",
+    rows: callsWithoutRegulatoryExpiry.map((r) => ({
+      id: r.id,
+      detail: {
+        callerId: r.callerId,
+        createdAt: r.createdAt.toISOString(),
+      },
+    })),
+    warnOnly: true,
+  });
+
   return results;
 }
 

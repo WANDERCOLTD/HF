@@ -1718,6 +1718,18 @@ model Call {
   transcript String
   createdAt  DateTime @default(now())
 
+  // #1917 (epic #1915 §6a I-PR3) — regulatory expiry stamped at
+  // create-time from the preset in effect (or `RETENTION_CALLER_DATA_DAYS`
+  // env fallback). NULL on existing rows (backfill=NULL by design — see
+  // `lib/privacy/stamp-regulatory-expiry.ts` JSDoc for the three reasons
+  // computed-date backfill is wrong). The retention cleanup cron deletes
+  // rows WHERE `regulatoryExpiresAt <= NOW()`.
+  //
+  // Naming discipline: NOT `expiresAt` — collides with
+  // `CallerMemory.expiresAt` (content decay) and would silently conflate
+  // two semantically different concepts.
+  regulatoryExpiresAt DateTime?
+
   // Caller tracking
   callerId String?
 
