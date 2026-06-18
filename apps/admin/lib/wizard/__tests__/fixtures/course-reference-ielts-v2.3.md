@@ -1128,6 +1128,51 @@ The authoritative public-version IELTS Speaking band descriptors for the four sc
 - *usage:* Skills Framework tier-mapping derivation at projection time.  
 - *Notes:* Public Version only. The Examiner Version (licensed to certified examiners) is NOT to be reproduced. A handful of Pron half-band descriptors are marked `[verify against IELTS.org publication before wizard run]` in the source file — the projector should surface those as warnings, not silently ship.  
   
+### Source 9 — Mock Exam cue card bank (reuses Source 2 content)  
+  
+The Mock Exam's Part 2 phase reuses the same 88 cue cards as Part 2 practice; mock-specific scenarios are deferred to a future source-authoring pass. The runtime guard `selectPinnedCardForModule` would otherwise return null on the Mock Part 2 phase, leaving the tutor with no cue card to pin.  
+  
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-question-bank-part2.md`  
+- *format:* structured-md  
+- *moduleRef:* mock  
+- *settingRef:* moduleCueCardPool  
+  
+### Source 10 — Baseline cue card bank (reuses Source 2 content)  
+  
+The Baseline Assessment's Part 2 phase reuses the same cue card bank as Part 2 practice; baseline-specific topics are deferred. Closes the same `selectPinnedCardForModule` null-return gap as Source 9, on the Baseline path.  
+  
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-question-bank-part2.md`  
+- *format:* structured-md  
+- *moduleRef:* baseline  
+- *settingRef:* moduleCueCardPool  
+  
+### Source 11 — Baseline stall scaffolds (reuses Source 6 content)  
+  
+The Baseline Assessment uses the same monologue stall scaffolds as Part 2 — examiner-mode silence rules apply throughout the Baseline Part 2 long-turn.  
+  
+- *location:* `docs/external/ielts/ielts-speaking/stall-scaffolds-monologue.md`  
+- *format:* structured-md  
+- *moduleRef:* baseline  
+- *settingRef:* moduleScaffoldPool  
+  
+### Source 12 — Mock Exam stall scaffolds (reuses Source 6 content)  
+  
+The Mock Exam uses the same monologue stall scaffolds as Part 2 — examiner-mode silence rules apply throughout the Mock Part 2 long-turn.  
+  
+- *location:* `docs/external/ielts/ielts-speaking/stall-scaffolds-monologue.md`  
+- *format:* structured-md  
+- *moduleRef:* mock  
+- *settingRef:* moduleScaffoldPool  
+  
+### Source 13 — Part 1 stall scaffolds (reuses Source 7 content)  
+  
+Part 1 short Q&A reuses the discussion stall scaffolds — single-question stalls with the same reframe-not-resolve shape as Part 3, scaled to Part 1's shorter turns.  
+  
+- *location:* `docs/external/ielts/ielts-speaking/stall-scaffolds-discussion.md`  
+- *format:* structured-md  
+- *moduleRef:* part1  
+- *settingRef:* moduleScaffoldPool  
+  
 ### Content preferences  
   
 - The tutor does not use the same Part 1 topic two drills in a row.  

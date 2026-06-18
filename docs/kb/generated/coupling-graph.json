@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T10:49:39.187Z",
+  "generatedAt": "2026-06-18T11:17:55.483Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1845,
-  "edgeCount": 4329,
+  "fileCount": 1846,
+  "edgeCount": 4330,
   "skippedEdges": 1,
   "edges": [
     {
@@ -16324,6 +16324,10 @@
       "to": "lib/voice/cue-scheduler.ts"
     },
     {
+      "from": "lib/voice/require-capability.ts",
+      "to": "lib/voice/types.ts"
+    },
+    {
       "from": "lib/voice/resolve-speech-assessment-provider.ts",
       "to": "lib/speech-assessment/provider-factory.ts"
     },
@@ -25611,6 +25615,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/voice/require-capability.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "lib/voice/resolve-speech-assessment-provider.ts",
       "inDegree": 1,
       "outDegree": 1
@@ -25692,7 +25701,7 @@
     },
     {
       "path": "lib/voice/types.ts",
-      "inDegree": 14,
+      "inDegree": 15,
       "outDegree": 0
     },
     {
