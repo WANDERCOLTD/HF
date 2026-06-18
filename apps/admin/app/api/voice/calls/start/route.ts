@@ -13,6 +13,7 @@ import { startVoiceSpan } from "@/lib/voice/telemetry";
 import { buildAssistantConfigForCaller } from "@/lib/voice/build-assistant-config";
 import { createSession } from "@/lib/voice/create-session";
 import { voiceDiagDump } from "@/lib/voice/diag";
+import { stampRegulatoryExpiry } from "@/lib/privacy/stamp-regulatory-expiry";
 
 export const runtime = "nodejs";
 
@@ -184,6 +185,12 @@ export async function POST(request: Request) {
         ? { requestedModuleId: parsed.data.requestedModuleId }
         : {}),
     });
+    // #1917 §6a I-PR3 — stamp regulatory expiry from preset (when #1925
+    // wires the cascade) or `RETENTION_CALLER_DATA_DAYS` env fallback.
+    // NULL when neither resolves; caller-level cleanup still applies.
+    const regulatoryExpiresAt = stampRegulatoryExpiry({
+      presetRetentionDays: null,
+    });
     const placeholderCall = await prisma.call.create({
       data: {
         callerId: caller.id,
@@ -201,6 +208,7 @@ export async function POST(request: Request) {
         ...(sessionResult.usedPromptId
           ? { usedPromptId: sessionResult.usedPromptId }
           : {}),
+        ...(regulatoryExpiresAt ? { regulatoryExpiresAt } : {}),
       },
       select: { id: true },
     });

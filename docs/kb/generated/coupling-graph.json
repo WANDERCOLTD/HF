@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T13:16:27.376Z",
+  "generatedAt": "2026-06-18T13:20:59.597Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1842,
-  "edgeCount": 4332,
+  "fileCount": 1843,
+  "edgeCount": 4336,
   "skippedEdges": 1,
   "edges": [
     {
@@ -7217,6 +7217,10 @@
     },
     {
       "from": "app/api/voice/calls/outbound-dial/route.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
+    },
+    {
+      "from": "app/api/voice/calls/outbound-dial/route.ts",
       "to": "lib/voice/build-assistant-config.ts"
     },
     {
@@ -7254,6 +7258,10 @@
     {
       "from": "app/api/voice/calls/start/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/voice/calls/start/route.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
     },
     {
       "from": "app/api/voice/calls/start/route.ts",
@@ -14684,6 +14692,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/privacy/stamp-regulatory-expiry.ts",
+      "to": "lib/config.ts"
+    },
+    {
       "from": "lib/prompt/compose-content-section.ts",
       "to": "lib/contracts/registry.ts"
     },
@@ -16382,6 +16394,10 @@
     {
       "from": "lib/voice/route-handlers.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/voice/route-handlers.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
     },
     {
       "from": "lib/voice/route-handlers.ts",
@@ -19970,12 +19986,12 @@
     {
       "path": "app/api/voice/calls/outbound-dial/route.ts",
       "inDegree": 0,
-      "outDegree": 11
+      "outDegree": 12
     },
     {
       "path": "app/api/voice/calls/start/route.ts",
       "inDegree": 0,
-      "outDegree": 8
+      "outDegree": 9
     },
     {
       "path": "app/api/voice/costs/route.ts",
@@ -23364,7 +23380,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 93,
+      "inDegree": 94,
       "outDegree": 0
     },
     {
@@ -24813,6 +24829,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/privacy/stamp-regulatory-expiry.ts",
+      "inDegree": 3,
+      "outDegree": 1
+    },
+    {
       "path": "lib/prompt-analyzer/section-map.ts",
       "inDegree": 2,
       "outDegree": 0
@@ -25625,7 +25646,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 28
+      "outDegree": 29
     },
     {
       "path": "lib/voice/runtime-features.ts",
@@ -26566,7 +26587,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 93,
+      "inDegree": 94,
       "outDegree": 0
     },
     {
@@ -26627,7 +26648,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 28
+      "outDegree": 29
     },
     {
       "path": "lib/playbook/update-playbook-config.ts",

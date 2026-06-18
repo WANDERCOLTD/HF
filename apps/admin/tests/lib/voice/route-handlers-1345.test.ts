@@ -42,6 +42,9 @@ interface MockCallRow {
   createdAt: Date;
   playbookId: string | null;
   usedPromptId: string | null;
+  // #1917 — regulatory expiry column; nullable, populated by
+  // stampRegulatoryExpiry() at create-time via the fresh-arrival path.
+  regulatoryExpiresAt: Date | null;
 }
 
 const stores = vi.hoisted(() => ({
@@ -127,6 +130,10 @@ vi.mock("@/lib/prisma", () => ({
           createdAt: data.createdAt ?? new Date(),
           playbookId: data.playbookId ?? null,
           usedPromptId: data.usedPromptId ?? null,
+          // #1917 — regulatory expiry; spread conditionally by the
+          // route, so the field may be absent from `data` when the
+          // env retention is disabled.
+          regulatoryExpiresAt: data.regulatoryExpiresAt ?? null,
         };
         stores.callStore.set(id, row);
         return row;
@@ -234,6 +241,12 @@ vi.mock("@/lib/config", () => ({
       claude: { model: "claude-3-5-sonnet", maxTokens: 4096, temperature: 0.7 },
       openai: { model: "gpt-4o-mini", maxTokens: 4096, temperature: 0.7 },
     },
+    // #1917 — stampRegulatoryExpiry reads this at create-time. Zero
+    // means "no env-driven retention" so the column stays NULL in
+    // the mock store — matches the existing post-fix-create assertions
+    // (the field is added to MockCallRow but defaults to null when
+    // env retention is disabled, which preserves the pre-#1917 shape).
+    retention: { callerDataDays: 0, auditLogDays: 365 },
   },
 }));
 
