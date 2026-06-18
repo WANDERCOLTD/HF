@@ -12,7 +12,9 @@
     "engagement",
     "reinforcement",
     "onboarding",
-    "voice-delivery"
+    "voice-delivery",
+    "learner-model",
+    "affect-motivation"
   ],
   "generatedAt": "2026-04-16T17:47:52.532Z",
   "sourceOfTruth": "Canonical spec — DB caches this. Pre-#1946 header said \"GENERATED FROM DATABASE\"; post-#1946 the registry is HF-canonical IP and `db:seed` drives the DB in the spec→DB direction.",

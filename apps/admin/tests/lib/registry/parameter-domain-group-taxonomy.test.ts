@@ -52,6 +52,11 @@ const CANONICAL_GROUPS = [
   "reinforcement",
   "onboarding",
   "voice-delivery",
+  // #1948 — pedagogy-review placeholders (2026-06-18 review). Empty at
+  // v1.0 merge; populated by future curation passes that move
+  // learner-state and affect parameters out of `learning-adaptation`.
+  "learner-model",
+  "affect-motivation",
 ] as const;
 
 // Legacy variant spellings that the migration normalises. If any of these
@@ -135,5 +140,21 @@ describe("#1948 — domainGroup canonical taxonomy", () => {
     );
     // Until #1952 / S5 ships, voice-delivery is intentionally empty.
     expect(voiceDelivery).toEqual([]);
+  });
+
+  it("`learner-model` is declared per pedagogy review (placeholder, empty at v1.0)", () => {
+    expect(CANONICAL_GROUPS).toContain("learner-model");
+    const learnerModel = registry.parameters.filter(
+      (p) => p.domainGroup === "learner-model",
+    );
+    expect(learnerModel).toEqual([]);
+  });
+
+  it("`affect-motivation` is declared per pedagogy review (placeholder, empty at v1.0)", () => {
+    expect(CANONICAL_GROUPS).toContain("affect-motivation");
+    const affectMotivation = registry.parameters.filter(
+      (p) => p.domainGroup === "affect-motivation",
+    );
+    expect(affectMotivation).toEqual([]);
   });
 });
