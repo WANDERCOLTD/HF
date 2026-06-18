@@ -66,10 +66,10 @@ recomposed.
 
 | Layer | Status | Notes |
 |---|---|---|
-| Constant | **Lives at `lib/cascade/spec-readonly-fields.ts`** | #1951 (this PR) |
-| Discipline doc | **This file** | #1951 (this PR) |
-| ESLint rule `hf-spec/no-customer-write-to-canonical-interpretation` | Pending | Sibling Lattice Protection epic |
-| Coverage test pinning the constant ↔ rule pairing | Pending | Same epic |
+| Constant | **Lives at `lib/cascade/spec-readonly-fields.ts`** | #1951 (S4 PR) |
+| Discipline doc | **This file** | #1951 (S4 PR) |
+| ESLint rule `hf-spec/no-customer-write-to-canonical-interpretation` | Pending | Epic [#1984](https://github.com/WANDERCOLTD/HF/issues/1984) S1 |
+| Coverage test pinning the constant ↔ rule pairing | Pending | Epic [#1984](https://github.com/WANDERCOLTD/HF/issues/1984) S2 |
 
 ## When NOT to apply
 
