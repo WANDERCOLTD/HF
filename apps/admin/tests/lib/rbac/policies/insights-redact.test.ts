@@ -32,7 +32,7 @@ describe("redactInsightsForTier", () => {
   it("strips recommendation + reason from focus areas at redacted", () => {
     const out = redactInsightsForTier(RAW, "redacted");
     expect(out.viewerTier).toBe("redacted");
-    const fa = (out as { focusAreas: Array<Record<string, unknown>> }).focusAreas[0];
+    const fa = (out as unknown as { focusAreas: Array<Record<string, unknown>> }).focusAreas[0];
     expect(fa).not.toHaveProperty("recommendation");
     expect(fa).not.toHaveProperty("reason");
     expect(fa.type).toBe("needs_attention");

@@ -43,7 +43,7 @@ describe("redactSkillsEvidenceForTier", () => {
   it("strips sensitive fields at the redacted tier", () => {
     const out = redactSkillsEvidenceForTier(RAW, "redacted");
     expect(out.viewerTier).toBe("redacted");
-    const item = (out as { rows: Array<{ evidence: Array<Record<string, unknown>> }> }).rows[0]
+    const item = (out as unknown as { rows: Array<{ evidence: Array<Record<string, unknown>> }> }).rows[0]
       .evidence[0];
     expect(item).not.toHaveProperty("reasoning");
     expect(item).not.toHaveProperty("analysisSpecName");

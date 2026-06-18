@@ -35,7 +35,7 @@ describe("redactMemoriesForTier", () => {
   it("strips confidence + evidence + decayFactor at redacted tier", () => {
     const out = redactMemoriesForTier(RAW, "redacted");
     expect(out.viewerTier).toBe("redacted");
-    const mem = (out as { memories: Array<Record<string, unknown>> }).memories[0];
+    const mem = (out as unknown as { memories: Array<Record<string, unknown>> }).memories[0];
     expect(mem).not.toHaveProperty("confidence");
     expect(mem).not.toHaveProperty("evidence");
     expect(mem).not.toHaveProperty("decayFactor");

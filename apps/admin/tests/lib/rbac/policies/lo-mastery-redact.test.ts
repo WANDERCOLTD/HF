@@ -32,7 +32,7 @@ describe("redactLoMasteryForTier", () => {
   it("strips raw mastery numeric + tier + bandLabel + masteryThreshold at redacted", () => {
     const out = redactLoMasteryForTier(RAW, "redacted");
     expect(out.viewerTier).toBe("redacted");
-    const lo = (out as { learningObjectives: Array<Record<string, unknown>> })
+    const lo = (out as unknown as { learningObjectives: Array<Record<string, unknown>> })
       .learningObjectives[0];
     expect(lo).not.toHaveProperty("mastery");
     expect(lo).not.toHaveProperty("tier");

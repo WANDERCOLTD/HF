@@ -58,7 +58,7 @@ describe("redactUpliftForTier", () => {
   it("strips scoreTrends[].scores[].confidence at redacted", () => {
     const out = redactUpliftForTier(RAW, "redacted");
     expect(out.viewerTier).toBe("redacted");
-    const score = (out as { uplift: { scoreTrends: Array<{ scores: Array<Record<string, unknown>> }> } })
+    const score = (out as unknown as { uplift: { scoreTrends: Array<{ scores: Array<Record<string, unknown>> }> } })
       .uplift.scoreTrends[0].scores[0];
     expect(score).not.toHaveProperty("confidence");
     expect(score.score).toBe(0.5);
@@ -66,7 +66,7 @@ describe("redactUpliftForTier", () => {
 
   it("strips adaptationEvidence[].confidence at redacted", () => {
     const out = redactUpliftForTier(RAW, "redacted");
-    const adapt = (out as { uplift: { adaptationEvidence: Array<Record<string, unknown>> } })
+    const adapt = (out as unknown as { uplift: { adaptationEvidence: Array<Record<string, unknown>> } })
       .uplift.adaptationEvidence[0];
     expect(adapt).not.toHaveProperty("confidence");
     expect(adapt.parameterName).toBe("Pace");
@@ -75,7 +75,7 @@ describe("redactUpliftForTier", () => {
 
   it("strips trustScores[].hasLearnerEvidence at redacted", () => {
     const out = redactUpliftForTier(RAW, "redacted");
-    const trust = (out as { uplift: { trustScores: Array<Record<string, unknown>> } })
+    const trust = (out as unknown as { uplift: { trustScores: Array<Record<string, unknown>> } })
       .uplift.trustScores[0];
     expect(trust).not.toHaveProperty("hasLearnerEvidence");
     expect(trust.callId).toBe("call-1");
