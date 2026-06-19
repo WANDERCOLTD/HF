@@ -309,8 +309,8 @@ export function CourseJourneyTab({
           <JourneyLhMenu
             selectedBucketId={selection.bucketId}
             onSelectBucket={handleLhSelect}
-            filter={selection.filter}
-            onFilterChange={selection.setFilter}
+            filters={selection.filters}
+            onToggleFilter={selection.toggleFilter}
           />
         </aside>
         <main ref={canvasRef} className="hf-journey-pane hf-journey-canvas">

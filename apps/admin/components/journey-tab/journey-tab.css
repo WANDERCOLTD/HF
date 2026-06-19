@@ -431,6 +431,16 @@
   padding: 4px 12px;
 }
 
+/* Slice 13 grey-out epic — phase chip whose filter resolves to 0
+ * buckets in the current tab. Still clickable; the empty-state card
+ * below explains where the settings live. */
+.hf-chip.hf-chip-empty {
+  opacity: 0.45;
+}
+.hf-chip.hf-chip-empty.hf-chip-selected {
+  opacity: 0.75;
+}
+
 .hf-journey-inspector-subgroup {
   margin-bottom: 16px;
 }

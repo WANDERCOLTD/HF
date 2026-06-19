@@ -92,6 +92,31 @@ const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
   previewLocators: [{ section: "intake", hint: "about-you block" }],
 };
 
+// Slice 13 grey-out epic — editable question text for the "About You"
+// confidence prompt. Hardcoded fallback in `PreviewLens.buildTranscript`
+// kicks in when the field is empty.
+const G1_INTAKE_ABOUT_YOU_QUESTION: JourneySettingContract = {
+  id: "intakeAboutYouQuestion",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: '"About you" question text',
+  helpText:
+    "The exact question shown to the learner during the About You block. Leave blank to use the default: \"On a scale of 1–5, how confident do you feel about this topic?\"",
+  storagePath: "sessionFlow.intake.aboutYou.question",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "about-you question text" }],
+  gatedBy: {
+    parentId: "intakeAboutYou",
+    inactiveValues: [false],
+  },
+};
+
 // Lane 3 — A_intake contracts (catch-up follow-on from #1780).
 // The "AI Intro Call" bubble was the originally-spotted gap (operator
 // clicked it on the Preview canvas; the Inspector had no control for
@@ -114,6 +139,31 @@ const G1_INTAKE_GOALS: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "intake", hint: "learner-goals block" }],
+};
+
+// Slice 13 grey-out epic — editable question text for the intake
+// goals prompt. Hardcoded fallback in `PreviewLens.buildTranscript`
+// kicks in when the field is empty.
+const G1_INTAKE_GOALS_QUESTION: JourneySettingContract = {
+  id: "intakeGoalsQuestion",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Goals question text",
+  helpText:
+    "The exact question shown to the learner during the goals block. Leave blank to use the default: \"What would you most like to get out of this course?\"",
+  storagePath: "sessionFlow.intake.goals.question",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "goals question text" }],
+  gatedBy: {
+    parentId: "intakeGoals",
+    inactiveValues: [false],
+  },
 };
 
 const G1_INTAKE_AI_INTRO_CALL: JourneySettingContract = {
@@ -1988,7 +2038,9 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G1_INTAKE_SPEC_ID,
   G1_INTAKE_KNOWLEDGE_CHECK,
   G1_INTAKE_ABOUT_YOU,
+  G1_INTAKE_ABOUT_YOU_QUESTION,
   G1_INTAKE_GOALS,
+  G1_INTAKE_GOALS_QUESTION,
   G1_INTAKE_AI_INTRO_CALL,
   G1_INTAKE_KNOWLEDGE_CHECK_MODE,
   G1_INTAKE_SKIP_IF_RETURNING,

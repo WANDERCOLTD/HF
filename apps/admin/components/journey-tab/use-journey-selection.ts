@@ -31,12 +31,23 @@ export interface JourneySelection {
    *  instead of just the bucket. Cleared after the highlight animation
    *  by `setBucketId(b, null)`. */
   focusedSettingId: string | null;
-  /** Active phase filter chip. Defaults to "All". */
+  /** Active phase filter chip. Defaults to "All". Slice 13 added
+   *  multi-select via `filters` below — `filter` is kept for back-compat
+   *  with consumers that only care about a single value (returns the
+   *  first selected or "All" when empty). */
   filter: JourneyPhaseFilter;
+  /** Slice 13 grey-out epic — multi-select phase filters. Empty array
+   *  means "All". Order is the user's last-clicked order (insertion
+   *  order in the URL csv). */
+  filters: readonly JourneyPhaseFilter[];
   /** Set bucket. Optional second arg writes a setting-focus param so
    *  the Inspector can scroll/highlight that specific row. */
   setBucketId: (next: JourneyMenuBucketId | null, focusedSettingId?: string | null) => void;
   setFilter: (next: JourneyPhaseFilter) => void;
+  /** Slice 13 — toggle a single phase filter on/off. "All" clears.
+   *  Multi-select: clicking a non-All filter toggles it independently
+   *  of any other selected filters. */
+  toggleFilter: (next: JourneyPhaseFilter) => void;
 }
 
 const BUCKET_PARAM = "j_bucket";
@@ -70,11 +81,18 @@ export function useJourneySelection(): JourneySelection {
     }
   }
 
-  const filterRaw = params.get(FILTER_PARAM) as JourneyPhaseFilter | null;
-  const filter: JourneyPhaseFilter =
-    filterRaw && (JOURNEY_PHASE_FILTERS as readonly string[]).includes(filterRaw)
-      ? filterRaw
-      : "All";
+  // Slice 13 — `?j_filter=Intake,End` → multi-select. Single value still
+  // accepted for back-compat. Empty / missing → "All".
+  const filterRaw = params.get(FILTER_PARAM);
+  const filters: readonly JourneyPhaseFilter[] = filterRaw
+    ? (filterRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s): s is JourneyPhaseFilter =>
+          (JOURNEY_PHASE_FILTERS as readonly string[]).includes(s) && s !== "All",
+        ))
+    : [];
+  const filter: JourneyPhaseFilter = filters[0] ?? "All";
 
   const pushQuery = useCallback(
     (entries: Array<[string, string | null]>) => {
@@ -108,8 +126,24 @@ export function useJourneySelection(): JourneySelection {
     [pushQuery],
   );
 
+  // Slice 13 — multi-select toggle. "All" clears the entire selection
+  // (back to "show everything"). Any other filter toggles itself in/out
+  // of the current set independently of the others.
+  const toggleFilter = useCallback(
+    (next: JourneyPhaseFilter) => {
+      if (next === "All") {
+        pushQuery([[FILTER_PARAM, null]]);
+        return;
+      }
+      const has = filters.includes(next);
+      const nextArr = has ? filters.filter((f) => f !== next) : [...filters, next];
+      pushQuery([[FILTER_PARAM, nextArr.length === 0 ? null : nextArr.join(",")]]);
+    },
+    [filters, pushQuery],
+  );
+
   return useMemo(
-    () => ({ bucketId, focusedSettingId, filter, setBucketId, setFilter }),
-    [bucketId, focusedSettingId, filter, setBucketId, setFilter],
+    () => ({ bucketId, focusedSettingId, filter, filters, setBucketId, setFilter, toggleFilter }),
+    [bucketId, focusedSettingId, filter, filters, setBucketId, setFilter, toggleFilter],
   );
 }

@@ -120,8 +120,8 @@ interface SessionFlowResp {
   ok: boolean;
   sessionFlow?: {
     intake: {
-      goals: { enabled: boolean };
-      aboutYou: { enabled: boolean };
+      goals: { enabled: boolean; question?: string };
+      aboutYou: { enabled: boolean; question?: string };
       knowledgeCheck: { enabled: boolean; deliveryMode?: "mcq" | "socratic" };
       aiIntroCall: { enabled: boolean };
     };
@@ -555,7 +555,8 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
       items.push({
         kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit Goals",
         caption: "Goals question",
-        text: "What would you most like to get out of this course?",
+        // Slice 13 — `goals.question` overrides the canonical default.
+        text: sf.intake.goals.question?.trim() || "What would you most like to get out of this course?",
       });
       items.push({
         kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit Goals", ghost: true,
@@ -573,7 +574,8 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
       items.push({
         kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit About You",
         caption: "About You",
-        text: "On a scale of 1–5, how confident do you feel about this topic?",
+        // Slice 13 — `aboutYou.question` overrides the canonical default.
+        text: sf.intake.aboutYou.question?.trim() || "On a scale of 1–5, how confident do you feel about this topic?",
       });
       items.push({
         kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit About You", ghost: true,
