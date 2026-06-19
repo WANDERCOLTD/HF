@@ -127,9 +127,44 @@ export function JourneyLhMenu({
     return byGroup;
   }, []);
 
+  // Slice 12 grey-out epic — empty-state hint when the active phase
+  // filter has zero matching buckets in the Journey tab. The most
+  // common cause is `filter === "Module"`: G8 module-scoped settings
+  // belong to the Modules tab, not the Journey tab. Without this hint
+  // the LH just goes blank and the educator is left wondering where
+  // the controls went.
+  const visibleGroups = GROUP_ORDER.filter(groupMatchesFilter).filter(
+    (g) => (bucketsByGroup.get(g) ?? []).length > 0,
+  );
+  const tabHintForEmptyFilter: Record<string, string> = {
+    Module: "Module-scoped settings live on the Modules tab.",
+  };
+
   return (
     <div className="hf-journey-lh" data-testid="hf-journey-lh-menu">
       <JourneyPhaseFilters active={filter} onChange={onFilterChange} />
+      {visibleGroups.length === 0 && filter !== "All" ? (
+        <div
+          className="hf-journey-lh-empty"
+          data-testid={`hf-journey-lh-empty-${filter}`}
+        >
+          <p>
+            No <strong>{filter}</strong> settings live on the Journey tab.
+          </p>
+          {tabHintForEmptyFilter[filter] ? (
+            <p className="hf-text-muted hf-text-xs">
+              {tabHintForEmptyFilter[filter]}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="hf-btn hf-btn-secondary"
+            onClick={() => onFilterChange("All")}
+          >
+            Show all
+          </button>
+        </div>
+      ) : null}
       <div className="hf-journey-lh-groups">
         {GROUP_ORDER.filter(groupMatchesFilter).map((g) => {
           const spec = JOURNEY_GROUPS[g];

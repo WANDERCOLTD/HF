@@ -408,6 +408,29 @@
   cursor: not-allowed;
 }
 
+/* Slice 12 grey-out epic — empty-state for phase filters with no
+ * matching Journey-tab buckets (e.g. "Module"). */
+.hf-journey-lh-empty {
+  padding: 16px 14px;
+  margin: 8px 8px 16px;
+  border: 1px dashed color-mix(in srgb, var(--border-default) 60%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-secondary) 30%, transparent);
+  text-align: center;
+}
+.hf-journey-lh-empty p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.hf-journey-lh-empty p.hf-text-muted {
+  margin-bottom: 12px;
+}
+.hf-journey-lh-empty .hf-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
 .hf-journey-inspector-subgroup {
   margin-bottom: 16px;
 }
