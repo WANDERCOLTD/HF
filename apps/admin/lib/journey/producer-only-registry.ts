@@ -47,21 +47,7 @@ export interface ProducerOnlyEntry {
 /** Active producer-only contracts. Edits land in the playbook config
  *  but nothing downstream uses the value. */
 export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
-  // ── intake gate
-  intakeSkipIfReturning: {
-    destinedFor: "intake",
-    note: "Intake flow doesn't skip returning learners yet.",
-  },
-
-  // ── compose-prompt transforms (educator-tunable but no transform reads it)
-  // ── voice provider knobs
-  interruptSensitivity: {
-    destinedFor: "voice-provider",
-    note: "Voice-stack consumer pending — should gate VAPI barge-in threshold + voicemail-detection.",
-  },
-
-  // ── runtime gates (composeImpact=[] hides them from the Coverage test,
-  // but they're runtime-effect settings hiding behind that flag)
+  // All 18 producer-only contracts wired by epic #2049 (2026-06-19).
 };
 
 /** Type-narrowing helper for the UI. */
