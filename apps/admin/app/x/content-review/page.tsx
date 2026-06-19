@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
 import { RefreshCw, AlertTriangle } from "lucide-react";
@@ -119,8 +119,9 @@ export default function ContentReviewPage() {
     fetchSources();
   }, [fetchSources]);
 
-  // Filter sources by tab
-  const now = Date.now();
+  // Filter sources by tab. Snapshot `now` once per mount — sub-day precision
+  // is unnecessary for the 60-day expiry window. (#2017 react-hooks/purity)
+  const now = useMemo(() => Date.now(), []);
   const needsReview = sources.filter((s) => {
     const level = TRUST_LEVELS.find((t) => t.value === s.trustLevel);
     return level && level.level <= 1; // L0, L1

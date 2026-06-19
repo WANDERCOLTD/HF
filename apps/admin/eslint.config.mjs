@@ -516,26 +516,26 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unsafe-function-type": "warn",
       "@typescript-eslint/no-require-imports": "warn",
       "@typescript-eslint/no-empty-object-type": "warn",
-      // react-hooks ratchet (#865 closeout, demoted 2026-06-19 per
+      // react-hooks ratchet (#865 closeout, partial demote 2026-06-19 per
       // `.claude/rules/react-hooks-compiler-rules-warn.md`):
-      // - `rules-of-hooks` stays at "error" — the classic React-Hooks rule
-      //   that's been stable for years and produces zero current violations.
-      // - The 3 React-Compiler-family rules (`static-components`, `purity`,
-      //   `preserve-manual-memoization`) were demoted to "warn" after 8/8
-      //   consecutive PRs (#1998-#2008, 2026-06-18→19) merged with this gate
-      //   red. The original #865 closeout claim ("zero current violations
-      //   after #876 + #894; future regressions block CI") had drifted —
-      //   52 errors accumulated under the radar because lint exit 1 masked
-      //   the ratchet step that followed. Demote restores honesty; the
-      //   ratchet (lint_warnings) freezes the count so regressions can't
-      //   grow. Pay-down epic tracked separately.
+      // - `rules-of-hooks` stays at "error" — classic React-Hooks rule, stable.
+      // - `purity` re-promoted to "error" 2026-06-19 after #2017 cleared the 6
+      //   incumbent violations.
+      // - `static-components` (12) + `preserve-manual-memoization` (34) remain
+      //   at "warn" — pay-down deferred per the rule file. The ratchet
+      //   (lint_warnings) freezes the count so regressions can't grow.
+      // History: PR #2016 demoted all 3 from "error" after 8/8 consecutive PRs
+      // (#1998-#2008) merged with this gate red. The original "zero current
+      // violations after #876 + #894" claim had drifted; 52 errors accumulated
+      // under the radar because lint exit 1 masked the ratchet step that
+      // followed.
       "react-hooks/exhaustive-deps": "warn",
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/refs": "warn",
       "react-hooks/immutability": "warn",
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/static-components": "warn",
-      "react-hooks/purity": "warn",
+      "react-hooks/purity": "error",
       "react-hooks/preserve-manual-memoization": "warn",
       "prefer-const": "warn",
       "@next/next/no-img-element": "warn",

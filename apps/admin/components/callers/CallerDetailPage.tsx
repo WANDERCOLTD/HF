@@ -595,9 +595,20 @@ export default function CallerDetailPage() {
   // A call is "processing" if it's recent (< 5 min) and hasn't been analyzed yet.
   // When processing calls exist, poll every 5s to pick up pipeline results.
   const PROCESSING_WINDOW_MS = 5 * 60 * 1000;
+  // Keep `now` in a ref refreshed by an interval (1s) so the useMemo body stays
+  // pure — Date.now() is impure during render per react-hooks/purity. The ref
+  // value is read at recompute time, which fires when data?.calls changes (poll
+  // cycle is 5s, well under the 5-min window). (#2017 react-hooks/purity)
+  const nowRef = React.useRef<number>(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => {
+      nowRef.current = Date.now();
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
   const processingCallIds = useMemo(() => {
     if (!data?.calls) return new Set<string>();
-    const now = Date.now();
+    const now = nowRef.current;
     return new Set(
       data.calls
         .filter((c) => {
