@@ -450,6 +450,21 @@ export const config = {
     },
 
     /**
+     * Behavior-aggregation spec (default: BEH-AGG-001)
+     * Single AGGREGATE spec with 9 domain-grouped sections (companion,
+     * personality, supervision, engagement, curriculum, learning,
+     * reinforcement, onboarding, core-style). Born of #1967 M2 closing
+     * the link-8 cascade-feedback loop for 70 measured BEH-* params.
+     * Read by `quickstart.ts` _learning_guidance via scope filter (not
+     * by per-key hardcoding) — surfaces rolled-up behavior_profile:*
+     * signals into the composed prompt.
+     * Can be overridden via BEH_AGG_SPEC_SLUG env var.
+     */
+    get aggBehavior(): string {
+      return optional("BEH_AGG_SPEC_SLUG", "BEH-AGG-001");
+    },
+
+    /**
      * Default Archetype Spec (default: TUT-001)
      * The base archetype used when scaffolding new domain overlays.
      * Can be overridden via DEFAULT_ARCHETYPE_SLUG env var.

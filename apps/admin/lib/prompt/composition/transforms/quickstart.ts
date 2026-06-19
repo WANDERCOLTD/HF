@@ -34,6 +34,29 @@ const PRE_LOADED_KEYS: readonly string[] = [
   PRE_SURVEY_KEYS.SUBMITTED_AT,
 ];
 
+/**
+ * #1967 M2 — turn a stored CallerAttribute dimension key into a human-
+ * readable label. Handles both snake_case (`depth_engagement`) and
+ * camelCase (`depthEngagement`) since runtime aggregate-runner.ts:495
+ * camelCases the `targetProfileKey` from the spec.
+ *
+ * Examples:
+ *   "depth_engagement"      → "Depth engagement"
+ *   "depthEngagement"        → "Depth engagement"
+ *   "energy_level"           → "Energy level"
+ *   "b5_average_strength"    → "B5 average strength"
+ */
+export function humanizeDimension(key: string): string {
+  // camelCase → snake_case
+  const snake = key.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_/, "");
+  // snake → "Foo bar"
+  const words = snake.split("_").filter((w) => w.length > 0);
+  if (words.length === 0) return key;
+  return words
+    .map((w, i) => (i === 0 ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
 export type PersonalisationMode = "PRE_LOADED" | "COLD_START" | "OPT_OUT";
 
 /**
@@ -181,14 +204,21 @@ registerTransform("computeQuickStart", (
       : null,
 
     learning_guidance: (() => {
-      // Surface aggregated learning competency from CallerAttributes (set by COMP/DISC/COACH-AGG specs)
+      // Surface aggregated learning competency from CallerAttributes (set by COMP/DISC/COACH/BEH-AGG specs)
       const aggComp = config.specs.aggComprehension;
       const aggDisc = config.specs.aggDiscussion;
       const aggCoach = config.specs.aggCoaching;
+      const aggBeh = config.specs.aggBehavior;
       const learningAttrs = loadedData.callerAttributes.filter(
         (a: CallerAttributeData) => a.scope === aggComp || a.scope === aggDisc || a.scope === aggCoach,
       );
-      if (learningAttrs.length === 0) return null;
+      // #1967 M2 — BEH-AGG-001 outputs read by scope, not by per-key
+      // hardcoding. Generic so future AGG specs that follow the same
+      // single-spec-multi-section pattern surface here automatically.
+      const behaviorAttrs = loadedData.callerAttributes.filter(
+        (a: CallerAttributeData) => a.scope === aggBeh && (a.confidence ?? 0) >= 0.6,
+      );
+      if (learningAttrs.length === 0 && behaviorAttrs.length === 0) return null;
 
       const get = (key: string): string | null => {
         const attr = learningAttrs.find((a: CallerAttributeData) => a.key === key);
@@ -233,6 +263,40 @@ registerTransform("computeQuickStart", (
       if (action) parts.push(`Action commitment: ${action}`);
       if (awareness) parts.push(`Self-awareness: ${awareness}`);
       if (followup) parts.push(`Follow-through: ${followup}`);
+
+      // #1967 M2 — BEH-AGG-001 behavior_profile signals. Emitted by
+      // scope filter so it's blind to runtime snake/camel key casing
+      // (aggregate-runner.ts:495 toCamelCase converts spec snake_case
+      // to runtime camelCase — we just read whatever's there).
+      if (behaviorAttrs.length > 0) {
+        // Group by namespace prefix (everything before the last segment)
+        const byNamespace = new Map<string, Array<{ key: string; value: string; conf: number }>>();
+        for (const a of behaviorAttrs) {
+          const parts2 = a.key.split(":");
+          const namespace = parts2.length > 1 ? parts2.slice(0, -1).join(":") : "(root)";
+          const dimension = parts2.length > 1 ? parts2[parts2.length - 1] : a.key;
+          if (!byNamespace.has(namespace)) byNamespace.set(namespace, []);
+          byNamespace.get(namespace)!.push({
+            key: dimension,
+            value: String(a.stringValue ?? a.numberValue ?? ""),
+            conf: a.confidence ?? 0,
+          });
+        }
+        for (const [namespace, rows] of byNamespace) {
+          // behavior_profile:companion → "Companion profile signals"
+          const friendly = namespace
+            .replace(/^behavior[_]?[Pp]rofile:?/, "")
+            .replace(/[_:]/g, " ")
+            .trim();
+          const label = friendly.length > 0
+            ? `${friendly[0].toUpperCase()}${friendly.slice(1)} profile signals`
+            : "Profile signals";
+          const lines = rows
+            .sort((a, b) => a.key.localeCompare(b.key))
+            .map(r => `  - ${humanizeDimension(r.key)}: ${r.value}`);
+          parts.push(`${label}:\n${lines.join("\n")}`);
+        }
+      }
 
       return parts.length > 0 ? parts.join("\n") : null;
     })(),
