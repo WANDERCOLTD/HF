@@ -1,0 +1,143 @@
+{
+  "$schema": "./lattice-chains-schema.json",
+  "$comment": "Machine-readable Lattice chain manifest. Story #2057. Walked by tests/lib/lattice-chain-closure.test.ts. Validated against docs/lattice-chains.md by lattice-self-maintenance.test.ts.",
+  "version": 1,
+  "chains": [
+    {
+      "id": "beh-aggregate-cascade",
+      "title": "Behavior Aggregation Cascade (BEH-AGG-001)",
+      "description": "Per-call BEH-* CallScore \u2192 rolled-up behavior_profile:* CallerAttribute \u2192 composed prompt section. Test fixture for story #2057. Currently AGG\u2192ADAPT branch is producer-only (ratcheted).",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "outputKey": "CallScore.parameterId",
+          "outputKeySamples": [
+            "BEH-CONVERSATIONAL-DEPTH",
+            "BEH-WARMTH",
+            "BEH-PATIENCE-LEVEL"
+          ],
+          "kind": "row-write"
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/docs-archive/bdd-specs/BEH-AGG-001-behavior-aggregation.spec.json",
+          "consumesKey": "parameters[].config.aggregationRules[].sourceParameter",
+          "consumesKeySamples": [
+            "BEH-CONVERSATIONAL-DEPTH",
+            "BEH-WARMTH",
+            "BEH-PATIENCE-LEVEL"
+          ],
+          "outputKey": "CallerAttribute(scope=BEH-AGG-001, key=behavior_profile:{group}:{dimension})",
+          "outputKeySamples": [
+            "behavior_profile:companion:depth_engagement",
+            "behavior_profile:personality:agreeableness",
+            "behavior_profile:supervision:tutor_fidelity"
+          ],
+          "kind": "callerAttribute-write",
+          "runner": "apps/admin/lib/pipeline/aggregate-runner.ts"
+        },
+        {
+          "stage": "COMPOSE",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/quickstart.ts",
+          "consumesKey": "CallerAttribute.scope === config.specs.aggBehavior",
+          "consumesKeySamples": [
+            "BEH-AGG-001"
+          ],
+          "outputKey": "learning_guidance section text",
+          "kind": "section-emit",
+          "outputNotes": "Emitted as 'Companion profile signals' / 'Personality profile signals' / etc. sub-sections via behaviorAttrs grouped by namespace prefix."
+        }
+      ],
+      "knownGaps": [
+        {
+          "stage": "ADAPT",
+          "description": "No ADAPT spec currently consumes behavior_profile:* CallerAttribute. ADAPT specs read raw CallScore via sourceParameterId, bypassing AGGREGATE. Architectural follow-on: adapt-runner.ts extension + ADAPT-BEH-001 spec.",
+          "tolerated": true,
+          "ratchetKey": "beh-aggregate-cascade:adapt-leg"
+        }
+      ]
+    },
+    {
+      "id": "skill-ema-cascade",
+      "title": "Skill EMA Aggregation Cascade (SKILL-AGG-001)",
+      "description": "Per-call skill_* CallScore \u2192 time-decay EMA into CallerTarget.currentScore \u2192 ACHIEVE goal progress.",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "outputKey": "CallScore.parameterId",
+          "outputKeySamples": [
+            "skill_speaking_fluency",
+            "skill_pronunciation",
+            "skill_grammar"
+          ],
+          "kind": "row-write"
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/docs-archive/bdd-specs/SKILL-AGG-001-skill-ema-aggregation.spec.json",
+          "consumesKey": "parameters[].config.aggregationRules[].sourceParameterPattern",
+          "consumesKeySamples": [
+            "skill_*"
+          ],
+          "outputKey": "CallerTarget.currentScore",
+          "kind": "callerTarget-write",
+          "runner": "apps/admin/lib/pipeline/aggregate-runner.ts",
+          "method": "ema_to_caller_target"
+        },
+        {
+          "stage": "ACHIEVE-GOAL",
+          "consumer": "apps/admin/lib/goals/strategies/skill_ema.ts",
+          "consumesKey": "CallerTarget.currentScore",
+          "outputKey": "Goal.progress numeric value",
+          "kind": "goal-progress-update"
+        }
+      ]
+    },
+    {
+      "id": "coach-aggregate-cascade",
+      "title": "Coaching Aggregation Cascade (COACH-AGG-001)",
+      "description": "Per-call COACH_* CallScore \u2192 threshold-mapped CallerAttribute \u2192 composed prompt section via quickstart.ts learning_guidance.",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "outputKey": "CallScore.parameterId",
+          "outputKeySamples": [
+            "COACH_CLARITY",
+            "COACH_ACTION",
+            "COACH_AWARENESS",
+            "COACH_FOLLOWUP"
+          ],
+          "kind": "row-write"
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/docs-archive/bdd-specs/COACH-AGG-001-coaching-aggregation.spec.json",
+          "consumesKey": "parameters[].config.aggregationRules[].sourceParameter",
+          "consumesKeySamples": [
+            "COACH_CLARITY",
+            "COACH_ACTION"
+          ],
+          "outputKey": "CallerAttribute(scope=COACH-AGG-001, key={goal_clarity,action_commitment,self_awareness,follow_through,competency_level})",
+          "kind": "callerAttribute-write",
+          "runner": "apps/admin/lib/pipeline/aggregate-runner.ts"
+        },
+        {
+          "stage": "COMPOSE",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/quickstart.ts",
+          "consumesKey": "CallerAttribute.scope === config.specs.aggCoaching",
+          "consumesKeySamples": [
+            "goal_clarity",
+            "action_commitment",
+            "self_awareness",
+            "follow_through"
+          ],
+          "outputKey": "learning_guidance section text",
+          "kind": "section-emit"
+        }
+      ]
+    }
+  ]
+}

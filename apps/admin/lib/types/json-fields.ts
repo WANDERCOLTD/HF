@@ -863,6 +863,93 @@ export interface PlaybookConfig {
    */
   strictPrerequisites?: boolean;
   /**
+   * #2051 (epic #2049 sub-epic B) — Baseline assessment depth picker. Only
+   * read when `firstCallMode === "baseline_assessment"` and the call is the
+   * learner's first session. Drives a per-depth directive appended after the
+   * `BASELINE_ASSESSMENT_RULE` critical rule:
+   *   - `"light"` — 3 diagnostic questions, ~3 minutes
+   *   - `"standard"` (default when absent) — 5 diagnostic questions, ~5 min
+   *   - `"deep"` — 8 diagnostic questions + 2 confidence follow-up probes,
+   *     ~8 minutes
+   * When the field is ABSENT and the playbook is in baseline mode, the
+   * runtime falls back to `"standard"` (preserves the 5-question pre-existing
+   * implicit shape). When `firstCallMode !== "baseline_assessment"`, the
+   * field is ignored — no directive emits.
+   *
+   * @bucket 1 — Course-level only. No cascade; not applicable to per-learner
+   * overrides (depth choice is operator pedagogy).
+   *
+   * @see lib/prompt/composition/transforms/instructions.ts ::
+   *      `resolveBaselineAssessmentDepth`
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 1
+   */
+  baselineAssessmentDepth?: "light" | "standard" | "deep";
+  /**
+   * #2051 (epic #2049 sub-epic B) — Call 1 module allow-list. When present
+   * and non-empty, the scheduler's module candidate pool is filtered to
+   * ONLY modules whose `id` or `slug` appears in this array on the
+   * learner's first call. Modules outside the array are INELIGIBLE on
+   * Call 1 (exclusive, not priority).
+   *
+   * Safety fallback: when every listed module is already mastered by the
+   * learner, the filter is bypassed (full pool restored) and a
+   * `[modules] firstCallCurriculumFocus: all listed modules already mastered`
+   * log line fires — prevents Call 1 from stalling on a brand-new learner
+   * who somehow completed every gated module out-of-band.
+   *
+   * When `lockedModule` is set (learner picked via the Module Picker), the
+   * filter is BYPASSED — the learner's explicit choice wins.
+   *
+   * Absent or empty array → no filtering (existing behaviour). Does NOT
+   * affect `completedModules`, `tpProgress`, or `loMasteryMap` — only the
+   * scheduler's candidate pool input is narrowed.
+   *
+   * @bucket 1 — Course-level only. No cascade.
+   *
+   * @see lib/prompt/composition/transforms/modules.ts (filter applied just
+   *      before `selectNextExchange`)
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 2
+   */
+  firstCallCurriculumFocus?: string[];
+  /**
+   * #2051 (epic #2049 sub-epic B) — Module sequencing policy. Tunes how the
+   * scheduler resolves the next module to teach within a structured course
+   * (`lessonPlanMode === "structured"`).
+   *
+   * - `"strict"` — module candidate pool is filtered to exclude any module
+   *   whose `prerequisites` array contains a module slug NOT in
+   *   `completedModules`. Hard gate at the scheduler pool layer; the AI
+   *   cannot skip a prerequisite. Safety fallback: if all modules end up
+   *   filtered (misconfigured course), the full pool is restored and a
+   *   warning logs.
+   * - `"interleaved"` — every 4th call (callNumber where
+   *   `(callNumber - 1) % 4 === 3`) is forced to `mode: "review"` so the
+   *   scheduler picks a mastered module for review. Aligns with the
+   *   existing `interleaveReviewMinDays` review-freshness threshold (which
+   *   is unaffected — it controls staleness, not cadence).
+   * - `"learner_led"` (default-equivalent) — no scheduler change.
+   *   Byte-identical to field absent. Safe low-friction default.
+   *
+   * `appliesTo: ["structured"]` on the contract — continuous courses
+   * short-circuit with a console.warn + no-op (defensive; Inspector gate
+   * prevents in practice).
+   *
+   * `strictPrerequisites` (sibling field) gates the UI picker. The two
+   * are COMPLEMENTARY: `moduleSequencePolicy: "strict"` controls the
+   * scheduler pool; `strictPrerequisites: true` hard-locks the picker
+   * UI. An educator may set both.
+   *
+   * `lockedModule` (learner-picked) ALWAYS bypasses this filter — the
+   * learner's explicit choice wins.
+   *
+   * @bucket 1 — Course-level only. No cascade.
+   *
+   * @see lib/prompt/composition/transforms/modules.ts (filter applied just
+   *      before `selectNextExchange`)
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 3
+   */
+  moduleSequencePolicy?: "strict" | "interleaved" | "learner_led";
+  /**
    * #492 E3 Slice 3.3 — minimum freshness threshold (in days) for the
    * interleave-review nudge. A mastered module qualifies for review when its
    * last call was at least `interleaveReviewMinDays` days ago. Default 3
@@ -926,6 +1013,45 @@ export interface PlaybookConfig {
    * @see app/api/courses/[courseId]/demo-script/route.ts
    */
   demoScript?: DemoScript;
+  /**
+   * #2056 (G of #2049) — runtime gate flags previously producer-only.
+   *
+   * `agentTunerNlpEnabled` — when true, the operator-facing AgentTuner UI
+   * (NLP behaviour-pill editor) is mounted on the Course Detail surface.
+   * Default treats `undefined` as `false` — the panel is opt-in per course.
+   * Read by `lib/journey/runtime-gates.ts::isAgentTunerNlpEnabled` and the
+   * `<AgentTunerNlpGate>` wrapper. Operator-only writeGate enforced by the
+   * `journey-setting` PATCH route.
+   *
+   * @bucket Course parameter — operator-only toggle on the Inspector.
+   */
+  agentTunerNlpEnabled?: boolean;
+  /**
+   * #2056 (G of #2049) — call-counter policy selector.
+   *
+   * - `"hard_cap"`: when the per-day session count reaches `maxCallsPerDay`,
+   *   `createSession` REFUSES with a `CallRateLimitError`.
+   * - `"soft_cap"`: when the per-day session count reaches `maxCallsPerDay`,
+   *   `createSession` LOGS a warning to AppLog (`call.rate_limit.soft_cap_hit`)
+   *   and allows the session.
+   * - `"unlimited"`: cap is not consulted; `maxCallsPerDay` is ignored.
+   *
+   * Default treats `undefined` as `"unlimited"` so existing playbooks behave
+   * exactly as they did pre-#2056. Read by
+   * `lib/journey/runtime-gates.ts::resolveCallCountPolicy`.
+   */
+  callCountPolicy?: "hard_cap" | "soft_cap" | "unlimited";
+  /**
+   * #2056 (G of #2049) — per-day session-count cap.
+   *
+   * Consumed by `createSession` together with `callCountPolicy`. When unset
+   * (or 0 / negative) the cap is treated as absent regardless of policy.
+   * On hit:
+   *   - `hard_cap` → throws `CallRateLimitError`; route emits
+   *     `call.rate_limit.over_cap` AppLog + 429 response.
+   *   - `soft_cap` → logs `call.rate_limit.soft_cap_hit` and proceeds.
+   */
+  maxCallsPerDay?: number;
   [key: string]: any;
 }
 

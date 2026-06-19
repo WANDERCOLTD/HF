@@ -76,18 +76,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
   // the wiring work; each transform read needs per-setting design
   // (e.g., baselineAssessmentDepth needs "light/standard/deep" prompt
   // synthesis, not just a substring read).
-  baselineAssessmentDepth: {
-    reason:
-      "Producer-only since 2026-06-17 audit. firstCallMode / instructions transforms don't synthesise light/standard/deep directives yet.",
-  },
-  firstCallCurriculumFocus: {
-    reason:
-      "Producer-only since 2026-06-17 audit. modulesGate transform doesn't filter Call 1 module set by focus tag yet.",
-  },
-  moduleSequencePolicy: {
-    reason:
-      "Producer-only since 2026-06-17 audit. modulesGate transform doesn't apply strict/interleaved/learner-led ordering yet.",
-  },
   // 2026-06-17 follow-on — surfaced by the structural test itself
   // (settings the agent's manual audit missed). All confirmed
   // producer-only via wide `grep -rln <id> lib/` returning 0 hits
@@ -96,24 +84,12 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
     reason:
       "Producer-only since 2026-06-17 audit. Voice-stack consumer pending — interrupt sensitivity should gate the VAPI assistant's `voicemailDetectionEnabled` + barge-in threshold but no transform reads it today.",
   },
-  offboardingBannerMessage: {
-    reason:
-      "Producer-only since 2026-06-17 audit. offboarding transform doesn't render the operator's banner copy yet.",
-  },
-  offboardingCertificate: {
-    reason:
-      "Producer-only since 2026-06-17 audit. offboarding transform doesn't include certificate-mention directive yet.",
-  },
-  offboardingTriggerAfterCalls: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
-  },
 };
 
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 7;
+const EXPECTED_EXEMPT_COUNT = 4;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation

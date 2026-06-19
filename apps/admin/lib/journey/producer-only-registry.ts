@@ -54,30 +54,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
   },
 
   // ── compose-prompt transforms (educator-tunable but no transform reads it)
-  baselineAssessmentDepth: {
-    destinedFor: "compose-prompt",
-    note: "firstCallMode / instructions transforms don't synthesise light/standard/deep directives yet.",
-  },
-  firstCallCurriculumFocus: {
-    destinedFor: "compose-prompt",
-    note: "modulesGate transform doesn't filter Call 1 module set by focus tag yet.",
-  },
-  moduleSequencePolicy: {
-    destinedFor: "compose-prompt",
-    note: "modulesGate transform doesn't apply strict/interleaved/learner-led ordering yet.",
-  },
-  offboardingBannerMessage: {
-    destinedFor: "compose-prompt",
-    note: "offboarding transform doesn't render the operator's banner copy yet.",
-  },
-  offboardingCertificate: {
-    destinedFor: "compose-prompt",
-    note: "offboarding transform doesn't include certificate-mention directive yet.",
-  },
-  offboardingTriggerAfterCalls: {
-    destinedFor: "runtime-gate",
-    note: "Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
-  },
   // ── voice provider knobs
   interruptSensitivity: {
     destinedFor: "voice-provider",
@@ -86,18 +62,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
 
   // ── runtime gates (composeImpact=[] hides them from the Coverage test,
   // but they're runtime-effect settings hiding behind that flag)
-  agentTunerNlpEnabled: {
-    destinedFor: "runtime-gate",
-    note: "AgentTuner UI mounts unconditionally; this flag doesn't gate it yet.",
-  },
-  callCountPolicy: {
-    destinedFor: "runtime-gate",
-    note: "Call-counter uses hardcoded policy; this override isn't consulted.",
-  },
-  maxCallsPerDay: {
-    destinedFor: "runtime-gate",
-    note: "Call.create doesn't rate-limit; this cap is unenforced today.",
-  },
 };
 
 /** Type-narrowing helper for the UI. */

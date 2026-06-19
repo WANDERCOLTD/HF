@@ -126,6 +126,12 @@ const PAIRS: Array<{
     consumerNeedle: "llmPrompt.instructions?.behavior_targets_semantics",
     since: "#1951",
   },
+  {
+    key: "baseline_assessment_depth",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.baseline_assessment_depth",
+    since: "#2051",
+  },
 ];
 
 const RENDERER_PATH = "apps/admin/lib/prompt/composition/renderPromptSummary.ts";

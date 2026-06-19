@@ -490,6 +490,28 @@ registerTransform("computeInstructions", (
       (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
       sharedState,
     ),
+
+    // #2051 (epic #2049 sub-epic B) — baseline-assessment depth directive.
+    // Emits a per-depth `{ depth, directive }` ONLY when the playbook's
+    // `firstCallMode === "baseline_assessment"` AND the session is the
+    // learner's first call (`isFirstCall || isFirstCallInDomain`). When
+    // the depth field is ABSENT but baseline mode is on, the resolver
+    // defaults to `"standard"` — preserves byte-identical output for
+    // existing baseline playbooks that pre-date the field.
+    //
+    // The directive lands AFTER the existing `BASELINE_ASSESSMENT_RULE`
+    // critical rule emitted by `transforms/preamble.ts` — it does NOT
+    // replace or merge into that rule. The renderer (renderPromptSummary)
+    // appends `directive` as a fresh paragraph so the LLM sees both:
+    // the universal baseline contract + the depth-specific calibration.
+    //
+    // Producer↔consumer pairing per `.claude/rules/lattice-survey.md`
+    // §"deeper layer". The renderer push lives at
+    // `renderPromptSummary.ts` under "[BASELINE DEPTH]".
+    baseline_assessment_depth: resolveBaselineAssessmentDepth(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
   };
 });
 
@@ -611,6 +633,81 @@ function resolveModuleCueCard(
     topic: picked.topic,
     bullets,
     directive,
+  };
+}
+
+/**
+ * #2051 (epic #2049 sub-epic B / Contract 1) — baseline-assessment depth.
+ *
+ * Returns a `{ depth, directive }` object ONLY when ALL hold:
+ *   - `Playbook.config.firstCallMode === "baseline_assessment"`
+ *   - `sharedState.isFirstCall || sharedState.isFirstCallInDomain` (the
+ *     learner's first session in this course)
+ *
+ * Depth defaults to `"standard"` when the playbook is in baseline mode but
+ * `Playbook.config.baselineAssessmentDepth` is undefined — preserves the
+ * existing 5-question implicit shape for playbooks that pre-date the
+ * field. An explicit `"light"` / `"standard"` / `"deep"` is honoured.
+ *
+ * Returns `null` when:
+ *   - Playbook is not in baseline mode (any other firstCallMode), OR
+ *   - The call is not the first call (Call 2+), OR
+ *   - The depth value is unrecognised (defensive — type guard catches
+ *     stale JSON from manual DB edits).
+ *
+ * The directive is APPENDED after the existing `BASELINE_ASSESSMENT_RULE`
+ * critical rule (emitted by `transforms/preamble.ts`) — it does NOT replace
+ * or merge into that rule. The renderer pushes both into the prompt body.
+ *
+ * The depth-specific directives are kept inline here (not in
+ * `defaults/critical-rules.ts`) because they are the per-depth calibration
+ * shape — adding light/standard/deep variants in the defaults file would
+ * either over-specify the canonical rule (forcing every consumer to handle
+ * the depth shape) or drift to a sibling file. Inline keeps the surface
+ * minimal until a future story moves depth-variant rules to spec config.
+ *
+ * @see docs/groomed/2051-call1-shape-consumers.md §Contract 1
+ */
+type BaselineDepth = "light" | "standard" | "deep";
+const BASELINE_DEPTH_DIRECTIVES: Record<BaselineDepth, string> = {
+  light:
+    "Assessment depth: LIGHT. Ask up to 3 diagnostic questions only — one per learning objective starting from the first objective in the sequence. Do not exceed 3 questions total. Manage time so the session closes within 3 minutes of the assessment opening.",
+  standard:
+    "Assessment depth: STANDARD. Ask up to 5 diagnostic questions — one per learning objective working through the sequence. Do not exceed 5 questions total. Target 5 minutes for the assessment.",
+  deep:
+    "Assessment depth: DEEP. Ask up to 8 diagnostic questions — work through all learning objectives in sequence, then select the 2 LOs where the learner showed the least confidence and ask one follow-up probe each. Target 8 minutes. Do not correct or teach during the follow-ups — they are additional diagnostic evidence.",
+};
+
+function isBaselineDepth(value: unknown): value is BaselineDepth {
+  return value === "light" || value === "standard" || value === "deep";
+}
+
+function resolveBaselineAssessmentDepth(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): { depth: BaselineDepth; directive: string } | null {
+  // Gate 1 — baseline mode only.
+  if (config.firstCallMode !== "baseline_assessment") return null;
+  // Gate 2 — first call only. Use the union of both first-call signals so
+  // domain-switch re-onboarding also fires the baseline calibration on the
+  // first call within the new domain (same shape as `pedagogy.ts`).
+  const isFirstCallAny =
+    sharedState.isFirstCall || sharedState.isFirstCallInDomain === true;
+  if (!isFirstCallAny) return null;
+
+  // Defensive: an unknown stored value falls through to null rather than
+  // crashing the composer. The depth-variant directive simply isn't emitted
+  // — the existing BASELINE_ASSESSMENT_RULE still fires.
+  const raw = config.baselineAssessmentDepth;
+  const depth: BaselineDepth = raw === undefined
+    ? "standard" // default when baseline-mode is on but the field is absent
+    : isBaselineDepth(raw)
+      ? raw
+      : "standard"; // unknown stored value → silent fall-through to standard
+
+  return {
+    depth,
+    directive: BASELINE_DEPTH_DIRECTIVES[depth],
   };
 }
 
