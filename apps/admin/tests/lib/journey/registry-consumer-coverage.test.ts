@@ -80,16 +80,12 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
   // (settings the agent's manual audit missed). All confirmed
   // producer-only via wide `grep -rln <id> lib/` returning 0 hits
   // outside `setting-contracts.entries.ts`.
-  interruptSensitivity: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Voice-stack consumer pending — interrupt sensitivity should gate the VAPI assistant's `voicemailDetectionEnabled` + barge-in threshold but no transform reads it today.",
-  },
 };
 
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 4;
+const EXPECTED_EXEMPT_COUNT = 0;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation
