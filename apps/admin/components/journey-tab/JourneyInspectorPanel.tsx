@@ -30,6 +30,10 @@ import {
 } from "@/lib/journey/bucket-relations";
 import { computeRelevanceState } from "@/lib/journey/compute-relevance-state";
 import { JOURNEY_MENU_ITEMS_BY_ID } from "@/lib/journey/menu-items";
+import {
+  PRODUCER_ONLY_DESTINATION_LABEL,
+  getProducerOnlyEntry,
+} from "@/lib/journey/producer-only-registry";
 import { JOURNEY_SETTINGS, JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
 import type {
   JourneyMenuBucketId,
@@ -134,6 +138,7 @@ function SettingRow({
     >
       <CascadeTraceBreadcrumb contract={contract} />
       <WriteGateLockChip contract={contract} />
+      <ProducerOnlyBadge settingId={contract.id} />
       <RelevanceWrapper
         state={relevance.state}
         reason={relevance.reason}
@@ -158,6 +163,32 @@ function SettingRow({
         <EditAsJsonButton contract={contract} value={value} />
       </div>
     </FocusableRow>
+  );
+}
+
+/** Slice 15 grey-out epic — "🚫 Not yet active" chip rendered above any
+ *  Inspector row whose contract id is in `PRODUCER_ONLY_CONTRACTS`. Tells
+ *  the educator the value WILL save successfully but no runtime consumer
+ *  reads it today. Disappears automatically when the consumer ships
+ *  (remove the id from the registry). */
+function ProducerOnlyBadge({ settingId }: { settingId: string }) {
+  const entry = getProducerOnlyEntry(settingId);
+  if (!entry) return null;
+  return (
+    <div
+      className="hf-producer-only-chip"
+      data-testid={`hf-producer-only-${settingId}`}
+      title={entry.note}
+    >
+      <span aria-hidden className="hf-producer-only-chip-icon">🚫</span>
+      <span className="hf-producer-only-chip-text">
+        Not yet active —{" "}
+        <span className="hf-producer-only-chip-dest">
+          {PRODUCER_ONLY_DESTINATION_LABEL[entry.destinedFor]}
+        </span>{" "}
+        pending
+      </span>
+    </div>
   );
 }
 

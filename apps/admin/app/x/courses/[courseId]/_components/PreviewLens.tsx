@@ -43,6 +43,16 @@ import type { Effective, Layer } from "@/lib/cascade/layer-types";
 import { substituteGreetingTokens } from "@/lib/prompt/composition/defaults/substitute-greeting-tokens";
 import type { DemoAnnotation, DemoScript } from "@/lib/types/json-fields";
 import type { ComposeSectionKey } from "@/lib/compose";
+import { PRODUCER_ONLY_CONTRACTS } from "@/lib/journey/producer-only-registry";
+
+/** Slice 15 — fast lookup set for "does this bubble's setting have NO
+ *  runtime consumer yet?". Derived once from the canonical registry so
+ *  the bubble can render a 🚫 glyph without per-bubble lookups. Shrinks
+ *  automatically as consumers ship (the registry is the single source
+ *  of truth). */
+const PRODUCER_ONLY_BUBBLE_MARK: ReadonlySet<string> = new Set(
+  Object.keys(PRODUCER_ONLY_CONTRACTS),
+);
 
 /** Map from PreviewLens sidetray lens id → `ComposeSectionKey`.
  *  Originally for #1623 Renderers v2 B.13 (5 sections). Extended in the
@@ -963,8 +973,28 @@ function BubbleRow({
       {inSidetray ? (
         <button
           type="button"
-          className={bubbleClasses}
-          title={bubble.lensLabel}
+          className={(() => {
+            const sid = bubble.lensLabel
+              ? LENS_LABEL_TO_SETTING_ID[bubble.lensLabel]
+              : undefined;
+            // Slice 15 — preview-side producer-only marker. The actual
+            // chip + tooltip lives on the Inspector row; here we just
+            // prepend a 🚫 glyph so the educator can spot which bubbles
+            // map to settings that don't take effect yet.
+            return sid && PRODUCER_ONLY_BUBBLE_MARK.has(sid)
+              ? `${bubbleClasses} hf-preview-bubble-producer-only`
+              : bubbleClasses;
+          })()}
+          title={
+            (() => {
+              const sid = bubble.lensLabel
+                ? LENS_LABEL_TO_SETTING_ID[bubble.lensLabel]
+                : undefined;
+              return sid && PRODUCER_ONLY_BUBBLE_MARK.has(sid)
+                ? `${bubble.lensLabel} — value saves but no runtime consumer reads it yet.`
+                : bubble.lensLabel;
+            })()
+          }
           aria-label={bubble.lensLabel}
           data-setting-id={
             bubble.lensLabel

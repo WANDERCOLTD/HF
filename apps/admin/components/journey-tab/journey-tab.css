@@ -408,6 +408,43 @@
   cursor: not-allowed;
 }
 
+/* Slice 15 grey-out epic — producer-only contract badge. Inspector
+ * row + preview bubble both wear this chip when the contract's value
+ * has no runtime consumer reading it. Disappears as wires ship. */
+.hf-producer-only-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-warning-text, #d97706) 12%, transparent);
+  color: var(--status-warning-text, #b45309);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid color-mix(in srgb, var(--status-warning-text, #d97706) 28%, transparent);
+  cursor: help;
+}
+.hf-producer-only-chip-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+.hf-producer-only-chip-text {
+  white-space: nowrap;
+}
+.hf-producer-only-chip-dest {
+  font-weight: 600;
+}
+/* Tinted bubble for preview-side. Subtler since bubbles are visually
+ * busy and the chip carries the literal text. */
+.hf-preview-bubble-producer-only::before {
+  content: "🚫";
+  margin-right: 6px;
+  opacity: 0.7;
+  font-size: 12px;
+}
+
 /* Slice 12 grey-out epic — empty-state for phase filters with no
  * matching Journey-tab buckets (e.g. "Module"). */
 .hf-journey-lh-empty {
