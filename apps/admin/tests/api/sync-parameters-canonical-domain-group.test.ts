@@ -20,39 +20,14 @@
 
 import { describe, it, expect } from "vitest";
 
-// The resolver is exported as part of the route module's internal API.
-// We re-derive the canonical-set + resolver here to pin the contract;
-// if the route's CANONICAL_DOMAIN_GROUPS drifts from the taxonomy
-// test's list, this test will not catch it — `parameter-domain-group-
-// taxonomy.test.ts` already pins THAT side. This test pins ONLY the
-// refusal behaviour.
-
-const CANONICAL_DOMAIN_GROUPS = new Set([
-  "behavior-core",
-  "learning-adaptation",
-  "curriculum-adaptation",
-  "personality-adaptation",
-  "supervision",
-  "companion",
-  "engagement",
-  "reinforcement",
-  "onboarding",
-  "voice-delivery",
-  "learner-model",
-  "affect-motivation",
-]);
-
-function resolveCanonicalDomainGroup(
-  paramData: { domainGroup?: unknown; section?: unknown } | null,
-): string | null {
-  if (!paramData) return null;
-  for (const candidate of [paramData.domainGroup, paramData.section]) {
-    if (typeof candidate === "string" && CANONICAL_DOMAIN_GROUPS.has(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-}
+// Import the shared module — sync-parameters AND lab/features/[id]/activate
+// both consume it (PR #2030 extracted from #2029's inline copy). If the
+// canonical set drifts from `parameter-domain-group-taxonomy.test.ts`,
+// the cross-pin assertion at the bottom catches it.
+import {
+  CANONICAL_DOMAIN_GROUPS,
+  resolveCanonicalDomainGroup,
+} from "@/lib/registry/canonical-domain-group";
 
 describe("sync-parameters canonical-taxonomy resolver", () => {
   it("returns the canonical value when paramData.domainGroup is canonical", () => {
