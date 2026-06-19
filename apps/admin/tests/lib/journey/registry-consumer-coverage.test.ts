@@ -116,18 +116,15 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
     reason:
       "Producer-only since 2026-06-17 audit. Voice-stack consumer pending — interrupt sensitivity should gate the VAPI assistant's `voicemailDetectionEnabled` + barge-in threshold but no transform reads it today.",
   },
-  offboardingBannerMessage: {
-    reason:
-      "Producer-only since 2026-06-17 audit. offboarding transform doesn't render the operator's banner copy yet.",
-  },
-  offboardingCertificate: {
-    reason:
-      "Producer-only since 2026-06-17 audit. offboarding transform doesn't include certificate-mention directive yet.",
-  },
-  offboardingTriggerAfterCalls: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
-  },
+  // offboardingBannerMessage — wired by #2054 (sub-epic E of #2049). The
+  //   resolver `lib/curriculum/offboarding-banner.ts::resolveOffboardingBanner`
+  //   substitutes `{n}` and is invoked by the student progress page.
+  // offboardingCertificate — wired by #2054 (sub-epic E of #2049). The
+  //   `transforms/offboarding.ts` emits a certificate-mention directive
+  //   pushed by `renderPromptSummary.ts` when the toggle is on.
+  // offboardingTriggerAfterCalls — wired by #2054 (sub-epic E of #2049).
+  //   The `transforms/offboarding.ts` cadence gate also fires on
+  //   `callNumber >= config.offboarding.triggerAfterCalls`.
   openingRecapEnabled: {
     reason:
       "Producer-only since 2026-06-17 audit. Opening-recap is a SECOND recap variant (Call 1 framing) distinct from priorCallFeedback (Call 2+ history). No transform consults the flag.",
@@ -145,7 +142,7 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 15;
+const EXPECTED_EXEMPT_COUNT = 12;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation

@@ -176,9 +176,11 @@ interface LLMPrompt {
       directive: string;
     } | null;
   };
-  /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close). */
+  /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close).
+   *  #2054 — extended with certificateMention (operator toggle for completion-certificate copy). */
   offboarding?: {
     moduleClosingLine?: string | null;
+    certificateMention?: string | null;
   };
   /** #1749 (epic #1700 Theme 11) — score-delta narrator input. */
   priorCallFeedback?: {
@@ -455,6 +457,15 @@ export function renderProviderPrompt(
     parts.push(qs.offboarding_guidance);
   }
 
+  // #2054 (epic #2049 sub-epic E) — certificate-mention line. Renders
+  // when the operator turned on `Playbook.config.offboardingCertificate`
+  // AND the offboarding transform fired (cadence gate satisfied). The
+  // transform owns the wording; the renderer owns the placement.
+  const certificateMention = llmPrompt.offboarding?.certificateMention;
+  if (typeof certificateMention === "string" && certificateMention.trim().length > 0) {
+    parts.push("");
+    parts.push(certificateMention);
+  }
   // #1734 (epic #1730 G8 consumer C) — module-scoped verbatim closing line.
   // Appended after the existing offboarding guidance so the model reads it
   // last when wrapping up. Operator-set value; only renders when the
