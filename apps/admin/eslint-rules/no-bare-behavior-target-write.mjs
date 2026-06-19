@@ -65,6 +65,15 @@ const ALLOWED_PATH_SUFFIXES = [
   "app/api/x/create-domains/route.ts",
   "app/api/x/seed-domains/route.ts",
   "app/api/x/seed-transcripts/route.ts",
+  // Caller reset bulk-deletes CALLER-scope rows (same destructive shape
+  // as the seed routes above; canonical helpers don't model bulk-clear).
+  "app/api/callers/[callerId]/reset/route.ts",
+  // GDPR DRAIN — playbook deletion SET NULL on dependent BehaviorTarget
+  // rows. Same shape as the goalsNullified / callsNullified /
+  // composedPromptsNullified `updateMany` siblings in the same helper;
+  // the canonical write helpers model individual knob writes with cache
+  // invalidation, not bulk FK detachment on parent deletion.
+  "lib/gdpr/delete-playbook-data.ts",
 ];
 
 const ALLOWED_PATH_CONTAINS = [
