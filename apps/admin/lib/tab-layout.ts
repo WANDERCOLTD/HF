@@ -29,10 +29,14 @@ import type { SectionId } from "@/components/callers/caller-detail/types";
 
 export type TabLayout = "both" | "retire";
 
-/** Resolves the FF from `NEXT_PUBLIC_HF_TAB_LAYOUT`. Defaults to `both`. */
+/**
+ * Resolves the FF from `NEXT_PUBLIC_HF_TAB_LAYOUT`. Defaults to `retire`
+ * (legacy tabs hidden, v3 surfaces primary). Set the env-var explicitly to
+ * `both` to surface legacy + amber Retiring pills during a transition.
+ */
 export function getTabLayout(): TabLayout {
-  if (typeof process === "undefined") return "both";
-  return process.env.NEXT_PUBLIC_HF_TAB_LAYOUT === "retire" ? "retire" : "both";
+  if (typeof process === "undefined") return "retire";
+  return process.env.NEXT_PUBLIC_HF_TAB_LAYOUT === "both" ? "both" : "retire";
 }
 
 /**

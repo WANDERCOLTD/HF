@@ -425,7 +425,7 @@ export default function CourseDetailPage() {
     // through `LEGACY_TAB_REDIRECTS` → 'journey'.
     { id: 'curriculum', label: <TabWithHelp tabId="curriculum">Curriculum</TabWithHelp>, icon: <GraduationCap size={14} /> },
     { id: 'learners', label: <TabWithHelp tabId="learners">Learners</TabWithHelp>, icon: <Users2 size={14} /> },
-    { id: 'proof', label: <TabWithHelp tabId="proof">Proof Points</TabWithHelp>, icon: <BarChart3 size={14} /> },
+    { id: 'proof', label: <TabWithHelp tabId="proof">Proof</TabWithHelp>, icon: <BarChart3 size={14} /> },
     { id: 'goals', label: <TabWithHelp tabId="goals">Goals</TabWithHelp>, icon: <Target size={14} /> },
     // Sprint 2 SP2-B — Skills Framework Inspector beta tab. Renders the
     // structural rubric the educator authored (Framework Map lens default).
