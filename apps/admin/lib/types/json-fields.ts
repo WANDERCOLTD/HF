@@ -212,8 +212,14 @@ export const DEFAULT_NPS_CONFIG: NpsConfig = {
  * (Split implemented in #222; field accepted here so resolver is forward-compatible.)
  */
 export interface IntakeConfig {
-  goals: { enabled: boolean };
-  aboutYou: { enabled: boolean };
+  /** Goals question. `question` overrides the hardcoded default; absent
+   *  → fall through to the canonical "What would you most like to get
+   *  out of this course?". @bucket A_intake */
+  goals: { enabled: boolean; question?: string };
+  /** About-you confidence prompt. `question` overrides the hardcoded
+   *  default; absent → "On a scale of 1–5, how confident do you feel
+   *  about this topic?". @bucket A_intake */
+  aboutYou: { enabled: boolean; question?: string };
   knowledgeCheck: {
     enabled: boolean;
     deliveryMode?: "mcq" | "socratic";
