@@ -66,7 +66,15 @@ jobs:
       # win" hint. Started enforcing on 2026-05-14 after discovering that the
       # ratchet existed but wasn't wired into CI — by then tsc_errors had
       # drifted 574 → 625 silently. See PR for context.
+      #
+      # `if: always()` — defends against the 2026-06 drift mechanism that
+      # produced PRs #1998-#2008 (8/8 merged with Lint red). When ESLint
+      # exits 1, GitHub Actions skips subsequent steps; the ratchet step
+      # was never running for weeks, letting lint_warnings drift 4544 → 4809
+      # silently. The ratchet must measure the codebase regardless of lint
+      # syntax — both signals are independent and both matter.
       - name: Ratchet check (blocking — no new tsc/lint debt)
+        if: always()
         run: npm run ratchet:check
 
       # knip — dead-code detection. Informational for now; a future PR will
