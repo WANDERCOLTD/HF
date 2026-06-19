@@ -21,12 +21,15 @@
 import { useEffect, useRef } from "react";
 
 import { JourneyField } from "@/components/journey-controls";
+import { RelevanceWrapper } from "@/components/journey-controls/RelevanceWrapper";
 import { useJourneySetting } from "@/components/shared/preview-renderers/_journey-setting-context";
 import {
   getSettingsForBucket,
   splitBucketByScope,
 } from "@/lib/journey/bucket-relations";
+import { computeRelevanceState } from "@/lib/journey/compute-relevance-state";
 import { JOURNEY_MENU_ITEMS_BY_ID } from "@/lib/journey/menu-items";
+import { JOURNEY_SETTINGS, JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
 import type {
   JourneyMenuBucketId,
   JourneySettingContract,
@@ -74,6 +77,22 @@ function SettingsStack({
           contract.storagePath,
         );
         const isFocused = focusedSettingId === contract.id;
+        // Slice 10 grey-out epic — resolve relevance state for each
+        // setting so gatedBy/auto-derived/inherited/out-of-shape render
+        // with the appropriate RelevanceWrapper overlay. Defaults the
+        // courseShape to "structured" — could be threaded later from
+        // the playbook's resolved shape; today the gates that fire are
+        // gatedBy + auto-derived, both shape-agnostic.
+        const relevance = computeRelevanceState({
+          setting: contract,
+          playbookConfig: (ctx.playbookConfig ?? {}) as Parameters<typeof computeRelevanceState>[0]["playbookConfig"],
+          courseShape: "structured",
+          effectiveValue: { layer: "course", value },
+          registry: JOURNEY_SETTINGS,
+        });
+        const parent = relevance.parentId
+          ? JOURNEY_SETTINGS_BY_ID[relevance.parentId]
+          : undefined;
         return (
           <FocusableRow
             key={contract.id}
@@ -83,12 +102,26 @@ function SettingsStack({
           >
             <CascadeTraceBreadcrumb contract={contract} />
             <WriteGateLockChip contract={contract} />
-            <JourneyField
-              contract={contract}
-              value={value}
-              options={contract.options}
-              onSave={(next) => ctx.saveSetting(contract.id, next)}
-            />
+            <RelevanceWrapper
+              state={relevance.state}
+              reason={relevance.reason}
+              parentSettingId={relevance.parentId}
+              parentSettingLabel={parent?.educatorLabel ?? relevance.parentLabel}
+              layerOrigin={relevance.layerOrigin}
+              onJumpToParent={
+                onRowFocus
+                  ? (settingId: string) => onRowFocus(settingId)
+                  : undefined
+              }
+            >
+              <JourneyField
+                contract={contract}
+                value={value}
+                options={contract.options}
+                onSave={(next) => ctx.saveSetting(contract.id, next)}
+                disabled={relevance.state === "gated-off" || relevance.state === "out-of-shape"}
+              />
+            </RelevanceWrapper>
             <div className="hf-journey-inspector-actions">
               <EditAsJsonButton contract={contract} value={value} />
             </div>

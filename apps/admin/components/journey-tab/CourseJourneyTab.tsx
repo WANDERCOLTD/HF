@@ -150,7 +150,15 @@ export function CourseJourneyTab({
       // Always bump — same row re-click should re-pulse the middle bubble.
       bump();
       if (selection.focusedSettingId === settingId) return;
-      selection.setBucketId(selection.bucketId, settingId);
+      // Slice 10 grey-out epic — when the requested setting lives in a
+      // DIFFERENT bucket (e.g. RelevanceWrapper's "Enable {parent} first"
+      // chip on a gated-off control whose parent owns a different bucket
+      // — like intakeAiIntroCall gated by firstCallMode), switch the
+      // bucket to the owner so the educator lands on the parent control,
+      // not an empty Inspector view.
+      const owner = JOURNEY_SETTINGS_BY_ID[settingId];
+      const nextBucket = owner?.menuGroupKey ?? selection.bucketId;
+      selection.setBucketId(nextBucket, settingId);
     },
     [selection, bump],
   );
