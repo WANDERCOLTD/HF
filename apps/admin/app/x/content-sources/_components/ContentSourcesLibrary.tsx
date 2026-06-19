@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
 import { ActiveJobsBanner } from "./shared/ActiveJobsBanner";
@@ -699,7 +699,7 @@ export default function ContentSourcesLibrary() {
 
   // Snapshot `now` once per mount — sub-day precision is unnecessary for the
   // 60-day expiry window. (#2017 react-hooks/purity)
-  const now = useMemo(() => Date.now(), []);
+  const [now] = useState<number>(() => Date.now());
   const expired = sources.filter((s) => s.validUntil && new Date(s.validUntil).getTime() < now);
   const expiringSoon = sources.filter((s) => {
     if (!s.validUntil) return false;
