@@ -132,6 +132,12 @@ const G1_INTAKE_AI_INTRO_CALL: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "intake", hint: "AI Intro Call card" }],
+  // Baseline Assessment mode jumps straight into the pre-test stop at the
+  // top of Call 1, so a pre-call intro voice contact doesn't fit the flow.
+  gatedBy: {
+    parentId: "firstCallMode",
+    inactiveValues: ["baseline_assessment"],
+  },
 };
 
 const G1_INTAKE_KNOWLEDGE_CHECK_MODE: JourneySettingContract = {
@@ -154,6 +160,10 @@ const G1_INTAKE_KNOWLEDGE_CHECK_MODE: JourneySettingContract = {
     { value: "mcq", label: "MCQ batch (post Call 1)" },
     { value: "socratic", label: "Socratic probe (in Call 1)" },
   ],
+  gatedBy: {
+    parentId: "intakeKnowledgeCheck",
+    inactiveValues: [false],
+  },
 };
 
 const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
@@ -309,6 +319,12 @@ const G2_FIRST_CALL_INTRODUCE_PEDAGOGY: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "onboarding", hint: "pedagogy intro" }],
+  // Baseline-Assessment mode skips the pedagogy intro; there's no
+  // teaching block to frame.
+  gatedBy: {
+    parentId: "firstCallMode",
+    inactiveValues: ["baseline_assessment"],
+  },
 };
 
 const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
@@ -328,6 +344,13 @@ const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "onboarding", hint: "phase list" }],
+  // Only the Onboarding mode walks the phase list. The other two modes
+  // (Teach Immediately, Baseline Assessment) skip the structured onboarding
+  // sequence entirely.
+  gatedBy: {
+    parentId: "firstCallMode",
+    inactiveValues: ["teach_immediately", "baseline_assessment"],
+  },
 };
 
 const G2_FIRST_CALL_TARGETS: JourneySettingContract = {
@@ -400,6 +423,11 @@ const G2_BASELINE_ASSESSMENT_DEPTH: JourneySettingContract = {
     { value: "standard", label: "Standard — 5 questions" },
     { value: "deep", label: "Deep — 8 questions" },
   ],
+  // Only relevant when Call 1 is running the baseline assessment.
+  gatedBy: {
+    parentId: "firstCallMode",
+    inactiveValues: ["onboarding", "teach_immediately"],
+  },
 };
 
 // =============================================================
@@ -846,6 +874,10 @@ const G4_PROGRESS_NARRATIVE_CADENCE: JourneySettingContract = {
     { value: "every_call", label: "Every call" },
     { value: "on_threshold_crossing", label: "Only on threshold crossing" },
   ],
+  gatedBy: {
+    parentId: "progressNarrativeEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PROGRESS_NARRATIVE_THRESHOLD: JourneySettingContract = {
@@ -864,6 +896,12 @@ const G4_PROGRESS_NARRATIVE_THRESHOLD: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "priorCallFeedback" }],
+  // The threshold only matters when the cadence is `on_threshold_crossing`;
+  // when the parent narrative is off, nothing reads it at all.
+  gatedBy: {
+    parentId: "progressNarrativeEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PROGRESS_NARRATIVE_SKIP_FIRST: JourneySettingContract = {
@@ -882,6 +920,10 @@ const G4_PROGRESS_NARRATIVE_SKIP_FIRST: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "progressNarrativeEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PRIOR_CALL_RECAP_ENABLED: JourneySettingContract = {
@@ -923,6 +965,10 @@ const G4_PRIOR_CALL_RECAP_DEPTH: JourneySettingContract = {
     { value: "standard", label: "Standard (2–3 sentences)" },
     { value: "rich", label: "Rich (3–4 sentences + observation)" },
   ],
+  gatedBy: {
+    parentId: "priorCallRecapEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PRIOR_CALL_RECAP_DAILY_CAP: JourneySettingContract = {
@@ -941,6 +987,10 @@ const G4_PRIOR_CALL_RECAP_DAILY_CAP: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "priorCallRecapEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_RECAP_ENABLED: JourneySettingContract = {
@@ -975,6 +1025,12 @@ const G4_RECAP_SYNTHESIS_ENABLED: JourneySettingContract = {
     requiresReprompt: true, // AI-touching → Save & reprompt CTA
   },
   previewLocators: [{ section: "priorCallFeedback" }],
+  // If there's no recap at the top of the call, there's nothing to
+  // AI-synthesise.
+  gatedBy: {
+    parentId: "recapEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PRIOR_CALL_FEEDBACK_ENABLED: JourneySettingContract = {
@@ -1143,6 +1199,10 @@ const G5_NPS_TRIGGER: JourneySettingContract = {
     { value: "mastery", label: "Mastery percentage" },
     { value: "session_count", label: "After N calls" },
   ],
+  gatedBy: {
+    parentId: "npsEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G5_NPS_THRESHOLD: JourneySettingContract = {
@@ -1161,6 +1221,10 @@ const G5_NPS_THRESHOLD: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "npsEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G5_NPS_STOP: JourneySettingContract = {
@@ -1183,6 +1247,10 @@ const G5_NPS_STOP: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "nps" }],
+  gatedBy: {
+    parentId: "npsEnabled",
+    inactiveValues: [false],
+  },
 };
 
 // =============================================================
@@ -1248,6 +1316,10 @@ const G6_OFFBOARDING_SUMMARY_CADENCE: JourneySettingContract = {
     { value: "final_only", label: "Final session only" },
     { value: "every_session_with_data", label: "Every session with data" },
   ],
+  gatedBy: {
+    parentId: "offboardingSummaryEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY: JourneySettingContract = {
@@ -1265,6 +1337,10 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "offboardingSummaryEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS: JourneySettingContract = {
@@ -1282,6 +1358,10 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "offboardingSummaryEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE: JourneySettingContract = {
@@ -1299,6 +1379,10 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "offboardingSummaryEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G6_OFFBOARDING_TRIGGER_AFTER_CALLS: JourneySettingContract = {
