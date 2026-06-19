@@ -46,6 +46,8 @@ import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
 import { config as appConfig } from "@/lib/config";
 import { updateCurriculumProgress, getCurriculumProgress, completeModule } from "@/lib/curriculum/track-progress";
+import { validateIeltsCompletion } from "@/lib/curriculum/validate-ielts-completion";
+import { markModuleIncomplete } from "@/lib/curriculum/mark-module-incomplete";
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
@@ -3580,6 +3582,42 @@ const stageExecutors: Record<string, StageExecutor> = {
         ctx.callerId,
       );
       ctx.log.info("Prosody aggregate applied", prosodyResult);
+
+      // #1953 — Four-criteria IELTS completion gate. Fires ONLY when
+      // prosody wrote IELTS scores (mode === "ielts") AND the call is
+      // bound to a curriculumModule. Runs HERE (early in AGGREGATE,
+      // before the mastery writer at track-progress.ts:665) so a
+      // waived row can't be clobbered back to NOT_STARTED on the next
+      // pipeline run. courseStyle threading is required by guard
+      // #1252 — markModuleIncomplete short-circuits on continuous
+      // courses and emits the `module.incomplete.skipped_continuous`
+      // AppLog. See Boaz/Eldar gap-analysis response (2026-06-18) §2.
+      if (
+        prosodyResult.applied &&
+        prosodyResult.mode === "ielts" &&
+        ctx.call.curriculumModuleId
+      ) {
+        const completion = await validateIeltsCompletion(ctx.callId);
+        if (!completion.complete) {
+          ctx.log.info("IELTS completion gate: incomplete", {
+            callId: ctx.callId,
+            moduleId: ctx.call.curriculumModuleId,
+            missing: completion.missing,
+            reason: "ielts_criteria",
+          });
+          await markModuleIncomplete(prisma, {
+            callerId: ctx.callerId,
+            moduleId: ctx.call.curriculumModuleId,
+            courseStyle: ctx.courseStyle,
+            playbookId: ctx.call.playbookId,
+          });
+        } else {
+          ctx.log.info("IELTS completion gate: complete", {
+            callId: ctx.callId,
+            moduleId: ctx.call.curriculumModuleId,
+          });
+        }
+      }
     } catch (prosodyErr) {
       // Non-fatal — log and continue. Prosody is a nice-to-have signal;
       // the other AGGREGATE work must complete regardless.
