@@ -54,27 +54,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
   },
 
   // ── compose-prompt transforms (educator-tunable but no transform reads it)
-  loMasteryThreshold: {
-    destinedFor: "scoring",
-    note: "loMastery transform uses tierPresetId, not per-course override.",
-  },
-  assessmentReadinessThreshold: {
-    destinedFor: "compose-prompt",
-    note: "modulesGate / instructions transforms don't gate stop-fire on readiness yet.",
-  },
-  progressSignalLowWater: {
-    destinedFor: "compose-prompt",
-    note: "instructions / moduleMastery transforms don't surface low-water progress signals.",
-  },
-  progressSignalHighWater: {
-    destinedFor: "compose-prompt",
-    note: "instructions / moduleMastery transforms don't surface high-water progress signals.",
-  },
-  rewardStrategy: {
-    destinedFor: "scoring",
-    note: "REWARD pipeline uses a hardcoded strategy; this operator override isn't consulted.",
-  },
-
   // ── voice provider knobs
   interruptSensitivity: {
     destinedFor: "voice-provider",

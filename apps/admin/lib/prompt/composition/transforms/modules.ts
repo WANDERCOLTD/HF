@@ -27,6 +27,7 @@ import {
   MASTERY_THRESHOLD_FALLBACK,
 } from "@/lib/tolerance/resolve-tolerance";
 import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
+import { resolveScoringConfig } from "@/lib/prompt/composition/scoring-config";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import type { SchedulerMode } from "@/lib/pipeline/scheduler-decision";
 
@@ -818,7 +819,24 @@ export async function computeSharedState(
         // now uses the resolved cascade (which incorporates that spec-config
         // layer at layer 5 and falls through to 0.7 at layer 7). The local
         // const is kept for readability at the scheduler call below.
-        const threshold = resolvedMasteryThreshold;
+        //
+        // #2052 sub-epic C — `Playbook.config.loMasteryThreshold` is the
+        // per-course operator override for the LO-pass cut. When set, it
+        // takes precedence over the resolved cascade. Distinct from
+        // `tolerances.masteryThreshold` (layer 3 of the cascade) — that
+        // controls module-progression decisions; this one controls per-LO
+        // pass labelling consumed by the scheduler's `loThreshold` read in
+        // `working-set-selector.ts`.
+        const scoring = resolveScoringConfig(pbConfig as PlaybookConfig);
+        const threshold =
+          scoring.loMasteryThreshold !== undefined
+            ? scoring.loMasteryThreshold
+            : resolvedMasteryThreshold;
+        if (scoring.loMasteryThreshold !== undefined) {
+          console.log(
+            `[modules] #2052 loMasteryThreshold override active: ${scoring.loMasteryThreshold} (cascade default would be ${resolvedMasteryThreshold})`,
+          );
+        }
 
         // Scheduler v1 Slice 2 (#155) — selectNextExchange replaces the
         // placeholder SchedulerDecision write from Slice 1. It delegates
