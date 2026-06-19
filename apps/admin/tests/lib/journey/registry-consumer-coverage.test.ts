@@ -76,10 +76,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
   // the wiring work; each transform read needs per-setting design
   // (e.g., baselineAssessmentDepth needs "light/standard/deep" prompt
   // synthesis, not just a substring read).
-  intakeSkipIfReturning: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Intake-gate skip-for-returning-learner logic deferred to follow-on (intake transform needs the read).",
-  },
   loMasteryThreshold: {
     reason:
       "Producer-only since 2026-06-17 audit. loMastery transform uses tierPresetId, not per-course override.",
@@ -116,14 +112,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
     reason:
       "Producer-only since 2026-06-17 audit. Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
   },
-  openingRecapEnabled: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Opening-recap is a SECOND recap variant (Call 1 framing) distinct from priorCallFeedback (Call 2+ history). No transform consults the flag.",
-  },
-  recapSynthesisEnabled: {
-    reason:
-      "Producer-only since 2026-06-17 audit. `recapSynthesisCache` is the OUTPUT column read by transforms; the gating flag `recapSynthesisEnabled` is never checked — synthesis runs unconditionally when there's prior-call context.",
-  },
   rewardStrategy: {
     reason:
       "Producer-only since 2026-06-17 audit. REWARD pipeline stage uses a hardcoded strategy; the operator-set override is not consulted yet (writeGate is operator-only with reprompt — landing was deferred per epic #779 Felt Progress S1).",
@@ -133,7 +121,7 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 12;
+const EXPECTED_EXEMPT_COUNT = 9;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation

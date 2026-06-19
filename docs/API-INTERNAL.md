@@ -13949,7 +13949,7 @@ Returns the learner's progress against their active qualification —
 
 **Response** `200`
 ```json
-{ ok, subject, welcome, assessment, onboarding, offboarding }
+{ ok, subject, skipIntake, welcome, assessment, onboarding, offboarding }
 ```
 
 **Response** `404`
