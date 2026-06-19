@@ -13,44 +13,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { resolveParameterIds } from "@/lib/registry/resolve";
-
-// Canonical domainGroup taxonomy v1.0 (#1948). Lattice-pinned by
-// `tests/lib/registry/parameter-domain-group-taxonomy.test.ts`. Sync MUST
-// land canonical values — `"general"` / `"imported"` / `"skill"` / any
-// spec-domain string would fail the taxonomy ratchet at the next CI run
-// and silently produce off-taxonomy rows in the meantime.
-const CANONICAL_DOMAIN_GROUPS = new Set([
-  "behavior-core",
-  "learning-adaptation",
-  "curriculum-adaptation",
-  "personality-adaptation",
-  "supervision",
-  "companion",
-  "engagement",
-  "reinforcement",
-  "onboarding",
-  "voice-delivery",
-  "learner-model",
-  "affect-motivation",
-]);
-
-/**
- * Resolve a canonical domainGroup from spec/param data, or return null.
- * Sync REFUSES to create the Parameter row when this returns null —
- * silent fallback to a non-canonical value is the bug class this fix
- * closes (audit-finding 2 of LastParms session 2026-06-19).
- */
-function resolveCanonicalDomainGroup(
-  paramData: { domainGroup?: unknown; section?: unknown } | null,
-): string | null {
-  if (!paramData) return null;
-  for (const candidate of [paramData.domainGroup, paramData.section]) {
-    if (typeof candidate === "string" && CANONICAL_DOMAIN_GROUPS.has(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-}
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 /**
  * @api POST /api/admin/sync-parameters

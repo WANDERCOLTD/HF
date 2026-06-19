@@ -13,6 +13,7 @@ import { compileSpecToTemplate } from "@/lib/bdd/compile-specs";
 import { clearAIConfigCache } from "@/lib/ai/config-loader";
 import { clearSystemSettingsCache } from "@/lib/system-settings";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 /**
  * @api POST /api/lab/features/:id/activate
@@ -193,12 +194,29 @@ export async function POST(
           if (lowRange) interpretationLow = `${lowRange.label}: ${lowRange.implication || ""}`;
         }
 
+        // #2029 sibling — refuse silent off-taxonomy domainGroup writes.
+        // The DB has no CHECK constraint; the canonical taxonomy v1.0
+        // (#1948) is pinned only by a vitest that fires AT CI TIME.
+        // A row written here with `domainGroup: "lab"` (the pre-fix
+        // fallback) would silently corrupt the registry until the next
+        // CI run that touches the taxonomy test.
+        const canonicalGroup = resolveCanonicalDomainGroup({
+          domainGroup: (param as { domainGroup?: unknown }).domainGroup,
+          section: scoringSpec?.domain ?? param.section,
+        });
+        if (!canonicalGroup) {
+          // Skip this parameter — operator must add it to the canonical
+          // registry instead of letting lab feature activation invent
+          // a value.
+          continue;
+        }
+
         const paramData = {
           parameterId,
           name: param.name || parameterId,
           definition: param.description || param.definition || null,
           sectionId: param.section || "lab-imported",
-          domainGroup: scoringSpec?.domain || "lab",
+          domainGroup: canonicalGroup,
           scaleType: param.scaleType || "0-1",
           directionality: param.directionality || "positive",
           computedBy: `spec:${featureSet.featureId}`,
@@ -399,7 +417,16 @@ export async function POST(
             .split("-")
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
-          const domainGroup = metadata?.section || scoringSpec?.domain || "teaching";
+          // #2029 sibling — refuse silent off-taxonomy writes (was
+          // falling back to "teaching" which is not in the canonical
+          // 12-tuple from #1948).
+          const canonicalGroup = resolveCanonicalDomainGroup({
+            section: metadata?.section ?? scoringSpec?.domain,
+          });
+          if (!canonicalGroup) {
+            // Skip — operator must seed via canonical registry.
+            continue;
+          }
 
           await prisma.parameter.create({
             data: {
@@ -407,7 +434,7 @@ export async function POST(
               name,
               definition: metadata?.rationale || `Behavior parameter auto-created from ${featureSet.featureId}`,
               sectionId: metadata?.section || "teaching",
-              domainGroup,
+              domainGroup: canonicalGroup,
               scaleType: "0-1",
               directionality: "positive",
               computedBy: `spec:${featureSet.featureId}`,
