@@ -387,6 +387,27 @@
   animation: hf-preview-bubble-focus-pulse 1400ms ease-out forwards;
 }
 
+/* Slice 9 grey-out epic — explicit Save button next to text fields. */
+.hf-jf-control-with-save {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.hf-jf-control-with-save > input,
+.hf-jf-control-with-save > textarea {
+  flex: 1 1 auto;
+}
+.hf-jf-save-btn {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+.hf-jf-save-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .hf-journey-inspector-subgroup {
   margin-bottom: 16px;
 }

@@ -48,6 +48,12 @@ interface JourneyInspectorPanelProps {
    *  cross-pane signal the prior slices already established the other
    *  way around. */
   onRowFocus?: (settingId: string) => void;
+  /** Slice 9 — interaction tick. CourseJourneyTab bumps this on every
+   *  LH bucket click + Preview bubble click. The bucket-pulse effect
+   *  uses it so clicking the same bucket / divider TWICE still gives
+   *  visible feedback (instead of the React-skips-effect-on-unchanged
+   *  value behaviour). */
+  interactionTick?: number;
 }
 
 function SettingsStack({
@@ -136,22 +142,28 @@ export function JourneyInspectorPanel({
   selectedBucketId,
   focusedSettingId,
   onRowFocus,
+  interactionTick,
 }: JourneyInspectorPanelProps) {
   // Slice 6 grey-out epic — LH bucket click glow. When bucketId changes,
   // accent-pulse the whole Inspector area for ~900ms so the operator
   // sees that the right-hand pane retargeted, mirroring the persistent
-  // middle-pane bubble pulse from `useBubblePulse`.
+  // middle-pane bubble pulse from `useBubblePulse`. Slice 9: also fires
+  // on every interactionTick bump so re-clicking the same bucket /
+  // divider re-pulses.
   const wrapperRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!selectedBucketId) return;
     const el = wrapperRef.current;
     if (!el) return;
+    el.classList.remove("hf-journey-inspector-bucket-pulse");
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    el.offsetWidth; // force reflow so the CSS animation restarts
     el.classList.add("hf-journey-inspector-bucket-pulse");
     const timer = window.setTimeout(() => {
       el.classList.remove("hf-journey-inspector-bucket-pulse");
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [selectedBucketId]);
+  }, [selectedBucketId, interactionTick]);
 
   if (!selectedBucketId) {
     return (

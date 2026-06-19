@@ -132,21 +132,32 @@ export function CourseJourneyTab({
   // Slice C — multi-pulse over all bucket sections.
   useBubblePulse(canvasRef, selection.bucketId);
 
+  // Slice 9 grey-out epic — interaction tick counter. Bumped on every
+  // bucket / preview click regardless of whether the selection actually
+  // changed. JourneyInspectorPanel + the middle-pane bubble pulse listen
+  // to this so clicking the same bucket / divider twice still gives
+  // visible feedback. Without this, React skips the bucket-change effect
+  // when the value is unchanged.
+  const [interactionTick, setInteractionTick] = useState<number>(0);
+  const bump = useCallback(() => setInteractionTick((n) => n + 1), []);
+
   // Slice 8 grey-out epic — RHS Inspector row click closes the
   // tri-pane signal: pulse + scroll the matching middle-pane bubble
   // (looked up via `[data-setting-id=<id>]` injected at bubble emit).
   // Also write the selection so the RHS row itself stays highlighted.
   const handleInspectorRowFocus = useCallback(
     (settingId: string) => {
-      if (selection.focusedSettingId === settingId) return; // dedup
+      // Always bump — same row re-click should re-pulse the middle bubble.
+      bump();
+      if (selection.focusedSettingId === settingId) return;
       selection.setBucketId(selection.bucketId, settingId);
     },
-    [selection],
+    [selection, bump],
   );
 
   // Pulse + scroll the middle-pane bubble matching the focused setting.
-  // Runs on every focusedSettingId change regardless of source (middle
-  // bubble click OR RHS row click). One-shot 1.5s pulse animation.
+  // Runs on every focusedSettingId change AND every interactionTick bump
+  // (so re-clicking the same row still re-pulses). One-shot 1.5s.
   useEffect(() => {
     const settingId = selection.focusedSettingId;
     if (!settingId) return;
@@ -156,20 +167,23 @@ export function CourseJourneyTab({
       `[data-setting-id="${settingId}"]`,
     );
     if (!el) return;
-    // Scroll only when the bubble is out of view — avoid scroll-fights
-    // when the educator is already looking at it.
     const rect = el.getBoundingClientRect();
     const rootRect = root.getBoundingClientRect();
     const offscreen = rect.top < rootRect.top || rect.bottom > rootRect.bottom;
     if (offscreen) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
+    // Toggle class via remove → reflow → add so same-id re-click
+    // restarts the CSS animation.
+    el.classList.remove("hf-preview-bubble-focus");
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    el.offsetWidth;
     el.classList.add("hf-preview-bubble-focus");
     const timer = window.setTimeout(() => {
       el.classList.remove("hf-preview-bubble-focus");
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [selection.focusedSettingId]);
+  }, [selection.focusedSettingId, interactionTick]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -206,8 +220,9 @@ export function CourseJourneyTab({
       selection.setBucketId(next);
       setPickStripSection(null);
       setCrossTabHint(null);
+      bump();
     },
-    [selection],
+    [selection, bump],
   );
 
   // Bubble click in PreviewLens → derive bucket(s). If any in-tab →
@@ -236,6 +251,7 @@ export function CourseJourneyTab({
         selection.setBucketId(inTab[0], settingId ?? null);
         setPickStripSection(inTab.length >= 2 ? section : null);
         setCrossTabHint(null);
+        bump();
         return;
       }
       // Cross-tab: pick the first bucket chronologically and offer to
@@ -318,6 +334,7 @@ export function CourseJourneyTab({
               selectedBucketId={selection.bucketId}
               focusedSettingId={selection.focusedSettingId}
               onRowFocus={handleInspectorRowFocus}
+              interactionTick={interactionTick}
             />
           )}
         </aside>
