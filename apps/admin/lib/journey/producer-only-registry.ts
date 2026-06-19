@@ -54,18 +54,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
   },
 
   // ── compose-prompt transforms (educator-tunable but no transform reads it)
-  baselineAssessmentDepth: {
-    destinedFor: "compose-prompt",
-    note: "firstCallMode / instructions transforms don't synthesise light/standard/deep directives yet.",
-  },
-  firstCallCurriculumFocus: {
-    destinedFor: "compose-prompt",
-    note: "modulesGate transform doesn't filter Call 1 module set by focus tag yet.",
-  },
-  moduleSequencePolicy: {
-    destinedFor: "compose-prompt",
-    note: "modulesGate transform doesn't apply strict/interleaved/learner-led ordering yet.",
-  },
   loMasteryThreshold: {
     destinedFor: "scoring",
     note: "loMastery transform uses tierPresetId, not per-course override.",

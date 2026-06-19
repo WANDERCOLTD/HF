@@ -179,6 +179,11 @@ interface LLMPrompt {
       questions: string[];
       directive: string;
     } | null;
+    /** #2051 (epic #2049 sub-epic B / Contract 1) — baseline-assessment depth. */
+    baseline_assessment_depth?: {
+      depth: "light" | "standard" | "deep";
+      directive: string;
+    } | null;
   };
   /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close).
    *  #2054 — extended with certificateMention (operator toggle for completion-certificate copy). */
@@ -516,6 +521,17 @@ export function renderProviderPrompt(
   if (topicPool?.directive) {
     parts.push("");
     parts.push(topicPool.directive);
+  }
+  // #2051 (epic #2049 sub-epic B) — baseline-assessment depth.
+  // Renders ONLY when `Playbook.config.firstCallMode === "baseline_assessment"`
+  // AND this is the learner's first session. Appended AFTER the
+  // BASELINE_ASSESSMENT_RULE critical rule (rendered separately via
+  // _preamble.criticalRules) so the LLM reads both the universal baseline
+  // contract and the per-depth calibration.
+  const baselineDepth = llmPrompt.instructions?.baseline_assessment_depth;
+  if (baselineDepth?.directive) {
+    parts.push("");
+    parts.push(baselineDepth.directive);
   }
   // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
   // Surfaces the summary line + the per-criterion scoreboard from the

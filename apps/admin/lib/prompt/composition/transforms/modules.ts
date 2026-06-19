@@ -27,6 +27,8 @@ import {
   MASTERY_THRESHOLD_FALLBACK,
 } from "@/lib/tolerance/resolve-tolerance";
 import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
+import type { SchedulerMode } from "@/lib/pipeline/scheduler-decision";
 
 // =============================================================================
 // DB-FIRST MODULE LOADING (CurriculumModule model)
@@ -882,6 +884,43 @@ export async function computeSharedState(
           );
         }
 
+        // #2051 (epic #2049 sub-epic B / Contracts 2 + 3) — narrow the
+        // scheduler's candidate-pool modules array. The filters are layered:
+        //   (a) `moduleSequencePolicy === "strict"` excludes modules with
+        //       unmet prerequisites (any prereq slug NOT in completedModules)
+        //   (b) `firstCallCurriculumFocus` (Call 1 only) intersects with the
+        //       operator's allow-list of module ids/slugs.
+        //
+        // Both filters fall back to the FULL pool when their narrowed pool
+        // is empty — prevents Call 1 from stalling on a misconfigured course
+        // or on a brand-new learner who somehow already mastered the listed
+        // modules. The original `modules` array (and `completedModules`,
+        // `loMasteryMap`, `tpProgress`) are untouched: only the scheduler's
+        // pool input is narrowed.
+        //
+        // `lockedModule` is null in this branch by the enclosing guard
+        // (`!lockedModule` at line 764), so the picker-bypass case never
+        // reaches these filters.
+        const schedulerModules = filterSchedulerModules({
+          modules,
+          completedModules,
+          pbConfig: pbConfig as PlaybookConfig,
+          isFirstCall,
+        });
+
+        // #2051 (epic #2049 sub-epic B / Contract 3) — `interleaved` cadence
+        // override. When the operator picks `moduleSequencePolicy = "interleaved"`
+        // AND the call is the 4th, 8th, 12th… in the structured-course sequence
+        // (`(callNumber - 1) % 4 === 3`), force `mode: "review"` on the
+        // scheduler so the picked module is a mastered one for spaced review.
+        // The `interleaveReviewMinDays` config (freshness threshold) is
+        // unaffected — they compose. `learner_led` / absent are no-ops:
+        // `interleaveOverride` stays null and the scheduler picks mode normally.
+        const interleaveOverride = resolveInterleaveModeOverride({
+          pbConfig: pbConfig as PlaybookConfig,
+          callNumber: data.nextLearnerFacingNumber,
+        });
+
         const { decision, workingSet: wsResult } = selectNextExchange(
           {
             workingSetInput: {
@@ -901,7 +940,7 @@ export async function computeSharedState(
                 // Per-LO override (#155): nullable, falls back to input-level
                 masteryThreshold: lo.masteryThreshold,
               })),
-              modules: modules.map((m) => ({
+              modules: schedulerModules.map((m) => ({
                 id: m.id || m.slug,
                 slug: m.slug,
                 name: m.name,
@@ -918,6 +957,13 @@ export async function computeSharedState(
             },
             priorDecision,
             callsSinceLastAssess: pendingCount,
+            // #2051 (epic #2049 sub-epic B / Contract 3) — interleaved
+            // cadence override is honoured by the scheduler verbatim:
+            // forces `mode: "review"` on every 4th structured-course call
+            // so the picked outcome is a mastered LO for spaced review.
+            // `learner_led` / absent → undefined → scheduler picks mode
+            // via the normal `pickMode` cadence (byte-identical pre-#2051).
+            ...(interleaveOverride ? { modeOverride: interleaveOverride } : {}),
           },
           policy,
         );
@@ -1359,3 +1405,155 @@ registerTransform("computeModuleProgress", (
     })),
   };
 });
+
+// =============================================================================
+// #2051 (epic #2049 sub-epic B) — Call 1 shape: scheduler-pool filters
+// =============================================================================
+
+/**
+ * #2051 (epic #2049 sub-epic B / Contracts 2 + 3) — narrow the scheduler's
+ * module candidate pool based on operator-set Call 1 shape settings.
+ *
+ * Two filter layers applied in order, both with full-pool safety fallback:
+ *
+ *   (a) `moduleSequencePolicy === "strict"` — exclude modules with unmet
+ *       prerequisites (any prereq slug NOT in `completedModules`). When the
+ *       narrowed pool is empty (every module has unmet prereqs — likely a
+ *       misconfigured course), fall back to the full pool and log a warning.
+ *
+ *   (b) `firstCallCurriculumFocus` (Call 1 only) — intersect with the
+ *       operator's allow-list of module ids/slugs. When the narrowed pool is
+ *       empty (e.g. every listed module already mastered, or no slugs match),
+ *       fall back to the full pool unchanged and log.
+ *
+ * `learner_led` (or `moduleSequencePolicy` absent) and absent
+ * `firstCallCurriculumFocus` are no-ops — the input `modules` array passes
+ * through unmodified, producing byte-identical scheduler input vs. pre-#2051.
+ *
+ * Returns a NEW array — never mutates the input. The caller's full
+ * `modules` array remains the canonical truth for `completedModules`,
+ * `tpProgress`, `loMasteryMap`, and the working-set callback paths.
+ *
+ * @see docs/groomed/2051-call1-shape-consumers.md §Contracts 2 + 3
+ */
+export function filterSchedulerModules(args: {
+  modules: ModuleData[];
+  completedModules: Set<string>;
+  pbConfig: PlaybookConfig;
+  isFirstCall: boolean;
+}): ModuleData[] {
+  const { modules, completedModules, pbConfig, isFirstCall } = args;
+  let pool = modules;
+
+  // (a) Strict prerequisite gate (any-call) — applies even on Call 1.
+  // Defensive: skip when policy is `learner_led` or absent (no-op semantics).
+  if (pbConfig.moduleSequencePolicy === "strict") {
+    const filteredByPrereqs = modules.filter((m) => {
+      const prereqs = (m.prerequisites ?? []) as string[];
+      if (prereqs.length === 0) return true; // no prereqs → eligible
+      return prereqs.every((p) => completedModules.has(p));
+    });
+    if (filteredByPrereqs.length === 0) {
+      console.warn(
+        "[modules] moduleSequencePolicy=strict: all modules filtered out (check prerequisite configuration) — using full pool.",
+      );
+      // pool stays as `modules` (the original input)
+    } else {
+      const excluded = modules.length - filteredByPrereqs.length;
+      if (excluded === 0) {
+        console.log(
+          "[modules] moduleSequencePolicy=strict: no modules filtered (all prerequisites met).",
+        );
+      } else {
+        console.log(
+          `[modules] moduleSequencePolicy=strict: filtered ${excluded} module(s) with unmet prerequisites.`,
+        );
+      }
+      pool = filteredByPrereqs;
+    }
+  }
+
+  // (b) Call 1 curriculum focus — exclusive allow-list, Call 1 only.
+  if (isFirstCall) {
+    const focus = pbConfig.firstCallCurriculumFocus;
+    if (Array.isArray(focus) && focus.length > 0) {
+      // Pre-check: are ALL listed modules already mastered by the learner?
+      // Per design brief Decision 2, the filter MUST fall back to the
+      // full pool when every listed module is mastered — otherwise the
+      // session stalls on a brand-new learner who completed all gated
+      // modules out-of-band (placement test, prior course-completion).
+      const allListedMastered =
+        focus.length > 0 &&
+        focus.every((id) => {
+          const match = modules.find((m) => m.id === id || m.slug === id);
+          if (!match) return false; // unknown slug → not mastered
+          return (
+            (match.slug && completedModules.has(match.slug)) ||
+            (match.id && completedModules.has(match.id))
+          );
+        });
+      if (allListedMastered) {
+        console.log(
+          "[modules] firstCallCurriculumFocus: all listed modules already mastered — falling back to full pool.",
+        );
+        // pool stays as it was (full or post-strict-narrowing)
+      } else {
+        const allow = new Set(focus);
+        const filteredByFocus = pool.filter(
+          (m) => (m.id && allow.has(m.id)) || (m.slug && allow.has(m.slug)),
+        );
+        if (filteredByFocus.length === 0) {
+          console.warn(
+            `[modules] firstCallCurriculumFocus: no modules matched the allow-list ${JSON.stringify(focus)} — falling back to full pool.`,
+          );
+          // pool stays as it was (full or post-strict)
+        } else {
+          pool = filteredByFocus;
+        }
+      }
+    }
+  }
+
+  return pool;
+}
+
+/**
+ * #2051 (epic #2049 sub-epic B / Contract 3) — interleaved cadence tick.
+ *
+ * Returns `"review"` ONLY when:
+ *   - `Playbook.config.moduleSequencePolicy === "interleaved"`, AND
+ *   - `(callNumber - 1) % 4 === 3` — i.e. the 4th, 8th, 12th… call in the
+ *     learner-facing sequence (calls 4 / 8 / 12 / 16 / …)
+ *
+ * Returns `null` otherwise — `learner_led` / `strict` / absent all yield
+ * null (no override), and `interleaved` on calls 1/2/3/5/6/7/9/… also yield
+ * null (scheduler picks mode normally via `pickMode`'s cadence).
+ *
+ * The cadence formula `(callNumber - 1) % 4 === 3` makes the 4th call
+ * (callNumber=4) fire `review`. callNumber starts at 1 for the first call.
+ * Aligns with the existing `interleaveReviewMinDays` review-staleness
+ * threshold (which composes — controls *which* mastered module qualifies,
+ * not when the cadence fires).
+ *
+ * @see docs/groomed/2051-call1-shape-consumers.md §Contract 3
+ */
+export function resolveInterleaveModeOverride(args: {
+  pbConfig: PlaybookConfig;
+  callNumber: number;
+}): SchedulerMode | null {
+  const { pbConfig, callNumber } = args;
+  if (pbConfig.moduleSequencePolicy !== "interleaved") return null;
+  if (typeof callNumber !== "number" || !Number.isFinite(callNumber)) return null;
+  // (callNumber - 1) % 4 === 3 → 4th call, 8th call, …
+  const callsSinceLastReview = (callNumber - 1) % 4;
+  if (callsSinceLastReview === 3) {
+    console.log(
+      `[modules] moduleSequencePolicy=interleaved: cadence tick ${callsSinceLastReview}/4 — forcing mode=review on call ${callNumber}.`,
+    );
+    return "review";
+  }
+  console.log(
+    `[modules] moduleSequencePolicy=interleaved: cadence tick ${callsSinceLastReview}/4 — scheduler picks mode normally on call ${callNumber}.`,
+  );
+  return null;
+}

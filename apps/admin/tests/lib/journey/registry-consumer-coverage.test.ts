@@ -76,18 +76,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
   // the wiring work; each transform read needs per-setting design
   // (e.g., baselineAssessmentDepth needs "light/standard/deep" prompt
   // synthesis, not just a substring read).
-  baselineAssessmentDepth: {
-    reason:
-      "Producer-only since 2026-06-17 audit. firstCallMode / instructions transforms don't synthesise light/standard/deep directives yet.",
-  },
-  firstCallCurriculumFocus: {
-    reason:
-      "Producer-only since 2026-06-17 audit. modulesGate transform doesn't filter Call 1 module set by focus tag yet.",
-  },
-  moduleSequencePolicy: {
-    reason:
-      "Producer-only since 2026-06-17 audit. modulesGate transform doesn't apply strict/interleaved/learner-led ordering yet.",
-  },
   loMasteryThreshold: {
     reason:
       "Producer-only since 2026-06-17 audit. loMastery transform uses tierPresetId, not per-course override.",
