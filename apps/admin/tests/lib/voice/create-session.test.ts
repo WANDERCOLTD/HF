@@ -19,6 +19,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockPrisma = {
   caller: { findUnique: vi.fn() },
+  // #2056 — createSession now always reads Playbook.config when a
+  // playbookId resolves, so rate-limit + agent-tuner-NLP gates can
+  // consult it. Default returns no config (no rate-limit configured).
+  playbook: { findUnique: vi.fn() },
+  // #2056 — rate-limit checks call session.count. Default returns 0
+  // (no calls today); rate-limit-specific tests live in
+  // create-session-rate-limit.test.ts.
+  session: { count: vi.fn() },
   $transaction: vi.fn(),
 };
 
@@ -63,6 +71,10 @@ beforeEach(() => {
 
   // Sensible defaults that exercise the no-enrollment path.
   mockPrisma.caller.findUnique.mockResolvedValue({ lastSelectedModuleId: null });
+  // #2056 — default to empty config (no rate-limit, no agentTunerNlpEnabled)
+  // so existing tests behave identically to pre-#2056 behaviour.
+  mockPrisma.playbook.findUnique.mockResolvedValue({ config: null });
+  mockPrisma.session.count.mockResolvedValue(0);
   mockResolveActivePlaybookId.mockResolvedValue(null);
   mockResolveCurriculumIdForPlaybook.mockResolvedValue(null);
   mockResolveModuleByLogicalId.mockResolvedValue(null);

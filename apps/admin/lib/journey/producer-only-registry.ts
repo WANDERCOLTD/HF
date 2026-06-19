@@ -83,18 +83,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
 
   // ── runtime gates (composeImpact=[] hides them from the Coverage test,
   // but they're runtime-effect settings hiding behind that flag)
-  agentTunerNlpEnabled: {
-    destinedFor: "runtime-gate",
-    note: "AgentTuner UI mounts unconditionally; this flag doesn't gate it yet.",
-  },
-  callCountPolicy: {
-    destinedFor: "runtime-gate",
-    note: "Call-counter uses hardcoded policy; this override isn't consulted.",
-  },
-  maxCallsPerDay: {
-    destinedFor: "runtime-gate",
-    note: "Call.create doesn't rate-limit; this cap is unenforced today.",
-  },
 };
 
 /** Type-narrowing helper for the UI. */

@@ -948,6 +948,45 @@ export interface PlaybookConfig {
    * @see app/api/courses/[courseId]/demo-script/route.ts
    */
   demoScript?: DemoScript;
+  /**
+   * #2056 (G of #2049) — runtime gate flags previously producer-only.
+   *
+   * `agentTunerNlpEnabled` — when true, the operator-facing AgentTuner UI
+   * (NLP behaviour-pill editor) is mounted on the Course Detail surface.
+   * Default treats `undefined` as `false` — the panel is opt-in per course.
+   * Read by `lib/journey/runtime-gates.ts::isAgentTunerNlpEnabled` and the
+   * `<AgentTunerNlpGate>` wrapper. Operator-only writeGate enforced by the
+   * `journey-setting` PATCH route.
+   *
+   * @bucket Course parameter — operator-only toggle on the Inspector.
+   */
+  agentTunerNlpEnabled?: boolean;
+  /**
+   * #2056 (G of #2049) — call-counter policy selector.
+   *
+   * - `"hard_cap"`: when the per-day session count reaches `maxCallsPerDay`,
+   *   `createSession` REFUSES with a `CallRateLimitError`.
+   * - `"soft_cap"`: when the per-day session count reaches `maxCallsPerDay`,
+   *   `createSession` LOGS a warning to AppLog (`call.rate_limit.soft_cap_hit`)
+   *   and allows the session.
+   * - `"unlimited"`: cap is not consulted; `maxCallsPerDay` is ignored.
+   *
+   * Default treats `undefined` as `"unlimited"` so existing playbooks behave
+   * exactly as they did pre-#2056. Read by
+   * `lib/journey/runtime-gates.ts::resolveCallCountPolicy`.
+   */
+  callCountPolicy?: "hard_cap" | "soft_cap" | "unlimited";
+  /**
+   * #2056 (G of #2049) — per-day session-count cap.
+   *
+   * Consumed by `createSession` together with `callCountPolicy`. When unset
+   * (or 0 / negative) the cap is treated as absent regardless of policy.
+   * On hit:
+   *   - `hard_cap` → throws `CallRateLimitError`; route emits
+   *     `call.rate_limit.over_cap` AppLog + 429 response.
+   *   - `soft_cap` → logs `call.rate_limit.soft_cap_hit` and proceeds.
+   */
+  maxCallsPerDay?: number;
   [key: string]: any;
 }
 
