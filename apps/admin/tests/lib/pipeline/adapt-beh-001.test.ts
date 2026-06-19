@@ -16,7 +16,7 @@
  *   - Existing dataSource branches ("parameterValues", "learnerProfile")
  *     are NOT regressed by the extension.
  *
- * Counterpart spec: docs-archive/bdd-specs/adapt/ADAPT-BEH-001-behavior-adaptation.spec.json
+ * Counterpart spec: docs-archive/bdd-specs/ADAPT-BEH-001-behavior-adaptation.spec.json
  * Counterpart chain: docs/lattice-chains.json → beh-aggregate-cascade
  */
 

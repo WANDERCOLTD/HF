@@ -39,7 +39,7 @@
         },
         {
           "stage": "ADAPT",
-          "consumer": "apps/admin/docs-archive/bdd-specs/adapt/ADAPT-BEH-001-behavior-adaptation.spec.json",
+          "consumer": "apps/admin/docs-archive/bdd-specs/ADAPT-BEH-001-behavior-adaptation.spec.json",
           "consumesKey": "parameters[].config.adaptationRules[].condition.profileKey (with dataSource=callerAttribute, scope defaults to BEH-AGG-001)",
           "consumesKeySamples": [
             "behavior_profile:companion:engagement_level",
