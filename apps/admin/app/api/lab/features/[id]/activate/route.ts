@@ -14,6 +14,8 @@ import { clearAIConfigCache } from "@/lib/ai/config-loader";
 import { clearSystemSettingsCache } from "@/lib/system-settings";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
+import { resolveCanonicalScaleType } from "@/lib/registry/canonical-scale-type";
+import { resolveCanonicalDirectionality } from "@/lib/registry/canonical-directionality";
 
 /**
  * @api POST /api/lab/features/:id/activate
@@ -211,14 +213,50 @@ export async function POST(
           continue;
         }
 
+        // #2031 S5 — sibling fix to #2030. The `|| "0-1"` /
+        // `|| "positive"` fallbacks could silently land off-canonical
+        // values when the spec supplied an unknown scaleType /
+        // directionality string. The DB has no CHECK constraint on
+        // either column; the per-site test pins the canonical set at
+        // CI time only.
+        //
+        // The 154-row canonical registry (`behavior-parameters.registry.json`)
+        // does NOT carry either field today — surveyed 2026-06-19 —
+        // so the dominant case is "no incoming value, default to
+        // canonical seed default". The skip-on-null pattern (#2030)
+        // would refuse every parameter; that's wrong here.
+        //
+        // Branch instead: if the spec supplied a value AND it failed
+        // canonical resolution, refuse the write (silent corruption
+        // path). If the spec supplied nothing, fall back to the
+        // canonical seed default (`"0-1"` / `"positive"`) — both are
+        // members of the canonical Set, audited 2026-06-19.
+        const rawScaleType = (param as { scaleType?: unknown }).scaleType;
+        const canonicalScaleType =
+          rawScaleType === undefined || rawScaleType === null
+            ? "0-1"
+            : resolveCanonicalScaleType({ scaleType: rawScaleType });
+        if (!canonicalScaleType) {
+          continue;
+        }
+        const rawDirectionality = (param as { directionality?: unknown })
+          .directionality;
+        const canonicalDirectionality =
+          rawDirectionality === undefined || rawDirectionality === null
+            ? "positive"
+            : resolveCanonicalDirectionality({ directionality: rawDirectionality });
+        if (!canonicalDirectionality) {
+          continue;
+        }
+
         const paramData = {
           parameterId,
           name: param.name || parameterId,
           definition: param.description || param.definition || null,
           sectionId: param.section || "lab-imported",
           domainGroup: canonicalGroup,
-          scaleType: param.scaleType || "0-1",
-          directionality: param.directionality || "positive",
+          scaleType: canonicalScaleType,
+          directionality: canonicalDirectionality,
           computedBy: `spec:${featureSet.featureId}`,
           parameterType,
           interpretationHigh,
