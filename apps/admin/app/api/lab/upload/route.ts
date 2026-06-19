@@ -147,6 +147,13 @@ export async function POST(req: Request) {
       outputType,
       specRole,
       specType: featureSet.specType as SpecType,
+      // LastParms audit (#2031) finding #3: this fallback to "general" is
+      // benign. `AnalysisSpec.domain` is a free-form `String?` (see
+      // prisma/schema.prisma) used as a UI grouping label, NOT a constrained
+      // taxonomy. Seed corpus already carries ~40 distinct values including
+      // "admin", "chat", "pipeline", "wizard", "cieh-level2-food-safety" —
+      // none of which match the `Parameter.domainGroup` canonical taxonomy.
+      // No `canonical-spec-domain.ts` helper is warranted. Closed won't-fix.
       domain: (featureSet.scoringSpec as any)?.domain || "general",
       priority: featureSet.specType === "SYSTEM" ? 50 : 10,
       isActive: true,
