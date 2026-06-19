@@ -176,7 +176,7 @@ export function CourseJourneyTab({
   // in-tab (cross-tab scenario) → surface the hint card for the first
   // bucket chronologically and clear the LH selection.
   const handlePreviewSectionSelect = useCallback(
-    (section: ComposeSectionKey | null) => {
+    (section: ComposeSectionKey | null, settingId?: string) => {
       if (!section) {
         setPickStripSection(null);
         setCrossTabHint(null);
@@ -190,7 +190,11 @@ export function CourseJourneyTab({
       }
       const inTab = buckets.filter(isJourneyBucket);
       if (inTab.length > 0) {
-        selection.setBucketId(inTab[0]);
+        // Slice 4 grey-out epic — when the bubble unambiguously maps to a
+        // specific contract id, pass it as the second arg so the
+        // Inspector can scroll+highlight that row. Bucket clicks without
+        // a setting id stay on the bucket-level focus path.
+        selection.setBucketId(inTab[0], settingId ?? null);
         setPickStripSection(inTab.length >= 2 ? section : null);
         setCrossTabHint(null);
         return;
@@ -271,7 +275,10 @@ export function CourseJourneyTab({
               onJump={handleJump}
             />
           ) : (
-            <JourneyInspectorPanel selectedBucketId={selection.bucketId} />
+            <JourneyInspectorPanel
+              selectedBucketId={selection.bucketId}
+              focusedSettingId={selection.focusedSettingId}
+            />
           )}
         </aside>
         <CommandPalette

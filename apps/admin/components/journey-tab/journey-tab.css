@@ -291,6 +291,23 @@
   padding-bottom: 0;
 }
 
+/* Slice 4 grey-out epic — preview-bubble click highlight on the matching
+ * Inspector row. Class is added by FocusableRow for ~1.8s, then removed.
+ * Keep the pulse subtle — the educator's eye needs to land, not be
+ * startled. Background ramps in over 120ms and fades over 1500ms. */
+@keyframes hf-journey-inspector-row-focus-pulse {
+  0%   { background: color-mix(in srgb, var(--accent-primary) 18%, transparent); }
+  60%  { background: color-mix(in srgb, var(--accent-primary) 12%, transparent); }
+  100% { background: transparent; }
+}
+
+.hf-journey-inspector-row-focus {
+  border-radius: 8px;
+  margin: -6px -8px -6px -8px;
+  padding: 6px 8px 18px 8px;
+  animation: hf-journey-inspector-row-focus-pulse 1700ms ease-out forwards;
+}
+
 .hf-journey-inspector-subgroup {
   margin-bottom: 16px;
 }
