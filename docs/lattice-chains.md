@@ -207,6 +207,7 @@ Three structural patterns, in order of preference:
 | `courses-template-version-coverage.md` | `tests/lib/courses/courses-template-version-coverage.test.ts` (#1991) | ✅ PROTECTED |
 | `privacy-redaction.md` | ESLint `require-tiered-redactor` + `tier-visibility-coverage` (#1855) — same enforcer as `response-redaction.md`; this file is the privacy-specific framing | ✅ PROTECTED (5 leak ratchet, #1922) |
 | `data-retention.md` | `lib/privacy/stamp-regulatory-expiry.ts` chokepoint (#1917) + retention cron + `apps/admin/scripts/check-fk-consistency.ts` Query 12 | ✅ PROTECTED (3 voice paths adopted; 8 lower-priority writers adopt as touched) |
+| `db-registry-parity.md` | `tests/lib/registry/parameter-domain-group-taxonomy.test.ts` (#1948 — JSON source) + `eslint-rules/no-bare-parameter-write.mjs` (#2034 S1 — write chokepoint) + canonical helper at `lib/registry/canonical-domain-group.ts::resolveCanonicalDomainGroup()` + planned DB-parity ratchet (#2040 S7 — see PR #2046) + planned CHECK constraint migration (S3c) | ⚠️ PARTIAL (S7 + S3c pending; ratchet covers S1 + JSON-source today, DB CHECK + DB parity test land after S3a/S3b mapping clears incumbent debt) |
 | `vm-migration-lock.md` | `scripts/vm-migrate.sh` wrapper + session-start check | ✅ PROTECTED |
 | `pipeline-and-prompt.md` | `qmd search` mandate + docs cross-ref | ⚠️ CONVENTION-ONLY |
 | `database-patterns.md` | Author discipline | ⚠️ CONVENTION-ONLY |
