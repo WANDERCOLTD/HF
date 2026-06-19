@@ -609,6 +609,71 @@ export interface PlaybookConfig {
    */
   firstCallMode?: "onboarding" | "teach_immediately" | "baseline_assessment";
   /**
+   * #2052 sub-epic C — scoring consumer fields wired from the producer-only
+   * registry into runtime. These fields are read by
+   * `lib/prompt/composition/scoring-config.ts::resolveScoringConfig` (a
+   * single chokepoint used by `transforms/modules.ts` for LO mastery,
+   * `transforms/instructions.ts` for progress-signal directives, and
+   * `lib/ops/compute-reward.ts` for REWARD strategy selection).
+   *
+   * Each setting is OPTIONAL — when absent, the consumer falls back to its
+   * previous behaviour (tier preset / hardcoded thresholds / default strategy).
+   *
+   * Producer-only debt closed: see `lib/journey/producer-only-registry.ts`
+   * (these 5 ids are no longer listed) + sub-epic C of epic #2049.
+   *
+   * @bucket Course parameter — operator-tunable via the Inspector.
+   * @see lib/prompt/composition/scoring-config.ts
+   * @see docs/CHAIN-CONTRACTS.md §3 (REWARD invariant — rewardStrategy is
+   *      on the boundary between AGGREGATE outputs and REWARD reads)
+   */
+  /**
+   * Mastery score required to mark a Learning Objective as passed. When set,
+   * overrides the per-tier-preset default in `lib/prompt/composition/modules`
+   * loMastery cut so the LLM treats LOs at-or-above this number as passed.
+   * Range [0,1]. When unset the existing tierPresetId-derived cut applies
+   * (byte-identical previous behaviour).
+   */
+  loMasteryThreshold?: number;
+  /**
+   * Mastery the learner must reach before a post-test / assessment stop
+   * fires. Read by the instructions transform to gate
+   * `assessment_readiness_directive` against the learner's aggregated
+   * `behavior_profile:learning:*` rollup (or per-LO mastery when the
+   * rollup is unavailable). Range [0,1]. Unset = no gating directive
+   * (byte-identical previous behaviour — stop fires per existing rules).
+   */
+  assessmentReadinessThreshold?: number;
+  /**
+   * Progress-signal water marks. The instructions transform emits a
+   * `progress_signal_directive` when the learner's aggregated engagement
+   * mastery falls outside the band [lowWater, highWater]. Below lowWater
+   * → "emphasise encouragement"; above highWater → "emphasise stretch".
+   * Either side may be unset to disable that half of the band.
+   *
+   * Read from `behavior_profile:engagement:*` CallerAttributes produced
+   * by BEH-AGG-001 (PR 75906d9d / commit a8234bf3 in lattice). When
+   * the rollup is absent the consumer uses the average of per-LO
+   * mastery as a fallback signal.
+   */
+  progressSignals?: {
+    lowWater?: number;
+    highWater?: number;
+  };
+  /**
+   * Which reward signal the adaptive loop optimises for. Read by
+   * `lib/ops/compute-reward.ts` to choose between three modes:
+   *   - `"learner_mastery"` — weight behaviour-target diffs by mastery
+   *     improvement (uses `behavior_profile:learning:*` aggregates when
+   *     available; falls back to standard behavior+outcome blend).
+   *   - `"educator_drift"` — weight behaviour-target diffs only; ignore
+   *     outcome signals (operator's tuning is the truth).
+   *   - `"blended"` — current default (behaviorWeight * behavior +
+   *     outcomeWeight * outcome).
+   * Unset = `"blended"` (byte-identical previous behaviour).
+   */
+  rewardStrategy?: "learner_mastery" | "educator_drift" | "blended";
+  /**
    * #598 Slice 1 — Course-level tolerance overrides for the mastery / spacing /
    * decay cascade (ADR 2026-05-22-tolerance-placement.md).
    *

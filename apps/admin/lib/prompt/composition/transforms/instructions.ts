@@ -22,6 +22,12 @@ import type { AssembledContext, GoalData, SubjectSourcesData } from "../types";
 import type { AuthoredModule, PlaybookConfig, SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
+import {
+  resolveScoringConfig,
+  buildAssessmentReadinessDirective,
+  buildProgressSignalDirective,
+} from "@/lib/prompt/composition/scoring-config";
+import { buildLoMasteryMap } from "@/lib/prompt/composition/lo-mastery-map";
 
 // Goal-type × progress-bracket adaptation guidance.
 // Tells the AI HOW to adapt teaching based on goal type and progress level.
@@ -385,6 +391,51 @@ registerTransform("computeInstructions", (
 
     // Voice — delegates to separate transform (already computed)
     voice: sections.instructions_voice || null,
+
+    // #2052 sub-epic C — assessment_readiness_directive.
+    //
+    // Reads `Playbook.config.assessmentReadinessThreshold`. When set,
+    // gates pre/mid/post-test stop firing on the learner's aggregated
+    // `behavior_profile:learning:*` rollup (produced by BEH-AGG-001 —
+    // see `lib/measurement/...` AGGREGATE spec). Falls back to
+    // averaged per-LO mastery when the rollup is absent. Returns null
+    // when the operator hasn't set the threshold (byte-identical
+    // previous behaviour).
+    //
+    // @see lib/prompt/composition/scoring-config.ts
+    assessment_readiness_directive: buildAssessmentReadinessDirective(
+      resolveScoringConfig(
+        (loadedData.playbooks?.[0]?.config ?? null) as PlaybookConfig | null,
+      ),
+      loadedData.callerAttributes,
+      buildLoMasteryMap(
+        loadedData.callerAttributes,
+        sharedState.curriculumSpecSlug,
+      ),
+    ),
+
+    // #2052 sub-epic C — progress_signal_directive.
+    //
+    // Reads `Playbook.config.progressSignals.lowWater` / `.highWater`.
+    // When set, compares the learner's aggregated
+    // `behavior_profile:engagement:*` rollup against the band:
+    //   - below lowWater  → "encouragement"
+    //   - above highWater → "stretch"
+    //   - in between      → "in_band"
+    // Returns null when neither water mark is set (byte-identical
+    // previous behaviour).
+    //
+    // @see lib/prompt/composition/scoring-config.ts
+    progress_signal_directive: buildProgressSignalDirective(
+      resolveScoringConfig(
+        (loadedData.playbooks?.[0]?.config ?? null) as PlaybookConfig | null,
+      ),
+      loadedData.callerAttributes,
+      buildLoMasteryMap(
+        loadedData.callerAttributes,
+        sharedState.curriculumSpecSlug,
+      ),
+    ),
 
     // #1732 (epic #1730 G8 consumer A) — module-scoped question count
     // directive. Resolves `Playbook.config.modules[].settings.questionTarget`
