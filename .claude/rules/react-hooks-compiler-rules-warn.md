@@ -1,12 +1,14 @@
 # React Compiler rules — warn, not error
 
-> The 3 React-Compiler-family rules in `eslint-plugin-react-hooks`
-> (`static-components`, `purity`, `preserve-manual-memoization`) are
+> Two React-Compiler-family rules in `eslint-plugin-react-hooks`
+> (`static-components` and `preserve-manual-memoization`) are
 > intentionally configured at `"warn"` severity, not `"error"`. The
-> `rules-of-hooks` rule (classic React) remains at `"error"`. The
-> `.ratchet.json` `lint_warnings` baseline locks the current violation
-> count so the codebase can't regress while a follow-on epic pays them
-> down.
+> third (`purity`) was demoted in PR #2016 then re-promoted to
+> `"error"` in PR #2017 after the 6 incumbent violations were cleared.
+> The `rules-of-hooks` rule (classic React) remains at `"error"`
+> throughout. The `.ratchet.json` `lint_warnings` baseline locks the
+> current violation count so the codebase can't regress while a
+> follow-on epic pays the remaining 46 violations down.
 >
 > Sibling to the `.claude/rules/*-coverage.md` Coverage-pillar gates
 > (registry-consumer / route-auth-zod / tier-visibility / parameter):
@@ -20,10 +22,11 @@
 
 - `react-hooks/rules-of-hooks` → `"error"` (classic React Hooks rule;
   zero current violations; future regressions block CI)
-- `react-hooks/static-components` → `"warn"` (React Compiler family)
-- `react-hooks/purity` → `"warn"` (React Compiler family)
-- `react-hooks/preserve-manual-memoization` → `"warn"` (React Compiler
-  family)
+- `react-hooks/static-components` → `"warn"` (12 violations remain)
+- `react-hooks/purity` → `"error"` (re-promoted #2017; 6 incumbents
+  cleared)
+- `react-hooks/preserve-manual-memoization` → `"warn"` (34 violations
+  remain)
 
 The ratchet (`.ratchet.json::lint_warnings`) holds the post-demote
 warning count. The ratchet step in `.github/workflows/test.yml` (Lint
@@ -99,7 +102,7 @@ Until then: the warn floor + ratchet is the honest contract.
 | Location | Mechanism | What it prevents |
 |---|---|---|
 | `apps/admin/eslint.config.mjs` lines ~519-541 | Rule severity at "warn" | Spurious CI red on incumbent violations |
-| `.ratchet.json::lint_warnings` (4861 as of 2026-06-19) | Count-cap ratchet (#227) | New violations growing the warn count |
+| `.ratchet.json::lint_warnings` (4855 as of 2026-06-19, post-#2017) | Count-cap ratchet (#227) | New violations growing the warn count |
 | `.github/workflows/test.yml` step "Ratchet check (blocking)" | Runs `npm run ratchet:check` after lint passes | Silent drift like the 4544→4809 lapse |
 | This rule | Author discipline | Confusion when a future contributor sees "warn" and assumes the rule is unimportant |
 
