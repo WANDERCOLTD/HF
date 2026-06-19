@@ -1,0 +1,386 @@
+{
+  "$schema": "../feature-spec-schema.json",
+  "id": "ADAPT-BEH-001",
+  "title": "Behavior Profile Adaptation",
+  "version": "1.0",
+  "status": "Active",
+  "date": "2026-06-19",
+  "domain": "behavior-adaptation",
+  "specType": "ADAPT",
+  "outputType": "ADAPT",
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "personalization system",
+    "iWant": "to read the rolled-up behavior_profile:* CallerAttribute rows written by BEH-AGG-001 and adjust the per-caller CallerTarget for selected BEH-* parameters",
+    "soThat": "the adaptive loop closes for the BEH-* family: AGGREGATE writes per-caller behaviour fingerprints, and the next call's compose-time CallerTarget reflects those fingerprints — the tutor's targets drift toward what works for this learner without operator intervention"
+  },
+  "context": {
+    "applies": "Every call - reads BEH-AGG-001 CallerAttribute rows (scope=BEH-AGG-001) and writes CallerTarget upserts for Phase 1 companion / supervision / engagement buckets",
+    "dependsOn": [
+      "BEH-AGG-001-behavior-aggregation"
+    ],
+    "assumptions": [
+      "BEH-AGG-001 has written behavior_profile:{group}:{dimension} CallerAttributes for the caller. If the row is missing (minimumObservations not yet met), the rule's evaluateCondition(null) returns false and the rule silently skips — natural activation gating without a profileCondition.",
+      "CallerTarget.targetValue is the canonical write surface for ADAPT outputs — the per-caller cascade layer that wins over BehaviorTarget(scope=*).",
+      "Phase 1 deliberately AVOIDS BEH-EMPATHY-RATE and BEH-PROACTIVE — both owned by ADAPT-PERS-001. Phase 2 may add an outputPriority coordination layer; today the runner iterates specs in findMany order and last write wins. ADAPT-BEH-001 targets BEH-ENGAGEMENT / BEH-QUESTION-RATE / BEH-INTELLECTUAL-CHALLENGE / BEH-FORMALITY / BEH-DIRECTNESS / BEH-WARMTH / BEH-DEFINITION-PRECISION instead.",
+      "Phase 2 buckets (personality / curriculum / learning / reinforcement / onboarding / core_style) are deferred — see notes for the per-bucket rationale."
+    ]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC-ADAPT-BEH-1",
+      "title": "Companion bucket — engagement-level adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:companion:engagement_level for the caller",
+      "when": "Running ADAPT-BEH-001",
+      "then": "If engagement_level is 'low', CallerTarget(BEH-ENGAGEMENT).targetValue is increased by 0.10",
+      "measuredBy": ["companion_engagement_adaptation"]
+    },
+    {
+      "id": "AC-ADAPT-BEH-2",
+      "title": "Companion bucket — question-rate adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:companion:question_rate for the caller",
+      "when": "Running ADAPT-BEH-001",
+      "then": "If question_rate is 'rare', CallerTarget(BEH-QUESTION-RATE).targetValue is increased by 0.10",
+      "measuredBy": ["companion_question_rate_adaptation"]
+    },
+    {
+      "id": "AC-ADAPT-BEH-3",
+      "title": "Supervision bucket — tutor-fidelity adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:supervision:tutor_fidelity for the caller",
+      "when": "Running ADAPT-BEH-001",
+      "then": "If tutor_fidelity is 'low', CallerTarget(BEH-DEFINITION-PRECISION).targetValue is increased by 0.10",
+      "measuredBy": ["supervision_tutor_fidelity_adaptation"]
+    },
+    {
+      "id": "AC-ADAPT-BEH-4",
+      "title": "Supervision bucket — style-consistency adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:supervision:style_consistency for the caller",
+      "when": "Running ADAPT-BEH-001",
+      "then": "If style_consistency is 'inconsistent', CallerTarget(BEH-FORMALITY).targetValue is set to 0.6",
+      "measuredBy": ["supervision_style_consistency_adaptation"]
+    },
+    {
+      "id": "AC-ADAPT-BEH-5",
+      "title": "Supervision bucket — target-alignment adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:supervision:target_alignment for the caller",
+      "when": "Running ADAPT-BEH-001",
+      "then": "If target_alignment is 'misaligned', CallerTarget(BEH-DIRECTNESS).targetValue is increased by 0.05",
+      "measuredBy": ["supervision_target_alignment_adaptation"]
+    },
+    {
+      "id": "AC-ADAPT-BEH-6",
+      "title": "Supervision bucket — safety-compliance adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:supervision:safety_compliance for the caller",
+      "when": "Running ADAPT-BEH-001",
+      "then": "If safety_compliance is 'marginal', CallerTarget(BEH-WARMTH).targetValue is decreased by 0.05",
+      "measuredBy": ["supervision_safety_compliance_adaptation"]
+    },
+    {
+      "id": "AC-ADAPT-BEH-7",
+      "title": "Engagement bucket — cognitive-activation adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:engagement:cognitive_activation for the caller",
+      "when": "Running ADAPT-BEH-001",
+      "then": "If cognitive_activation is 'low', CallerTarget(BEH-INTELLECTUAL-CHALLENGE).targetValue is increased by 0.10; if 'high', decreased by 0.05",
+      "measuredBy": ["engagement_cognitive_activation_adaptation"]
+    },
+    {
+      "id": "AC-ADAPT-BEH-8",
+      "title": "Engagement bucket — call-frequency-fidelity adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:engagement:call_frequency_fidelity for the caller",
+      "when": "Running ADAPT-BEH-001",
+      "then": "If call_frequency_fidelity is 'drift', CallerTarget(BEH-ENGAGEMENT).targetValue is set to 0.8",
+      "measuredBy": ["engagement_call_frequency_adaptation"]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "companion_engagement_adaptation",
+      "name": "Companion Engagement Adaptation",
+      "description": "Raise BEH-ENGAGEMENT target when the caller's rolled-up companion:engagement_level fingerprint reads 'low'.",
+      "section": "companion",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:companion:engagement_level",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ENGAGEMENT",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Companion fingerprint shows low engagement — raise the engagement target so the tutor leans in more."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "companion_question_rate_adaptation",
+      "name": "Companion Question-Rate Adaptation",
+      "description": "Raise BEH-QUESTION-RATE target when the caller's rolled-up companion:question_rate fingerprint reads 'rare'.",
+      "section": "companion",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:companion:question_rate",
+              "operator": "eq",
+              "value": "rare",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Tutor consistently underdelivers on questions — raise the target so it asks more."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "supervision_tutor_fidelity_adaptation",
+      "name": "Supervision Tutor-Fidelity Adaptation",
+      "description": "Tighten BEH-DEFINITION-PRECISION when tutor_fidelity drifts low — sharper definitions reduce ambiguity that the supervision signal flagged.",
+      "section": "supervision",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:supervision:tutor_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-DEFINITION-PRECISION",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Supervision flagged low tutor fidelity — raise definition precision so the prompt directive is sharper."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "supervision_style_consistency_adaptation",
+      "name": "Supervision Style-Consistency Adaptation",
+      "description": "Anchor BEH-FORMALITY at a midpoint when style_consistency reads 'inconsistent' — fixes the drift by pinning the target.",
+      "section": "supervision",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:supervision:style_consistency",
+              "operator": "eq",
+              "value": "inconsistent",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-FORMALITY",
+                "adjustment": "set",
+                "value": 0.6,
+                "rationale": "Inconsistent style — pin formality to a balanced midpoint so subsequent calls have a stable anchor."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "supervision_target_alignment_adaptation",
+      "name": "Supervision Target-Alignment Adaptation",
+      "description": "Raise BEH-DIRECTNESS when target_alignment is 'misaligned' — more direct prompts reduce miss rate.",
+      "section": "supervision",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:supervision:target_alignment",
+              "operator": "eq",
+              "value": "misaligned",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-DIRECTNESS",
+                "adjustment": "increase",
+                "delta": 0.05,
+                "rationale": "Supervision flagged misaligned targets — small directness bump helps the tutor steer back on track."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "supervision_safety_compliance_adaptation",
+      "name": "Supervision Safety-Compliance Adaptation",
+      "description": "Lower BEH-WARMTH when safety_compliance is 'marginal' — tighter warmth makes the tutor less likely to over-agree with unsafe content.",
+      "section": "supervision",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:supervision:safety_compliance",
+              "operator": "eq",
+              "value": "marginal",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-WARMTH",
+                "adjustment": "decrease",
+                "delta": 0.05,
+                "rationale": "Marginal safety compliance — small warmth reduction tightens the tutor's empathy gating so it pushes back on unsafe content."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "engagement_cognitive_activation_adaptation",
+      "name": "Engagement Cognitive-Activation Adaptation",
+      "description": "Adjust BEH-INTELLECTUAL-CHALLENGE in both directions based on the rolled-up cognitive_activation fingerprint.",
+      "section": "engagement",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:cognitive_activation",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-INTELLECTUAL-CHALLENGE",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Low cognitive activation — raise challenge so the tutor pushes more."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:cognitive_activation",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-INTELLECTUAL-CHALLENGE",
+                "adjustment": "decrease",
+                "delta": 0.05,
+                "rationale": "High cognitive activation — small reduction so the tutor doesn't overshoot."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "engagement_call_frequency_adaptation",
+      "name": "Engagement Call-Frequency-Fidelity Adaptation",
+      "description": "Pin BEH-ENGAGEMENT high when call_frequency_fidelity is 'drift' — the caller is missing their cadence; raising engagement increases the chance the next call lands.",
+      "section": "engagement",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:call_frequency_fidelity",
+              "operator": "eq",
+              "value": "drift",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ENGAGEMENT",
+                "adjustment": "set",
+                "value": 0.8,
+                "rationale": "Call cadence drifting — pin engagement high so the next session is more memorable / sticky."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "defaultAdaptConfidence": 0.75
+  },
+  "constraints": [
+    {
+      "id": "C-ADAPT-BEH-1",
+      "type": "dependency",
+      "description": "Requires BEH-AGG-001 to have written behavior_profile:* CallerAttributes before computing adaptations. When the row is missing, evaluateCondition(null) returns false and the rule silently skips — natural activation gating.",
+      "severity": "critical"
+    },
+    {
+      "id": "C-ADAPT-BEH-2",
+      "type": "balance",
+      "description": "ADAPT-BEH-001 and ADAPT-PERS-001 BOTH write CallerTarget upserts. Phase 1 avoids targeting parameters owned by ADAPT-PERS-001 (BEH-EMPATHY-RATE / BEH-PROACTIVE) per Q2/Option-C — last write wins is unimportant when the sets are disjoint. Phase 2 should consider an outputPriority coordination layer if the sets overlap.",
+      "severity": "warning"
+    }
+  ],
+  "related": [
+    {
+      "id": "BEH-AGG-001",
+      "title": "Behavior Parameter Aggregation",
+      "relationship": "provides input — ADAPT-BEH-001 reads BEH-AGG-001 outputs"
+    },
+    {
+      "id": "ADAPT-PERS-001",
+      "title": "Big Five Personality Adaptation",
+      "relationship": "sibling ADAPT spec — owns BEH-EMPATHY-RATE / BEH-PROACTIVE; ADAPT-BEH-001 deliberately avoids these targets"
+    }
+  ],
+  "notes": [
+    "Phase 1 = 3 of 9 buckets (companion / supervision / engagement). Phase 2 deferred buckets:",
+    "  - personality: handled by ADAPT-PERS-001; double-fire risk needs conflict analysis first",
+    "  - curriculum: belongs in ADAPT-CURR-001 if it exists",
+    "  - learning: overlaps ADAPT-LEARN-001",
+    "  - reinforcement: belongs at REWARD stage, not ADAPT",
+    "  - onboarding: behavior_aggregate_onboarding uses minimumObservations=1 — adapting from a single call is premature",
+    "  - core_style: overlaps ADAPT-VARK-001",
+    "All Phase 1 rules use the new dataSource: \"callerAttribute\" branch on adapt-runner.ts. Scope defaults to BEH-AGG-001 but is explicit on every rule so the runner contract stays config-driven (no hardcoding).",
+    "No profileCondition gate — the null-guard in evaluateCondition is the natural activation gate."
+  ]
+}

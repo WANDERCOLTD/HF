@@ -137,14 +137,17 @@ function checkKeyConsistency(
 // ────────────────────────────────────────────────────────────
 
 /**
- * 2026-06-19 incumbent — chains with tolerated open links. Each key
- * MUST appear in some chain's `knownGaps[].ratchetKey`. New gaps fail
- * the test until they're either fixed (close the link) or tolerated
- * (add to the chain's `knownGaps[]`).
+ * Chains with tolerated open links. Each key MUST appear in some
+ * chain's `knownGaps[].ratchetKey`. New gaps fail the test until
+ * they're either fixed (close the link) or tolerated (add to the
+ * chain's `knownGaps[]`).
+ *
+ * 2026-06-19 — story #2074 closed `beh-aggregate-cascade:adapt-leg`
+ * by shipping ADAPT-BEH-001 + the adapt-runner `callerAttribute`
+ * dataSource extension. The chain now walks end-to-end MEASURE →
+ * AGGREGATE → ADAPT → COMPOSE with zero tolerated drift.
  */
-const EXPECTED_TOLERATED_GAPS = new Set<string>([
-  "beh-aggregate-cascade:adapt-leg",
-]);
+const EXPECTED_TOLERATED_GAPS = new Set<string>([]);
 
 // ────────────────────────────────────────────────────────────
 // Tests
