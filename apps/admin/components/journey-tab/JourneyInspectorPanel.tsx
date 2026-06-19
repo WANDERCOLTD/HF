@@ -42,14 +42,22 @@ interface JourneyInspectorPanelProps {
   /** Slice 4 — when set, scroll + briefly highlight the row for this
    *  setting id. Cleared on next bucket-only click. */
   focusedSettingId?: string | null;
+  /** Slice 8 — fires when the educator clicks an Inspector row.
+   *  CourseJourneyTab uses this to set `focusedSettingId` (which then
+   *  drives the middle-pane bubble pulse), closing the RHS → MIDDLE
+   *  cross-pane signal the prior slices already established the other
+   *  way around. */
+  onRowFocus?: (settingId: string) => void;
 }
 
 function SettingsStack({
   settings,
   focusedSettingId,
+  onRowFocus,
 }: {
   settings: readonly JourneySettingContract[];
   focusedSettingId?: string | null;
+  onRowFocus?: (settingId: string) => void;
 }) {
   const ctx = useJourneySetting();
   return (
@@ -61,7 +69,12 @@ function SettingsStack({
         );
         const isFocused = focusedSettingId === contract.id;
         return (
-          <FocusableRow key={contract.id} isFocused={isFocused} settingId={contract.id}>
+          <FocusableRow
+            key={contract.id}
+            isFocused={isFocused}
+            settingId={contract.id}
+            onRowClick={onRowFocus}
+          >
             <CascadeTraceBreadcrumb contract={contract} />
             <WriteGateLockChip contract={contract} />
             <JourneyField
@@ -81,14 +94,18 @@ function SettingsStack({
 }
 
 /** Wrapper that scrolls into view + briefly pulses when isFocused goes true.
- *  Triggered by Preview bubble click → setBucketId(b, settingId). */
+ *  Triggered by Preview bubble click → setBucketId(b, settingId). Slice 8
+ *  also forwards click events up so the parent can fire the reverse
+ *  RHS → MIDDLE pane signal. */
 function FocusableRow({
   isFocused,
   settingId,
+  onRowClick,
   children,
 }: {
   isFocused: boolean;
   settingId: string;
+  onRowClick?: (settingId: string) => void;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -108,6 +125,7 @@ function FocusableRow({
       ref={ref}
       className="hf-journey-inspector-row"
       data-testid={`hf-journey-inspector-row-${settingId}`}
+      onMouseDown={onRowClick ? () => onRowClick(settingId) : undefined}
     >
       {children}
     </div>
@@ -117,6 +135,7 @@ function FocusableRow({
 export function JourneyInspectorPanel({
   selectedBucketId,
   focusedSettingId,
+  onRowFocus,
 }: JourneyInspectorPanelProps) {
   // Slice 6 grey-out epic — LH bucket click glow. When bucketId changes,
   // accent-pulse the whole Inspector area for ~900ms so the operator
@@ -201,18 +220,30 @@ export function JourneyInspectorPanel({
             data-testid={`hf-journey-subgroup-course-${selectedBucketId}`}
           >
             <div className="hf-category-label">Course defaults</div>
-            <SettingsStack settings={course} focusedSettingId={focusedSettingId} />
+            <SettingsStack
+              settings={course}
+              focusedSettingId={focusedSettingId}
+              onRowFocus={onRowFocus}
+            />
           </div>
           <div
             className="hf-journey-inspector-subgroup"
             data-testid={`hf-journey-subgroup-module-${selectedBucketId}`}
           >
             <div className="hf-category-label">This module</div>
-            <SettingsStack settings={moduleScope} focusedSettingId={focusedSettingId} />
+            <SettingsStack
+              settings={moduleScope}
+              focusedSettingId={focusedSettingId}
+              onRowFocus={onRowFocus}
+            />
           </div>
         </>
       ) : (
-        <SettingsStack settings={all} focusedSettingId={focusedSettingId} />
+        <SettingsStack
+          settings={all}
+          focusedSettingId={focusedSettingId}
+          onRowFocus={onRowFocus}
+        />
       )}
     </div>
   );

@@ -957,6 +957,11 @@ function BubbleRow({
           className={bubbleClasses}
           title={bubble.lensLabel}
           aria-label={bubble.lensLabel}
+          data-setting-id={
+            bubble.lensLabel
+              ? LENS_LABEL_TO_SETTING_ID[bubble.lensLabel]
+              : undefined
+          }
           onClick={() => onOpenSidetray(bubble.lens, bubble.lensLabel)}
         >
           <span className="hf-preview-bubble-text">{bubble.text}</span>

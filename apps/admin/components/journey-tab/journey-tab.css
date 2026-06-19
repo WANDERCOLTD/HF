@@ -79,6 +79,12 @@
   font-size: 11px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hf-journey-group-count-divider {
+  opacity: 0.55;
+  margin: 0 1px;
 }
 
 .hf-journey-group-body {
@@ -366,6 +372,19 @@
   margin: -6px -8px -6px -8px;
   padding: 6px 8px 18px 8px;
   animation: hf-journey-inspector-row-focus-pulse 1700ms ease-out forwards;
+}
+
+/* Slice 8 grey-out epic — middle-pane bubble pulse fired by RHS row
+ * click (or middle bubble click → focusedSettingId set → this fires).
+ * Subtle box-shadow halo since bubbles are already visually busy. */
+@keyframes hf-preview-bubble-focus-pulse {
+  0%   { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 45%, transparent); }
+  60%  { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 22%, transparent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
+.hf-preview-bubble-focus {
+  animation: hf-preview-bubble-focus-pulse 1400ms ease-out forwards;
 }
 
 .hf-journey-inspector-subgroup {

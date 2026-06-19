@@ -132,6 +132,45 @@ export function CourseJourneyTab({
   // Slice C — multi-pulse over all bucket sections.
   useBubblePulse(canvasRef, selection.bucketId);
 
+  // Slice 8 grey-out epic — RHS Inspector row click closes the
+  // tri-pane signal: pulse + scroll the matching middle-pane bubble
+  // (looked up via `[data-setting-id=<id>]` injected at bubble emit).
+  // Also write the selection so the RHS row itself stays highlighted.
+  const handleInspectorRowFocus = useCallback(
+    (settingId: string) => {
+      if (selection.focusedSettingId === settingId) return; // dedup
+      selection.setBucketId(selection.bucketId, settingId);
+    },
+    [selection],
+  );
+
+  // Pulse + scroll the middle-pane bubble matching the focused setting.
+  // Runs on every focusedSettingId change regardless of source (middle
+  // bubble click OR RHS row click). One-shot 1.5s pulse animation.
+  useEffect(() => {
+    const settingId = selection.focusedSettingId;
+    if (!settingId) return;
+    const root = canvasRef.current;
+    if (!root) return;
+    const el = root.querySelector<HTMLElement>(
+      `[data-setting-id="${settingId}"]`,
+    );
+    if (!el) return;
+    // Scroll only when the bubble is out of view — avoid scroll-fights
+    // when the educator is already looking at it.
+    const rect = el.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    const offscreen = rect.top < rootRect.top || rect.bottom > rootRect.bottom;
+    if (offscreen) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    el.classList.add("hf-preview-bubble-focus");
+    const timer = window.setTimeout(() => {
+      el.classList.remove("hf-preview-bubble-focus");
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [selection.focusedSettingId]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -278,6 +317,7 @@ export function CourseJourneyTab({
             <JourneyInspectorPanel
               selectedBucketId={selection.bucketId}
               focusedSettingId={selection.focusedSettingId}
+              onRowFocus={handleInspectorRowFocus}
             />
           )}
         </aside>

@@ -31,6 +31,7 @@ import {
 } from "@/lib/journey/setting-groups";
 import {
   JOURNEY_MENU_ITEMS,
+  JOURNEY_MENU_ITEMS_BY_ID,
   type JourneyMenuBucket,
 } from "@/lib/journey/menu-items";
 import { getSettingsForBucket } from "@/lib/journey/bucket-relations";
@@ -76,6 +77,23 @@ export function JourneyLhMenu({
       JSON.stringify(Array.from(openGroups)),
     );
   }, [openGroups]);
+
+  // Slice 8c grey-out epic — when the active bucket lives in a collapsed
+  // group (e.g. operator clicked an off-screen bubble in the middle pane
+  // that jumped to a group they hadn't opened), auto-expand that group
+  // so the bucket is actually visible. One-shot per selection change.
+  useEffect(() => {
+    if (!selectedBucketId) return;
+    const bucketSpec = JOURNEY_MENU_ITEMS_BY_ID[selectedBucketId];
+    if (!bucketSpec?.parentGroup) return;
+    const group = bucketSpec.parentGroup;
+    setOpenGroups((prev) => {
+      if (prev.has(group)) return prev;
+      const next = new Set(prev);
+      next.add(group);
+      return next;
+    });
+  }, [selectedBucketId]);
 
   const toggleGroup = (g: JourneyGroup) => {
     setOpenGroups((prev) => {
@@ -125,6 +143,14 @@ export function JourneyLhMenu({
           const containsSelected =
             selectedBucketId !== null &&
             buckets.some((b) => b.id === selectedBucketId);
+          // Slice 8 grey-out epic — group-header pill carries two numbers
+          // now: bucket count (categories) and total knob count across
+          // all of them. Educators wanted to see "how big is this group"
+          // before drilling in.
+          const totalKnobs = buckets.reduce(
+            (n, b) => n + getSettingsForBucket(b.id).length,
+            0,
+          );
           return (
             <div
               key={g}
@@ -146,8 +172,13 @@ export function JourneyLhMenu({
                     {spec.caption}
                   </span>
                 </span>
-                <span className="hf-journey-group-count">
-                  {buckets.length}
+                <span
+                  className="hf-journey-group-count"
+                  title={`${buckets.length} bucket${buckets.length === 1 ? "" : "s"} · ${totalKnobs} setting${totalKnobs === 1 ? "" : "s"}`}
+                >
+                  {buckets.length}{" "}
+                  <span className="hf-journey-group-count-divider">/</span>{" "}
+                  {totalKnobs}
                 </span>
               </button>
               {isOpen ? (
