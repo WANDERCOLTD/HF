@@ -39,7 +39,10 @@
       "interpretationLow": "Lead with specific examples and demonstrations; abstract patterns emerge from them.",
       "usage": {
         "compose": "prompt-injection",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Surfaced via parametersAsDirectives compose dispatcher (promptInjection.section: STYLE, condition: when-non-default); tutor-emit style directive set by operator-tuned BehaviorTarget, not learner-state derivable from one transcript."
+        }
       }
     },
     {
@@ -166,7 +169,10 @@
       "interpretationLow": "Avoid analogies; explain concepts directly and on their own terms.",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"visual learners respond well to analogies\"); learner-preference signal that is not derivable from a single transcript. See BEH-ANALOGY-USAGE sibling for the measurable tutor-behavior knob."
+        }
       }
     },
     {
@@ -345,7 +351,10 @@
       "interpretationLow": "Thorough Mastery: Stays on a topic until deep understanding is confirmed",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (when to advance learner to new material); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
       }
     },
     {
@@ -384,7 +393,10 @@
       "interpretationLow": "Comfortable: Keeps problems within easy reach to build confidence",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (difficulty of presented problems); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
       }
     },
     {
@@ -573,7 +585,10 @@
       "interpretationLow": "Forward-Moving: Focuses on current material, addressing gaps only when they block progress",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (prerequisite-gap-fill priority); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
       }
     },
     {
@@ -642,7 +657,10 @@
       "interpretationLow": "Focused Blocks: Concentrates on one topic at a time without mixing",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (mix-in rate of previous-topic review); operator sets the target band, ADAPT-runner reads it against the schedule. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
       }
     },
     {
@@ -709,7 +727,10 @@
       "interpretationLow": "Review First: Extensive review of existing material before introducing anything new",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (introduction rate of fresh material vs review); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
       }
     },
     {
@@ -816,7 +837,10 @@
       "interpretationLow": "Standalone: Teaches each concept independently without referencing prior knowledge",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (linkback rate to previously learned concepts); operator sets the target band, ADAPT-runner emits the directive. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
       }
     },
     {
@@ -857,7 +881,10 @@
       "interpretationLow": "Quick Rescue: Steps in quickly with hints or answers when difficulty is detected",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (struggle-tolerance window before scaffold-step-in); operator sets the target band, ADAPT-runner reads it against the live signal. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
       }
     },
     {
@@ -981,7 +1008,10 @@
       "interpretationLow": "Forward Focus: Prioritises new material over reviewing fading knowledge",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (review-schedule aggression for fading material); operator sets the target band, ADAPT-runner reads it against the schedule. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
       }
     },
     {
@@ -1324,7 +1354,10 @@
       "interpretationLow": "Introduce one concept at a time; allow each to settle before adding the next.",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"fast pace learners can handle more concepts at once\"); learner-preference signal that is not derivable from a single transcript. See BEH-CONCEPT-DENSITY sibling for the measurable tutor-behavior knob."
+        }
       }
     },
     {
@@ -1609,7 +1642,10 @@
       "interpretationLow": "Provide one focused example per concept; trust generalisation from a single case.",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"visual learners benefit from concrete examples\"); learner-preference signal that is not derivable from a single transcript. See BEH-EXAMPLE-RICHNESS sibling for the measurable tutor-behavior knob."
+        }
       }
     },
     {
@@ -2085,7 +2121,10 @@
       "interpretationLow": "State each key point once; trust the learner to retain it without explicit repetition.",
       "usage": {
         "compose": "semantics-block",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"slow pace learners benefit from repetition\"); learner-preference signal that is not derivable from a single transcript. See BEH-REPETITION-FREQUENCY sibling for the measurable tutor-behavior knob."
+        }
       }
     },
     {
@@ -2202,7 +2241,10 @@
       "interpretationLow": "Provide minimal scaffolding; let the learner build their own structure from the content flow.",
       "usage": {
         "compose": "transform-direct",
-        "measurement": "deferred-#1967"
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"guided learners need structured support\"); learner-preference signal that is not derivable from a single transcript. See BEH-SCAFFOLDING sibling for the measurable tutor-behavior knob."
+        }
       }
     },
     {

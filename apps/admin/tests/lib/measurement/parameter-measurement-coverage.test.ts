@@ -98,13 +98,18 @@ function buildEvidenceMap(): Map<string, Set<string>> {
 const EVIDENCE = buildEvidenceMap();
 
 /**
- * 2026-06-18 incumbent (post-M4) — M1 backfilled 82 params from the
- * existing spec corpus; M4 reclassified 9 more (3 measured via
- * STYLE-001 alias, 6 operator-only), leaving 48 active params still
- * producer-only debt. Pedagogy review per
- * `docs/M4-pedagogy-review.md` drives the remaining 48 toward 0.
+ * 2026-06-19 incumbent (post-M4 structural pass) — M1 backfilled 82
+ * params; M4 reclassified 9 (3 measured via STYLE-001 alias, 6
+ * operator-only); the M4 structural pass (this commit) reclassified
+ * 14 more without pedagogy input: 1 stale row already wired via
+ * parametersAsDirectives (BEH-ABSTRACT-VS-CONCRETE), 5 legacy
+ * lowercase folk-pedagogy assertions paired with their canonical
+ * BEH-* siblings, 8 ADAPT-stage decision rules that are not
+ * EXTRACT-stage observables. Leaves 34 active params on
+ * "deferred-#1967" awaiting pedagogy review per
+ * `docs/M4-pedagogy-review.md`.
  */
-const EXPECTED_GAP_COUNT = 48;
+const EXPECTED_GAP_COUNT = 34;
 
 type Classification =
   | "measured"
@@ -180,14 +185,19 @@ describe("Parameter measurement coverage (M1 — link 7 of the Lattice chain)", 
     expect(measured.length).toBeGreaterThan(50);
   });
 
-  it("every operator-only entry has a substantive reason (>20 chars)", () => {
+  it("every operator-only entry has a substantive reason (>40 chars)", () => {
+    // Lattice gap fill (M4 structural pass): bumped from >20 to >40 chars
+    // to force authors to cite WHY a row is non-measurable (tutor-emit
+    // directive / folk-pedagogy assertion / ADAPT-stage decision rule /
+    // sibling reference), not just "operator only". Existing 6 + 14 new
+    // rows all carry 100+ char reasons; the bar is empirically light.
     const tooShort = operatorOnly.filter(
-      (x) => (x.c.detail ?? "").trim().length < 20,
+      (x) => (x.c.detail ?? "").trim().length < 40,
     );
     expect(
       tooShort.length,
-      `operator-only params with empty/short reason:\n  ${tooShort
-        .map((x) => x.p.parameterId)
+      `operator-only params with empty/short reason (<40 chars):\n  ${tooShort
+        .map((x) => `${x.p.parameterId}: "${(x.c.detail ?? "").slice(0, 60)}..."`)
         .join("\n  ")}`,
     ).toBe(0);
   });
