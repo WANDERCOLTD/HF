@@ -63,7 +63,7 @@ describe("parametersAsDirectives transform (#1907)", () => {
   it("calls the batched cascade reader exactly ONCE per compose (TL Risk-2 pin)", async () => {
     mockGetEffectiveBehaviorTargetsForCaller.mockResolvedValue([
       {
-        parameterId: "abstract-vs-concrete",
+        parameterId: "BEH-ABSTRACT-VS-CONCRETE",
         effectiveValue: 0.2, // low → favour concrete
         sourceScope: "CALLER",
         systemValue: 0.5,
@@ -88,7 +88,7 @@ describe("parametersAsDirectives transform (#1907)", () => {
   it("bipolar template — emits templateLow when value < threshold", async () => {
     mockGetEffectiveBehaviorTargetsForCaller.mockResolvedValue([
       {
-        parameterId: "abstract-vs-concrete",
+        parameterId: "BEH-ABSTRACT-VS-CONCRETE",
         effectiveValue: 0.2, // < 0.5 → templateLow
         sourceScope: "CALLER",
         systemValue: 0.5,
@@ -112,7 +112,7 @@ describe("parametersAsDirectives transform (#1907)", () => {
   it("bipolar template — emits templateHigh when value > threshold", async () => {
     mockGetEffectiveBehaviorTargetsForCaller.mockResolvedValue([
       {
-        parameterId: "abstract-vs-concrete",
+        parameterId: "BEH-ABSTRACT-VS-CONCRETE",
         effectiveValue: 0.85, // > 0.5 → templateHigh
         sourceScope: "CALLER",
         systemValue: 0.5,
@@ -134,7 +134,7 @@ describe("parametersAsDirectives transform (#1907)", () => {
   it("when-non-default contract — skips emission when value equals defaultTarget", async () => {
     mockGetEffectiveBehaviorTargetsForCaller.mockResolvedValue([
       {
-        parameterId: "abstract-vs-concrete",
+        parameterId: "BEH-ABSTRACT-VS-CONCRETE",
         effectiveValue: 0.5, // === defaultTarget
         sourceScope: "SYSTEM",
         systemValue: 0.5,

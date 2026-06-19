@@ -36,6 +36,16 @@ describe("extractSourceRefsFromYamlBlocks — IELTS v2.3", () => {
     expect(part3!.get("scaffoldPool")).toBe("source:stall-scaffolds-discussion");
   });
 
+  it("#1932 — captures topicPool source-refs on part1 + part3", () => {
+    const refs = extractSourceRefsFromYamlBlocks(IELTS_V23);
+    const part1 = refs.get("part1");
+    expect(part1).toBeDefined();
+    expect(part1!.get("topicPool")).toBe("source:part1-topic-library-v1");
+    const part3 = refs.get("part3");
+    expect(part3).toBeDefined();
+    expect(part3!.get("topicPool")).toBe("source:part3-theme-library-v1");
+  });
+
   it("returns empty for a body with no settings blocks", () => {
     const refs = extractSourceRefsFromYamlBlocks("# A doc with no Module Settings blocks.\n");
     expect(refs.size).toBe(0);
@@ -104,6 +114,28 @@ describe("resolveModuleSourceRefs — IELTS v2.3 against real disk", () => {
     );
   });
 
+  it("#1932 — inlines topicPool for part1 (Frame format) + part3 (Theme/Set format)", () => {
+    const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
+    const out = resolveModuleSourceRefs(byModuleId, IELTS_V23, { repoRoot: REPO_ROOT });
+    const part1 = out.byModuleId.get("part1");
+    const part3 = out.byModuleId.get("part3");
+    expect(part1).toBeDefined();
+    expect(part3).toBeDefined();
+
+    // Part 1 source = ielts-speaking-question-bank-part1.md (52 `## Frame N — ...` topics).
+    expect(Array.isArray(part1!.topicPool)).toBe(true);
+    expect(part1!.topicPool!.length).toBeGreaterThanOrEqual(40);
+    expect(part1!.topicPool![0].topic.length).toBeGreaterThan(0);
+    expect(Array.isArray(part1!.topicPool![0].questions)).toBe(true);
+    expect(part1!.topicPool![0].questions.length).toBeGreaterThan(0);
+
+    // Part 3 source = ielts-speaking-question-bank-part3.md (64 `### Set N — ...` topics under `## Theme:` parents).
+    expect(Array.isArray(part3!.topicPool)).toBe(true);
+    expect(part3!.topicPool!.length).toBeGreaterThanOrEqual(40);
+    expect(part3!.topicPool![0].topic.length).toBeGreaterThan(0);
+    expect(part3!.topicPool![0].questions.length).toBeGreaterThan(0);
+  });
+
   it("inlines baseline.profileFieldsToCapture from Source 14 (P3g)", () => {
     const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
     const out = resolveModuleSourceRefs(byModuleId, IELTS_V23, { repoRoot: REPO_ROOT });
@@ -127,10 +159,11 @@ describe("resolveModuleSourceRefs — IELTS v2.3 against real disk", () => {
     const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
     const out = resolveModuleSourceRefs(byModuleId, IELTS_V23, { repoRoot: REPO_ROOT });
     const resolved = out.resolutions.filter((r) => r.status === "resolved");
-    // post-multi-route + P3g: 3 cueCardPool (part2 + mock + baseline) +
+    // post-multi-route + P3g + #1932: 3 cueCardPool (part2 + mock + baseline) +
     // 5 scaffoldPool (part2 + part3 + mock + baseline + part1) +
-    // 1 profileFieldsToCapture (baseline) = 9
-    expect(resolved.length).toBeGreaterThanOrEqual(9);
+    // 2 topicPool (#1932 — part1 + part3) +
+    // 1 profileFieldsToCapture (baseline) = 11
+    expect(resolved.length).toBeGreaterThanOrEqual(11);
     const part2Cue = resolved.find(
       (r) => r.moduleId === "part2" && r.field === "cueCardPool",
     );

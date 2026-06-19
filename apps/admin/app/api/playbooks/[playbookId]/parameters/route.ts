@@ -336,7 +336,7 @@ export async function GET(
       !categorizedIds.has(p.parameterId) && (
         p.parameterId.startsWith("REW-") ||
         p.parameterId.includes("_reward") ||
-        p.parameterId.includes("composite_reward")
+        p.parameterId.includes("BEH-COMPOSITE-REWARD")
       )
     );
     if (rewParams.length > 0) {

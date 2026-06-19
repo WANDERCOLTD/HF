@@ -1322,6 +1322,21 @@ export const TEACHING_MODE_ORDER: TeachingMode[] = [
   "syllabus",
 ];
 
+const TEACHING_MODE_SET: ReadonlySet<string> = new Set(TEACHING_MODE_ORDER);
+
+/**
+ * Runtime type guard for `TeachingMode`. The DB column is JSON, so a stale
+ * seed or wizard write can land a string that doesn't match the union
+ * (observed: `"directive"` written to `Playbook.config.teachingMode` —
+ * that's an `interactionPattern` value, not a `teachingMode` one). Consumers
+ * MUST guard reads with this rather than trusting a TypeScript cast, or
+ * they'll index into `RETURNING_CALLER_BY_MODE` with an unknown key and
+ * propagate `undefined` into downstream arrays.
+ */
+export function isTeachingMode(value: unknown): value is TeachingMode {
+  return typeof value === "string" && TEACHING_MODE_SET.has(value);
+}
+
 // ── Subject Discipline Preambles ─────────────────────────────────────────────
 
 /**
