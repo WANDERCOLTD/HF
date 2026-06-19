@@ -76,6 +76,13 @@ interface PreviewLensProps {
    *  (which the Journey tab uses to mount editors in the Inspector pane).
    *  Default false preserves the existing Design-tab behaviour. */
   suppressSidetray?: boolean;
+  /** Slice 2 of the journey grey-out epic — monotonically-increasing
+   *  counter bumped by the parent on every Inspector save. PreviewLens
+   *  re-composes when this value changes, so the middle pane stays in
+   *  sync with the right-hand Inspector without an explicit Refresh
+   *  click. Default 0; the first non-zero bump triggers the first
+   *  re-fetch after the initial mount. */
+  composeNonce?: number;
 }
 
 interface SessionFlowResp {
@@ -160,7 +167,7 @@ const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
   moduleVisibility: "Module visibility — when modules get named",
 };
 
-export function PreviewLens({ courseId, onSelectSection, suppressSidetray = false }: PreviewLensProps): React.ReactElement {
+export function PreviewLens({ courseId, onSelectSection, suppressSidetray = false, composeNonce = 0 }: PreviewLensProps): React.ReactElement {
   const { demoAnnotationsVisible } = useChatContext();
   const [mode, setMode] = useState<ViewMode>("educator");
   const [flow, setFlow] = useState<SessionFlowResp | null>(null);
@@ -177,7 +184,12 @@ export function PreviewLens({ courseId, onSelectSection, suppressSidetray = fals
     bubbleRef: string;
     existing: DemoAnnotation | null;
   } | null>(null);
-  const composedOnceRef = useRef(false);
+  // Slice 2 grey-out epic — last composeNonce we ran against. The mount
+  // useEffect re-fires `compose()` whenever the incoming nonce moves past
+  // this stored value, but stays inert on a StrictMode double-mount with
+  // the same nonce. Initialised to -1 so the first paint (nonce=0)
+  // composes exactly once.
+  const lastComposedNonceRef = useRef<number>(-1);
 
   const compose = useCallback(async () => {
     setLoading(true);
@@ -217,10 +229,10 @@ export function PreviewLens({ courseId, onSelectSection, suppressSidetray = fals
   }, [courseId]);
 
   useEffect(() => {
-    if (composedOnceRef.current) return;
-    composedOnceRef.current = true;
+    if (lastComposedNonceRef.current === composeNonce) return;
+    lastComposedNonceRef.current = composeNonce;
     void compose();
-  }, [compose]);
+  }, [compose, composeNonce]);
 
   const openSidetray = useCallback((lensId: string) => {
     const mapped = SIDETRAY_LENS_MAP[lensId];

@@ -98,6 +98,12 @@ export function CourseJourneyTab({
   const [localConfig, setLocalConfig] = useState<
     Record<string, unknown> | null
   >(playbookConfig);
+  // Slice 2 grey-out epic — monotonic counter bumped on every Inspector
+  // save. Passed through to <PreviewLens composeNonce={...}> so the
+  // middle pane re-composes automatically when the right-hand Inspector
+  // writes. Replaces the manual "Refresh preview" round-trip operators
+  // had to do after every toggle.
+  const [composeNonce, setComposeNonce] = useState<number>(0);
   useEffect(() => {
     setLocalConfig(playbookConfig);
   }, [playbookConfig]);
@@ -117,6 +123,10 @@ export function CourseJourneyTab({
       // value on the next route change. Don't surface the network error
       // here; the save itself already succeeded.
     }
+    // Bump the preview nonce regardless of refetch success — the save
+    // already landed on the server, so the preview is now stale even if
+    // our local snapshot didn't update.
+    setComposeNonce((n) => n + 1);
   }, [courseId]);
 
   // Slice C — multi-pulse over all bucket sections.
@@ -245,6 +255,7 @@ export function CourseJourneyTab({
           <PreviewLens
             courseId={courseId}
             onSelectSection={handlePreviewSectionSelect}
+            composeNonce={composeNonce}
             suppressSidetray
           />
         </main>
