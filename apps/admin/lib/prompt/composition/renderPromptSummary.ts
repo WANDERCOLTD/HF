@@ -60,6 +60,10 @@ interface LLMPrompt {
     greeting_ack_gate?: string | null;
     /** #1403: course-intro turn spoken after the ack gate on isFirstCall. */
     greeting_course_intro?: string | null;
+    /** #2055 (sub-epic F of #2049): Call 1 framing recap derived from intake
+     *  answers. Emitted between [OPENING] and [GREETING FLOW] when
+     *  `config.openingRecapEnabled` is true AND it's Call 1. */
+    opening_recap?: string | null;
   };
   caller?: {
     id?: string;
@@ -746,6 +750,17 @@ export function renderProviderPrompt(
   if (qs?.first_line) {
     parts.push("[OPENING]");
     parts.push(qs.first_line);
+    parts.push("");
+  }
+
+  // --- #2055 (sub-epic F) Opening recap (Call 1 framing) ---
+  // Emitted between [OPENING] and [GREETING FLOW] so the recap context
+  // is in front of the AI before it greets. Null-guarded inside
+  // `quickstart.ts` (Call 1 only, openingRecapEnabled === true, at least
+  // one intake answer present).
+  if (qs?.opening_recap) {
+    parts.push("[OPENING RECAP]");
+    parts.push(qs.opening_recap);
     parts.push("");
   }
 

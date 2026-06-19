@@ -26,11 +26,13 @@ import { useEffect, useMemo, useState } from "react";
 import { BUCKETS_BY_TAB } from "@/lib/journey/buckets-by-tab";
 import {
   JOURNEY_GROUPS,
+  JOURNEY_PHASE_FILTERS as JOURNEY_PHASE_FILTERS_LIST,
   type JourneyGroup,
   type JourneyPhaseFilter,
 } from "@/lib/journey/setting-groups";
 import {
   JOURNEY_MENU_ITEMS,
+  JOURNEY_MENU_ITEMS_BY_ID,
   type JourneyMenuBucket,
 } from "@/lib/journey/menu-items";
 import { getSettingsForBucket } from "@/lib/journey/bucket-relations";
@@ -41,8 +43,10 @@ import { JourneyPhaseFilters } from "./JourneyPhaseFilters";
 interface JourneyLhMenuProps {
   selectedBucketId: JourneyMenuBucketId | null;
   onSelectBucket: (id: JourneyMenuBucketId) => void;
-  filter: JourneyPhaseFilter;
-  onFilterChange: (next: JourneyPhaseFilter) => void;
+  /** Slice 13 — multi-select phase filter set. Empty array = "All". */
+  filters: readonly JourneyPhaseFilter[];
+  /** Slice 13 — toggle a single filter in/out. "All" clears. */
+  onToggleFilter: (next: JourneyPhaseFilter) => void;
 }
 
 const GROUP_ORDER: JourneyGroup[] = ["G1", "G2", "G3", "G4", "G5", "G6", "G7"];
@@ -52,8 +56,8 @@ const SESSION_OPEN_KEY = "hf.journey.lh.openGroups";
 export function JourneyLhMenu({
   selectedBucketId,
   onSelectBucket,
-  filter,
-  onFilterChange,
+  filters,
+  onToggleFilter,
 }: JourneyLhMenuProps) {
   const [openGroups, setOpenGroups] = useState<Set<JourneyGroup>>(() => {
     if (typeof window === "undefined") return new Set(["G1", "G2"]);
@@ -77,6 +81,23 @@ export function JourneyLhMenu({
     );
   }, [openGroups]);
 
+  // Slice 8c grey-out epic — when the active bucket lives in a collapsed
+  // group (e.g. operator clicked an off-screen bubble in the middle pane
+  // that jumped to a group they hadn't opened), auto-expand that group
+  // so the bucket is actually visible. One-shot per selection change.
+  useEffect(() => {
+    if (!selectedBucketId) return;
+    const bucketSpec = JOURNEY_MENU_ITEMS_BY_ID[selectedBucketId];
+    if (!bucketSpec?.parentGroup) return;
+    const group = bucketSpec.parentGroup;
+    setOpenGroups((prev) => {
+      if (prev.has(group)) return prev;
+      const next = new Set(prev);
+      next.add(group);
+      return next;
+    });
+  }, [selectedBucketId]);
+
   const toggleGroup = (g: JourneyGroup) => {
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -86,9 +107,11 @@ export function JourneyLhMenu({
     });
   };
 
+  // Slice 13 — multi-select filter. Empty filters[] = "All" (everything
+  // visible). Otherwise show groups whose phaseFilter is in the set.
   const groupMatchesFilter = (g: JourneyGroup): boolean => {
-    if (filter === "All") return true;
-    return JOURNEY_GROUPS[g].phaseFilter === filter;
+    if (filters.length === 0) return true;
+    return filters.includes(JOURNEY_GROUPS[g].phaseFilter);
   };
 
   // Group buckets by their parentGroup so the visual section headers
@@ -109,19 +132,90 @@ export function JourneyLhMenu({
     return byGroup;
   }, []);
 
+  // Slice 12 grey-out epic — empty-state hint when the active phase
+  // filter has zero matching buckets in the Journey tab.
+  // Slice 13 — pre-compute which JOURNEY_PHASE_FILTERS produce zero
+  // Journey-tab buckets so the chip row can render them dimmed.
+  const visibleGroups = GROUP_ORDER.filter(groupMatchesFilter).filter(
+    (g) => (bucketsByGroup.get(g) ?? []).length > 0,
+  );
+  const emptyFilters = useMemo<Set<JourneyPhaseFilter>>(() => {
+    const empties = new Set<JourneyPhaseFilter>();
+    for (const f of JOURNEY_PHASE_FILTERS_LIST) {
+      if (f === "All") continue;
+      const groups = GROUP_ORDER.filter(
+        (g) => JOURNEY_GROUPS[g].phaseFilter === f,
+      );
+      const hasAnyBucket = groups.some(
+        (g) => (bucketsByGroup.get(g) ?? []).length > 0,
+      );
+      if (!hasAnyBucket) empties.add(f);
+    }
+    return empties;
+  }, [bucketsByGroup]);
+  const tabHintForEmptyFilter: Record<string, string> = {
+    Module: "Module-scoped settings live on the Modules tab.",
+    "Calls 2+": "Per-call teaching knobs live on the Teaching tab.",
+    Scoring: "Scoring + banding knobs live on the Scoring tab.",
+  };
+  const activeEmptyFilter = filters.find((f) => emptyFilters.has(f));
+
   return (
     <div className="hf-journey-lh" data-testid="hf-journey-lh-menu">
-      <JourneyPhaseFilters active={filter} onChange={onFilterChange} />
+      <JourneyPhaseFilters
+        active={filters}
+        onToggle={onToggleFilter}
+        emptyFilters={emptyFilters}
+      />
+      {visibleGroups.length === 0 && filters.length > 0 ? (
+        <div
+          className="hf-journey-lh-empty"
+          data-testid={`hf-journey-lh-empty-${activeEmptyFilter ?? filters[0]}`}
+        >
+          <p>
+            No <strong>{filters.join(" / ")}</strong> settings live on the Journey tab.
+          </p>
+          {activeEmptyFilter && tabHintForEmptyFilter[activeEmptyFilter] ? (
+            <p className="hf-text-muted hf-text-xs">
+              {tabHintForEmptyFilter[activeEmptyFilter]}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="hf-btn hf-btn-secondary"
+            onClick={() => onToggleFilter("All")}
+          >
+            Show all
+          </button>
+        </div>
+      ) : null}
       <div className="hf-journey-lh-groups">
         {GROUP_ORDER.filter(groupMatchesFilter).map((g) => {
           const spec = JOURNEY_GROUPS[g];
           const buckets = bucketsByGroup.get(g) ?? [];
           if (buckets.length === 0) return null;
           const isOpen = openGroups.has(g);
+          // Slice 7 grey-out epic — flag the group containing the active
+          // bucket so the CSS can render a "you are here" accent dot next
+          // to the group header. Mirrors the per-bucket `.hf-selected`
+          // treatment one layer up.
+          const containsSelected =
+            selectedBucketId !== null &&
+            buckets.some((b) => b.id === selectedBucketId);
+          // Slice 8 grey-out epic — group-header pill carries two numbers
+          // now: bucket count (categories) and total knob count across
+          // all of them. Educators wanted to see "how big is this group"
+          // before drilling in.
+          const totalKnobs = buckets.reduce(
+            (n, b) => n + getSettingsForBucket(b.id).length,
+            0,
+          );
           return (
             <div
               key={g}
-              className="hf-journey-group"
+              className={`hf-journey-group ${
+                containsSelected ? "hf-journey-group-has-selected" : ""
+              }`}
               data-testid={`hf-journey-group-${g}`}
             >
               <button
@@ -137,8 +231,13 @@ export function JourneyLhMenu({
                     {spec.caption}
                   </span>
                 </span>
-                <span className="hf-journey-group-count">
-                  {buckets.length}
+                <span
+                  className="hf-journey-group-count"
+                  title={`${buckets.length} bucket${buckets.length === 1 ? "" : "s"} · ${totalKnobs} setting${totalKnobs === 1 ? "" : "s"}`}
+                >
+                  {buckets.length}{" "}
+                  <span className="hf-journey-group-count-divider">/</span>{" "}
+                  {totalKnobs}
                 </span>
               </button>
               {isOpen ? (

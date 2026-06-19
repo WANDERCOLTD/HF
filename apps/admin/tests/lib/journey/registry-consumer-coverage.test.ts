@@ -76,10 +76,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
   // the wiring work; each transform read needs per-setting design
   // (e.g., baselineAssessmentDepth needs "light/standard/deep" prompt
   // synthesis, not just a substring read).
-  intakeSkipIfReturning: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Intake-gate skip-for-returning-learner logic deferred to follow-on (intake transform needs the read).",
-  },
   baselineAssessmentDepth: {
     reason:
       "Producer-only since 2026-06-17 audit. firstCallMode / instructions transforms don't synthesise light/standard/deep directives yet.",
@@ -116,23 +112,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
     reason:
       "Producer-only since 2026-06-17 audit. Voice-stack consumer pending — interrupt sensitivity should gate the VAPI assistant's `voicemailDetectionEnabled` + barge-in threshold but no transform reads it today.",
   },
-  // offboardingBannerMessage — wired by #2054 (sub-epic E of #2049). The
-  //   resolver `lib/curriculum/offboarding-banner.ts::resolveOffboardingBanner`
-  //   substitutes `{n}` and is invoked by the student progress page.
-  // offboardingCertificate — wired by #2054 (sub-epic E of #2049). The
-  //   `transforms/offboarding.ts` emits a certificate-mention directive
-  //   pushed by `renderPromptSummary.ts` when the toggle is on.
-  // offboardingTriggerAfterCalls — wired by #2054 (sub-epic E of #2049).
-  //   The `transforms/offboarding.ts` cadence gate also fires on
-  //   `callNumber >= config.offboarding.triggerAfterCalls`.
-  openingRecapEnabled: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Opening-recap is a SECOND recap variant (Call 1 framing) distinct from priorCallFeedback (Call 2+ history). No transform consults the flag.",
-  },
-  recapSynthesisEnabled: {
-    reason:
-      "Producer-only since 2026-06-17 audit. `recapSynthesisCache` is the OUTPUT column read by transforms; the gating flag `recapSynthesisEnabled` is never checked — synthesis runs unconditionally when there's prior-call context.",
-  },
   rewardStrategy: {
     reason:
       "Producer-only since 2026-06-17 audit. REWARD pipeline stage uses a hardcoded strategy; the operator-set override is not consulted yet (writeGate is operator-only with reprompt — landing was deferred per epic #779 Felt Progress S1).",
@@ -142,7 +121,7 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 12;
+const EXPECTED_EXEMPT_COUNT = 9;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation
