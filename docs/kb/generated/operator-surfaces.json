@@ -1,6 +1,6 @@
 {
   "$schema": "operator-surfaces/v1",
-  "generatedAt": "2026-06-19T12:57:43.217Z",
+  "generatedAt": "2026-06-19T14:23:02.038Z",
   "generator": "scripts/capture/operator-surfaces.ts",
   "note": "Tier-2 generated KB. Only routes tagged @operator-surface yes. Do not hand-edit — re-run the generator (npm run kb:operator-surfaces).",
   "surfaces": [
