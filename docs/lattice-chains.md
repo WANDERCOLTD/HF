@@ -29,6 +29,31 @@ Architectures*). The 6 Coverage vitests shipped between #1738 and #1856
 are HF's local implementation of architecture fitness functions. This
 doc names the framework.
 
+## Machine-readable mirror: `docs/lattice-chains.json` (#2057)
+
+> A subset of the chains below are also captured in
+> [`docs/lattice-chains.json`](./lattice-chains.json) for the
+> chain-closure gate
+> ([`tests/lib/lattice-chain-closure.test.ts`](../apps/admin/tests/lib/lattice-chain-closure.test.ts)).
+> The JSON manifest pins **adjacent-link KEY consistency** — the
+> failure mode per-link Coverage gates can't see.
+> Pairing between .md and .json is enforced by
+> [`tests/lib/lattice-self-maintenance.test.ts`](../apps/admin/tests/lib/lattice-self-maintenance.test.ts):
+> every chain id in the JSON must appear verbatim in this .md.
+
+### Chains with JSON-manifest entries (chain-closure protected)
+
+| Chain id (JSON) | Title | .md row(s) it groups |
+|---|---|---|
+| `beh-aggregate-cascade` | BEH parameter measurement → CallScore → AGGREGATE rule → CallerAttribute → ADAPT rule → CallerTarget → COMPOSE → RENDER | "Pipeline AGGREGATE → CallerAttribute writer", "Pipeline ADAPT decision → COMPOSE recompose", "Transform output key → renderPromptSummary" |
+| `parameter-loop` | Parameter registry → MEASURE writer → AGGREGATE/ADAPT/REWARD consumer | "Parameter rows → runtime consumer", "Parameter rows → AGGREGATE/ADAPT consumer" |
+| `compose-producer-consumer` | Composition transform produces directive → renderPromptSummary pushes prose | "Transform output key → renderPromptSummary" |
+| `journey-setting-coverage` | JOURNEY_SETTINGS storagePath → transform → renderer | "Registry storagePath → transform reader", "Transform output key → renderPromptSummary" |
+
+When a new chain lands in the JSON manifest, add a row above AND
+ensure its id appears at least once in the matrix below (or in this
+section). The self-maintenance test enforces this.
+
 ## How to read the matrix
 
 | Column | Meaning |
@@ -201,6 +226,7 @@ Three structural patterns, in order of preference:
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
 | `parameter-measurement-coverage.md` | `tests/lib/measurement/parameter-measurement-coverage.test.ts` (#1967 M1) | ✅ PROTECTED |
 | `parameter-loop-closure.md` | `tests/lib/measurement/parameter-loop-closure.test.ts` (#1967 M2) | ✅ PROTECTED |
+| `lattice-chain-closure.md` | `tests/lib/lattice-chain-closure.test.ts` (#2057) — end-to-end chain-closure (6th Coverage pillar) | ✅ PROTECTED |
 | `fixture-type-coverage.md` | `tests/lib/wizard/fixture-type-coverage.test.ts` (#1910) | ✅ PROTECTED |
 | `arraykey-writer-coverage.md` | `tests/lib/journey/arraykey-writer-coverage.test.ts` (#1912) | ✅ PROTECTED |
 | `spec-readonly-boundary.md` | `eslint-rules/no-customer-write-to-canonical-interpretation.mjs` (#1984 S1) + `tests/lib/cascade/spec-readonly-fields-coverage.test.ts` (#1984 S2) | ✅ PROTECTED |

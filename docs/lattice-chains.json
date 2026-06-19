@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$comment": "Machine-readable mirror of docs/lattice-chains.md. Maintained by-hand alongside the .md inventory. Pairing enforced by tests/lib/lattice-self-maintenance.test.ts. End-to-end chain-closure assertion enforced by tests/lib/lattice-chain-closure.test.ts (#2057). Each chain captures the ordered set of producer/consumer links along a Lattice path; per-link gates verify each step exists, this manifest captures the adjacent-link KEY contract that per-link gates miss.",
+  "version": 1,
+  "born": "2026-06-19",
+  "issue": 2057,
+  "schema": {
+    "chain": {
+      "id": "kebab-case identifier — must also appear in docs/lattice-chains.md somewhere",
+      "title": "Plain-English producer→consumer→...→terminal statement",
+      "links": "Ordered array of links N=0..K-1. Each link is one stage in the chain.",
+      "tolerated_drift": "Array of { from_link_index, to_link_index, reason } — explicit per-adjacent-pair debt the gate must not flag. Ratchet: count cannot grow without an explicit JSON edit.",
+      "terminal_reaches": "Optional: the runtime surface where the terminal output reaches (informational; covered by sibling coverage-producer-consumer test)."
+    },
+    "link": {
+      "stage": "Logical stage label (MEASURE / AGGREGATE / ADAPT / COMPOSE / RENDER / ...). Free-form, but should match docs/CHAIN-CONTRACTS.md vocabulary.",
+      "producer": "Repo-relative path to the producer file (file must exist).",
+      "consumer": "Optional: repo-relative path to the consumer file. Use producer-only when the link is just a write.",
+      "outputKey": "The KEY the producer writes — column path, jsonb shape, key-name token, parameterId, contract-id, storagePath segment, etc. May contain {placeholder} tokens for templated keys.",
+      "consumesKey": "Optional: the KEY this consumer reads. Adjacent-link closure asserts: previous link's outputKey == this link's consumesKey (modulo placeholder substitution).",
+      "kind": "row-write / callerAttribute-write / column-write / section-emit / json-field / spec-rule / registry-entry / renderer-push / cascade-resolve — used as an informational tag."
+    }
+  },
+  "chains": [
+    {
+      "id": "beh-aggregate-cascade",
+      "title": "BEH parameter measurement → CallScore.parameterId → AGGREGATE spec.sourceParameter → AGGREGATE writes CallerAttribute(behavior_profile:*) → ADAPT reads CallerAttribute → ADAPT emits directive → renderer pushes section",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "outputKey": "CallScore.parameterId",
+          "kind": "row-write"
+        },
+        {
+          "stage": "AGGREGATE_RULE",
+          "producer": "apps/admin/docs-archive/bdd-specs/LEARN-PROF-001-learner-profile-aggregation.spec.json",
+          "consumer": "apps/admin/docs-archive/bdd-specs/LEARN-PROF-001-learner-profile-aggregation.spec.json",
+          "consumesKey": "CallScore.parameterId",
+          "outputKey": "aggregationRules[].sourceParameter",
+          "kind": "spec-rule"
+        },
+        {
+          "stage": "AGGREGATE_RUNNER",
+          "producer": "apps/admin/lib/pipeline/aggregate-runner.ts",
+          "consumesKey": "aggregationRules[].sourceParameter",
+          "outputKey": "CallerAttribute(scope=BEHAVIOR_PROFILE).key",
+          "kind": "callerAttribute-write"
+        },
+        {
+          "stage": "ADAPT_RULE",
+          "producer": "apps/admin/docs-archive/bdd-specs/ADAPT-LEARN-001-learner-profile-adaptation.spec.json",
+          "consumesKey": "CallerAttribute(scope=BEHAVIOR_PROFILE).key",
+          "outputKey": "adaptationRules[].action",
+          "kind": "spec-rule"
+        },
+        {
+          "stage": "ADAPT_RUNNER",
+          "producer": "apps/admin/lib/pipeline/adapt-runner.ts",
+          "consumesKey": "adaptationRules[].action",
+          "outputKey": "CallerTarget(parameterId)",
+          "kind": "callerAttribute-write"
+        },
+        {
+          "stage": "COMPOSE",
+          "producer": "apps/admin/lib/prompt/composition/transforms/targets.ts",
+          "consumesKey": "CallerTarget(parameterId)",
+          "outputKey": "directive in targets section",
+          "kind": "section-emit"
+        },
+        {
+          "stage": "RENDER",
+          "producer": "apps/admin/lib/prompt/composition/renderPromptSummary.ts",
+          "consumesKey": "directive in targets section",
+          "outputKey": "voicePrompt prose",
+          "kind": "renderer-push"
+        }
+      ],
+      "terminal_reaches": "voicePrompt prose delivered to VAPI on next call",
+      "tolerated_drift": []
+    },
+    {
+      "id": "parameter-loop",
+      "title": "Parameter registry → MEASURE writer → AGGREGATE/ADAPT/REWARD consumer (the M1/M2 loop)",
+      "links": [
+        {
+          "stage": "REGISTRY",
+          "producer": "apps/admin/docs-archive/bdd-specs/behavior-parameters.registry.json",
+          "outputKey": "parameters[].parameterId",
+          "kind": "registry-entry"
+        },
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "consumesKey": "parameters[].parameterId",
+          "outputKey": "CallScore.parameterId",
+          "kind": "row-write"
+        },
+        {
+          "stage": "AGGREGATE_OR_ADAPT_OR_REWARD",
+          "producer": "apps/admin/lib/pipeline/aggregate-runner.ts",
+          "consumesKey": "CallScore.parameterId",
+          "outputKey": "CallerAttribute or CallerTarget update",
+          "kind": "callerAttribute-write"
+        }
+      ],
+      "terminal_reaches": "Cascade-readable state for next composed prompt — sibling gate tests/lib/measurement/parameter-loop-closure.test.ts pins per-parameter loop closure with ratchet at 68 gaps.",
+      "tolerated_drift": []
+    },
+    {
+      "id": "compose-producer-consumer",
+      "title": "Composition transform produces directive → renderPromptSummary pushes into prose → voicePrompt section emit",
+      "links": [
+        {
+          "stage": "TRANSFORM",
+          "producer": "apps/admin/lib/prompt/composition/transforms/targets.ts",
+          "outputKey": "directive in targets section",
+          "kind": "section-emit"
+        },
+        {
+          "stage": "RENDER",
+          "producer": "apps/admin/lib/prompt/composition/renderPromptSummary.ts",
+          "consumesKey": "directive in targets section",
+          "outputKey": "voicePrompt prose (targets block)",
+          "kind": "renderer-push"
+        }
+      ],
+      "terminal_reaches": "voicePrompt prose. Sibling gate tests/lib/prompt/composition/coverage-producer-consumer.test.ts (#1848) pins the per-transform→renderer manifest with PAIRS map + sweep.",
+      "tolerated_drift": []
+    },
+    {
+      "id": "journey-setting-coverage",
+      "title": "JOURNEY_SETTINGS registry entry → transform reads storagePath → renderer pushes section",
+      "links": [
+        {
+          "stage": "REGISTRY",
+          "producer": "apps/admin/lib/journey/setting-contracts.entries.ts",
+          "outputKey": "JOURNEY_SETTINGS[].storagePath",
+          "kind": "registry-entry"
+        },
+        {
+          "stage": "TRANSFORM",
+          "producer": "apps/admin/lib/prompt/composition/transforms/modules.ts",
+          "consumesKey": "JOURNEY_SETTINGS[].storagePath",
+          "outputKey": "directive in section",
+          "kind": "section-emit"
+        },
+        {
+          "stage": "RENDER",
+          "producer": "apps/admin/lib/prompt/composition/renderPromptSummary.ts",
+          "consumesKey": "directive in section",
+          "outputKey": "voicePrompt prose",
+          "kind": "renderer-push"
+        }
+      ],
+      "terminal_reaches": "voicePrompt prose. Sibling gates tests/lib/journey/registry-consumer-coverage.test.ts (#1849) + tests/lib/prompt/composition/coverage-producer-consumer.test.ts (#1848) pin per-storagePath / per-transform-directive coverage with ratchets.",
+      "tolerated_drift": []
+    }
+  ]
+}
