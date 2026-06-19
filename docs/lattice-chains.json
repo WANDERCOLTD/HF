@@ -5,8 +5,8 @@
   "chains": [
     {
       "id": "beh-aggregate-cascade",
-      "title": "Behavior Aggregation Cascade (BEH-AGG-001)",
-      "description": "Per-call BEH-* CallScore \u2192 rolled-up behavior_profile:* CallerAttribute \u2192 composed prompt section. Test fixture for story #2057. Currently AGG\u2192ADAPT branch is producer-only (ratcheted).",
+      "title": "Behavior Aggregation Cascade (BEH-AGG-001 + ADAPT-BEH-001)",
+      "description": "Per-call BEH-* CallScore \u2192 rolled-up behavior_profile:* CallerAttribute \u2192 ADAPT-BEH-001 CallerTarget upsert \u2192 composed prompt section. ADAPT leg closed by story #2074 (Phase 1 = 3 of 9 buckets: companion / supervision / engagement).",
       "links": [
         {
           "stage": "MEASURE",
@@ -30,12 +30,35 @@
           ],
           "outputKey": "CallerAttribute(scope=BEH-AGG-001, key=behavior_profile:{group}:{dimension})",
           "outputKeySamples": [
-            "behavior_profile:companion:depth_engagement",
-            "behavior_profile:personality:agreeableness",
-            "behavior_profile:supervision:tutor_fidelity"
+            "behavior_profile:companion:engagement_level",
+            "behavior_profile:supervision:tutor_fidelity",
+            "behavior_profile:engagement:cognitive_activation"
           ],
           "kind": "callerAttribute-write",
           "runner": "apps/admin/lib/pipeline/aggregate-runner.ts"
+        },
+        {
+          "stage": "ADAPT",
+          "consumer": "apps/admin/docs-archive/bdd-specs/ADAPT-BEH-001-behavior-adaptation.spec.json",
+          "consumesKey": "parameters[].config.adaptationRules[].condition.profileKey (with dataSource=callerAttribute, scope defaults to BEH-AGG-001)",
+          "consumesKeySamples": [
+            "behavior_profile:companion:engagement_level",
+            "behavior_profile:supervision:tutor_fidelity",
+            "behavior_profile:engagement:cognitive_activation"
+          ],
+          "outputKey": "CallerTarget(callerId, parameterId={parameter}).targetValue",
+          "outputKeySamples": [
+            "BEH-ENGAGEMENT",
+            "BEH-DEFINITION-PRECISION",
+            "BEH-INTELLECTUAL-CHALLENGE",
+            "BEH-FORMALITY",
+            "BEH-DIRECTNESS",
+            "BEH-WARMTH",
+            "BEH-QUESTION-RATE"
+          ],
+          "kind": "row-write",
+          "runner": "apps/admin/lib/pipeline/adapt-runner.ts",
+          "outputNotes": "Phase 1 covers 3 of 9 BEH-AGG-001 buckets (companion / supervision / engagement). Deliberately avoids BEH-EMPATHY-RATE + BEH-PROACTIVE (owned by ADAPT-PERS-001). Remaining 6 buckets (personality / curriculum / learning / reinforcement / onboarding / core_style) deferred to Phase 2."
         },
         {
           "stage": "COMPOSE",
@@ -46,15 +69,7 @@
           ],
           "outputKey": "learning_guidance section text",
           "kind": "section-emit",
-          "outputNotes": "Emitted as 'Companion profile signals' / 'Personality profile signals' / etc. sub-sections via behaviorAttrs grouped by namespace prefix."
-        }
-      ],
-      "knownGaps": [
-        {
-          "stage": "ADAPT",
-          "description": "No ADAPT spec currently consumes behavior_profile:* CallerAttribute. ADAPT specs read raw CallScore via sourceParameterId, bypassing AGGREGATE. Architectural follow-on: adapt-runner.ts extension + ADAPT-BEH-001 spec.",
-          "tolerated": true,
-          "ratchetKey": "beh-aggregate-cascade:adapt-leg"
+          "outputNotes": "Emitted as 'Companion profile signals' / 'Personality profile signals' / etc. sub-sections via behaviorAttrs grouped by namespace prefix. The CallerTarget written by ADAPT (link 3) is read by the targets.ts transform at compose time \u2014 see chain `behavior-target-cascade`."
         }
       ]
     },

@@ -27,8 +27,30 @@ export interface AdaptCondition {
   range?: { min: number; max: number };
   /** Allowed values (for "in"). */
   values?: (string | number)[];
-  /** Data source for the profile value. Defaults to "learnerProfile". */
-  dataSource?: "learnerProfile" | "parameterValues";
+  /**
+   * Data source for the profile value. Defaults to "learnerProfile".
+   *
+   * - "learnerProfile" — reads from CallerAttribute(scope=LEARNER_PROFILE)
+   *   via getLearnerProfile(callerId) (8 typed object fields).
+   * - "parameterValues" — reads from CallerPersonalityProfile.parameterValues
+   *   (Big-Five 0..1 numerics keyed by trait id).
+   * - "callerAttribute" — reads CallerAttribute by primary key
+   *   (callerId, key, scope). `scope` defaults to "BEH-AGG-001" but is
+   *   overridable per-rule so the runner stays contract-driven (no
+   *   hardcoding). Returns the string value or null.
+   *
+   * Born of story #2074 — ADAPT-BEH-001 is the first consumer of the
+   * "callerAttribute" branch, closing the beh-aggregate-cascade Lattice
+   * chain's ADAPT leg (AGGREGATE → ADAPT → CallerTarget upsert).
+   */
+  dataSource?: "learnerProfile" | "parameterValues" | "callerAttribute";
+  /**
+   * CallerAttribute scope when `dataSource === "callerAttribute"`.
+   * Defaults to "BEH-AGG-001" (the AGGREGATE spec that ADAPT-BEH-001
+   * Phase 1 consumes). Other ADAPT specs targeting different AGG
+   * surfaces may override (e.g. `"DISC-AGG-001"`).
+   */
+  scope?: string;
 }
 
 export interface AdaptationRule {
@@ -216,10 +238,23 @@ async function applyAdaptationRules(
   for (const rule of rules) {
     evaluated++;
 
-    // Resolve profile value from the appropriate data source
+    // Resolve profile value from the appropriate data source.
+    //
+    // - "parameterValues" — Big-Five numerics (legacy ADAPT-PERS-001 path)
+    // - "callerAttribute" — direct CallerAttribute(scope, key) PK read.
+    //   First consumer is ADAPT-BEH-001 (story #2074) reading BEH-AGG-001
+    //   rolled-up `behavior_profile:*` keys. Scope defaults to "BEH-AGG-001"
+    //   but is configurable per-rule so the runner stays contract-driven.
+    // - else "learnerProfile" — typed-object profile (default, back-compat).
     let profileValue: string | number | null;
     if (rule.condition.dataSource === "parameterValues") {
       profileValue = parameterValues[rule.condition.profileKey] ?? null;
+    } else if (rule.condition.dataSource === "callerAttribute") {
+      profileValue = await readCallerAttribute(
+        callerId,
+        rule.condition.profileKey,
+        rule.condition.scope ?? DEFAULT_CALLER_ATTRIBUTE_SCOPE,
+      );
     } else {
       profileValue = getProfileValue(learnerProfile, rule.condition.profileKey);
     }
@@ -319,6 +354,51 @@ async function applyAdaptationRules(
   }
 
   return { created, updated, evaluated, fired };
+}
+
+/**
+ * Default scope for the "callerAttribute" data source. Matches the
+ * BEH-AGG-001 AGGREGATE spec's `scope` write — every CallerAttribute
+ * row written by `aggregate-runner.ts` for BEH-AGG-001 lands at
+ * (callerId, behavior_profile:*, BEH-AGG-001).
+ *
+ * Spec authors can override per-rule via `condition.scope` when the
+ * ADAPT spec consumes a different AGGREGATE surface (e.g. DISC-AGG-001).
+ */
+const DEFAULT_CALLER_ATTRIBUTE_SCOPE = "BEH-AGG-001";
+
+/**
+ * Read a single CallerAttribute row by primary key. Returns the
+ * `stringValue` (the only value type written by BEH-AGG-001's
+ * `threshold_mapping` aggregation method) or null when the row doesn't
+ * exist.
+ *
+ * Null is the natural activation gate — when AGGREGATE hasn't yet met
+ * its `minimumObservations` threshold, the row is absent,
+ * `evaluateCondition(null)` returns false, and the rule silently skips
+ * without further branching.
+ *
+ * Story: #2074 (ADAPT-BEH-001 + adapt-runner CallerAttribute dataSource).
+ */
+async function readCallerAttribute(
+  callerId: string,
+  key: string,
+  scope: string,
+): Promise<string | null> {
+  try {
+    const row = await prisma.callerAttribute.findUnique({
+      where: {
+        callerId_key_scope: { callerId, key, scope },
+      },
+      select: { stringValue: true },
+    });
+    return row?.stringValue ?? null;
+  } catch (error: any) {
+    console.warn(
+      `[adapt-runner] readCallerAttribute failed for caller=${callerId} key=${key} scope=${scope}: ${error.message}`,
+    );
+    return null;
+  }
 }
 
 /**
