@@ -1,6 +1,6 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-19T12:57:41.855Z",
+  "generatedAt": "2026-06-19T14:33:38.813Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {

@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-19T12:57:42.504Z",
+  "generatedAt": "2026-06-19T14:33:40.280Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1853,
-  "edgeCount": 4354,
+  "fileCount": 1854,
+  "edgeCount": 4357,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1558,6 +1558,10 @@
     {
       "from": "app/api/calls/[callId]/ops/[opId]/route.ts",
       "to": "lib/metering/index.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/ops/[opId]/route.ts",
+      "to": "lib/ops/update-system-targets.ts"
     },
     {
       "from": "app/api/calls/[callId]/ops/[opId]/route.ts",
@@ -14396,6 +14400,14 @@
       "to": "lib/enrollment/resolve-playbook.ts"
     },
     {
+      "from": "lib/ops/update-system-targets.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/ops/update-system-targets.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "lib/ops/update-targets.ts",
       "to": "lib/prisma.ts"
     },
@@ -17983,7 +17995,7 @@
     {
       "path": "app/api/calls/[callId]/ops/[opId]/route.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/api/calls/[callId]/pinned-card/route.ts",
@@ -22997,7 +23009,7 @@
     },
     {
       "path": "lib/cascade/effective-value.ts",
-      "inDegree": 13,
+      "inDegree": 14,
       "outDegree": 7
     },
     {
@@ -24736,6 +24748,11 @@
       "outDegree": 2
     },
     {
+      "path": "lib/ops/update-system-targets.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
       "path": "lib/ops/update-targets.ts",
       "inDegree": 2,
       "outDegree": 2
@@ -24917,7 +24934,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 674,
+      "inDegree": 675,
       "outDegree": 0
     },
     {
@@ -26694,7 +26711,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 674,
+      "inDegree": 675,
       "outDegree": 0
     },
     {
