@@ -64,10 +64,13 @@ export interface DetectedAuthoredModules {
   detectedFrom: string[];
 }
 
-// ── Outcome statement extraction (#258) ──────────────────────────────
-// Matches a line like `**OUT-01: Extends every answer to ... .**`. Tolerates
-// trailing whitespace, optional trailing period, and outcome ID widths.
-const OUTCOME_STATEMENT_LINE = /^\s*\*\*\s*(OUT-\d+)\s*:\s*([^*]+?)\s*\*\*\s*$/;
+// ── Outcome statement extraction (#258, #2000) ───────────────────────
+// Matches `**OUT-01: Extends every answer to ... .**` and the multi-segment
+// `**OUT-01-02: ...**` form (CIO/CTO Course References use dotted sub-outcome
+// IDs to partition sub-outcomes under each primary). Tolerates trailing
+// whitespace, optional trailing period, and outcome ID widths.
+const OUTCOME_STATEMENT_LINE =
+  /^\s*\*\*\s*(OUT-\d+(?:-\d+)*)\s*:\s*([^*]+?)\s*\*\*\s*$/;
 
 export function extractOutcomeStatements(bodyText: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -150,9 +153,12 @@ function parseYesNo(raw: string): boolean | null {
 }
 
 /**
- * Pull OUT-XX tokens out of a free-form string. Also expands the catalogue's
- * short-form list "OUT-01, 02, 05" into ["OUT-01", "OUT-02", "OUT-05"] so the
- * machine-readable summary table can stay compact.
+ * Pull OUT-XX (and multi-segment OUT-XX-YY) tokens out of a free-form string.
+ * Also expands the catalogue's short-form list "OUT-01, 02, 05" into
+ * ["OUT-01", "OUT-02", "OUT-05"] so the machine-readable summary table can
+ * stay compact. The short-form expansion (bare numerics following a full
+ * match) is single-segment only — multi-segment authors must list each ID
+ * in full (#2000).
  */
 function parseOutcomesList(raw: string): string[] {
   const out: string[] = [];
@@ -163,9 +169,13 @@ function parseOutcomesList(raw: string): string[] {
   let prefixSeen = false;
   for (const tok of tokens) {
     const t = tok.trim();
-    const fullMatch = t.match(/OUT-(\d+)/i);
+    const fullMatch = t.match(/OUT-(\d+(?:-\d+)*)/i);
     if (fullMatch) {
-      out.push(`OUT-${fullMatch[1].padStart(2, "0")}`);
+      const padded = fullMatch[1]
+        .split("-")
+        .map((seg) => seg.padStart(2, "0"))
+        .join("-");
+      out.push(`OUT-${padded}`);
       prefixSeen = true;
       continue;
     }

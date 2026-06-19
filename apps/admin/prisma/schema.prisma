@@ -236,6 +236,14 @@ model Parameter {
   measurementVoiceOnly String?
   interpretationHigh   String?
   interpretationLow    String?
+  // #1951 (epic #1946 S4) — Escape hatch for parameters whose
+  // interpretation text is legitimately shorter than the
+  // parameter-interpretation-coverage.test.ts 20-char minimum (binary
+  // states, axis labels). When true, the coverage ratchet skips the
+  // length check for this row. The interpretation MUST still be
+  // non-null and meaningful — operator should explain in the PR body
+  // why the escape hatch is justified.
+  skipInterpretationLengthCheck Boolean @default(false)
   scaleType            String
   directionality       String
   computedBy           String
@@ -1717,6 +1725,18 @@ model Call {
   externalId String?
   transcript String
   createdAt  DateTime @default(now())
+
+  // #1917 (epic #1915 §6a I-PR3) — regulatory expiry stamped at
+  // create-time from the preset in effect (or `RETENTION_CALLER_DATA_DAYS`
+  // env fallback). NULL on existing rows (backfill=NULL by design — see
+  // `lib/privacy/stamp-regulatory-expiry.ts` JSDoc for the three reasons
+  // computed-date backfill is wrong). The retention cleanup cron deletes
+  // rows WHERE `regulatoryExpiresAt <= NOW()`.
+  //
+  // Naming discipline: NOT `expiresAt` — collides with
+  // `CallerMemory.expiresAt` (content decay) and would silently conflate
+  // two semantically different concepts.
+  regulatoryExpiresAt DateTime?
 
   // Caller tracking
   callerId String?

@@ -11142,7 +11142,7 @@ Parameter
 
 ### `DELETE` /api/parameters/:id
 
-Delete a parameter permanently (React-Admin compatible)
+Delete a parameter permanently (React-Admin compatible).
 
 **Auth**: Session · **Scope**: `parameters:write`
 
@@ -11153,6 +11153,11 @@ Delete a parameter permanently (React-Admin compatible)
 **Response** `200`
 ```json
 Parameter (the deleted record)
+```
+
+**Response** `403`
+```json
+{ error: "..." } when caller is below SUPERADMIN
 ```
 
 **Response** `500`
@@ -11204,13 +11209,18 @@ Update a parameter's fields (React-Admin compatible). parameterId is immutable.
 | scaleType | body | string | No | Scale type |
 | directionality | body | string | No | Directionality |
 | computedBy | body | string | No | Computed by |
-| definition | body | string | No | Parameter definition |
-| interpretationLow | body | string | No | Low-score interpretation |
-| interpretationHigh | body | string | No | High-score interpretation |
+| definition | body | string | No | Parameter definition (HF-canonical) |
+| interpretationLow | body | string | No | Low-score interpretation (HF-canonical) |
+| interpretationHigh | body | string | No | High-score interpretation (HF-canonical) |
 
 **Response** `200`
 ```json
 Parameter
+```
+
+**Response** `403`
+```json
+{ error: "..." } when caller is below SUPERADMIN
 ```
 
 **Response** `500`

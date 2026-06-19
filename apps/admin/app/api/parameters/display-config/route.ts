@@ -46,11 +46,11 @@ export async function GET() {
 
     // Assign default colors based on parameter type
     const colorPalette = {
-      "B5-O": "#3b82f6",      // blue
-      "B5-C": "#8b5cf6",      // violet
-      "B5-E": "#10b981",      // emerald
-      "B5-A": "#f59e0b",      // amber
-      "B5-N": "#ef4444",      // red
+      "BEH-B5-O": "#3b82f6",      // blue
+      "BEH-B5-C": "#8b5cf6",      // violet
+      "BEH-B5-E": "#10b981",      // emerald
+      "BEH-B5-A": "#f59e0b",      // amber
+      "BEH-B5-N": "#ef4444",      // red
       "VARK-V": "#3b82f6",    // blue
       "VARK-A": "#8b5cf6",    // violet
       "VARK-R": "#10b981",    // emerald

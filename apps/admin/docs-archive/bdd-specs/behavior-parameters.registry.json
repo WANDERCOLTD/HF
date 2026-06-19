@@ -1,14 +1,29 @@
 {
   "version": "2.0",
   "description": "GENERATED FROM DATABASE - enriched BEH-* names 2026-04-16",
+  "taxonomyVersion": "v1.0",
+  "domainGroups": [
+    "behavior-core",
+    "learning-adaptation",
+    "curriculum-adaptation",
+    "personality-adaptation",
+    "supervision",
+    "companion",
+    "engagement",
+    "reinforcement",
+    "onboarding",
+    "voice-delivery",
+    "learner-model",
+    "affect-motivation"
+  ],
   "generatedAt": "2026-04-16T17:47:52.532Z",
-  "sourceOfTruth": "Parameter table in database",
+  "sourceOfTruth": "Canonical spec \u2014 DB caches this. Pre-#1946 header said \"GENERATED FROM DATABASE\"; post-#1946 the registry is HF-canonical IP and `db:seed` drives the DB in the spec\u2192DB direction.",
   "parameters": [
     {
-      "parameterId": "abstract-vs-concrete",
+      "parameterId": "BEH-ABSTRACT-VS-CONCRETE",
       "name": "Abstract Vs Concrete",
       "definition": "Visual learners prefer concrete over abstract",
-      "domainGroup": "learning_adaptation",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "promptInjection": {
         "section": "STYLE",
@@ -16,83 +31,185 @@
         "templateLow": "Favour concrete examples (specific, hands-on, observable) over abstract reasoning.",
         "templateHigh": "Lean into abstract reasoning (principles, generalisations) before concrete examples.",
         "threshold": 0.5
+      },
+      "aliases": [
+        "abstract-vs-concrete"
+      ],
+      "interpretationHigh": "Lead with theory and principles; demonstrate them through specific examples afterwards.",
+      "interpretationLow": "Lead with specific examples and demonstrations; abstract patterns emerge from them.",
+      "usage": {
+        "compose": "prompt-injection",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Surfaced via parametersAsDirectives compose dispatcher (promptInjection.section: STYLE, condition: when-non-default); tutor-emit style directive set by operator-tuned BehaviorTarget, not learner-state derivable from one transcript."
+        }
       }
     },
     {
-      "parameterId": "adapt_to_feedback_style",
+      "parameterId": "BEH-ADAPT-TO-FEEDBACK-STYLE",
       "name": "Adapt to Feedback Style",
       "definition": "Adjust feedback detail based on learner preference",
-      "domainGroup": "learning",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "adapt_to_feedback_style"
+      ],
+      "interpretationHigh": "Give thorough multi-point feedback with specific examples and rationale for each note.",
+      "interpretationLow": "Give concise targeted feedback; one key point at a time without elaboration.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-LEARN-001-learner-profile-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "adapt_to_interaction_style",
+      "parameterId": "BEH-ADAPT-TO-INTERACTION-STYLE",
       "name": "Adapt to Interaction Style",
       "definition": "Adjust questioning and engagement based on interaction preference",
-      "domainGroup": "learning",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "adapt_to_interaction_style"
+      ],
+      "interpretationHigh": "Engage with frequent questions, dialogue, and back-and-forth; treat the session as a conversation.",
+      "interpretationLow": "Deliver content with minimal interruption; let the learner absorb before checking in.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-LEARN-001-learner-profile-adaptation"
+        }
+      }
     },
     {
       "parameterId": "adapt_to_learning_style",
       "name": "Adapt to Learning Style",
       "definition": "Adjust behavior targets based on visual/auditory/reading learning style",
-      "domainGroup": "learning",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "adapt_to_pace_preference",
       "name": "Adapt to Pace Preference",
       "definition": "Adjust pacing and depth based on learner's preferred speed",
-      "domainGroup": "learning",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "adapt_to_question_frequency",
+      "parameterId": "BEH-ADAPT-TO-QUESTION-FREQUENCY",
       "name": "Adapt to Question Frequency",
       "definition": "Adjust responsiveness based on how often learner asks questions",
-      "domainGroup": "learning",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "adapt_to_question_frequency"
+      ],
+      "interpretationHigh": "Anticipate questions proactively; offer multiple pause points; welcome interruption.",
+      "interpretationLow": "Move through content steadily; check understanding via your own probes rather than waiting.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-LEARN-001-learner-profile-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "aggregate_profile",
+      "parameterId": "BEH-AGGREGATE-PROFILE",
       "name": "Aggregate Learner Profile",
       "definition": "Combines recent observations into stable profile attributes",
-      "domainGroup": "learning",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "aggregate_profile"
+      ],
+      "interpretationHigh": "Trust recent observations as profile-defining; adapt session quickly to the emerging pattern.",
+      "interpretationLow": "Use cautious profile updates; treat recent observations as provisional and gather more before adapting.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "LEARN-PROF-001-learner-profile-aggregation"
+        }
+      }
     },
     {
-      "parameterId": "agreeableness_adaptation",
+      "parameterId": "BEH-AGREEABLENESS-ADAPTATION",
       "name": "Agreeableness Adaptation Target",
       "definition": "Warmth and directness based on caller's agreeableness: high = warm cooperative, low = direct honest",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Warm Cooperative: Friendly, harmony-focused, relationship-building",
-      "interpretationLow": "Direct Honest: Straightforward, efficient, no-nonsense"
+      "interpretationLow": "Direct Honest: Straightforward, efficient, no-nonsense",
+      "aliases": [
+        "agreeableness_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
+      }
     },
     {
       "parameterId": "analogy-usage",
       "name": "Analogy Usage",
       "definition": "Visual learners respond well to analogies",
-      "domainGroup": "learning_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Use analogies frequently; bridge new concepts to familiar ones the learner already knows.",
+      "interpretationLow": "Avoid analogies; explain concepts directly and on their own terms.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"visual learners respond well to analogies\"); learner-preference signal that is not derivable from a single transcript. See BEH-ANALOGY-USAGE sibling for the measurable tutor-behavior knob."
+        }
+      }
     },
     {
-      "parameterId": "application_adaptation",
+      "parameterId": "BEH-APPLICATION-ADAPTATION",
       "name": "Practice vs Explanation Target",
       "definition": "Activity balance based on application ability: high = more practice, low = more explanation",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Application: Ready for complex practice",
-      "interpretationLow": "Weak Application: More explanation before practice"
+      "interpretationLow": "Weak Application: More explanation before practice",
+      "aliases": [
+        "application_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "application_score",
+      "parameterId": "BEH-APPLICATION-SCORE",
       "name": "Application Score",
       "definition": "Measures learner's ability to apply concepts to new situations",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Expert Application: Applies fluently to novel situations",
-      "interpretationLow": "No Application: Cannot apply concept"
+      "interpretationLow": "No Application: Cannot apply concept",
+      "aliases": [
+        "application_score"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
+      }
     },
     {
       "parameterId": "auditory_adaptation",
@@ -101,52 +218,102 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Auditory: Use rich verbal elaboration, encourage talk-through, attend to rhythm",
-      "interpretationLow": "Low Auditory: Keep verbal explanations concise; consider written or visual alternatives"
+      "interpretationLow": "Low Auditory: Keep verbal explanations concise; consider written or visual alternatives",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "B5-A",
+      "parameterId": "BEH-B5-A",
       "name": "agreeableness",
       "definition": "Agreeableness - cooperation, trust, empathy, tendency to be helpful and avoid conflict",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Agreeable: Very accommodating; may not voice concerns; needs explicit invitation to disagree",
-      "interpretationLow": "Challenging/Skeptical: Will question and push back; needs to be convinced; values their own judgment"
+      "interpretationLow": "Challenging/Skeptical: Will question and push back; needs to be convinced; values their own judgment",
+      "aliases": [
+        "B5-A"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
+      }
     },
     {
-      "parameterId": "B5-C",
+      "parameterId": "BEH-B5-C",
       "name": "conscientiousness",
       "definition": "Conscientiousness - organization, dependability, self-discipline, preference for planned behavior",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Conscientious: Needs detailed plans, precise information, clear expectations",
-      "interpretationLow": "Flexible/Spontaneous: Prefers flexibility, may resist rigid processes, comfortable with ambiguity"
+      "interpretationLow": "Flexible/Spontaneous: Prefers flexibility, may resist rigid processes, comfortable with ambiguity",
+      "aliases": [
+        "B5-C"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
+      }
     },
     {
-      "parameterId": "B5-E",
+      "parameterId": "BEH-B5-E",
       "name": "extraversion",
       "definition": "Extraversion - energy, positive emotions, assertiveness, sociability, talkativeness",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Extraverted: Energized by interaction; wants rapport and engagement",
-      "interpretationLow": "Introverted: Prefers focused, task-oriented interaction; may find chattiness draining"
+      "interpretationLow": "Introverted: Prefers focused, task-oriented interaction; may find chattiness draining",
+      "aliases": [
+        "B5-E"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
+      }
     },
     {
-      "parameterId": "B5-N",
+      "parameterId": "BEH-B5-N",
       "name": "neuroticism",
       "definition": "Neuroticism - tendency to experience negative emotions, emotional reactivity, anxiety",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Anxious: Needs significant reassurance; sensitive to uncertainty; provide extra support",
-      "interpretationLow": "Emotionally Stable: Calm under pressure; doesn't need much reassurance; handles stress well"
+      "interpretationLow": "Emotionally Stable: Calm under pressure; doesn't need much reassurance; handles stress well",
+      "aliases": [
+        "B5-N"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
+      }
     },
     {
-      "parameterId": "B5-O",
+      "parameterId": "BEH-B5-O",
       "name": "openness",
       "definition": "Openness to Experience - intellectual curiosity, creativity, preference for novelty and variety",
-      "domainGroup": "personality",
+      "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Open: Seeks novelty, abstract thinker, creative problem-solver",
-      "interpretationLow": "Traditional/Practical: Prefers familiar approaches, concrete information, proven methods"
+      "interpretationLow": "Traditional/Practical: Prefers familiar approaches, concrete information, proven methods",
+      "aliases": [
+        "B5-O"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "PERS-001-personality-measurement"
+        }
+      }
     },
     {
       "parameterId": "BEH-ABSTRACT-OK",
@@ -155,7 +322,11 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Abstract Thinker: Comfortable with theory, models, and generalisations",
-      "interpretationLow": "Concrete Thinker: Needs tangible examples and real-world grounding"
+      "interpretationLow": "Concrete Thinker: Needs tangible examples and real-world grounding",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "BEH-ACTION-VERBS",
@@ -163,8 +334,15 @@
       "definition": "Whether the AI uses action-oriented, practical language versus abstract terminology.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Action-Oriented: Uses 'do', 'build', 'try' — grounds learning in activity",
-      "interpretationLow": "Conceptual: Uses 'consider', 'reflect', 'understand' — grounds learning in thought"
+      "interpretationHigh": "Action-Oriented: Uses 'do', 'build', 'try' \u2014 grounds learning in activity",
+      "interpretationLow": "Conceptual: Uses 'consider', 'reflect', 'understand' \u2014 grounds learning in thought",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor action-oriented vs abstract vocabulary; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-ADVANCE-READINESS",
@@ -173,7 +351,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast Progression: Moves to new topics as soon as basic competence is shown",
-      "interpretationLow": "Thorough Mastery: Stays on a topic until deep understanding is confirmed"
+      "interpretationLow": "Thorough Mastery: Stays on a topic until deep understanding is confirmed",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (when to advance learner to new material); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
+      }
     },
     {
       "parameterId": "BEH-ANALOGY-USAGE",
@@ -182,7 +367,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Analogy-Rich: Frequently uses comparisons and metaphors to explain ideas",
-      "interpretationLow": "Direct Explanation: Explains concepts in their own terms without analogies"
+      "interpretationLow": "Direct Explanation: Explains concepts in their own terms without analogies",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor analogy-usage frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-APPROACH-SWITCHING",
@@ -191,7 +383,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Flexible: Switches freely between visual, auditory, and hands-on approaches",
-      "interpretationLow": "Consistent: Sticks with one approach throughout the session"
+      "interpretationLow": "Consistent: Sticks with one approach throughout the session",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor teaching-modality switching frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-CHALLENGE-LEVEL",
@@ -200,7 +399,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Stretching: Presents problems just beyond current ability to promote growth",
-      "interpretationLow": "Comfortable: Keeps problems within easy reach to build confidence"
+      "interpretationLow": "Comfortable: Keeps problems within easy reach to build confidence",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (difficulty of presented problems); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
+      }
     },
     {
       "parameterId": "BEH-CHECK-FOR-UNDERSTANDING",
@@ -209,7 +415,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Frequent Checks: Regularly asks the learner to explain back or demonstrate understanding",
-      "interpretationLow": "Trust & Continue: Assumes understanding unless the learner signals confusion"
+      "interpretationLow": "Trust & Continue: Assumes understanding unless the learner signals confusion",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor comprehension-check frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-CONCEPT-DENSITY",
@@ -218,7 +431,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Dense: Introduces multiple connected ideas per exchange for fast learners",
-      "interpretationLow": "Sparse: One idea at a time with space to absorb before adding more"
+      "interpretationLow": "Sparse: One idea at a time with space to absorb before adding more",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor concept-density per exchange; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-CONVERSATIONAL-DEPTH",
@@ -227,7 +447,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep: Going deep into topics, nuanced exploration",
-      "interpretationLow": "Surface: Keeping conversation light and superficial"
+      "interpretationLow": "Surface: Keeping conversation light and superficial",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-CD-001-conversational-depth"
+        }
+      }
     },
     {
       "parameterId": "BEH-CONVERSATIONAL-TONE",
@@ -235,8 +461,13 @@
       "definition": "How casual and natural the AI's language is during teaching.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Chatty: Relaxed, informal, conversational — like talking to a friend",
-      "interpretationLow": "Formal: Structured, professional, precise — like a textbook"
+      "interpretationHigh": "Chatty: Relaxed, informal, conversational \u2014 like talking to a friend",
+      "interpretationLow": "Formal: Structured, professional, precise \u2014 like a textbook",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "BEH-DEFINITION-PRECISION",
@@ -245,7 +476,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Precise: Uses exact definitions, technical accuracy, formal terminology",
-      "interpretationLow": "Approximate: Uses plain-language descriptions, favours intuition over precision"
+      "interpretationLow": "Approximate: Uses plain-language descriptions, favours intuition over precision",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor technical-term definition precision; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-DIAGRAM-LANGUAGE",
@@ -254,7 +492,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Visual Structures: Describes layouts, diagrams, and spatial relationships frequently",
-      "interpretationLow": "Narrative: Explains through stories and sequential descriptions"
+      "interpretationLow": "Narrative: Explains through stories and sequential descriptions",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor visual/spatial-structure descriptive language; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-DIRECTNESS",
@@ -263,7 +508,16 @@
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Direct: Gets to the point quickly, no-nonsense, efficient communication",
-      "interpretationLow": "Diplomatic: Softens messages, uses hedging language, approaches topics gently"
+      "interpretationLow": "Diplomatic: Softens messages, uses hedging language, approaches topics gently",
+      "aliases": [
+        "directness_actual"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "STYLE-001-conversation-style"
+        }
+      }
     },
     {
       "parameterId": "BEH-EMPATHY-RATE",
@@ -272,7 +526,17 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Empathy: Responding empathetically, acknowledging feelings",
-      "interpretationLow": "Transactional: Responding without emotional acknowledgment"
+      "interpretationLow": "Transactional: Responding without emotional acknowledgment",
+      "aliases": [
+        "empathy_expression",
+        "response_empathy_score"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "COMP-GG-001-gentle-guidance"
+        }
+      }
     },
     {
       "parameterId": "BEH-EXAMPLE-RICHNESS",
@@ -281,7 +545,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Example-Rich: Multiple worked examples and illustrations for each concept",
-      "interpretationLow": "Minimal Examples: Brief or no examples — relies on abstract explanation"
+      "interpretationLow": "Minimal Examples: Brief or no examples \u2014 relies on abstract explanation",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor concrete-example richness; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-EXPLANATION-VARIETY",
@@ -290,7 +561,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Multi-Angle: Rephrases, uses different models, and tries new angles automatically",
-      "interpretationLow": "Consistent: Repeats and reinforces the same explanation with more detail"
+      "interpretationLow": "Consistent: Repeats and reinforces the same explanation with more detail",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor re-explanation variety on learner confusion; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-FEELING-LANGUAGE",
@@ -298,8 +576,15 @@
       "definition": "How much the AI uses sensory and emotional language (feel, sense, touch, experience).",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Kinaesthetic: Rich sensory language — 'feel the weight of', 'get a sense for'",
-      "interpretationLow": "Analytical: Factual, logical language — 'note that', 'observe that'"
+      "interpretationHigh": "Kinaesthetic: Rich sensory language \u2014 'feel the weight of', 'get a sense for'",
+      "interpretationLow": "Analytical: Factual, logical language \u2014 'note that', 'observe that'",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor sensory / emotional language usage; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-FORMALITY",
@@ -308,7 +593,17 @@
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Formal: Professional, organised, uses proper grammar and structured delivery",
-      "interpretationLow": "Casual: Relaxed, conversational, uses colloquial language and flexible structure"
+      "interpretationLow": "Casual: Relaxed, conversational, uses colloquial language and flexible structure",
+      "aliases": [
+        "formality-level",
+        "formality_actual"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "STYLE-001-conversation-style"
+        }
+      }
     },
     {
       "parameterId": "BEH-FOUNDATION-FOCUS",
@@ -317,7 +612,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Gap-Filling: Pauses to address missing foundations before teaching new material",
-      "interpretationLow": "Forward-Moving: Focuses on current material, addressing gaps only when they block progress"
+      "interpretationLow": "Forward-Moving: Focuses on current material, addressing gaps only when they block progress",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (prerequisite-gap-fill priority); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
+      }
     },
     {
       "parameterId": "BEH-GUIDED-PRACTICE",
@@ -326,7 +628,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Heavily Guided: Walks through each step, provides hints and scaffolding",
-      "interpretationLow": "Independent: Sets the task and lets the learner work through it alone"
+      "interpretationLow": "Independent: Sets the task and lets the learner work through it alone",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor step-by-step guidance during practice; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-IMAGERY-DENSITY",
@@ -335,16 +644,29 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Image-Rich: Paints vivid mental pictures and asks learner to visualise",
-      "interpretationLow": "Text-Focused: Relies on logical reasoning and verbal explanation"
+      "interpretationLow": "Text-Focused: Relies on logical reasoning and verbal explanation",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor mental-imagery / visualisation density; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-INSIGHT-FREQUENCY",
       "name": "Insight Frequency",
       "definition": "How often the agent shares interesting knowledge, facts, anecdotes, or connections during a call",
-      "domainGroup": "companion-behavior",
+      "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Knowledge-Rich: 3+ insights per call. Actively look for opportunities to share interesting connections.",
-      "interpretationLow": "Listener: Pure listening mode. Share knowledge only if directly asked."
+      "interpretationLow": "Listener: Pure listening mode. Share knowledge only if directly asked.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "COMP-INSIGHT-001-insight-cadence"
+        }
+      }
     },
     {
       "parameterId": "BEH-INTELLECTUAL-CHALLENGE",
@@ -353,7 +675,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Challenging: Providing genuine intellectual challenge",
-      "interpretationLow": "Comfortable: Keeping things easy and comfortable"
+      "interpretationLow": "Comfortable: Keeping things easy and comfortable",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-CD-001-conversational-depth"
+        }
+      }
     },
     {
       "parameterId": "BEH-INTERLEAVING",
@@ -362,7 +690,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Mixed Practice: Regularly weaves past topics into current sessions for retention",
-      "interpretationLow": "Focused Blocks: Concentrates on one topic at a time without mixing"
+      "interpretationLow": "Focused Blocks: Concentrates on one topic at a time without mixing",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (mix-in rate of previous-topic review); operator sets the target band, ADAPT-runner reads it against the schedule. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
+      }
     },
     {
       "parameterId": "BEH-LIST-STRUCTURE",
@@ -371,7 +706,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Structured: Frequently uses numbered lists, bullet points, and clear hierarchies",
-      "interpretationLow": "Flowing: Uses natural prose and connected paragraphs"
+      "interpretationLow": "Flowing: Uses natural prose and connected paragraphs",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor list / hierarchy / structured-format organisation; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-MEMORY-REFERENCE",
@@ -380,7 +722,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Good Continuity: Appropriately referencing family names, interests, past conversations",
-      "interpretationLow": "No References: Not referencing past conversations or known facts"
+      "interpretationLow": "No References: Not referencing past conversations or known facts",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-MC-001-memory-continuity"
+        }
+      }
     },
     {
       "parameterId": "BEH-MODALITY-CONSISTENCY",
@@ -389,7 +737,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Stick With What Works: Consistently uses the modality the learner responds to best",
-      "interpretationLow": "Mix It Up: Deliberately varies approaches even when one is working well"
+      "interpretationLow": "Mix It Up: Deliberately varies approaches even when one is working well",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor stickiness to learner's preferred modality; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-MODALITY-VARIETY",
@@ -398,7 +753,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Multi-Modal: Switches between visual, auditory, and kinesthetic based on content type",
-      "interpretationLow": "Single Channel: Relies on one primary teaching approach regardless of content"
+      "interpretationLow": "Single Channel: Relies on one primary teaching approach regardless of content",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor teaching-channel variety; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-NEW-CONTENT-RATE",
@@ -407,7 +769,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast Introduction: Quickly moves to new material, minimal review time",
-      "interpretationLow": "Review First: Extensive review of existing material before introducing anything new"
+      "interpretationLow": "Review First: Extensive review of existing material before introducing anything new",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (introduction rate of fresh material vs review); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
+      }
     },
     {
       "parameterId": "BEH-NUANCE-EXPLORATION",
@@ -416,7 +785,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep Nuance: Probes edge cases, exceptions, and grey areas to deepen understanding",
-      "interpretationLow": "Core Only: Sticks to the main rule or concept without exploring exceptions"
+      "interpretationLow": "Core Only: Sticks to the main rule or concept without exploring exceptions",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor edge-case / nuance exploration depth; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-PACE-MATCH",
@@ -425,7 +801,22 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Well Matched: Adapting well to person's energy and rhythm",
-      "interpretationLow": "Mismatched: Not matching the person's pace"
+      "interpretationLow": "Mismatched: Not matching the person's pace",
+      "aliases": [
+        "CONV_PACE",
+        "adapt_to_pace_preference",
+        "pace_indicators",
+        "pacing_actual"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlugs": [
+            "ADAPT-LEARN-001-learner-profile-adaptation",
+            "COMP-PP-001-patience-pacing"
+          ]
+        }
+      }
     },
     {
       "parameterId": "BEH-PATIENCE-LEVEL",
@@ -434,7 +825,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Patient: Unhurried, allowing time for thought, not rushing",
-      "interpretationLow": "Rushed: Moving too fast, not allowing time"
+      "interpretationLow": "Rushed: Moving too fast, not allowing time",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-PP-001-patience-pacing"
+        }
+      }
     },
     {
       "parameterId": "BEH-PAUSE-TOLERANCE",
@@ -443,7 +840,14 @@
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Patient Silences: Comfortable with long pauses, gives ample thinking time",
-      "interpretationLow": "Quick Fill: Fills silences quickly with prompts, hints, or new content"
+      "interpretationLow": "Quick Fill: Fills silences quickly with prompts, hints, or new content",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor wait-time before re-prompting; tutor-emit directive. SUPERVISE-stage validation could check compliance, but it's not learner-state derivable from transcript."
+        }
+      }
     },
     {
       "parameterId": "BEH-PRACTICE-EXERCISES",
@@ -452,7 +856,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Activity-Heavy: Lots of exercises, drills, and hands-on tasks",
-      "interpretationLow": "Discussion-Based: Learning through conversation and explanation, few exercises"
+      "interpretationLow": "Discussion-Based: Learning through conversation and explanation, few exercises",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor hands-on exercise inclusion rate; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-PRACTICE-RATIO",
@@ -461,7 +872,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Practice-Heavy: Most of the session is spent on exercises and application",
-      "interpretationLow": "Explanation-Heavy: Most of the session is spent on teaching and explaining"
+      "interpretationLow": "Explanation-Heavy: Most of the session is spent on teaching and explaining",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor explanation-to-practice ratio; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-PREREQUISITE-CALLBACK",
@@ -470,7 +888,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Frequent Links: Regularly connects new ideas to what was learned before",
-      "interpretationLow": "Standalone: Teaches each concept independently without referencing prior knowledge"
+      "interpretationLow": "Standalone: Teaches each concept independently without referencing prior knowledge",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (linkback rate to previously learned concepts); operator sets the target band, ADAPT-runner emits the directive. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
+      }
     },
     {
       "parameterId": "BEH-PROACTIVE",
@@ -479,7 +904,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Proactive: Actively offering ideas, connections, questions",
-      "interpretationLow": "Passive: Only responding to what's asked"
+      "interpretationLow": "Passive: Only responding to what's asked",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "COMP-IS-001-intellectual-stimulation"
+        }
+      }
     },
     {
       "parameterId": "BEH-PROBING-QUESTIONS",
@@ -488,7 +919,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Socratic: Frequently asks 'why' and 'what if' to push thinking further",
-      "interpretationLow": "Accepting: Accepts answers at face value without probing deeper"
+      "interpretationLow": "Accepting: Accepts answers at face value without probing deeper",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor follow-up question depth; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-PRODUCTIVE-STRUGGLE",
@@ -497,7 +935,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Patient Struggle: Lets the learner wrestle with the problem, offering encouragement",
-      "interpretationLow": "Quick Rescue: Steps in quickly with hints or answers when difficulty is detected"
+      "interpretationLow": "Quick Rescue: Steps in quickly with hints or answers when difficulty is detected",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (struggle-tolerance window before scaffold-step-in); operator sets the target band, ADAPT-runner reads it against the live signal. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
+      }
     },
     {
       "parameterId": "BEH-QUESTION-RATE",
@@ -506,7 +951,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Question-Rich: Asking many thoughtful, probing questions",
-      "interpretationLow": "Few Questions: Mostly making statements, few questions"
+      "interpretationLow": "Few Questions: Mostly making statements, few questions",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "COMP-IS-001-intellectual-stimulation"
+        }
+      }
     },
     {
       "parameterId": "BEH-REAL-WORLD-EXAMPLES",
@@ -515,7 +966,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Practical: Frequently links ideas to real-life situations and applications",
-      "interpretationLow": "Theoretical: Stays within the academic or abstract domain"
+      "interpretationLow": "Theoretical: Stays within the academic or abstract domain",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor abstract-to-practical example bridging; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-REPETITION-FREQUENCY",
@@ -524,7 +982,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Frequent Repetition: Deliberately restates key ideas multiple times per session",
-      "interpretationLow": "Say Once: States concepts once and moves on without repetition"
+      "interpretationLow": "Say Once: States concepts once and moves on without repetition",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor in-session repetition frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-REPETITION-OFFER",
@@ -533,7 +998,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Proactive Repeats: Offers to say things again or differently without being asked",
-      "interpretationLow": "On Request: Only repeats when the learner explicitly asks"
+      "interpretationLow": "On Request: Only repeats when the learner explicitly asks",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor proactive repeat / rephrase offers; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-RESPECT-EXPERIENCE",
@@ -542,7 +1014,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Honoring: Actively honoring wisdom, treating as intellectual equal",
-      "interpretationLow": "Dismissive: Not acknowledging experience, possibly condescending"
+      "interpretationLow": "Dismissive: Not acknowledging experience, possibly condescending",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-RE-001-respect-experience"
+        }
+      }
     },
     {
       "parameterId": "BEH-RESPONSE-LEN",
@@ -551,7 +1029,14 @@
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Longer Turns: Extended responses with more content per exchange",
-      "interpretationLow": "Short Turns: Brief responses that encourage quick back-and-forth dialogue"
+      "interpretationLow": "Short Turns: Brief responses that encourage quick back-and-forth dialogue",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor response length; tutor-emit directive expressed via prompt composition. Not learner-derivable from transcript."
+        }
+      }
     },
     {
       "parameterId": "BEH-RHYTHM-ATTENTION",
@@ -560,7 +1045,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Rhythmic: Varies pace, uses pauses deliberately, attends to speech rhythm",
-      "interpretationLow": "Steady: Maintains a consistent pace without deliberate rhythmic variation"
+      "interpretationLow": "Steady: Maintains a consistent pace without deliberate rhythmic variation",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor pace / cadence / flow attention; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-SCAFFOLDING",
@@ -569,7 +1061,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Heavy Scaffolding: Breaks tasks into small steps, provides frameworks and templates",
-      "interpretationLow": "Minimal Scaffolding: Presents the full task and lets the learner structure their approach"
+      "interpretationLow": "Minimal Scaffolding: Presents the full task and lets the learner structure their approach",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor structural scaffolding for complex tasks; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-SPACED-RETRIEVAL-PRIORITY",
@@ -578,7 +1077,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Aggressive Review: Prioritises retrieval practice for declining mastery areas",
-      "interpretationLow": "Forward Focus: Prioritises new material over reviewing fading knowledge"
+      "interpretationLow": "Forward Focus: Prioritises new material over reviewing fading knowledge",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (review-schedule aggression for fading material); operator sets the target band, ADAPT-runner reads it against the schedule. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+        }
+      }
     },
     {
       "parameterId": "BEH-SPATIAL-METAPHOR",
@@ -586,8 +1092,15 @@
       "definition": "How much the AI uses spatial organisation and location-based metaphors.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Spatial: Uses 'above', 'below', 'left of', 'inside' — maps concepts to space",
-      "interpretationLow": "Sequential: Uses 'first', 'then', 'next' — maps concepts to time"
+      "interpretationHigh": "Spatial: Uses 'above', 'below', 'left of', 'inside' \u2014 maps concepts to space",
+      "interpretationLow": "Sequential: Uses 'first', 'then', 'next' \u2014 maps concepts to time",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor spatial / location-based metaphor usage; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-STORY-INVITATION",
@@ -596,7 +1109,13 @@
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Welcoming: Warmly inviting stories, creating space for sharing",
-      "interpretationLow": "No Invitations: Not inviting stories or personal sharing"
+      "interpretationLow": "No Invitations: Not inviting stories or personal sharing",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-GG-001-gentle-guidance"
+        }
+      }
     },
     {
       "parameterId": "BEH-TERMINOLOGY-FORMAL",
@@ -605,7 +1124,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Technical: Uses proper subject terminology and expects learner to learn it",
-      "interpretationLow": "Plain Language: Avoids jargon, uses everyday words to explain concepts"
+      "interpretationLow": "Plain Language: Avoids jargon, uses everyday words to explain concepts",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor formal-vocabulary vs everyday-language balance; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-TURN-LENGTH",
@@ -614,7 +1140,14 @@
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Extended: Longer, more content-rich turns with multiple points per exchange",
-      "interpretationLow": "Brief: Short, punchy turns that keep the conversation fast-paced"
+      "interpretationLow": "Brief: Short, punchy turns that keep the conversation fast-paced",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor turn length / content density per turn; tutor-emit directive. Not learner-state derivable."
+        }
+      }
     },
     {
       "parameterId": "BEH-VERBAL-ELABORATION",
@@ -623,7 +1156,14 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Elaborate: Extended, detailed verbal explanations with multiple angles",
-      "interpretationLow": "Concise: Brief, to-the-point explanations — says it once, clearly"
+      "interpretationLow": "Concise: Brief, to-the-point explanations \u2014 says it once, clearly",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor spoken-explanation elaboration richness; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-WARMTH",
@@ -632,7 +1172,17 @@
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Warm: Friendly greetings, encouraging language, emotional warmth",
-      "interpretationLow": "Neutral: Professional and pleasant but emotionally reserved"
+      "interpretationLow": "Neutral: Professional and pleasant but emotionally reserved",
+      "aliases": [
+        "BEH-CONVERSATIONAL-TONE",
+        "warmth_actual"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "STYLE-001-conversation-style"
+        }
+      }
     },
     {
       "parameterId": "BEH-WORKED-EXAMPLES",
@@ -641,7 +1191,14 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Demo First: Shows fully worked examples before asking the learner to attempt",
-      "interpretationLow": "Try First: Asks the learner to attempt the problem before showing solutions"
+      "interpretationLow": "Try First: Asks the learner to attempt the problem before showing solutions",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor worked-example demonstration before learner-try; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
       "parameterId": "BEH-WRITTEN-ALTERNATIVE",
@@ -650,154 +1207,317 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Text Support: Frequently offers written summaries, key points, or reference notes",
-      "interpretationLow": "Verbal Only: Teaches entirely through conversation without written supplements"
+      "interpretationLow": "Verbal Only: Teaches entirely through conversation without written supplements",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor written-reference / summary supplement rate; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+        }
+      }
     },
     {
-      "parameterId": "call_frequency_adaptation",
+      "parameterId": "BEH-CALL-FREQUENCY-ADAPTATION",
       "name": "Call Frequency Target",
       "definition": "Continuity approach based on time since last call: frequent callers = maintain continuity, infrequent = context refresh",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Frequent Caller: Maintain continuity, build on previous session",
-      "interpretationLow": "Returning After Break: Provide context refresh, welcome back warmly"
+      "interpretationLow": "Returning After Break: Provide context refresh, welcome back warmly",
+      "aliases": [
+        "call_frequency_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-ENG-001-engagement-adaptation"
+        }
+      }
     },
     {
       "parameterId": "check-for-understanding",
       "name": "Check For Understanding",
       "definition": "Rare questioners need proactive comprehension checks",
-      "domainGroup": "engagement_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "engagement",
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Check understanding frequently; ask the learner to summarise or apply each new idea before moving on.",
+      "interpretationLow": "Trust the learner's silence as understanding; check only at major content transitions.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor's proactive-comprehension-check rate; tutor-emit directive based on operator-set learner profile. Not measured from transcript."
+        }
+      }
     },
     {
-      "parameterId": "chunk-size",
+      "parameterId": "BEH-CHUNK-SIZE",
       "name": "Chunk Size",
       "definition": "Frequent questioners need smaller chunks to digest",
-      "domainGroup": "engagement_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "engagement",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "chunk-size"
+      ],
+      "interpretationHigh": "Deliver content in larger blocks; cover multiple related points before pausing.",
+      "interpretationLow": "Break content into small chunks; pause after each idea for reflection or response.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor information chunking; tutor-emit directive based on operator-set learner profile. Not measured from transcript."
+        }
+      }
     },
     {
-      "parameterId": "communication_complexity_adaptation",
+      "parameterId": "BEH-COMMUNICATION-COMPLEXITY-ADAPTATION",
       "name": "Communication Complexity Target",
       "definition": "Vocabulary and sentence complexity target based on caller's demonstrated language level",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Advanced Communication: Match their intellectual level, use precise terminology",
-      "interpretationLow": "Simple Communication: Use clear, simple language without jargon"
+      "interpretationLow": "Simple Communication: Use clear, simple language without jargon",
+      "aliases": [
+        "communication_complexity_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-ENG-001-engagement-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "COMP-DEPTH-PREFERENCE",
+      "parameterId": "BEH-DEPTH-PREFERENCE",
       "name": "Depth Preference",
       "definition": "Whether the person wants surface chat or deep intellectual exploration",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep: Wants deep discussion, analysis, nuance, complexity",
-      "interpretationLow": "Light: Prefers lighter conversation, social connection, simple topics"
+      "interpretationLow": "Light: Prefers lighter conversation, social connection, simple topics",
+      "aliases": [
+        "COMP-DEPTH-PREFERENCE"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-IE-001-intellectual-engagement"
+        }
+      }
     },
     {
-      "parameterId": "COMP-ENERGY",
+      "parameterId": "BEH-ENERGY",
       "name": "Conversational Energy",
       "definition": "The energy level and stamina shown during the conversation",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Energy: Alert, energetic, wants to continue talking, lots to share",
-      "interpretationLow": "Low Energy: Tired, shorter responses, may need gentler pacing or wrap-up"
+      "interpretationLow": "Low Energy: Tired, shorter responses, may need gentler pacing or wrap-up",
+      "aliases": [
+        "COMP-ENERGY"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-EW-001-emotional-wellbeing"
+        }
+      }
     },
     {
-      "parameterId": "COMP-ENGAGEMENT",
+      "parameterId": "BEH-ENGAGEMENT",
       "name": "Intellectual Engagement",
       "definition": "How intellectually engaged and stimulated the person is in the conversation",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Engagement: Deeply engaged, asking thoughtful questions, making connections, enjoying the exchange",
-      "interpretationLow": "Low Engagement: Distracted, giving short answers, not pursuing topics"
+      "interpretationLow": "Low Engagement: Distracted, giving short answers, not pursuing topics",
+      "aliases": [
+        "COMP-ENGAGEMENT"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-IE-001-intellectual-engagement"
+        }
+      }
     },
     {
-      "parameterId": "COMP-MOOD",
+      "parameterId": "BEH-MOOD",
       "name": "Emotional Tone",
       "definition": "The emotional tone and wellbeing signals in the conversation",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Positive Mood: Positive, warm, enjoying the interaction, sharing freely",
-      "interpretationLow": "Low Mood: Withdrawn, flat affect, brief responses, possible loneliness signals"
+      "interpretationLow": "Low Mood: Withdrawn, flat affect, brief responses, possible loneliness signals",
+      "aliases": [
+        "COMP-MOOD"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-EW-001-emotional-wellbeing"
+        }
+      }
     },
     {
-      "parameterId": "composite_reward",
+      "parameterId": "BEH-COMPOSITE-REWARD",
       "name": "Composite Reward Signal",
       "definition": "Weighted combination of all reward signals for overall optimization",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Excellent Outcome: Highly successful interaction",
-      "interpretationLow": "Neutral Outcome: Acceptable but unremarkable"
+      "interpretationLow": "Neutral Outcome: Acceptable but unremarkable",
+      "aliases": [
+        "composite_reward"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
+      }
     },
     {
-      "parameterId": "comprehension_adaptation",
+      "parameterId": "BEH-COMPREHENSION-ADAPTATION",
       "name": "Comprehension-Based Scaffolding Target",
       "definition": "Scaffolding intensity based on comprehension: low comprehension = heavy scaffolding, high = minimal",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Comprehension: Minimal scaffolding needed",
-      "interpretationLow": "Weak Comprehension: Heavy scaffolding required"
+      "interpretationLow": "Weak Comprehension: Heavy scaffolding required",
+      "aliases": [
+        "comprehension_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "comprehension_score",
+      "parameterId": "BEH-COMPREHENSION-SCORE",
       "name": "Comprehension Score",
       "definition": "Measures learner's demonstrated understanding of concepts",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Comprehension: Can explain accurately in own words",
-      "interpretationLow": "No Comprehension: Cannot demonstrate understanding"
+      "interpretationLow": "No Comprehension: Cannot demonstrate understanding",
+      "aliases": [
+        "comprehension_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
+      }
     },
     {
-      "parameterId": "COMP-REMINISCENCE",
+      "parameterId": "BEH-REMINISCENCE",
       "name": "Reminiscence Mode",
       "definition": "Whether the person is in a mood to share memories and life experiences",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
       "interpretationHigh": "Reminiscence Mode: Sharing stories, reflecting on past, connecting present to history",
-      "interpretationLow": "Present-Focused: Focused on present/future, not drawing on past experiences"
+      "interpretationLow": "Present-Focused: Focused on present/future, not drawing on past experiences",
+      "aliases": [
+        "COMP-REMINISCENCE"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-CG-001-cognitive-patterns"
+        }
+      }
     },
     {
       "parameterId": "concept-density",
       "name": "Concept Density",
       "definition": "Fast pace learners can handle more concepts at once",
-      "domainGroup": "pacing_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Introduce multiple concepts in close succession; trust the learner to integrate them.",
+      "interpretationLow": "Introduce one concept at a time; allow each to settle before adding the next.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"fast pace learners can handle more concepts at once\"); learner-preference signal that is not derivable from a single transcript. See BEH-CONCEPT-DENSITY sibling for the measurable tutor-behavior knob."
+        }
+      }
     },
     {
-      "parameterId": "concept_exposure",
+      "parameterId": "BEH-CONCEPT-EXPOSURE",
       "name": "Concept Exposure Depth",
       "definition": "Measures how deeply a concept has been explored across conversations",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Deep Exposure: Multiple examples, contexts, and applications",
-      "interpretationLow": "Minimal Exposure: Concept mentioned briefly"
+      "interpretationLow": "Minimal Exposure: Concept mentioned briefly",
+      "aliases": [
+        "concept_exposure"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
+      }
     },
     {
-      "parameterId": "conscientiousness_adaptation",
+      "parameterId": "BEH-CONSCIENTIOUSNESS-ADAPTATION",
       "name": "Conscientiousness Adaptation Target",
       "definition": "Structure and detail level based on caller's conscientiousness: high = organized details, low = flexible overview",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Structured Detail: Organized, detailed, action-oriented responses",
-      "interpretationLow": "Flexible Overview: Big picture focus, adaptable, less rigid"
+      "interpretationLow": "Flexible Overview: Big picture focus, adaptable, less rigid",
+      "aliases": [
+        "conscientiousness_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "context_setting_quality",
+      "parameterId": "BEH-CONTEXT-SETTING-QUALITY",
       "name": "Context Setting Quality",
       "definition": "Effectiveness of setting expectations for the relationship",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Clear Expectations: Caller knows what to expect",
-      "interpretationLow": "No Context: Caller may be unsure what to expect"
+      "interpretationLow": "No Context: Caller may be unsure what to expect",
+      "aliases": [
+        "context_setting_quality"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
+      }
     },
     {
-      "parameterId": "CONV_DOM",
+      "parameterId": "BEH-CONV-DOM",
       "name": "conversation_dominance",
       "definition": "Ratio indicating who controls the conversation flow - caller vs agent",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Caller Dominant: Caller controlling flow - ensure agent provides needed guidance",
-      "interpretationLow": "Agent Dominant: Agent controlling conversation - create space for caller input"
+      "interpretationLow": "Agent Dominant: Agent controlling conversation - create space for caller input",
+      "aliases": [
+        "CONV_DOM"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "CA-001-cognitive-activation"
+        }
+      }
     },
     {
       "parameterId": "CONV_PACE",
@@ -806,177 +1526,352 @@
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Rapid: Very fast pace - minimize pauses, quick turnarounds",
-      "interpretationLow": "Deliberate: Slow, thoughtful pace - allow processing time, don't rush"
+      "interpretationLow": "Deliberate: Slow, thoughtful pace - allow processing time, don't rush",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "CP-004",
+      "parameterId": "BEH-COGNITIVE-ACTIVATION",
       "name": "cognitive_activation",
       "definition": "Composite measure of caller's mental engagement and cognitive load during conversation",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Activated: Strong cognitive engagement - can introduce complexity",
-      "interpretationLow": "Disengaged: Caller showing minimal cognitive investment - simplify and re-engage"
+      "interpretationLow": "Disengaged: Caller showing minimal cognitive investment - simplify and re-engage",
+      "aliases": [
+        "CP-004"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "CA-001-cognitive-activation"
+        }
+      }
     },
     {
-      "parameterId": "crisis_detection_score",
+      "parameterId": "BEH-CRISIS-DETECTION-SCORE",
       "name": "Crisis Detection Score",
       "definition": "Detects potential crisis indicators requiring immediate escalation",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Crisis Indicators: IMMEDIATE ESCALATION - Human intervention required",
-      "interpretationLow": "No Crisis Detected: Conversation appears safe"
+      "interpretationLow": "No Crisis Detected: Conversation appears safe",
+      "aliases": [
+        "crisis_detection_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "default_targets_quality",
+      "parameterId": "BEH-DEFAULT-TARGETS-QUALITY",
       "name": "Default Behavior Targets",
       "definition": "Quality of initial behavior target defaults for new callers",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Well Calibrated: Defaults appropriate for caller type",
-      "interpretationLow": "Poor Defaults: May create bad first impression"
+      "interpretationLow": "Poor Defaults: May create bad first impression",
+      "aliases": [
+        "default_targets_quality"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
+      }
     },
     {
       "parameterId": "directness_actual",
       "name": "Directness (Actual)",
       "definition": "Measured directness - clarity of communication, use of hedging, assertion level",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Direct: Clear assertions, no hedging",
-      "interpretationLow": "Very Indirect: Evasive, overly tentative"
+      "interpretationLow": "Very Indirect: Evasive, overly tentative",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "empathy_expression",
       "name": "Empathy Expression",
       "definition": "Measured level of empathic response to caller emotions",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Empathic: Deep emotional attunement",
-      "interpretationLow": "None: Ignores emotional content"
+      "interpretationLow": "None: Ignores emotional content",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "engagement_adaptation",
+      "parameterId": "BEH-ENGAGEMENT-ADAPTATION",
       "name": "Engagement Level Target",
       "definition": "Content depth and complexity target based on caller engagement: high engagement = deeper content, low engagement = re-engage or simplify",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Engagement: Increase depth and complexity, encourage exploration",
-      "interpretationLow": "Low Engagement: Simplify, re-engage, or check for issues"
+      "interpretationLow": "Low Engagement: Simplify, re-engage, or check for issues",
+      "aliases": [
+        "engagement_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-ENG-001-engagement-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "engagement-prompts",
+      "parameterId": "BEH-ENGAGEMENT-PROMPTS",
       "name": "Engagement Prompts",
       "definition": "Conversational learners like to be drawn into dialogue",
-      "domainGroup": "interaction_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "engagement-prompts"
+      ],
+      "interpretationHigh": "Use frequent engagement prompts; invite the learner to share thoughts, examples, or experiences.",
+      "interpretationLow": "Use few engagement prompts; deliver content cleanly without inviting tangents.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"Conversational learners like to be drawn into dialogue\"); learner-type claim that is not derivable from a single transcript. See BEH-PROBING-QUESTIONS / BEH-SOCRATIC-QUESTIONING sibling tutor-knob axes for the measurable tutor-behavior side of dialogue-drawing engagement."
+        }
+      }
     },
     {
-      "parameterId": "engagement_reward",
+      "parameterId": "BEH-ENGAGEMENT-REWARD",
       "name": "Engagement Reward",
       "definition": "Reward signal based on caller engagement improvement relative to their baseline",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Positive: Significantly increased engagement",
-      "interpretationLow": "Positive: Moderate engagement improvement"
+      "interpretationLow": "Positive: Moderate engagement improvement",
+      "aliases": [
+        "engagement_reward"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
+      }
     },
     {
-      "parameterId": "engagement_trend_score",
+      "parameterId": "BEH-ENGAGEMENT-TREND-SCORE",
       "name": "Engagement Trend Score",
       "definition": "Monitors engagement trends across sessions to detect disengagement patterns",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Stable/Rising: Engagement maintained or improving",
-      "interpretationLow": "Significant Decline: Engagement dropping - intervention needed"
+      "interpretationLow": "Significant Decline: Engagement dropping - intervention needed",
+      "aliases": [
+        "engagement_trend_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "engagement_with_examples",
+      "parameterId": "BEH-ENGAGEMENT-WITH-EXAMPLES",
       "name": "Example Engagement",
       "definition": "How much learner engages with concrete examples vs abstract concepts",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Example-Driven: Learns best through concrete examples",
-      "interpretationLow": "Abstract-Focused: Comfortable with abstract concepts"
+      "interpretationLow": "Abstract-Focused: Comfortable with abstract concepts",
+      "aliases": [
+        "engagement_with_examples"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "LEARN-STYLE-001-learning-style-detection"
+        }
+      }
     },
     {
-      "parameterId": "error-elaboration",
+      "parameterId": "BEH-ERROR-ELABORATION",
       "name": "Error Elaboration",
       "definition": "Detailed feedback learners want thorough error explanations",
-      "domainGroup": "feedback_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "reinforcement",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "error-elaboration"
+      ],
+      "interpretationHigh": "When the learner errs, explain the misconception, the correction, and why the correct form works.",
+      "interpretationLow": "When the learner errs, offer the correction without dwelling on the misconception.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": "deferred-#1967"
+      }
     },
     {
       "parameterId": "example-richness",
       "name": "Example Richness",
       "definition": "Visual learners benefit from concrete examples",
-      "domainGroup": "learning_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Provide multiple examples per concept; vary the example contexts to anchor understanding.",
+      "interpretationLow": "Provide one focused example per concept; trust generalisation from a single case.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"visual learners benefit from concrete examples\"); learner-preference signal that is not derivable from a single transcript. See BEH-EXAMPLE-RICHNESS sibling for the measurable tutor-behavior knob."
+        }
+      }
     },
     {
-      "parameterId": "explanation-depth",
+      "parameterId": "BEH-EXPLANATION-DEPTH",
       "name": "Explanation Depth",
       "definition": "Reading learners can handle detailed explanations",
-      "domainGroup": "learning_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "explanation-depth"
+      ],
+      "interpretationHigh": "Explain in depth; cover mechanism, edge cases, and the reasoning behind the answer.",
+      "interpretationLow": "Explain briefly; cover the headline answer and only the rationale the learner needs to act.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"Reading learners can handle detailed explanations\"); learner-type claim that is not derivable from a single transcript. See BEH-DEFINITION-PRECISION / BEH-VERBAL-ELABORATION sibling tutor-knob axes for the measurable explanation-depth tutor-behavior."
+        }
+      }
     },
     {
-      "parameterId": "exploration_structure",
+      "parameterId": "BEH-EXPLORATION-STRUCTURE",
       "name": "Exploration vs Structure Balance",
       "definition": "Measured balance between exploratory tangents and structured progression",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Exploratory: Follows curiosity, many tangents",
-      "interpretationLow": "Highly Structured: Rigid agenda, no tangents"
+      "interpretationLow": "Highly Structured: Rigid agenda, no tangents",
+      "aliases": [
+        "exploration_structure"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "STYLE-001-conversation-style"
+        }
+      }
     },
     {
-      "parameterId": "extraversion_adaptation",
+      "parameterId": "BEH-EXTRAVERSION-ADAPTATION",
       "name": "Extraversion Adaptation Target",
       "definition": "Energy and conversational style based on caller's extraversion: high = energetic dialogue, low = measured pace",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Energetic Dialogue: Dynamic, enthusiastic, expressive conversation",
-      "interpretationLow": "Measured Pace: Quieter, space-giving, reflective style"
+      "interpretationLow": "Measured Pace: Quieter, space-giving, reflective style",
+      "aliases": [
+        "extraversion_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
+      }
     },
     {
       "parameterId": "formality_actual",
       "name": "Formality (Actual)",
       "definition": "Measured formality level - vocabulary sophistication, sentence structure, register",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Formal: Professional, structured, sophisticated vocabulary",
-      "interpretationLow": "Very Casual: Informal, colloquial"
+      "interpretationLow": "Very Casual: Informal, colloquial",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "formality-level",
       "name": "Formality Level",
       "definition": "Conversational learners prefer informal tone",
-      "domainGroup": "interaction_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "goal_discovery_quality",
+      "parameterId": "BEH-GOAL-DISCOVERY-QUALITY",
       "name": "Goal Discovery Quality",
       "definition": "Effectiveness of understanding caller's objectives in first call",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Clear Goals: Caller's objectives well understood",
-      "interpretationLow": "Unclear Goals: Need more discovery in future sessions"
+      "interpretationLow": "Unclear Goals: Need more discovery in future sessions",
+      "aliases": [
+        "goal_discovery_quality"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
+      }
     },
     {
-      "parameterId": "goal_progress_reward",
+      "parameterId": "BEH-GOAL-PROGRESS-REWARD",
       "name": "Goal Progress Reward",
       "definition": "Reward signal based on progress toward caller's defined learning or engagement goals",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Significant Progress: Major advancement toward goals",
-      "interpretationLow": "Minor Progress: Small steps forward"
+      "interpretationLow": "Minor Progress: Small steps forward",
+      "aliases": [
+        "goal_progress_reward"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
+      }
     },
     {
-      "parameterId": "insight_quality",
+      "parameterId": "BEH-INSIGHT-QUALITY",
       "name": "Insight Quality",
       "definition": "Whether shared insights are relevant, brief, conversational, and genuinely interesting",
-      "domainGroup": "companion-behavior",
+      "domainGroup": "companion",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Excellent: Insights feel like a well-read friend sharing something they just thought of — brief, relevant, delightful",
-      "interpretationLow": "Poor: Insights are irrelevant, too long, or feel like Wikipedia dumps"
+      "interpretationHigh": "Excellent: Insights feel like a well-read friend sharing something they just thought of \u2014 brief, relevant, delightful",
+      "interpretationLow": "Poor: Insights are irrelevant, too long, or feel like Wikipedia dumps",
+      "aliases": [
+        "insight_quality"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "COMP-INSIGHT-001-insight-cadence"
+        }
+      }
     },
     {
       "parameterId": "kinesthetic_adaptation",
@@ -985,174 +1880,345 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Kinesthetic: Ground in practical experience, action, and feeling",
-      "interpretationLow": "Low Kinesthetic: Theory-first approach is fine; practice is optional"
+      "interpretationLow": "Low Kinesthetic: Theory-first approach is fine; practice is optional",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "learning_progress_score",
+      "parameterId": "BEH-LEARNING-PROGRESS-SCORE",
       "name": "Learning Progress Score",
       "definition": "Monitors caller learning progress and flags stagnation or regression",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Good Progress: Caller is advancing appropriately",
-      "interpretationLow": "Slow Progress: Progress slower than expected, may need adjustment"
+      "interpretationLow": "Slow Progress: Progress slower than expected, may need adjustment",
+      "aliases": [
+        "learning_progress_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "learning_reward",
+      "parameterId": "BEH-LEARNING-REWARD",
       "name": "Learning Reward",
       "definition": "Reward signal based on quality and depth of information learned about the caller",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Learning: Rich new information extracted",
-      "interpretationLow": "Low Learning: Minimal new information"
+      "interpretationLow": "Low Learning: Minimal new information",
+      "aliases": [
+        "learning_reward"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
+      }
     },
     {
-      "parameterId": "learning_velocity_adaptation",
+      "parameterId": "BEH-LEARNING-VELOCITY-ADAPTATION",
       "name": "Learning Velocity Target",
       "definition": "Pacing target based on how quickly caller absorbs new information: fast learners = accelerated, slow learners = more reinforcement",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast Learner: Accelerate pacing, introduce advanced material earlier",
-      "interpretationLow": "Needs Reinforcement: Slow pacing, add reinforcement and practice"
+      "interpretationLow": "Needs Reinforcement: Slow pacing, add reinforcement and practice",
+      "aliases": [
+        "learning_velocity_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-ENG-001-engagement-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "mastery_adaptation",
+      "parameterId": "BEH-MASTERY-ADAPTATION",
       "name": "Mastery-Based Teaching Target",
       "definition": "Teaching approach based on current module mastery: high mastery = challenge/advance, low mastery = reinforce/scaffold",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Mastery: Ready for challenge, can advance to next module",
-      "interpretationLow": "Low Mastery: Needs reinforcement before advancement"
+      "interpretationLow": "Low Mastery: Needs reinforcement before advancement",
+      "aliases": [
+        "mastery_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "module_introduction",
+      "parameterId": "BEH-MODULE-INTRODUCTION",
       "name": "Module Introduction Status",
       "definition": "Tracks whether and when a curriculum module was introduced to the learner",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fully Introduced: All core concepts presented",
-      "interpretationLow": "Mentioned: Topic referenced but not taught"
+      "interpretationLow": "Mentioned: Topic referenced but not taught",
+      "aliases": [
+        "module_introduction"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
+      }
     },
     {
-      "parameterId": "module_mastery",
+      "parameterId": "BEH-MODULE-MASTERY",
       "name": "Module Mastery Level",
       "definition": "Overall mastery assessment combining comprehension and application",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Expert: Can teach others, handle edge cases",
-      "interpretationLow": "Beginner: Still learning fundamentals"
+      "interpretationLow": "Beginner: Still learning fundamentals",
+      "aliases": [
+        "module_mastery"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
+      }
     },
     {
-      "parameterId": "multimodal_adaptation",
+      "parameterId": "BEH-MULTIMODAL-ADAPTATION",
       "name": "Multimodal Profile Adaptation",
       "definition": "Teaching variety targets based on overall modality profile diversity",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Multimodal: Vary approaches freely - all modalities effective",
-      "interpretationLow": "Unimodal: Focus primarily on dominant modality"
+      "interpretationLow": "Unimodal: Focus primarily on dominant modality",
+      "aliases": [
+        "multimodal_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-VARK-001-modality-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "neuroticism_adaptation",
+      "parameterId": "BEH-NEUROTICISM-ADAPTATION",
       "name": "Neuroticism Adaptation Target",
       "definition": "Emotional sensitivity based on caller's neuroticism: high = reassuring calm, low = straightforward",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Reassuring Calm: Extra reassurance, calm steady presence, acknowledge concerns",
-      "interpretationLow": "Straightforward: Direct communication, trust their resilience"
+      "interpretationLow": "Straightforward: Direct communication, trust their resilience",
+      "aliases": [
+        "neuroticism_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "openness_adaptation",
+      "parameterId": "BEH-OPENNESS-ADAPTATION",
       "name": "Openness Adaptation Target",
       "definition": "Communication style target based on caller's openness: high openness = exploratory style, low openness = practical style",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Exploratory Style: Explore ideas, creative discussions, intellectual curiosity",
-      "interpretationLow": "Practical Style: Concrete, practical, tried-and-true approaches"
+      "interpretationLow": "Practical Style: Concrete, practical, tried-and-true approaches",
+      "aliases": [
+        "openness_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-PERS-001-personality-adaptation"
+        }
+      }
     },
     {
       "parameterId": "pace_indicators",
       "name": "Learning Pace Signals",
       "definition": "Signals about whether learner wants to speed up or slow down",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Requests Faster: Learner wants to move faster",
-      "interpretationLow": "Needs Slower: Learner needs more time"
+      "interpretationLow": "Needs Slower: Learner needs more time",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "pacing_actual",
       "name": "Pacing (Actual)",
       "definition": "Measured pacing - response length, information density, conversation tempo",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Fast/Dense: Rapid, information-rich responses",
-      "interpretationLow": "Slow/Sparse: Very measured, minimal density"
+      "interpretationLow": "Slow/Sparse: Very measured, minimal density",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "pause-for-questions",
+      "parameterId": "BEH-PAUSE-FOR-QUESTIONS",
       "name": "Pause For Questions",
       "definition": "Frequent questioners need space to ask",
-      "domainGroup": "engagement_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "engagement",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "pause-for-questions"
+      ],
+      "interpretationHigh": "Pause regularly to invite questions; treat silence as an explicit prompt for the learner to respond.",
+      "interpretationLow": "Continue speaking through silence; the learner will signal if they need to interject.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Sets tutor's question-pause behaviour; tutor-emit directive based on operator-set learner profile. Not measured from transcript."
+        }
+      }
     },
     {
-      "parameterId": "preference_elicitation_quality",
+      "parameterId": "BEH-PREFERENCE-ELICITATION-QUALITY",
       "name": "Preference Elicitation Quality",
       "definition": "Effectiveness of discovering caller's communication preferences",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Preferences Clear: Can tailor style confidently",
-      "interpretationLow": "Unknown: Use balanced defaults, observe carefully"
+      "interpretationLow": "Unknown: Use balanced defaults, observe carefully",
+      "aliases": [
+        "preference_elicitation_quality"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
+      }
     },
     {
-      "parameterId": "prerequisite_adaptation",
+      "parameterId": "BEH-PREREQUISITE-ADAPTATION",
       "name": "Foundation Reinforcement Target",
       "definition": "Foundation focus based on prerequisite readiness: not ready = reinforce foundations",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Prerequisites Met: Safe to advance",
-      "interpretationLow": "Prerequisites Missing: Must reinforce foundations first"
+      "interpretationLow": "Prerequisites Missing: Must reinforce foundations first",
+      "aliases": [
+        "prerequisite_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "prerequisite_check",
+      "parameterId": "BEH-PREREQUISITE-CHECK",
       "name": "Prerequisite Readiness",
       "definition": "Checks if prerequisites are met before advancing",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Ready: All prerequisites at competent+ level",
-      "interpretationLow": "Not Ready: Prerequisites need more work"
+      "interpretationLow": "Not Ready: Prerequisites need more work",
+      "aliases": [
+        "prerequisite_check"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
+      }
     },
     {
-      "parameterId": "question_asking_rate",
+      "parameterId": "BEH-QUESTION-ASKING-RATE",
       "name": "Question Asking Rate",
       "definition": "How frequently learner asks questions during instruction",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Question Frequency: Learner prefers interactive, conversational style",
-      "interpretationLow": "Low Question Frequency: Learner prefers direct instruction or self-directed exploration"
+      "interpretationLow": "Low Question Frequency: Learner prefers direct instruction or self-directed exploration",
+      "aliases": [
+        "question_asking_rate"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "LEARN-STYLE-001-learning-style-detection"
+        }
+      }
     },
     {
-      "parameterId": "rapport_reward",
+      "parameterId": "BEH-RAPPORT-REWARD",
       "name": "Rapport Reward",
       "definition": "Reward signal based on alignment between communication style and caller personality",
       "domainGroup": "reinforcement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Strong Rapport: Communication style well-matched to personality",
-      "interpretationLow": "Building Rapport: Acceptable style alignment"
+      "interpretationLow": "Building Rapport: Acceptable style alignment",
+      "aliases": [
+        "rapport_reward"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "REW-001-reward-computation"
+        }
+      }
     },
     {
-      "parameterId": "reading_writing_adaptation",
+      "parameterId": "BEH-READING-WRITING-ADAPTATION",
       "name": "Reading/Writing Modality Adaptation Target",
       "definition": "Teaching style targets based on reading/writing modality strength",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Read/Write: Use precise definitions, structured lists, and formal terminology",
-      "interpretationLow": "Low Read/Write: Keep it conversational; avoid heavy structure or formal definitions"
+      "interpretationLow": "Low Read/Write: Keep it conversational; avoid heavy structure or formal definitions",
+      "aliases": [
+        "reading_writing_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-VARK-001-modality-adaptation"
+        }
+      }
     },
     {
       "parameterId": "repetition-frequency",
       "name": "Repetition Frequency",
       "definition": "Slow pace learners benefit from repetition",
-      "domainGroup": "pacing_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Repeat key points across the session; restate each idea two or three times in different forms.",
+      "interpretationLow": "State each key point once; trust the learner to retain it without explicit repetition.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"slow pace learners benefit from repetition\"); learner-preference signal that is not derivable from a single transcript. See BEH-REPETITION-FREQUENCY sibling for the measurable tutor-behavior knob."
+        }
+      }
     },
     {
       "parameterId": "response_empathy_score",
@@ -1161,174 +2227,338 @@
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Empathic Response: Emotional content acknowledged appropriately",
-      "interpretationLow": "Low Empathy: Emotional content may have been missed"
+      "interpretationLow": "Low Empathy: Emotional content may have been missed",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "response_length_preference",
+      "parameterId": "BEH-RESPONSE-LENGTH-PREFERENCE",
       "name": "Response Length Preference",
       "definition": "Whether learner engages more with short or detailed explanations",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Prefers Detailed: Engages more with comprehensive explanations",
-      "interpretationLow": "Prefers Concise: Responds better to brief, focused explanations"
+      "interpretationLow": "Prefers Concise: Responds better to brief, focused explanations",
+      "aliases": [
+        "response_length_preference"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "LEARN-STYLE-001-learning-style-detection"
+        }
+      }
     },
     {
-      "parameterId": "response_length_score",
+      "parameterId": "BEH-RESPONSE-LENGTH-SCORE",
       "name": "Response Length Appropriateness",
       "definition": "Validates that agent responses are appropriately sized - not too long or too short for the context",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Optimal Length: Response length matches context appropriately",
-      "interpretationLow": "Length Issue: Response too long or too short for context"
+      "interpretationLow": "Length Issue: Response too long or too short for context",
+      "aliases": [
+        "response_length_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "review_adaptation",
+      "parameterId": "BEH-REVIEW-ADAPTATION",
       "name": "Review Priority Target",
       "definition": "Review urgency based on review status: overdue/declining = high priority",
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Review Current: No urgent review needed",
-      "interpretationLow": "Review Urgent: Prioritize spaced retrieval"
+      "interpretationLow": "Review Urgent: Prioritize spaced retrieval",
+      "aliases": [
+        "review_adaptation"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "ADAPT-CURR-001-curriculum-adaptation"
+        }
+      }
     },
     {
-      "parameterId": "review_status",
+      "parameterId": "BEH-REVIEW-STATUS",
       "name": "Review Status Tracking",
       "definition": "Tracks spaced retrieval schedule and review eligibility for curriculum units",
-      "domainGroup": "curriculum",
+      "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Review Current: Recently reviewed, mastery stable or improving",
-      "interpretationLow": "Urgent Review: Mastery declining or significantly overdue"
+      "interpretationLow": "Urgent Review: Mastery declining or significantly overdue",
+      "aliases": [
+        "review_status"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "CURR-001-curriculum-tracker"
+        }
+      }
     },
     {
-      "parameterId": "safety_compliance_score",
+      "parameterId": "BEH-SAFETY-COMPLIANCE-SCORE",
       "name": "Safety Compliance Score",
       "definition": "Validates that agent includes appropriate disclaimers for sensitive topics",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Compliant: All safety protocols followed",
-      "interpretationLow": "Compliance Issue: Safety disclaimers needed but missing"
+      "interpretationLow": "Compliance Issue: Safety disclaimers needed but missing",
+      "aliases": [
+        "safety_compliance_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
       "parameterId": "scaffolding",
       "name": "Scaffolding",
       "definition": "Guided learners need structured support",
-      "domainGroup": "interaction_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "interpretationHigh": "Provide strong scaffolding: previews, structure markers, and explicit transitions between sections.",
+      "interpretationLow": "Provide minimal scaffolding; let the learner build their own structure from the content flow.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"guided learners need structured support\"); learner-preference signal that is not derivable from a single transcript. See BEH-SCAFFOLDING sibling for the measurable tutor-behavior knob."
+        }
+      }
     },
     {
-      "parameterId": "socratic-questioning",
+      "parameterId": "BEH-SOCRATIC-QUESTIONING",
       "name": "Socratic Questioning",
       "definition": "Conversational learners engage well with questions",
-      "domainGroup": "interaction_adaptation",
-      "defaultTarget": 0.5
+      "domainGroup": "learning-adaptation",
+      "defaultTarget": 0.5,
+      "aliases": [
+        "socratic-questioning"
+      ],
+      "interpretationHigh": "Lead with questions; draw out the learner's reasoning before offering your own answer.",
+      "interpretationLow": "Lead with direct explanation; offer questions only as comprehension checks.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Folk-pedagogy preference assertion (\"Conversational learners engage well with questions\"); learner-type claim that is not derivable from a single transcript. See BEH-PROBING-QUESTIONS sibling tutor-knob axis for the measurable Socratic-question-frequency tutor-behavior."
+        }
+      }
     },
     {
-      "parameterId": "student_application_score",
+      "parameterId": "BEH-STUDENT-APPLICATION-SCORE",
       "name": "Student Application Score",
       "definition": "Measures whether student can independently apply the taught framework/concepts to new situations",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Independent Application: Student applies concepts without guidance",
-      "interpretationLow": "Cannot Apply: Student struggles to apply concepts"
+      "interpretationLow": "Cannot Apply: Student struggles to apply concepts",
+      "aliases": [
+        "student_application_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "style_consistency_score",
+      "parameterId": "BEH-STYLE-CONSISTENCY-SCORE",
       "name": "Style Consistency Score",
       "definition": "Measures consistency of agent communication style within a session",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Consistent: Style maintained throughout session",
-      "interpretationLow": "Inconsistent: Jarring style changes within session"
+      "interpretationLow": "Inconsistent: Jarring style changes within session",
+      "aliases": [
+        "style_consistency_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "target_alignment_score",
+      "parameterId": "BEH-TARGET-ALIGNMENT-SCORE",
       "name": "Target Alignment Score",
       "definition": "Measures how well agent behavior matches computed adaptation targets",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Aligned: Agent behavior matches targets well",
-      "interpretationLow": "Misaligned: Significant deviation from computed targets"
+      "interpretationLow": "Misaligned: Significant deviation from computed targets",
+      "aliases": [
+        "target_alignment_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "TONE_ASSERT",
+      "parameterId": "BEH-TONE-ASSERT",
       "name": "assertiveness_level",
       "definition": "Degree of confidence and directness in caller's communication style",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
       "interpretationHigh": "Assertive: Very direct caller - match their energy, don't over-explain",
-      "interpretationLow": "Deferential: Caller is very passive - may need encouragement to express preferences"
+      "interpretationLow": "Deferential: Caller is very passive - may need encouragement to express preferences",
+      "aliases": [
+        "TONE_ASSERT"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "CA-001-cognitive-activation"
+        }
+      }
     },
     {
-      "parameterId": "tutor_fidelity_score",
+      "parameterId": "BEH-TUTOR-FIDELITY-SCORE",
       "name": "Tutor Content Fidelity Score",
       "definition": "Validates that tutor sticks to source material - no invented facts, examples, or statistics",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Fidelity: All content from source materials",
-      "interpretationLow": "Fidelity Issues: Some invented or inaccurate content"
+      "interpretationLow": "Fidelity Issues: Some invented or inaccurate content",
+      "aliases": [
+        "tutor_fidelity_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "tutor_intro_score",
+      "parameterId": "BEH-TUTOR-INTRO-SCORE",
       "name": "Tutor Introduction Score",
       "definition": "Validates that tutor properly introduces source material (book, authors, context) before diving into content",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Complete Introduction: All required elements mentioned before content",
-      "interpretationLow": "Incomplete Introduction: Key elements missing from introduction"
+      "interpretationLow": "Incomplete Introduction: Key elements missing from introduction",
+      "aliases": [
+        "tutor_intro_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
-      "parameterId": "tutor_sequence_score",
+      "parameterId": "BEH-TUTOR-SEQUENCE-SCORE",
       "name": "Tutor Sequence Score",
       "definition": "Validates that tutor establishes core concepts/frameworks before introducing critiques or complications",
       "domainGroup": "supervision",
       "defaultTarget": 0.5,
       "interpretationHigh": "Correct Sequence: Concepts established before critiques",
-      "interpretationLow": "Sequence Violation: Critiques introduced before concepts"
+      "interpretationLow": "Sequence Violation: Critiques introduced before concepts",
+      "aliases": [
+        "tutor_sequence_score"
+      ],
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "SUPV-001-agent-supervision"
+        }
+      }
     },
     {
       "parameterId": "VARK-A",
       "name": "auditory_modality",
       "definition": "Auditory learning preference - processing information through listening, verbal discussion, rhythm, and sound-based language",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Auditory: Auditory processing is primary mode - everything through verbal dialogue and sound",
-      "interpretationLow": "Low Auditory: Verbal-heavy teaching may be ineffective - use other modalities"
+      "interpretationLow": "Low Auditory: Verbal-heavy teaching may be ineffective - use other modalities",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
+      }
     },
     {
       "parameterId": "VARK-K",
       "name": "kinesthetic_modality",
       "definition": "Kinesthetic learning preference - processing information through physical experience, practice, emotions, and embodied understanding",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Kinesthetic: Experiential processing is primary mode - everything through doing and feeling",
-      "interpretationLow": "Low Kinesthetic: Experiential approaches may not be necessary - theoretical explanation works"
+      "interpretationLow": "Low Kinesthetic: Experiential approaches may not be necessary - theoretical explanation works",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
+      }
     },
     {
       "parameterId": "VARK-PROFILE",
       "name": "multimodal_profile",
       "definition": "Classification of learner's multimodal profile based on relative strengths across all four modalities",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Quadmodal: All modalities strong - vary approaches freely",
-      "interpretationLow": "Unimodal: Single dominant modality - strongly favor that approach"
+      "interpretationLow": "Unimodal: Single dominant modality - strongly favor that approach",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
+      }
     },
     {
       "parameterId": "VARK-R",
       "name": "reading_writing_modality",
       "definition": "Reading/Writing learning preference - processing information through written text, lists, definitions, and structured prose",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Read/Write: Text-based processing is primary mode - structure everything as organized prose/lists",
-      "interpretationLow": "Low Read/Write: Text-heavy teaching unlikely to resonate - use verbal or experiential"
+      "interpretationLow": "Low Read/Write: Text-heavy teaching unlikely to resonate - use verbal or experiential",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
+      }
     },
     {
       "parameterId": "VARK-V",
       "name": "visual_modality",
       "definition": "Visual learning preference - processing information through mental imagery, spatial relationships, diagrams, and visual metaphors",
-      "domainGroup": "learning",
+      "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Highly Visual: Visual processing is primary mode - structure everything spatially with vivid imagery",
-      "interpretationLow": "Low Visual: Visual approaches unlikely to resonate - use other modalities"
+      "interpretationLow": "Low Visual: Visual approaches unlikely to resonate - use other modalities",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "VARK-001-learning-modality"
+        }
+      }
     },
     {
       "parameterId": "visual_adaptation",
@@ -1337,25 +2567,44 @@
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "High Visual: Use rich mental imagery, spatial metaphors, and visualization language",
-      "interpretationLow": "Low Visual: Minimize visual-heavy explanations; use other approaches"
+      "interpretationLow": "Low Visual: Minimize visual-heavy explanations; use other approaches",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
       "parameterId": "warmth_actual",
       "name": "Warmth (Actual)",
       "definition": "Measured warmth level in agent's communication - emotional tone, friendliness, care",
-      "domainGroup": "style",
+      "domainGroup": "behavior-core",
       "defaultTarget": 0.5,
       "interpretationHigh": "Very Warm: Highly friendly, emotionally engaged",
-      "interpretationLow": "Cold: Detached, impersonal"
+      "interpretationLow": "Cold: Detached, impersonal",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "usage": {
+        "compose": "deprecated",
+        "measurement": "deprecated"
+      }
     },
     {
-      "parameterId": "welcome_quality",
+      "parameterId": "BEH-WELCOME-QUALITY",
       "name": "Welcome Experience Quality",
       "definition": "Quality of the first-call welcome and orientation",
       "domainGroup": "onboarding",
       "defaultTarget": 0.5,
       "interpretationHigh": "Excellent Welcome: Caller feels valued and oriented",
-      "interpretationLow": "Poor Welcome: Caller may feel confused or unwelcome"
+      "interpretationLow": "Poor Welcome: Caller may feel confused or unwelcome",
+      "aliases": [
+        "welcome_quality"
+      ],
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "specSlug": "INIT-001-caller-onboarding"
+        }
+      }
     }
   ]
 }

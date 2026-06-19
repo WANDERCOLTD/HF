@@ -46,10 +46,10 @@ const CONFIG_SPEC_PATTERNS = [
 
 // Duplicate pairs where one should be deleted
 const DUPLICATE_DELETIONS = [
-  { delete: "adapt_to_question_frequency", keep: "question_frequency", reason: "Duplicate of active question_frequency" },
-  { delete: "response_length", keep: "response_length_preference", reason: "Duplicate of active response_length_preference" },
+  { delete: "BEH-ADAPT-TO-QUESTION-FREQUENCY", keep: "question_frequency", reason: "Duplicate of active question_frequency" },
+  { delete: "response_length", keep: "BEH-RESPONSE-LENGTH-PREFERENCE", reason: "Duplicate of active response_length_preference" },
   { delete: "adapt_to_pace_preference", keep: "pace_preference", reason: "Both orphans, keeping shorter name" },
-  { delete: "adapt_to_interaction_style", keep: "interaction_style", reason: "Both orphans, keeping shorter name" },
+  { delete: "BEH-ADAPT-TO-INTERACTION-STYLE", keep: "interaction_style", reason: "Both orphans, keeping shorter name" },
 ];
 
 async function analyzeParameters(): Promise<OrphanAnalysis[]> {

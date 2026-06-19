@@ -45,11 +45,11 @@ async function main() {
     // Build parameterValues from OCEAN fields
     const parameterValues: Record<string, number> = {};
 
-    if (personality.openness !== null) parameterValues["B5-O"] = personality.openness;
-    if (personality.conscientiousness !== null) parameterValues["B5-C"] = personality.conscientiousness;
-    if (personality.extraversion !== null) parameterValues["B5-E"] = personality.extraversion;
-    if (personality.agreeableness !== null) parameterValues["B5-A"] = personality.agreeableness;
-    if (personality.neuroticism !== null) parameterValues["B5-N"] = personality.neuroticism;
+    if (personality.openness !== null) parameterValues["BEH-B5-O"] = personality.openness;
+    if (personality.conscientiousness !== null) parameterValues["BEH-B5-C"] = personality.conscientiousness;
+    if (personality.extraversion !== null) parameterValues["BEH-B5-E"] = personality.extraversion;
+    if (personality.agreeableness !== null) parameterValues["BEH-B5-A"] = personality.agreeableness;
+    if (personality.neuroticism !== null) parameterValues["BEH-B5-N"] = personality.neuroticism;
 
     // Check if already migrated
     const existing = personality.parameterValues as Record<string, number> | null;

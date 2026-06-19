@@ -2,53 +2,55 @@
  * Fake name generator for sim launch.
  * Used when no learner name is provided — produces a realistic-sounding
  * but clearly fictional name instead of a serial number.
+ *
+ * Pool: classic Hollywood / golden-age cinema first + last names. Mix and
+ * match produces plausible "old movie" names without trademark issues.
+ * Replaces the pre-2026-06-19 international pool which was reading as
+ * stereotyping rather than realism.
  */
 
 const FIRST_NAMES = [
-  // Original set
-  "Alex", "Blake", "Casey", "Dana", "Elise", "Finn", "Grace", "Harper",
-  "Imani", "Jordan", "Kai", "Leila", "Morgan", "Nadia", "Omar", "Priya",
-  "Quinn", "Remy", "Sage", "Tara", "Uma", "Val", "Wren", "Xio",
-  "Yara", "Zeke", "Aiden", "Bea", "Cole", "Dani", "Eden", "Frankie",
-  "Glen", "Hazel", "Iris", "Jules", "Kieran", "Luca", "Mila", "Nico",
-  "Olive", "Phoenix", "River", "Sasha", "Theo", "Uri", "Vera", "Winter",
-  // Expanded set
-  "Amara", "Bodhi", "Caleb", "Darcy", "Emeka", "Fatima", "Gael", "Hana",
-  "Idris", "Juno", "Kofi", "Layla", "Mateo", "Nia", "Oscar", "Paloma",
-  "Quincy", "Rowan", "Sienna", "Tariq", "Umi", "Vivian", "Wyatt", "Xena",
-  "Yusuf", "Zara", "Arlo", "Brynn", "Cyrus", "Dahlia", "Ezra", "Freya",
-  "Gia", "Henrik", "Ines", "Jasper", "Kira", "Leo", "Maren", "Nash",
-  "Orla", "Piper", "Rae", "Stellan", "Tessa", "Ugo", "Vesper", "Wells",
-  "Ximena", "Yael", "Zion", "Asha", "Beckett", "Cleo", "Diego", "Elowen",
-  "Felix", "Gemma", "Hugo", "Isla", "Joaquin", "Kaia", "Levi", "Maeve",
-  "Nolan", "Opal", "Pascal", "Rhea", "Soren", "Thalia", "Ulric", "Viola",
-  "Wes", "Xiomara", "Yolanda", "Zev",
+  // Leading men — Golden Age
+  "Humphrey", "Cary", "James", "Gary", "Spencer", "Clark", "Henry", "Gregory",
+  "Burt", "Frank", "Errol", "Tyrone", "John", "Robert", "William", "Charles",
+  "Orson", "Marlon", "Montgomery", "Kirk", "Yul", "Charlton", "Anthony", "Rock",
+  "Tony", "Sidney", "Paul", "Steve", "Jack", "Dustin", "Richard", "Peter",
+  "George", "Edward", "David", "Michael", "Donald", "Walter", "Joseph", "Lee",
+  // Leading ladies — Golden Age
+  "Audrey", "Katharine", "Bette", "Joan", "Vivien", "Ingrid", "Lauren", "Grace",
+  "Marilyn", "Rita", "Ava", "Lana", "Judy", "Mae", "Greta", "Carole",
+  "Olivia", "Barbara", "Veronica", "Faye", "Natalie", "Shirley", "Jane", "Doris",
+  "Sophia", "Elizabeth", "Deborah", "Maureen", "Susan", "Eva", "Gloria", "Joanne",
+  "Anne", "Mary", "Helen", "Ruth", "Dorothy", "Rosalind", "Claudette", "Myrna",
+  // New Hollywood / 70s-80s
+  "Diane", "Meryl", "Sissy", "Glenn", "Sigourney", "Goldie", "Geena",
+  "Holly", "Demi", "Sharon", "Michelle", "Julianne", "Frances", "Annette", "Andie",
+  "Harrison", "Al", "Warren", "Gene", "Robin", "Bill",
+  "Bruce", "Mel", "Kevin", "Tom", "Denzel", "Morgan", "Samuel", "Wesley",
 ];
 
 const LAST_NAMES = [
-  // Original set
-  "Ahmed", "Baxter", "Chen", "Diallo", "Evans", "Ferreira", "Garcia",
-  "Hassan", "Ishida", "James", "Kim", "Larson", "Moreau", "Nakamura",
-  "Osei", "Patel", "Quinn", "Reyes", "Sharma", "Torres", "Ueda",
-  "Vasquez", "Walsh", "Xu", "Yamamoto", "Zhao", "Anders", "Brooks",
-  "Costa", "Dubois", "Ellis", "Foster", "Grant", "Hill", "Ibarra",
-  "Jensen", "Khan", "Lima", "Mori", "Nour", "Ortiz", "Park", "Reid",
-  "Santos", "Taylor", "Vance", "Wood", "Young", "Zola",
-  // Expanded set
-  "Adeyemi", "Bergström", "Cho", "Delgado", "Eriksen", "Fernandez", "Gupta",
-  "Hernandez", "Ivanova", "Johansson", "Kato", "Lindqvist", "Mendes", "Novak",
-  "Okafor", "Petrov", "Ramirez", "Sato", "Tanaka", "Urdaneta", "Volkov",
-  "Weber", "Xiong", "Yilmaz", "Zheng", "Abadi", "Björk", "Cabrera",
-  "Dempsey", "Engström", "Fong", "Gomes", "Horváth", "Ikeda", "Jaffe",
-  "Kowalski", "Lam", "Müller", "Nguyen", "Okamoto", "Popov", "Qureshi",
-  "Rossi", "Sundaram", "Tremblay", "Uribe", "Vieira", "Whitfield", "Yoo",
-  "Zambrano", "Ashworth", "Bello", "Castellanos", "Doyle", "Esposito", "Falk",
-  "Guzmán", "Hawkins", "Ito", "Jansen", "Kemp", "Lombardi", "Magnusson",
-  "Nkosi", "Olsson", "Pascual", "Rinaldi", "Söderberg", "Thorne", "Uchida",
-  "Valdez", "Winters", "Yanez", "Ziegler",
+  // Golden Age — leading men
+  "Bogart", "Grant", "Stewart", "Cooper", "Tracy", "Gable", "Fonda", "Peck",
+  "Lancaster", "Sinatra", "Flynn", "Power", "Wayne", "Mitchum", "Holden", "Laughton",
+  "Welles", "Brando", "Clift", "Douglas", "Brynner", "Heston", "Quinn", "Hudson",
+  "Curtis", "Poitier", "Newman", "McQueen", "Nicholson", "Hoffman", "Burton", "Sellers",
+  "Scott", "Robinson", "Niven", "Lemmon", "Cotten", "Marvin", "Cobb", "Hayden",
+  // Golden Age — leading ladies
+  "Hepburn", "Davis", "Crawford", "Leigh", "Bergman", "Bacall", "Kelly", "Monroe",
+  "Hayworth", "Turner", "Gardner", "Garland", "West", "Garbo", "Lombard",
+  "Stanwyck", "Lake", "Dunaway", "Wood", "MacLaine", "Day",
+  "Loren", "Taylor", "Kerr", "Hayward", "Swanson", "Loy",
+  "Russell", "Colbert",
+  // New Hollywood / 70s-80s
+  "Keaton", "Streep", "Spacek", "Close", "Weaver", "Hawn", "Midler", "Hunt",
+  "Stone", "Pfeiffer", "McDormand", "Bening", "MacDowell",
+  "Ford", "Pacino", "Redford", "Beatty", "Hackman", "Williams", "Murray",
+  "Willis", "Gibson", "Costner", "Hanks", "Washington", "Freeman", "Jackson", "Snipes",
+  "Reeves", "Cruise", "Penn", "Cage", "Travolta", "Spader", "Goldblum",
 ];
 
-/** Returns a random fake full name, e.g. "Elise Moreau" */
+/** Returns a random fake full name, e.g. "Audrey Bogart" */
 export function randomFakeName(): string {
   const first = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
   const last = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
