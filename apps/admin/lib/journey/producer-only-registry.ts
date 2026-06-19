@@ -108,10 +108,9 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
   },
 
   // ── voice provider knobs
-  interruptSensitivity: {
-    destinedFor: "voice-provider",
-    note: "Voice-stack consumer pending — should gate VAPI barge-in threshold + voicemail-detection.",
-  },
+  // (interruptSensitivity wired via #2053 → VAPI stopSpeakingPlan.numWords —
+  //  see `lib/voice/interrupt-sensitivity.ts` + the consumer block in
+  //  `lib/voice/providers/vapi/index.ts::buildAssistantConfig`.)
 
   // ── runtime gates (composeImpact=[] hides them from the Coverage test,
   // but they're runtime-effect settings hiding behind that flag)

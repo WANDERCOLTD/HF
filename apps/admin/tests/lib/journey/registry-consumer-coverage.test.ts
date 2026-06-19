@@ -112,10 +112,9 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
   // (settings the agent's manual audit missed). All confirmed
   // producer-only via wide `grep -rln <id> lib/` returning 0 hits
   // outside `setting-contracts.entries.ts`.
-  interruptSensitivity: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Voice-stack consumer pending — interrupt sensitivity should gate the VAPI assistant's `voicemailDetectionEnabled` + barge-in threshold but no transform reads it today.",
-  },
+  // (interruptSensitivity removed 2026-06-19 — wired via #2053 to VAPI
+  //  `stopSpeakingPlan.numWords`; `lib/voice/interrupt-sensitivity.ts`
+  //  + `lib/voice/providers/vapi/index.ts` are the consumer surface.)
   offboardingBannerMessage: {
     reason:
       "Producer-only since 2026-06-17 audit. offboarding transform doesn't render the operator's banner copy yet.",
@@ -145,7 +144,7 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 15;
+const EXPECTED_EXEMPT_COUNT = 14;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation
