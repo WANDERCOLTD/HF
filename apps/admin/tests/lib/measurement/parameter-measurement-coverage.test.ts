@@ -98,18 +98,21 @@ function buildEvidenceMap(): Map<string, Set<string>> {
 const EVIDENCE = buildEvidenceMap();
 
 /**
- * 2026-06-19 incumbent (post-M4 structural pass) — M1 backfilled 82
- * params; M4 reclassified 9 (3 measured via STYLE-001 alias, 6
- * operator-only); the M4 structural pass (this commit) reclassified
- * 14 more without pedagogy input: 1 stale row already wired via
- * parametersAsDirectives (BEH-ABSTRACT-VS-CONCRETE), 5 legacy
- * lowercase folk-pedagogy assertions paired with their canonical
- * BEH-* siblings, 8 ADAPT-stage decision rules that are not
- * EXTRACT-stage observables. Leaves 34 active params on
- * "deferred-#1967" awaiting pedagogy review per
- * `docs/M4-pedagogy-review.md`.
+ * 2026-06-19 incumbent (post-M4 structural pass 2) — M1 backfilled
+ * 82 params; M4 reclassified 9 (PR #2006); M4 structural pass 1
+ * (PR #2008) reclassified 14 without pedagogy input; M4 structural
+ * pass 2 (this commit) reclassified another 32 without pedagogy
+ * input using the same decision tree: 29 tutor-emit directives
+ * ("How much the AI [verb]…" / "Whether the AI [verb]…" — no
+ * learner-side signal back) + 3 folk-pedagogy assertions
+ * ("Conversational learners…" / "Reading learners…" — learner-type
+ * claims paired with measurable BEH-* sibling tutor-knob axes).
+ * Leaves 2 active params on "deferred-#1967" that GENUINELY need
+ * pedagogy: BEH-ABSTRACT-OK (learner-state observable — could be
+ * measure) and BEH-ERROR-ELABORATION (definition wording ambiguous
+ * — could be measure OR folk-pedagogy).
  */
-const EXPECTED_GAP_COUNT = 34;
+const EXPECTED_GAP_COUNT = 2;
 
 type Classification =
   | "measured"
