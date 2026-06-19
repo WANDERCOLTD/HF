@@ -212,8 +212,14 @@ export const DEFAULT_NPS_CONFIG: NpsConfig = {
  * (Split implemented in #222; field accepted here so resolver is forward-compatible.)
  */
 export interface IntakeConfig {
-  goals: { enabled: boolean };
-  aboutYou: { enabled: boolean };
+  /** Goals question. `question` overrides the hardcoded default; absent
+   *  → fall through to the canonical "What would you most like to get
+   *  out of this course?". @bucket A_intake */
+  goals: { enabled: boolean; question?: string };
+  /** About-you confidence prompt. `question` overrides the hardcoded
+   *  default; absent → "On a scale of 1–5, how confident do you feel
+   *  about this topic?". @bucket A_intake */
+  aboutYou: { enabled: boolean; question?: string };
   knowledgeCheck: {
     enabled: boolean;
     deliveryMode?: "mcq" | "socratic";
@@ -449,6 +455,18 @@ export interface PlaybookConfig {
   offboarding?: OffboardingConfig;
   /** Student welcome flow configuration — controls which phases show before first session */
   welcome?: WelcomeConfig;
+  /**
+   * #2050 — When true, learners who completed the intake on a prior enrolment
+   * (any playbook) are bypassed: the WelcomeSurveyFlow short-circuits and
+   * the learner lands on `/x/student` rather than re-answering PERSONALITY
+   * + PRE_SURVEY questions. Detected via CallerAttribute(scope='PERSONALITY' | 'PRE_SURVEY')
+   * submitted_at OR scope='INTAKE_CHAT' attrs (the intake projection from
+   * EnrollmentIntake — `intake.*` keys). Default false — preserves the
+   * existing every-enrollment intake behaviour.
+   *
+   * @bucket Course parameter — educator-tunable on the Intake lens (G1).
+   */
+  skipIntakeIfReturning?: boolean;
   /** NPS / satisfaction feedback configuration */
   nps?: NpsConfig;
   /**
@@ -797,6 +815,43 @@ export interface PlaybookConfig {
     depth?: PriorCallRecapDepth;
     dailyCap?: number;
   };
+  /**
+   * #2055 (sub-epic F of #2049) — Call 1 framing variant of the recap.
+   *
+   * Distinct from `priorCallRecap` (Call 2+ history). When true on Call 1,
+   * the quickstart transform emits a brief `opening_recap` field that
+   * surfaces the learner's intake answers (goal / concern / confidence)
+   * at the top of the prompt so the AI tutor opens with continuity rather
+   * than a cold ask.
+   *
+   * Default false (absent → no recap section emitted). Calls 2+ ignore
+   * this flag — `priorCallFeedback` handles continuity then.
+   *
+   * @bucket Course parameter. Educator-tunable on the Journey lens.
+   * @see lib/prompt/composition/transforms/quickstart.ts (opening_recap field)
+   */
+  openingRecapEnabled?: boolean;
+  /**
+   * #2055 (sub-epic F of #2049) — cost gate for the AI-synthesised recap.
+   *
+   * When `false`, the loader short-circuits to the templated path WITHOUT
+   * the AI call (saves the per-call billing). When `true` or undefined,
+   * the existing gate sequence runs — env kill switch, `priorCallRecap`
+   * config, allowlist, daily cap, depth dispatch, cache, synthesize.
+   *
+   * Distinct from `priorCallRecap.enabled`: that flag is the FEATURE
+   * toggle (do we have a synthesised recap at all?); this one is the
+   * COST toggle (when the feature is on, do we actually pay for AI?).
+   * Operators flip this off when budget tightens without losing the
+   * templated fallback path.
+   *
+   * Default: undefined → behaves as if true (preserves existing gate
+   * sequence). Explicit false → short-circuit.
+   *
+   * @bucket Course parameter. Educator-tunable on the Journey lens.
+   * @see lib/prompt/composition/loaders/priorCallFeedback.ts::maybeSynthesizeRecap
+   */
+  recapSynthesisEnabled?: boolean;
   /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
    * unmet prerequisites vs. show a soft-warning override modal. Default false

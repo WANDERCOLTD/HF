@@ -43,6 +43,16 @@ import type { Effective, Layer } from "@/lib/cascade/layer-types";
 import { substituteGreetingTokens } from "@/lib/prompt/composition/defaults/substitute-greeting-tokens";
 import type { DemoAnnotation, DemoScript } from "@/lib/types/json-fields";
 import type { ComposeSectionKey } from "@/lib/compose";
+import { PRODUCER_ONLY_CONTRACTS } from "@/lib/journey/producer-only-registry";
+
+/** Slice 15 — fast lookup set for "does this bubble's setting have NO
+ *  runtime consumer yet?". Derived once from the canonical registry so
+ *  the bubble can render a 🚫 glyph without per-bubble lookups. Shrinks
+ *  automatically as consumers ship (the registry is the single source
+ *  of truth). */
+const PRODUCER_ONLY_BUBBLE_MARK: ReadonlySet<string> = new Set(
+  Object.keys(PRODUCER_ONLY_CONTRACTS),
+);
 
 /** Map from PreviewLens sidetray lens id → `ComposeSectionKey`.
  *  Originally for #1623 Renderers v2 B.13 (5 sections). Extended in the
@@ -63,27 +73,72 @@ export const SIDETRAY_LENS_TO_SECTION: Partial<Record<string, ComposeSectionKey>
   moduleVisibility: "modulesGate",
 };
 
+/** Slice 4 grey-out epic — derives a specific contract id from a
+ *  bubble's `lensLabel`. Used by the bubble click handler to pass a
+ *  setting-focus id alongside the section, so the Journey Inspector
+ *  scrolls + briefly highlights the matching row instead of just
+ *  changing buckets.
+ *
+ *  Conservative on purpose: only labels with a clear 1:1 mapping land
+ *  in this table. Ambiguous labels (e.g. "Edit Intake (toggle questions
+ *  on/off)" — covers 3 toggles) fall through and the click still works
+ *  via the section→bucket path.
+ *
+ *  When adding a new bubble emit, also add a row here if its lensLabel
+ *  is unambiguous. */
+export const LENS_LABEL_TO_SETTING_ID: Partial<Record<string, string>> = {
+  "Edit Goals": "intakeGoals",
+  "Enable Goals": "intakeGoals",
+  "Edit About You": "intakeAboutYou",
+  "Enable About You": "intakeAboutYou",
+  "Edit Knowledge Check": "intakeKnowledgeCheck",
+  "Enable Knowledge Check": "intakeKnowledgeCheck",
+  "Edit AI Intro Call": "intakeAiIntroCall",
+  "Enable AI Intro Call": "intakeAiIntroCall",
+  "Edit Greeting": "welcomeMessage",
+  "Edit Onboarding": "onboardingFlowPhases",
+  // Slice 14 grey-out epic — close the remaining "Edit X doesn't open
+  // RHS" gaps. "Edit module visibility" lands on the firstCallModuleVisibility
+  // contract (Call 1 modules gate). The two "Edit Intake (toggle …)"
+  // dividers stay unmapped intentionally — they cover MULTIPLE settings
+  // at once, so the click falls through to bucket-only navigation which
+  // is the correct semantic.
+  "Edit module visibility": "firstCallModuleVisibility",
+};
+
 interface PreviewLensProps {
   courseId: string;
   /** #1623 — Renderers v2 B.13. Optional. When supplied, PreviewLens
    *  ALSO fires this callback alongside its existing `openSidetray`
    *  flow on bubble click, so the Designer Inspector can render a
    *  section-summary alongside the live edit sidetray. Pure addition
-   *  — no behaviour change when prop omitted (today's mount path). */
-  onSelectSection?: (section: ComposeSectionKey | null) => void;
+   *  — no behaviour change when prop omitted (today's mount path).
+   *
+   *  Slice 4 grey-out epic: second arg is the specific setting id when
+   *  the clicked bubble maps unambiguously to a single contract
+   *  (`LENS_LABEL_TO_SETTING_ID`); undefined otherwise. Consumers can
+   *  use it to scroll/highlight the matching row. */
+  onSelectSection?: (section: ComposeSectionKey | null, settingId?: string) => void;
   /** Journey tab Phase 4 — when true, suppress the legacy click-to-edit
    *  sidetray and route bubble clicks only through `onSelectSection`
    *  (which the Journey tab uses to mount editors in the Inspector pane).
    *  Default false preserves the existing Design-tab behaviour. */
   suppressSidetray?: boolean;
+  /** Slice 2 of the journey grey-out epic — monotonically-increasing
+   *  counter bumped by the parent on every Inspector save. PreviewLens
+   *  re-composes when this value changes, so the middle pane stays in
+   *  sync with the right-hand Inspector without an explicit Refresh
+   *  click. Default 0; the first non-zero bump triggers the first
+   *  re-fetch after the initial mount. */
+  composeNonce?: number;
 }
 
 interface SessionFlowResp {
   ok: boolean;
   sessionFlow?: {
     intake: {
-      goals: { enabled: boolean };
-      aboutYou: { enabled: boolean };
+      goals: { enabled: boolean; question?: string };
+      aboutYou: { enabled: boolean; question?: string };
       knowledgeCheck: { enabled: boolean; deliveryMode?: "mcq" | "socratic" };
       aiIntroCall: { enabled: boolean };
     };
@@ -160,7 +215,7 @@ const SIDETRAY_TITLES: Record<SessionFlowLens, string> = {
   moduleVisibility: "Module visibility — when modules get named",
 };
 
-export function PreviewLens({ courseId, onSelectSection, suppressSidetray = false }: PreviewLensProps): React.ReactElement {
+export function PreviewLens({ courseId, onSelectSection, suppressSidetray = false, composeNonce = 0 }: PreviewLensProps): React.ReactElement {
   const { demoAnnotationsVisible } = useChatContext();
   const [mode, setMode] = useState<ViewMode>("educator");
   const [flow, setFlow] = useState<SessionFlowResp | null>(null);
@@ -177,7 +232,12 @@ export function PreviewLens({ courseId, onSelectSection, suppressSidetray = fals
     bubbleRef: string;
     existing: DemoAnnotation | null;
   } | null>(null);
-  const composedOnceRef = useRef(false);
+  // Slice 2 grey-out epic — last composeNonce we ran against. The mount
+  // useEffect re-fires `compose()` whenever the incoming nonce moves past
+  // this stored value, but stays inert on a StrictMode double-mount with
+  // the same nonce. Initialised to -1 so the first paint (nonce=0)
+  // composes exactly once.
+  const lastComposedNonceRef = useRef<number>(-1);
 
   const compose = useCallback(async () => {
     setLoading(true);
@@ -217,12 +277,12 @@ export function PreviewLens({ courseId, onSelectSection, suppressSidetray = fals
   }, [courseId]);
 
   useEffect(() => {
-    if (composedOnceRef.current) return;
-    composedOnceRef.current = true;
+    if (lastComposedNonceRef.current === composeNonce) return;
+    lastComposedNonceRef.current = composeNonce;
     void compose();
-  }, [compose]);
+  }, [compose, composeNonce]);
 
-  const openSidetray = useCallback((lensId: string) => {
+  const openSidetray = useCallback((lensId: string, lensLabel?: string) => {
     const mapped = SIDETRAY_LENS_MAP[lensId];
     // Journey tab (Phase 4) suppresses the sidetray so the educator
     // doesn't see two overlapping editors — the bubble click routes
@@ -232,9 +292,13 @@ export function PreviewLens({ courseId, onSelectSection, suppressSidetray = fals
     // and the Inspector (preview-summary surface) are independent: the
     // sidetray stays the educator's "tweak this" entry; the Inspector
     // mirrors which section was last clicked for the Designer rail.
+    // Slice 4 grey-out epic — when the bubble's lensLabel maps to a
+    // specific contract id, also pass it to the Inspector so it can
+    // scroll/highlight that row.
     if (onSelectSection) {
       const section = SIDETRAY_LENS_TO_SECTION[lensId];
-      if (section) onSelectSection(section);
+      const settingId = lensLabel ? LENS_LABEL_TO_SETTING_ID[lensLabel] : undefined;
+      if (section) onSelectSection(section, settingId);
     }
   }, [onSelectSection, suppressSidetray]);
 
@@ -508,7 +572,8 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
       items.push({
         kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit Goals",
         caption: "Goals question",
-        text: "What would you most like to get out of this course?",
+        // Slice 13 — `goals.question` overrides the canonical default.
+        text: sf.intake.goals.question?.trim() || "What would you most like to get out of this course?",
       });
       items.push({
         kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit Goals", ghost: true,
@@ -526,7 +591,8 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
       items.push({
         kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit About You",
         caption: "About You",
-        text: "On a scale of 1–5, how confident do you feel about this topic?",
+        // Slice 13 — `aboutYou.question` overrides the canonical default.
+        text: sf.intake.aboutYou.question?.trim() || "On a scale of 1–5, how confident do you feel about this topic?",
       });
       items.push({
         kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit About You", ghost: true,
@@ -552,7 +618,25 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
           kind: "bubble", side: "user", lens: "intake", lensLabel: "Edit Knowledge Check", ghost: true,
           text: "(learner answers each MCQ)",
         });
+      } else {
+        // Slice 3 grey-out epic — socratic mode bubble was previously
+        // emitted on Call 1 itself, not in the intake block. Surface a
+        // ghost placeholder here so the educator can see the toggle is
+        // on and where its delivery lands.
+        items.push({
+          kind: "bubble", side: "bot", lens: "intake", lensLabel: "Edit Knowledge Check", ghost: true,
+          caption: "Knowledge Check — Socratic probe (delivered in Call 1)",
+          text: "(2-3 probing questions, scored as confidence signals)",
+        });
       }
+    } else {
+      // Slice 3 grey-out epic — show the OFF state as a muted bubble for
+      // visual parity with goals / aboutYou.
+      items.push({
+        kind: "bubble", side: "bot", lens: "intake", lensLabel: "Enable Knowledge Check", ghost: true,
+        caption: "Knowledge Check — OFF",
+        text: "(no knowledge probe at sign-up)",
+      });
     }
   }
 
@@ -577,11 +661,20 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
       text: "Great, thanks for chatting. Looking forward to our first lesson!",
     });
   } else {
+    // Slice 3 grey-out epic — render a muted bubble (instead of just a
+    // divider) so the educator sees AI Intro Call exists as a configurable
+    // surface, even when off. The bubble caption mirrors the Inspector's
+    // grey-out chip text when the contract is gatedBy a parent setting.
     items.push({
       kind: "divider",
       label: "AI Intro Call — OFF",
       lens: "intake",
       lensLabel: "Enable AI Intro Call",
+    });
+    items.push({
+      kind: "bubble", side: "bot", lens: "intake", lensLabel: "Enable AI Intro Call", ghost: true,
+      caption: "AI Intro Call — OFF",
+      text: "(no pre-Call-1 warm-up — learner goes straight into Call 1)",
     });
   }
 
@@ -717,7 +810,7 @@ function EducatorView({
 }: {
   transcript: PreviewItem[];
   courseId: string;
-  onOpenSidetray: (lensId: string) => void;
+  onOpenSidetray: (lensId: string, lensLabel?: string) => void;
   annotationsByRef: Map<string, DemoAnnotation>;
   onOpenAnnotation: (bubbleRef: string) => void;
 }): React.ReactElement {
@@ -755,7 +848,7 @@ function EducatorView({
                 aria-label={item.lensLabel || item.label}
                 title={item.lensLabel || item.label}
                 data-compose-section={sectionKey ?? undefined}
-                onClick={() => item.lens && onOpenSidetray(item.lens)}
+                onClick={() => item.lens && onOpenSidetray(item.lens, item.lensLabel)}
               >
                 <span>{item.label}</span>
                 <span className="hf-preview-divider-edit">
@@ -797,7 +890,7 @@ function EducatorView({
                 key={i}
                 type="button"
                 className="hf-preview-stop-note"
-                onClick={() => onOpenSidetray(item.lens)}
+                onClick={() => onOpenSidetray(item.lens, "Edit Stops")}
               >
                 <AlertCircle size={12} />
                 <span>{item.text}</span>
@@ -840,7 +933,7 @@ function BubbleRow({
 }: {
   bubble: { kind: "bubble" } & PreviewBubble;
   courseId: string;
-  onOpenSidetray: (lensId: string) => void;
+  onOpenSidetray: (lensId: string, lensLabel?: string) => void;
   bubbleRef: string;
   annotation: DemoAnnotation | null;
   onOpenAnnotation: (bubbleRef: string) => void;
@@ -880,10 +973,35 @@ function BubbleRow({
       {inSidetray ? (
         <button
           type="button"
-          className={bubbleClasses}
-          title={bubble.lensLabel}
+          className={(() => {
+            const sid = bubble.lensLabel
+              ? LENS_LABEL_TO_SETTING_ID[bubble.lensLabel]
+              : undefined;
+            // Slice 15 — preview-side producer-only marker. The actual
+            // chip + tooltip lives on the Inspector row; here we just
+            // prepend a 🚫 glyph so the educator can spot which bubbles
+            // map to settings that don't take effect yet.
+            return sid && PRODUCER_ONLY_BUBBLE_MARK.has(sid)
+              ? `${bubbleClasses} hf-preview-bubble-producer-only`
+              : bubbleClasses;
+          })()}
+          title={
+            (() => {
+              const sid = bubble.lensLabel
+                ? LENS_LABEL_TO_SETTING_ID[bubble.lensLabel]
+                : undefined;
+              return sid && PRODUCER_ONLY_BUBBLE_MARK.has(sid)
+                ? `${bubble.lensLabel} — value saves but no runtime consumer reads it yet.`
+                : bubble.lensLabel;
+            })()
+          }
           aria-label={bubble.lensLabel}
-          onClick={() => onOpenSidetray(bubble.lens)}
+          data-setting-id={
+            bubble.lensLabel
+              ? LENS_LABEL_TO_SETTING_ID[bubble.lensLabel]
+              : undefined
+          }
+          onClick={() => onOpenSidetray(bubble.lens, bubble.lensLabel)}
         >
           <span className="hf-preview-bubble-text">{bubble.text}</span>
           <span className="hf-preview-bubble-edit">

@@ -145,6 +145,14 @@ export function WelcomeSurveyFlow({ callerId, onComplete, onAlreadyDone }: Welco
         }
 
         if (configData.ok) {
+          // #2050 — Educator opted into "skip intake for returning learners"
+          // AND the server detected prior intake history. Bypass the entire
+          // welcome flow before we render anything. Producer side is the
+          // `intakeSkipIfReturning` JourneySettingContract.
+          if (configData.skipIntake === true) {
+            onAlreadyDone();
+            return;
+          }
           if (configData.subject) setSubject(configData.subject);
           if (configData.tone) setTone(configData.tone);
           if (configData.onboarding?.endAction) {

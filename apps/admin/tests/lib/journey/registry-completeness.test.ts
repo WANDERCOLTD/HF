@@ -91,7 +91,10 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // Lane 3 PR1 — A_intake (G1) gained 3 contracts: intakeGoals,
     // intakeAiIntroCall, intakeKnowledgeCheckMode (catch-up follow-on
     // from #1780 coverage audit).
-    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(7);
+    // Slice 13 grey-out epic — added intakeAboutYouQuestion +
+    // intakeGoalsQuestion text contracts so educators can edit the
+    // intake prompts. G1 7 → 9.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(9);
     expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
     // #1871 — voiceProsodyMode added (I_scoring / G4). 27 -> 28.
@@ -109,10 +112,9 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(9);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 87", () => {
-    // 84 (post midJourneyStopTrigger removal) + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
-    //   + 1 (moduleTopicPool #1932)
-    expect(JOURNEY_SETTINGS.length).toBe(87);
+  it("(8) JOURNEY_SETTINGS.length === 89", () => {
+    // 87 + 2 (Slice 13 intake question text editors)
+    expect(JOURNEY_SETTINGS.length).toBe(89);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

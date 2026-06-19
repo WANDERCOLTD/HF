@@ -24,10 +24,6 @@
  * `tests/lib/journey/registry-consumer-coverage.test.ts` (Slice 15 of
  * the journey grey-out epic). The previous shape was test-only; this
  * one is runtime-importable so the UI can surface it.
- *
- * Sub-epic C of epic #2049 (#2052) — the 5 scoring contracts removed
- * from this map by this PR are now read by `scoring-config.ts` in the
- * compose / pipeline path.
  */
 
 export type ProducerOnlyDestination =
@@ -70,11 +66,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
     destinedFor: "compose-prompt",
     note: "modulesGate transform doesn't apply strict/interleaved/learner-led ordering yet.",
   },
-  // loMasteryThreshold — wired sub-epic C #2052
-  // assessmentReadinessThreshold — wired sub-epic C #2052
-  // progressSignalLowWater — wired sub-epic C #2052
-  // progressSignalHighWater — wired sub-epic C #2052
-  // rewardStrategy — wired sub-epic C #2052
   offboardingBannerMessage: {
     destinedFor: "compose-prompt",
     note: "offboarding transform doesn't render the operator's banner copy yet.",
@@ -87,15 +78,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
     destinedFor: "runtime-gate",
     note: "Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
   },
-  openingRecapEnabled: {
-    destinedFor: "compose-prompt",
-    note: "Opening-recap (Call 1 framing) variant not wired. Distinct from priorCallFeedback.",
-  },
-  recapSynthesisEnabled: {
-    destinedFor: "compose-prompt",
-    note: "Synthesis runs unconditionally when prior-call context exists; the gating flag isn't checked.",
-  },
-
   // ── voice provider knobs
   interruptSensitivity: {
     destinedFor: "voice-provider",
