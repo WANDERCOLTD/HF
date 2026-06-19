@@ -80,18 +80,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
     reason:
       "Producer-only since 2026-06-17 audit. Intake-gate skip-for-returning-learner logic deferred to follow-on (intake transform needs the read).",
   },
-  baselineAssessmentDepth: {
-    reason:
-      "Producer-only since 2026-06-17 audit. firstCallMode / instructions transforms don't synthesise light/standard/deep directives yet.",
-  },
-  firstCallCurriculumFocus: {
-    reason:
-      "Producer-only since 2026-06-17 audit. modulesGate transform doesn't filter Call 1 module set by focus tag yet.",
-  },
-  moduleSequencePolicy: {
-    reason:
-      "Producer-only since 2026-06-17 audit. modulesGate transform doesn't apply strict/interleaved/learner-led ordering yet.",
-  },
   loMasteryThreshold: {
     reason:
       "Producer-only since 2026-06-17 audit. loMastery transform uses tierPresetId, not per-course override.",
@@ -145,7 +133,7 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 15;
+const EXPECTED_EXEMPT_COUNT = 12;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation
