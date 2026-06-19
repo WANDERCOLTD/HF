@@ -78,6 +78,21 @@ interface KeyOrigin {
   specSlug: string;
 }
 
+/**
+ * #1967 M2 — env-overridable canonical slug constants from
+ * `config.specs.*`. When a consumer reads CallerAttribute rows by
+ * `scope` rather than by literal key prefix, it references the
+ * config getter (e.g., `config.specs.aggBehavior`) instead of the
+ * raw slug. Mapping the getter NAME to the canonical slug lets the
+ * coverage test recognise both forms.
+ */
+const SPEC_SLUG_GETTERS: Record<string, string> = {
+  "config.specs.aggComprehension": "COMP-AGG-001",
+  "config.specs.aggDiscussion": "DISC-AGG-001",
+  "config.specs.aggCoaching": "COACH-AGG-001",
+  "config.specs.aggBehavior": "BEH-AGG-001",
+};
+
 function getPrefix(key: string): string {
   if (!key.includes(":")) return key;
   const parts = key.split(":");
@@ -226,10 +241,30 @@ function classify(prefix: string, specs: string[]): Result {
   if (AGG_OUTPUT_EXEMPT[prefix]) {
     return { prefix, classification: "exempt", specs };
   }
-  // Prefix grep — find any reference under consumer dirs.
+  // (1) Direct prefix-string reference in consumer source — the most
+  //     unambiguous coverage signal (e.g. `learning_style`).
   const probe = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   if (new RegExp(probe).test(CONSUMER_SOURCE)) {
     return { prefix, classification: "covered", specs };
+  }
+  // (2) Scope-based consumer — a consumer references the spec's slug
+  //     via `config.specs.<getter>` or the literal slug, suggesting it
+  //     filters CallerAttribute rows by `scope` rather than by literal
+  //     key. The most robust pattern for AGG outputs since it bypasses
+  //     the runtime snake/camel case-conversion gotcha.
+  for (const [getter, slug] of Object.entries(SPEC_SLUG_GETTERS)) {
+    // `specs` entries are file slugs like "BEH-AGG-001-behavior-aggregation";
+    // SPEC_SLUG_GETTERS keys are bare ids like "BEH-AGG-001". Match by
+    // prefix.
+    if (!specs.some((s) => s === slug || s.startsWith(`${slug}-`))) continue;
+    if (
+      CONSUMER_SOURCE.includes(getter) ||
+      // Literal slug + nearby "scope" reference within a few lines.
+      new RegExp(`["']${slug}["'][\\s\\S]{0,200}scope`).test(CONSUMER_SOURCE) ||
+      new RegExp(`scope[\\s\\S]{0,200}["']${slug}["']`).test(CONSUMER_SOURCE)
+    ) {
+      return { prefix, classification: "covered", specs };
+    }
   }
   return { prefix, classification: "gap", specs };
 }
@@ -251,21 +286,16 @@ const RESULTS: Result[] = (() => {
 // ────────────────────────────────────────────────────────────
 
 /**
- * 2026-06-19 incumbent: 11 producer-only AGG output prefixes.
- *
- *   - 9 from BEH-AGG-001 (behavior_profile:companion: / personality: /
- *     supervision: / engagement: / curriculum: / learning: /
- *     reinforcement: / onboarding: / style:) — born of #1967 M2
- *     structural closure; compose-side readers are pedagogy follow-on
- *     work
- *   - 2 from LEARN-PROF-001 pre-existing (`feedback_style`,
- *     `question_frequency`) — pre-dated the #1967 epic
- *
- * Wiring a compose transform that reads `behavior_profile:*` keys
- * drops this ratchet by 1 per prefix consumed. Pedagogy decides
- * which prefixes get readers vs which join AGG_OUTPUT_EXEMPT.
+ * 2026-06-19 — same-PR wiring of `quickstart.ts` `learning_guidance`
+ * extension reads BEH-AGG-001 outputs via `config.specs.aggBehavior`
+ * scope filter, closing all 9 behavior_profile:* prefixes by the
+ * scope-based coverage rule. 2 pre-existing LEARN-PROF-001 producer-
+ * only prefixes (`feedback_style`, `question_frequency`) remain —
+ * those go through `updateLearnerProfile()` on the write side and
+ * land in `LearnerProfile` columns, not `CallerAttribute`; would
+ * need their own consumer wiring or move to AGG_OUTPUT_EXEMPT.
  */
-const EXPECTED_GAP_COUNT = 11;
+const EXPECTED_GAP_COUNT = 2;
 
 // ────────────────────────────────────────────────────────────
 // Tests
