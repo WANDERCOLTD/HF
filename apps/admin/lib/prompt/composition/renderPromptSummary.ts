@@ -60,6 +60,10 @@ interface LLMPrompt {
     greeting_ack_gate?: string | null;
     /** #1403: course-intro turn spoken after the ack gate on isFirstCall. */
     greeting_course_intro?: string | null;
+    /** #2055 (sub-epic F of #2049): Call 1 framing recap derived from intake
+     *  answers. Emitted between [OPENING] and [GREETING FLOW] when
+     *  `config.openingRecapEnabled` is true AND it's Call 1. */
+    opening_recap?: string | null;
   };
   caller?: {
     id?: string;
@@ -176,9 +180,11 @@ interface LLMPrompt {
       directive: string;
     } | null;
   };
-  /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close). */
+  /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close).
+   *  #2054 — extended with certificateMention (operator toggle for completion-certificate copy). */
   offboarding?: {
     moduleClosingLine?: string | null;
+    certificateMention?: string | null;
   };
   /** #1749 (epic #1700 Theme 11) — score-delta narrator input. */
   priorCallFeedback?: {
@@ -455,6 +461,15 @@ export function renderProviderPrompt(
     parts.push(qs.offboarding_guidance);
   }
 
+  // #2054 (epic #2049 sub-epic E) — certificate-mention line. Renders
+  // when the operator turned on `Playbook.config.offboardingCertificate`
+  // AND the offboarding transform fired (cadence gate satisfied). The
+  // transform owns the wording; the renderer owns the placement.
+  const certificateMention = llmPrompt.offboarding?.certificateMention;
+  if (typeof certificateMention === "string" && certificateMention.trim().length > 0) {
+    parts.push("");
+    parts.push(certificateMention);
+  }
   // #1734 (epic #1730 G8 consumer C) — module-scoped verbatim closing line.
   // Appended after the existing offboarding guidance so the model reads it
   // last when wrapping up. Operator-set value; only renders when the
@@ -735,6 +750,17 @@ export function renderProviderPrompt(
   if (qs?.first_line) {
     parts.push("[OPENING]");
     parts.push(qs.first_line);
+    parts.push("");
+  }
+
+  // --- #2055 (sub-epic F) Opening recap (Call 1 framing) ---
+  // Emitted between [OPENING] and [GREETING FLOW] so the recap context
+  // is in front of the AI before it greets. Null-guarded inside
+  // `quickstart.ts` (Call 1 only, openingRecapEnabled === true, at least
+  // one intake answer present).
+  if (qs?.opening_recap) {
+    parts.push("[OPENING RECAP]");
+    parts.push(qs.opening_recap);
     parts.push("");
   }
 

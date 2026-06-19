@@ -520,6 +520,53 @@ async function runChecks(): Promise<CheckResult[]> {
     warnOnly: true,
   });
 
+  // Query 13 — #2040 (S7 of epic #2031) — Parameter.domainGroup off-canonical
+  // rows. Live-DB parity check against the canonical 12-tuple at
+  // `lib/registry/canonical-domain-group.ts`. WARN-only until S3b (#2039)
+  // clears the incumbent debt; flip to error severity (drop `warnOnly`)
+  // once the audit count reaches 0 on hosted DBs and the S3c CHECK
+  // constraint lands.
+  //
+  // Incumbent counts at S7-author time (PR #2036 audit, 2026-06-19):
+  //   - hf_sandbox: 96 off-canonical rows across 19 distinct values
+  //   - hf_staging: 145 off-canonical rows across 28 distinct values
+  //
+  // CI runs this against an ephemeral Postgres seeded from canonical
+  // JSON (seed-from-specs.ts), so this query returns 0 rows in CI by
+  // construction. The check's load-bearing run is via `npm run check:fk`
+  // against the hosted DBs (DATABASE_URL_SANDBOX / DATABASE_URL_STAGING)
+  // — see PR #2036's body for the canonical SQL probe pattern. Operators
+  // verify S3b's mapping migration cleared the drift by re-running this
+  // check post-deploy.
+  //
+  // Structural pin: `tests/lib/registry/parameter-domain-group-db-parity.test.ts`
+  // asserts Query 13 exists with this exact shape — so a future refactor
+  // can't silently delete it.
+  const offCanonicalDomainGroup = await prisma.$queryRaw<
+    Array<{ domainGroup: string; n: bigint }>
+  >`
+    SELECT "domainGroup", COUNT(*)::bigint AS n
+    FROM "Parameter"
+    WHERE "domainGroup" NOT IN (
+      'behavior-core', 'learning-adaptation', 'curriculum-adaptation',
+      'personality-adaptation', 'supervision', 'companion', 'engagement',
+      'reinforcement', 'onboarding', 'voice-delivery', 'learner-model',
+      'affect-motivation'
+    )
+    GROUP BY "domainGroup"
+    ORDER BY n DESC
+  `;
+  results.push({
+    name: "parameter-domain-group-off-canonical",
+    description:
+      "#2040 (#2031 S7) — Parameter.domainGroup rows not matching the canonical 12-tuple at lib/registry/canonical-domain-group.ts. WARN-only until S3b (#2039) clears the incumbent debt; CI's ephemeral DB returns 0 by construction, the load-bearing run is against hosted DBs via `npm run check:fk` with DATABASE_URL pointed at sandbox/staging. See PR #2036 audit + ADR docs/decisions/2026-06-19-parameter-domain-group-mapping.md (#2044).",
+    rows: offCanonicalDomainGroup.map((r) => ({
+      id: r.domainGroup,
+      detail: { rowCount: Number(r.n) },
+    })),
+    warnOnly: true,
+  });
+
   return results;
 }
 

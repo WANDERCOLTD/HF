@@ -94,14 +94,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
     destinedFor: "runtime-gate",
     note: "Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
   },
-  openingRecapEnabled: {
-    destinedFor: "compose-prompt",
-    note: "Opening-recap (Call 1 framing) variant not wired. Distinct from priorCallFeedback.",
-  },
-  recapSynthesisEnabled: {
-    destinedFor: "compose-prompt",
-    note: "Synthesis runs unconditionally when prior-call context exists; the gating flag isn't checked.",
-  },
   rewardStrategy: {
     destinedFor: "scoring",
     note: "REWARD pipeline uses a hardcoded strategy; this operator override isn't consulted.",
@@ -113,15 +105,8 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
     note: "Voice-stack consumer pending — should gate VAPI barge-in threshold + voicemail-detection.",
   },
 
-  // ── #2056 (sub-epic G of #2049) WIRED — agentTunerNlpEnabled +
-  //    callCountPolicy + maxCallsPerDay used to land here (their
-  //    composeImpact=[] hid them from the Coverage test). They are now
-  //    runtime gates with real consumers:
-  //      - agentTunerNlpEnabled → components/shared/AgentTunerNlpGate.tsx
-  //      - callCountPolicy     → lib/voice/create-session.ts (policy switch)
-  //      - maxCallsPerDay      → lib/voice/create-session.ts (per-day cap)
-  //    All resolved through lib/journey/runtime-gates.ts so the gate
-  //    surface stays Lattice-survey-friendly.
+  // ── runtime gates (composeImpact=[] hides them from the Coverage test,
+  // but they're runtime-effect settings hiding behind that flag)
 };
 
 /** Type-narrowing helper for the UI. */
