@@ -318,4 +318,28 @@ describe("Lattice self-maintenance (meta-gate)", () => {
       ruleFiles.length;
     expect(total).toBeGreaterThan(20);
   });
+
+  // ────────────────────────────────────────────────────────────
+  // #2057 — machine-readable manifest pairing
+  // ────────────────────────────────────────────────────────────
+
+  it("machine-readable manifest exists at docs/lattice-chains.json (paired with the prose inventory)", () => {
+    const manifestPath = join(REPO_ROOT, "docs", "lattice-chains.json");
+    let manifest: { version?: number; chains?: unknown[] } | null = null;
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    } catch (e) {
+      expect.fail(`docs/lattice-chains.json missing or unparseable: ${e}`);
+    }
+    expect(manifest, "manifest must be a JSON object").toBeTruthy();
+    expect(manifest!.version, "manifest.version must be set").toBe(1);
+    expect(
+      Array.isArray(manifest!.chains),
+      "manifest.chains must be an array",
+    ).toBe(true);
+    expect(
+      (manifest!.chains as unknown[]).length,
+      "manifest.chains must have at least one chain",
+    ).toBeGreaterThan(0);
+  });
 });
