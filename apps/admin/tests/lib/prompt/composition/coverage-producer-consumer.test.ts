@@ -105,6 +105,12 @@ const PAIRS: Array<{
     since: "#1735",
   },
   {
+    key: "module_topic_pool",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.module_topic_pool",
+    since: "#1932",
+  },
+  {
     key: "priorCallFeedback",
     // Loader file — not a transform. Producer-side needle is the loader's
     // output field (`summary`) rather than the section key (which is
@@ -113,6 +119,12 @@ const PAIRS: Array<{
     producerNeedle: "summary",
     consumerNeedle: "llmPrompt.priorCallFeedback",
     since: "#1749",
+  },
+  {
+    key: "behavior_targets_semantics",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.behavior_targets_semantics",
+    since: "#1951",
   },
 ];
 

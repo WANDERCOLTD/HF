@@ -58,8 +58,8 @@ async function main() {
   const spec = JSON.parse(readFileSync(specPath, "utf-8")) as INIT001Spec;
   console.log(`✅ Loaded INIT-001 spec with ${Object.keys(spec.personas).length} personas\n`);
 
-  // 2. Extract default behavior targets (from parameters[0] - "default_targets_quality")
-  const defaultTargetsParam = spec.parameters.find(p => p.id === "default_targets_quality");
+  // 2. Extract default behavior targets (from parameters[0] - "BEH-DEFAULT-TARGETS-QUALITY")
+  const defaultTargetsParam = spec.parameters.find(p => p.id === "BEH-DEFAULT-TARGETS-QUALITY");
   const defaultTargets = defaultTargetsParam?.config?.defaultTargets || {};
   console.log(`📊 Found ${Object.keys(defaultTargets).length} default behavior targets\n`);
 

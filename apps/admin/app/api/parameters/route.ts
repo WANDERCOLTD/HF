@@ -137,6 +137,16 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    // #1984 — spec-readonly boundary. `definition`,
+    // `interpretationHigh`, `interpretationLow` are HF-canonical IP
+    // and must NOT flow from this OPERATOR-tier customer-facing route
+    // (they appear verbatim in the composed prompt's
+    // behavior_targets_semantics block; a customer write corrupts
+    // every other tenant). HF authors set them via the canonical
+    // seed (apps/admin/docs-archive/bdd-specs/behavior-parameters.registry.json
+    // → npm run db:seed). The fields are silently dropped here;
+    // operators who supplied them via React-Admin form see no update.
+    // See .claude/rules/spec-readonly-boundary.md.
     const parameter = await prisma.parameter.create({
       data: {
         parameterId: body.parameterId,
@@ -146,9 +156,6 @@ export async function POST(request: NextRequest) {
         scaleType: body.scaleType || null,
         directionality: body.directionality || null,
         computedBy: body.computedBy || null,
-        definition: body.definition || null,
-        interpretationLow: body.interpretationLow || null,
-        interpretationHigh: body.interpretationHigh || null,
         measurementMvp: body.measurementMvp || null,
         measurementVoiceOnly: body.measurementVoiceOnly || null,
         // Note: isMvpCore and isActive are managed via tags, not direct fields

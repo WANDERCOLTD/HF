@@ -357,22 +357,30 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
       const progressRes = await fetch(url('/api/student/progress', callerId));
       const progressData = await progressRes.json();
 
-      const inst = progressData.institutionName || 'your institution';
+      const inst = progressData.institutionName;
       const teacher = progressData.teacherName;
       const goals = progressData.goals ?? [];
 
+      const greeting = inst
+        ? `Welcome to ${inst}! ${teacher ? `${teacher} set this up for you. ` : ''}I'm your AI study partner — ready to help you learn through conversation.`
+        : `Welcome! ${teacher ? `${teacher} set this up for you. ` : ''}I'm your AI study partner — ready to help you learn through conversation.`;
+
       pushItems(
         dividerItem('Welcome'),
-        textItem('assistant', `Welcome to ${inst}! ${teacher ? `${teacher} set this up for you. ` : ''}I'm your AI study partner — ready to help you learn through conversation.`),
+        textItem('assistant', greeting),
       );
 
       const goalsEnabled = welcomeConfigRef.current?.goals?.enabled !== false;
       if (goalsEnabled && goals.length > 0) {
-        const goalList = goals.map((g: { name: string }) => `• ${g.name}`).join('\n');
-        pushItems(textItem('assistant', `Here are your learning goals:\n${goalList}`));
+        const MAX_VISIBLE_GOALS = 4;
+        const visibleGoals = goals.slice(0, MAX_VISIBLE_GOALS);
+        const overflow = goals.length - visibleGoals.length;
+        const goalList = visibleGoals.map((g: { name: string }) => `• ${g.name}`).join('\n');
+        const tail = overflow > 0 ? `\n• …and ${overflow} more` : '';
+        pushItems(textItem('assistant', `Here's what we'll work on:\n${goalList}${tail}`));
       }
 
-      pushItems(textItem('assistant', "You'll have AI-powered practice sessions that adapt to how you're doing. Let's get started!"));
+      pushItems(textItem('assistant', "We'll adapt as we go. Let's get started!"));
 
       const hasMorePhases = welcomeQueueRef.current.length > 0;
 

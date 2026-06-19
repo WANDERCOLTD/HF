@@ -140,6 +140,21 @@ interface LLMPrompt {
       target: string;
       meaning?: string;
     }>;
+    /**
+     * #1951 (epic #1946 S4) — full behaviour-target semantics. Replaces the
+     * pre-#1951 top-5 cap on `behavior_targets_summary` as the LLM's
+     * primary signal for HOW to behave. `null` when the producer's budget
+     * guard fires (`PROMPT_SEMANTICS_BUDGET_CHARS` in
+     * `transforms/instructions.ts`) — renderer then falls back to the
+     * top-5 summary block.
+     */
+    behavior_targets_semantics?: Array<{
+      parameterId: string;
+      what: string;
+      targetLevel: string;
+      targetValue: number;
+      meaning: string;
+    }> | null;
     teaching_content?: string | null;
     /** #1732 (epic #1730 G8 consumer A) — module-scoped question count directive. */
     module_question_target?: { min: number; target: number; directive: string } | null;
@@ -153,6 +168,13 @@ interface LLMPrompt {
     } | null;
     /** #1735 (epic #1730 G8 consumer D) — first-time orientation line. */
     module_orientation_line?: { line: string; directive: string } | null;
+    /** #1932 (epic #1931 Template Authority) — module-scoped topic pool. */
+    module_topic_pool?: {
+      kind: "topicPool";
+      topic: string;
+      questions: string[];
+      directive: string;
+    } | null;
   };
   /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close). */
   offboarding?: {
@@ -470,6 +492,15 @@ export function renderProviderPrompt(
   if (cueCard?.directive) {
     parts.push("");
     parts.push(cueCard.directive);
+  }
+  // #1932 (epic #1931 Template Authority) — module-scoped topic pool.
+  // Deterministic per-call pick from topicPool. Parallel to cueCardPool
+  // but emits a TOPIC LIBRARY directive (questions, not bullets) for
+  // student-led practice modules (Part 1 frames, Part 3 themes).
+  const topicPool = llmPrompt.instructions?.module_topic_pool;
+  if (topicPool?.directive) {
+    parts.push("");
+    parts.push(topicPool.directive);
   }
   // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
   // Surfaces the summary line + the per-criterion scoreboard from the
@@ -955,13 +986,19 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
 
     if (highTargets.length) {
       parts.push("**HIGH priority**:");
-      highTargets.slice(0, 5).forEach(t => {
+      // #1951 — lifted from `slice(0, 5)` to all HIGH targets. The producer
+      // (transforms/instructions.ts) budget-guards the structured SEMANTICS
+      // directive; this prose block sits within the same budget envelope
+      // because it shares the source array. The follow-on `## Behavior
+      // Targets Semantics` block below provides the canonical full-list
+      // path for the LLM.
+      highTargets.forEach(t => {
         const guidance = t.targetLevel === "HIGH" && t.when_high ? ` → ${t.when_high}` : "";
         parts.push(`- ${t.name}: ${t.targetLevel} (${pct(t.targetValue)})${guidance}`);
       });
     }
 
-    // Summary from instructions
+    // Summary from instructions — top-5 fallback shape from the producer.
     const summary = llmPrompt.instructions?.behavior_targets_summary;
     if (summary?.length) {
       parts.push("\n**Summary**:");
@@ -969,6 +1006,24 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
         parts.push(`- ${s.what}: ${s.target}${s.meaning ? ` - ${s.meaning}` : ""}`);
       });
     }
+    parts.push("");
+  }
+
+  // #1951 (epic #1946 S4) — BEHAVIOR TARGETS SEMANTICS. Full per-parameter
+  // semantics block, the canonical replacement for the pre-#1951 top-5 cap.
+  // Producer: `transforms/instructions.ts::behavior_targets_semantics` (null
+  // when budget guard fired — see `PROMPT_SEMANTICS_BUDGET_CHARS`). When
+  // semantics is null the renderer relies on the legacy "## Behavior Targets"
+  // block above (top-5 summary). Pairing pinned by
+  // `tests/lib/prompt/composition/coverage-producer-consumer.test.ts` PAIRS
+  // row `behavior_targets_semantics`.
+  const semantics = llmPrompt.instructions?.behavior_targets_semantics;
+  if (semantics && semantics.length > 0) {
+    parts.push("## Behavior Targets Semantics\n");
+    parts.push("Each parameter below carries an HF-canonical interpretation. Use the meaning to choose how to behave at the resolved target value:\n");
+    semantics.forEach(s => {
+      parts.push(`- **${s.what}** — ${s.targetLevel} (${pct(s.targetValue)}): ${s.meaning}`);
+    });
     parts.push("");
   }
 

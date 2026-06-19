@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T11:43:56.065Z",
+  "generatedAt": "2026-06-19T12:57:42.504Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1837,
-  "edgeCount": 4313,
+  "fileCount": 1853,
+  "edgeCount": 4354,
   "skippedEdges": 1,
   "edges": [
     {
@@ -238,6 +238,14 @@
     {
       "from": "app/api/admin/sync-parameters/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/admin/sync-parameters/route.ts",
+      "to": "lib/registry/canonical-domain-group.ts"
+    },
+    {
+      "from": "app/api/admin/sync-parameters/route.ts",
+      "to": "lib/registry/resolve.ts"
     },
     {
       "from": "app/api/admin/terminology/route.ts",
@@ -981,6 +989,14 @@
     },
     {
       "from": "app/api/callers/[callerId]/insights/route.ts",
+      "to": "lib/rbac/policies/insights.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/insights/route.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/insights/route.ts",
       "to": "lib/types/json-fields.ts"
     },
     {
@@ -1052,6 +1068,14 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "app/api/callers/[callerId]/lo-mastery/route.ts",
+      "to": "lib/rbac/policies/lo-mastery.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/lo-mastery/route.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
       "from": "app/api/callers/[callerId]/lo-progress/route.ts",
       "to": "lib/curriculum/track-progress.ts"
     },
@@ -1090,6 +1114,14 @@
     {
       "from": "app/api/callers/[callerId]/memories/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/memories/route.ts",
+      "to": "lib/rbac/policies/memories.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/memories/route.ts",
+      "to": "lib/rbac/visibility.ts"
     },
     {
       "from": "app/api/callers/[callerId]/module-progress/route.ts",
@@ -1276,6 +1308,14 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "app/api/callers/[callerId]/skills-evidence/route.ts",
+      "to": "lib/rbac/policies/skills-evidence.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/skills-evidence/route.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
       "from": "app/api/callers/[callerId]/slugs/route.ts",
       "to": "lib/learner-scope.ts"
     },
@@ -1390,6 +1430,14 @@
     {
       "from": "app/api/callers/[callerId]/uplift/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/uplift/route.ts",
+      "to": "lib/rbac/policies/uplift.ts"
+    },
+    {
+      "from": "app/api/callers/[callerId]/uplift/route.ts",
+      "to": "lib/rbac/visibility.ts"
     },
     {
       "from": "app/api/callers/[callerId]/voice-provider/route.ts",
@@ -4713,6 +4761,10 @@
     },
     {
       "from": "app/api/intake/bootstrap/route.ts",
+      "to": "lib/intake/hf-adapter/record-disclosure-with-tx.ts"
+    },
+    {
+      "from": "app/api/intake/bootstrap/route.ts",
       "to": "lib/intake/intake-session-cookie.ts"
     },
     {
@@ -4754,6 +4806,10 @@
     {
       "from": "app/api/intake/disclosure-acknowledge/route.ts",
       "to": "lib/intake/hf-adapter/disclosure-store.ts"
+    },
+    {
+      "from": "app/api/intake/disclosure-acknowledge/route.ts",
+      "to": "lib/intake/hf-adapter/record-disclosure-with-tx.ts"
     },
     {
       "from": "app/api/intake/disclosure-acknowledge/route.ts",
@@ -4970,6 +5026,18 @@
     {
       "from": "app/api/lab/features/[id]/activate/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/lab/features/[id]/activate/route.ts",
+      "to": "lib/registry/canonical-directionality.ts"
+    },
+    {
+      "from": "app/api/lab/features/[id]/activate/route.ts",
+      "to": "lib/registry/canonical-domain-group.ts"
+    },
+    {
+      "from": "app/api/lab/features/[id]/activate/route.ts",
+      "to": "lib/registry/canonical-scale-type.ts"
     },
     {
       "from": "app/api/lab/features/[id]/activate/route.ts",
@@ -7177,6 +7245,10 @@
     },
     {
       "from": "app/api/voice/calls/outbound-dial/route.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
+    },
+    {
+      "from": "app/api/voice/calls/outbound-dial/route.ts",
       "to": "lib/voice/build-assistant-config.ts"
     },
     {
@@ -7214,6 +7286,10 @@
     {
       "from": "app/api/voice/calls/start/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/voice/calls/start/route.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
     },
     {
       "from": "app/api/voice/calls/start/route.ts",
@@ -12808,6 +12884,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/crypto/envelope.ts",
+      "to": "lib/config.ts"
+    },
+    {
       "from": "lib/curriculum/check-module-unlock.ts",
       "to": "lib/pipeline/course-style.ts"
     },
@@ -12865,6 +12945,18 @@
     },
     {
       "from": "lib/curriculum/mark-module-incomplete.ts",
+      "to": "lib/pipeline/course-style.ts"
+    },
+    {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/curriculum/mark-orientation-shown.ts",
       "to": "lib/pipeline/course-style.ts"
     },
     {
@@ -13710,6 +13802,10 @@
     {
       "from": "lib/intake/hf-adapter/event-store.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/intake/hf-adapter/record-disclosure-with-tx.ts",
+      "to": "lib/intake/hf-adapter/disclosure-store.ts"
     },
     {
       "from": "lib/intake/prisma-event-store.ts",
@@ -14644,6 +14740,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/privacy/stamp-regulatory-expiry.ts",
+      "to": "lib/config.ts"
+    },
+    {
       "from": "lib/prompt/compose-content-section.ts",
       "to": "lib/contracts/registry.ts"
     },
@@ -15556,11 +15656,51 @@
       "to": "lib/rbac/visibility.ts"
     },
     {
+      "from": "lib/rbac/policies/insights.ts",
+      "to": "app/api/callers/[callerId]/insights/route.ts"
+    },
+    {
+      "from": "lib/rbac/policies/insights.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "lib/rbac/policies/lo-mastery.ts",
+      "to": "app/api/callers/[callerId]/lo-mastery/route.ts"
+    },
+    {
+      "from": "lib/rbac/policies/lo-mastery.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "lib/rbac/policies/memories.ts",
+      "to": "app/api/callers/[callerId]/memories/route.ts"
+    },
+    {
+      "from": "lib/rbac/policies/memories.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "lib/rbac/policies/skills-evidence.ts",
+      "to": "app/api/callers/[callerId]/skills-evidence/route.ts"
+    },
+    {
+      "from": "lib/rbac/policies/skills-evidence.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
+      "from": "lib/rbac/policies/uplift.ts",
+      "to": "lib/rbac/visibility.ts"
+    },
+    {
       "from": "lib/rbac/visibility.ts",
       "to": "lib/roles.ts"
     },
     {
       "from": "lib/recompose/preview.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/registry/resolve.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -15852,6 +15992,10 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts",
+      "to": "lib/registry/resolve.ts"
+    },
+    {
       "from": "lib/tolerance/resolve-tolerance.ts",
       "to": "lib/contracts/registry.ts"
     },
@@ -16046,6 +16190,10 @@
     {
       "from": "lib/voice/end-session.ts",
       "to": "lib/curriculum/mark-module-incomplete.ts"
+    },
+    {
+      "from": "lib/voice/end-session.ts",
+      "to": "lib/curriculum/mark-orientation-shown.ts"
     },
     {
       "from": "lib/voice/end-session.ts",
@@ -16309,6 +16457,10 @@
     },
     {
       "from": "lib/voice/route-handlers.ts",
+      "to": "lib/privacy/stamp-regulatory-expiry.ts"
+    },
+    {
+      "from": "lib/voice/route-handlers.ts",
       "to": "lib/prompt/composition/defaults/fallback-first-lines.ts"
     },
     {
@@ -16461,6 +16613,10 @@
     },
     {
       "from": "lib/wizard/__tests__/apply-projection.test.ts",
+      "to": "lib/registry/resolve.ts"
+    },
+    {
+      "from": "lib/wizard/__tests__/apply-projection.test.ts",
       "to": "lib/types/json-fields.ts"
     },
     {
@@ -16569,11 +16725,19 @@
     },
     {
       "from": "lib/wizard/apply-projection.ts",
+      "to": "lib/registry/resolve.ts"
+    },
+    {
+      "from": "lib/wizard/apply-projection.ts",
       "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/wizard/apply-projection.ts",
       "to": "lib/wizard/project-course-reference.ts"
+    },
+    {
+      "from": "lib/wizard/course-ref-template-schema.ts",
+      "to": "lib/journey/setting-contracts.ts"
     },
     {
       "from": "lib/wizard/detect-authored-modules.ts",
@@ -17364,7 +17528,7 @@
     {
       "path": "app/api/admin/sync-parameters/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 4
     },
     {
       "path": "app/api/admin/terminology/route.ts",
@@ -17648,8 +17812,8 @@
     },
     {
       "path": "app/api/callers/[callerId]/insights/route.ts",
-      "inDegree": 0,
-      "outDegree": 6
+      "inDegree": 1,
+      "outDegree": 8
     },
     {
       "path": "app/api/callers/[callerId]/journey-progress/route.ts",
@@ -17668,8 +17832,8 @@
     },
     {
       "path": "app/api/callers/[callerId]/lo-mastery/route.ts",
-      "inDegree": 0,
-      "outDegree": 6
+      "inDegree": 1,
+      "outDegree": 8
     },
     {
       "path": "app/api/callers/[callerId]/lo-progress/route.ts",
@@ -17683,8 +17847,8 @@
     },
     {
       "path": "app/api/callers/[callerId]/memories/route.ts",
-      "inDegree": 0,
-      "outDegree": 3
+      "inDegree": 1,
+      "outDegree": 5
     },
     {
       "path": "app/api/callers/[callerId]/module-progress/route.ts",
@@ -17733,8 +17897,8 @@
     },
     {
       "path": "app/api/callers/[callerId]/skills-evidence/route.ts",
-      "inDegree": 0,
-      "outDegree": 5
+      "inDegree": 1,
+      "outDegree": 7
     },
     {
       "path": "app/api/callers/[callerId]/slugs/route.ts",
@@ -17779,7 +17943,7 @@
     {
       "path": "app/api/callers/[callerId]/uplift/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 5
     },
     {
       "path": "app/api/callers/[callerId]/voice-provider/route.ts",
@@ -18884,7 +19048,7 @@
     {
       "path": "app/api/intake/bootstrap/route.ts",
       "inDegree": 0,
-      "outDegree": 7
+      "outDegree": 8
     },
     {
       "path": "app/api/intake/chat/route.ts",
@@ -18894,7 +19058,7 @@
     {
       "path": "app/api/intake/disclosure-acknowledge/route.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/api/intake/disclosure-signal/route.ts",
@@ -18949,7 +19113,7 @@
     {
       "path": "app/api/lab/features/[id]/activate/route.ts",
       "inDegree": 0,
-      "outDegree": 6
+      "outDegree": 9
     },
     {
       "path": "app/api/lab/features/[id]/route.ts",
@@ -19894,12 +20058,12 @@
     {
       "path": "app/api/voice/calls/outbound-dial/route.ts",
       "inDegree": 0,
-      "outDegree": 11
+      "outDegree": 12
     },
     {
       "path": "app/api/voice/calls/start/route.ts",
       "inDegree": 0,
-      "outDegree": 8
+      "outDegree": 9
     },
     {
       "path": "app/api/voice/costs/route.ts",
@@ -22882,6 +23046,11 @@
       "outDegree": 5
     },
     {
+      "path": "lib/cascade/spec-readonly-fields.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
       "path": "lib/cascade/use-effective-value.ts",
       "inDegree": 0,
       "outDegree": 2
@@ -23288,7 +23457,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 93,
+      "inDegree": 95,
       "outDegree": 0
     },
     {
@@ -23542,6 +23711,11 @@
       "outDegree": 0
     },
     {
+      "path": "lib/crypto/envelope.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "lib/curriculum/build-per-segment-measure-prompt.ts",
       "inDegree": 1,
       "outDegree": 0
@@ -23605,6 +23779,11 @@
       "path": "lib/curriculum/mark-module-incomplete.ts",
       "inDegree": 1,
       "outDegree": 2
+    },
+    {
+      "path": "lib/curriculum/mark-orientation-shown.ts",
+      "inDegree": 1,
+      "outDegree": 3
     },
     {
       "path": "lib/curriculum/mastery-tiers.ts",
@@ -24118,7 +24297,7 @@
     },
     {
       "path": "lib/intake/hf-adapter/disclosure-store.ts",
-      "inDegree": 3,
+      "inDegree": 4,
       "outDegree": 2
     },
     {
@@ -24130,6 +24309,11 @@
       "path": "lib/intake/hf-adapter/projection.ts",
       "inDegree": 1,
       "outDegree": 0
+    },
+    {
+      "path": "lib/intake/hf-adapter/record-disclosure-with-tx.ts",
+      "inDegree": 2,
+      "outDegree": 1
     },
     {
       "path": "lib/intake/intake-session-cookie.ts",
@@ -24263,7 +24447,7 @@
     },
     {
       "path": "lib/journey/module-settings-flag.ts",
-      "inDegree": 7,
+      "inDegree": 8,
       "outDegree": 0
     },
     {
@@ -24278,7 +24462,7 @@
     },
     {
       "path": "lib/journey/setting-contracts.ts",
-      "inDegree": 14,
+      "inDegree": 15,
       "outDegree": 2
     },
     {
@@ -24418,7 +24602,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 36,
+      "inDegree": 37,
       "outDegree": 3
     },
     {
@@ -24593,7 +24777,7 @@
     },
     {
       "path": "lib/pipeline/course-style.ts",
-      "inDegree": 10,
+      "inDegree": 11,
       "outDegree": 1
     },
     {
@@ -24733,8 +24917,13 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 673,
+      "inDegree": 674,
       "outDegree": 0
+    },
+    {
+      "path": "lib/privacy/stamp-regulatory-expiry.ts",
+      "inDegree": 3,
+      "outDegree": 1
     },
     {
       "path": "lib/prompt-analyzer/section-map.ts",
@@ -25057,8 +25246,33 @@
       "outDegree": 2
     },
     {
+      "path": "lib/rbac/policies/insights.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/rbac/policies/lo-mastery.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/rbac/policies/memories.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/rbac/policies/skills-evidence.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "path": "lib/rbac/policies/uplift.ts",
+      "inDegree": 1,
+      "outDegree": 1
+    },
+    {
       "path": "lib/rbac/visibility.ts",
-      "inDegree": 2,
+      "inDegree": 12,
       "outDegree": 1
     },
     {
@@ -25072,9 +25286,29 @@
       "outDegree": 1
     },
     {
+      "path": "lib/registry/canonical-directionality.ts",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/registry/canonical-domain-group.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/registry/canonical-scale-type.ts",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "lib/registry/index.ts",
       "inDegree": 9,
       "outDegree": 0
+    },
+    {
+      "path": "lib/registry/resolve.ts",
+      "inDegree": 4,
+      "outDegree": 1
     },
     {
       "path": "lib/roles.ts",
@@ -25289,7 +25523,7 @@
     {
       "path": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts",
       "inDegree": 4,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/tolerance/resolve-tolerance.ts",
@@ -25394,7 +25628,7 @@
     {
       "path": "lib/voice/end-session.ts",
       "inDegree": 1,
-      "outDegree": 9
+      "outDegree": 10
     },
     {
       "path": "lib/voice/end-source.ts",
@@ -25524,7 +25758,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 28
+      "outDegree": 29
     },
     {
       "path": "lib/voice/runtime-features.ts",
@@ -25614,7 +25848,7 @@
     {
       "path": "lib/wizard/__tests__/apply-projection.test.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "lib/wizard/__tests__/detect-authored-modules.test.ts",
@@ -25689,7 +25923,12 @@
     {
       "path": "lib/wizard/apply-projection.ts",
       "inDegree": 3,
-      "outDegree": 5
+      "outDegree": 6
+    },
+    {
+      "path": "lib/wizard/course-ref-template-schema.ts",
+      "inDegree": 0,
+      "outDegree": 1
     },
     {
       "path": "lib/wizard/detect-authored-modules.ts",
@@ -26038,6 +26277,11 @@
     },
     {
       "path": "scripts/capture/operator-surfaces.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "scripts/capture/parameter-inventory.ts",
       "inDegree": 0,
       "outDegree": 0
     },
@@ -26450,7 +26694,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 673,
+      "inDegree": 674,
       "outDegree": 0
     },
     {
@@ -26465,7 +26709,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 93,
+      "inDegree": 95,
       "outDegree": 0
     },
     {
@@ -26510,7 +26754,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 36,
+      "inDegree": 37,
       "outDegree": 3
     },
     {
@@ -26526,7 +26770,7 @@
     {
       "path": "lib/voice/route-handlers.ts",
       "inDegree": 5,
-      "outDegree": 28
+      "outDegree": 29
     },
     {
       "path": "lib/playbook/update-playbook-config.ts",

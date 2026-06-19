@@ -189,6 +189,44 @@ describe("detectModuleSettings — error / edge cases", () => {
     ).toBe(true);
   });
 
+  it("#1932 AC X.2 — does not warn on `topicPool: source:...` (resolver re-walks for source-refs)", () => {
+    // Pre-#1932 `topicPool` lived in NON_SCHEMA_FIELDS with the same
+    // skip rationale as the other source-ref pool fields
+    // (cueCardPool / scaffoldPool): the YAML value is a `source:<id>`
+    // STRING, not the fully-resolved structured Array. The
+    // P3f resolver (`lib/wizard/resolve-module-source-refs.ts`)
+    // re-walks the YAML for source-refs INDEPENDENTLY of this parser
+    // and inlines the structured value.
+    //
+    // Regression guard: when topicPool was added to
+    // `AuthoredModuleSettings` (#1932) the maintainer might have
+    // accidentally REMOVED topicPool from NON_SCHEMA_FIELDS without
+    // adding the structured shape to KNOWN_FIELDS — that combination
+    // would silently emit MODULE_SETTINGS_UNKNOWN_FIELD warnings for
+    // every `topicPool: source:<id>` line in every IELTS fixture.
+    // This test pins the absence of those warnings.
+    const md = [
+      "#### Module 2 — Part 1 — Settings",
+      "",
+      "```yaml",
+      "moduleId: part1",
+      "settings:",
+      "  topicPool: source:part1-topic-library-v1",
+      "  minSpeakingSec: 600",
+      "```",
+    ].join("\n");
+    const r = detectModuleSettings(md, ["part1"]);
+    // The parser should NOT emit a topicPool field — the resolver does.
+    expect(r.byModuleId.get("part1")).toEqual({ minSpeakingSec: 600 });
+    // No UNKNOWN_FIELD warning whatsoever (the field is intentionally
+    // suppressed for the source-ref path).
+    expect(
+      r.validationWarnings.filter(
+        (w) => w.code === "MODULE_SETTINGS_UNKNOWN_FIELD",
+      ),
+    ).toEqual([]);
+  });
+
   it("ignores non-schema fields silently (no spurious warnings)", () => {
     // appliesTo, prepSilenceSec, scoringCriteria are intentionally
     // not in AuthoredModuleSettings — parser should NOT emit

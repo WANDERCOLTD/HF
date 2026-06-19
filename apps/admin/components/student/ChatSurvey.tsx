@@ -114,7 +114,10 @@ export function ChatSurvey({
   const [answers, setAnswers] = useState<SurveyAnswers>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [textDraft, setTextDraft] = useState('');
-  const [typing, triggerTyping] = useTypingDelay(600 + Math.random() * 400);
+  // Stable per-instance typing delay — Math.random() is impure during render
+  // per react-hooks/purity. (#2017)
+  const [typingDelayMs] = useState(() => 600 + Math.random() * 400);
+  const [typing, triggerTyping] = useTypingDelay(typingDelayMs);
   const [streak, setStreak] = useState(0);
   const [lastWasWrong, setLastWasWrong] = useState(false);
   const [showingSummary, setShowingSummary] = useState(false);

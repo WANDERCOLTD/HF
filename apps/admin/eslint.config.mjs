@@ -16,16 +16,21 @@ import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-def
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
 import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
 import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
+import noPiiInApplogMetadata from "./eslint-rules/no-pii-in-applog-metadata.mjs";
 import noBareCallScoreWrite from "./eslint-rules/no-bare-call-score-write.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
 import noBareStrategyKey from "./eslint-rules/no-bare-strategy-key.mjs";
+import noBareParameterId from "./eslint-rules/no-bare-parameter-id.mjs";
+import noBareParameterWrite from "./eslint-rules/no-bare-parameter-write.mjs";
+import noBareBehaviorTargetWrite from "./eslint-rules/no-bare-behavior-target-write.mjs";
 import noBucketlessJourneySetting from "./eslint-rules/no-bucketless-journey-setting.mjs";
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
 import requireAiScopeInCascadeZone from "./eslint-rules/require-ai-scope-in-cascade-zone.mjs";
+import noCustomerWriteToCanonicalInterpretation from "./eslint-rules/no-customer-write-to-canonical-interpretation.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -96,6 +101,12 @@ const eslintConfig = defineConfig([
       "hf-spec": {
         rules: {
           "no-direct-config-write": noDirectSpecConfigWrite,
+          // Epic #1984 — block customer-driven writes to spec-readonly
+          // Parameter fields (definition / interpretationHigh /
+          // interpretationLow). These are HF-canonical IP — only
+          // seeds, the registry generator, and migrations may write them.
+          "no-customer-write-to-canonical-interpretation":
+            noCustomerWriteToCanonicalInterpretation,
         },
       },
       // #854 / Story #855 — block AI tool executors from requesting
@@ -191,6 +202,14 @@ const eslintConfig = defineConfig([
       // Defends the chain-contract pre-condition for Link 3
       // (CURRICULUM → CALL compose) and the Session-boundary invariants
       // in Link 3b.
+      "hf-privacy": {
+        rules: {
+          // #1926 — block literal PII-keyed objects in AppLog metadata
+          // writes. See `.claude/rules/data-retention.md` and
+          // CHAIN-CONTRACTS.md §6a I-PR3.
+          "no-pii-in-applog-metadata": noPiiInApplogMetadata,
+        },
+      },
       "hf-call": {
         rules: {
           "no-bare-call-create": noBareCallCreate,
@@ -238,6 +257,20 @@ const eslintConfig = defineConfig([
           "no-bare-strategy-key": noBareStrategyKey,
         },
       },
+      // #1950 — block bare string literals referencing legacy parameter IDs
+      // renamed by S2 of epic #1946 to the BEH-* canonical convention.
+      // The alias resolver (#1949) handles READ-side fallback; this rule
+      // catches WRITE-side / literal-comparison drift so legacy ids don't
+      // re-enter via new code. Allow-list (in the rule): the registry seed,
+      // resolver, prisma seeds + migrations, scripts/generate-registry,
+      // docs/, and tests/.
+      "hf-registry": {
+        rules: {
+          "no-bare-parameter-id": noBareParameterId,
+          "no-bare-parameter-write": noBareParameterWrite,
+          "no-bare-behavior-target-write": noBareBehaviorTargetWrite,
+        },
+      },
       // #1738 Slice C3 — every JOURNEY_SETTINGS entry must carry a
       // `menuGroupKey` so the Slice C bucket-grained LH menu can mount
       // it. registry-completeness vitest pins the same invariant at
@@ -274,6 +307,15 @@ const eslintConfig = defineConfig([
       "hf-playbook/no-direct-config-write": "error",
       "hf-domain/no-direct-onboarding-write": "error",
       "hf-spec/no-direct-config-write": "error",
+      // Epic #1984 — error severity from day 1. The boundary is
+      // declarative; the one pre-existing customer-driven write to a
+      // spec field (lib/wizard/apply-projection.ts:163 setting
+      // `definition` on Parameter.create) is repaired in the same PR
+      // by dropping the field — the canonical seed assigns it.
+      // Allow-list (in the rule): seeds, prisma migrations, the
+      // registry generator, and test files.
+      // See .claude/rules/spec-readonly-boundary.md.
+      "hf-spec/no-customer-write-to-canonical-interpretation": "error",
       "hf-recompose/no-ai-fanout-all": "error",
       "hf-ai-tools/no-forbidden-fields": "error",
       // Lands as `warn` so commits 4-6 land cleanly. Promoted to `error`
@@ -310,6 +352,15 @@ const eslintConfig = defineConfig([
       // inline Call insert when needed) or add to the allow-list with a
       // documented bypass justification.
       "hf-call/no-bare-call-create": "error",
+
+      // #1926 (epic #1915 §6a I-PR3) — error severity from day 1. Allow-list
+      // covers lib/logger.ts (the canonical writer), lib/metering/meter-call.ts,
+      // tests/**, scripts/**, prisma/fixtures/**. Per-call-site escape via
+      // `// @piiRedacted` comment on the preceding line. Audit-confirmed
+      // sensitive keys: email, phone, transcript, name, value, promptPreview,
+      // responsePreview. See `.claude/rules/data-retention.md`.
+      "hf-privacy/no-pii-in-applog-metadata": "error",
+
       // #1539 — error severity from day 1. Allow-list covers every
       // pre-existing legitimate write site (the chokepoint helper itself,
       // the drain script, the demo-reset / seed-transcripts admin
@@ -325,6 +376,35 @@ const eslintConfig = defineConfig([
       // `StrategyKey` enum fails CI. Allow-list (in the rule itself):
       // `lib/goals/strategies/registry.ts` (the alias map) + test files.
       "hf-goals/no-bare-strategy-key": "error",
+
+      // #1950 — error severity from day 1. The migration + registry
+      // rename + alias entries land in the same PR so no pre-existing
+      // offences in non-allow-listed paths remain. Allow-list (in the
+      // rule): `lib/registry/`, `prisma/seed`, `prisma/migrations/`,
+      // `scripts/generate-registry`, `docs/`, `docs-archive/`, and
+      // test files. Per-site escape: route external ids through
+      // `resolveParameterId` from `lib/registry/resolve.ts`.
+      "hf-registry/no-bare-parameter-id": "error",
+
+      // #2031 S1 — error severity from day 1. Allow-list covers every
+      // pre-existing legitimate write site (the 7 canonical admin routes
+      // enumerated in the epic + sibling admin seed routes + the wizard
+      // band-thresholds writer + seed scripts + tests). Any new write site
+      // must either route through `resolveCanonicalDomainGroup` (when
+      // writing `domainGroup`) or add to the allow-list with documented
+      // rationale. Closes the runtime-vs-CI gap exposed by #2029 + #2030.
+      "hf-registry/no-bare-parameter-write": "error",
+
+      // #2031 S2 — error severity from day 1. Allow-list covers the
+      // canonical writers (`writeBehaviorTarget`, the new
+      // `updateSystemBehaviorTargetForAdapt` for the ADAPT op,
+      // playbook compile-targets / new-version routes), the implicit
+      // helpers (`apply-projection`, `update-targets`, `agent-tuning`),
+      // and destructive-OK admin seed/reset routes (x/seed-*,
+      // x/create-domains). Closes the ops:880 ADAPT back-door surfaced
+      // by Track D of the #2031 audit — bare `prisma.behaviorTarget.
+      // updateMany` skipped clamp + whitelist + cascade-cache drop.
+      "hf-registry/no-bare-behavior-target-write": "error",
 
       // #1738 Slice C3 — error severity from day 1. No pre-existing
       // offences (registry-completeness vitest verified all 52 entries
@@ -460,21 +540,27 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unsafe-function-type": "warn",
       "@typescript-eslint/no-require-imports": "warn",
       "@typescript-eslint/no-empty-object-type": "warn",
-      // react-hooks ratchet (#865 closeout):
-      // - 4 rules at "error" (rules-of-hooks, static-components, purity,
-      //   preserve-manual-memoization) — zero current violations after #876 + #894;
-      //   future regressions block CI.
-      // - Remaining rules stay "warn" — non-zero counts accepted as ratchet-locked
-      //   forward-compat debt; `.ratchet.json` (lint_warnings) only allows the count
-      //   to decrease over time. See #865 closeout for rationale.
+      // react-hooks ratchet (#865 closeout, partial demote 2026-06-19 per
+      // `.claude/rules/react-hooks-compiler-rules-warn.md`):
+      // - `rules-of-hooks` stays at "error" — classic React-Hooks rule, stable.
+      // - `purity` re-promoted to "error" 2026-06-19 after #2017 cleared the 6
+      //   incumbent violations.
+      // - `static-components` (12) + `preserve-manual-memoization` (34) remain
+      //   at "warn" — pay-down deferred per the rule file. The ratchet
+      //   (lint_warnings) freezes the count so regressions can't grow.
+      // History: PR #2016 demoted all 3 from "error" after 8/8 consecutive PRs
+      // (#1998-#2008) merged with this gate red. The original "zero current
+      // violations after #876 + #894" claim had drifted; 52 errors accumulated
+      // under the radar because lint exit 1 masked the ratchet step that
+      // followed.
       "react-hooks/exhaustive-deps": "warn",
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/refs": "warn",
       "react-hooks/immutability": "warn",
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/static-components": "error",
+      "react-hooks/static-components": "warn",
       "react-hooks/purity": "error",
-      "react-hooks/preserve-manual-memoization": "error",
+      "react-hooks/preserve-manual-memoization": "warn",
       "prefer-const": "warn",
       "@next/next/no-img-element": "warn",
       "@next/next/no-html-link-for-pages": "warn",

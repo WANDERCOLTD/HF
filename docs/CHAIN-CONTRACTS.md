@@ -491,6 +491,47 @@ This section documents the six producer→consumer contracts that the variant wo
 
 ---
 
+## 3e. Measurement closure (#1967 M1 + M2)
+
+The runtime chain in §3 (Links 4 → 5 → 6) describes the structural
+adaptive-loop boundaries: pipeline writes `CallScore`, AGGREGATE
+rolls into mastery / `CallerTarget`, COMPOSE reads. Section 3e adds
+the **per-parameter** discipline: for every parameter the registry
+declares as `measured`, the loop must actually close — some spec
+must consume its `CallScore` and feed the cascade-readable state.
+
+The four classic loops can each run end-to-end while a specific
+parameter's gain is silently 0 (the LLM is graded on it, the score
+lands in `CallScore`, nothing reads it). Section 3e closes that gap
+parameter by parameter; the ratchet caps the producer-only debt.
+
+### Link M1 — REGISTRY → MEASURE (#1967 M1)
+
+| Field | Value |
+|---|---|
+| **Producer** | `behavior-parameters.registry.json` row with `usage.measurement: { specSlug }` (or `{ specSlugs }`). |
+| **Consumer** | Pipeline MEASURE runner (`runBatchedCallerAnalysis` + `buildParameterSpecMap`) — loads each spec, includes its `promptTemplate` in the batched prompt, calls `writeCallScore({ analysisSpecId })`. |
+| **Data shape** | The cited spec exists under `docs-archive/bdd-specs/<slug>.spec.json` AND its `parameters[].id` (or `.parameterId`) matches the registry param's canonical id OR one of its `aliases`. |
+| **Enforcement** | `tests/lib/measurement/parameter-measurement-coverage.test.ts` — substantive cross-check (citation ↔ spec file ↔ parameters array). Stale citations fail the test. `tests/lib/registry/parameter-usage-coverage.test.ts` pins the schema shape. |
+| **Ratchet** | `EXPECTED_GAP_COUNT = 57` (2026-06-18) — params still declaring `"deferred-#1967"`. M4 drives this to 0. |
+| **Memory doc** | [`.claude/rules/parameter-measurement-coverage.md`](../.claude/rules/parameter-measurement-coverage.md). |
+| **Reinforced by** | Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M1. |
+
+### Link M2 — MEASURE → AGGREGATE/ADAPT (per-parameter loop closure, #1967 M2)
+
+| Field | Value |
+|---|---|
+| **Producer** | Per-parameter `CallScore` row written by `writeCallScore({ parameterId, analysisSpecId, score })` after a MEASURE spec scores the transcript. |
+| **Consumer** | Some AGGREGATE / ADAPT / REWARD spec rule reads the param's CallScore via `sourceParameter` / `sourceParameterPattern` / `sourceParameterId` and writes the rolled-up result to `CallerTarget.currentScore` (EMA via `aggregate-runner.ts::accumulateSkillScores`), `CallerAttribute` (threshold mapping), or `CallerTarget.targetValue` (ADAPT via `adapt-runner.ts`). |
+| **Data shape** | For each measured param `P`, at least one of: (a) literal citation `sourceParameter: "P"` / `sourceParameterId: "P"` (matched against canonical id OR aliases); (b) suffix-glob `sourceParameterPattern: "<prefix>*"` whose prefix is a prefix of `P`'s id; (c) `P` is an AGGREGATE spec's output id (loop self-closes through the AGGREGATE write itself). |
+| **Enforcement** | `tests/lib/measurement/parameter-loop-closure.test.ts` — walks every `*.spec.json`, classifies each measured param `closed-direct` / `closed-pattern` / `closed-aggregator-output` / `gap`, ratchets the open-loop count. `_average` sentinel skipped (it's AGGREGATE-internal). |
+| **Ratchet** | `EXPECTED_GAP_COUNT = 67` (2026-06-18) — measured params with no consumer reading the score. Each new closure (extending an AGGREGATE / ADAPT spec's rules or authoring a new consumer spec) drops this by 1. |
+| **Memory doc** | [`.claude/rules/parameter-loop-closure.md`](../.claude/rules/parameter-loop-closure.md). |
+| **Defends against** | The silent-gain-zero class: registry says BEH-X is measured, MEASURE spec scores it, `CallScore` lands, no AGGREGATE / ADAPT touches the score, next compose reads only the educator-set BehaviorTarget baseline. The param tunes to the same value forever; the adaptive loop is structurally inert for that parameter. |
+| **Reinforced by** | Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M2. Sibling M3 — `hf-measurement/no-direct-callscore-write` — guarantees the producer side (every CallScore goes through the chokepoint with a real `parameterId`). M4 (pedagogy + spec authoring) closes the remaining gaps. |
+
+---
+
 ## 4. DataContract registry
 
 The runtime DataContract registry (`lib/contracts/`) is the DB-backed source of truth for storage-key patterns. Contract files live in `apps/admin/docs-archive/bdd-specs/contracts/` and are seeded into `DataContract` rows on `db:seed`.
@@ -686,6 +727,167 @@ export async function checkInvariantsAfterPipeline(callId: string): Promise<Inva
 ### Open contract — when ESLint enforcement lands
 
 The story body of #1511 forward-declares an `hf-pipeline/no-silent-stage-skip` ESLint rule that would reject new stage runners that lack an `// @invariant:` comment referencing one of I-AL1..I-AL5. That rule is **out of scope** for Slice 1 — the runners that fire today are pre-existing and the structural fixes (Slices 2 + 3) wire their emits explicitly. The rule lands in a follow-on epic once the post-canary state stabilises.
+
+---
+
+## 6a. Privacy & consent invariants (epic #1915)
+
+The links in §3 / §3a / §3c / §3d describe **structural** contracts at stage boundaries. §6 adds **observability** contracts for the adaptive loop. This section adds **privacy** contracts — the cross-cutting invariants that govern PII at every stage. They are the answer to the 2026-06-18 audit finding that `grep -in "privacy\|PII\|retention\|disclosure\|consent" docs/CHAIN-CONTRACTS.md` returned zero hits.
+
+> **Verified at write time (2026-06-18):** 0 prior privacy rows existed in this doc.
+
+Scope discipline:
+
+- **In scope here:** invariants the Lattice can enforce for the *current enrolment route* (intake-v2) and the *upfront patterns voice cannot retrofit*. Children of epic #1915 ship the enforcers.
+- **Out of scope (deferred children of #1915):** preset-aware redaction (#1922/#1923), `PrivacyPolicyPreset` cascade (#1924/#1925), AppLog PII scrubbing (#1926), consent-version re-ack (#1927), admin UI (#1928). When those ship, this section grows.
+- **Out of scope (separate ADRs):** Caller PII encryption (`Caller.email`, `Caller.phone`) — deferred per 2026-06-13 ADR; HIPAA/COPPA/FERPA preset content (legal sign-off required).
+
+### Invariant inventory (9 invariants — I-PR1..I-PR9)
+
+#### I-PR1 — Intake-v2 disclosure delivery is atomic with intake state
+
+| Field | Value |
+|---|---|
+| **Producer** | `app/api/intake/bootstrap/route.ts:115-137` writes `tallyseal_disclosure` rows for `gdpr.art13.privacy-notice` + `eu-ai-act.art50.ai-interaction-disclosure` via `getDisclosureStore().record(...)`. |
+| **Consumer** | `lib/intake/audit-bundle.ts` (audit-bundle reads) + `tallyseal_disclosure_signal` joins on `disclosure_id`. |
+| **Data shape** | For any successful intake-v2 bootstrap, two `tallyseal_disclosure` rows MUST exist with deterministic ids `deriveDisclosureId(intentId, requirementId)`. The write must be atomic with the intake-state mutation — not a best-effort try/catch outside the transaction. |
+| **Severity** | ERROR. Intake completes without the disclosure pair = audit-trail-incomplete enrolment. |
+| **Detection rule** | Integration test: kill the intake-state transaction mid-flow; verify both the intake state AND the disclosure rows rolled back. No silent split-write. |
+| **Test** | `tests/api/intake/bootstrap.test.ts` (extended by #1919 ST). |
+| **Memory doc** | This row + `lib/intake/hf-adapter/disclosure-store.ts` JSDoc when `tx`-accepting signature lands. |
+| **Audit counter** | `iPR1IntakeWithoutDisclosure` (target 0) — counts `intake_event` rows of kind `ProjectionCommit` for which the paired `tallyseal_disclosure` rows are absent. |
+| **Enforcer** | #1919 (ST: Tallyseal tx-discipline). Depends on Tallyseal-side Ask #2 (`opts?: { tx?: PrismaTxLike }` on `*Store.record()`). Pending. |
+
+#### I-PR2 — Voice consent stamped before any recorded `Call`
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/voice/create-session.ts::createSession` (#1342 chokepoint) creates `Call` + `Session` rows that will record audio. |
+| **Consumer** | VAPI provider receives the call; transcripts + recordings flow to `Call.transcript` / `Call.recordingUrl` / `Call.stereoRecordingUrl`. |
+| **Data shape** | For any `Caller` enrolled via intake-v2, an acknowledged `tallyseal_disclosure` row with `requirement_id = "voice-call-recording"` MUST exist before `createSession({kind: VOICE_CALL \| SIM_CALL})` returns. Lazy gate (re-surface at next intake) — not a blocking modal at call-start (TL guidance: UX-hostile default). |
+| **Severity** | WARN at intake-v2 surface (re-surface disclosure on next intake). Per-preset escalation to ERROR/blocking when #1924 ships HIPAA/COPPA presets. |
+| **Mock-engine carve-out** | Excluded: legacy `/api/join/[token]` flow (no intake step). Documented gap in I-PR8. |
+| **Detection rule** | `createSession` reads `tallyseal_disclosure` for `(callerId, "voice-call-recording")`. Missing ack on an intake-v2 caller → emit `log.warn({ event: "I-PR2-no-voice-consent", callerId, sessionId })`. |
+| **Test** | `tests/lib/voice/create-session.test.ts` (extended by #1918). |
+| **Memory doc** | This row + `lib/voice/create-session.ts` JSDoc when consent-read lands. |
+| **Audit counter** | `iPR2VoiceSessionNoConsent` (target 0). |
+| **Enforcer** | #1918 (S8a: voice-consent disclosure). Pending — copy authored at `lib/intake/copy/voice-call-recording.v0.1.0-rc.1.mdx`. |
+
+#### I-PR3 — Every `Call` row stamps `regulatoryExpiresAt` at create-time
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/voice/create-session.ts::createSession` + `lib/voice/route-handlers.ts:638` (`persistEndOfCall`) + `lib/ops/transcripts-process.ts:397` + `app/api/transcripts/import/route.ts:928,957`. Five writers, one chokepoint preferred. |
+| **Consumer** | `POST /api/admin/retention/cleanup` purges by `WHERE regulatoryExpiresAt <= NOW()`. |
+| **Data shape** | New `Call` rows MUST have `regulatoryExpiresAt: Timestamp \| null`. Stamp is computed from `RETENTION_CALLER_DATA_DAYS` env (fallback) or preset (when #1925 ships). Backfill of existing rows = NULL (TL guidance: computed dates pick wrong preset, extend DSR-pending callers, drift on later preset change). |
+| **Severity** | WARN. Null-on-old-row is normal during the migration grace window; null-on-new-row after enforcer ships is a violation. |
+| **Naming discipline** | Column is `regulatoryExpiresAt`, NOT `retentionExpiry` or `expiresAt`. `CallerMemory.expiresAt` already exists for content decay ("traveling next week"). Silent conflation is the failure mode this naming prevents. |
+| **Detection rule** | `scripts/check-fk-consistency.ts` Query (new): `SELECT COUNT(*) FROM "Call" WHERE "regulatoryExpiresAt" IS NULL AND "createdAt" < NOW() - INTERVAL '<configured>' DAYS`. |
+| **Test** | `tests/lib/voice/create-session.test.ts` (extended by #1917). |
+| **Memory doc** | This row + `lib/voice/create-session.ts` JSDoc when the stamp lands. |
+| **Audit counter** | `iPR3CallWithoutRegulatoryExpiry` (target 0 after grace window). |
+| **Enforcer** | #1917 (S5a: `Call.regulatoryExpiresAt` migration + stamp). Pending. |
+
+#### I-PR4 — `ComposedPrompt` must not embed a transcript beyond `regulatoryExpiresAt`
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/prompt/composition/transforms/**/*.ts` — the priorCallRecap and transcript-citing transforms. |
+| **Consumer** | `ComposedPrompt.prompt` + downstream voice provider payload. |
+| **Data shape** | For any transform that reads `Call.transcript`, the source `Call.regulatoryExpiresAt` MUST be in the future (or null). Transcript that has expired regulatorily MUST be filtered out of the composition input set. |
+| **Severity** | WARN (pre-preset shipment); ERROR once #1925 ships per-preset retention enforcement. |
+| **Mock-engine carve-out** | None. The invariant applies to all engines. |
+| **Detection rule** | Slice 1 of #1917 documents the contract. Runtime enforcement deferred to a follow-on once retention purging proves stable. For now, the cleanup cron's WHERE clause is the load-bearing enforcement — purged rows don't appear in `prisma.call.findMany`. |
+| **Test** | Documented only; runtime test follows when the enforcement enabler lands. |
+| **Memory doc** | This row + `.claude/rules/data-retention.md` (shipped by #1920). |
+| **Audit counter** | `iPR4ComposeReadsExpiredTranscript` (target 0). Wired by a follow-on, not by #1917 directly. |
+| **Enforcer** | #1917 (S5a) provides the column; runtime detection lands in a follow-on after retention purging proves stable. |
+
+#### I-PR5 — Caller-scoped PII reads route through `resolveCallerScopeForReading`
+
+| Field | Value |
+|---|---|
+| **Producer** | Any GET route under `app/api/**` that accepts a `?callerId=` param (or path-param `callerId`) AND admits STUDENT+ tier sessions. |
+| **Consumer** | The Prisma `where` clause that scopes the read. |
+| **Data shape** | The route MUST call `resolveCallerScopeForReading(session, queryCallerId)` before constructing the Prisma `where`. STUDENT sessions get locked to their own LEARNER `Caller` regardless of the supplied param; OPERATOR+ passes through unchanged. |
+| **Severity** | ERROR. A STUDENT session reading another learner's data via foreign `?callerId=` is a confirmed leak class (closed for 3 routes by #977). |
+| **Detection rule** | Convention rule today. No coverage gate ensures new routes adopt. Tracked under `lattice-chains.md` matrix row as ⚠️ PARTIAL. |
+| **Test** | `tests/lib/learner-scope.test.ts` (9 cases, #977) pins the helper; per-route adoption is convention. |
+| **Memory doc** | This row + `lib/learner-scope.ts` JSDoc. |
+| **Audit counter** | Manual until a coverage test lands. |
+| **Enforcer** | #977 (`resolveCallerScopeForReading`) — already shipped. Coverage-pillar follow-on TBD. |
+
+#### I-PR6 — PII deletion cascades via `lib/gdpr/delete-caller-data.ts`
+
+| Field | Value |
+|---|---|
+| **Producer** | `DELETE /api/callers/[callerId]/route.ts` + `POST /api/admin/retention/cleanup` + any future erasure route. |
+| **Consumer** | 22 cascading tables under the `Caller` FK (transcripts, memories, scores, identities, ...). |
+| **Data shape** | Erasure MUST call `lib/gdpr/delete-caller-data.ts::deleteCallerData(callerId)`. Hand-rolled `prisma.caller.delete` calls miss cascading tables and leave orphan rows. |
+| **Severity** | ERROR. Orphan rows after a DSR erasure violate GDPR Art 17. |
+| **Detection rule** | `scripts/check-fk-consistency.ts` already detects orphan rows. Add a privacy-specific scan: `SELECT COUNT(*) FROM "CallerMemory" m LEFT JOIN "Caller" c ON c.id = m."callerId" WHERE c.id IS NULL` and equivalents for the other 21 tables. |
+| **Test** | `tests/lib/gdpr/delete-caller-data.test.ts` (existing). |
+| **Memory doc** | This row + `lib/gdpr/delete-caller-data.ts` JSDoc. |
+| **Audit counter** | `iPR6OrphanPIIRowsPostErasure` (target 0). |
+| **Enforcer** | `lib/gdpr/delete-caller-data.ts` — shipped. ESLint rule blocking `prisma.caller.delete` outside the helper is a Coverage-pillar follow-on. |
+
+#### I-PR7 — Mixed-tier-payload routes admitting STUDENT MUST add `@tieredVisibility` tag
+
+| Field | Value |
+|---|---|
+| **Producer** | Any GET route returning a payload with operator-only fields alongside learner-safe fields, where the route admits STUDENT or VIEWER tier. |
+| **Consumer** | `eslint-rules/require-tiered-redactor.mjs` + `tests/api/tier-visibility-coverage.test.ts`. |
+| **Data shape** | Route header JSDoc carries `@tieredVisibility` tag → ESLint rule enforces import + invocation of `visibilityTierForRole` + `redact<X>ForTier`. |
+| **Severity** | WARN today (5 known leaks ratcheted); ERROR once #1922 wires the 5 redactors and #1923 lands the preset-aware layer. |
+| **Detection rule** | `tests/api/tier-visibility-coverage.test.ts::TIER_VISIBILITY_EXEMPT` ratchet (5 confirmed leak routes). |
+| **Test** | `tests/api/tier-visibility-coverage.test.ts` — exempt list ratchet pinning the 5 confirmed leaks. |
+| **Memory doc** | This row + `.claude/rules/response-redaction.md` (already exists) + `.claude/rules/privacy-redaction.md` (shipped by #1920). |
+| **Audit counter** | `iPR7TierSensitiveRouteNoRedactor` (current value 5, target 0). |
+| **Enforcer** | #1922 (S2a: tier redactors). Pending. #1923 (S2b: preset-aware) deferred until #1924 ships. |
+
+#### I-PR8 — Legacy `/api/join/[token]` retroactive-enforcement carve-out
+
+| Field | Value |
+|---|---|
+| **Producer** | `app/api/join/[token]/route.ts:185-588` — legacy form-post enrolment that does NOT route through intake-v2's Tallyseal disclosure flow. |
+| **Consumer** | Downstream `Caller` + `CallerCohortMembership` + `CallerPlaybook` writes. |
+| **Data shape** | The privacy invariants I-PR1, I-PR2, I-PR3 (intake-time enforcers) DO NOT apply retroactively to callers who enrolled via the legacy join. They were enrolled under the pre-#1915 contract; that contract had no disclosure-pair requirement and no `regulatoryExpiresAt` column. Treat them as a grandfathered cohort. |
+| **Severity** | INFO. This is a declared gap, not a violation. |
+| **Detection rule** | When future enforcer code (S5a stamp, S8a voice-gate, S7 re-ack) checks `caller.createdAt`, gate on `> ENFORCEMENT_DATE` constant before blocking. Legacy callers continue under their original contract. |
+| **Test** | `tests/lib/voice/create-session.test.ts` covers `caller.createdAt < ENFORCEMENT_DATE` is NOT blocked by I-PR2 / I-PR3 enforcer checks. |
+| **Memory doc** | This row + `app/api/join/[token]/route.ts:185` JSDoc tag `@privacy-legacy-carveout`. |
+| **Audit counter** | `iPR8LegacyCallerCount` (informational — tracks shrinking cohort). |
+| **Enforcer** | Convention rule. Enforced via documentation + the `ENFORCEMENT_DATE` constant referenced by S5a/S8a/S7. |
+
+#### I-PR9 — Encrypted columns route through `encryptColumn` / `decryptColumn`
+
+| Field | Value |
+|---|---|
+| **Producer** | Any code path that writes a column declared as encrypted (per ADR `docs/decisions/2026-06-13-pii-encryption-scope.md`). Today: `VoiceProvider.credentials` (#1978, pending). Future: `Call.transcript` + `CallMessage.content` (#1980), `Caller.{email,phone,name}` (#1976 F1, deferred). |
+| **Consumer** | Any read site that needs the plaintext value. The 4-column tuple (`_ciphertext` / `_iv` / `_wrappedDek` / `_kekVersion`) is the wire format; `lib/crypto/envelope.ts::decryptColumn` is the only legitimate consumer. |
+| **Data shape** | Writes use `encryptColumn(plaintext)` from `lib/crypto/envelope.ts` (shipped in #1977) and spread the returned 4-field tuple into the Prisma payload. Reads fetch the 4 columns + invoke `decryptColumn`. List views use `decryptColumnBatch` to amortise KMS round-trips. |
+| **Severity** | ERROR. Bare reads of `_legacy_plaintext` columns (during the migration window) or direct reads of `_ciphertext` bytes outside the helper bypass the cipher and break the audit-trail guarantee KMS provides. |
+| **Bypass-mode carve-out** | When `KMS_KEK_NAME` is unset AND `NEXT_PUBLIC_APP_ENV !== "PROD"` — i.e., dev / test — the helper falls through a sentinel passthrough (`kekVersion: 0`, plaintext bytes in `_ciphertext`). The `lib/config.ts` build-time guard **fails the prod build** if both conditions resolve to "bypass" in production, so this branch cannot ship. |
+| **Detection rule** | Per-column ESLint rules `hf-privacy/no-direct-<column>-read` land alongside each column-encryption story (#1978 for credentials, #1980 for transcripts). Allow-list = backfill scripts + cleanup PR. |
+| **Test** | `tests/lib/crypto/envelope.test.ts` (#1977) — 8 vitests covering round-trip, sentinel shape, batch order, decrypt-shape rejection. Per-column tests follow each adoption story. |
+| **Memory doc** | This row + `lib/crypto/envelope.ts` JSDoc + `.claude/rules/at-rest-encryption.md` (shipped by #1977). |
+| **Audit counter** | `iPR9LegacyPlaintextRead` (target 0) — counts ESLint rule firings + grep against `prisma.<Model>.findX({ select: { <col>_legacy_plaintext: true } })`. Wired per column. |
+| **Enforcer** | `lib/crypto/envelope.ts` (substrate, #1977). Per-column adoption: #1978 (credentials), #1980 (transcripts). |
+
+### Where the runner lives — privacy
+
+There is no single runner for §6a yet. Each invariant has its own enforcer landing in the named child of #1915 or #1976:
+
+- I-PR1 / I-PR2 / I-PR3 / I-PR7 — runtime enforcers in the respective routes
+- I-PR4 — runtime enforcer deferred to a follow-on after retention purging proves stable
+- I-PR5 / I-PR6 / I-PR8 — convention enforcement today; promoted to runtime/Coverage-pillar gates when adoption sweep stories file
+- I-PR9 — `lib/crypto/envelope.ts` chokepoint + per-column ESLint rules (Privacy II epic #1976)
+
+When 3+ runtime emits land in `AppLog`, a privacy-counters runner sibling to `apps/admin/lib/pipeline/adaptive-loop-invariants.ts` becomes worth building. Not before.
+
+### Pre-change checklist — privacy
+
+When touching ANY route under `app/api/intake/*` or `lib/voice/create-session.ts` or `lib/gdpr/*`, run the privacy survey from `.claude/rules/data-retention.md` (shipped by #1920). Skipping the survey is how the 2026-06-18 audit found 5 leak routes — and zero contract rows.
 
 ---
 

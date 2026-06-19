@@ -697,10 +697,13 @@ export default function ContentSourcesLibrary() {
   const sourceIds = filtered.map((s) => s.id);
   const statusMap = useSourceStatus(sourceIds);
 
-  const expired = sources.filter((s) => s.validUntil && new Date(s.validUntil) < new Date());
+  // Snapshot `now` once per mount — sub-day precision is unnecessary for the
+  // 60-day expiry window. (#2017 react-hooks/purity)
+  const [now] = useState<number>(() => Date.now());
+  const expired = sources.filter((s) => s.validUntil && new Date(s.validUntil).getTime() < now);
   const expiringSoon = sources.filter((s) => {
     if (!s.validUntil) return false;
-    const daysUntil = Math.floor((new Date(s.validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const daysUntil = Math.floor((new Date(s.validUntil).getTime() - now) / (1000 * 60 * 60 * 24));
     return daysUntil >= 0 && daysUntil <= 60;
   });
 

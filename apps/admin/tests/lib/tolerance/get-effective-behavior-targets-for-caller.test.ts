@@ -32,6 +32,14 @@ vi.mock("@/lib/prisma", () => ({
       delete: vi.fn(),
       deleteMany: vi.fn(),
     },
+    // #1950 — getEffectiveBehaviorTargetsForCaller resolves each
+    // parameterId through lib/registry/resolve.ts::resolveParameterIds,
+    // which calls prisma.parameter.findMany under the hood. Empty
+    // result is fine — every parameterId then passes through unchanged
+    // (alias map miss → input id is returned as-is).
+    parameter: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -42,6 +50,11 @@ vi.mock("@/lib/agent-tuner/write-target", () => ({
 import { prisma } from "@/lib/prisma";
 import { resolveCallerIdentityIds } from "@/lib/agent-tuner/write-target";
 import { getEffectiveBehaviorTargetsForCaller } from "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller";
+// #1950 — resolver keeps a module-level alias cache; reset between tests
+// so each test's empty findMany mock takes effect (otherwise a stale
+// cache from a prior test leaks across and the second test never hits
+// the mocked findMany).
+import { clearAliasCache } from "@/lib/registry/resolve";
 
 const findManyMock = prisma.behaviorTarget.findMany as unknown as Mock;
 const resolveIdsMock = resolveCallerIdentityIds as unknown as Mock;
@@ -65,6 +78,8 @@ function resetMocks() {
   findManyMock.mockReset();
   resolveIdsMock.mockReset();
   for (const spy of writeSpies) spy.mockReset();
+  // #1950 — alias cache is module-level; clear between tests.
+  clearAliasCache();
 }
 
 /**

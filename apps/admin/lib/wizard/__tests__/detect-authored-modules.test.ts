@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   detectAuthoredModules,
+  extractOutcomeStatements,
   hasAuthoredModules,
   type DetectedAuthoredModules,
 } from "../detect-authored-modules";
@@ -237,6 +238,87 @@ describe("detectAuthoredModules — unknown prerequisite", () => {
     );
     expect(err).toBeDefined();
     expect(err!.severity).toBe("error");
+  });
+});
+
+// ── Multi-segment OUT-NN-NN outcome IDs (#2000) ────────────────────────
+// CIO/CTO Course References use dotted sub-outcome IDs (`OUT-01-02`) to
+// partition sub-outcomes under each primary outcome. Pre-fix, both the
+// heading detector and the table-cell parser captured only the first
+// numeric segment, collapsing 26 outcomes into 5 per playbook.
+
+describe("extractOutcomeStatements — multi-segment OUT-NN-NN (#2000)", () => {
+  it("captures `**OUT-01-02: ...**` headings as the full multi-segment ID", () => {
+    const doc = [
+      "# CIO/CTO Pop Quiz",
+      "",
+      "**OUT-01-02: Identifies the primary risk vector in a phishing scenario.**",
+      "**OUT-01-03: Distinguishes social engineering from credential theft.**",
+      "**OUT-12-04: Explains rotation cadence for production secrets.**",
+    ].join("\n");
+    const outcomes = extractOutcomeStatements(doc);
+    expect(Object.keys(outcomes).sort()).toEqual(["OUT-01-02", "OUT-01-03", "OUT-12-04"]);
+    expect(outcomes["OUT-01-02"]).toBe("Identifies the primary risk vector in a phishing scenario");
+    expect(outcomes["OUT-12-04"]).toBe("Explains rotation cadence for production secrets");
+  });
+
+  it("keeps single-segment `**OUT-NN: ...**` headings (back-compat)", () => {
+    const doc = [
+      "# IELTS Course",
+      "",
+      "**OUT-01: Extends every answer past the minimum length.**",
+      "**OUT-27: Sustains performance across all four criteria.**",
+    ].join("\n");
+    const outcomes = extractOutcomeStatements(doc);
+    expect(Object.keys(outcomes).sort()).toEqual(["OUT-01", "OUT-27"]);
+  });
+});
+
+describe("detectAuthoredModules — parseOutcomesList multi-segment (#2000)", () => {
+  function buildCatalogue(outcomesCell: string): string {
+    return [
+      "# Course",
+      "",
+      "**Modules authored:** Yes",
+      "",
+      "## Modules",
+      "",
+      "### Module Catalogue",
+      "",
+      "| ID | Label | Mode | Duration | Scoring fired | Voice band readout | Session-terminal | Frequency | Outcomes (primary) |",
+      "|---|---|---|---|---|---|---|---|---|",
+      `| \`m1\` | Module One | tutor | 10 min | LR | No | No | repeatable | ${outcomesCell} |`,
+      "",
+    ].join("\n");
+  }
+
+  it("parses `OUT-01-02, OUT-01-03` into two distinct multi-segment IDs", () => {
+    const doc = buildCatalogue("OUT-01-02, OUT-01-03");
+    const result = detectAuthoredModules(doc);
+    expect(result.modules).toHaveLength(1);
+    expect(result.modules[0].outcomesPrimary.sort()).toEqual(["OUT-01-02", "OUT-01-03"]);
+  });
+
+  it("pads each segment so `OUT-1-2` normalises to `OUT-01-02`", () => {
+    const doc = buildCatalogue("OUT-1-2");
+    const result = detectAuthoredModules(doc);
+    expect(result.modules[0].outcomesPrimary).toEqual(["OUT-01-02"]);
+  });
+
+  it("preserves the single-segment short-form expansion (`OUT-01, 02, 05`)", () => {
+    const doc = buildCatalogue("OUT-01, 02, 05");
+    const result = detectAuthoredModules(doc);
+    expect(result.modules[0].outcomesPrimary.sort()).toEqual(["OUT-01", "OUT-02", "OUT-05"]);
+  });
+
+  it("handles a mix of single- and multi-segment IDs in the same cell", () => {
+    const doc = buildCatalogue("OUT-01, OUT-02-03, OUT-12-04");
+    const result = detectAuthoredModules(doc);
+    expect(result.modules[0].outcomesPrimary.sort()).toEqual([
+      "OUT-01",
+      "OUT-02-03",
+      "OUT-12-04",
+    ]);
   });
 });
 

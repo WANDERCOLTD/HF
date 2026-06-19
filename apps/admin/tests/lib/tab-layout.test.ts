@@ -39,18 +39,18 @@ afterEach(() => {
 });
 
 describe("getTabLayout", () => {
-  it("defaults to 'both' when env var unset", () => {
-    expect(getTabLayout()).toBe("both");
-  });
-
-  it("returns 'both' when env var is any string other than 'retire'", () => {
-    process.env.NEXT_PUBLIC_HF_TAB_LAYOUT = "anything";
-    expect(getTabLayout()).toBe("both");
-  });
-
-  it("returns 'retire' when env var explicitly set", () => {
-    process.env.NEXT_PUBLIC_HF_TAB_LAYOUT = "retire";
+  it("defaults to 'retire' when env var unset", () => {
     expect(getTabLayout()).toBe("retire");
+  });
+
+  it("returns 'retire' when env var is any string other than 'both'", () => {
+    process.env.NEXT_PUBLIC_HF_TAB_LAYOUT = "anything";
+    expect(getTabLayout()).toBe("retire");
+  });
+
+  it("returns 'both' when env var explicitly set", () => {
+    process.env.NEXT_PUBLIC_HF_TAB_LAYOUT = "both";
+    expect(getTabLayout()).toBe("both");
   });
 });
 

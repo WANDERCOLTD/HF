@@ -170,10 +170,10 @@ const EXPECTED_INVENTORY_EXEMPT_COUNT = 3;
  *
  * Each follow-up PR that adds a row drops the corresponding count.
  */
-const EXPECTED_ORPHAN_COUNT_COVERAGE = 8;
+const EXPECTED_ORPHAN_COUNT_COVERAGE = 6;
 const EXPECTED_ORPHAN_COUNT_ESLINT = 24;
 const EXPECTED_ORPHAN_COUNT_SCRIPTS = 15;
-const EXPECTED_ORPHAN_COUNT_RULES = 17;
+const EXPECTED_ORPHAN_COUNT_RULES = 15;
 
 // ────────────────────────────────────────────────────────────
 // Inventory parsing — extract cited file paths

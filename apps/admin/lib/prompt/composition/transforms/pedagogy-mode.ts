@@ -13,7 +13,7 @@
 
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext, SubjectSourcesData } from "../types";
-import type { TeachingMode } from "@/lib/content-trust/resolve-config";
+import { isTeachingMode, type TeachingMode } from "@/lib/content-trust/resolve-config";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 
 interface PedagogyModeOutput {
@@ -97,13 +97,20 @@ registerTransform("computePedagogyMode", (
   _rawData: any,
   context: AssembledContext,
 ) => {
-  // Read teachingMode + teachingFocus from the first playbook's config
+  // Read teachingMode + teachingFocus from the first playbook's config.
+  // Reads are runtime-guarded by `isTeachingMode` — the JSON column can
+  // hold any string, and an out-of-union value here would slip past the
+  // type cast and reach `PEDAGOGY_MODE_CONFIG[teachingMode]` below as a
+  // miss (which is caught), but better to reject at the boundary so
+  // future consumers don't have to re-defend.
   const playbooks = context.loadedData.playbooks;
   const pbConfig = playbooks?.[0]?.items?.[0]?.spec?.config;
   const playbookRawConfig = (playbooks?.[0] as any)?.config;
-  let teachingMode: TeachingMode | undefined =
-    playbookRawConfig?.teachingMode ||
-    pbConfig?.teachingMode;
+  const rawTeachingMode =
+    playbookRawConfig?.teachingMode ?? pbConfig?.teachingMode;
+  let teachingMode: TeachingMode | undefined = isTeachingMode(rawTeachingMode)
+    ? rawTeachingMode
+    : undefined;
 
   // Resolve teachingFocus: playbook config → subject profile → profile default
   let teachingFocus: string | undefined = playbookRawConfig?.teachingFocus as string | undefined;

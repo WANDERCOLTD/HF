@@ -11,12 +11,13 @@
  * Format dispatch (today):
  *   - `cueCardBank`   → Array<{ topic, bullets[] }>
  *   - `stallScaffold` → string[]
+ *   - `profileFields` → Array<{ key, prompt, type }>  (P3g, #1850)
  *
- * Both parsers are deterministic, dependency-free, and tolerant of the
+ * All parsers are deterministic, dependency-free, and tolerant of the
  * cosmetic variations in the HFF-authored fixtures (extra blank lines,
  * `> ` quoted bodies, leading `## ` separators).
  *
- * Issue #1850 P3f.
+ * Issue #1850 P3f + P3g.
  */
 
 // ── Cue card bank (Source 2 — Part 2 cue cards) ──────────────────────
@@ -159,6 +160,230 @@ export function parseStallScaffolds(text: string): string[] {
     if (m) {
       const txt = m[1].trim();
       if (txt) out.push(txt);
+    }
+  }
+  return out;
+}
+
+// ── Topic pool (Source 1 — Part 1 frames + Source 3 — Part 3 themes/sets)
+//
+// Two heading shapes are tolerated, both normalising to the same output
+// shape `Array<{ topic, questions[] }>`:
+//
+//   PART 1 — `ielts-speaking-question-bank-part1.md`
+//   ## Frame N — Topic title
+//
+//   _Optional signposting line (markdown italic)._
+//
+//   1. First question text?
+//   2. Second question text?
+//   ...
+//
+//   PART 3 — `ielts-speaking-question-bank-part3.md`
+//   ## Theme: Society and generations
+//
+//   ### Set 1 — Possessions and status (linked to Part 2 "Object" cards)
+//
+//   _Let's consider how people's values have changed._
+//
+//   1. First question?
+//   2. Second question?
+//   ...
+//
+// In the Part 1 shape each `## Frame N — ...` is a topic and the
+// numbered list under it is the question set.
+// In the Part 3 shape each `### Set N — ...` (under a `## Theme:`
+// parent) is a topic and the numbered list under it is the question
+// set; the `## Theme:` line is NOT itself a topic.
+//
+// Italic signposting lines (`_..._`) + footer `_(source: …)_` notes +
+// `---` separators are ignored. Output topics that produced 0
+// questions are dropped (defensive).
+
+export interface TopicPoolEntry {
+  topic: string;
+  questions: string[];
+}
+
+const FRAME_HEADER = /^##\s+Frame\s+\d+\s*[—–-]\s+(.+?)\s*$/i;
+const THEME_HEADER = /^##\s+Theme\s*:\s*(.+?)\s*$/i;
+const SET_HEADER = /^###\s+Set\s+\d+\s*[—–-]\s+(.+?)\s*$/i;
+const NUMBERED_QUESTION = /^\s*\d+\.\s+(.+?)\s*$/;
+const ITALIC_LINE = /^_.*_\s*$/;
+
+/**
+ * Parse a topic-bank / theme-bank markdown file into a flat list of
+ * `{ topic, questions[] }` entries.
+ *
+ * The function decides Part 1 ("Frame") vs Part 3 ("Theme + Set") shape
+ * dynamically by which heading types occur — the dispatcher in
+ * `resolve-module-source-refs.ts` accepts BOTH `format: topic-pool` AND
+ * `format: theme-pool` because they normalise to the same output shape.
+ *
+ * Tolerant: italic signposting lines + `_(source: …)_` footers +
+ * `---` separators are skipped. A topic with zero questions is dropped.
+ */
+export function parseTopicPool(text: string): TopicPoolEntry[] {
+  const lines = text.split(/\r?\n/);
+  const out: TopicPoolEntry[] = [];
+
+  let currentTopic: string | null = null;
+  let currentQuestions: string[] = [];
+
+  const flush = (): void => {
+    if (currentTopic && currentQuestions.length > 0) {
+      out.push({ topic: currentTopic, questions: [...currentQuestions] });
+    }
+    currentTopic = null;
+    currentQuestions = [];
+  };
+
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+
+    // Part 1 `## Frame N — Topic` — opens a topic.
+    const frameMatch = line.match(FRAME_HEADER);
+    if (frameMatch) {
+      flush();
+      currentTopic = frameMatch[1].trim();
+      continue;
+    }
+
+    // Part 3 `## Theme: X` — closes any open topic but does NOT itself
+    // open one (the `### Set N — Title` under it carries the topic).
+    if (THEME_HEADER.test(line)) {
+      flush();
+      continue;
+    }
+
+    // Part 3 `### Set N — Title` — opens a topic.
+    const setMatch = line.match(SET_HEADER);
+    if (setMatch) {
+      flush();
+      currentTopic = setMatch[1].trim();
+      continue;
+    }
+
+    // Any OTHER top-level `## ` heading ends the current topic and stops
+    // consumption inside it. Top-level `# ` headings (single-hash) live
+    // only at file-top in both fixtures and are tolerated as a no-op.
+    if (/^##\s/.test(line)) {
+      flush();
+      continue;
+    }
+
+    // `---` separator — ignore.
+    if (/^---+\s*$/.test(line)) continue;
+
+    // Italic signposting / source-footer — ignore.
+    if (ITALIC_LINE.test(line.trim())) continue;
+
+    // Empty line — ignore (doesn't close the topic; questions may carry
+    // blank lines between them in some authoring styles).
+    if (line.trim() === "") continue;
+
+    // Numbered question under the current topic.
+    const qMatch = line.match(NUMBERED_QUESTION);
+    if (qMatch && currentTopic !== null) {
+      const q = qMatch[1].trim();
+      if (q.length > 0) currentQuestions.push(q);
+      continue;
+    }
+
+    // Other prose (e.g. paragraph between heading and questions) —
+    // ignore; the next question/heading resumes parsing.
+  }
+  flush();
+  return out;
+}
+
+// ── Profile fields (Source N — Baseline profile fields) ──────────────
+//
+// Input format (mirrors cue-card / scaffold convention):
+//
+//   ### Field 1 — reason
+//
+//   - **key:** `profile:reason`
+//   - **type:** text
+//   - **prompt:** What's bringing you to IELTS Speaking? Work, study, …
+//
+// Output: [{
+//   key: "profile:reason",
+//   type: "text",
+//   prompt: "What's bringing you to IELTS Speaking? Work, study, …",
+// }, ...]
+//
+// Shape matches `ProfileFieldToCapture` in `lib/types/json-fields.ts`.
+// The runtime consumer (`lib/pipeline/extract-profile-fields.ts`)
+// filters out anything that doesn't have all three fields with valid
+// `type` (text | number | band) — the parser drops malformed entries
+// rather than emit them and rely on the runtime filter.
+
+/** A declared profile field — mirrors `ProfileFieldToCapture`. */
+export interface ProfileFieldEntry {
+  key: string;
+  prompt: string;
+  type: "text" | "number" | "band";
+}
+
+const FIELD_HEADER = /^###\s+Field\s+\d+\s*[—–-]\s+.+?\s*$/i;
+/** `- **key:** \`profile:reason\`` — key inside backticks or bare. */
+const KEY_LINE = /^\s*-\s*\*\*key:\*\*\s*`?([A-Za-z0-9_:.-]+)`?\s*$/i;
+/** `- **type:** text|number|band`. */
+const TYPE_LINE = /^\s*-\s*\*\*type:\*\*\s*(text|number|band)\s*$/i;
+/** `- **prompt:** <free text up to end-of-line>`. */
+const PROMPT_LINE = /^\s*-\s*\*\*prompt:\*\*\s*(.+?)\s*$/i;
+const VALID_TYPES: ReadonlySet<string> = new Set(["text", "number", "band"]);
+
+/**
+ * Parse a profile-fields markdown file. Returns an array of
+ * `{ key, prompt, type }` entries — one per `### Field N — …` heading.
+ * Order is preserved (the tutor asks fields in source order). Entries
+ * missing any of the three required attributes, or with an out-of-set
+ * `type`, are dropped — the resolver would otherwise emit shapes the
+ * runtime filter rejects.
+ */
+export function parseProfileFields(text: string): ProfileFieldEntry[] {
+  const lines = text.split(/\r?\n/);
+  const out: ProfileFieldEntry[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (!FIELD_HEADER.test(lines[i])) {
+      i++;
+      continue;
+    }
+    i++;
+    // Collect key / type / prompt within the field block — stop at the
+    // next `### ` heading or a top-level `## ` section.
+    let key: string | undefined;
+    let type: ProfileFieldEntry["type"] | undefined;
+    let prompt: string | undefined;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (/^##\s/.test(line) || /^###\s/.test(line)) break;
+      const kMatch = line.match(KEY_LINE);
+      if (kMatch) {
+        key = kMatch[1].trim();
+        i++;
+        continue;
+      }
+      const tMatch = line.match(TYPE_LINE);
+      if (tMatch) {
+        const t = tMatch[1].toLowerCase();
+        if (VALID_TYPES.has(t)) type = t as ProfileFieldEntry["type"];
+        i++;
+        continue;
+      }
+      const pMatch = line.match(PROMPT_LINE);
+      if (pMatch) {
+        prompt = pMatch[1].trim();
+        i++;
+        continue;
+      }
+      i++;
+    }
+    if (key && type && prompt) {
+      out.push({ key, prompt, type });
     }
   }
   return out;

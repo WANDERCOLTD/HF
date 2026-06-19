@@ -1,0 +1,2150 @@
+{
+  "generatedAt": "2026-06-19T12:57:44.536Z",
+  "generator": "scripts/capture/parameter-inventory.ts",
+  "parameterCount": 154,
+  "active": 139,
+  "deprecated": 15,
+  "gaps": 103,
+  "entries": [
+    {
+      "parameterId": "BEH-ABSTRACT-VS-CONCRETE",
+      "name": "Abstract Vs Concrete",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "abstract-vs-concrete"
+      ],
+      "consumerFiles": [],
+      "classification": "promptInjection-dispatcher"
+    },
+    {
+      "parameterId": "BEH-ADAPT-TO-FEEDBACK-STYLE",
+      "name": "Adapt to Feedback Style",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "adapt_to_feedback_style"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ADAPT-TO-INTERACTION-STYLE",
+      "name": "Adapt to Interaction Style",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "adapt_to_interaction_style"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "adapt_to_learning_style",
+      "name": "Adapt to Learning Style",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": false,
+      "hasInterpretationLow": false,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "adapt_to_pace_preference",
+      "name": "Adapt to Pace Preference",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": false,
+      "hasInterpretationLow": false,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-ADAPT-TO-QUESTION-FREQUENCY",
+      "name": "Adapt to Question Frequency",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "adapt_to_question_frequency"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-AGGREGATE-PROFILE",
+      "name": "Aggregate Learner Profile",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "aggregate_profile"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-AGREEABLENESS-ADAPTATION",
+      "name": "Agreeableness Adaptation Target",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "agreeableness_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "analogy-usage",
+      "name": "Analogy Usage",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-APPLICATION-ADAPTATION",
+      "name": "Practice vs Explanation Target",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "application_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-APPLICATION-SCORE",
+      "name": "Application Score",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "application_score"
+      ],
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "auditory_adaptation",
+      "name": "Auditory Modality Adaptation Target",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-B5-A",
+      "name": "agreeableness",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "B5-A"
+      ],
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/parameters/display-config/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-B5-C",
+      "name": "conscientiousness",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "B5-C"
+      ],
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/parameters/display-config/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-B5-E",
+      "name": "extraversion",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "B5-E"
+      ],
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/parameters/display-config/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-B5-N",
+      "name": "neuroticism",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "B5-N"
+      ],
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/parameters/display-config/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-B5-O",
+      "name": "openness",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "B5-O"
+      ],
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/parameters/display-config/route.ts",
+        "app/api/parameters/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-ABSTRACT-OK",
+      "name": "Abstract Comfort",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ACTION-VERBS",
+      "name": "Action Language",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ADVANCE-READINESS",
+      "name": "Advance Readiness",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ANALOGY-USAGE",
+      "name": "Analogy Use",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-APPROACH-SWITCHING",
+      "name": "Approach Switching",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CHALLENGE-LEVEL",
+      "name": "Challenge Level",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-CHECK-FOR-UNDERSTANDING",
+      "name": "Comprehension Checks",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CONCEPT-DENSITY",
+      "name": "Concept Density",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-CONVERSATIONAL-DEPTH",
+      "name": "Conversational Depth",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CONVERSATIONAL-TONE",
+      "name": "Conversational Tone",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/chat/unified-assistant-prompt.ts"
+      ],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-DEFINITION-PRECISION",
+      "name": "Definition Precision",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-DIAGRAM-LANGUAGE",
+      "name": "Diagram Language",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-DIRECTNESS",
+      "name": "Directness",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "directness_actual"
+      ],
+      "consumerFiles": [
+        "app/api/x/seed-domains/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-EMPATHY-RATE",
+      "name": "Empathy Rate",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "empathy_expression",
+        "response_empathy_score"
+      ],
+      "consumerFiles": [
+        "app/api/x/seed-domains/route.ts",
+        "lib/goals/strategies/connect_warmth_avg.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-EXAMPLE-RICHNESS",
+      "name": "Example Richness",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-EXPLANATION-VARIETY",
+      "name": "Explanation Variety",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-FEELING-LANGUAGE",
+      "name": "Feeling Language",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-FORMALITY",
+      "name": "Formality Level",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "formality-level",
+        "formality_actual"
+      ],
+      "consumerFiles": [
+        "app/api/x/seed-domains/route.ts",
+        "lib/chat/unified-assistant-prompt.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-FOUNDATION-FOCUS",
+      "name": "Foundation Focus",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-GUIDED-PRACTICE",
+      "name": "Guided Practice",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-IMAGERY-DENSITY",
+      "name": "Imagery Density",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-INSIGHT-FREQUENCY",
+      "name": "Insight Frequency",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/goals/strategies/connect_warmth_avg.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-INTELLECTUAL-CHALLENGE",
+      "name": "Intellectual Challenge",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-INTERLEAVING",
+      "name": "Interleaving",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-LIST-STRUCTURE",
+      "name": "List Structure",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-MEMORY-REFERENCE",
+      "name": "Memory Reference",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-MODALITY-CONSISTENCY",
+      "name": "Modality Consistency",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-MODALITY-VARIETY",
+      "name": "Modality Variety",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-NEW-CONTENT-RATE",
+      "name": "New Content Rate",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-NUANCE-EXPLORATION",
+      "name": "Nuance Exploration",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PACE-MATCH",
+      "name": "Pace Matching",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "CONV_PACE",
+        "adapt_to_pace_preference",
+        "pace_indicators",
+        "pacing_actual"
+      ],
+      "consumerFiles": [
+        "app/api/x/seed-domains/route.ts",
+        "lib/chat/admin-tools.ts",
+        "lib/pipeline/prosody-consumer.ts",
+        "lib/pipeline/prosody-types.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-PATIENCE-LEVEL",
+      "name": "Patience Level",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PAUSE-TOLERANCE",
+      "name": "Pause Tolerance",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/chat/unified-assistant-prompt.ts",
+        "lib/measurement/neutral-target.ts",
+        "lib/prompt/composition/transforms/quickstart.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-PRACTICE-EXERCISES",
+      "name": "Practice Exercises",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PRACTICE-RATIO",
+      "name": "Practice Ratio",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PREREQUISITE-CALLBACK",
+      "name": "Prerequisite Callback",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PROACTIVE",
+      "name": "Proactivity",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/x/seed-domains/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-PROBING-QUESTIONS",
+      "name": "Probing Questions",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PRODUCTIVE-STRUGGLE",
+      "name": "Productive Struggle",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-QUESTION-RATE",
+      "name": "Question Rate",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/x/seed-domains/route.ts",
+        "lib/goals/track-progress.ts",
+        "lib/prompt/composition/transforms/quickstart.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-REAL-WORLD-EXAMPLES",
+      "name": "Real-World Examples",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-REPETITION-FREQUENCY",
+      "name": "Repetition Frequency",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-REPETITION-OFFER",
+      "name": "Repetition Offers",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-RESPECT-EXPERIENCE",
+      "name": "Experience Respect",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-RESPONSE-LEN",
+      "name": "Response Length",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/chat/route.ts",
+        "lib/chat/admin-tool-handlers.ts",
+        "lib/chat/admin-tools.ts",
+        "lib/chat/demo-system-prompt.ts",
+        "lib/chat/unified-assistant-prompt.ts",
+        "lib/measurement/neutral-target.ts",
+        "lib/prompt/composition/transforms/quickstart.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-RHYTHM-ATTENTION",
+      "name": "Rhythm Attention",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-SCAFFOLDING",
+      "name": "Scaffolding",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-SPACED-RETRIEVAL-PRIORITY",
+      "name": "Spaced Retrieval",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-SPATIAL-METAPHOR",
+      "name": "Spatial Metaphors",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-STORY-INVITATION",
+      "name": "Story Invitation",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-TERMINOLOGY-FORMAL",
+      "name": "Technical Terminology",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-TURN-LENGTH",
+      "name": "Turn Length",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/chat/unified-assistant-prompt.ts",
+        "lib/prompt/composition/transforms/quickstart.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-VERBAL-ELABORATION",
+      "name": "Verbal Elaboration",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-WARMTH",
+      "name": "Warmth",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "BEH-CONVERSATIONAL-TONE",
+        "warmth_actual"
+      ],
+      "consumerFiles": [
+        "app/api/cascade/resolve/route.ts",
+        "app/api/chat/factual-grounding-intercept.ts",
+        "app/api/x/seed-domains/route.ts",
+        "lib/chat/admin-tool-handlers.ts",
+        "lib/chat/admin-tools.ts",
+        "lib/chat/tuning-system-prompt.ts",
+        "lib/chat/unified-assistant-prompt.ts",
+        "lib/goals/strategies/connect_warmth_avg.ts",
+        "lib/measurement/neutral-target.ts",
+        "lib/prompt/composition/transforms/quickstart.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-WORKED-EXAMPLES",
+      "name": "Worked Examples",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-WRITTEN-ALTERNATIVE",
+      "name": "Written Alternatives",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CALL-FREQUENCY-ADAPTATION",
+      "name": "Call Frequency Target",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "call_frequency_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "check-for-understanding",
+      "name": "Check For Understanding",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CHUNK-SIZE",
+      "name": "Chunk Size",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "chunk-size"
+      ],
+      "consumerFiles": [
+        "lib/voice/audio-slice.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-COMMUNICATION-COMPLEXITY-ADAPTATION",
+      "name": "Communication Complexity Target",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "communication_complexity_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-DEPTH-PREFERENCE",
+      "name": "Depth Preference",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "COMP-DEPTH-PREFERENCE"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ENERGY",
+      "name": "Conversational Energy",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "COMP-ENERGY"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ENGAGEMENT",
+      "name": "Intellectual Engagement",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "COMP-ENGAGEMENT"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-MOOD",
+      "name": "Emotional Tone",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "COMP-MOOD"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-COMPOSITE-REWARD",
+      "name": "Composite Reward Signal",
+      "domainGroup": "reinforcement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "composite_reward"
+      ],
+      "consumerFiles": [
+        "app/api/playbooks/[playbookId]/parameters/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-COMPREHENSION-ADAPTATION",
+      "name": "Comprehension-Based Scaffolding Target",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "comprehension_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-COMPREHENSION-SCORE",
+      "name": "Comprehension Score",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "comprehension_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-REMINISCENCE",
+      "name": "Reminiscence Mode",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "COMP-REMINISCENCE"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "concept-density",
+      "name": "Concept Density",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-CONCEPT-EXPOSURE",
+      "name": "Concept Exposure Depth",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "concept_exposure"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CONSCIENTIOUSNESS-ADAPTATION",
+      "name": "Conscientiousness Adaptation Target",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "conscientiousness_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CONTEXT-SETTING-QUALITY",
+      "name": "Context Setting Quality",
+      "domainGroup": "onboarding",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "context_setting_quality"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CONV-DOM",
+      "name": "conversation_dominance",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "CONV_DOM"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "CONV_PACE",
+      "name": "conversation_pace",
+      "domainGroup": "engagement",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/chat/admin-tools.ts",
+        "lib/pipeline/prosody-consumer.ts",
+        "lib/pipeline/prosody-types.ts"
+      ],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-COGNITIVE-ACTIVATION",
+      "name": "cognitive_activation",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "CP-004"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-CRISIS-DETECTION-SCORE",
+      "name": "Crisis Detection Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "crisis_detection_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-DEFAULT-TARGETS-QUALITY",
+      "name": "Default Behavior Targets",
+      "domainGroup": "onboarding",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "default_targets_quality"
+      ],
+      "consumerFiles": [
+        "app/api/onboarding/personas/[slug]/route.ts",
+        "app/api/onboarding/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "directness_actual",
+      "name": "Directness (Actual)",
+      "domainGroup": "behavior-core",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "empathy_expression",
+      "name": "Empathy Expression",
+      "domainGroup": "behavior-core",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-ENGAGEMENT-ADAPTATION",
+      "name": "Engagement Level Target",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "engagement_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ENGAGEMENT-PROMPTS",
+      "name": "Engagement Prompts",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "engagement-prompts"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ENGAGEMENT-REWARD",
+      "name": "Engagement Reward",
+      "domainGroup": "reinforcement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "engagement_reward"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ENGAGEMENT-TREND-SCORE",
+      "name": "Engagement Trend Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "engagement_trend_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ENGAGEMENT-WITH-EXAMPLES",
+      "name": "Example Engagement",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "engagement_with_examples"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-ERROR-ELABORATION",
+      "name": "Error Elaboration",
+      "domainGroup": "reinforcement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "error-elaboration"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "example-richness",
+      "name": "Example Richness",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-EXPLANATION-DEPTH",
+      "name": "Explanation Depth",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "explanation-depth"
+      ],
+      "consumerFiles": [
+        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-EXPLORATION-STRUCTURE",
+      "name": "Exploration vs Structure Balance",
+      "domainGroup": "behavior-core",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "exploration_structure"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-EXTRAVERSION-ADAPTATION",
+      "name": "Extraversion Adaptation Target",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "extraversion_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "formality_actual",
+      "name": "Formality (Actual)",
+      "domainGroup": "behavior-core",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "formality-level",
+      "name": "Formality Level",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": false,
+      "hasInterpretationLow": false,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-GOAL-DISCOVERY-QUALITY",
+      "name": "Goal Discovery Quality",
+      "domainGroup": "onboarding",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "goal_discovery_quality"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-GOAL-PROGRESS-REWARD",
+      "name": "Goal Progress Reward",
+      "domainGroup": "reinforcement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "goal_progress_reward"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-INSIGHT-QUALITY",
+      "name": "Insight Quality",
+      "domainGroup": "companion",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "insight_quality"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "kinesthetic_adaptation",
+      "name": "Kinesthetic Modality Adaptation Target",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-LEARNING-PROGRESS-SCORE",
+      "name": "Learning Progress Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "learning_progress_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-LEARNING-REWARD",
+      "name": "Learning Reward",
+      "domainGroup": "reinforcement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "learning_reward"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-LEARNING-VELOCITY-ADAPTATION",
+      "name": "Learning Velocity Target",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "learning_velocity_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-MASTERY-ADAPTATION",
+      "name": "Mastery-Based Teaching Target",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "mastery_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-MODULE-INTRODUCTION",
+      "name": "Module Introduction Status",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "module_introduction"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-MODULE-MASTERY",
+      "name": "Module Mastery Level",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "module_mastery"
+      ],
+      "consumerFiles": [
+        "app/api/callers/[callerId]/lo-progress/route.ts",
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "lib/compose/section-loaders.ts",
+        "lib/compose/section.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-MULTIMODAL-ADAPTATION",
+      "name": "Multimodal Profile Adaptation",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "multimodal_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-NEUROTICISM-ADAPTATION",
+      "name": "Neuroticism Adaptation Target",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "neuroticism_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-OPENNESS-ADAPTATION",
+      "name": "Openness Adaptation Target",
+      "domainGroup": "personality-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "openness_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "pace_indicators",
+      "name": "Learning Pace Signals",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/chat/admin-tools.ts",
+        "lib/pipeline/prosody-consumer.ts",
+        "lib/pipeline/prosody-types.ts"
+      ],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "pacing_actual",
+      "name": "Pacing (Actual)",
+      "domainGroup": "behavior-core",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-PAUSE-FOR-QUESTIONS",
+      "name": "Pause For Questions",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "pause-for-questions"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PREFERENCE-ELICITATION-QUALITY",
+      "name": "Preference Elicitation Quality",
+      "domainGroup": "onboarding",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "preference_elicitation_quality"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PREREQUISITE-ADAPTATION",
+      "name": "Foundation Reinforcement Target",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "prerequisite_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-PREREQUISITE-CHECK",
+      "name": "Prerequisite Readiness",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "prerequisite_check"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-QUESTION-ASKING-RATE",
+      "name": "Question Asking Rate",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "question_asking_rate"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-RAPPORT-REWARD",
+      "name": "Rapport Reward",
+      "domainGroup": "reinforcement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "rapport_reward"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-READING-WRITING-ADAPTATION",
+      "name": "Reading/Writing Modality Adaptation Target",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "reading_writing_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "repetition-frequency",
+      "name": "Repetition Frequency",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "response_empathy_score",
+      "name": "Response Empathy Level",
+      "domainGroup": "supervision",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-RESPONSE-LENGTH-PREFERENCE",
+      "name": "Response Length Preference",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "response_length_preference"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-RESPONSE-LENGTH-SCORE",
+      "name": "Response Length Appropriateness",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "response_length_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-REVIEW-ADAPTATION",
+      "name": "Review Priority Target",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "review_adaptation"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-REVIEW-STATUS",
+      "name": "Review Status Tracking",
+      "domainGroup": "curriculum-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "review_status"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-SAFETY-COMPLIANCE-SCORE",
+      "name": "Safety Compliance Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "safety_compliance_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "scaffolding",
+      "name": "Scaffolding",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/communities/route.ts",
+        "app/api/content-sources/[sourceId]/extract/route.ts",
+        "app/api/course-pack/analyze/route.ts",
+        "app/api/educator/classrooms/[id]/differentiation/route.ts",
+        "app/api/institutions/launch/route.ts",
+        "app/api/specs/extract-structure/route.ts",
+        "lib/chat/tuning-system-prompt.ts",
+        "lib/chat/v5-system-prompt.ts",
+        "lib/chat/wizard-tool-executor/tools/create_course.ts",
+        "lib/chat/wizard-tool-executor/tools/create_course/_reuse-path.ts",
+        "lib/goals/track-progress.ts",
+        "lib/prompt/composition/transforms/course-instructions.ts",
+        "lib/prompt/composition/transforms/pedagogy-mode.ts",
+        "lib/prompt/composition/transforms/preamble.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-SOCRATIC-QUESTIONING",
+      "name": "Socratic Questioning",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "socratic-questioning"
+      ],
+      "consumerFiles": [
+        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "BEH-STUDENT-APPLICATION-SCORE",
+      "name": "Student Application Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "student_application_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-STYLE-CONSISTENCY-SCORE",
+      "name": "Style Consistency Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "style_consistency_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-TARGET-ALIGNMENT-SCORE",
+      "name": "Target Alignment Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "target_alignment_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-TONE-ASSERT",
+      "name": "assertiveness_level",
+      "domainGroup": "engagement",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "TONE_ASSERT"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-TUTOR-FIDELITY-SCORE",
+      "name": "Tutor Content Fidelity Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "tutor_fidelity_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-TUTOR-INTRO-SCORE",
+      "name": "Tutor Introduction Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "tutor_intro_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "BEH-TUTOR-SEQUENCE-SCORE",
+      "name": "Tutor Sequence Score",
+      "domainGroup": "supervision",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "tutor_sequence_score"
+      ],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "VARK-A",
+      "name": "auditory_modality",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/parameters/display-config/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "VARK-K",
+      "name": "kinesthetic_modality",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/parameters/display-config/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "VARK-PROFILE",
+      "name": "multimodal_profile",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "gap"
+    },
+    {
+      "parameterId": "VARK-R",
+      "name": "reading_writing_modality",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/parameters/display-config/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "VARK-V",
+      "name": "visual_modality",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "app/api/parameters/display-config/route.ts",
+        "app/api/parameters/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "visual_adaptation",
+      "name": "Visual Modality Adaptation Target",
+      "domainGroup": "learning-adaptation",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "warmth_actual",
+      "name": "Warmth (Actual)",
+      "domainGroup": "behavior-core",
+      "deprecatedAt": "2026-06-18T15:00:00Z",
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [],
+      "classification": "deprecated"
+    },
+    {
+      "parameterId": "BEH-WELCOME-QUALITY",
+      "name": "Welcome Experience Quality",
+      "domainGroup": "onboarding",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "welcome_quality"
+      ],
+      "consumerFiles": [
+        "app/api/onboarding/route.ts"
+      ],
+      "classification": "covered"
+    }
+  ]
+}
