@@ -6,6 +6,9 @@ vi.mock("@/lib/prisma", () => ({
     callerPlaybook: {
       findFirst: vi.fn(),
     },
+    callerAttribute: {
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -37,6 +40,7 @@ import { NextRequest } from "next/server";
 
 const mocks = {
   findFirst: (prisma.callerPlaybook.findFirst as ReturnType<typeof vi.fn>),
+  callerAttributeCount: (prisma.callerAttribute.count as ReturnType<typeof vi.fn>),
   auth: (requireStudentOrAdmin as ReturnType<typeof vi.fn>),
 };
 
@@ -48,6 +52,8 @@ describe("GET /api/student/survey-config — resolution chain", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.auth.mockResolvedValue({ callerId: "caller-1", userId: "user-1" });
+    // Default: no prior intake history (new learner) — overridden per-test below.
+    mocks.callerAttributeCount.mockResolvedValue(0);
   });
 
   it("returns 404 when no active enrollment", async () => {
@@ -145,5 +151,115 @@ describe("GET /api/student/survey-config — resolution chain", () => {
     const data = await res.json();
 
     expect(data.assessment.personality.questions[0].id).toBe("custom_pers");
+  });
+});
+
+// =============================================================
+// #2050 — intakeSkipIfReturning consumer
+//
+// Producer: `JourneySettingContract.id === "intakeSkipIfReturning"`
+//   (storagePath: `config.skipIntakeIfReturning`).
+// Consumer (this test): `/api/student/survey-config` resolves
+//   `skipIntake: true` when both:
+//     - `pbConfig.skipIntakeIfReturning === true`, AND
+//     - caller has prior intake history (CallerAttribute count > 0
+//       under scopes PERSONALITY/PRE_SURVEY/INTAKE_CHAT — see
+//       `lib/intake/returning-learner.ts`).
+//   `WelcomeSurveyFlow` short-circuits `onAlreadyDone()` on this
+//   signal.
+// =============================================================
+
+describe("GET /api/student/survey-config — #2050 intakeSkipIfReturning gate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.auth.mockResolvedValue({ callerId: "caller-1", userId: "user-1" });
+  });
+
+  it("new learner — flag false, no prior history → skipIntake=false", async () => {
+    mocks.findFirst.mockResolvedValue({
+      playbook: { config: {}, name: "Test Course", domain: { name: "Maths" } },
+    });
+    mocks.callerAttributeCount.mockResolvedValue(0);
+
+    const res = await GET(makeRequest());
+    const data = await res.json();
+
+    expect(data.ok).toBe(true);
+    expect(data.skipIntake).toBe(false);
+  });
+
+  it("returning learner + flag=true → skipIntake=true (consumer fires)", async () => {
+    mocks.findFirst.mockResolvedValue({
+      playbook: {
+        config: { skipIntakeIfReturning: true },
+        name: "Test Course",
+        domain: { name: "Maths" },
+      },
+    });
+    // Prior PERSONALITY submitted_at row exists.
+    mocks.callerAttributeCount.mockResolvedValue(1);
+
+    const res = await GET(makeRequest());
+    const data = await res.json();
+
+    expect(data.ok).toBe(true);
+    expect(data.skipIntake).toBe(true);
+    // Sanity: the query was issued against the same caller.
+    expect(mocks.callerAttributeCount).toHaveBeenCalledTimes(1);
+    const callArg = mocks.callerAttributeCount.mock.calls[0][0];
+    expect(callArg.where.callerId).toBe("caller-1");
+  });
+
+  it("returning learner + flag=false → skipIntake=false (re-prompts)", async () => {
+    mocks.findFirst.mockResolvedValue({
+      playbook: {
+        config: { skipIntakeIfReturning: false },
+        name: "Test Course",
+        domain: { name: "Maths" },
+      },
+    });
+    // Prior intake-chat projection exists.
+    mocks.callerAttributeCount.mockResolvedValue(3);
+
+    const res = await GET(makeRequest());
+    const data = await res.json();
+
+    expect(data.ok).toBe(true);
+    expect(data.skipIntake).toBe(false);
+  });
+
+  it("flag=true + new learner (zero history) → skipIntake=false (no bypass)", async () => {
+    mocks.findFirst.mockResolvedValue({
+      playbook: {
+        config: { skipIntakeIfReturning: true },
+        name: "Test Course",
+        domain: { name: "Maths" },
+      },
+    });
+    mocks.callerAttributeCount.mockResolvedValue(0);
+
+    const res = await GET(makeRequest());
+    const data = await res.json();
+
+    expect(data.ok).toBe(true);
+    expect(data.skipIntake).toBe(false);
+  });
+
+  it("flag unset (undefined) → skipIntake=false even with history (default-off)", async () => {
+    mocks.findFirst.mockResolvedValue({
+      playbook: {
+        // No skipIntakeIfReturning key at all.
+        config: { interactionPattern: "socratic" },
+        name: "Test Course",
+        domain: { name: "Maths" },
+      },
+    });
+    mocks.callerAttributeCount.mockResolvedValue(5);
+
+    const res = await GET(makeRequest());
+    const data = await res.json();
+
+    expect(data.ok).toBe(true);
+    expect(data.skipIntake).toBe(false);
   });
 });
