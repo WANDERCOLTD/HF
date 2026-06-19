@@ -160,6 +160,24 @@ export async function buildAssistantConfigForCaller(
     playbookId: defaultPlaybookId,
   });
   const flatVoiceConfig = flattenVoice(voiceResolved);
+
+  // #2053 — `interruptSensitivity` lives at the top-level
+  // `Playbook.config.interruptSensitivity` (NOT inside the nested
+  // `config.voice` blob the voice cascade walks), so it's invisible to
+  // `resolveVoiceConfig`. Read it directly and merge onto the flat
+  // voiceConfig blob handed to the adapter. The adapter's pure mapper
+  // (`mapInterruptSensitivityToVapi`) translates it into VAPI's
+  // `stopSpeakingPlan` barge-in knob. Sub-epic D of #2049.
+  if (defaultPlaybookId) {
+    const playbookRow = await prisma.playbook.findUnique({
+      where: { id: defaultPlaybookId },
+      select: { config: true },
+    });
+    const pbConfig = (playbookRow?.config ?? {}) as Record<string, unknown>;
+    if (pbConfig.interruptSensitivity !== undefined) {
+      flatVoiceConfig.interruptSensitivity = pbConfig.interruptSensitivity;
+    }
+  }
   const composedPrompt = await prisma.composedPrompt.findFirst({
     where: {
       callerId: caller.id,

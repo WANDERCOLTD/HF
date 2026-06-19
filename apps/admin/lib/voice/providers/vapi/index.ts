@@ -40,6 +40,7 @@ import type {
 import { verifyVapiRequest } from "./auth";
 import { log } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+import { mapInterruptSensitivityToVapi } from "@/lib/voice/interrupt-sensitivity";
 
 /**
  * Valid `assistant.backgroundSound` values accepted by the VAPI API.
@@ -316,6 +317,21 @@ export class VapiProvider implements VoiceProvider {
       // name resurfaces we can wire it back without re-editing the
       // schema. Cascade reads it but the adapter no-ops it for now.
       void vc.fillerInjectionEnabled;
+
+      // #2053 — Interrupt sensitivity (sub-epic D of #2049). The
+      // educator setting lives at `Playbook.config.interruptSensitivity`
+      // (not the nested `Playbook.config.voice` blob the cascade
+      // resolver walks) and is plumbed onto `voiceConfig` by
+      // `buildAssistantConfigForCaller`. Translate it into VAPI's
+      // `stopSpeakingPlan.numWords` barge-in knob — pure mapping,
+      // tested at `tests/lib/voice/interrupt-sensitivity.test.ts`.
+      // When unset / unrecognised, the helper returns null and we
+      // leave VAPI's own default in place. See
+      // `lib/voice/interrupt-sensitivity.ts` for the tier table.
+      const bargeIn = mapInterruptSensitivityToVapi(vc.interruptSensitivity);
+      if (bargeIn) {
+        assistant.stopSpeakingPlan = bargeIn.stopSpeakingPlan;
+      }
     }
 
     return { assistant };
