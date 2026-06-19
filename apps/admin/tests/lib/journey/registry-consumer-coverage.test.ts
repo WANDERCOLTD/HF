@@ -112,18 +112,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
     reason:
       "Producer-only since 2026-06-17 audit. Voice-stack consumer pending — interrupt sensitivity should gate the VAPI assistant's `voicemailDetectionEnabled` + barge-in threshold but no transform reads it today.",
   },
-  offboardingBannerMessage: {
-    reason:
-      "Producer-only since 2026-06-17 audit. offboarding transform doesn't render the operator's banner copy yet.",
-  },
-  offboardingCertificate: {
-    reason:
-      "Producer-only since 2026-06-17 audit. offboarding transform doesn't include certificate-mention directive yet.",
-  },
-  offboardingTriggerAfterCalls: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
-  },
   rewardStrategy: {
     reason:
       "Producer-only since 2026-06-17 audit. REWARD pipeline stage uses a hardcoded strategy; the operator-set override is not consulted yet (writeGate is operator-only with reprompt — landing was deferred per epic #779 Felt Progress S1).",
@@ -133,7 +121,7 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 12;
+const EXPECTED_EXEMPT_COUNT = 9;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation

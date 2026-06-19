@@ -82,18 +82,6 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
     destinedFor: "compose-prompt",
     note: "instructions / moduleMastery transforms don't surface high-water progress signals.",
   },
-  offboardingBannerMessage: {
-    destinedFor: "compose-prompt",
-    note: "offboarding transform doesn't render the operator's banner copy yet.",
-  },
-  offboardingCertificate: {
-    destinedFor: "compose-prompt",
-    note: "offboarding transform doesn't include certificate-mention directive yet.",
-  },
-  offboardingTriggerAfterCalls: {
-    destinedFor: "runtime-gate",
-    note: "Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
-  },
   rewardStrategy: {
     destinedFor: "scoring",
     note: "REWARD pipeline uses a hardcoded strategy; this operator override isn't consulted.",
