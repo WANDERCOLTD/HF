@@ -20,6 +20,7 @@ import { AIEngine, isEngineAvailable } from "@/lib/ai/client";
 import { getConfiguredMeteredAICompletion, logMockAIUsage } from "@/lib/metering";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { updateSystemBehaviorTargetsForAdapt } from "@/lib/ops/update-system-targets";
 
 const prisma = new PrismaClient();
 
@@ -868,28 +869,49 @@ const opHandlers: Record<string, OpHandler> = {
       log.info("No previous call found - this is the first call for this caller");
     }
 
-    // Update behavior targets based on reward
+    // Update behavior targets based on reward — routed through the
+    // canonical helper (#2031 S2). The helper enforces the
+    // parameterId whitelist (BEHAVIOR + isAdjustable), clamps the
+    // next target into [0, 1], stamps `source = LEARNED` (the
+    // reward-loop adaptation member of BehaviorTargetSource), and
+    // drops the cascade cache via `invalidateKnob` so the next
+    // composed prompt reads the post-ADAPT value.
     const updatesApplied: string[] = [];
     const diffs = (currentCall.rewardScore.parameterDiffs as any[]) || [];
 
-    for (const diff of diffs) {
-      // If behavior was different from target but outcome was good, adjust target
-      if (diff.diff > 0.2 && currentCall.rewardScore.overallScore > 0.7) {
+    const candidateUpdates = diffs
+      .filter(
+        (diff) =>
+          diff.diff > 0.2 && currentCall.rewardScore!.overallScore > 0.7,
+      )
+      .map((diff) => {
         const adjustment = (diff.actual - diff.target) * 0.1;
+        return {
+          parameterId: diff.parameterId as string,
+          previousValue: diff.target as number,
+          nextValue: (diff.target as number) + adjustment,
+        };
+      });
 
-        await prisma.behaviorTarget.updateMany({
-          where: {
-            parameterId: diff.parameterId,
-            scope: "SYSTEM",
-          },
-          data: {
-            targetValue: diff.target + adjustment,
-            updatedAt: new Date(),
-          },
-        });
-
-        updatesApplied.push(`${diff.parameterId}: ${diff.target.toFixed(2)} → ${(diff.target + adjustment).toFixed(2)}`);
-        log.info(`Updated target for ${diff.parameterId}`, { from: diff.target, to: diff.target + adjustment });
+    if (candidateUpdates.length > 0) {
+      const results = await updateSystemBehaviorTargetsForAdapt(
+        candidateUpdates,
+        { source: "LEARNED" },
+      );
+      for (const r of results) {
+        if (r.ok) {
+          updatesApplied.push(
+            `${r.parameterId}: ${r.previousValue.toFixed(2)} → ${r.nextValue.toFixed(2)}`,
+          );
+          log.info(`Updated target for ${r.parameterId}`, {
+            from: r.previousValue,
+            to: r.nextValue,
+          });
+        } else {
+          log.warn(`Skipped target update for ${r.parameterId}`, {
+            reason: r.reason,
+          });
+        }
       }
     }
 

@@ -1,6 +1,6 @@
 {
   "$schema": "model-map/v1",
-  "generatedAt": "2026-06-18T21:47:14.026Z",
+  "generatedAt": "2026-06-19T14:22:50.426Z",
   "generator": "scripts/capture/model-map.ts",
   "schemaPath": "apps/admin/prisma/schema.prisma",
   "note": "Tier-2 generated KB. proposedClass is a HEURISTIC unless reviewed:true. Human ratifications live in docs/kb/model-map-overrides.json and are reapplied by the generator on each run. Do not hand-edit this JSON — edit the overrides file.",

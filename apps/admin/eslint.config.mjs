@@ -23,6 +23,8 @@ import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
 import noBareStrategyKey from "./eslint-rules/no-bare-strategy-key.mjs";
 import noBareParameterId from "./eslint-rules/no-bare-parameter-id.mjs";
+import noBareParameterWrite from "./eslint-rules/no-bare-parameter-write.mjs";
+import noBareBehaviorTargetWrite from "./eslint-rules/no-bare-behavior-target-write.mjs";
 import noBucketlessJourneySetting from "./eslint-rules/no-bucketless-journey-setting.mjs";
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
@@ -265,6 +267,8 @@ const eslintConfig = defineConfig([
       "hf-registry": {
         rules: {
           "no-bare-parameter-id": noBareParameterId,
+          "no-bare-parameter-write": noBareParameterWrite,
+          "no-bare-behavior-target-write": noBareBehaviorTargetWrite,
         },
       },
       // #1738 Slice C3 — every JOURNEY_SETTINGS entry must carry a
@@ -381,6 +385,26 @@ const eslintConfig = defineConfig([
       // test files. Per-site escape: route external ids through
       // `resolveParameterId` from `lib/registry/resolve.ts`.
       "hf-registry/no-bare-parameter-id": "error",
+
+      // #2031 S1 — error severity from day 1. Allow-list covers every
+      // pre-existing legitimate write site (the 7 canonical admin routes
+      // enumerated in the epic + sibling admin seed routes + the wizard
+      // band-thresholds writer + seed scripts + tests). Any new write site
+      // must either route through `resolveCanonicalDomainGroup` (when
+      // writing `domainGroup`) or add to the allow-list with documented
+      // rationale. Closes the runtime-vs-CI gap exposed by #2029 + #2030.
+      "hf-registry/no-bare-parameter-write": "error",
+
+      // #2031 S2 — error severity from day 1. Allow-list covers the
+      // canonical writers (`writeBehaviorTarget`, the new
+      // `updateSystemBehaviorTargetForAdapt` for the ADAPT op,
+      // playbook compile-targets / new-version routes), the implicit
+      // helpers (`apply-projection`, `update-targets`, `agent-tuning`),
+      // and destructive-OK admin seed/reset routes (x/seed-*,
+      // x/create-domains). Closes the ops:880 ADAPT back-door surfaced
+      // by Track D of the #2031 audit — bare `prisma.behaviorTarget.
+      // updateMany` skipped clamp + whitelist + cascade-cache drop.
+      "hf-registry/no-bare-behavior-target-write": "error",
 
       // #1738 Slice C3 — error severity from day 1. No pre-existing
       // offences (registry-completeness vitest verified all 52 entries

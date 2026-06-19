@@ -455,6 +455,18 @@ export interface PlaybookConfig {
   offboarding?: OffboardingConfig;
   /** Student welcome flow configuration — controls which phases show before first session */
   welcome?: WelcomeConfig;
+  /**
+   * #2050 — When true, learners who completed the intake on a prior enrolment
+   * (any playbook) are bypassed: the WelcomeSurveyFlow short-circuits and
+   * the learner lands on `/x/student` rather than re-answering PERSONALITY
+   * + PRE_SURVEY questions. Detected via CallerAttribute(scope='PERSONALITY' | 'PRE_SURVEY')
+   * submitted_at OR scope='INTAKE_CHAT' attrs (the intake projection from
+   * EnrollmentIntake — `intake.*` keys). Default false — preserves the
+   * existing every-enrollment intake behaviour.
+   *
+   * @bucket Course parameter — educator-tunable on the Intake lens (G1).
+   */
+  skipIntakeIfReturning?: boolean;
   /** NPS / satisfaction feedback configuration */
   nps?: NpsConfig;
   /**

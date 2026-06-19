@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-18T21:47:16.248Z",
+  "generatedAt": "2026-06-19T14:22:59.905Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1850,
-  "edgeCount": 4350,
+  "fileCount": 1855,
+  "edgeCount": 4360,
   "skippedEdges": 1,
   "edges": [
     {
@@ -238,6 +238,10 @@
     {
       "from": "app/api/admin/sync-parameters/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/admin/sync-parameters/route.ts",
+      "to": "lib/registry/canonical-domain-group.ts"
     },
     {
       "from": "app/api/admin/sync-parameters/route.ts",
@@ -1557,6 +1561,10 @@
     },
     {
       "from": "app/api/calls/[callId]/ops/[opId]/route.ts",
+      "to": "lib/ops/update-system-targets.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/ops/[opId]/route.ts",
       "to": "lib/permissions.ts"
     },
     {
@@ -1629,6 +1637,10 @@
     },
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
+      "to": "lib/curriculum/mark-module-incomplete.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/curriculum/resolve-module.ts"
     },
     {
@@ -1638,6 +1650,10 @@
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/curriculum/track-progress.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pipeline/route.ts",
+      "to": "lib/curriculum/validate-ielts-completion.ts"
     },
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
@@ -5022,6 +5038,18 @@
     {
       "from": "app/api/lab/features/[id]/activate/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/lab/features/[id]/activate/route.ts",
+      "to": "lib/registry/canonical-directionality.ts"
+    },
+    {
+      "from": "app/api/lab/features/[id]/activate/route.ts",
+      "to": "lib/registry/canonical-domain-group.ts"
+    },
+    {
+      "from": "app/api/lab/features/[id]/activate/route.ts",
+      "to": "lib/registry/canonical-scale-type.ts"
     },
     {
       "from": "app/api/lab/features/[id]/activate/route.ts",
@@ -13096,6 +13124,10 @@
       "to": "lib/system-settings.ts"
     },
     {
+      "from": "lib/curriculum/validate-ielts-completion.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "lib/curriculum/working-set-selector.ts",
       "to": "lib/curriculum/track-progress.ts"
     },
@@ -14378,6 +14410,14 @@
     {
       "from": "lib/ops/transcripts-process.ts",
       "to": "lib/enrollment/resolve-playbook.ts"
+    },
+    {
+      "from": "lib/ops/update-system-targets.ts",
+      "to": "lib/cascade/effective-value.ts"
+    },
+    {
+      "from": "lib/ops/update-system-targets.ts",
+      "to": "lib/prisma.ts"
     },
     {
       "from": "lib/ops/update-targets.ts",
@@ -17512,7 +17552,7 @@
     {
       "path": "app/api/admin/sync-parameters/route.ts",
       "inDegree": 0,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "app/api/admin/terminology/route.ts",
@@ -17967,7 +18007,7 @@
     {
       "path": "app/api/calls/[callId]/ops/[opId]/route.ts",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/api/calls/[callId]/pinned-card/route.ts",
@@ -17977,7 +18017,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 55
+      "outDegree": 57
     },
     {
       "path": "app/api/calls/[callId]/post-call-redirect/route.ts",
@@ -19097,7 +19137,7 @@
     {
       "path": "app/api/lab/features/[id]/activate/route.ts",
       "inDegree": 0,
-      "outDegree": 6
+      "outDegree": 9
     },
     {
       "path": "app/api/lab/features/[id]/route.ts",
@@ -22981,7 +23021,7 @@
     },
     {
       "path": "lib/cascade/effective-value.ts",
-      "inDegree": 13,
+      "inDegree": 14,
       "outDegree": 7
     },
     {
@@ -23761,7 +23801,7 @@
     },
     {
       "path": "lib/curriculum/mark-module-incomplete.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 2
     },
     {
@@ -23838,6 +23878,11 @@
       "path": "lib/curriculum/track-progress.ts",
       "inDegree": 7,
       "outDegree": 9
+    },
+    {
+      "path": "lib/curriculum/validate-ielts-completion.ts",
+      "inDegree": 1,
+      "outDegree": 1
     },
     {
       "path": "lib/curriculum/validate-lo-refs.ts",
@@ -24720,6 +24765,11 @@
       "outDegree": 2
     },
     {
+      "path": "lib/ops/update-system-targets.ts",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
       "path": "lib/ops/update-targets.ts",
       "inDegree": 2,
       "outDegree": 2
@@ -24901,7 +24951,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 674,
+      "inDegree": 676,
       "outDegree": 0
     },
     {
@@ -25268,6 +25318,21 @@
       "path": "lib/recompose/preview.ts",
       "inDegree": 1,
       "outDegree": 1
+    },
+    {
+      "path": "lib/registry/canonical-directionality.ts",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/registry/canonical-domain-group.ts",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/registry/canonical-scale-type.ts",
+      "inDegree": 1,
+      "outDegree": 0
     },
     {
       "path": "lib/registry/index.ts",
@@ -26663,7 +26728,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 674,
+      "inDegree": 676,
       "outDegree": 0
     },
     {
@@ -26687,14 +26752,14 @@
       "outDegree": 3
     },
     {
+      "path": "app/api/calls/[callId]/pipeline/route.ts",
+      "inDegree": 0,
+      "outDegree": 57
+    },
+    {
       "path": "lib/learner-scope.ts",
       "inDegree": 56,
       "outDegree": 1
-    },
-    {
-      "path": "app/api/calls/[callId]/pipeline/route.ts",
-      "inDegree": 0,
-      "outDegree": 55
     },
     {
       "path": "lib/system-settings.ts",

@@ -13,6 +13,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { resolveParameterIds } from "@/lib/registry/resolve";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 /**
  * @api POST /api/admin/sync-parameters
@@ -182,6 +183,25 @@ export async function POST(req: Request) {
         continue;
       }
 
+      // #2030 — REFUSE silent off-taxonomy creates. The DB has no CHECK
+      // constraint on Parameter.domainGroup; the taxonomy ratchet test
+      // is the only gate. A row written here with an unknown group
+      // would land cleanly and silently break the next CI run that
+      // touches the registry. Better to error here than corrupt later.
+      const canonicalGroup = resolveCanonicalDomainGroup(paramData);
+      if (!canonicalGroup) {
+        results.errors.push(
+          `Refused to auto-create ${missingId} from spec ${firstRef.specSlug}: ` +
+            `cannot resolve a canonical domainGroup (paramData.domainGroup=` +
+            `${JSON.stringify(paramData.domainGroup)} paramData.section=` +
+            `${JSON.stringify(paramData.section)}). ` +
+            `Operator must add this parameter to ` +
+            `\`docs-archive/bdd-specs/behavior-parameters.registry.json\` ` +
+            `with a domainGroup from the canonical v1.0 taxonomy.`
+        );
+        continue;
+      }
+
       try {
         // Create the parameter
         await prisma.parameter.create({
@@ -190,7 +210,7 @@ export async function POST(req: Request) {
             name: paramData.name || missingId,
             definition: paramData.description || paramData.definition || null,
             sectionId: paramData.section || spec.domain || "imported",
-            domainGroup: paramData.section || spec.domain || "general",
+            domainGroup: canonicalGroup,
             scaleType: "continuous",
             directionality: "bidirectional",
             computedBy: "pipeline",

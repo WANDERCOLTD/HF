@@ -76,10 +76,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
   // the wiring work; each transform read needs per-setting design
   // (e.g., baselineAssessmentDepth needs "light/standard/deep" prompt
   // synthesis, not just a substring read).
-  intakeSkipIfReturning: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Intake-gate skip-for-returning-learner logic deferred to follow-on (intake transform needs the read).",
-  },
   baselineAssessmentDepth: {
     reason:
       "Producer-only since 2026-06-17 audit. firstCallMode / instructions transforms don't synthesise light/standard/deep directives yet.",
@@ -128,12 +124,6 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
     reason:
       "Producer-only since 2026-06-17 audit. Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
   },
-  // openingRecapEnabled — wired by #2055 (sub-epic F of #2049). The
-  //   quickstart transform's `opening_recap` field reads
-  //   `pbConfig.openingRecapEnabled` on Call 1.
-  // recapSynthesisEnabled — wired by #2055 (sub-epic F of #2049). The
-  //   priorCallFeedback loader's `maybeSynthesizeRecap` short-circuits
-  //   when `playbookConfig.recapSynthesisEnabled === false`.
   rewardStrategy: {
     reason:
       "Producer-only since 2026-06-17 audit. REWARD pipeline stage uses a hardcoded strategy; the operator-set override is not consulted yet (writeGate is operator-only with reprompt — landing was deferred per epic #779 Felt Progress S1).",
@@ -143,7 +133,7 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 13;
+const EXPECTED_EXEMPT_COUNT = 12;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation
