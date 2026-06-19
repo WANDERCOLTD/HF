@@ -727,6 +727,65 @@ registerTransform("computeQuickStart", (
       return resolved;
     })(),
 
+    /**
+     * #2055 (sub-epic F of #2049) — Call 1 opening recap.
+     *
+     * When `pbConfig.openingRecapEnabled` is true AND this is Call 1,
+     * emit a brief recap of the learner's intake answers (goal /
+     * confidence / concern / prior knowledge / motivation). The AI
+     * tutor uses this to open with continuity — "I see you're working
+     * on X and you mentioned Y..." — rather than a cold ask.
+     *
+     * Distinct from `priorCallFeedback` (Call 2+ history recap). This
+     * one looks BACKWARDS at intake; that one looks backwards at the
+     * previous call.
+     *
+     * Pulls from the same `loadedData.callerAttributes` (PRE scope)
+     * the `learner_survey` field reads, but presents them as a
+     * tutor-facing recap directive rather than raw survey rows.
+     *
+     * Null when:
+     *   - Not Call 1 (Calls 2+ use priorCallFeedback)
+     *   - `openingRecapEnabled` is false / undefined
+     *   - No intake answers exist (nothing to recap)
+     */
+    opening_recap: (() => {
+      if (!isFirstCall) return null;
+      if (pbConfig.openingRecapEnabled !== true) return null;
+
+      const get = (key: string): string | null => {
+        const attr = loadedData.callerAttributes.find(
+          (a: CallerAttributeData) =>
+            a.scope === SURVEY_SCOPES.PRE && a.key === key,
+        );
+        if (!attr) return null;
+        const val = getAttributeValue(attr);
+        return val != null ? String(val) : null;
+      };
+
+      const goal = get(PRE_SURVEY_KEYS.GOAL_TEXT);
+      const priorKnowledge = get(PRE_SURVEY_KEYS.PRIOR_KNOWLEDGE);
+      const confidence = get(PRE_SURVEY_KEYS.CONFIDENCE);
+      const concern = get(PRE_SURVEY_KEYS.CONCERN_TEXT);
+      const motivation = get(PRE_SURVEY_KEYS.MOTIVATION);
+
+      const fragments: string[] = [];
+      if (goal) fragments.push(`their stated goal is "${goal}"`);
+      if (priorKnowledge) fragments.push(`prior knowledge: ${priorKnowledge}`);
+      if (confidence) fragments.push(`self-rated confidence ${confidence}/5`);
+      if (concern) fragments.push(`a concern they raised: "${concern}"`);
+      if (motivation) fragments.push(`motivation: "${motivation}"`);
+
+      if (fragments.length === 0) return null;
+
+      const learnerLabel = caller?.name ?? "this learner";
+      return (
+        `Brief recap before you greet: from intake, ${learnerLabel} told us ` +
+        `${fragments.join("; ")}. Open by acknowledging at least one of these ` +
+        `so the learner feels heard — do NOT ask them to repeat what they already said.`
+      );
+    })(),
+
     discovery_guidance: (() => {
       if (!isFirstCall) return null;
       // #274 Slice B: when the learner has picked a specific module, the

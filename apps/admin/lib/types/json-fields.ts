@@ -739,6 +739,43 @@ export interface PlaybookConfig {
     dailyCap?: number;
   };
   /**
+   * #2055 (sub-epic F of #2049) — Call 1 framing variant of the recap.
+   *
+   * Distinct from `priorCallRecap` (Call 2+ history). When true on Call 1,
+   * the quickstart transform emits a brief `opening_recap` field that
+   * surfaces the learner's intake answers (goal / concern / confidence)
+   * at the top of the prompt so the AI tutor opens with continuity rather
+   * than a cold ask.
+   *
+   * Default false (absent → no recap section emitted). Calls 2+ ignore
+   * this flag — `priorCallFeedback` handles continuity then.
+   *
+   * @bucket Course parameter. Educator-tunable on the Journey lens.
+   * @see lib/prompt/composition/transforms/quickstart.ts (opening_recap field)
+   */
+  openingRecapEnabled?: boolean;
+  /**
+   * #2055 (sub-epic F of #2049) — cost gate for the AI-synthesised recap.
+   *
+   * When `false`, the loader short-circuits to the templated path WITHOUT
+   * the AI call (saves the per-call billing). When `true` or undefined,
+   * the existing gate sequence runs — env kill switch, `priorCallRecap`
+   * config, allowlist, daily cap, depth dispatch, cache, synthesize.
+   *
+   * Distinct from `priorCallRecap.enabled`: that flag is the FEATURE
+   * toggle (do we have a synthesised recap at all?); this one is the
+   * COST toggle (when the feature is on, do we actually pay for AI?).
+   * Operators flip this off when budget tightens without losing the
+   * templated fallback path.
+   *
+   * Default: undefined → behaves as if true (preserves existing gate
+   * sequence). Explicit false → short-circuit.
+   *
+   * @bucket Course parameter. Educator-tunable on the Journey lens.
+   * @see lib/prompt/composition/loaders/priorCallFeedback.ts::maybeSynthesizeRecap
+   */
+  recapSynthesisEnabled?: boolean;
+  /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
    * unmet prerequisites vs. show a soft-warning override modal. Default false
    * (soft warning), per IELTS learner-picks ethos. Set true for assessment

@@ -94,14 +94,12 @@ export const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
     destinedFor: "runtime-gate",
     note: "Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
   },
-  openingRecapEnabled: {
-    destinedFor: "compose-prompt",
-    note: "Opening-recap (Call 1 framing) variant not wired. Distinct from priorCallFeedback.",
-  },
-  recapSynthesisEnabled: {
-    destinedFor: "compose-prompt",
-    note: "Synthesis runs unconditionally when prior-call context exists; the gating flag isn't checked.",
-  },
+  // openingRecapEnabled — wired by #2055 (sub-epic F of #2049). The
+  //   quickstart transform emits `opening_recap` on Call 1 when the flag
+  //   is true; renderer pushes [OPENING RECAP] between OPENING + GREETING.
+  // recapSynthesisEnabled — wired by #2055 (sub-epic F of #2049). The
+  //   priorCallFeedback loader short-circuits to the templated path
+  //   when this flag is explicitly false (cost gate).
   rewardStrategy: {
     destinedFor: "scoring",
     note: "REWARD pipeline uses a hardcoded strategy; this operator override isn't consulted.",

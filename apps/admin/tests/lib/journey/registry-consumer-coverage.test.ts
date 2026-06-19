@@ -128,14 +128,12 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
     reason:
       "Producer-only since 2026-06-17 audit. Stop-trigger evaluator doesn't gate on this counter (offboarding fires on course-complete only).",
   },
-  openingRecapEnabled: {
-    reason:
-      "Producer-only since 2026-06-17 audit. Opening-recap is a SECOND recap variant (Call 1 framing) distinct from priorCallFeedback (Call 2+ history). No transform consults the flag.",
-  },
-  recapSynthesisEnabled: {
-    reason:
-      "Producer-only since 2026-06-17 audit. `recapSynthesisCache` is the OUTPUT column read by transforms; the gating flag `recapSynthesisEnabled` is never checked — synthesis runs unconditionally when there's prior-call context.",
-  },
+  // openingRecapEnabled — wired by #2055 (sub-epic F of #2049). The
+  //   quickstart transform's `opening_recap` field reads
+  //   `pbConfig.openingRecapEnabled` on Call 1.
+  // recapSynthesisEnabled — wired by #2055 (sub-epic F of #2049). The
+  //   priorCallFeedback loader's `maybeSynthesizeRecap` short-circuits
+  //   when `playbookConfig.recapSynthesisEnabled === false`.
   rewardStrategy: {
     reason:
       "Producer-only since 2026-06-17 audit. REWARD pipeline stage uses a hardcoded strategy; the operator-set override is not consulted yet (writeGate is operator-only with reprompt — landing was deferred per epic #779 Felt Progress S1).",
@@ -145,7 +143,7 @@ const REGISTRY_CONSUMER_EXEMPT_PATHS: Record<string, ExemptEntry> = {
 /** Ratchet — the exempt count is allowed to GO DOWN (wire a consumer,
  *  remove the entry), never UP without a bump here. The test fails on
  *  drift in either direction so a careless add gets caught at PR time. */
-const EXPECTED_EXEMPT_COUNT = 15;
+const EXPECTED_EXEMPT_COUNT = 13;
 
 // ────────────────────────────────────────────────────────────
 // Consumer-surface concatenation
