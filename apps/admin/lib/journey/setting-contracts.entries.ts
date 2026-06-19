@@ -388,7 +388,12 @@ const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
   group: "G2",
   educatorLabel: "Onboarding flow phases",
   helpText: "Phases the AI walks through after the welcome line on Call 1.",
-  storagePath: "domain.onboardingFlowPhases",
+  // Slice 14 audit fix — primary write must hit the playbook level so
+  // PATCH /journey-setting can apply it. `domain.onboardingFlowPhases`
+  // is the cascade source (declared below), not the write target. The
+  // PATCH route rejects `domain.*` with 501 STORAGE_ROOT_NOT_SUPPORTED;
+  // every save attempt was silently failing.
+  storagePath: "config.onboardingFlowPhases",
   control: "phases",
   cascadeSources: [
     { level: "domain", storagePath: "domain.onboardingFlowPhases" },
