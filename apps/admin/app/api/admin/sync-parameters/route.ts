@@ -14,6 +14,44 @@ import { join } from "path";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { resolveParameterIds } from "@/lib/registry/resolve";
 
+// Canonical domainGroup taxonomy v1.0 (#1948). Lattice-pinned by
+// `tests/lib/registry/parameter-domain-group-taxonomy.test.ts`. Sync MUST
+// land canonical values — `"general"` / `"imported"` / `"skill"` / any
+// spec-domain string would fail the taxonomy ratchet at the next CI run
+// and silently produce off-taxonomy rows in the meantime.
+const CANONICAL_DOMAIN_GROUPS = new Set([
+  "behavior-core",
+  "learning-adaptation",
+  "curriculum-adaptation",
+  "personality-adaptation",
+  "supervision",
+  "companion",
+  "engagement",
+  "reinforcement",
+  "onboarding",
+  "voice-delivery",
+  "learner-model",
+  "affect-motivation",
+]);
+
+/**
+ * Resolve a canonical domainGroup from spec/param data, or return null.
+ * Sync REFUSES to create the Parameter row when this returns null —
+ * silent fallback to a non-canonical value is the bug class this fix
+ * closes (audit-finding 2 of LastParms session 2026-06-19).
+ */
+function resolveCanonicalDomainGroup(
+  paramData: { domainGroup?: unknown; section?: unknown } | null,
+): string | null {
+  if (!paramData) return null;
+  for (const candidate of [paramData.domainGroup, paramData.section]) {
+    if (typeof candidate === "string" && CANONICAL_DOMAIN_GROUPS.has(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 /**
  * @api POST /api/admin/sync-parameters
  * @visibility internal
@@ -182,6 +220,25 @@ export async function POST(req: Request) {
         continue;
       }
 
+      // #2030 — REFUSE silent off-taxonomy creates. The DB has no CHECK
+      // constraint on Parameter.domainGroup; the taxonomy ratchet test
+      // is the only gate. A row written here with an unknown group
+      // would land cleanly and silently break the next CI run that
+      // touches the registry. Better to error here than corrupt later.
+      const canonicalGroup = resolveCanonicalDomainGroup(paramData);
+      if (!canonicalGroup) {
+        results.errors.push(
+          `Refused to auto-create ${missingId} from spec ${firstRef.specSlug}: ` +
+            `cannot resolve a canonical domainGroup (paramData.domainGroup=` +
+            `${JSON.stringify(paramData.domainGroup)} paramData.section=` +
+            `${JSON.stringify(paramData.section)}). ` +
+            `Operator must add this parameter to ` +
+            `\`docs-archive/bdd-specs/behavior-parameters.registry.json\` ` +
+            `with a domainGroup from the canonical v1.0 taxonomy.`
+        );
+        continue;
+      }
+
       try {
         // Create the parameter
         await prisma.parameter.create({
@@ -190,7 +247,7 @@ export async function POST(req: Request) {
             name: paramData.name || missingId,
             definition: paramData.description || paramData.definition || null,
             sectionId: paramData.section || spec.domain || "imported",
-            domainGroup: paramData.section || spec.domain || "general",
+            domainGroup: canonicalGroup,
             scaleType: "continuous",
             directionality: "bidirectional",
             computedBy: "pipeline",
