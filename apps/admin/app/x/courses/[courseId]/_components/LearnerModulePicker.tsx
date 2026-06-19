@@ -24,6 +24,8 @@ import {
   Mic,
   Pencil,
   Layers,
+  ListChecks,
+  ClipboardList,
   CircleDot,
   CircleDashed,
   AlertCircle,
@@ -591,6 +593,8 @@ function RailLayout({
 function ModeIcon({ mode }: { mode: AuthoredModule["mode"] }) {
   if (mode === "examiner") return <GraduationCap size={18} aria-hidden="true" className="learner-picker__icon" />;
   if (mode === "mixed") return <Layers size={18} aria-hidden="true" className="learner-picker__icon" />;
+  if (mode === "quiz") return <ListChecks size={18} aria-hidden="true" className="learner-picker__icon" />;
+  if (mode === "mock-exam") return <ClipboardList size={18} aria-hidden="true" className="learner-picker__icon" />;
   return <Pencil size={18} aria-hidden="true" className="learner-picker__icon" />;
 }
 
