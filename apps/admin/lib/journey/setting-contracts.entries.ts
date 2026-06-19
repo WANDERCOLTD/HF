@@ -279,7 +279,12 @@ const G2_WELCOME_MESSAGE: JourneySettingContract = {
   group: "G2",
   educatorLabel: "Opening line",
   helpText: "First line the learner hears on Call 1.",
-  storagePath: "sessionFlow.welcomeMessage",
+  // Slice 14 grey-out epic fix — was `sessionFlow.welcomeMessage` but
+  // `SessionFlowConfig` doesn't carry a top-level welcomeMessage; the
+  // resolver reads `playbook.config.welcomeMessage` and the PATCH was
+  // landing on a write-only orphan path. Move to `config.welcomeMessage`
+  // so write + read meet.
+  storagePath: "config.welcomeMessage",
   control: "text",
   cascadeSources: [
     { level: "domain", storagePath: "domain.welcomeMessage" },

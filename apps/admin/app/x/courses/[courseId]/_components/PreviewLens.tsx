@@ -87,6 +87,13 @@ export const LENS_LABEL_TO_SETTING_ID: Partial<Record<string, string>> = {
   "Enable AI Intro Call": "intakeAiIntroCall",
   "Edit Greeting": "welcomeMessage",
   "Edit Onboarding": "onboardingFlowPhases",
+  // Slice 14 grey-out epic — close the remaining "Edit X doesn't open
+  // RHS" gaps. "Edit module visibility" lands on the firstCallModuleVisibility
+  // contract (Call 1 modules gate). The two "Edit Intake (toggle …)"
+  // dividers stay unmapped intentionally — they cover MULTIPLE settings
+  // at once, so the click falls through to bucket-only navigation which
+  // is the correct semantic.
+  "Edit module visibility": "firstCallModuleVisibility",
 };
 
 interface PreviewLensProps {
