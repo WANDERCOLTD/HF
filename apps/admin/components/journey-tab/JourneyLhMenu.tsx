@@ -118,10 +118,19 @@ export function JourneyLhMenu({
           const buckets = bucketsByGroup.get(g) ?? [];
           if (buckets.length === 0) return null;
           const isOpen = openGroups.has(g);
+          // Slice 7 grey-out epic — flag the group containing the active
+          // bucket so the CSS can render a "you are here" accent dot next
+          // to the group header. Mirrors the per-bucket `.hf-selected`
+          // treatment one layer up.
+          const containsSelected =
+            selectedBucketId !== null &&
+            buckets.some((b) => b.id === selectedBucketId);
           return (
             <div
               key={g}
-              className="hf-journey-group"
+              className={`hf-journey-group ${
+                containsSelected ? "hf-journey-group-has-selected" : ""
+              }`}
               data-testid={`hf-journey-group-${g}`}
             >
               <button

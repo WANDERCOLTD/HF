@@ -103,10 +103,55 @@
   background: color-mix(in srgb, var(--surface-secondary) 50%, transparent);
 }
 
+/* Slice 7 grey-out epic — strengthen the active-bucket cue. Operators
+ * complained the prior 12% tint + 500 weight was easy to miss. We add:
+ *   - a 3px left accent bar (clear "you are here" marker)
+ *   - 18% accent fill (still calm but unmistakable)
+ *   - 600 weight on the label
+ *   - tinted count badge so the per-bucket number reads as part of
+ *     the selection treatment, not noise
+ */
 .hf-journey-setting-row.hf-selected {
-  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: 600;
+  position: relative;
+}
+
+.hf-journey-setting-row.hf-selected::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent-primary);
+}
+
+.hf-journey-setting-row.hf-selected .hf-journey-bucket-count {
+  background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+  color: var(--accent-primary);
+}
+
+/* Group header signals which group contains the active bucket — a thin
+ * dot + accent-tinted caption so educators scanning the LH see WHICH
+ * super-group their current bucket lives in. */
+.hf-journey-group.hf-journey-group-has-selected
+  > .hf-journey-group-header {
+  position: relative;
+}
+.hf-journey-group.hf-journey-group-has-selected
+  > .hf-journey-group-header::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  transform: translateY(-50%);
 }
 
 .hf-journey-canvas {
