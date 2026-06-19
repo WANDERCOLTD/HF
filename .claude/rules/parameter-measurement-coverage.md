@@ -30,10 +30,10 @@ When you add or modify a parameter row in
      specs measure this param.
    - `usage.measurement: { kind: "operator-only", reason: "..." }` —
      explicit non-measurable tutor knob (M4, 2026-06-18). The reason
-     must be >20 chars and explain why the param isn't learner-
-     derivable from transcript (typical case: tutor-emit behaviour
-     directive that the LLM expresses but no learner-side signal
-     reflects). Excluded from the gap ratchet.
+     must be **>40 chars** (M4 structural pass tightened from 20 to
+     force substantive justification) and follow the decision tree
+     below to declare WHICH non-measurable shape applies. Excluded
+     from the gap ratchet.
    - `usage.measurement: "deferred-#1967"` — explicit producer-only
      debt. Acceptable but counts against the gap ratchet.
    - `usage.measurement: "deprecated"` — only valid when
@@ -72,30 +72,119 @@ or update the citation.
 
 ## Ratchet
 
-`EXPECTED_GAP_COUNT` caps the `deferred` count. 2026-06-18 incumbent
-post-M4: **48 active parameters** still declare `"deferred-#1967"`
-(M4 reclassified 9 of the original 57 — 3 measured via STYLE-001
-alias-citation, 6 operator-only). Pedagogy review per
+`EXPECTED_GAP_COUNT` caps the `deferred` count. 2026-06-19 incumbent
+post-M4-structural-pass: **34 active parameters** still declare
+`"deferred-#1967"`. The M4 reclassification ratchet history:
+
+- M1 (#1998) — backfilled 82 active params from existing spec corpus
+- M4 (#2006) — reclassified 9 (3 measured via STYLE-001 alias-
+  citation, 6 operator-only) → ratchet 57 → 48
+- M4 structural pass (this commit) — reclassified 14 without
+  pedagogy input using the decision tree above (1 stale row already
+  wired via `parametersAsDirectives`, 5 folk-pedagogy preference
+  assertions paired with BEH-* siblings, 8 ADAPT-stage decision
+  rules) → ratchet 48 → 34
+
+Pedagogy review per
 [`docs/M4-pedagogy-review.md`](../../docs/M4-pedagogy-review.md)
-drives the remaining 48 monotonically toward 0.
+drives the remaining 34 monotonically toward 0.
+
+## Decision tree — how to classify a non-measurable parameter
+
+Born of the M4 structural pass (2026-06-19, this commit) — the M4
+worksheet ([`docs/M4-pedagogy-review.md`](../../docs/M4-pedagogy-review.md))
+named only two forks (`measure` / `operator-only` / `defer`) but
+investigation surfaced THREE structurally distinct shapes of "not
+measurable", and an ADAPT-stage shape the worksheet didn't name.
+Use this tree when an active parameter is producer-only and you
+need to classify it:
+
+```
+Q1: Is the parameter transcript-derivable from a single call?
+     (would a human listening to one transcript reliably score it?)
+
+  YES → measured. Author or cite the AnalysisSpec.
+        usage.measurement: { specSlug: "..." } or { specSlugs: [...] }
+        Ratchet stays.
+
+  NO → continue Q2.
+
+Q2: WHY isn't it transcript-derivable? Pick one shape:
+
+  (a) TUTOR-EMIT DIRECTIVE
+      The LLM expresses the behaviour (response length, pause
+      tolerance, turn length, chunk size, response style); no
+      learner-side signal reflects it back. SUPERVISE-stage
+      compliance checks are a separate concern.
+      Reason template:
+        "Sets tutor [behaviour]; tutor-emit directive expressed
+         via prompt composition. Not learner-derivable from
+         transcript."
+      Examples: BEH-RESPONSE-LEN, BEH-TURN-LENGTH, BEH-CHUNK-SIZE,
+      BEH-PAUSE-TOLERANCE, BEH-ABSTRACT-VS-CONCRETE.
+
+  (b) FOLK-PEDAGOGY PREFERENCE ASSERTION
+      The row describes a learner-preference claim ("visual learners
+      respond well to analogies", "fast pace learners can handle
+      more concepts at once"). Not an observable; a hypothesis.
+      Typically paired with a measurable BEH-* sibling that captures
+      the tutor-behaviour knob. Reference the sibling.
+      Reason template:
+        "Folk-pedagogy preference assertion (\"<quote from
+         definition>\"); learner-preference signal that is not
+         derivable from a single transcript. See <BEH-SIBLING-ID>
+         sibling for the measurable tutor-behavior knob."
+      Examples: analogy-usage, concept-density, example-richness,
+      repetition-frequency, scaffolding (all paired with their
+      BEH-* siblings).
+
+  (c) ADAPT-STAGE DECISION RULE
+      The parameter is consumed by the ADAPT-runner to make
+      curriculum-sequencing decisions against aggregated mastery —
+      not transcript-observable at the EXTRACT stage. The operator
+      sets the target band; ADAPT reads it; no EXTRACT signal
+      produces it. Per `docs/CHAIN-CONTRACTS.md`, ADAPT consumes
+      CallScore + writes CallerTarget — it isn't itself a CallScore
+      producer.
+      Reason template:
+        "ADAPT-stage curriculum-sequencing decision rule (<what it
+         decides>); operator sets the target band, ADAPT-runner
+         reads it against aggregated mastery. Not a transcript-
+         observable EXTRACT signal — measurement does not apply at
+         the EXTRACT stage."
+      Examples: BEH-ADVANCE-READINESS, BEH-CHALLENGE-LEVEL,
+      BEH-FOUNDATION-FOCUS, BEH-INTERLEAVING, BEH-NEW-CONTENT-RATE,
+      BEH-PREREQUISITE-CALLBACK, BEH-PRODUCTIVE-STRUGGLE,
+      BEH-SPACED-RETRIEVAL-PRIORITY.
+
+  All three shapes use the same `{ kind: "operator-only", reason }`
+  shape. The reason text carries the semantic distinction. Future
+  tooling MAY add a discriminated kind (`adapt-stage-producer` etc.)
+  but the data model stays single-kind today to avoid premature
+  schema fanout — the reason templates above are the structural
+  contract.
+
+  None of these match? → "deferred-#1967" + bump ratchet. Explain
+  in the PR body what classification you considered and rejected.
+```
 
 ## When you DON'T need an AnalysisSpec
 
-Some parameters are operator-only knobs that don't need scoring:
+Quick reference — the three families covered by the tree above:
 
 - Default-targets settings (`BEH-DEFAULT-TARGETS-QUALITY` etc.) are
   set by the wizard; they aren't transcript-derivable.
-- Pure config knobs that drive prompt construction without ever
-  needing a learner-state signal back.
-- Tutor-emit behaviour directives (`BEH-WARMTH`'s sibling knobs
-  like `BEH-PAUSE-TOLERANCE`, `BEH-RESPONSE-LEN`, `BEH-TURN-LENGTH`)
-  — the LLM expresses them but no learner-side signal reflects them
-  back as a measurable score. SUPERVISE-stage compliance checks are
-  a separate concern (see #1967 epic notes).
+- Pure config knobs that drive prompt construction without a
+  learner-state signal back (tree shape (a) — tutor-emit directive).
+- Folk-pedagogy preference assertions (tree shape (b)) — paired
+  with a BEH-* sibling that captures the measurable tutor-behaviour
+  knob.
+- ADAPT-stage decision rules (tree shape (c)) — consumed by ADAPT
+  against aggregated mastery, not produced by EXTRACT.
 
-For these, declare `usage.measurement: { kind: "operator-only",
-reason: "..." }` with a substantive (>20 char) reason. Excluded
-from the gap ratchet.
+Declare `usage.measurement: { kind: "operator-only", reason: "..." }`
+with a substantive (**>40 char**) reason matching one of the
+templates above. Excluded from the gap ratchet.
 
 ## When adding a new parameter
 
