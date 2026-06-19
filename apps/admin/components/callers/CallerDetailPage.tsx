@@ -94,10 +94,7 @@ export default function CallerDetailPage() {
     artifacts: "overview-v2",
   };
   const rawTab = searchParams.get("tab");
-  // Snapshot v3 promoted to primary tab 2026-06-19. Downstream render
-  // branches still check `snapshotV3Active`; keep the const true so the
-  // existing call sites need no further changes in this PR.
-  const snapshotV3Active = true;
+  // Snapshot v3 promoted to primary tab 2026-06-19 — gating removed.
   // HF_TAB_LAYOUT FF drives visible-tab composition. Default `retire`
   // hides legacy tabs from the bar and redirects URL hits via
   // `retirementRedirect`. Set NEXT_PUBLIC_HF_TAB_LAYOUT=both to surface
@@ -1180,12 +1177,9 @@ export default function CallerDetailPage() {
       {/* Section Content */}
       <div className="cdp-body">
       <div className="cdp-content">
-      {/* S5 of #1555 + #1660 (Epic #1606 Group C foundation) — Snapshot v3
-          beta. Renders only when the flag + URL param align (see
-          snapshotV3Active above). The S5 "Coming soon" placeholder is
-          replaced by the SnapshotTabContent composer, which mounts 5
-          sections + 3 stub slots that sibling stories #1661 / #1662 /
-          #1663 / #1665 / #1666 will fill. */}
+      {/* Snapshot v3 — primary tab (promoted 2026-06-19). Renders the
+          SnapshotTabContent composer (5 sections + 3 stub slots filled
+          by sibling stories #1661 / #1662 / #1663 / #1665 / #1666). */}
       {activeSection === "snapshot-v3" && (
         <SnapshotTabContent
           callerId={data.caller.id}
