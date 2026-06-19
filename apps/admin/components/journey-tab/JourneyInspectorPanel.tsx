@@ -118,6 +118,22 @@ export function JourneyInspectorPanel({
   selectedBucketId,
   focusedSettingId,
 }: JourneyInspectorPanelProps) {
+  // Slice 6 grey-out epic — LH bucket click glow. When bucketId changes,
+  // accent-pulse the whole Inspector area for ~900ms so the operator
+  // sees that the right-hand pane retargeted, mirroring the persistent
+  // middle-pane bubble pulse from `useBubblePulse`.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!selectedBucketId) return;
+    const el = wrapperRef.current;
+    if (!el) return;
+    el.classList.add("hf-journey-inspector-bucket-pulse");
+    const timer = window.setTimeout(() => {
+      el.classList.remove("hf-journey-inspector-bucket-pulse");
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [selectedBucketId]);
+
   if (!selectedBucketId) {
     return (
       <div
@@ -169,7 +185,10 @@ export function JourneyInspectorPanel({
   const hasMixedScope = course.length > 0 && moduleScope.length > 0;
 
   return (
-    <div data-testid={`hf-journey-inspector-bucket-${selectedBucketId}`}>
+    <div
+      ref={wrapperRef}
+      data-testid={`hf-journey-inspector-bucket-${selectedBucketId}`}
+    >
       <div className="hf-journey-bucket-header">
         <h3 className="hf-section-title">{bucket.label}</h3>
         <p className="hf-section-desc">{bucket.caption}</p>

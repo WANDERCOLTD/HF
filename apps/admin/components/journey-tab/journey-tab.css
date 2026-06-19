@@ -291,6 +291,21 @@
   padding-bottom: 0;
 }
 
+/* Slice 6 grey-out epic — LH bucket click glow on the Inspector. Pairs
+ * with the persistent middle-pane bubble pulse from `useBubblePulse`.
+ * Brief ~900ms accent fade so the educator's eye sees that BOTH the
+ * middle pane AND the right-hand pane retargeted to the bucket. */
+@keyframes hf-journey-inspector-bucket-pulse {
+  0%   { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-primary) 35%, transparent); }
+  60%  { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-primary) 18%, transparent); }
+  100% { box-shadow: inset 0 0 0 2px transparent; }
+}
+
+.hf-journey-inspector-bucket-pulse {
+  border-radius: 12px;
+  animation: hf-journey-inspector-bucket-pulse 900ms ease-out forwards;
+}
+
 /* Slice 4 grey-out epic — preview-bubble click highlight on the matching
  * Inspector row. Class is added by FocusableRow for ~1.8s, then removed.
  * Keep the pulse subtle — the educator's eye needs to land, not be
