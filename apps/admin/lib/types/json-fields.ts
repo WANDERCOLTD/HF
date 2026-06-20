@@ -1234,6 +1234,28 @@ export interface AuthoredModule {
   masteryThreshold?: number;
 
   /**
+   * #2104 (epic #2102 S2) — per-module override of the course-level
+   * `PlaybookConfig.strictPrerequisites` flag.
+   *
+   * Resolution at picker time:
+   *   `mod.prerequisiteStrict ?? PlaybookConfig.strictPrerequisites ?? false`
+   *
+   * Use case: IELTS Speaking Practice keeps the course-level flag at
+   * `false` (soft-warn for Parts 1/2/3 — free-pick ethos) while
+   * setting `prerequisiteStrict: true` on the Mock Exam module to
+   * hard-lock it until the practice prereqs are mastered. Without
+   * this per-module knob the course-level flag forces all-or-nothing.
+   *
+   * Read by `LearnerModulePicker.tsx` (`lockedModuleIds` useMemo +
+   * `handlePick`). The Soft-Warn / Hard-Lock modal pair is unchanged
+   * — the override just selects which one fires for this module.
+   *
+   * Absent (default) → falls back to course-level flag = zero
+   * regression for every existing course-ref.
+   */
+  prerequisiteStrict?: boolean;
+
+  /**
    * #1701 (epic #1700 Theme 1) — module-scoped settings layer (G8).
    *
    * All keys optional. Each maps to a G8 entry in
