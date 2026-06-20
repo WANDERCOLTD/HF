@@ -285,6 +285,58 @@
   border: 1px solid color-mix(in srgb, var(--status-warning-text) 35%, transparent);
 }
 
+/* Story #2105 — ConflictWarningChip. Amber, non-blocking. Mounts above
+ * the JourneyField row (like WriteGateLockChip) when computeRelevanceState
+ * returns state === "conflicted". Operator MAY save the combination;
+ * the chip carries the resolution text + a "Resolve" link to the peer. */
+.hf-conflict-warning-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--status-warning-text);
+  background: color-mix(in srgb, var(--status-warning-text) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-warning-text) 30%, transparent);
+  border-radius: 6px;
+  line-height: 1.4;
+}
+
+.hf-conflict-warning-chip-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.hf-conflict-warning-chip-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.hf-conflict-warning-chip-text {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.hf-conflict-warning-chip-resolve {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--status-warning-text);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--status-warning-text) 40%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.hf-conflict-warning-chip-resolve:hover {
+  background: color-mix(in srgb, var(--status-warning-text) 15%, transparent);
+}
+
 /* Slice C (#1721) — bucket-grained LH menu. */
 .hf-journey-bucket-label {
   flex: 1;
