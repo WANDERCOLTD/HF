@@ -33,6 +33,7 @@ import { JourneyInspectorPanel } from "@/components/journey-tab/JourneyInspector
 import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
 import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell";
+import { isBucketCrossCutting } from "@/lib/journey/bucket-relations";
 import type { CourseDetailTabId } from "@/lib/journey/buckets-by-tab";
 import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 import { useCrossTabHint } from "@/lib/journey/use-cross-tab-hint";
@@ -122,11 +123,20 @@ export function CourseTeachingTab({
           />
         }
         canvas={
-          <PreviewLens
-            courseId={courseId}
-            onSelectSection={handlePreviewSelect}
-            suppressSidetray
-          />
+          <div
+            className={
+              isBucketCrossCutting(selectedId)
+                ? "hf-designer-canvas-dim"
+                : undefined
+            }
+            data-cross-cutting={isBucketCrossCutting(selectedId)}
+          >
+            <PreviewLens
+              courseId={courseId}
+              onSelectSection={handlePreviewSelect}
+              suppressSidetray
+            />
+          </div>
         }
         inspector={
           crossTabHint ? (

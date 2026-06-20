@@ -39,7 +39,10 @@ import {
   type CourseDetailTabId,
 } from "@/lib/journey/buckets-by-tab";
 import { bucketToTab } from "@/lib/journey/bucket-to-tab";
-import { getBucketsForSection } from "@/lib/journey/bucket-relations";
+import {
+  getBucketsForSection,
+  isBucketCrossCutting,
+} from "@/lib/journey/bucket-relations";
 import { JOURNEY_MENU_ITEMS_BY_ID } from "@/lib/journey/menu-items";
 import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
@@ -49,6 +52,11 @@ import { CommandPalette } from "./CommandPalette";
 import { JourneyInspectorPanel } from "./JourneyInspectorPanel";
 import { JourneyLhMenu } from "./JourneyLhMenu";
 import { PreviewLocatorHint } from "./PreviewLocatorHint";
+// Pulls in the shared `.hf-designer-canvas-dim` rule used by the
+// cross-cutting-bucket dim wrapper below. CourseJourneyTab is a sibling
+// tri-pane shape (not DesignerShell) but reuses the same class so the
+// dim affordance is visually identical across all four tabs.
+import "@/components/shared/designer-shell/designer-shell.css";
 import "./journey-tab.css";
 import { useBubblePulse } from "./use-bubble-pulse";
 import { useJourneySelection } from "./use-journey-selection";
@@ -242,11 +250,20 @@ export function CourseJourneyTab({
             pickStripSection={pickStripSection}
             onSelectBucket={handleLhSelect}
           />
-          <PreviewLens
-            courseId={courseId}
-            onSelectSection={handlePreviewSectionSelect}
-            suppressSidetray
-          />
+          <div
+            className={
+              isBucketCrossCutting(selection.bucketId)
+                ? "hf-designer-canvas-dim"
+                : undefined
+            }
+            data-cross-cutting={isBucketCrossCutting(selection.bucketId)}
+          >
+            <PreviewLens
+              courseId={courseId}
+              onSelectSection={handlePreviewSectionSelect}
+              suppressSidetray
+            />
+          </div>
         </main>
         <aside
           className="hf-journey-pane hf-journey-inspector"
