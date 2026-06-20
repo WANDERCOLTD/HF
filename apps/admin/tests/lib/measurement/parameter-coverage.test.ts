@@ -275,8 +275,10 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   See `lib/measurement/supv-rew-consumer-manifest.ts` for the wired
  *   list and PR #2088 for the design brief. Ratchet retains 52 as
  *   upper bound; cleanup PR will tighten once stable.
+ * - 2026-06-20 — tightened post S2+S4+S6 cleanup. Live count = 6
+ *   (4 *_actual aggregator outputs + empathy_expression + BEH-EXPLORATION-STRUCTURE).
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 52;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 6;
 
 // ────────────────────────────────────────────────────────────
 // Classification

@@ -38,6 +38,7 @@ import type {
   VoiceProviderCapabilities,
 } from "../../types";
 import { verifyVapiRequest } from "./auth";
+import { mapInterruptSensitivityToVapi } from "../../interrupt-sensitivity";
 import { log } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
@@ -316,6 +317,15 @@ export class VapiProvider implements VoiceProvider {
       // name resurfaces we can wire it back without re-editing the
       // schema. Cascade reads it but the adapter no-ops it for now.
       void vc.fillerInjectionEnabled;
+
+      // #2053 — interrupt-sensitivity → VAPI barge-in (stopSpeakingPlan).
+      // Pure mapper in lib/voice/interrupt-sensitivity.ts; returns null
+      // when unset/unrecognised so we omit the key and VAPI's own default
+      // rides.
+      const bargeIn = mapInterruptSensitivityToVapi(vc.interruptSensitivity);
+      if (bargeIn) {
+        assistant.stopSpeakingPlan = bargeIn.stopSpeakingPlan;
+      }
     }
 
     return { assistant };
