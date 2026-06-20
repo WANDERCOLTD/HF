@@ -75,9 +75,11 @@ describe("detectAuthoredModules — IELTS v2.2 fixture", () => {
   });
 
   it("enforces ID regex on every parsed module", () => {
+    // Pattern relaxed to include hyphens + length cap raised to 80
+    // (CIO/CTO unit-doc IDs). Updated 2026-06-20 for the trio-import fix.
     for (const m of result.modules) {
-      expect(m.id).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(m.id.length).toBeLessThanOrEqual(32);
+      expect(m.id).toMatch(/^[a-z][a-z0-9_-]*$/);
+      expect(m.id.length).toBeLessThanOrEqual(80);
     }
   });
 
