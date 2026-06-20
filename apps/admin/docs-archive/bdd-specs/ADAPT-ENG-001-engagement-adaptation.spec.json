@@ -64,6 +64,16 @@
       "measuredBy": [
         "communication_complexity_adaptation"
       ]
+    },
+    {
+      "id": "AC-ADAPT-ENG-5",
+      "title": "Engagement + Onboarding Parameter Wiring (#2086)",
+      "given": "BEH-AGG-001 wrote behavior_profile:engagement:* and/or behavior_profile:onboarding:* CallerAttribute rows",
+      "when": "Running ADAPT-ENG-001",
+      "then": "Per-caller CallerTarget rows for the 13 engagement+onboarding parameters listed in lib/pipeline/engagement-targets-manifest.ts are adjusted toward the operator-set target band",
+      "measuredBy": [
+        "engagement_param_wiring_2086"
+      ]
     }
   ],
   "parameters": [
@@ -307,6 +317,251 @@
       "promptGuidance": {
         "whenHigh": "Match their vocabulary level. Use precise technical terminology. Engage with nuance and complexity. Don't over-explain obvious concepts. Appreciate intellectual depth.",
         "whenLow": "Use plain language. Avoid jargon and technical terms. If using technical terms, always explain them. Keep sentences short and direct. Provide concrete, relatable examples."
+      }
+    },
+    {
+      "id": "engagement_param_wiring_2086",
+      "name": "Engagement + Onboarding Parameter Wiring (sub-epic #2086)",
+      "description": "Closes the cascade-feedback loop for the 13 engagement+onboarding params identified by docs/groomed/2078-parameter-coverage-survey.md §5 + §8. Reads BEH-AGG-001's behavior_profile:engagement:* + behavior_profile:onboarding:* CallerAttribute outputs and adjusts the corresponding per-caller CallerTarget. Runtime manifest: lib/pipeline/engagement-targets-manifest.ts.",
+      "section": "engagement",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:cognitive_activation",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-COGNITIVE-ACTIVATION",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Aggregated cognitive_activation low — push the LLM to invite deeper thinking next call."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:cognitive_activation",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-COGNITIVE-ACTIVATION",
+                "adjustment": "decrease",
+                "delta": 0.05,
+                "rationale": "Aggregated cognitive_activation high — small reduction so the tutor doesn't overshoot intensity."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:conversational_dominance",
+              "operator": "eq",
+              "value": "agent_led",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CONV-DOM",
+                "adjustment": "set",
+                "value": 0.6,
+                "rationale": "Agent dominates conversation — pin BEH-CONV-DOM higher to invite more caller airtime."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:conversational_dominance",
+              "operator": "eq",
+              "value": "caller_led",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CONV-DOM",
+                "adjustment": "set",
+                "value": 0.4,
+                "rationale": "Caller dominates conversation — pin BEH-CONV-DOM lower so the tutor adds structure."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:tone_assertiveness",
+              "operator": "eq",
+              "value": "tentative",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-TONE-ASSERT",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Caller signals tentative tone — raise tone-assertiveness target so the tutor leads more confidently."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:call_frequency_fidelity",
+              "operator": "eq",
+              "value": "drift",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CALL-FREQUENCY-ADAPTATION",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Call-frequency directive drift — push the next call's frequency-adaptation target stronger so cadence sticks."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:complexity_fidelity",
+              "operator": "eq",
+              "value": "drift",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-COMMUNICATION-COMPLEXITY-ADAPTATION",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Communication-complexity adaptation drifts — strengthen the target so the next call honours the operator-set vocabulary level."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:engagement_fidelity",
+              "operator": "eq",
+              "value": "drift",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ENGAGEMENT-ADAPTATION",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Engagement-adaptation drifts — push the target up so subsequent calls honour the engagement directive."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:velocity_fidelity",
+              "operator": "eq",
+              "value": "drift",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-LEARNING-VELOCITY-ADAPTATION",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Learning-velocity adaptation drifts — push the target up so the next call paces correctly."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:engagement:cognitive_activation",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CHUNK-SIZE",
+                "adjustment": "decrease",
+                "delta": 0.10,
+                "rationale": "Low cognitive activation — smaller chunks help the learner re-engage."
+              },
+              {
+                "targetParameter": "BEH-PAUSE-FOR-QUESTIONS",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Low cognitive activation — more pause-for-questions windows invite re-engagement."
+              },
+              {
+                "targetParameter": "check-for-understanding",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "Low cognitive activation — more frequent comprehension checks catch drift early."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:onboarding:context_setting_quality",
+              "operator": "eq",
+              "value": "weak",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CONTEXT-SETTING-QUALITY",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "INIT-001 snapshot recorded weak context-setting — raise the target so subsequent agents re-anchor context."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:onboarding:goal_discovery_quality",
+              "operator": "eq",
+              "value": "weak",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-GOAL-DISCOVERY-QUALITY",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "INIT-001 snapshot recorded weak goal discovery — raise the target so the tutor probes goals more thoroughly."
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:onboarding:preference_elicitation_quality",
+              "operator": "eq",
+              "value": "weak",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-PREFERENCE-ELICITATION-QUALITY",
+                "adjustment": "increase",
+                "delta": 0.10,
+                "rationale": "INIT-001 snapshot recorded weak preference elicitation — raise the target so the tutor surfaces preferences explicitly."
+              }
+            ]
+          }
+        ]
       }
     }
   ],

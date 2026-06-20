@@ -17,7 +17,7 @@
     "affect-motivation"
   ],
   "generatedAt": "2026-04-16T17:47:52.532Z",
-  "sourceOfTruth": "Canonical spec \u2014 DB caches this. Pre-#1946 header said \"GENERATED FROM DATABASE\"; post-#1946 the registry is HF-canonical IP and `db:seed` drives the DB in the spec\u2192DB direction.",
+  "sourceOfTruth": "Canonical spec — DB caches this. Pre-#1946 header said \"GENERATED FROM DATABASE\"; post-#1946 the registry is HF-canonical IP and `db:seed` drives the DB in the spec→DB direction.",
   "parameters": [
     {
       "parameterId": "BEH-ABSTRACT-VS-CONCRETE",
@@ -171,7 +171,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Folk-pedagogy preference assertion (\"visual learners respond well to analogies\"); learner-preference signal that is not derivable from a single transcript. See BEH-ANALOGY-USAGE sibling for the measurable tutor-behavior knob."
+          "reason": "Folk-pedagogy preference assertion (\"visual learners respond well to analogies\"); operator-tuned cascade target consumed by ADAPT-LEARN-001 spec branches (adapt_to_vark_modality / adapt_to_interaction_extensions) — adapt-runner writes CallerTarget per learner profile, next-call SEMANTICS block reads the resulting BehaviorTarget. Not learner-derivable from one transcript (operator-tuned style preference, not a learner-state observable)."
         }
       }
     },
@@ -334,13 +334,20 @@
       "definition": "Whether the AI uses action-oriented, practical language versus abstract terminology.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Action-Oriented: Uses 'do', 'build', 'try' \u2014 grounds learning in activity",
-      "interpretationLow": "Conceptual: Uses 'consider', 'reflect', 'understand' \u2014 grounds learning in thought",
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Frame learning in conceptual terms: use \"consider\", \"reflect\", \"understand\" — ground ideas in thought.",
+        "templateHigh": "Frame learning in action terms: use \"do\", \"build\", \"try\" — ground ideas in activity.",
+        "threshold": 0.5
+      },
+      "interpretationHigh": "Action-Oriented: Uses 'do', 'build', 'try' — grounds learning in activity",
+      "interpretationLow": "Conceptual: Uses 'consider', 'reflect', 'understand' — grounds learning in thought",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor action-oriented vs abstract vocabulary; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor action-oriented vs abstract vocabulary; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -356,7 +363,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "ADAPT-stage curriculum-sequencing decision rule (when to advance learner to new material); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (when to advance learner to new material); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal — measurement does not apply at the EXTRACT stage."
         }
       }
     },
@@ -372,7 +379,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor analogy-usage frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor analogy-usage frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -388,7 +395,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor teaching-modality switching frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor teaching-modality switching frequency; operator-tuned cascade target consumed by ADAPT-LEARN-001 spec branches (adapt_to_vark_modality / adapt_to_interaction_extensions) — adapt-runner writes CallerTarget per learner profile, next-call SEMANTICS block reads the resulting BehaviorTarget. Not learner-derivable from one transcript (operator-tuned style preference, not a learner-state observable)."
         }
       }
     },
@@ -404,7 +411,7 @@
         "compose": "transform-direct",
         "measurement": {
           "kind": "operator-only",
-          "reason": "ADAPT-stage curriculum-sequencing decision rule (difficulty of presented problems); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (difficulty of presented problems); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal — measurement does not apply at the EXTRACT stage."
         }
       }
     },
@@ -420,7 +427,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor comprehension-check frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor comprehension-check frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -436,7 +443,7 @@
         "compose": "transform-direct",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor concept-density per exchange; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor concept-density per exchange; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -461,8 +468,8 @@
       "definition": "How casual and natural the AI's language is during teaching.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Chatty: Relaxed, informal, conversational \u2014 like talking to a friend",
-      "interpretationLow": "Formal: Structured, professional, precise \u2014 like a textbook",
+      "interpretationHigh": "Chatty: Relaxed, informal, conversational — like talking to a friend",
+      "interpretationLow": "Formal: Structured, professional, precise — like a textbook",
       "deprecatedAt": "2026-06-18T15:00:00Z",
       "usage": {
         "compose": "deprecated",
@@ -475,13 +482,20 @@
       "definition": "How precisely the AI defines technical terms and concepts.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Use plain-language descriptions; favour intuition and accessible phrasing over precise technical definitions.",
+        "templateHigh": "Use exact, technically accurate definitions; prefer formal terminology over approximations.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Precise: Uses exact definitions, technical accuracy, formal terminology",
       "interpretationLow": "Approximate: Uses plain-language descriptions, favours intuition over precision",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor technical-term definition precision; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor technical-term definition precision; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -491,13 +505,20 @@
       "definition": "How much the AI describes concepts using visual/spatial structures (diagrams, charts, maps).",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "MODALITY",
+        "condition": "when-non-default",
+        "templateLow": "Explain through narrative and sequential descriptions; avoid heavy diagram / spatial-layout language.",
+        "templateHigh": "Frequently describe concepts using visual / spatial structures (diagrams, charts, maps, layouts).",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Visual Structures: Describes layouts, diagrams, and spatial relationships frequently",
       "interpretationLow": "Narrative: Explains through stories and sequential descriptions",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor visual/spatial-structure descriptive language; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor visual/spatial-structure descriptive language; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -545,12 +566,12 @@
       "domainGroup": "curriculum-adaptation",
       "defaultTarget": 0.5,
       "interpretationHigh": "Example-Rich: Multiple worked examples and illustrations for each concept",
-      "interpretationLow": "Minimal Examples: Brief or no examples \u2014 relies on abstract explanation",
+      "interpretationLow": "Minimal Examples: Brief or no examples — relies on abstract explanation",
       "usage": {
         "compose": "transform-direct",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor concrete-example richness; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor concrete-example richness; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -566,7 +587,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor re-explanation variety on learner confusion; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor re-explanation variety on learner confusion; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -576,13 +597,20 @@
       "definition": "How much the AI uses sensory and emotional language (feel, sense, touch, experience).",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Kinaesthetic: Rich sensory language \u2014 'feel the weight of', 'get a sense for'",
-      "interpretationLow": "Analytical: Factual, logical language \u2014 'note that', 'observe that'",
+      "promptInjection": {
+        "section": "MODALITY",
+        "condition": "when-non-default",
+        "templateLow": "Use analytical, factual language — \"note that\", \"observe that\"; avoid heavy sensory phrasing.",
+        "templateHigh": "Use rich sensory and emotional language — \"feel the weight of\", \"get a sense for\".",
+        "threshold": 0.5
+      },
+      "interpretationHigh": "Kinaesthetic: Rich sensory language — 'feel the weight of', 'get a sense for'",
+      "interpretationLow": "Analytical: Factual, logical language — 'note that', 'observe that'",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor sensory / emotional language usage; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor sensory / emotional language usage; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -617,7 +645,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "ADAPT-stage curriculum-sequencing decision rule (prerequisite-gap-fill priority); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (prerequisite-gap-fill priority); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal — measurement does not apply at the EXTRACT stage."
         }
       }
     },
@@ -633,7 +661,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor step-by-step guidance during practice; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor step-by-step guidance during practice; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -643,13 +671,20 @@
       "definition": "How much the AI uses vivid mental imagery and visualisation in explanations.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "MODALITY",
+        "condition": "when-non-default",
+        "templateLow": "Rely on logical reasoning and verbal explanation; avoid heavy visualisation prompts.",
+        "templateHigh": "Paint vivid mental pictures; invite the learner to visualise the concepts.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Image-Rich: Paints vivid mental pictures and asks learner to visualise",
       "interpretationLow": "Text-Focused: Relies on logical reasoning and verbal explanation",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor mental-imagery / visualisation density; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor mental-imagery / visualisation density; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -695,7 +730,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "ADAPT-stage curriculum-sequencing decision rule (mix-in rate of previous-topic review); operator sets the target band, ADAPT-runner reads it against the schedule. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (mix-in rate of previous-topic review); operator sets the target band, ADAPT-runner reads it against the schedule. Not a transcript-observable EXTRACT signal — measurement does not apply at the EXTRACT stage."
         }
       }
     },
@@ -705,13 +740,20 @@
       "definition": "How much the AI organises information into numbered lists, hierarchies, and structured formats.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Explain in natural prose and connected paragraphs; avoid heavy list / bullet structuring.",
+        "templateHigh": "Organise information into numbered lists, bullet points, and clear hierarchies.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Structured: Frequently uses numbered lists, bullet points, and clear hierarchies",
       "interpretationLow": "Flowing: Uses natural prose and connected paragraphs",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor list / hierarchy / structured-format organisation; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor list / hierarchy / structured-format organisation; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -742,7 +784,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor stickiness to learner's preferred modality; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor stickiness to learner's preferred modality; operator-tuned cascade target consumed by ADAPT-LEARN-001 spec branches (adapt_to_vark_modality / adapt_to_interaction_extensions) — adapt-runner writes CallerTarget per learner profile, next-call SEMANTICS block reads the resulting BehaviorTarget. Not learner-derivable from one transcript (operator-tuned style preference, not a learner-state observable)."
         }
       }
     },
@@ -758,7 +800,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor teaching-channel variety; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor teaching-channel variety; operator-tuned cascade target consumed by ADAPT-LEARN-001 spec branches (adapt_to_vark_modality / adapt_to_interaction_extensions) — adapt-runner writes CallerTarget per learner profile, next-call SEMANTICS block reads the resulting BehaviorTarget. Not learner-derivable from one transcript (operator-tuned style preference, not a learner-state observable)."
         }
       }
     },
@@ -774,7 +816,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "ADAPT-stage curriculum-sequencing decision rule (introduction rate of fresh material vs review); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (introduction rate of fresh material vs review); operator sets the target band, ADAPT-runner reads it against aggregated mastery. Not a transcript-observable EXTRACT signal — measurement does not apply at the EXTRACT stage."
         }
       }
     },
@@ -790,7 +832,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor edge-case / nuance exploration depth; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor edge-case / nuance exploration depth; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -861,7 +903,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor hands-on exercise inclusion rate; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor hands-on exercise inclusion rate; operator-tuned cascade target consumed by ADAPT-LEARN-001 spec branches (adapt_to_vark_modality / adapt_to_interaction_extensions) — adapt-runner writes CallerTarget per learner profile, next-call SEMANTICS block reads the resulting BehaviorTarget. Not learner-derivable from one transcript (operator-tuned style preference, not a learner-state observable)."
         }
       }
     },
@@ -877,7 +919,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor explanation-to-practice ratio; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor explanation-to-practice ratio; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -893,7 +935,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "ADAPT-stage curriculum-sequencing decision rule (linkback rate to previously learned concepts); operator sets the target band, ADAPT-runner emits the directive. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (linkback rate to previously learned concepts); operator sets the target band, ADAPT-runner emits the directive. Not a transcript-observable EXTRACT signal — measurement does not apply at the EXTRACT stage."
         }
       }
     },
@@ -924,7 +966,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor follow-up question depth; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor follow-up question depth; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -940,7 +982,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "ADAPT-stage curriculum-sequencing decision rule (struggle-tolerance window before scaffold-step-in); operator sets the target band, ADAPT-runner reads it against the live signal. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (struggle-tolerance window before scaffold-step-in); operator sets the target band, ADAPT-runner reads it against the live signal. Not a transcript-observable EXTRACT signal — measurement does not apply at the EXTRACT stage."
         }
       }
     },
@@ -965,13 +1007,20 @@
       "definition": "How much the AI connects abstract concepts to practical, everyday applications.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Stay within the academic or abstract domain; minimise everyday-application asides.",
+        "templateHigh": "Frequently link abstract ideas to real-life situations and practical applications.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Practical: Frequently links ideas to real-life situations and applications",
       "interpretationLow": "Theoretical: Stays within the academic or abstract domain",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor abstract-to-practical example bridging; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor abstract-to-practical example bridging; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -987,7 +1036,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor in-session repetition frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor in-session repetition frequency; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -997,13 +1046,20 @@
       "definition": "How proactively the AI offers to repeat or rephrase key points.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Repeat or rephrase only when the learner explicitly asks.",
+        "templateHigh": "Proactively offer to repeat or rephrase key points without being asked.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Proactive Repeats: Offers to say things again or differently without being asked",
       "interpretationLow": "On Request: Only repeats when the learner explicitly asks",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor proactive repeat / rephrase offers; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor proactive repeat / rephrase offers; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1044,13 +1100,20 @@
       "definition": "How much the AI attends to the pace, cadence, and flow of spoken delivery.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "MODALITY",
+        "condition": "when-non-default",
+        "templateLow": "Maintain a consistent pace and cadence; avoid deliberate rhythmic variation.",
+        "templateHigh": "Vary pace and cadence deliberately; use pauses to mark important moments.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Rhythmic: Varies pace, uses pauses deliberately, attends to speech rhythm",
       "interpretationLow": "Steady: Maintains a consistent pace without deliberate rhythmic variation",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor pace / cadence / flow attention; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor pace / cadence / flow attention; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1066,7 +1129,7 @@
         "compose": "transform-direct",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor structural scaffolding for complex tasks; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor structural scaffolding for complex tasks; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1082,7 +1145,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "ADAPT-stage curriculum-sequencing decision rule (review-schedule aggression for fading material); operator sets the target band, ADAPT-runner reads it against the schedule. Not a transcript-observable EXTRACT signal \u2014 measurement does not apply at the EXTRACT stage."
+          "reason": "ADAPT-stage curriculum-sequencing decision rule (review-schedule aggression for fading material); operator sets the target band, ADAPT-runner reads it against the schedule. Not a transcript-observable EXTRACT signal — measurement does not apply at the EXTRACT stage."
         }
       }
     },
@@ -1092,13 +1155,20 @@
       "definition": "How much the AI uses spatial organisation and location-based metaphors.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Spatial: Uses 'above', 'below', 'left of', 'inside' \u2014 maps concepts to space",
-      "interpretationLow": "Sequential: Uses 'first', 'then', 'next' \u2014 maps concepts to time",
+      "promptInjection": {
+        "section": "MODALITY",
+        "condition": "when-non-default",
+        "templateLow": "Use sequential / temporal framing — \"first\", \"then\", \"next\"; map concepts to time.",
+        "templateHigh": "Use spatial / location framing — \"above\", \"below\", \"inside\", \"left of\"; map concepts to space.",
+        "threshold": 0.5
+      },
+      "interpretationHigh": "Spatial: Uses 'above', 'below', 'left of', 'inside' — maps concepts to space",
+      "interpretationLow": "Sequential: Uses 'first', 'then', 'next' — maps concepts to time",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor spatial / location-based metaphor usage; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor spatial / location-based metaphor usage; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1123,13 +1193,20 @@
       "definition": "How much the AI uses formal, subject-specific vocabulary versus everyday language.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Avoid subject jargon; use everyday vocabulary even when introducing new concepts.",
+        "templateHigh": "Use proper subject terminology; expect the learner to acquire it as part of the learning.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Technical: Uses proper subject terminology and expects learner to learn it",
       "interpretationLow": "Plain Language: Avoids jargon, uses everyday words to explain concepts",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor formal-vocabulary vs everyday-language balance; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor formal-vocabulary vs everyday-language balance; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1155,13 +1232,20 @@
       "definition": "How richly and extensively the AI elaborates on concepts through spoken explanation.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Keep explanations brief and to the point — say it once, clearly.",
+        "templateHigh": "Extend explanations with multiple angles, examples, and detailed elaboration.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Elaborate: Extended, detailed verbal explanations with multiple angles",
-      "interpretationLow": "Concise: Brief, to-the-point explanations \u2014 says it once, clearly",
+      "interpretationLow": "Concise: Brief, to-the-point explanations — says it once, clearly",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor spoken-explanation elaboration richness; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor spoken-explanation elaboration richness; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1196,7 +1280,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor worked-example demonstration before learner-try; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor worked-example demonstration before learner-try; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1206,13 +1290,20 @@
       "definition": "How much the AI offers written references, summaries, or notes alongside spoken teaching.",
       "domainGroup": "learning-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "MODALITY",
+        "condition": "when-non-default",
+        "templateLow": "Teach entirely through conversation; do not refer to written supplements or notes.",
+        "templateHigh": "Frequently offer written references — summaries, key points, notes — alongside the spoken teaching.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Text Support: Frequently offers written summaries, key points, or reference notes",
       "interpretationLow": "Verbal Only: Teaches entirely through conversation without written supplements",
       "usage": {
-        "compose": "semantics-block",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor written-reference / summary supplement rate; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript \u2014 SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
+          "reason": "Sets tutor written-reference / summary supplement rate; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1648,7 +1739,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Folk-pedagogy preference assertion (\"Conversational learners like to be drawn into dialogue\"); learner-type claim that is not derivable from a single transcript. See BEH-PROBING-QUESTIONS / BEH-SOCRATIC-QUESTIONING sibling tutor-knob axes for the measurable tutor-behavior side of dialogue-drawing engagement."
+          "reason": "Folk-pedagogy preference assertion (\"Conversational learners like to be drawn into dialogue\"); operator-tuned cascade target consumed by ADAPT-LEARN-001 spec branches (adapt_to_vark_modality / adapt_to_interaction_extensions) — adapt-runner writes CallerTarget per learner profile, next-call SEMANTICS block reads the resulting BehaviorTarget. Not learner-derivable from one transcript (operator-tuned style preference, not a learner-state observable)."
         }
       }
     },
@@ -1861,7 +1952,7 @@
       "definition": "Whether shared insights are relevant, brief, conversational, and genuinely interesting",
       "domainGroup": "companion",
       "defaultTarget": 0.5,
-      "interpretationHigh": "Excellent: Insights feel like a well-read friend sharing something they just thought of \u2014 brief, relevant, delightful",
+      "interpretationHigh": "Excellent: Insights feel like a well-read friend sharing something they just thought of — brief, relevant, delightful",
       "interpretationLow": "Poor: Insights are irrelevant, too long, or feel like Wikipedia dumps",
       "aliases": [
         "insight_quality"
@@ -2216,7 +2307,7 @@
         "compose": "semantics-block",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Folk-pedagogy preference assertion (\"slow pace learners benefit from repetition\"); learner-preference signal that is not derivable from a single transcript. See BEH-REPETITION-FREQUENCY sibling for the measurable tutor-behavior knob."
+          "reason": "Folk-pedagogy preference assertion (\"slow pace learners benefit from repetition\"); operator-tuned cascade target consumed by ADAPT-LEARN-001 spec branches (adapt_to_vark_modality / adapt_to_interaction_extensions) — adapt-runner writes CallerTarget per learner profile, next-call SEMANTICS block reads the resulting BehaviorTarget. Not learner-derivable from one transcript (operator-tuned style preference, not a learner-state observable)."
         }
       }
     },

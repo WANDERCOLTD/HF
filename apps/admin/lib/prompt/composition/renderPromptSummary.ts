@@ -186,6 +186,8 @@ interface LLMPrompt {
     } | null;
     /** #2011 (epic #2009 S2) — quiz-mode directive. */
     module_quiz_directive?: { directive: string } | null;
+    /** #2013 (epic #2009 S4) — mock-exam mode directive (board-chair frame). */
+    module_mock_exam_directive?: { directive: string } | null;
   };
   /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close).
    *  #2054 — extended with certificateMention (operator toggle for completion-certificate copy). */
@@ -202,6 +204,21 @@ interface LLMPrompt {
   callHistory?: {
     totalCalls?: number;
   };
+  /**
+   * #2085 (S5 of epic #2078) — companion-domain directives produced by
+   * `transforms/companion.ts`. Null when no companion-domain
+   * BehaviorTargets are set or every set target is neutral; the
+   * renderer omits the [COMPANION STYLE] block in those cases.
+   */
+  companionDirectives?: {
+    directives?: Array<{
+      parameterId: string;
+      targetLevel: "HIGH" | "LOW";
+      targetValue: number;
+      directive: string;
+    }>;
+    directiveCount?: number;
+  } | null;
 }
 
 /** Format a document type for display in prompts */
@@ -389,6 +406,23 @@ export function renderProviderPrompt(
     parts.push("");
   }
 
+  // --- COMPANION STYLE ---
+  // #2085 (S5 of epic #2078) — companion-domain directives. Reads from
+  // the `companionDirectives` section produced by
+  // `lib/prompt/composition/transforms/companion.ts`. The transform
+  // returns null when no companion-domain BehaviorTargets are set OR
+  // when every set target sits at the neutral midpoint — in those cases
+  // this block is omitted entirely so the prompt is byte-identical for
+  // callers without companion-style tuning.
+  const companionDirectives = llmPrompt.companionDirectives?.directives;
+  if (companionDirectives?.length) {
+    parts.push("[COMPANION STYLE]");
+    for (const d of companionDirectives) {
+      parts.push(`- ${d.directive}`);
+    }
+    parts.push("");
+  }
+
   // --- THIS CALLER ---
   parts.push("[THIS CALLER]");
   if (qs?.this_caller) parts.push(qs.this_caller);
@@ -457,6 +491,24 @@ export function renderProviderPrompt(
     if (curr.nextModule) parts.push(`Next module: ${curr.nextModule.name}`);
   }
   if (qs?.curriculum_progress) parts.push(qs.curriculum_progress);
+
+  // #2082 (S3 of epic #2078) — curriculum-adaptation directives derived
+  // from the 22 cascade-resolved curriculum-adaptation BehaviorTargets
+  // intersected with LEARN-ASSESS-001 per-module mastery state. The
+  // transform at `transforms/curriculum-adaptation.ts` produces a
+  // pre-rendered `body` string + per-parameter `directives[]`; the
+  // renderer emits the body verbatim so the tutor sees the directives
+  // alongside curriculum guidance. Section is omitted when no parameter
+  // diverges from neutral AND no mastery context is worth surfacing.
+  const curriculumAdaptation = (llmPrompt as any).curriculumAdaptation as
+    | { hasDirectives?: boolean; body?: string }
+    | null
+    | undefined;
+  if (curriculumAdaptation?.hasDirectives && curriculumAdaptation.body) {
+    parts.push("");
+    parts.push(curriculumAdaptation.body);
+  }
+
   // Post-coverage guidance — what to do when all TPs are covered
   if (pedagogy?.postCoverageGuidance) {
     parts.push("");
@@ -546,6 +598,18 @@ export function renderProviderPrompt(
   if (quizDirective?.directive) {
     parts.push("");
     parts.push(quizDirective.directive);
+  }
+  // #2013 (epic #2009 S4) — mock-exam mode directive.
+  // Renders ONLY when the locked module's `mode === "mock-exam"`.
+  // Reframes the session as a board-chair scenario exam (4–6 probes,
+  // no MCQs, no mid-session teaching, per-LO per-dimension close).
+  // Appends a "prior mastery doesn't count" line when the playbook's
+  // `useFreshMastery` flag is on, aligning AI narration with the
+  // data-layer isolation contract (see `readiness-rollups.ts:25`).
+  const mockExamDirective = llmPrompt.instructions?.module_mock_exam_directive;
+  if (mockExamDirective?.directive) {
+    parts.push("");
+    parts.push(mockExamDirective.directive);
   }
   // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
   // Surfaces the summary line + the per-criterion scoreboard from the

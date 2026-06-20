@@ -131,10 +131,47 @@ function walkTs(dir: string): string[] {
   return out;
 }
 
+// ADAPT-*.spec.json files are runtime consumer surfaces — `adapt-runner.ts`
+// reads `parameters[].config.adaptationRules[].actions[].targetParameter`
+// strings at runtime and writes the named parameter's `CallerTarget` row.
+// Including the spec JSON as consumer source makes spec-driven parameter
+// wiring count as `covered` (the equivalent of a literal mention in code).
+// Born of #2087 (S2 of #2078 — learning-style 18-param wiring via
+// ADAPT-LEARN-001 branches).
+const SPEC_CONSUMER_DIRS = ["docs-archive/bdd-specs"];
+const SPEC_CONSUMER_PATTERNS = [/^ADAPT-[A-Z]+-\d+.*\.spec\.json$/];
+
+function walkSpecJson(dir: string): string[] {
+  const out: string[] = [];
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    const full = join(dir, e);
+    let st;
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) continue;
+    if (SPEC_CONSUMER_PATTERNS.some((re) => re.test(e))) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 const CONSUMER_SOURCE: string = (() => {
   const files: string[] = [];
   for (const dir of CONSUMER_DIRS) {
     files.push(...walkTs(join(APPS_ADMIN, dir)));
+  }
+  for (const dir of SPEC_CONSUMER_DIRS) {
+    files.push(...walkSpecJson(join(APPS_ADMIN, dir)));
   }
   return files
     .map((f) => {
@@ -208,9 +245,9 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
 
 /**
  * 2026-06-17 audit baseline. 118 of 154 parameters lacked a runtime
- * consumer — they're in the registry, BehaviorTarget seed wires a System
- * default, educators can theoretically tune them, but nothing in the
- * compose / scoring / cascade / chat paths reads the result.
+ * consumer at audit time — in the registry, BehaviorTarget seed wires a
+ * System default, educators can theoretically tune them, but nothing in
+ * the compose / scoring / cascade / chat paths reads the result.
  *
  * Concentrated in:
  *   - learning-adaptation (23 gaps) — adaptive learning transforms not built
@@ -222,15 +259,24 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *
  * **History:**
  * - 2026-06-17 — 118 (initial baseline, registered at #1907 audit)
- * - 2026-06-19 — 97 (#2084 S6 wires 15 supervision + reward params via
+ * - 2026-06-19 — 106 (#2085 S5 wires 12 companion params via
+ *   `transforms/companion.ts`).
+ * - 2026-06-20 — 52 (#2087 S2 wires 31 learning-style params via
+ *   parametersAsDirectives dispatcher + ADAPT-LEARN-001 spec branches +
+ *   ADAPT-*.spec.json scan extension).
+ * - 2026-06-20 — #2086 S4 wires 13 engagement+onboarding via
+ *   ADAPT-ENG-001 spec branches (further drops actual count; ratchet
+ *   retains 52 as upper bound).
+ * - 2026-06-20 — #2084 S6 wires 15 supervision + reward params via
  *   SCORE_AGENT extension + REW-001 per-component mirror via the
  *   canonical `writeCallScore` chokepoint. Fork 3 alias-walking caught
  *   4 incidental matches in companion/curriculum-adaptation/engagement
  *   that previously slipped on snake_case vs canonical BEH-* form.
  *   See `lib/measurement/supv-rew-consumer-manifest.ts` for the wired
- *   list and PR #2088 for the design brief.)
+ *   list and PR #2088 for the design brief. Ratchet retains 52 as
+ *   upper bound; cleanup PR will tighten once stable.
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 97;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 52;
 
 // ────────────────────────────────────────────────────────────
 // Classification

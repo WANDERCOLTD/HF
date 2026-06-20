@@ -2016,6 +2016,52 @@ const G8_MODULE_SCAFFOLD_POOL: JourneySettingContract = {
 // writes typed `CallerAttribute` rows under the course-agnostic `profile:*`
 // namespace (scope "PROFILE"). Phase 1 renders via JourneyJsonFallback;
 // Theme 1b adds the typed field-list editor.
+const G8_MODULE_GENERATE_LESSON_PLAN: JourneySettingContract = {
+  id: "moduleGenerateLessonPlan",
+  menuGroupKey: "H_closing",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Generate next-step plan on completion",
+  helpText:
+    "On Assessment / exam modules, emits a personalised next-step plan to the learner's results screen when the session scores all four criteria. The plan identifies the weakest criterion (e.g. Grammar) and recommends the next module to drill it.",
+  storagePath: {
+    path: "config.modules[].settings.generateLessonPlan",
+    arrayKey: "id",
+  },
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "next steps" }],
+  appliesTo: ["exam"],
+};
+
+const G8_MODULE_SILENT_MODE: JourneySettingContract = {
+  id: "moduleSilentMode",
+  menuGroupKey: "B_call1_opening",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Conversational mode",
+  helpText:
+    "Tutor doesn't announce 'this is a test' or signal phase breaks; runs as a natural conversation. Only takes effect on Assessment / exam modules when the playbook's first-call mode is baseline_assessment.",
+  storagePath: {
+    path: "config.modules[].settings.silentMode",
+    arrayKey: "id",
+  },
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["welcome", "onboarding"],
+    kinds: ["persona-style", "section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "welcome", hint: "opening framing" }],
+  appliesTo: ["exam"],
+};
+
 const G8_MODULE_PROFILE_FIELDS_TO_CAPTURE: JourneySettingContract = {
   id: "moduleProfileFieldsToCapture",
   menuGroupKey: "A_intake",
@@ -2141,6 +2187,10 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G8_MODULE_SCHEDULED_CUES,
   G8_MODULE_SCAFFOLD_POOL,
   G8_MODULE_PROFILE_FIELDS_TO_CAPTURE,
+  // G8 #1956 — silent-mode preamble suppression (Boaz/Eldar Unit 1.3)
+  G8_MODULE_SILENT_MODE,
+  // G8 #1954 — post-Assessment lesson-plan trigger (Boaz/Eldar Unit 1.1)
+  G8_MODULE_GENERATE_LESSON_PLAN,
 ];
 
 export const JOURNEY_SETTINGS_BY_ID: Readonly<

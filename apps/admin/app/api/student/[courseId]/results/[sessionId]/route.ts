@@ -80,6 +80,14 @@ export interface ResultsPayload {
   strength: { parameterId: string; parameterName: string; band: number } | null;
   /** Parameter with the lowest mean band across all segments. */
   area: { parameterId: string; parameterName: string; band: number } | null;
+  /**
+   * #1954 (Boaz/Eldar gap analysis Unit 1.1) — post-Assessment lesson
+   * plan emitted to `Session.metadata.lessonPlan` by the AGGREGATE
+   * stage when the locked module's `generateLessonPlan` toggle is on
+   * AND the #1953 four-criteria gate fires "complete". Null on
+   * sessions where the trigger didn't fire (most sessions).
+   */
+  lessonPlan: import("@/lib/types/json-fields").SessionLessonPlan | null;
 }
 
 export type ResultsResponse =
@@ -251,6 +259,11 @@ export async function GET(
             band: roundHalfBand(area.band),
           }
         : null,
+      // #1954 — surface the post-Assessment plan written by the
+      // AGGREGATE stage. Most sessions will have this null (the
+      // trigger only fires when the locked module opted in AND the
+      // four-criteria gate fires "complete").
+      lessonPlan: metadata.lessonPlan ?? null,
     };
 
     return NextResponse.json(payload);

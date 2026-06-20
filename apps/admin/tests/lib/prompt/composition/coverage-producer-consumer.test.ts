@@ -133,10 +133,39 @@ const PAIRS: Array<{
     since: "#2051",
   },
   {
+    // #2082 (S3 of epic #2078) — curriculum-adaptation transform that
+    // wires 22 producer-only parameters. Producer-side needle is the
+    // `directive: string` field on `CurriculumAdaptationDirective`;
+    // consumer-side needle is the renderer's body push.
+    key: "curriculumAdaptation",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/curriculum-adaptation.ts",
+    producerNeedle: "CurriculumAdaptationDirective",
+    consumerNeedle: "llmPrompt as any).curriculumAdaptation",
+    since: "#2082",
+  },
+  {
+    // #2085 (S5 of epic #2078) — companion-domain directives. The
+    // producer file emits `directive` as a field on each row of the
+    // `directives` array (not a top-level output key), so we use a
+    // custom needle pointing at the COMPANION_PARAMETER_IDS export
+    // which is uniquely present in the companion transform.
+    key: "companion_directives",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/companion.ts",
+    producerNeedle: "COMPANION_PARAMETER_IDS",
+    consumerNeedle: "llmPrompt.companionDirectives",
+    since: "#2085",
+  },
+  {
     key: "module_quiz_directive",
     producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
     consumerNeedle: "llmPrompt.instructions?.module_quiz_directive",
     since: "#2011",
+  },
+  {
+    key: "module_mock_exam_directive",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.module_mock_exam_directive",
+    since: "#2013"
   },
 ];
 

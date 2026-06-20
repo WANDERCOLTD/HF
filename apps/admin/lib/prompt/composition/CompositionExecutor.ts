@@ -82,6 +82,12 @@ import "./transforms/interleaveReview";
 import "./transforms/courseComplete";
 import "./transforms/conversationArtifacts";
 import "./transforms/memoryDeltas";
+// #2082 (S3 of epic #2078) — wires 22 producer-only curriculum-adaptation
+// parameters via a new transform that reads cascade BehaviorTarget values
+// + LEARN-ASSESS-001-derived per-module mastery from sharedState.
+import "./transforms/curriculum-adaptation";
+// #2083 — companion-adaptation transform sibling.
+import "./transforms/companion";
 
 /**
  * Execute the full composition pipeline.
@@ -1115,6 +1121,26 @@ export function getDefaultSections(): CompositionSectionDef[] {
       outputKey: "audienceGuidance",
     },
     {
+      // #2085 (S5 of epic #2078) — companion-domain directive emitter.
+      // Reads the cascade-resolved BehaviorTargets for the 12
+      // producer-only companion parameters (BEH-CONVERSATIONAL-DEPTH /
+      // INTELLECTUAL-CHALLENGE / MEMORY-REFERENCE / PATIENCE-LEVEL /
+      // RESPECT-EXPERIENCE / STORY-INVITATION / DEPTH-PREFERENCE /
+      // ENERGY / ENGAGEMENT / MOOD / REMINISCENCE / INSIGHT-QUALITY)
+      // and emits natural-language tutor directives. Depends on
+      // `behavior_targets` because it reads from
+      // `sections.behaviorTargets._merged`.
+      id: "companion_directives",
+      name: "Companion Directives",
+      priority: 12.83,
+      dataSource: "_assembled",
+      activateWhen: { condition: "always" },
+      fallback: { action: "null" },
+      transform: "companionDirectives",
+      outputKey: "companionDirectives",
+      dependsOn: ["behavior_targets"],
+    },
+    {
       id: "activity_toolkit",
       name: "Activity Toolkit",
       priority: 12.85,
@@ -1157,6 +1183,24 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "null" },
       transform: "computeVoiceGuidance",
       outputKey: "instructions_voice",
+    },
+    {
+      // #2082 (S3 of epic #2078) — curriculum-adaptation directive block
+      // wiring 22 producer-only parameters. Sits just before instructions
+      // (15) so the renderer can pull this section's body into the
+      // [CURRICULUM ADAPTATION] block adjacent to curriculum guidance.
+      // dependsOn `behavior_targets` (cascade-resolved targets) + `curriculum`
+      // (per-module mastery from sharedState). fallback=null lets the
+      // executor strip the section when no directive is emitted.
+      id: "curriculum_adaptation",
+      name: "Curriculum Adaptation Directives",
+      priority: 14.5,
+      dataSource: "_assembled",
+      activateWhen: { condition: "always" },
+      fallback: { action: "null" },
+      transform: "computeCurriculumAdaptation",
+      outputKey: "curriculumAdaptation",
+      dependsOn: ["behavior_targets", "curriculum"],
     },
     {
       id: "instructions",
