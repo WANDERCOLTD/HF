@@ -420,8 +420,13 @@ export interface PlaybookConfig {
   audience?: string;
   constraints?: string[]; // teacher-level "NEVER do this" pedagogical anti-patterns
   // Identity axes (stored by course-setup wizard)
-  interactionPattern?: string; // HOW: "socratic" | "directive" | "advisory" | "coaching" | ...
-  teachingMode?: string; // WHAT: "recall" | "comprehension" | "practice" | "syllabus"
+  // #1995 — narrow to the union types instead of `string` so a future
+  // `as string` cast at a chat-tool write site fails at compile time.
+  // The runtime guards in `lib/content-trust/resolve-config.ts` defend
+  // the DB-read side (where the JSON column may still carry a stale
+  // wrong-union value seeded before #1995 landed).
+  interactionPattern?: import("@/lib/content-trust/resolve-config").InteractionPattern;
+  teachingMode?: import("@/lib/content-trust/resolve-config").TeachingMode;
   subjectDiscipline?: string; // e.g. "GCSE Biology", "A-Level Economics"
   // Plan intents (used by lesson plan regeneration fallback)
   suggestedSessionCount?: number; // Educator's initial suggestion — may differ from generated plan

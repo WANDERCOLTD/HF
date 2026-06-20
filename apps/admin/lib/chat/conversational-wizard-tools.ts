@@ -195,12 +195,49 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
         groupId: { type: "string", description: "Department/group ID (if user specified a department)." },
         courseName: { type: "string" },
         subjectDiscipline: { type: "string" },
-        interactionPattern: { type: "string" },
-        teachingMode: { type: "string" },
+        // #1995 — Anthropic's tool-use validator enforces JSON Schema enums on
+        // declared input. Previously these five fields were typed `string` and
+        // the AI could (and did) write a value from the wrong union. The live
+        // IELTS Speaking Practice incident on hf_sandbox 2026-06-18 had
+        // `teachingMode = "directive"` reach the DB. Structural enum prevents
+        // the AI from emitting the wrong-union value in the first place.
+        interactionPattern: {
+          type: "string",
+          enum: [
+            "socratic",
+            "directive",
+            "advisory",
+            "coaching",
+            "companion",
+            "facilitation",
+            "reflective",
+            "open",
+            "conversational-guide",
+          ],
+        },
+        teachingMode: {
+          type: "string",
+          enum: ["recall", "comprehension", "practice", "syllabus"],
+        },
         welcomeMessage: { type: "string" },
         sessionCount: { type: "number" },
         durationMins: { type: "number" },
-        planEmphasis: { type: "string" },
+        planEmphasis: {
+          type: "string",
+          enum: ["breadth", "balanced", "depth"],
+        },
+        audience: {
+          type: "string",
+          enum: [
+            "primary",
+            "secondary",
+            "sixth-form",
+            "higher-ed",
+            "adult-professional",
+            "adult-casual",
+            "mixed",
+          ],
+        },
         behaviorTargets: {
           type: "object",
           description: "Personality values (0-100). If not provided, derived from personalityPreset.",
@@ -210,7 +247,17 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
           type: "string",
           description: "Preset ID (e.g. 'socratic-mentor'). Mapped to behaviorTargets if no explicit targets.",
         },
-        lessonPlanModel: { type: "string" },
+        lessonPlanModel: {
+          type: "string",
+          enum: [
+            "direct_instruction",
+            "socratic",
+            "5e",
+            "spiral",
+            "mastery",
+            "project",
+          ],
+        },
         physicalMaterials: {
           type: "array",
           items: {

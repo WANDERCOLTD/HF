@@ -1337,6 +1337,110 @@ export function isTeachingMode(value: unknown): value is TeachingMode {
   return typeof value === "string" && TEACHING_MODE_SET.has(value);
 }
 
+// ── Sibling type guards (#1995 — chat-tool merge-path reuse) ─────────────────
+
+const INTERACTION_PATTERN_SET: ReadonlySet<string> = new Set(
+  INTERACTION_PATTERN_ORDER,
+);
+
+/**
+ * Runtime type guard for `InteractionPattern`. Same shape as
+ * `isTeachingMode`. The wizard's chat-tool merge paths
+ * (`_new-config-merge.ts` / `_reuse-config-merge.ts` /
+ * `handleUpdatePlaybookConfig` in `admin-tool-handlers.ts`) use this
+ * before writing `Playbook.config.interactionPattern` so a stale or
+ * hallucinated value cannot reach the DB. Without this gate, an
+ * `interactionPattern = "directive"`-style write (correct value for
+ * THIS column) silently coexisting with a `teachingMode = "directive"`
+ * misuse (wrong column) was undetectable at write time — see #1993
+ * read-side fallback for the symmetric failure.
+ */
+export function isInteractionPattern(
+  value: unknown,
+): value is InteractionPattern {
+  return typeof value === "string" && INTERACTION_PATTERN_SET.has(value);
+}
+
+/**
+ * Sibling type unions for the wizard chat-tool merge surface (#1995).
+ * The canonical SETs that back these guards ALSO live in
+ * `lib/wizard/enum-sets.ts` and re-export the same types — that file
+ * is the central authoring surface for chat-tool consumers. The guards
+ * defined here read inline `new Set`s (not the wizard's SET exports)
+ * to avoid a circular import (wizard → resolve-config → wizard).
+ */
+export type PlanEmphasis = "breadth" | "balanced" | "depth";
+export type LessonPlanModel =
+  | "direct_instruction"
+  | "socratic"
+  | "5e"
+  | "spiral"
+  | "mastery"
+  | "project";
+export type FirstCallMode =
+  | "onboarding"
+  | "teach_immediately"
+  | "baseline_assessment";
+export type ProgressionMode = "learner-picks" | "ai-led";
+
+import type { AudienceId } from "@/lib/prompt/composition/transforms/audience";
+import { AUDIENCE_OPTIONS } from "@/lib/prompt/composition/transforms/audience";
+
+const AUDIENCE_SET: ReadonlySet<string> = new Set(
+  AUDIENCE_OPTIONS.map((a) => a.id),
+);
+const PLAN_EMPHASIS_SET: ReadonlySet<string> = new Set([
+  "breadth",
+  "balanced",
+  "depth",
+]);
+const LESSON_PLAN_MODEL_SET: ReadonlySet<string> = new Set([
+  "direct_instruction",
+  "socratic",
+  "5e",
+  "spiral",
+  "mastery",
+  "project",
+]);
+const FIRST_CALL_MODE_SET: ReadonlySet<string> = new Set([
+  "onboarding",
+  "teach_immediately",
+  "baseline_assessment",
+]);
+const PROGRESSION_MODE_SET: ReadonlySet<string> = new Set([
+  "learner-picks",
+  "ai-led",
+]);
+
+/** Runtime type guard for `AudienceId` (#1995). */
+export function isAudience(value: unknown): value is AudienceId {
+  return typeof value === "string" && AUDIENCE_SET.has(value);
+}
+
+/** Runtime type guard for `PlanEmphasis` (#1995). */
+export function isPlanEmphasis(value: unknown): value is PlanEmphasis {
+  return typeof value === "string" && PLAN_EMPHASIS_SET.has(value);
+}
+
+/** Runtime type guard for `LessonPlanModel` (#1995). */
+export function isLessonPlanModel(
+  value: unknown,
+): value is LessonPlanModel {
+  return typeof value === "string" && LESSON_PLAN_MODEL_SET.has(value);
+}
+
+/** Runtime type guard for `FirstCallMode` (#1995). */
+export function isFirstCallMode(value: unknown): value is FirstCallMode {
+  return typeof value === "string" && FIRST_CALL_MODE_SET.has(value);
+}
+
+/** Runtime type guard for `ProgressionMode` (#1995). */
+export function isProgressionMode(
+  value: unknown,
+): value is ProgressionMode {
+  return typeof value === "string" && PROGRESSION_MODE_SET.has(value);
+}
+
 // ── Subject Discipline Preambles ─────────────────────────────────────────────
 
 /**

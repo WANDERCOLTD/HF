@@ -31,6 +31,7 @@ import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment
 import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
 import requireAiScopeInCascadeZone from "./eslint-rules/require-ai-scope-in-cascade-zone.mjs";
 import noCustomerWriteToCanonicalInterpretation from "./eslint-rules/no-customer-write-to-canonical-interpretation.mjs";
+import noUntypedEnumWriteInWizard from "./eslint-rules/no-untyped-enum-write-in-wizard.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -173,6 +174,19 @@ const eslintConfig = defineConfig([
       "hf-wizard-v6": {
         rules: {
           "no-undeclared-field-require": noUndeclaredFieldRequire,
+        },
+      },
+      // #1995 — block `as string` casts on enum-bearing wizard config
+      // fields inside lib/chat/wizard-tool-executor/** and
+      // admin-tools.ts / admin-tool-handlers.ts. Forces the chat-tool
+      // merge paths to route through the runtime type guards in
+      // lib/content-trust/resolve-config.ts. Born of the live IELTS
+      // Speaking Practice incident on hf_sandbox 2026-06-18 where
+      // `teachingMode = "directive"` (interactionPattern value) reached
+      // the DB via a bare `as string` cast.
+      "hf-wizard": {
+        rules: {
+          "no-untyped-enum-write-in-wizard": noUntypedEnumWriteInWizard,
         },
       },
       // #1252 / #1259 — default-deny module reads. Any
@@ -340,6 +354,12 @@ const eslintConfig = defineConfig([
       "hf-voice/no-vapi-column-ref": "error",
       "hf-voice/no-vapi-tool-definitions-const": "error",
       "hf-wizard-v6/no-undeclared-field-require": "error",
+      // #1995 — error severity from day 1. The pre-existing `as string`
+      // casts inside `_new-config-merge.ts` / `_reuse-config-merge.ts`
+      // are repaired in the same PR by routing through the runtime
+      // type guards (`isTeachingMode` / `isInteractionPattern` / …).
+      // See `.claude/rules/wizard-enum-coverage.md`.
+      "hf-wizard/no-untyped-enum-write-in-wizard": "error",
       // #1252 / #1259 — lands as `warn` initially to avoid blocking
       // pre-existing call-sites discovered during epic landing.
       // Promoted to `error` once full sweep complete + audit counter

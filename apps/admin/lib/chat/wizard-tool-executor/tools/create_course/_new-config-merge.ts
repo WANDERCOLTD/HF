@@ -13,6 +13,38 @@
  */
 
 import type { ResolvedCreateCourseContext } from "./_context";
+import {
+  isTeachingMode,
+  isInteractionPattern,
+  isAudience,
+  isPlanEmphasis,
+  isLessonPlanModel,
+  isProgressionMode,
+} from "@/lib/content-trust/resolve-config";
+
+/**
+ * #1995 — log-and-skip helper for invalid enum-bearing wizard fields.
+ *
+ * The chat-tool merge paths used to accept whatever string the AI
+ * returned and write it straight to `Playbook.config`. The live IELTS
+ * Speaking Practice incident (2026-06-18) showed this fails silently —
+ * `teachingMode = "directive"` reached the DB and crashed every
+ * ComposedPrompt build. We now reject (with structured log) rather
+ * than crash: the merge proceeds for valid fields, the invalid field
+ * is dropped, and the operator's other edits land cleanly.
+ */
+function logSkipInvalidEnum(
+  field: string,
+  value: unknown,
+  validValues: string,
+): void {
+  console.warn(
+    `[wizard:guard] dropped ${field} write — invalid value ${JSON.stringify(value)} ` +
+      `not in {${validValues}}. ` +
+      `Story #1995 — chat-tool enum validation. The AI returned a value outside the ` +
+      `union; merge proceeds for the other fields.`,
+  );
+}
 
 interface BuildNewConfigUpdateOptions {
   existingConfig: Record<string, unknown>;
@@ -41,9 +73,34 @@ export async function buildNewConfigUpdate(
   const { input, setupData, subjectDiscipline, interactionPattern } = ctx;
   const configUpdate: Record<string, unknown> = { ...existingConfig };
 
-  if (interactionPattern) configUpdate.interactionPattern = interactionPattern;
-  const newTeachingMode = (input.teachingMode as string) || (setupData?.teachingMode as string);
-  if (newTeachingMode) configUpdate.teachingMode = newTeachingMode;
+  // #1995 — enum-validated writes. The pre-#1995 path took whatever string
+  // the AI returned and cast to `string`. The live IELTS Speaking Practice
+  // incident on hf_sandbox showed that the AI sometimes returns a value
+  // from the wrong union (e.g. `teachingMode = "directive"`, which is an
+  // `interactionPattern` value). Every assignment below is now guarded.
+  if (interactionPattern) {
+    if (isInteractionPattern(interactionPattern)) {
+      configUpdate.interactionPattern = interactionPattern;
+    } else {
+      logSkipInvalidEnum(
+        "interactionPattern",
+        interactionPattern,
+        "socratic|directive|advisory|coaching|companion|facilitation|reflective|open|conversational-guide",
+      );
+    }
+  }
+  const newTeachingMode = input.teachingMode ?? setupData?.teachingMode;
+  if (newTeachingMode !== undefined && newTeachingMode !== null && newTeachingMode !== "") {
+    if (isTeachingMode(newTeachingMode)) {
+      configUpdate.teachingMode = newTeachingMode;
+    } else {
+      logSkipInvalidEnum(
+        "teachingMode",
+        newTeachingMode,
+        "recall|comprehension|practice|syllabus",
+      );
+    }
+  }
   if (subjectDiscipline) configUpdate.subjectDiscipline = subjectDiscipline;
   const newWelcomeMessage = (input.welcomeMessage as string) || (setupData?.welcomeMessage as string);
   if (newWelcomeMessage) configUpdate.welcomeMessage = newWelcomeMessage;
@@ -51,22 +108,57 @@ export async function buildNewConfigUpdate(
   if (newSessionCount) configUpdate.sessionCount = Number(newSessionCount);
   const newDurationMins = input.durationMins ?? setupData?.durationMins;
   if (newDurationMins) configUpdate.durationMins = Number(newDurationMins);
-  const newPlanEmphasis = (input.planEmphasis as string) || (setupData?.planEmphasis as string);
-  if (newPlanEmphasis) configUpdate.planEmphasis = newPlanEmphasis;
-  const newAudience = (input.audience as string) || (setupData?.audience as string);
-  if (newAudience) configUpdate.audience = newAudience;
-  const newLessonPlanModel = (input.lessonPlanModel as string) || (setupData?.lessonPlanModel as string);
-  if (newLessonPlanModel) configUpdate.lessonPlanModel = newLessonPlanModel;
+  const newPlanEmphasis = input.planEmphasis ?? setupData?.planEmphasis;
+  if (newPlanEmphasis !== undefined && newPlanEmphasis !== null && newPlanEmphasis !== "") {
+    if (isPlanEmphasis(newPlanEmphasis)) {
+      (configUpdate as Record<string, unknown>).planEmphasis = newPlanEmphasis;
+    } else {
+      logSkipInvalidEnum("planEmphasis", newPlanEmphasis, "breadth|balanced|depth");
+    }
+  }
+  const newAudience = input.audience ?? setupData?.audience;
+  if (newAudience !== undefined && newAudience !== null && newAudience !== "") {
+    if (isAudience(newAudience)) {
+      configUpdate.audience = newAudience;
+    } else {
+      logSkipInvalidEnum(
+        "audience",
+        newAudience,
+        "primary|secondary|sixth-form|higher-ed|adult-professional|adult-casual|mixed",
+      );
+    }
+  }
+  const newLessonPlanModel = input.lessonPlanModel ?? setupData?.lessonPlanModel;
+  if (newLessonPlanModel !== undefined && newLessonPlanModel !== null && newLessonPlanModel !== "") {
+    if (isLessonPlanModel(newLessonPlanModel)) {
+      configUpdate.lessonPlanModel = newLessonPlanModel;
+    } else {
+      logSkipInvalidEnum(
+        "lessonPlanModel",
+        newLessonPlanModel,
+        "direct_instruction|socratic|5e|spiral|mastery|project",
+      );
+    }
+  }
 
   // #253 follow-up: progressionMode → modulesAuthored mirror. The reuse-path
   // branch carried this from day one; the new-path branch was missing it,
   // surfacing a "Mode not set" pill on the course page.
-  const newProgressionMode =
-    (input.progressionMode as string) || (setupData?.progressionMode as string);
-  if (newProgressionMode === "learner-picks") {
-    configUpdate.modulesAuthored = true;
-  } else if (newProgressionMode === "ai-led") {
-    configUpdate.modulesAuthored = false;
+  const newProgressionMode = input.progressionMode ?? setupData?.progressionMode;
+  if (newProgressionMode !== undefined && newProgressionMode !== null && newProgressionMode !== "") {
+    if (isProgressionMode(newProgressionMode)) {
+      if (newProgressionMode === "learner-picks") {
+        configUpdate.modulesAuthored = true;
+      } else if (newProgressionMode === "ai-led") {
+        configUpdate.modulesAuthored = false;
+      }
+    } else {
+      logSkipInvalidEnum(
+        "progressionMode",
+        newProgressionMode,
+        "learner-picks|ai-led",
+      );
+    }
   }
   const newPhysicalMaterials = (input.physicalMaterials as string) || (setupData?.physicalMaterials as string);
   if (newPhysicalMaterials) configUpdate.physicalMaterials = newPhysicalMaterials;

@@ -14,6 +14,28 @@
  */
 
 import type { ResolvedCreateCourseContext } from "./_context";
+import {
+  isTeachingMode,
+  isInteractionPattern,
+  isAudience,
+  isPlanEmphasis,
+  isLessonPlanModel,
+  isProgressionMode,
+} from "@/lib/content-trust/resolve-config";
+
+/** #1995 — log-and-skip helper (mirror of `_new-config-merge.ts`). */
+function logSkipInvalidEnum(
+  field: string,
+  value: unknown,
+  validValues: string,
+): void {
+  console.warn(
+    `[wizard:guard] dropped ${field} write — invalid value ${JSON.stringify(value)} ` +
+      `not in {${validValues}}. ` +
+      `Story #1995 — chat-tool enum validation. The AI returned a value outside the ` +
+      `union; merge proceeds for the other fields.`,
+  );
+}
 
 export function buildReuseConfigUpdate(
   existingConfig: Record<string, unknown>,
@@ -22,9 +44,30 @@ export function buildReuseConfigUpdate(
   const { input, setupData, subjectDiscipline, interactionPattern } = ctx;
   const configUpdate: Record<string, unknown> = { ...existingConfig };
 
-  if (interactionPattern) configUpdate.interactionPattern = interactionPattern;
-  const teachingMode = (input.teachingMode as string) || (setupData?.teachingMode as string);
-  if (teachingMode) configUpdate.teachingMode = teachingMode;
+  // #1995 — enum-validated writes (mirror of `_new-config-merge.ts`).
+  if (interactionPattern) {
+    if (isInteractionPattern(interactionPattern)) {
+      configUpdate.interactionPattern = interactionPattern;
+    } else {
+      logSkipInvalidEnum(
+        "interactionPattern",
+        interactionPattern,
+        "socratic|directive|advisory|coaching|companion|facilitation|reflective|open|conversational-guide",
+      );
+    }
+  }
+  const teachingMode = input.teachingMode ?? setupData?.teachingMode;
+  if (teachingMode !== undefined && teachingMode !== null && teachingMode !== "") {
+    if (isTeachingMode(teachingMode)) {
+      configUpdate.teachingMode = teachingMode;
+    } else {
+      logSkipInvalidEnum(
+        "teachingMode",
+        teachingMode,
+        "recall|comprehension|practice|syllabus",
+      );
+    }
+  }
   if (subjectDiscipline) configUpdate.subjectDiscipline = subjectDiscipline;
   const welcomeMessage = (input.welcomeMessage as string) || (setupData?.welcomeMessage as string);
   if (welcomeMessage) configUpdate.welcomeMessage = welcomeMessage;
@@ -32,12 +75,39 @@ export function buildReuseConfigUpdate(
   if (sessionCount) configUpdate.sessionCount = Number(sessionCount);
   const durationMins = input.durationMins ?? setupData?.durationMins;
   if (durationMins) configUpdate.durationMins = Number(durationMins);
-  const planEmphasis = (input.planEmphasis as string) || (setupData?.planEmphasis as string);
-  if (planEmphasis) configUpdate.planEmphasis = planEmphasis;
-  const audience = (input.audience as string) || (setupData?.audience as string);
-  if (audience) configUpdate.audience = audience;
-  const lessonPlanModel = (input.lessonPlanModel as string) || (setupData?.lessonPlanModel as string);
-  if (lessonPlanModel) configUpdate.lessonPlanModel = lessonPlanModel;
+  const planEmphasis = input.planEmphasis ?? setupData?.planEmphasis;
+  if (planEmphasis !== undefined && planEmphasis !== null && planEmphasis !== "") {
+    if (isPlanEmphasis(planEmphasis)) {
+      // configUpdate is a free-form object; assignment site is enum-typed via PlaybookConfig
+      (configUpdate as Record<string, unknown>).planEmphasis = planEmphasis;
+    } else {
+      logSkipInvalidEnum("planEmphasis", planEmphasis, "breadth|balanced|depth");
+    }
+  }
+  const audience = input.audience ?? setupData?.audience;
+  if (audience !== undefined && audience !== null && audience !== "") {
+    if (isAudience(audience)) {
+      configUpdate.audience = audience;
+    } else {
+      logSkipInvalidEnum(
+        "audience",
+        audience,
+        "primary|secondary|sixth-form|higher-ed|adult-professional|adult-casual|mixed",
+      );
+    }
+  }
+  const lessonPlanModel = input.lessonPlanModel ?? setupData?.lessonPlanModel;
+  if (lessonPlanModel !== undefined && lessonPlanModel !== null && lessonPlanModel !== "") {
+    if (isLessonPlanModel(lessonPlanModel)) {
+      configUpdate.lessonPlanModel = lessonPlanModel;
+    } else {
+      logSkipInvalidEnum(
+        "lessonPlanModel",
+        lessonPlanModel,
+        "direct_instruction|socratic|5e|spiral|mastery|project",
+      );
+    }
+  }
   const physicalMaterials = (input.physicalMaterials as string) || (setupData?.physicalMaterials as string);
   if (physicalMaterials) configUpdate.physicalMaterials = physicalMaterials;
   const courseContext = (input.courseContext as string) || (setupData?.courseContext as string);
@@ -48,12 +118,17 @@ export function buildReuseConfigUpdate(
   // #253: progressionMode — wizard's mandatory choice between AI-led teaching
   // (scheduler picks each call) and learner-picks (picker shows authored
   // modules). Maps to PlaybookConfig.modulesAuthored.
-  const progressionMode =
-    (input.progressionMode as string) || (setupData?.progressionMode as string);
-  if (progressionMode === "learner-picks") {
-    configUpdate.modulesAuthored = true;
-  } else if (progressionMode === "ai-led") {
-    configUpdate.modulesAuthored = false;
+  const progressionMode = input.progressionMode ?? setupData?.progressionMode;
+  if (progressionMode !== undefined && progressionMode !== null && progressionMode !== "") {
+    if (isProgressionMode(progressionMode)) {
+      if (progressionMode === "learner-picks") {
+        configUpdate.modulesAuthored = true;
+      } else if (progressionMode === "ai-led") {
+        configUpdate.modulesAuthored = false;
+      }
+    } else {
+      logSkipInvalidEnum("progressionMode", progressionMode, "learner-picks|ai-led");
+    }
   }
 
   // #167 — Carry through pedagogy detected from an uploaded course reference.
