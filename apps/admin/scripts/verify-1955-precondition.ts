@@ -91,7 +91,8 @@ async function main() {
     },
     select: {
       key: true,
-      valueText: true,
+      stringValue: true,
+      numberValue: true,
       callerId: true,
     },
     take: 20,
@@ -100,7 +101,7 @@ async function main() {
     `\n[CallerAttribute] lo_mastery rows keyed on Part 3 module: ${masteryAttrs.length}`
   );
   for (const a of masteryAttrs.slice(0, 5)) {
-    console.log(`  - ${a.key} = ${a.valueText?.slice(0, 50)}`);
+    console.log(`  - ${a.key} = string:${a.stringValue?.slice(0, 30) ?? "null"} number:${a.numberValue ?? "null"}`);
   }
 
   // CallerTarget rows for the 4 IELTS skill params
