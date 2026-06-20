@@ -18,6 +18,28 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Coloured left stripe — each card variant overrides --hf-card-accent
+   * (token-only per ui-design-system.md). Default falls back to the
+   * border-default value so the variant overrides bite cleanly. */
+  border-left: 4px solid var(--hf-card-accent, var(--border-default));
+}
+
+/* Per-card accent — left stripe + soft tinted background.
+   Tokens only: accent-primary / accent-secondary / status-warning-text. */
+.hf-module-editor-header {
+  --hf-card-accent: var(--accent-primary);
+  border-left: 4px solid var(--hf-card-accent);
+  background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-primary));
+}
+
+.hf-module-editor-card-how {
+  --hf-card-accent: var(--accent-secondary);
+  background: color-mix(in srgb, var(--accent-secondary) 4%, var(--surface-primary));
+}
+
+.hf-module-editor-card-when {
+  --hf-card-accent: var(--status-warning-text);
+  background: color-mix(in srgb, var(--status-warning-text) 4%, var(--surface-primary));
 }
 
 .hf-module-editor-card-header {
