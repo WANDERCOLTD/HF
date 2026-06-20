@@ -2,9 +2,9 @@
   "$schema": "../feature-spec-schema.json",
   "id": "ADAPT-BEH-001",
   "title": "Behavior Profile Adaptation",
-  "version": "1.0",
+  "version": "1.1",
   "status": "Active",
-  "date": "2026-06-19",
+  "date": "2026-06-20",
   "domain": "behavior-adaptation",
   "specType": "ADAPT",
   "outputType": "ADAPT",
@@ -12,7 +12,7 @@
   "story": {
     "asA": "personalization system",
     "iWant": "to read the rolled-up behavior_profile:* CallerAttribute rows written by BEH-AGG-001 and adjust the per-caller CallerTarget for selected BEH-* parameters",
-    "soThat": "the adaptive loop closes for the BEH-* family: AGGREGATE writes per-caller behaviour fingerprints, and the next call's compose-time CallerTarget reflects those fingerprints — the tutor's targets drift toward what works for this learner without operator intervention"
+    "soThat": "the adaptive loop closes for the BEH-* family: AGGREGATE writes per-caller behaviour fingerprints, and the next call's compose-time CallerTarget reflects those fingerprints \u2014 the tutor's targets drift toward what works for this learner without operator intervention"
   },
   "context": {
     "applies": "Every call - reads BEH-AGG-001 CallerAttribute rows (scope=BEH-AGG-001) and writes CallerTarget upserts for Phase 1 companion / supervision / engagement buckets",
@@ -20,76 +20,164 @@
       "BEH-AGG-001-behavior-aggregation"
     ],
     "assumptions": [
-      "BEH-AGG-001 has written behavior_profile:{group}:{dimension} CallerAttributes for the caller. If the row is missing (minimumObservations not yet met), the rule's evaluateCondition(null) returns false and the rule silently skips — natural activation gating without a profileCondition.",
-      "CallerTarget.targetValue is the canonical write surface for ADAPT outputs — the per-caller cascade layer that wins over BehaviorTarget(scope=*).",
-      "Phase 1 deliberately AVOIDS BEH-EMPATHY-RATE and BEH-PROACTIVE — both owned by ADAPT-PERS-001. Phase 2 may add an outputPriority coordination layer; today the runner iterates specs in findMany order and last write wins. ADAPT-BEH-001 targets BEH-ENGAGEMENT / BEH-QUESTION-RATE / BEH-INTELLECTUAL-CHALLENGE / BEH-FORMALITY / BEH-DIRECTNESS / BEH-WARMTH / BEH-DEFINITION-PRECISION instead.",
-      "Phase 2 buckets (personality / curriculum / learning / reinforcement / onboarding / core_style) are deferred — see notes for the per-bucket rationale."
+      "BEH-AGG-001 has written behavior_profile:{group}:{dimension} CallerAttributes for the caller. If the row is missing (minimumObservations not yet met), the rule's evaluateCondition(null) returns false and the rule silently skips \u2014 natural activation gating without a profileCondition.",
+      "CallerTarget.targetValue is the canonical write surface for ADAPT outputs \u2014 the per-caller cascade layer that wins over BehaviorTarget(scope=*).",
+      "Phase 1 (#2076) shipped 3 buckets \u2014 companion / supervision / engagement. Phase 2 (#2077, this rev) extends to personality / curriculum / learning / reinforcement / onboarding. The two phases together cover 8 of 9 BEH-AGG-001 output groups. behavior-core (BEH-WARMTH / BEH-FORMALITY / BEH-DIRECTNESS / BEH-TONE / BEH-RESPONSE-LEN / BEH-TURN-LENGTH) is intentionally NOT written by ADAPT \u2014 those are operator-set via the System\u2192Domain\u2192Course\u2192Caller cascade.",
+      "Phase 2 deliberately disjoint-targets where sibling ADAPT specs already write: ADAPT-PERS-001 keeps BEH-DIRECTNESS / BEH-FORMALITY / BEH-PAUSE-TOLERANCE / BEH-RESPONSE-LEN / BEH-EMPATHY-RATE / BEH-PROACTIVE; ADAPT-CURR-001 keeps the 20 *-instructional BEH-* targets it already drives; ADAPT-LEARN-001 + ADAPT-VARK-001 keep their modality / scaffolding sets; ADAPT-ENG-001 keeps engagement-targets-manifest's onboarding triple (context_setting / goal_discovery / preference_elicitation). ADAPT-BEH-001 Phase 2 targets only the orphan *-ADAPTATION rows in each bucket plus a small number of cross-bucket nudges (BEH-WARMTH / BEH-CHECK-FOR-UNDERSTANDING / BEH-CHALLENGE-LEVEL / BEH-ENGAGEMENT) on reinforcement-trend triggers."
     ]
   },
   "acceptanceCriteria": [
     {
       "id": "AC-ADAPT-BEH-1",
-      "title": "Companion bucket — engagement-level adaptation",
+      "title": "Companion bucket \u2014 engagement-level adaptation",
       "given": "BEH-AGG-001 wrote behavior_profile:companion:engagement_level for the caller",
       "when": "Running ADAPT-BEH-001",
       "then": "If engagement_level is 'low', CallerTarget(BEH-ENGAGEMENT).targetValue is increased by 0.10",
-      "measuredBy": ["companion_engagement_adaptation"]
+      "measuredBy": [
+        "companion_engagement_adaptation"
+      ]
     },
     {
       "id": "AC-ADAPT-BEH-2",
-      "title": "Companion bucket — question-rate adaptation",
+      "title": "Companion bucket \u2014 question-rate adaptation",
       "given": "BEH-AGG-001 wrote behavior_profile:companion:question_rate for the caller",
       "when": "Running ADAPT-BEH-001",
       "then": "If question_rate is 'rare', CallerTarget(BEH-QUESTION-RATE).targetValue is increased by 0.10",
-      "measuredBy": ["companion_question_rate_adaptation"]
+      "measuredBy": [
+        "companion_question_rate_adaptation"
+      ]
     },
     {
       "id": "AC-ADAPT-BEH-3",
-      "title": "Supervision bucket — tutor-fidelity adaptation",
+      "title": "Supervision bucket \u2014 tutor-fidelity adaptation",
       "given": "BEH-AGG-001 wrote behavior_profile:supervision:tutor_fidelity for the caller",
       "when": "Running ADAPT-BEH-001",
       "then": "If tutor_fidelity is 'low', CallerTarget(BEH-DEFINITION-PRECISION).targetValue is increased by 0.10",
-      "measuredBy": ["supervision_tutor_fidelity_adaptation"]
+      "measuredBy": [
+        "supervision_tutor_fidelity_adaptation"
+      ]
     },
     {
       "id": "AC-ADAPT-BEH-4",
-      "title": "Supervision bucket — style-consistency adaptation",
+      "title": "Supervision bucket \u2014 style-consistency adaptation",
       "given": "BEH-AGG-001 wrote behavior_profile:supervision:style_consistency for the caller",
       "when": "Running ADAPT-BEH-001",
       "then": "If style_consistency is 'inconsistent', CallerTarget(BEH-FORMALITY).targetValue is set to 0.6",
-      "measuredBy": ["supervision_style_consistency_adaptation"]
+      "measuredBy": [
+        "supervision_style_consistency_adaptation"
+      ]
     },
     {
       "id": "AC-ADAPT-BEH-5",
-      "title": "Supervision bucket — target-alignment adaptation",
+      "title": "Supervision bucket \u2014 target-alignment adaptation",
       "given": "BEH-AGG-001 wrote behavior_profile:supervision:target_alignment for the caller",
       "when": "Running ADAPT-BEH-001",
       "then": "If target_alignment is 'misaligned', CallerTarget(BEH-DIRECTNESS).targetValue is increased by 0.05",
-      "measuredBy": ["supervision_target_alignment_adaptation"]
+      "measuredBy": [
+        "supervision_target_alignment_adaptation"
+      ]
     },
     {
       "id": "AC-ADAPT-BEH-6",
-      "title": "Supervision bucket — safety-compliance adaptation",
+      "title": "Supervision bucket \u2014 safety-compliance adaptation",
       "given": "BEH-AGG-001 wrote behavior_profile:supervision:safety_compliance for the caller",
       "when": "Running ADAPT-BEH-001",
       "then": "If safety_compliance is 'marginal', CallerTarget(BEH-WARMTH).targetValue is decreased by 0.05",
-      "measuredBy": ["supervision_safety_compliance_adaptation"]
+      "measuredBy": [
+        "supervision_safety_compliance_adaptation"
+      ]
     },
     {
       "id": "AC-ADAPT-BEH-7",
-      "title": "Engagement bucket — cognitive-activation adaptation",
+      "title": "Engagement bucket \u2014 cognitive-activation adaptation",
       "given": "BEH-AGG-001 wrote behavior_profile:engagement:cognitive_activation for the caller",
       "when": "Running ADAPT-BEH-001",
       "then": "If cognitive_activation is 'low', CallerTarget(BEH-INTELLECTUAL-CHALLENGE).targetValue is increased by 0.10; if 'high', decreased by 0.05",
-      "measuredBy": ["engagement_cognitive_activation_adaptation"]
+      "measuredBy": [
+        "engagement_cognitive_activation_adaptation"
+      ]
     },
     {
       "id": "AC-ADAPT-BEH-8",
-      "title": "Engagement bucket — call-frequency-fidelity adaptation",
+      "title": "Engagement bucket \u2014 call-frequency-fidelity adaptation",
       "given": "BEH-AGG-001 wrote behavior_profile:engagement:call_frequency_fidelity for the caller",
       "when": "Running ADAPT-BEH-001",
       "then": "If call_frequency_fidelity is 'drift', CallerTarget(BEH-ENGAGEMENT).targetValue is set to 0.8",
-      "measuredBy": ["engagement_call_frequency_adaptation"]
+      "measuredBy": [
+        "engagement_call_frequency_adaptation"
+      ]
+    },
+    {
+      "id": "AC-ADAPT-BEH-9",
+      "title": "Personality bucket \u2014 Big-Five OCEAN targets",
+      "given": "PERS-001 wrote parameterValues for B5-O / B5-C / B5-E / B5-A / B5-N",
+      "when": "Running ADAPT-BEH-001",
+      "then": "For each OCEAN axis above/below threshold (0.65 / 0.35), CallerTarget(BEH-{O,C,E,A,N}-ADAPTATION).targetValue is set to 0.8 / 0.3 respectively",
+      "measuredBy": [
+        "personality_openness_adaptation",
+        "personality_conscientiousness_adaptation",
+        "personality_extraversion_adaptation",
+        "personality_agreeableness_adaptation",
+        "personality_neuroticism_adaptation"
+      ]
+    },
+    {
+      "id": "AC-ADAPT-BEH-10",
+      "title": "Curriculum bucket \u2014 mastery-fidelity adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:curriculum:* fidelity rows",
+      "when": "Running ADAPT-BEH-001",
+      "then": "For each of {application, comprehension, concept-exposure, mastery, module-introduction, prerequisite, review} fidelities reading 'low', the matching BEH-*-ADAPTATION CallerTarget.targetValue is increased by 0.10; reading 'high' decreases by 0.05",
+      "measuredBy": [
+        "curriculum_application_fidelity_adaptation",
+        "curriculum_comprehension_fidelity_adaptation",
+        "curriculum_concept_exposure_depth_adaptation",
+        "curriculum_mastery_fidelity_adaptation",
+        "curriculum_module_introduction_status_adaptation",
+        "curriculum_prerequisite_fidelity_adaptation",
+        "curriculum_review_fidelity_adaptation"
+      ]
+    },
+    {
+      "id": "AC-ADAPT-BEH-11",
+      "title": "Learning bucket \u2014 modality and pace adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:learning:* fidelity rows",
+      "when": "Running ADAPT-BEH-001",
+      "then": "Multimodal-fidelity 'low' raises visual_adaptation / auditory_adaptation / kinesthetic_adaptation by 0.10. Reading-writing fidelity 'low' raises BEH-EXPLANATION-DEPTH by 0.10. Question-frequency-fidelity 'low' raises BEH-SOCRATIC-QUESTIONING by 0.10. Feedback-style fidelity 'low' raises adapt_to_pace_preference and adapt_to_learning_style by 0.10. Interaction-style fidelity 'low' shifts BEH-ABSTRACT-VS-CONCRETE down by 0.05.",
+      "measuredBy": [
+        "learning_visual_modality_adaptation",
+        "learning_auditory_modality_adaptation",
+        "learning_kinesthetic_modality_adaptation",
+        "learning_explanation_depth_adaptation",
+        "learning_abstract_concrete_adaptation",
+        "learning_socratic_questioning_adaptation",
+        "learning_pace_preference_adaptation",
+        "learning_style_preference_adaptation"
+      ]
+    },
+    {
+      "id": "AC-ADAPT-BEH-12",
+      "title": "Reinforcement bucket \u2014 reward-trend adaptation",
+      "given": "BEH-AGG-001 wrote behavior_profile:reinforcement:* trend rows",
+      "when": "Running ADAPT-BEH-001",
+      "then": "When a reward trend reads 'low' the matching CallerTarget is bumped: composite_reward \u2192 BEH-ERROR-ELABORATION +0.10; engagement_reward \u2192 BEH-ENGAGEMENT set to 0.8; goal_progress_reward \u2192 BEH-CHALLENGE-LEVEL +0.05; learning_reward \u2192 BEH-CHECK-FOR-UNDERSTANDING +0.10; rapport_reward \u2192 BEH-WARMTH +0.05.",
+      "measuredBy": [
+        "reinforcement_composite_reward_adaptation",
+        "reinforcement_engagement_reward_adaptation",
+        "reinforcement_goal_progress_reward_adaptation",
+        "reinforcement_learning_reward_adaptation",
+        "reinforcement_rapport_reward_adaptation"
+      ]
+    },
+    {
+      "id": "AC-ADAPT-BEH-13",
+      "title": "Onboarding bucket \u2014 operator-quality compensation",
+      "given": "BEH-AGG-001 wrote behavior_profile:onboarding:{default_targets_quality, welcome_quality}",
+      "when": "Running ADAPT-BEH-001",
+      "then": "default_targets_quality 'low' raises BEH-CHECK-FOR-UNDERSTANDING by 0.10. welcome_quality 'low' raises BEH-WARMTH by 0.05. Other onboarding keys (context_setting_quality / goal_discovery_quality / preference_elicitation_quality) are consumed by ADAPT-ENG-001 via engagement-targets-manifest \u2014 not duplicated here.",
+      "measuredBy": [
+        "onboarding_default_targets_quality_adaptation",
+        "onboarding_welcome_quality_adaptation"
+      ]
     }
   ],
   "parameters": [
@@ -99,7 +187,10 @@
       "description": "Raise BEH-ENGAGEMENT target when the caller's rolled-up companion:engagement_level fingerprint reads 'low'.",
       "section": "companion",
       "isAdjustable": true,
-      "targetRange": { "min": 0.0, "max": 1.0 },
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
       "config": {
         "adaptationRules": [
           {
@@ -114,8 +205,8 @@
               {
                 "targetParameter": "BEH-ENGAGEMENT",
                 "adjustment": "increase",
-                "delta": 0.10,
-                "rationale": "Companion fingerprint shows low engagement — raise the engagement target so the tutor leans in more."
+                "delta": 0.1,
+                "rationale": "Companion fingerprint shows low engagement \u2014 raise the engagement target so the tutor leans in more."
               }
             ]
           }
@@ -128,7 +219,10 @@
       "description": "Raise BEH-QUESTION-RATE target when the caller's rolled-up companion:question_rate fingerprint reads 'rare'.",
       "section": "companion",
       "isAdjustable": true,
-      "targetRange": { "min": 0.0, "max": 1.0 },
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
       "config": {
         "adaptationRules": [
           {
@@ -143,8 +237,8 @@
               {
                 "targetParameter": "BEH-QUESTION-RATE",
                 "adjustment": "increase",
-                "delta": 0.10,
-                "rationale": "Tutor consistently underdelivers on questions — raise the target so it asks more."
+                "delta": 0.1,
+                "rationale": "Tutor consistently underdelivers on questions \u2014 raise the target so it asks more."
               }
             ]
           }
@@ -154,10 +248,13 @@
     {
       "id": "supervision_tutor_fidelity_adaptation",
       "name": "Supervision Tutor-Fidelity Adaptation",
-      "description": "Tighten BEH-DEFINITION-PRECISION when tutor_fidelity drifts low — sharper definitions reduce ambiguity that the supervision signal flagged.",
+      "description": "Tighten BEH-DEFINITION-PRECISION when tutor_fidelity drifts low \u2014 sharper definitions reduce ambiguity that the supervision signal flagged.",
       "section": "supervision",
       "isAdjustable": true,
-      "targetRange": { "min": 0.0, "max": 1.0 },
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
       "config": {
         "adaptationRules": [
           {
@@ -172,8 +269,8 @@
               {
                 "targetParameter": "BEH-DEFINITION-PRECISION",
                 "adjustment": "increase",
-                "delta": 0.10,
-                "rationale": "Supervision flagged low tutor fidelity — raise definition precision so the prompt directive is sharper."
+                "delta": 0.1,
+                "rationale": "Supervision flagged low tutor fidelity \u2014 raise definition precision so the prompt directive is sharper."
               }
             ]
           }
@@ -183,10 +280,13 @@
     {
       "id": "supervision_style_consistency_adaptation",
       "name": "Supervision Style-Consistency Adaptation",
-      "description": "Anchor BEH-FORMALITY at a midpoint when style_consistency reads 'inconsistent' — fixes the drift by pinning the target.",
+      "description": "Anchor BEH-FORMALITY at a midpoint when style_consistency reads 'inconsistent' \u2014 fixes the drift by pinning the target.",
       "section": "supervision",
       "isAdjustable": true,
-      "targetRange": { "min": 0.0, "max": 1.0 },
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
       "config": {
         "adaptationRules": [
           {
@@ -202,7 +302,7 @@
                 "targetParameter": "BEH-FORMALITY",
                 "adjustment": "set",
                 "value": 0.6,
-                "rationale": "Inconsistent style — pin formality to a balanced midpoint so subsequent calls have a stable anchor."
+                "rationale": "Inconsistent style \u2014 pin formality to a balanced midpoint so subsequent calls have a stable anchor."
               }
             ]
           }
@@ -212,10 +312,13 @@
     {
       "id": "supervision_target_alignment_adaptation",
       "name": "Supervision Target-Alignment Adaptation",
-      "description": "Raise BEH-DIRECTNESS when target_alignment is 'misaligned' — more direct prompts reduce miss rate.",
+      "description": "Raise BEH-DIRECTNESS when target_alignment is 'misaligned' \u2014 more direct prompts reduce miss rate.",
       "section": "supervision",
       "isAdjustable": true,
-      "targetRange": { "min": 0.0, "max": 1.0 },
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
       "config": {
         "adaptationRules": [
           {
@@ -231,7 +334,7 @@
                 "targetParameter": "BEH-DIRECTNESS",
                 "adjustment": "increase",
                 "delta": 0.05,
-                "rationale": "Supervision flagged misaligned targets — small directness bump helps the tutor steer back on track."
+                "rationale": "Supervision flagged misaligned targets \u2014 small directness bump helps the tutor steer back on track."
               }
             ]
           }
@@ -241,10 +344,13 @@
     {
       "id": "supervision_safety_compliance_adaptation",
       "name": "Supervision Safety-Compliance Adaptation",
-      "description": "Lower BEH-WARMTH when safety_compliance is 'marginal' — tighter warmth makes the tutor less likely to over-agree with unsafe content.",
+      "description": "Lower BEH-WARMTH when safety_compliance is 'marginal' \u2014 tighter warmth makes the tutor less likely to over-agree with unsafe content.",
       "section": "supervision",
       "isAdjustable": true,
-      "targetRange": { "min": 0.0, "max": 1.0 },
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
       "config": {
         "adaptationRules": [
           {
@@ -260,7 +366,7 @@
                 "targetParameter": "BEH-WARMTH",
                 "adjustment": "decrease",
                 "delta": 0.05,
-                "rationale": "Marginal safety compliance — small warmth reduction tightens the tutor's empathy gating so it pushes back on unsafe content."
+                "rationale": "Marginal safety compliance \u2014 small warmth reduction tightens the tutor's empathy gating so it pushes back on unsafe content."
               }
             ]
           }
@@ -273,7 +379,10 @@
       "description": "Adjust BEH-INTELLECTUAL-CHALLENGE in both directions based on the rolled-up cognitive_activation fingerprint.",
       "section": "engagement",
       "isAdjustable": true,
-      "targetRange": { "min": 0.0, "max": 1.0 },
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
       "config": {
         "adaptationRules": [
           {
@@ -288,8 +397,8 @@
               {
                 "targetParameter": "BEH-INTELLECTUAL-CHALLENGE",
                 "adjustment": "increase",
-                "delta": 0.10,
-                "rationale": "Low cognitive activation — raise challenge so the tutor pushes more."
+                "delta": 0.1,
+                "rationale": "Low cognitive activation \u2014 raise challenge so the tutor pushes more."
               }
             ]
           },
@@ -306,7 +415,7 @@
                 "targetParameter": "BEH-INTELLECTUAL-CHALLENGE",
                 "adjustment": "decrease",
                 "delta": 0.05,
-                "rationale": "High cognitive activation — small reduction so the tutor doesn't overshoot."
+                "rationale": "High cognitive activation \u2014 small reduction so the tutor doesn't overshoot."
               }
             ]
           }
@@ -316,10 +425,13 @@
     {
       "id": "engagement_call_frequency_adaptation",
       "name": "Engagement Call-Frequency-Fidelity Adaptation",
-      "description": "Pin BEH-ENGAGEMENT high when call_frequency_fidelity is 'drift' — the caller is missing their cadence; raising engagement increases the chance the next call lands.",
+      "description": "Pin BEH-ENGAGEMENT high when call_frequency_fidelity is 'drift' \u2014 the caller is missing their cadence; raising engagement increases the chance the next call lands.",
       "section": "engagement",
       "isAdjustable": true,
-      "targetRange": { "min": 0.0, "max": 1.0 },
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
       "config": {
         "adaptationRules": [
           {
@@ -335,7 +447,1082 @@
                 "targetParameter": "BEH-ENGAGEMENT",
                 "adjustment": "set",
                 "value": 0.8,
-                "rationale": "Call cadence drifting — pin engagement high so the next session is more memorable / sticky."
+                "rationale": "Call cadence drifting \u2014 pin engagement high so the next session is more memorable / sticky."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "personality_openness_adaptation",
+      "name": "Personality Openness Adaptation",
+      "description": "Drive BEH-OPENNESS-ADAPTATION target from the Big-Five openness measure on CallerPersonalityProfile.",
+      "section": "personality",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "B5-O",
+              "operator": "gt",
+              "threshold": 0.65,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-OPENNESS-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "High openness \u2014 favour exploratory style.",
+                "value": 0.8
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "B5-O",
+              "operator": "lt",
+              "threshold": 0.35,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-OPENNESS-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "Low openness \u2014 favour practical style.",
+                "value": 0.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "personality_conscientiousness_adaptation",
+      "name": "Personality Conscientiousness Adaptation",
+      "description": "Drive BEH-CONSCIENTIOUSNESS-ADAPTATION target from the Big-Five conscientiousness measure.",
+      "section": "personality",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "B5-C",
+              "operator": "gt",
+              "threshold": 0.65,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CONSCIENTIOUSNESS-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "High conscientiousness \u2014 favour structured detailed delivery.",
+                "value": 0.8
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "B5-C",
+              "operator": "lt",
+              "threshold": 0.35,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CONSCIENTIOUSNESS-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "Low conscientiousness \u2014 favour flexible overview delivery.",
+                "value": 0.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "personality_extraversion_adaptation",
+      "name": "Personality Extraversion Adaptation",
+      "description": "Drive BEH-EXTRAVERSION-ADAPTATION target from the Big-Five extraversion measure.",
+      "section": "personality",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "B5-E",
+              "operator": "gt",
+              "threshold": 0.65,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-EXTRAVERSION-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "High extraversion \u2014 favour energetic back-and-forth dialogue.",
+                "value": 0.8
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "B5-E",
+              "operator": "lt",
+              "threshold": 0.35,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-EXTRAVERSION-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "Low extraversion \u2014 favour measured pace and pauses.",
+                "value": 0.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "personality_agreeableness_adaptation",
+      "name": "Personality Agreeableness Adaptation",
+      "description": "Drive BEH-AGREEABLENESS-ADAPTATION target from the Big-Five agreeableness measure.",
+      "section": "personality",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "B5-A",
+              "operator": "gt",
+              "threshold": 0.65,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-AGREEABLENESS-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "High agreeableness \u2014 favour warm cooperative style.",
+                "value": 0.8
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "B5-A",
+              "operator": "lt",
+              "threshold": 0.35,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-AGREEABLENESS-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "Low agreeableness \u2014 favour direct honest style.",
+                "value": 0.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "personality_neuroticism_adaptation",
+      "name": "Personality Neuroticism Adaptation",
+      "description": "Drive BEH-NEUROTICISM-ADAPTATION target from the Big-Five neuroticism measure.",
+      "section": "personality",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "B5-N",
+              "operator": "gt",
+              "threshold": 0.65,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-NEUROTICISM-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "High neuroticism \u2014 favour reassuring calm style.",
+                "value": 0.8
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "B5-N",
+              "operator": "lt",
+              "threshold": 0.35,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-NEUROTICISM-ADAPTATION",
+                "adjustment": "set",
+                "rationale": "Low neuroticism \u2014 favour straightforward style.",
+                "value": 0.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "curriculum_application_fidelity_adaptation",
+      "name": "Curriculum Application Fidelity Adaptation",
+      "description": "Adjust BEH-APPLICATION-ADAPTATION target when behavior_profile:curriculum:application_fidelity reads 'low' / 'high'.",
+      "section": "curriculum",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:application_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-APPLICATION-ADAPTATION",
+                "adjustment": "increase",
+                "rationale": "application fidelity drifting low \u2014 raise application-vs-explanation target.",
+                "delta": 0.1
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:application_fidelity",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-APPLICATION-ADAPTATION",
+                "adjustment": "decrease",
+                "rationale": "application fidelity reads high \u2014 small reduction to avoid overshoot.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "curriculum_comprehension_fidelity_adaptation",
+      "name": "Curriculum Comprehension Fidelity Adaptation",
+      "description": "Adjust BEH-COMPREHENSION-ADAPTATION target when behavior_profile:curriculum:comprehension_fidelity reads 'low' / 'high'.",
+      "section": "curriculum",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:comprehension_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-COMPREHENSION-ADAPTATION",
+                "adjustment": "increase",
+                "rationale": "comprehension fidelity drifting low \u2014 raise comprehension-based scaffolding target.",
+                "delta": 0.1
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:comprehension_fidelity",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-COMPREHENSION-ADAPTATION",
+                "adjustment": "decrease",
+                "rationale": "comprehension fidelity reads high \u2014 small reduction to avoid overshoot.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "curriculum_concept_exposure_depth_adaptation",
+      "name": "Curriculum Concept Exposure Depth Adaptation",
+      "description": "Adjust BEH-CONCEPT-EXPOSURE target when behavior_profile:curriculum:concept_exposure_depth reads 'low' / 'high'.",
+      "section": "curriculum",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:concept_exposure_depth",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CONCEPT-EXPOSURE",
+                "adjustment": "increase",
+                "rationale": "concept exposure depth shallow \u2014 raise depth target.",
+                "delta": 0.1
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:concept_exposure_depth",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CONCEPT-EXPOSURE",
+                "adjustment": "decrease",
+                "rationale": "concept exposure depth reads high \u2014 small reduction to avoid overshoot.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "curriculum_mastery_fidelity_adaptation",
+      "name": "Curriculum Mastery Fidelity Adaptation",
+      "description": "Adjust BEH-MASTERY-ADAPTATION target when behavior_profile:curriculum:mastery_fidelity reads 'low' / 'high'.",
+      "section": "curriculum",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:mastery_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-MASTERY-ADAPTATION",
+                "adjustment": "increase",
+                "rationale": "mastery fidelity drifting low \u2014 raise mastery-based teaching target.",
+                "delta": 0.1
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:mastery_fidelity",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-MASTERY-ADAPTATION",
+                "adjustment": "decrease",
+                "rationale": "mastery fidelity reads high \u2014 small reduction to avoid overshoot.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "curriculum_module_introduction_status_adaptation",
+      "name": "Curriculum Module Introduction Status Adaptation",
+      "description": "Adjust BEH-MODULE-INTRODUCTION target when behavior_profile:curriculum:module_introduction_status reads 'low' / 'high'.",
+      "section": "curriculum",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:module_introduction_status",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-MODULE-INTRODUCTION",
+                "adjustment": "increase",
+                "rationale": "module introduction status incomplete \u2014 raise introduction target.",
+                "delta": 0.1
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:module_introduction_status",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-MODULE-INTRODUCTION",
+                "adjustment": "decrease",
+                "rationale": "module introduction status reads high \u2014 small reduction to avoid overshoot.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "curriculum_prerequisite_fidelity_adaptation",
+      "name": "Curriculum Prerequisite Fidelity Adaptation",
+      "description": "Adjust BEH-PREREQUISITE-ADAPTATION target when behavior_profile:curriculum:prerequisite_fidelity reads 'low' / 'high'.",
+      "section": "curriculum",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:prerequisite_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-PREREQUISITE-ADAPTATION",
+                "adjustment": "increase",
+                "rationale": "prerequisite fidelity drifting low \u2014 raise foundation reinforcement target.",
+                "delta": 0.1
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:prerequisite_fidelity",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-PREREQUISITE-ADAPTATION",
+                "adjustment": "decrease",
+                "rationale": "prerequisite fidelity reads high \u2014 small reduction to avoid overshoot.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "curriculum_review_fidelity_adaptation",
+      "name": "Curriculum Review Fidelity Adaptation",
+      "description": "Adjust BEH-REVIEW-ADAPTATION target when behavior_profile:curriculum:review_fidelity reads 'low' / 'high'.",
+      "section": "curriculum",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:review_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-REVIEW-ADAPTATION",
+                "adjustment": "increase",
+                "rationale": "review fidelity drifting low \u2014 raise review priority target.",
+                "delta": 0.1
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:curriculum:review_fidelity",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-REVIEW-ADAPTATION",
+                "adjustment": "decrease",
+                "rationale": "review fidelity reads high \u2014 small reduction to avoid overshoot.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "learning_visual_modality_adaptation",
+      "name": "Learning Visual Modality Adaptation",
+      "description": "Raise visual_adaptation target when multimodal fidelity drifts low (caller benefits from richer visual scaffolds).",
+      "section": "learning",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:multimodal_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "visual_adaptation",
+                "adjustment": "increase",
+                "rationale": "Multimodal fidelity low \u2014 boost visual scaffolds.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "learning_auditory_modality_adaptation",
+      "name": "Learning Auditory Modality Adaptation",
+      "description": "Raise auditory_adaptation target when multimodal fidelity drifts low.",
+      "section": "learning",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:multimodal_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "auditory_adaptation",
+                "adjustment": "increase",
+                "rationale": "Multimodal fidelity low \u2014 boost auditory cues.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "learning_kinesthetic_modality_adaptation",
+      "name": "Learning Kinesthetic Modality Adaptation",
+      "description": "Raise kinesthetic_adaptation target when multimodal fidelity drifts low.",
+      "section": "learning",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:multimodal_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "kinesthetic_adaptation",
+                "adjustment": "increase",
+                "rationale": "Multimodal fidelity low \u2014 boost kinesthetic prompts.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "learning_explanation_depth_adaptation",
+      "name": "Learning Explanation Depth Adaptation",
+      "description": "Raise BEH-EXPLANATION-DEPTH when reading/writing fidelity reads 'low' \u2014 the caller needs deeper textual explanations.",
+      "section": "learning",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:reading_writing_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-EXPLANATION-DEPTH",
+                "adjustment": "increase",
+                "rationale": "Reading/writing fidelity low \u2014 deepen textual explanations.",
+                "delta": 0.1
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:reading_writing_fidelity",
+              "operator": "eq",
+              "value": "high",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-EXPLANATION-DEPTH",
+                "adjustment": "decrease",
+                "rationale": "Reading/writing fidelity high \u2014 small reduction to avoid over-elaboration.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "learning_abstract_concrete_adaptation",
+      "name": "Learning Abstract-vs-Concrete Adaptation",
+      "description": "Adjust BEH-ABSTRACT-VS-CONCRETE based on interaction-style fidelity \u2014 drift toward concrete when the caller's interaction style is hard to match.",
+      "section": "learning",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:interaction_style_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ABSTRACT-VS-CONCRETE",
+                "adjustment": "decrease",
+                "rationale": "Interaction style fidelity low \u2014 shift toward more concrete framing.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "learning_socratic_questioning_adaptation",
+      "name": "Learning Socratic Questioning Adaptation",
+      "description": "Raise BEH-SOCRATIC-QUESTIONING when question-frequency fidelity drifts low \u2014 the tutor isn't drawing the caller out enough.",
+      "section": "learning",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:question_frequency_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-SOCRATIC-QUESTIONING",
+                "adjustment": "increase",
+                "rationale": "Question frequency fidelity low \u2014 invite more Socratic dialogue.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "learning_pace_preference_adaptation",
+      "name": "Learning Pace Preference Adaptation",
+      "description": "Adjust adapt_to_pace_preference when feedback-style fidelity reads 'low' \u2014 the caller is signalling a pace mismatch.",
+      "section": "learning",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:feedback_style_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "adapt_to_pace_preference",
+                "adjustment": "increase",
+                "rationale": "Feedback style fidelity low \u2014 re-tune to caller's pace.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "learning_style_preference_adaptation",
+      "name": "Learning Style Preference Adaptation",
+      "description": "Adjust adapt_to_learning_style when feedback-style fidelity drifts low.",
+      "section": "learning",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:learning:feedback_style_fidelity",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "adapt_to_learning_style",
+                "adjustment": "increase",
+                "rationale": "Feedback style fidelity low \u2014 re-tune learning-style adaptation.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "reinforcement_composite_reward_adaptation",
+      "name": "Reinforcement Composite Reward Adaptation",
+      "description": "When the composite reward trend reads 'low', raise BEH-ERROR-ELABORATION so the tutor reflects on mistakes more deliberately.",
+      "section": "reinforcement",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:reinforcement:composite_reward_trend",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ERROR-ELABORATION",
+                "adjustment": "increase",
+                "rationale": "Composite reward trending low \u2014 elaborate on errors to lift learning gain.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "reinforcement_engagement_reward_adaptation",
+      "name": "Reinforcement Engagement Reward Adaptation",
+      "description": "When the engagement reward trend reads 'low', pin BEH-ENGAGEMENT high to recover engagement signal.",
+      "section": "reinforcement",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:reinforcement:engagement_reward_trend",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ENGAGEMENT",
+                "adjustment": "set",
+                "rationale": "Engagement reward trending low \u2014 pin engagement high to re-engage the caller.",
+                "value": 0.8
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "reinforcement_goal_progress_reward_adaptation",
+      "name": "Reinforcement Goal-Progress Reward Adaptation",
+      "description": "When goal-progress reward trends low, raise BEH-CHALLENGE-LEVEL so the tutor pushes toward measurable gain.",
+      "section": "reinforcement",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:reinforcement:goal_progress_reward_trend",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CHALLENGE-LEVEL",
+                "adjustment": "increase",
+                "rationale": "Goal-progress reward trending low \u2014 small challenge bump to recover progress signal.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "reinforcement_learning_reward_adaptation",
+      "name": "Reinforcement Learning Reward Adaptation",
+      "description": "When learning reward trends low, raise BEH-CHECK-FOR-UNDERSTANDING so the tutor verifies grasp more often.",
+      "section": "reinforcement",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:reinforcement:learning_reward_trend",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CHECK-FOR-UNDERSTANDING",
+                "adjustment": "increase",
+                "rationale": "Learning reward trending low \u2014 check for understanding more often.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "reinforcement_rapport_reward_adaptation",
+      "name": "Reinforcement Rapport Reward Adaptation",
+      "description": "When rapport reward trends low, raise BEH-WARMTH to rebuild rapport.",
+      "section": "reinforcement",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:reinforcement:rapport_reward_trend",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-WARMTH",
+                "adjustment": "increase",
+                "rationale": "Rapport reward trending low \u2014 small warmth bump to rebuild rapport.",
+                "delta": 0.05
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "onboarding_default_targets_quality_adaptation",
+      "name": "Onboarding Default-Targets Quality Adaptation",
+      "description": "When BEH-AGG-001 reads behavior_profile:onboarding:default_targets_quality 'low' (operator picked weak defaults), raise BEH-CHECK-FOR-UNDERSTANDING to compensate with more frequent comprehension checks on early calls.",
+      "section": "onboarding",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:onboarding:default_targets_quality",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-CHECK-FOR-UNDERSTANDING",
+                "adjustment": "increase",
+                "rationale": "Default targets weak \u2014 compensate with more frequent comprehension checks.",
+                "delta": 0.1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "onboarding_welcome_quality_adaptation",
+      "name": "Onboarding Welcome Quality Adaptation",
+      "description": "When behavior_profile:onboarding:welcome_quality reads 'low' (the welcome experience under-served the caller), raise BEH-WARMTH to recover affective alignment in subsequent calls.",
+      "section": "onboarding",
+      "isAdjustable": true,
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "behavior_profile:onboarding:welcome_quality",
+              "operator": "eq",
+              "value": "low",
+              "dataSource": "callerAttribute",
+              "scope": "BEH-AGG-001"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-WARMTH",
+                "adjustment": "increase",
+                "rationale": "Welcome quality low \u2014 small warmth bump to recover affective alignment.",
+                "delta": 0.05
               }
             ]
           }
@@ -350,37 +1537,75 @@
     {
       "id": "C-ADAPT-BEH-1",
       "type": "dependency",
-      "description": "Requires BEH-AGG-001 to have written behavior_profile:* CallerAttributes before computing adaptations. When the row is missing, evaluateCondition(null) returns false and the rule silently skips — natural activation gating.",
+      "description": "Requires BEH-AGG-001 to have written behavior_profile:* CallerAttributes before computing adaptations. When the row is missing, evaluateCondition(null) returns false and the rule silently skips \u2014 natural activation gating.",
       "severity": "critical"
     },
     {
       "id": "C-ADAPT-BEH-2",
       "type": "balance",
-      "description": "ADAPT-BEH-001 and ADAPT-PERS-001 BOTH write CallerTarget upserts. Phase 1 avoids targeting parameters owned by ADAPT-PERS-001 (BEH-EMPATHY-RATE / BEH-PROACTIVE) per Q2/Option-C — last write wins is unimportant when the sets are disjoint. Phase 2 should consider an outputPriority coordination layer if the sets overlap.",
+      "description": "ADAPT-BEH-001 and ADAPT-PERS-001 BOTH write CallerTarget upserts. Phase 1 avoids targeting parameters owned by ADAPT-PERS-001 (BEH-EMPATHY-RATE / BEH-PROACTIVE) per Q2/Option-C \u2014 last write wins is unimportant when the sets are disjoint. Phase 2 should consider an outputPriority coordination layer if the sets overlap.",
       "severity": "warning"
+    },
+    {
+      "id": "C-ADAPT-BEH-3",
+      "type": "balance",
+      "description": "Phase 2 personality rules read PERS-001 parameterValues (B5-O/C/E/A/N) while ADAPT-PERS-001 also reads them; the two specs target disjoint parameter sets (Phase 2 \u2192 5 *-ADAPTATION; PERS-001 \u2192 BEH-DIRECTNESS / BEH-FORMALITY / etc.) so last-write-wins ordering is safe.",
+      "severity": "info"
+    },
+    {
+      "id": "C-ADAPT-BEH-4",
+      "type": "balance",
+      "description": "Phase 2 reinforcement rules adjust cross-bucket targets (BEH-WARMTH / BEH-ENGAGEMENT / BEH-CHALLENGE-LEVEL / BEH-CHECK-FOR-UNDERSTANDING) that other Phase-2 / sibling-ADAPT branches may also touch. The deltas are small (\u2264 0.10) and overlap is tolerable; tighten with an outputPriority layer if measurement evidence indicates fighting.",
+      "severity": "warning"
+    },
+    {
+      "id": "C-ADAPT-BEH-5",
+      "type": "structure",
+      "description": "behavior-core bucket (6 params: BEH-WARMTH / BEH-FORMALITY / BEH-DIRECTNESS / BEH-TONE / BEH-RESPONSE-LEN / BEH-TURN-LENGTH) is intentionally NOT adapted. Those values are operator-set via the System\u2192Domain\u2192Course\u2192Caller cascade. See behaviorCoreNote.",
+      "severity": "info"
     }
   ],
   "related": [
     {
       "id": "BEH-AGG-001",
       "title": "Behavior Parameter Aggregation",
-      "relationship": "provides input — ADAPT-BEH-001 reads BEH-AGG-001 outputs"
+      "relationship": "provides input \u2014 ADAPT-BEH-001 reads BEH-AGG-001 outputs"
     },
     {
       "id": "ADAPT-PERS-001",
       "title": "Big Five Personality Adaptation",
-      "relationship": "sibling ADAPT spec — owns BEH-EMPATHY-RATE / BEH-PROACTIVE; ADAPT-BEH-001 deliberately avoids these targets"
+      "relationship": "sibling ADAPT spec \u2014 owns BEH-EMPATHY-RATE / BEH-PROACTIVE; ADAPT-BEH-001 deliberately avoids these targets"
+    },
+    {
+      "id": "ADAPT-CURR-001",
+      "title": "Curriculum Adaptation",
+      "relationship": "sibling ADAPT spec \u2014 owns the 20 instructional BEH-* targets (BEH-ADVANCE-READINESS etc.); ADAPT-BEH-001 Phase 2 writes only the orphan curriculum *-ADAPTATION targets that ADAPT-CURR-001 does not."
+    },
+    {
+      "id": "ADAPT-LEARN-001",
+      "title": "Learner Profile Adaptation",
+      "relationship": "sibling ADAPT spec \u2014 owns BEH-ADAPT-TO-* and modality consistency targets; ADAPT-BEH-001 Phase 2 learning wires only the orphan modality + pace + explanation-depth targets."
+    },
+    {
+      "id": "ADAPT-ENG-001",
+      "title": "Engagement Adaptation",
+      "relationship": "sibling ADAPT spec \u2014 consumes 3 of the 5 behavior_profile:onboarding:* keys via engagement-targets-manifest; ADAPT-BEH-001 Phase 2 onboarding wires only the remaining 2 keys."
+    },
+    {
+      "id": "ADAPT-VARK-001",
+      "title": "VARK Modality Adaptation",
+      "relationship": "sibling ADAPT spec \u2014 owns the modality language targets (BEH-DIAGRAM-LANGUAGE etc.); ADAPT-BEH-001 Phase 2 learning wires only the orphan modality-adaptation targets."
     }
   ],
   "notes": [
-    "Phase 1 = 3 of 9 buckets (companion / supervision / engagement). Phase 2 deferred buckets:",
-    "  - personality: handled by ADAPT-PERS-001; double-fire risk needs conflict analysis first",
-    "  - curriculum: belongs in ADAPT-CURR-001 if it exists",
-    "  - learning: overlaps ADAPT-LEARN-001",
-    "  - reinforcement: belongs at REWARD stage, not ADAPT",
-    "  - onboarding: behavior_aggregate_onboarding uses minimumObservations=1 — adapting from a single call is premature",
-    "  - core_style: overlaps ADAPT-VARK-001",
-    "All Phase 1 rules use the new dataSource: \"callerAttribute\" branch on adapt-runner.ts. Scope defaults to BEH-AGG-001 but is explicit on every rule so the runner contract stays config-driven (no hardcoding).",
-    "No profileCondition gate — the null-guard in evaluateCondition is the natural activation gate."
-  ]
+    "Phase 1 (#2076) = 3 of 9 buckets (companion / supervision / engagement).",
+    "Phase 2 (#2077) = + 5 buckets (personality / curriculum / learning / reinforcement / onboarding) = 8 of 9 buckets wired.",
+    "Bucket 9 (behavior-core: BEH-WARMTH / BEH-FORMALITY / BEH-DIRECTNESS / BEH-TONE / BEH-RESPONSE-LEN / BEH-TURN-LENGTH) is operator-cascade-set; ADAPT does NOT write here. Listed for inventory.",
+    "Personality bucket uses dataSource:\"parameterValues\" reading PERS-001 outputs (B5-O / B5-C / B5-E / B5-A / B5-N) \u2014 distinct from ADAPT-PERS-001 which writes BEH-DIRECTNESS / BEH-FORMALITY / etc. Phase 2 personality writes the orphan *-ADAPTATION targets that ADAPT-PERS-001 doesn't.",
+    "Curriculum / learning / reinforcement / onboarding buckets use dataSource:\"callerAttribute\" with scope=BEH-AGG-001 reading the rolled-up behavior_profile:{group}:* categorical fingerprints (low / moderate / high).",
+    "All Phase 2 rules: last-write-wins ordering is acceptable because the targeted sets are disjoint from sibling ADAPT specs (see context.assumptions[3]). If Phase 3 introduces an overlap, add an outputPriority coordination layer.",
+    "Per-bucket coverage: see acceptanceCriteria AC-ADAPT-BEH-9..13.",
+    "Onboarding overlap: behavior_profile:onboarding:{context_setting_quality, goal_discovery_quality, preference_elicitation_quality} are already consumed by ADAPT-ENG-001 via engagement-targets-manifest.ts \u2014 Phase 2 ADAPT-BEH-001 onboarding wires only the remaining 2 keys (default_targets_quality, welcome_quality)."
+  ],
+  "behaviorCoreNote": "behavior-core (BEH-WARMTH / BEH-FORMALITY / BEH-DIRECTNESS / BEH-TONE / BEH-RESPONSE-LEN / BEH-TURN-LENGTH) is operator-set via the System\u2192Domain\u2192Course\u2192Caller cascade. ADAPT-BEH-001 does NOT write here. Listed for inventory; cascade-managed, not adapt-driven."
 }

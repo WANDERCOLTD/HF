@@ -275,8 +275,15 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   See `lib/measurement/supv-rew-consumer-manifest.ts` for the wired
  *   list and PR #2088 for the design brief. Ratchet retains 52 as
  *   upper bound; cleanup PR will tighten once stable.
- * - 2026-06-20 — tightened post S2+S4+S6 cleanup. Live count = 6
- *   (4 *_actual aggregator outputs + empathy_expression + BEH-EXPLORATION-STRUCTURE).
+ * - 2026-06-20 — #2077 (Phase 2 of #2076) wires 27 ADAPT rules in
+ *   ADAPT-BEH-001 across the remaining 5 buckets (personality /
+ *   curriculum / learning / reinforcement / onboarding). 8 of 9
+ *   BEH-AGG-001 output buckets now have ADAPT consumers; bucket 9
+ *   (behavior-core: BEH-WARMTH / BEH-FORMALITY / BEH-DIRECTNESS /
+ *   BEH-TONE / BEH-RESPONSE-LEN / BEH-TURN-LENGTH) is intentionally
+ *   operator-cascade-set and NOT adapted. Ratchet tightened to 6 —
+ *   all remaining gaps are behavior-core orphans (4 *_actual
+ *   aggregator outputs + empathy_expression + BEH-EXPLORATION-STRUCTURE).
  */
 const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 6;
 
