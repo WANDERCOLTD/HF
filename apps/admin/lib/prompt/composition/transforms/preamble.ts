@@ -5,7 +5,7 @@
 
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext } from "../types";
-import type { SpecConfig, PlaybookConfig } from "@/lib/types/json-fields";
+import type { AuthoredModule, SpecConfig, PlaybookConfig } from "@/lib/types/json-fields";
 import { isTeachingMode, type TeachingMode } from "@/lib/content-trust/resolve-config";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
@@ -17,6 +17,7 @@ import { config } from "@/lib/config";
 import {
   RETURNING_CALLER_BY_MODE,
   BASELINE_ASSESSMENT_RULE,
+  BASELINE_ASSESSMENT_RULE_SILENT,
 } from "../defaults/critical-rules";
 
 const PREAMBLE_FALLBACK = "You are receiving a structured context package for your next conversation. This data has been assembled specifically for this caller based on their history, personality, and learning progress. Use it to deliver a personalized, effective session.";
@@ -136,8 +137,33 @@ registerTransform("computePreamble", async (
       const { isFirstCall, isFirstCallInDomain } = context.sharedState;
       const isFirstCallAny = isFirstCall || !!isFirstCallInDomain;
       if (isFirstCallAny && firstCallMode === "baseline_assessment") {
-        const specCriticalRulesBaseline = (context.specConfig as { criticalRules?: { baselineAssessment?: string } } | undefined)?.criticalRules;
-        const baselineRule = specCriticalRulesBaseline?.baselineAssessment ?? BASELINE_ASSESSMENT_RULE;
+        // #1956 (Boaz/Eldar gap analysis Unit 1.3) — when the locked
+        // module's settings declare `silentMode: true`, use the silent
+        // variant of the baseline rule. Preserves diagnostic-only
+        // behaviour but drops the test-announcement framing. Spec
+        // config still wins on the silent variant via the
+        // `baselineAssessmentSilent` override path. Reads orthogonally
+        // to firstCallMode: firstCallMode controls structure;
+        // silentMode controls announcement wording.
+        const lockedModule = context.sharedState.lockedModule;
+        let silentMode = false;
+        if (lockedModule) {
+          const playbookConfig = (playbooks?.[0] as { config?: PlaybookConfig })?.config;
+          const authoredModules: AuthoredModule[] = playbookConfig?.modules ?? [];
+          const matched = authoredModules.find(
+            (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+          );
+          silentMode = matched?.settings?.silentMode === true;
+        }
+        const specCriticalRulesBaseline = (context.specConfig as {
+          criticalRules?: {
+            baselineAssessment?: string;
+            baselineAssessmentSilent?: string;
+          };
+        } | undefined)?.criticalRules;
+        const baselineRule = silentMode
+          ? (specCriticalRulesBaseline?.baselineAssessmentSilent ?? BASELINE_ASSESSMENT_RULE_SILENT)
+          : (specCriticalRulesBaseline?.baselineAssessment ?? BASELINE_ASSESSMENT_RULE);
         return [...pedagogyRules, baselineRule];
       }
 

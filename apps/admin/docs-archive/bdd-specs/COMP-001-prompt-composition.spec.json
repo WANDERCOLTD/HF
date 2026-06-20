@@ -1071,6 +1071,21 @@
       "outputKey": "instructions_voice"
     },
     {
+      "id": "curriculum_adaptation",
+      "name": "Curriculum Adaptation Directives",
+      "priority": 14.5,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "computeCurriculumAdaptation",
+      "outputKey": "curriculumAdaptation",
+      "dependsOn": ["behavior_targets", "curriculum"]
+    },
+    {
       "id": "instructions",
       "name": "Instructions",
       "priority": 15,

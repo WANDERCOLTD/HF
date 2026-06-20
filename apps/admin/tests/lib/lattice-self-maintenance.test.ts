@@ -170,7 +170,11 @@ const EXPECTED_INVENTORY_EXEMPT_COUNT = 3;
  *
  * Each follow-up PR that adds a row drops the corresponding count.
  */
-const EXPECTED_ORPHAN_COUNT_COVERAGE = 6;
+// 2026-06-20 — #2087 / S2 of #2078 adds
+// `tests/lib/pipeline/adapt-learn-001-phase-b-coverage.test.ts` (Phase B
+// 18-param ADAPT-LEARN-001 spec coverage). The inventory row lands in a
+// follow-on doc PR; bump 6 → 7 to reflect the new structural gate.
+const EXPECTED_ORPHAN_COUNT_COVERAGE = 7;
 const EXPECTED_ORPHAN_COUNT_ESLINT = 24;
 const EXPECTED_ORPHAN_COUNT_SCRIPTS = 15;
 const EXPECTED_ORPHAN_COUNT_RULES = 15;

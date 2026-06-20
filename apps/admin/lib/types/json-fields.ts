@@ -1331,6 +1331,28 @@ export interface AuthoredModuleSettings {
    * this list, validates, and writes `CallerAttribute` rows under `profile:*`.
    */
   profileFieldsToCapture?: ProfileFieldToCapture[];
+  /**
+   * #1956 (Boaz/Eldar gap analysis Unit 1.3) — when true on an
+   * exam / assessment module, the BASELINE_ASSESSMENT critical-rule
+   * preamble is replaced by a silent variant that preserves the
+   * diagnostic-only behavioural envelope (no teaching / no review /
+   * no remediation / no corrections) but drops the test-announcement
+   * framing and explicitly tells the tutor not to signal phase
+   * breaks. Session runs as a natural conversation. Default false
+   * (opt-in per module). Module-scoped — does NOT affect non-locked
+   * sessions or non-exam modules.
+   *
+   * Reads in `lib/prompt/composition/transforms/preamble.ts::
+   * computePreamble` when `firstCallMode === "baseline_assessment"`
+   * AND the locked module's settings declare `silentMode: true`.
+   * The Playbook-level `firstCallMode` and this module-level
+   * `silentMode` are deliberately orthogonal: `firstCallMode`
+   * controls structure (diagnostic-only flow); `silentMode`
+   * controls announcement wording.
+   *
+   * @bucket exam
+   */
+  silentMode?: boolean;
 }
 
 export interface ModuleDefaults {
