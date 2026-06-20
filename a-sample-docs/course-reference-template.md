@@ -195,6 +195,18 @@ If any row has `Learner-selectable: Yes`, `Playbook.config.progressionMode`
 becomes `learner-picks`; otherwise it stays `ai-led`.
 - Voice band readout: Yes | No (defaults to No)
 
+OPTIONAL PER-MODULE OVERRIDE (#2104): `AuthoredModule.prerequisiteStrict`
+(boolean, optional) overrides the course-level
+`PlaybookConfig.strictPrerequisites` flag for a single module. The picker
+resolves `mod.prerequisiteStrict ?? strictPrerequisites ?? false`. Use this
+when one module should hard-lock while the rest stay soft-warn — e.g. IELTS
+Speaking keeps the course-level flag `false` (free-pick ethos for Parts
+1/2/3) while setting `prerequisiteStrict: true` on the Mock Exam module so
+it locks until the practice modules are mastered. The Module Catalogue
+table below does not yet have a column for this field — set it via the
+operator UI / direct `Playbook.config.modules[]` edit. Absent → falls back
+to the course-level flag (zero regression).
+
 REPLACE the two `[example — replace]` rows below with your real modules.
 -->
 
