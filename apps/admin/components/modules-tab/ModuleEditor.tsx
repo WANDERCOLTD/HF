@@ -154,7 +154,7 @@ function ModuleHowCard({
 }) {
   return (
     <section
-      className="hf-card hf-module-editor-card"
+      className="hf-card hf-module-editor-card hf-module-editor-card-how"
       data-testid="hf-module-editor-how"
       aria-labelledby="hf-module-editor-how-title"
     >
@@ -186,7 +186,7 @@ function ModuleWhenCard({ module: m }: { module: ModuleEditorRow }) {
     typeof m.position === "number" ? `Position #${m.position + 1}` : "Unset";
   return (
     <section
-      className="hf-card hf-module-editor-card"
+      className="hf-card hf-module-editor-card hf-module-editor-card-when"
       data-testid="hf-module-editor-when"
       aria-labelledby="hf-module-editor-when-title"
     >
