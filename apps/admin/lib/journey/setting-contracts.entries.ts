@@ -1895,6 +1895,38 @@ const G8_MODULE_PROFILE_FIELDS_TO_CAPTURE: JourneySettingContract = {
   appliesTo: ["structured", "exam"],
 };
 
+// #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — Part-3 focus area pin.
+// Default ON for Part-3-shape modules. When true (the default), the
+// compose-time `resolveModuleFocusArea` reader emits a
+// `Focus on <Label>` directive AND the session-start
+// `select-pinned-card.ts` writer stamps a `kind: "topicFocus"` pinned
+// card. When false the operator has opted out — neither side fires.
+//
+// Consumer transform: `lib/prompt/composition/transforms/part3-focus.ts`
+// Consumer writer:    `lib/voice/select-pinned-card.ts` (topicFocus path)
+const G8_MODULE_PIN_FOCUS_AREA: JourneySettingContract = {
+  id: "modulePinFocusArea",
+  menuGroupKey: "E_learner_visual",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Pin today's focus area",
+  helpText:
+    "Part-3 only. When ON, the tutor receives a 'Focus on <weakest skill>' directive AND the learner sees a banner naming the criterion. Default ON for Part-3-shape modules.",
+  storagePath: {
+    path: "config.modules[].settings.pinFocusArea",
+    arrayKey: "id",
+  },
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["instructions"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "instructions", hint: "focus area directive" }],
+  appliesTo: ["exam"],
+};
+
 // =============================================================
 // Registry
 // =============================================================
@@ -1995,6 +2027,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G8_MODULE_SCHEDULED_CUES,
   G8_MODULE_SCAFFOLD_POOL,
   G8_MODULE_PROFILE_FIELDS_TO_CAPTURE,
+  G8_MODULE_PIN_FOCUS_AREA,
 ];
 
 export const JOURNEY_SETTINGS_BY_ID: Readonly<

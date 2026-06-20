@@ -126,6 +126,12 @@ const PAIRS: Array<{
     consumerNeedle: "llmPrompt.instructions?.behavior_targets_semantics",
     since: "#1951",
   },
+  {
+    key: "module_focus_area",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.module_focus_area",
+    since: "#1955",
+  },
 ];
 
 const RENDERER_PATH = "apps/admin/lib/prompt/composition/renderPromptSummary.ts";

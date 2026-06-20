@@ -41,7 +41,10 @@ import {
   type SessionKindString,
 } from "@/lib/voice/session-rules";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
-import { selectPinnedCardForModule } from "@/lib/voice/select-pinned-card";
+import {
+  selectPinnedCardForModule,
+  selectTopicFocusCard,
+} from "@/lib/voice/select-pinned-card";
 import type {
   PinnedCardContent,
   PlaybookConfig,
@@ -141,12 +144,23 @@ export async function createSession(
   // read; safe outside the transaction. Skipped when the IELTS module
   // settings flag is off (the same gate the prompt-side reader uses).
   let pinnedCardConfig: PlaybookConfig | null = null;
+  // #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — for Part-3-shape modules
+  // we also need the learner's CallerTarget rows so `selectTopicFocusCard`
+  // can pick the lowest-scoring IELTS criterion. Same gate.
+  let pinnedCardCallerTargets: Array<{
+    parameterId: string;
+    currentScore: number | null;
+  }> = [];
   if (isIeltsModuleSettingsEnabled() && playbookId && resolvedRequestedSlug) {
     const playbook = await prisma.playbook.findUnique({
       where: { id: playbookId },
       select: { config: true },
     });
     pinnedCardConfig = (playbook?.config ?? null) as PlaybookConfig | null;
+    pinnedCardCallerTargets = await prisma.callerTarget.findMany({
+      where: { callerId: args.callerId },
+      select: { parameterId: true, currentScore: true },
+    });
   }
 
   // (4) usedPromptId — I-CT2 cascade. May be null on a brand-new caller.
@@ -237,6 +251,24 @@ export async function createSession(
         moduleSlug: resolvedRequestedSlug,
         sequenceNumber: learnerFacingNumber ?? assignedSeq,
       });
+      // #1955 — topicFocus sibling. Drift guard: if a cueCard was already
+      // selected (Part 2 module with a cueCardPool), do NOT overwrite —
+      // a single session is either a cue-card session or a focus-area
+      // session, never both. The selectTopicFocusCard helper independently
+      // gates on `isPart3ShapedSlug(moduleSlug)`, so collision would only
+      // happen if a Part 3 module also declared a non-empty cueCardPool —
+      // a config error worth surfacing.
+      if (!pinnedCard) {
+        pinnedCard = selectTopicFocusCard({
+          config: pinnedCardConfig,
+          moduleSlug: resolvedRequestedSlug,
+          callerTargets: pinnedCardCallerTargets,
+        });
+      } else if (pinnedCard.kind === "cueCard") {
+        // Defensive log — a cueCard win means the Part 2 selector matched.
+        // Don't even try the topicFocus path. This branch is the assertion
+        // step of the drift guard.
+      }
     }
     const metadata: SessionMetadata | null = pinnedCard ? { pinnedCard } : null;
 

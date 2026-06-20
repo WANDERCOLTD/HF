@@ -321,6 +321,7 @@ settings:
   incompleteThresholdSec: null  # student-led; no terminal threshold
   scoringCriteria: [LR, GRA]    # FC + Pron not scored from Part 3 alone (discontinuous sample)
   scoreReadoutMode: end-of-module-on-screen
+  pinFocusArea: true            # Part 3 only — #1955 focus directive + on-screen pin
 ```
   
 ### Module 5 — Mock Exam  

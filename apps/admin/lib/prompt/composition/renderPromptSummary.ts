@@ -175,6 +175,14 @@ interface LLMPrompt {
       questions: string[];
       directive: string;
     } | null;
+    /** #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — Part-3 focus directive. */
+    module_focus_area?: {
+      parameterId: string;
+      paramSlug: string;
+      label: string;
+      score: number;
+      directive: string;
+    } | null;
   };
   /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close). */
   offboarding?: {
@@ -501,6 +509,17 @@ export function renderProviderPrompt(
   if (topicPool?.directive) {
     parts.push("");
     parts.push(topicPool.directive);
+  }
+  // #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — Part-3 focus directive.
+  // Names the lowest-scoring IELTS skill criterion so the tutor directs
+  // questions and feedback toward the learner's development area. Same
+  // selection policy as `select-pinned-card.ts` so the on-screen banner
+  // and the prompt directive agree byte-for-byte. Null until the learner
+  // has at least one demonstrated `currentScore` on one of the 4 criteria.
+  const focusArea = llmPrompt.instructions?.module_focus_area;
+  if (focusArea?.directive) {
+    parts.push("");
+    parts.push(focusArea.directive);
   }
   // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
   // Surfaces the summary line + the per-criterion scoreboard from the
