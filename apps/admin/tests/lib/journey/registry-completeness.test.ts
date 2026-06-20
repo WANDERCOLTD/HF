@@ -8,8 +8,8 @@
  *   4. Every composeImpact.kinds[] element is a valid ComposeImpactKind
  *   5. No duplicate ids within JOURNEY_SETTINGS
  *   6. Every group G1..G8 has entries
- *   7. Exact group counts: G1:8 G2:10 G3:4 G4:27 G5:6 G6:11 G7:15 G8:7
- *   8. JOURNEY_SETTINGS.length === 88 (45 base + Lane 3 + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704)
+ *   7. Exact group counts: G1:9 G2:10 G3:4 G4:28 G5:5 G6:10 G7:15 G8:9
+ *   8. JOURNEY_SETTINGS.length === 90 (45 base + Lane 3 + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704 + 1 G7 #2105)
  *   9. VOICE_SETTINGS.length === 11
  *  10. Cross-registry `interruptSensitivity` shares storagePath
  *  11. writeGate === "operator-only" → composeImpact.requiresReprompt
@@ -105,16 +105,19 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(5);
     expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(10);
     // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7; Lane 3 catch-up bumped further.
-    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(14);
+    // Story #2105 — lessonPlanMode surfaced as a contract so the
+    // Continuous + Strict-Prerequisites conflict can be declared
+    // symmetrically. G7 14 → 15.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(15);
     // #1701 — G8 module-scoped settings (6 IELTS keys) + #1704 profile capture (1)
     //        + #1743 moduleScaffoldPool (1) for Theme 2b stall detector
     //        + #1932 moduleTopicPool (1) for Part 1 + Part 3 question banks
     expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(9);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 89", () => {
-    // 87 + 2 (Slice 13 intake question text editors)
-    expect(JOURNEY_SETTINGS.length).toBe(89);
+  it("(8) JOURNEY_SETTINGS.length === 90", () => {
+    // 87 + 2 (Slice 13 intake question text editors) + 1 (Story #2105 lessonPlanMode)
+    expect(JOURNEY_SETTINGS.length).toBe(90);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

@@ -33,7 +33,8 @@ export type RelevanceState =
   | "inherited"
   | "auto-derived"
   | "gated-off"
-  | "out-of-shape";
+  | "out-of-shape"
+  | "conflicted";
 
 export interface RelevanceWrapperProps {
   /** Which relevance state the field is in. */
@@ -74,6 +75,16 @@ export function RelevanceWrapper({
   children,
 }: RelevanceWrapperProps): React.ReactElement {
   if (state === "active") {
+    return <>{children}</>;
+  }
+
+  // Story #2105 — `conflicted` is non-blocking. The field stays bare
+  // (operator MAY save the combination); the amber
+  // <ConflictWarningChip> is mounted separately by JourneyInspectorPanel,
+  // mirroring the <WriteGateLockChip> + <ProducerOnlyBadge> pattern.
+  // Treating `conflicted` like `active` here preserves the "field stays
+  // editable" contract; the visible difference is the chip above the row.
+  if (state === "conflicted") {
     return <>{children}</>;
   }
 

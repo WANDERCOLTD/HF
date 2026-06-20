@@ -41,6 +41,7 @@ import type {
 } from "@/lib/journey/setting-contracts";
 
 import { CascadeTraceBreadcrumb } from "./CascadeTraceBreadcrumb";
+import { ConflictWarningChip } from "./ConflictWarningChip";
 import { EditAsJsonButton } from "./EditAsJsonButton";
 import { WriteGateLockChip } from "./WriteGateLockChip";
 import { resolveValueAtPath } from "./resolve-value-at-path";
@@ -139,6 +140,19 @@ function SettingRow({
       <CascadeTraceBreadcrumb contract={contract} />
       <WriteGateLockChip contract={contract} />
       <ProducerOnlyBadge settingId={contract.id} />
+      {/* Story #2105 — non-blocking conflict warning. Mounts above the
+       *  RelevanceWrapper so the chip is visible even when the field is
+       *  also inherited / auto-derived (the wrapper itself treats
+       *  `conflicted` as render-bare to preserve the editable contract). */}
+      {relevance.state === "conflicted" && relevance.conflictsWithId ? (
+        <ConflictWarningChip
+          conflictsWithId={relevance.conflictsWithId}
+          resolution={relevance.reason ?? ""}
+          peerLabel={relevance.parentLabel}
+          onJumpToPeer={onRowFocus}
+          ownerSettingId={contract.id}
+        />
+      ) : null}
       <RelevanceWrapper
         state={relevance.state}
         reason={relevance.reason}
