@@ -108,7 +108,7 @@ export function ModulesLhPicker({
           <button
             key={m.id}
             type="button"
-            className={`hf-list-row ${
+            className={`hf-modules-lh-row ${
               selectedModuleId === m.id ? "hf-selected" : ""
             }`}
             onClick={() => onSelect(m.id)}
