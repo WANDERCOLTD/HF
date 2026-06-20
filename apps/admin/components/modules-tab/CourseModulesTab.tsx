@@ -29,25 +29,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
 import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell";
 import type { CourseDetailTabId } from "@/lib/journey/buckets-by-tab";
 import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 import { useCrossTabHint } from "@/lib/journey/use-cross-tab-hint";
-import type {
-  AuthoredModuleSettings,
-  PlaybookConfig,
-} from "@/lib/types/json-fields";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
 
-import { ModuleInspectorPanel } from "./ModuleInspectorPanel";
+import { ModuleEditor, type ModuleEditorRow } from "./ModuleEditor";
 import { ModulesLhPicker } from "./ModulesLhPicker";
+import "./modules-tab.css";
 
-interface ModuleRow {
-  id: string;
-  label: string;
-  settings?: Partial<AuthoredModuleSettings>;
-}
+type ModuleRow = ModuleEditorRow;
 
 interface CourseModulesTabProps {
   courseId: string;
@@ -74,7 +67,7 @@ export function CourseModulesTab({
 }: CourseModulesTabProps) {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [modules, setModules] = useState<ModuleRow[]>([]);
-  const { crossTabHint, handlePreviewSelect, jumpToOwningTab } =
+  const { crossTabHint, jumpToOwningTab } =
     useCrossTabHint({
       currentTab: "modules",
       selectedBucketParam: null, // modules tab doesn't seed from URL
@@ -151,6 +144,14 @@ export function CourseModulesTab({
       ? (modules.find((m) => m.id === selectedModuleId) ?? null)
       : null;
 
+  // Bi-pane shape: LH module picker + canvas as the editor. The Inspector
+  // column from the prior tri-pane is folded into the canvas as the HOW
+  // card so the operator works in one wide column rather than squeezing
+  // G8 fields into a 360px sticky panel. The Preview pane is removed
+  // because the Modules tab tunes per-module behaviour — the course-wide
+  // Preview never reflected the LH selection. Cross-tab hints retain the
+  // RH Inspector slot when a Preview-lens bubble click in a sibling tab
+  // surfaces here.
   return (
     <DesignerShell
       nav={
@@ -169,22 +170,13 @@ export function CourseModulesTab({
         selectedModuleId !== null ? "hf-designer-canvas-dim" : undefined
       }
       canvas={
-        <>
-          {/* TODO(preview-scope): extend PreviewLens to accept ?moduleId
-              scope so the canvas previews the module-scoped lesson when
-              one is selected. P3 ships the course-wide preview only. */}
-          {selectedModuleId ? (
-            <div className="hf-banner hf-banner-info" role="status">
-              Showing course-wide preview. Module-scoped preview lands in
-              a follow-on.
-            </div>
-          ) : null}
-          <PreviewLens
-            courseId={courseId}
-            onSelectSection={handlePreviewSelect}
-            suppressSidetray
-          />
-        </>
+        <ModuleEditor
+          courseId={courseId}
+          selectedModuleId={selectedModuleId}
+          selectedModule={selectedModule}
+          playbookConfig={typedPlaybookConfig}
+          onSaved={handleSaved}
+        />
       }
       inspector={
         crossTabHint ? (
@@ -193,16 +185,7 @@ export function CourseModulesTab({
             owningTabLabel={crossTabHint.owningTabLabel}
             onJump={jumpToOwningTab}
           />
-        ) : (
-          <ModuleInspectorPanel
-            courseId={courseId}
-            selectedModuleId={selectedModuleId}
-            selectedModuleLabel={selectedModule?.label ?? null}
-            settings={selectedModule?.settings ?? null}
-            playbookConfig={typedPlaybookConfig}
-            onSaved={handleSaved}
-          />
-        )
+        ) : null
       }
     />
   );

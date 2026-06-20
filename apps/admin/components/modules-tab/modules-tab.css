@@ -1,0 +1,96 @@
+/* ModuleEditor — bi-pane Modules-tab editor surface.
+ *
+ * Stacks 4 cards (Header / How / When / Allowances) vertically inside
+ * the DesignerShell canvas slot. Bi-pane shape: LH module picker +
+ * this editor; no Preview pane, no Inspector column.
+ *
+ * Tokens only — no hardcoded hex per `.claude/rules/ui-design-system.md`.
+ * `hf-module-editor-*` namespace per the `hf-` prefix discipline.
+ */
+
+.hf-module-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hf-module-editor-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-module-editor-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Header card carries identity chips inline with the title block. */
+.hf-module-editor-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-module-editor-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Chip row — horizontal flex, wraps on narrow viewports. */
+.hf-module-editor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hf-module-editor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.hf-module-editor-chip-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+
+.hf-module-editor-chip-value {
+  font-weight: 500;
+}
+
+/* Tone variants: warn for terminal flags, muted for "No" values. */
+.hf-module-editor-chip-warn {
+  background: color-mix(in srgb, var(--status-warning-text, var(--accent-primary)) 12%, var(--surface-primary));
+  border-color: color-mix(in srgb, var(--status-warning-text, var(--accent-primary)) 28%, transparent);
+}
+
+.hf-module-editor-chip-muted {
+  background: var(--surface-primary);
+  color: var(--text-muted);
+}
+
+/* Allowances placeholder — locked / muted to signal "coming soon"
+ * without grey-out anxiety. Honest > silent. */
+.hf-module-editor-card-locked {
+  background: var(--surface-secondary);
+  border: 1px dashed var(--border-default);
+}
+
+.hf-module-editor-card-locked-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
