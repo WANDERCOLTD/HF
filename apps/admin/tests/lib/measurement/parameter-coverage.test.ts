@@ -122,10 +122,47 @@ function walkTs(dir: string): string[] {
   return out;
 }
 
+// ADAPT-*.spec.json files are runtime consumer surfaces — `adapt-runner.ts`
+// reads `parameters[].config.adaptationRules[].actions[].targetParameter`
+// strings at runtime and writes the named parameter's `CallerTarget` row.
+// Including the spec JSON as consumer source makes spec-driven parameter
+// wiring count as `covered` (the equivalent of a literal mention in code).
+// Born of #2087 (S2 of #2078 — learning-style 18-param wiring via
+// ADAPT-LEARN-001 branches).
+const SPEC_CONSUMER_DIRS = ["docs-archive/bdd-specs"];
+const SPEC_CONSUMER_PATTERNS = [/^ADAPT-[A-Z]+-\d+.*\.spec\.json$/];
+
+function walkSpecJson(dir: string): string[] {
+  const out: string[] = [];
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    const full = join(dir, e);
+    let st;
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) continue;
+    if (SPEC_CONSUMER_PATTERNS.some((re) => re.test(e))) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 const CONSUMER_SOURCE: string = (() => {
   const files: string[] = [];
   for (const dir of CONSUMER_DIRS) {
     files.push(...walkTs(join(APPS_ADMIN, dir)));
+  }
+  for (const dir of SPEC_CONSUMER_DIRS) {
+    files.push(...walkSpecJson(join(APPS_ADMIN, dir)));
   }
   return files
     .map((f) => {
@@ -181,10 +218,10 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
 };
 
 /**
- * 2026-06-17 audit baseline. 118 of 154 parameters lack a runtime
- * consumer — they're in the registry, BehaviorTarget seed wires a System
- * default, educators can theoretically tune them, but nothing in the
- * compose / scoring / cascade / chat paths reads the result.
+ * 2026-06-17 audit baseline. 118 of 154 parameters lacked a runtime
+ * consumer at audit time — in the registry, BehaviorTarget seed wires a
+ * System default, educators can theoretically tune them, but nothing in
+ * the compose / scoring / cascade / chat paths reads the result.
  *
  * Concentrated in:
  *   - learning-adaptation (23 gaps) — adaptive learning transforms not built
@@ -200,8 +237,37 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  * RESPECT-EXPERIENCE / STORY-INVITATION / DEPTH-PREFERENCE / ENERGY /
  * ENGAGEMENT / MOOD / REMINISCENCE / INSIGHT-QUALITY) via the new
  * `transforms/companion.ts` transform. Ratchet drops 118 → 106.
+ *
+ * 2026-06-20 — #2087 / S2 of #2078 (learning-style 31-param wiring):
+ *   - Phase A: 13 trivial prompt-injection wires added to the registry
+ *     (BEH-ACTION-VERBS / BEH-DEFINITION-PRECISION / BEH-DIAGRAM-LANGUAGE
+ *     / BEH-FEELING-LANGUAGE / BEH-IMAGERY-DENSITY / BEH-LIST-STRUCTURE
+ *     / BEH-REAL-WORLD-EXAMPLES / BEH-REPETITION-OFFER / BEH-RHYTHM-ATTENTION
+ *     / BEH-SPATIAL-METAPHOR / BEH-TERMINOLOGY-FORMAL / BEH-VERBAL-ELABORATION
+ *     / BEH-WRITTEN-ALTERNATIVE). Covered via the parametersAsDirectives
+ *     dispatcher (#1907).
+ *   - Phase B: 18 spec-driven wires extending ADAPT-LEARN-001 with two new
+ *     adapt_to_vark_modality + adapt_to_interaction_extensions parameters
+ *     whose adaptationRules name the 18 producer-only ids as targetParameter.
+ *     adapt-runner.ts consumes the spec generically (no runner change).
+ *   - Test enhancement: CONSUMER_SOURCE now also scans
+ *     docs-archive/bdd-specs/ADAPT-*.spec.json — the runner's consumption of
+ *     spec JSON makes the spec's targetParameter strings consumer-source-equivalent.
+ *     This surfaced additional pre-existing covered params in
+ *     curriculum-adaptation / engagement that were wired via ADAPT-CURR-001 /
+ *     ADAPT-PERS-001 spec branches but invisible to the code-only scan.
+ *   - Ratchet: 106 → 52 (post-#2085 companion wiring AND post-S2
+ *     learning-style wiring AND post-spec-scan extension).
+ *     Breakdown of the 52 remaining gaps:
+ *       behavior-core (6) — Phase 2 deferral; per spec
+ *       curriculum-adaptation (12) — S3 of #2078 will wire
+ *       engagement (9) — S4 of #2078 will wire
+ *       onboarding (3) — wizard-resolved at intake; not compose-time
+ *       personality-adaptation (5) — S1 of #2078 will wire
+ *       reinforcement (5) — S6 of #2078 will wire via REWARD reader
+ *       supervision (12) — S6 of #2078 needs SUPERVISE runner
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 106;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 52;
 
 // ────────────────────────────────────────────────────────────
 // Classification
