@@ -106,13 +106,14 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // #1701 — G8 module-scoped settings (6 IELTS keys) + #1704 profile capture (1)
     //        + #1743 moduleScaffoldPool (1) for Theme 2b stall detector
     //        + #1932 moduleTopicPool (1) for Part 1 + Part 3 question banks
-    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(9);
+    //        + #1955 modulePinFocusArea (1) for Part 3 focus pin
+    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(10);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 87", () => {
+  it("(8) JOURNEY_SETTINGS.length === 88", () => {
     // 84 (post midJourneyStopTrigger removal) + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
-    //   + 1 (moduleTopicPool #1932)
-    expect(JOURNEY_SETTINGS.length).toBe(87);
+    //   + 1 (moduleTopicPool #1932) + 1 (modulePinFocusArea #1955)
+    expect(JOURNEY_SETTINGS.length).toBe(88);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {
