@@ -153,6 +153,59 @@
           "kind": "section-emit"
         }
       ]
+    },
+    {
+      "id": "lo-mastery-cascade",
+      "title": "Per-LO Mastery Cascade (LEARN-ASSESS-001)",
+      "description": "EXTRACT-stage LEARN-ASSESS-001 (assessmentMode=curriculum_mastery) scores each discussed Learning Objective 0-1 in the call transcript → AGGREGATE writes per-LO mastery to CallerAttribute(key=curriculum:{specSlug}:lo_mastery:{moduleSlug}:{loRef}) via the canonical track-progress writer (monotonic ratchet, slug-canonical, #611 Fix A) → ADAPT-stage `lo_rollup` Goal strategy reads the per-LO rows to update LEARN Goal.progress → COMPOSE reads the same rows via buildLoMasteryMap to emit per-module mastery into the composed prompt. 4 links rather than 5: LO mastery skips the SCORE_AGENT stage (it does not write per-LO CallScore rows; the EXTRACT outputs flow directly in-memory through learningAssessment.outcomes to the AGGREGATE writer).",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/docs-archive/bdd-specs/LEARN-ASSESS-001-curriculum-mastery.spec.json",
+          "outputKey": "learningAssessment.outcomes[loRef] (in-memory; per-LO 0-1 mastery score)",
+          "outputKeySamples": [
+            "loMastery"
+          ],
+          "kind": "in-memory-pass",
+          "outputNotes": "LEARN-ASSESS-001 (specRole=EXTRACT, outputType=LEARN) drives the prompt that asks the model to score each discussed Learning Objective 0-1. The pipeline route's `runLearningAssessment` parses the response into `learningAssessment.outcomes: Record<loRef, number>` and threads it directly to `updateCurriculumProgress({loMastery})` without intermediate CallScore writes. #611 Fix A canonical slug-form is enforced at the AGGREGATE write boundary, not here."
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/lib/curriculum/track-progress.ts",
+          "consumesKey": "updates.loMastery.outcomes (in-memory pass from runLearningAssessment)",
+          "consumesKeySamples": [
+            "loMastery"
+          ],
+          "outputKey": "CallerAttribute(scope=CURRICULUM, key=curriculum:{specSlug}:lo_mastery:{moduleSlug}:{loRef})",
+          "outputKeySamples": [
+            "lo_mastery"
+          ],
+          "kind": "callerAttribute-write",
+          "outputNotes": "Single chokepoint for per-LO mastery writes. Monotonic ratchet via Math.max(existing, clamped). Slug-canonical: `moduleId` is resolved through `resolveModuleSlug(curriculumId, moduleIdOrName)` (#611 Fix A) before key construction to prevent dual-key drift. Per-Playbook tier cap applied to the contribution. ESLint guard `hf-curriculum/no-bare-module-progress-update` blocks competing writers; `tests/lib/mastery-roundtrip.test.ts` pins the write→read shape."
+        },
+        {
+          "stage": "ADAPT",
+          "consumer": "apps/admin/lib/goals/strategies/lo_rollup.ts",
+          "consumesKey": "CallerAttribute(scope=CURRICULUM) suffix-pattern :lo_mastery:{moduleSlug}:{loRef} via lib/goals/track-progress.ts::deriveLearnGoalProgressFromRef",
+          "consumesKeySamples": [
+            "lo_rollup"
+          ],
+          "outputKey": "Goal.progress (mean of per-LO mastery across modules the goal.ref resolves to)",
+          "kind": "goal-progress-update",
+          "outputNotes": "`lo_rollup` is the only valid `Goal.progressStrategy` for LEARN goals tracking per-LO mastery (StrategyKey enum, `no-bare-strategy-key` ESLint rule, #1599). Reader is `deriveLearnGoalProgressFromRef` in `lib/goals/track-progress.ts:419` (suffix-match on `:lo_mastery:<moduleSlug>:<actualLoRef>`). Working-set selection at COMPOSE time also reads `loMasteryMap[moduleId:loRef]` for module choice, but the Goal-strategy reader is the canonical ADAPT-stage consumer."
+        },
+        {
+          "stage": "COMPOSE",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/modules.ts",
+          "consumesKey": "CallerAttribute.scope === 'CURRICULUM' AND key startsWith curriculum:{specSlug}:lo_mastery:",
+          "consumesKeySamples": [
+            "buildLoMasteryMap"
+          ],
+          "outputKey": "per-module mastery section in composed prompt (working-set selection + per-LO thresholds)",
+          "kind": "section-emit",
+          "outputNotes": "`buildLoMasteryMap(callerAttributes, specSlug)` in `lib/prompt/composition/lo-mastery-map.ts` returns `Record<moduleSlug:loRef, number>` after filtering CURRICULUM-scope rows by `curriculum:{specSlug}:lo_mastery:` prefix (#928 cross-course bleed prevention). `modules.ts` then threads `loMasteryMap` into the scheduler / working-set-selector to pick LOs whose mastery is below threshold for the next call. COMPOSE re-reads the AGGREGATE-written CallerAttribute rows directly; it does not consume the ADAPT-stage Goal.progress output."
+        }
+      ]
     }
   ]
 }
