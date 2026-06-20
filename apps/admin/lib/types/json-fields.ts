@@ -1138,7 +1138,7 @@ export interface LegacyCurriculumModuleJSON {
 // as JSON on Playbook.config.modules. Issue #236.
 // ---------------------------------------------------------------------------
 
-export type AuthoredModuleMode = "examiner" | "tutor" | "mixed";
+export type AuthoredModuleMode = "examiner" | "tutor" | "mixed" | "quiz" | "mock-exam";
 export type AuthoredModuleFrequency = "once" | "repeatable" | "cooldown";
 export type ModuleSource = "authored" | "derived";
 export type PickerLayout = "tiles" | "rail";

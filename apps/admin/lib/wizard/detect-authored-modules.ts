@@ -134,6 +134,8 @@ function normaliseMode(raw: string): AuthoredModuleMode | null {
   if (t.startsWith("examiner")) return "examiner";
   if (t.startsWith("tutor")) return "tutor";
   if (t.startsWith("mixed")) return "mixed";
+  if (t.startsWith("quiz")) return "quiz";
+  if (t.startsWith("mock-exam") || t.startsWith("mock exam") || t.startsWith("mock_exam")) return "mock-exam";
   return null;
 }
 
