@@ -209,13 +209,19 @@ describe("Parameter usage coverage (declarative Lattice Coverage pillar)", () =>
     ).toEqual([]);
   });
 
-  it("distribution sanity — at least 130 active parameters reach the LLM via semantics-block (S4 invariant)", () => {
+  it("distribution sanity — at least 80 active parameters reach the LLM via semantics-block (S4 invariant)", () => {
     // S4 (#1951) wired `behavior_targets_semantics` to emit every active
     // param. Most active params use the default "semantics-block" route;
     // some opt into "prompt-injection" or "transform-direct".
+    //
+    // 2026-06-20 — #2087 / S2 of #2078 converted 13 producer-only
+    // learning-adaptation params from "semantics-block" to "prompt-injection"
+    // so the parametersAsDirectives dispatcher emits directives for them.
+    // Count dropped 103 → 90; floor lowered 90 → 80 to allow further opt-in
+    // moves without re-ratchet.
     const semantics = registry.parameters.filter(
       (p) => p.parameterId && p.usage?.compose === "semantics-block",
     );
-    expect(semantics.length).toBeGreaterThan(90);
+    expect(semantics.length).toBeGreaterThan(80);
   });
 });
