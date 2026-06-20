@@ -39,6 +39,52 @@ const ALL_BUCKETED_SETTINGS: readonly JourneySettingContract[] = [
   ...VOICE_SETTINGS,
 ];
 
+/** Sections that don't render as a single Preview bubble — they
+ *  cross-cut every bubble (behaviorTargets shapes warmth/length/etc;
+ *  personality shapes tone). When a bucket's primary locators are these,
+ *  the Preview pane has no discrete target to pulse; consumers dim the
+ *  canvas to refocus attention on the RHS Inspector AND render a hint
+ *  chip explaining the lack of bubble-pulse. Single source-of-truth for
+ *  PreviewLocatorHint + the canvas-dim wrappers in tri-pane consumers. */
+export const CROSS_CUTTING_SECTIONS: ReadonlySet<ComposeSectionKey> = new Set([
+  "behaviorTargets",
+  "personality",
+  "instructions",
+  "modePolicy",
+  "firstCallMode",
+  "moduleMastery",
+  "loMastery",
+  "contentTrust",
+  "modulesGate",
+  "carryOverActions",
+  "priorCallFeedback",
+  "conversationArtifacts",
+  "memoryDeltas",
+]);
+
+/** True when EVERY previewLocator across the bucket's settings sits in a
+ *  cross-cutting section — i.e. the LH selection has no discrete bubble
+ *  to pulse. Drives the canvas-dim affordance in tri-pane consumers.
+ *
+ *  Conservative AND-semantics: if any setting carries a discrete locator
+ *  (e.g. an `offboarding` bubble) the bucket is NOT cross-cutting — the
+ *  Preview still has something to highlight. Returns `false` for null
+ *  selection or unknown buckets. */
+export function isBucketCrossCutting(
+  bucketId: JourneyMenuBucketId | null,
+): boolean {
+  if (!bucketId) return false;
+  const settings = getSettingsForBucket(bucketId);
+  if (settings.length === 0) return false;
+  for (const s of settings) {
+    if (s.previewLocators.length === 0) continue;
+    for (const loc of s.previewLocators) {
+      if (!CROSS_CUTTING_SECTIONS.has(loc.section)) return false;
+    }
+  }
+  return true;
+}
+
 /** All settings in the named bucket. Spans journey + voice registries
  *  via `menuGroupKey`. */
 export function getSettingsForBucket(

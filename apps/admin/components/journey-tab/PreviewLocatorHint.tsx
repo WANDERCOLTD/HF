@@ -24,32 +24,12 @@ import { useMemo } from "react";
 
 import type { ComposeSectionKey } from "@/lib/compose";
 import {
+  CROSS_CUTTING_SECTIONS,
   getBucketsForSection,
   getSettingsForBucket,
 } from "@/lib/journey/bucket-relations";
 import { JOURNEY_MENU_ITEMS_BY_ID } from "@/lib/journey/menu-items";
 import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
-
-/** Sections that don't render as a single Preview bubble — they cross-
- *  cut every bubble (behaviorTargets shapes warmth/length/etc;
- *  personality shapes tone). When a bucket's primary locators are these,
- *  the bubble pulse fails to find a discrete target; the hint chip
- *  explains why. */
-const CROSS_CUTTING_SECTIONS: ReadonlySet<ComposeSectionKey> = new Set([
-  "behaviorTargets",
-  "personality",
-  "instructions",
-  "modePolicy",
-  "firstCallMode",
-  "moduleMastery",
-  "loMastery",
-  "contentTrust",
-  "modulesGate",
-  "carryOverActions",
-  "priorCallFeedback",
-  "conversationArtifacts",
-  "memoryDeltas",
-]);
 
 interface PreviewLocatorHintProps {
   selectedBucketId: JourneyMenuBucketId | null;
