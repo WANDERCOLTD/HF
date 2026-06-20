@@ -230,6 +230,7 @@ export function LearnerModulePicker({
           recommendedModuleId={recommendedModuleId}
           recommendedReason={recommendedReason}
           lockedModuleIds={lockedModuleIds}
+          lessonPlanMode={lessonPlanMode}
         />
       ) : (
         <TilesLayout
@@ -488,6 +489,7 @@ function RailLayout({
   recommendedModuleId,
   recommendedReason,
   lockedModuleIds,
+  lessonPlanMode,
 }: {
   modules: AuthoredModule[];
   completed: Set<string>;
@@ -496,6 +498,7 @@ function RailLayout({
   recommendedModuleId: string | null;
   recommendedReason: string | null;
   lockedModuleIds: Set<string>;
+  lessonPlanMode: "structured" | "continuous" | null;
 }) {
   // Sort by `position` if provided, otherwise preserve catalogue order.
   const ordered = [...modules].sort((a, b) => {
@@ -511,9 +514,15 @@ function RailLayout({
         const isInProgress = inProgress.has(m.id) && !isComplete;
         const isLocked = lockedModuleIds.has(m.id);
         const Tag = onSelect ? "button" : "div";
-        const prereqsUnmet = prerequisiteSlugs(m.prerequisites).filter(
-          (slug) => !completed.has(slug),
-        );
+        // #2103 — continuous courses are free-choice ("tutor advises but
+        // never gates"); the "Recommended after X" badge is cognitive noise
+        // for IELTS and any sibling continuous-mode course.
+        const prereqsUnmet =
+          lessonPlanMode === "continuous"
+            ? []
+            : prerequisiteSlugs(m.prerequisites).filter(
+                (slug) => !completed.has(slug),
+              );
         const advisoryHint =
           prereqsUnmet.length > 0
             ? `Recommended after ${prereqsUnmet.join(", ")}`
