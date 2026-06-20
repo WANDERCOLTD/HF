@@ -51,13 +51,13 @@ async function main() {
       id: true,
       slug: true,
       title: true,
-      orderIndex: true,
+      sortOrder: true,
       learningObjectives: {
         select: { id: true, ref: true, description: true },
         orderBy: { ref: "asc" },
       },
     },
-    orderBy: { orderIndex: "asc" },
+    orderBy: { sortOrder: "asc" },
   });
 
   console.log(`\n[modules] ${modules.length} total`);
