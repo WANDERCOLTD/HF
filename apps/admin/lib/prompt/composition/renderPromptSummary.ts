@@ -184,6 +184,10 @@ interface LLMPrompt {
       depth: "light" | "standard" | "deep";
       directive: string;
     } | null;
+    /** #2011 (epic #2009 S2) — quiz-mode directive. */
+    module_quiz_directive?: { directive: string } | null;
+    /** #2013 (epic #2009 S4) — mock-exam mode directive (board-chair frame). */
+    module_mock_exam_directive?: { directive: string } | null;
   };
   /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close).
    *  #2054 — extended with certificateMention (operator toggle for completion-certificate copy). */
@@ -564,6 +568,30 @@ export function renderProviderPrompt(
   if (baselineDepth?.directive) {
     parts.push("");
     parts.push(baselineDepth.directive);
+  }
+  // #2011 (epic #2009 S2) — quiz-mode directive.
+  // Renders ONLY when the locked module's `mode === "quiz"`. Reframes
+  // the session as a timed MCQ drill drawn from the per-Unit
+  // ContentQuestion bank. The MCQ infrastructure (`generate-mcqs.ts` +
+  // VAPI tool at runtime) is unchanged; this directive tells the LLM
+  // to use it as the conversation SHAPE rather than as in-line
+  // retrieval prompts inside a teaching conversation.
+  const quizDirective = llmPrompt.instructions?.module_quiz_directive;
+  if (quizDirective?.directive) {
+    parts.push("");
+    parts.push(quizDirective.directive);
+  }
+  // #2013 (epic #2009 S4) — mock-exam mode directive.
+  // Renders ONLY when the locked module's `mode === "mock-exam"`.
+  // Reframes the session as a board-chair scenario exam (4–6 probes,
+  // no MCQs, no mid-session teaching, per-LO per-dimension close).
+  // Appends a "prior mastery doesn't count" line when the playbook's
+  // `useFreshMastery` flag is on, aligning AI narration with the
+  // data-layer isolation contract (see `readiness-rollups.ts:25`).
+  const mockExamDirective = llmPrompt.instructions?.module_mock_exam_directive;
+  if (mockExamDirective?.directive) {
+    parts.push("");
+    parts.push(mockExamDirective.directive);
   }
   // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
   // Surfaces the summary line + the per-criterion scoreboard from the

@@ -16,6 +16,8 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Layers,
+  ListChecks,
+  ClipboardList,
   AlertTriangle,
   CheckCircle2,
   Upload,
@@ -380,11 +382,19 @@ function CatalogueRow({
 
 function ModePill({ mode }: { mode: AuthoredModule["mode"] }) {
   const Icon =
-    mode === "examiner" ? GraduationCap : mode === "mixed" ? Layers : Pencil;
-  const tone =
     mode === "examiner"
-      ? "hf-badge-info"
+      ? GraduationCap
       : mode === "mixed"
+        ? Layers
+        : mode === "quiz"
+          ? ListChecks
+          : mode === "mock-exam"
+            ? ClipboardList
+            : Pencil;
+  const tone =
+    mode === "examiner" || mode === "mock-exam"
+      ? "hf-badge-info"
+      : mode === "mixed" || mode === "quiz"
         ? "hf-badge-accent"
         : "hf-badge-muted";
   return (
