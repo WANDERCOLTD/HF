@@ -70,6 +70,14 @@ interface RegistryEntry {
    * across the registry. The snake_case → camelCase mirror still applies.
    */
   aliases?: string[];
+  /**
+   * Honest-zero cleanup (post-#2122) — deprecated params are NOT runtime
+   * consumers. Short-circuit to `exempt` instead of letting them fall to
+   * `gap`. Pre-fix the 5 `*_actual` deprecated rows (directness / formality /
+   * pacing / warmth / empathy_expression) showed as gaps despite having
+   * `usage.compose: "deprecated"`.
+   */
+  deprecatedAt?: string;
 }
 
 interface Registry {
@@ -131,15 +139,27 @@ function walkTs(dir: string): string[] {
   return out;
 }
 
-// ADAPT-*.spec.json files are runtime consumer surfaces — `adapt-runner.ts`
-// reads `parameters[].config.adaptationRules[].actions[].targetParameter`
-// strings at runtime and writes the named parameter's `CallerTarget` row.
-// Including the spec JSON as consumer source makes spec-driven parameter
-// wiring count as `covered` (the equivalent of a literal mention in code).
-// Born of #2087 (S2 of #2078 — learning-style 18-param wiring via
-// ADAPT-LEARN-001 branches).
+// Runtime-consumed spec files. The original (#2087) only included ADAPT-*
+// because adapt-runner reads them at runtime. The honest-zero cleanup
+// (post-#2122) extended this to every spec family the pipeline consumes:
+//   - ADAPT-*   — adapt-runner reads adaptationRules[].actions[].targetParameter
+//   - STYLE-*   — pipeline measure stage reads parameters[].id (e.g. STYLE-001
+//                 measures BEH-EXPLORATION-STRUCTURE via the `exploration_structure` alias)
+//   - MEASURE-* — pipeline measure stage reads parameters[].id
+//   - SUPV-*    — SCORE_AGENT reads parameters[].id for supervision scoring
+//   - REW-*     — REWARD-runner reads parameters[].id for per-component CallScore
+//   - AGG-*     — AGGREGATE-runner reads sourceParameter / sourceParameterId
+// Including these spec JSONs as consumer source makes spec-driven parameter
+// wiring count as `covered` regardless of which spec family measures it.
 const SPEC_CONSUMER_DIRS = ["docs-archive/bdd-specs"];
-const SPEC_CONSUMER_PATTERNS = [/^ADAPT-[A-Z]+-\d+.*\.spec\.json$/];
+const SPEC_CONSUMER_PATTERNS = [
+  /^ADAPT-[A-Z]+-\d+.*\.spec\.json$/,
+  /^STYLE-\d+.*\.spec\.json$/,
+  /^MEASURE-\d+.*\.spec\.json$/,
+  /^SUPV-\d+.*\.spec\.json$/,
+  /^REW-\d+.*\.spec\.json$/,
+  /^[A-Z]+-AGG-\d+.*\.spec\.json$/,
+];
 
 function walkSpecJson(dir: string): string[] {
   const out: string[] = [];
@@ -281,11 +301,17 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   BEH-AGG-001 output buckets now have ADAPT consumers; bucket 9
  *   (behavior-core: BEH-WARMTH / BEH-FORMALITY / BEH-DIRECTNESS /
  *   BEH-TONE / BEH-RESPONSE-LEN / BEH-TURN-LENGTH) is intentionally
- *   operator-cascade-set and NOT adapted. Ratchet tightened to 6 —
- *   all remaining gaps are behavior-core orphans (4 *_actual
- *   aggregator outputs + empathy_expression + BEH-EXPLORATION-STRUCTURE).
+ *   operator-cascade-set and NOT adapted.
+ * - 2026-06-20 — honest-zero cleanup: ratchet drops to **0**. Two
+ *   structural test fixes: (a) `classify()` honours `deprecatedAt` and
+ *   short-circuits 5 `*_actual` deprecated rows (directness / formality /
+ *   pacing / warmth + empathy_expression) to `exempt`; (b) SPEC_CONSUMER_
+ *   PATTERNS extended from ADAPT-* only to ADAPT/STYLE/MEASURE/SUPV/REW/AGG-*,
+ *   so BEH-EXPLORATION-STRUCTURE (measured by STYLE-001 via alias
+ *   `exploration_structure`) now classifies as covered. Every active
+ *   parameter has a real consumer.
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 6;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 0;
 
 // ────────────────────────────────────────────────────────────
 // Classification
@@ -307,6 +333,18 @@ function classify(p: RegistryEntry): ParamResult {
       id: p.parameterId,
       classification: "exempt",
       reason: PARAMETER_EXEMPT[p.parameterId].reason,
+      domainGroup: p.domainGroup,
+    };
+  }
+  // Deprecated params have no runtime consumer by design — they're scheduled
+  // for removal. Classify as `exempt` rather than letting them fall to `gap`.
+  // The registry already declares `usage.compose: "deprecated"`; this honours
+  // that declaration in the gap ratchet.
+  if (p.deprecatedAt) {
+    return {
+      id: p.parameterId,
+      classification: "exempt",
+      reason: `deprecatedAt ${p.deprecatedAt}`,
       domainGroup: p.domainGroup,
     };
   }
