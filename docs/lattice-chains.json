@@ -206,6 +206,42 @@
           "outputNotes": "`buildLoMasteryMap(callerAttributes, specSlug)` in `lib/prompt/composition/lo-mastery-map.ts` returns `Record<moduleSlug:loRef, number>` after filtering CURRICULUM-scope rows by `curriculum:{specSlug}:lo_mastery:` prefix (#928 cross-course bleed prevention). `modules.ts` then threads `loMasteryMap` into the scheduler / working-set-selector to pick LOs whose mastery is below threshold for the next call. COMPOSE re-reads the AGGREGATE-written CallerAttribute rows directly; it does not consume the ADAPT-stage Goal.progress output."
         }
       ]
+    },
+    {
+      "id": "wizard-config-write-invariant",
+      "title": "Wizard Config Write Invariant (chat-tool merge → COMPOSE-stage reader, #1995)",
+      "description": "Live IELTS Speaking Practice incident on hf_sandbox 2026-06-18: `Playbook.config.teachingMode = \"directive\"` (a value from the `interactionPattern` union, not the `teachingMode` union) crashed every new-learner ComposedPrompt build. PR #1993 added read-side defensive fallback; #1995 closes the write-side reuse gap by routing every chat-tool merge site through the runtime type guards in `lib/content-trust/resolve-config.ts`. Five-layer Coverage-pillar closure: source SETs at `lib/wizard/enum-sets.ts`, runtime guards `is*`, ESLint `hf-wizard/no-untyped-enum-write-in-wizard` chokepoint, type narrowing in `PlaybookConfig`, AI tool schema `enum: [...]` arrays, and a ratchet vitest that pins all of the above.",
+      "links": [
+        {
+          "stage": "PRODUCER",
+          "producer": "apps/admin/lib/chat/wizard-tool-executor/tools/create_course/_new-config-merge.ts",
+          "outputKey": "Playbook.config.{interactionPattern, teachingMode, audience, planEmphasis, lessonPlanModel} via updatePlaybookConfig",
+          "outputKeySamples": [
+            "teachingMode",
+            "interactionPattern",
+            "audience",
+            "planEmphasis",
+            "lessonPlanModel"
+          ],
+          "kind": "config-write",
+          "outputNotes": "Sibling writer at _reuse-config-merge.ts; admin-tool-handlers.ts::handleUpdatePlaybookConfig via filterEnumBearingUpdates. All three sites guarded by isTeachingMode / isInteractionPattern / isAudience / isPlanEmphasis / isLessonPlanModel / isFirstCallMode / isProgressionMode from lib/content-trust/resolve-config.ts."
+        },
+        {
+          "stage": "CONSUMER",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/preamble.ts",
+          "consumesKey": "Playbook.config.teachingMode (RETURNING_CALLER_BY_MODE lookup)",
+          "consumesKeySamples": [
+            "teachingMode"
+          ],
+          "outputKey": "criticalRules[] entries in composed prompt (the load-bearing read that crashed pre-#1993)",
+          "outputKeySamples": [
+            "RETURNING_CALLER_BY_MODE"
+          ],
+          "kind": "section-emit",
+          "runner": "apps/admin/lib/prompt/composition/CompositionExecutor.ts",
+          "outputNotes": "Read-side fallback added in PR #1993 (`isTeachingMode(...) ? mode : \"recall\"`) is defence-in-depth; #1995's write-side guards make the fallback path unreachable in the steady state. Sibling consumers: lib/content-trust/resolve-config.ts::INTENT_PATTERN_OVERRIDES (interactionPattern), lib/prompt/composition/transforms/audience.ts (audience)."
+        }
+      ]
     }
   ]
 }

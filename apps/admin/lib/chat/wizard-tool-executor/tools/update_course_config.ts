@@ -80,8 +80,12 @@ export async function execute(
 
     // #253: progressionMode → modulesAuthored mapping (also handled at
     // create_course; mirror here for update_course_config paths).
+    // #1995 — read via nullish-coalesce, no cast. The two valid values
+    // ("learner-picks" / "ai-led") are matched literally below; any
+    // other input is silently ignored (the modulesAuthored field stays
+    // at whatever existingConfig set).
     const updateProgressionMode =
-      (input.progressionMode as string) || (setupData?.progressionMode as string);
+      input.progressionMode ?? setupData?.progressionMode;
     if (updateProgressionMode === "learner-picks") {
       configUpdate.modulesAuthored = true;
     } else if (updateProgressionMode === "ai-led") {
