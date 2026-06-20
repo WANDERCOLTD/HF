@@ -132,6 +132,18 @@ const PAIRS: Array<{
     consumerNeedle: "llmPrompt.instructions?.baseline_assessment_depth",
     since: "#2051",
   },
+  {
+    // #2085 (S5 of epic #2078) — companion-domain directives. The
+    // producer file emits `directive` as a field on each row of the
+    // `directives` array (not a top-level output key), so we use a
+    // custom needle pointing at the COMPANION_PARAMETER_IDS export
+    // which is uniquely present in the companion transform.
+    key: "companion_directives",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/companion.ts",
+    producerNeedle: "COMPANION_PARAMETER_IDS",
+    consumerNeedle: "llmPrompt.companionDirectives",
+    since: "#2085",
+  },
 ];
 
 const RENDERER_PATH = "apps/admin/lib/prompt/composition/renderPromptSummary.ts";

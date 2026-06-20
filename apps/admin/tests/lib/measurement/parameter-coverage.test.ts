@@ -193,8 +193,15 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   - companion (11) — companion-style transforms partial
  *
  * Each wired consumer drops this number by 1.
+ *
+ * 2026-06-19 — #2085 (S5 of epic #2078) wired the 12 producer-only
+ * companion-domain parameters (BEH-CONVERSATIONAL-DEPTH /
+ * INTELLECTUAL-CHALLENGE / MEMORY-REFERENCE / PATIENCE-LEVEL /
+ * RESPECT-EXPERIENCE / STORY-INVITATION / DEPTH-PREFERENCE / ENERGY /
+ * ENGAGEMENT / MOOD / REMINISCENCE / INSIGHT-QUALITY) via the new
+ * `transforms/companion.ts` transform. Ratchet drops 118 → 106.
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 118;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 106;
 
 // ────────────────────────────────────────────────────────────
 // Classification

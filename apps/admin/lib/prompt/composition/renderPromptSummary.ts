@@ -200,6 +200,21 @@ interface LLMPrompt {
   callHistory?: {
     totalCalls?: number;
   };
+  /**
+   * #2085 (S5 of epic #2078) — companion-domain directives produced by
+   * `transforms/companion.ts`. Null when no companion-domain
+   * BehaviorTargets are set or every set target is neutral; the
+   * renderer omits the [COMPANION STYLE] block in those cases.
+   */
+  companionDirectives?: {
+    directives?: Array<{
+      parameterId: string;
+      targetLevel: "HIGH" | "LOW";
+      targetValue: number;
+      directive: string;
+    }>;
+    directiveCount?: number;
+  } | null;
 }
 
 /** Format a document type for display in prompts */
@@ -383,6 +398,23 @@ export function renderProviderPrompt(
       for (const d of audienceDirectives.directives) {
         parts.push(`- ${d}`);
       }
+    }
+    parts.push("");
+  }
+
+  // --- COMPANION STYLE ---
+  // #2085 (S5 of epic #2078) — companion-domain directives. Reads from
+  // the `companionDirectives` section produced by
+  // `lib/prompt/composition/transforms/companion.ts`. The transform
+  // returns null when no companion-domain BehaviorTargets are set OR
+  // when every set target sits at the neutral midpoint — in those cases
+  // this block is omitted entirely so the prompt is byte-identical for
+  // callers without companion-style tuning.
+  const companionDirectives = llmPrompt.companionDirectives?.directives;
+  if (companionDirectives?.length) {
+    parts.push("[COMPANION STYLE]");
+    for (const d of companionDirectives) {
+      parts.push(`- ${d.directive}`);
     }
     parts.push("");
   }
