@@ -5664,7 +5664,7 @@ Upload a course-reference markdown document for a course. Creates
 
 **Response** `200`
 ```json
-{ ok, contentSourceId, name, isNew }
+{ ok, contentSourceId, name, isNew, extraction: { jobId, skipped, reason } | null }
 ```
 
 **Response** `400`
