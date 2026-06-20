@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-20T10:29:14.634Z",
+  "generatedAt": "2026-06-20T11:14:37.491Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1867,
-  "edgeCount": 4392,
+  "fileCount": 1868,
+  "edgeCount": 4400,
   "skippedEdges": 1,
   "edges": [
     {
@@ -11829,6 +11829,10 @@
     },
     {
       "from": "lib/chat/admin-tool-handlers.ts",
+      "to": "lib/content-trust/resolve-config.ts"
+    },
+    {
+      "from": "lib/chat/admin-tool-handlers.ts",
       "to": "lib/curriculum/ensure-primary-playbook-link.ts"
     },
     {
@@ -12168,6 +12172,10 @@
       "to": "lib/chat/wizard-tool-executor/tools/create_course/_context.ts"
     },
     {
+      "from": "lib/chat/wizard-tool-executor/tools/create_course/_new-config-merge.ts",
+      "to": "lib/content-trust/resolve-config.ts"
+    },
+    {
       "from": "lib/chat/wizard-tool-executor/tools/create_course/_new-path.ts",
       "to": "lib/chat/wizard-tool-executor/_shared/apply-student-experience.ts"
     },
@@ -12210,6 +12218,10 @@
     {
       "from": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-config-merge.ts",
       "to": "lib/chat/wizard-tool-executor/tools/create_course/_context.ts"
+    },
+    {
+      "from": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-config-merge.ts",
+      "to": "lib/content-trust/resolve-config.ts"
     },
     {
       "from": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-path.ts",
@@ -12806,6 +12818,14 @@
     {
       "from": "lib/content-trust/resolve-config.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/content-trust/resolve-config.ts",
+      "to": "lib/prompt/composition/transforms/audience.ts"
+    },
+    {
+      "from": "lib/content-trust/resolve-config.ts",
+      "to": "lib/prompt/composition/transforms/audience.ts"
     },
     {
       "from": "lib/content-trust/resolve-config.ts",
@@ -16916,8 +16936,20 @@
       "to": "lib/prompt/composition/transforms/audience.ts"
     },
     {
+      "from": "lib/wizard/detect-course-config.ts",
+      "to": "lib/wizard/enum-sets.ts"
+    },
+    {
       "from": "lib/wizard/detect-module-settings.ts",
       "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/wizard/enum-sets.ts",
+      "to": "lib/content-trust/resolve-config.ts"
+    },
+    {
+      "from": "lib/wizard/enum-sets.ts",
+      "to": "lib/prompt/composition/transforms/audience.ts"
     },
     {
       "from": "lib/wizard/graph-evaluator.ts",
@@ -23265,7 +23297,7 @@
     {
       "path": "lib/chat/admin-tool-handlers.ts",
       "inDegree": 1,
-      "outDegree": 19
+      "outDegree": 20
     },
     {
       "path": "lib/chat/admin-tools.ts",
@@ -23480,7 +23512,7 @@
     {
       "path": "lib/chat/wizard-tool-executor/tools/create_course/_new-config-merge.ts",
       "inDegree": 1,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/chat/wizard-tool-executor/tools/create_course/_new-path.ts",
@@ -23500,7 +23532,7 @@
     {
       "path": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-config-merge.ts",
       "inDegree": 1,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-path.ts",
@@ -23784,8 +23816,8 @@
     },
     {
       "path": "lib/content-trust/resolve-config.ts",
-      "inDegree": 70,
-      "outDegree": 3
+      "inDegree": 74,
+      "outDegree": 5
     },
     {
       "path": "lib/content-trust/sanitize-module.ts",
@@ -25264,7 +25296,7 @@
     },
     {
       "path": "lib/prompt/composition/transforms/audience.ts",
-      "inDegree": 11,
+      "inDegree": 14,
       "outDegree": 2
     },
     {
@@ -26160,7 +26192,7 @@
     {
       "path": "lib/wizard/detect-course-config.ts",
       "inDegree": 1,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "lib/wizard/detect-mock-shape-modules.ts",
@@ -26176,6 +26208,11 @@
       "path": "lib/wizard/detect-pedagogy.ts",
       "inDegree": 1,
       "outDegree": 0
+    },
+    {
+      "path": "lib/wizard/enum-sets.ts",
+      "inDegree": 1,
+      "outDegree": 2
     },
     {
       "path": "lib/wizard/graph-evaluator.ts",
@@ -26936,8 +26973,8 @@
     },
     {
       "path": "lib/content-trust/resolve-config.ts",
-      "inDegree": 70,
-      "outDegree": 3
+      "inDegree": 74,
+      "outDegree": 5
     },
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
