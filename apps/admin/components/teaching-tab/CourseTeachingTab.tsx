@@ -30,6 +30,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
 import { JourneyInspectorPanel } from "@/components/journey-tab/JourneyInspectorPanel";
+import { PreviewLocatorHint } from "@/components/journey-tab/PreviewLocatorHint";
 import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
 import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell";
@@ -122,21 +123,24 @@ export function CourseTeachingTab({
             onSelect={handleLhSelect}
           />
         }
+        canvasClassName={
+          isBucketCrossCutting(selectedId)
+            ? "hf-designer-canvas-dim"
+            : undefined
+        }
         canvas={
-          <div
-            className={
-              isBucketCrossCutting(selectedId)
-                ? "hf-designer-canvas-dim"
-                : undefined
-            }
-            data-cross-cutting={isBucketCrossCutting(selectedId)}
-          >
+          <>
+            <PreviewLocatorHint
+              selectedBucketId={selectedId}
+              pickStripSection={null}
+              onSelectBucket={handleLhSelect}
+            />
             <PreviewLens
               courseId={courseId}
               onSelectSection={handlePreviewSelect}
               suppressSidetray
             />
-          </div>
+          </>
         }
         inspector={
           crossTabHint ? (

@@ -244,26 +244,25 @@ export function CourseJourneyTab({
             onFilterChange={selection.setFilter}
           />
         </aside>
-        <main ref={canvasRef} className="hf-journey-pane hf-journey-canvas">
+        <main
+          ref={canvasRef}
+          className={`hf-journey-pane hf-journey-canvas${
+            isBucketCrossCutting(selection.bucketId)
+              ? " hf-designer-canvas-dim"
+              : ""
+          }`}
+          data-cross-cutting={isBucketCrossCutting(selection.bucketId)}
+        >
           <PreviewLocatorHint
             selectedBucketId={selection.bucketId}
             pickStripSection={pickStripSection}
             onSelectBucket={handleLhSelect}
           />
-          <div
-            className={
-              isBucketCrossCutting(selection.bucketId)
-                ? "hf-designer-canvas-dim"
-                : undefined
-            }
-            data-cross-cutting={isBucketCrossCutting(selection.bucketId)}
-          >
-            <PreviewLens
-              courseId={courseId}
-              onSelectSection={handlePreviewSectionSelect}
-              suppressSidetray
-            />
-          </div>
+          <PreviewLens
+            courseId={courseId}
+            onSelectSection={handlePreviewSectionSelect}
+            suppressSidetray
+          />
         </main>
         <aside
           className="hf-journey-pane hf-journey-inspector"
