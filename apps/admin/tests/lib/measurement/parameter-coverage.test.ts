@@ -253,19 +253,16 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   - Test enhancement: CONSUMER_SOURCE now also scans
  *     docs-archive/bdd-specs/ADAPT-*.spec.json — the runner's consumption of
  *     spec JSON makes the spec's targetParameter strings consumer-source-equivalent.
- *     This surfaced additional pre-existing covered params in
- *     curriculum-adaptation / engagement that were wired via ADAPT-CURR-001 /
- *     ADAPT-PERS-001 spec branches but invisible to the code-only scan.
- *   - Ratchet: 106 → 52 (post-#2085 companion wiring AND post-S2
- *     learning-style wiring AND post-spec-scan extension).
- *     Breakdown of the 52 remaining gaps:
- *       behavior-core (6) — Phase 2 deferral; per spec
- *       curriculum-adaptation (12) — S3 of #2078 will wire
- *       engagement (9) — S4 of #2078 will wire
- *       onboarding (3) — wizard-resolved at intake; not compose-time
- *       personality-adaptation (5) — S1 of #2078 will wire
- *       reinforcement (5) — S6 of #2078 will wire via REWARD reader
- *       supervision (12) — S6 of #2078 needs SUPERVISE runner
+ *   - Ratchet: 106 → 52 (post-#2085 companion + post-S2 learning-style +
+ *     post-spec-scan extension).
+ *
+ * 2026-06-20 — sub-epic #2086 (S4 of #2078) wires the 13
+ * engagement+onboarding params via ADAPT-ENG-001 spec branches +
+ * `lib/pipeline/engagement-targets-manifest.ts`. With the spec-scan
+ * extension already in place (from S2), these 13 params now classify as
+ * covered. Ratchet retains S2's 52 as the upper bound — S4's deltas
+ * will further drop the actual gap count; bump-down deferred to a
+ * cleanup PR once S6 lands.
  */
 const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 52;
 

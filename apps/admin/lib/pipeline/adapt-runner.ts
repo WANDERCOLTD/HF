@@ -10,8 +10,13 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { config } from "@/lib/config";
 import { getLearnerProfile } from "@/lib/learner/profile";
 import type { SpecConfig } from "@/lib/types/json-fields";
+import {
+  ENGAGEMENT_TARGETS_WIRED_BY_2086,
+  lookupEngagementBinding,
+} from "./engagement-targets-manifest";
 
 // === Condition Interface (backward-compatible) ===
 
@@ -271,6 +276,30 @@ async function applyAdaptationRules(
 
     // Condition met - apply all actions
     for (const action of rule.actions) {
+      // Sub-epic #2086 engagement-binding cross-check. If the action
+      // targets one of the 13 ENGAGEMENT_TARGETS_WIRED_BY_2086 ids, the
+      // manifest binding's profileKey MUST match the rule's
+      // condition.profileKey (else BEH-AGG-001's roll-up writes one
+      // namespace and ADAPT-ENG-001 reads another — silent gain-zero).
+      // We only log; the action still fires so existing behaviour is
+      // unchanged.
+      if (
+        (ENGAGEMENT_TARGETS_WIRED_BY_2086 as readonly string[]).includes(
+          action.targetParameter,
+        )
+      ) {
+        const binding = lookupEngagementBinding(action.targetParameter);
+        if (
+          binding &&
+          binding.profileKey !== null &&
+          rule.condition.dataSource === "callerAttribute" &&
+          rule.condition.profileKey !== binding.profileKey
+        ) {
+          console.warn(
+            `[adapt-runner] engagement.binding_miss spec=${specSlug} target=${action.targetParameter} expected=${binding.profileKey} got=${rule.condition.profileKey}`,
+          );
+        }
+      }
       try {
         // Validate parameter exists
         const parameter = await prisma.parameter.findUnique({
@@ -364,8 +393,12 @@ async function applyAdaptationRules(
  *
  * Spec authors can override per-rule via `condition.scope` when the
  * ADAPT spec consumes a different AGGREGATE surface (e.g. DISC-AGG-001).
+ *
+ * Sourced from `config.specs.aggBehavior` (env-overridable via
+ * `BEH_AGG_SPEC_SLUG`) — `hf-config/no-hardcoded-spec-slug` forbids
+ * the bare literal.
  */
-const DEFAULT_CALLER_ATTRIBUTE_SCOPE = "BEH-AGG-001";
+const DEFAULT_CALLER_ATTRIBUTE_SCOPE = config.specs.aggBehavior;
 
 /**
  * Read a single CallerAttribute row by primary key. Returns the
