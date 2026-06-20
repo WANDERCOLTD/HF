@@ -200,8 +200,12 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  * RESPECT-EXPERIENCE / STORY-INVITATION / DEPTH-PREFERENCE / ENERGY /
  * ENGAGEMENT / MOOD / REMINISCENCE / INSIGHT-QUALITY) via the new
  * `transforms/companion.ts` transform. Ratchet drops 118 → 106.
+ *
+ * 2026-06-19 — sub-epic #2086 (S4 of #2078) wires the 13
+ * engagement+onboarding params via ADAPT-ENG-001 spec branches +
+ * `lib/pipeline/engagement-targets-manifest.ts`. Ratchet drops 106 → 93.
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 106;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 93;
 
 // ────────────────────────────────────────────────────────────
 // Classification
