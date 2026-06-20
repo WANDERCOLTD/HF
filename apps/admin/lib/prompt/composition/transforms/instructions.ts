@@ -491,6 +491,27 @@ registerTransform("computeInstructions", (
       sharedState,
     ),
 
+    // #2011 (epic #2009 S2) — quiz-mode directive.
+    //
+    // Fires when the learner's locked module has `mode === "quiz"` in
+    // `Playbook.config.modules[].mode`. Reframes the session as a timed
+    // MCQ drill drawn from the per-Unit ContentQuestion bank rather than
+    // a teaching conversation. The MCQ infrastructure already exists
+    // (`lib/assessment/generate-mcqs.ts` + `app/api/vapi/tools/route.ts`
+    // serves ContentQuestion at runtime); this directive tells the LLM
+    // to use it that way.
+    //
+    // Returns null on any non-quiz mode — existing behaviour byte-
+    // identical for tutor / mixed / examiner / mock-exam modules.
+    //
+    // Producer↔consumer pairing per `.claude/rules/lattice-survey.md`
+    // §"deeper layer". The renderer push lives at
+    // `renderPromptSummary.ts` under "[QUIZ MODE]".
+    module_quiz_directive: resolveModuleQuizDirective(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
+
     // #2051 (epic #2049 sub-epic B) — baseline-assessment depth directive.
     // Emits a per-depth `{ depth, directive }` ONLY when the playbook's
     // `firstCallMode === "baseline_assessment"` AND the session is the
@@ -848,4 +869,46 @@ function resolveModuleTopicPool(
     questions,
     directive,
   };
+}
+
+/**
+ * #2011 (epic #2009 S2) — quiz-mode directive.
+ *
+ * Returns a directive when the locked module's `mode === "quiz"`.
+ * Otherwise returns null. The directive reframes the session as a
+ * timed MCQ drill — the LLM still uses the same VAPI ContentQuestion
+ * search tool at runtime; the prompt tells it WHEN to use MCQs as
+ * the conversation shape rather than as in-line retrieval prompts.
+ *
+ * No feature flag — the gate is the mode literal itself. Out of
+ * scope: per-module `questionTarget` count override (today the
+ * directive carries the canonical 8–12 range; a future story can
+ * wire `Playbook.config.modules[].settings.questionTarget` if the
+ * trio variants need per-Unit budgets).
+ */
+function resolveModuleQuizDirective(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): { directive: string } | null {
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+  if (matched.mode !== "quiz") return null;
+
+  const directive = [
+    "QUIZ MODE — this session is a timed MCQ drill, not a teaching conversation.",
+    "- Deliver 8–12 questions drawn from the ContentQuestion bank for this Unit.",
+    "- Present each question with 4 options in randomised order (conversational tone, NOT \"A: / B: / C: / D:\").",
+    "- Give exactly TWO sentences of feedback per question: (1) correct/incorrect; (2) the underlying principle.",
+    "- NO follow-up questions, NO extended teaching. Move on immediately after feedback.",
+    "- After all questions: state the score, name the weakest LO, offer forward-pointer to Revision Aid.",
+    "- Time budget: ~30–60 seconds per question; total 10 minutes.",
+  ].join("\n");
+
+  return { directive };
 }

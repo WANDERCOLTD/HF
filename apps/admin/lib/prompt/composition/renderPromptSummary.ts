@@ -184,6 +184,8 @@ interface LLMPrompt {
       depth: "light" | "standard" | "deep";
       directive: string;
     } | null;
+    /** #2011 (epic #2009 S2) — quiz-mode directive. */
+    module_quiz_directive?: { directive: string } | null;
   };
   /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close).
    *  #2054 — extended with certificateMention (operator toggle for completion-certificate copy). */
@@ -532,6 +534,18 @@ export function renderProviderPrompt(
   if (baselineDepth?.directive) {
     parts.push("");
     parts.push(baselineDepth.directive);
+  }
+  // #2011 (epic #2009 S2) — quiz-mode directive.
+  // Renders ONLY when the locked module's `mode === "quiz"`. Reframes
+  // the session as a timed MCQ drill drawn from the per-Unit
+  // ContentQuestion bank. The MCQ infrastructure (`generate-mcqs.ts` +
+  // VAPI tool at runtime) is unchanged; this directive tells the LLM
+  // to use it as the conversation SHAPE rather than as in-line
+  // retrieval prompts inside a teaching conversation.
+  const quizDirective = llmPrompt.instructions?.module_quiz_directive;
+  if (quizDirective?.directive) {
+    parts.push("");
+    parts.push(quizDirective.directive);
   }
   // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
   // Surfaces the summary line + the per-criterion scoreboard from the

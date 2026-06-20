@@ -132,6 +132,12 @@ const PAIRS: Array<{
     consumerNeedle: "llmPrompt.instructions?.baseline_assessment_depth",
     since: "#2051",
   },
+  {
+    key: "module_quiz_directive",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.module_quiz_directive",
+    since: "#2011",
+  },
 ];
 
 const RENDERER_PATH = "apps/admin/lib/prompt/composition/renderPromptSummary.ts";
