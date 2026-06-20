@@ -132,6 +132,17 @@ const PAIRS: Array<{
     consumerNeedle: "llmPrompt.instructions?.baseline_assessment_depth",
     since: "#2051",
   },
+  {
+    // #2082 (S3 of epic #2078) — curriculum-adaptation transform that
+    // wires 22 producer-only parameters. Producer-side needle is the
+    // `directive: string` field on `CurriculumAdaptationDirective`;
+    // consumer-side needle is the renderer's body push.
+    key: "curriculumAdaptation",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/curriculum-adaptation.ts",
+    producerNeedle: "CurriculumAdaptationDirective",
+    consumerNeedle: "llmPrompt as any).curriculumAdaptation",
+    since: "#2082",
+  },
 ];
 
 const RENDERER_PATH = "apps/admin/lib/prompt/composition/renderPromptSummary.ts";

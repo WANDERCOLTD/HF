@@ -193,8 +193,14 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   - companion (11) — companion-style transforms partial
  *
  * Each wired consumer drops this number by 1.
+ *
+ * #2082 (S3 of epic #2078) — dropped by 22: the new
+ * `transforms/curriculum-adaptation.ts` transform reads
+ * 22 curriculum-adaptation parameter IDs literally (CURR_A_MASTERY_PARAMS
+ * + CURR_B_INSTRUCTIONAL_PARAMS) which the substring matcher classifies
+ * as `covered`. 118 - 22 = 96.
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 118;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 96;
 
 // ────────────────────────────────────────────────────────────
 // Classification

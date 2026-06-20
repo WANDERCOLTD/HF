@@ -82,6 +82,10 @@ import "./transforms/interleaveReview";
 import "./transforms/courseComplete";
 import "./transforms/conversationArtifacts";
 import "./transforms/memoryDeltas";
+// #2082 (S3 of epic #2078) — wires 22 producer-only curriculum-adaptation
+// parameters via a new transform that reads cascade BehaviorTarget values
+// + LEARN-ASSESS-001-derived per-module mastery from sharedState.
+import "./transforms/curriculum-adaptation";
 
 /**
  * Execute the full composition pipeline.
@@ -1157,6 +1161,24 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "null" },
       transform: "computeVoiceGuidance",
       outputKey: "instructions_voice",
+    },
+    {
+      // #2082 (S3 of epic #2078) — curriculum-adaptation directive block
+      // wiring 22 producer-only parameters. Sits just before instructions
+      // (15) so the renderer can pull this section's body into the
+      // [CURRICULUM ADAPTATION] block adjacent to curriculum guidance.
+      // dependsOn `behavior_targets` (cascade-resolved targets) + `curriculum`
+      // (per-module mastery from sharedState). fallback=null lets the
+      // executor strip the section when no directive is emitted.
+      id: "curriculum_adaptation",
+      name: "Curriculum Adaptation Directives",
+      priority: 14.5,
+      dataSource: "_assembled",
+      activateWhen: { condition: "always" },
+      fallback: { action: "null" },
+      transform: "computeCurriculumAdaptation",
+      outputKey: "curriculumAdaptation",
+      dependsOn: ["behavior_targets", "curriculum"],
     },
     {
       id: "instructions",

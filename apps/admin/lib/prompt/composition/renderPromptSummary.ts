@@ -455,6 +455,24 @@ export function renderProviderPrompt(
     if (curr.nextModule) parts.push(`Next module: ${curr.nextModule.name}`);
   }
   if (qs?.curriculum_progress) parts.push(qs.curriculum_progress);
+
+  // #2082 (S3 of epic #2078) — curriculum-adaptation directives derived
+  // from the 22 cascade-resolved curriculum-adaptation BehaviorTargets
+  // intersected with LEARN-ASSESS-001 per-module mastery state. The
+  // transform at `transforms/curriculum-adaptation.ts` produces a
+  // pre-rendered `body` string + per-parameter `directives[]`; the
+  // renderer emits the body verbatim so the tutor sees the directives
+  // alongside curriculum guidance. Section is omitted when no parameter
+  // diverges from neutral AND no mastery context is worth surfacing.
+  const curriculumAdaptation = (llmPrompt as any).curriculumAdaptation as
+    | { hasDirectives?: boolean; body?: string }
+    | null
+    | undefined;
+  if (curriculumAdaptation?.hasDirectives && curriculumAdaptation.body) {
+    parts.push("");
+    parts.push(curriculumAdaptation.body);
+  }
+
   // Post-coverage guidance — what to do when all TPs are covered
   if (pedagogy?.postCoverageGuidance) {
     parts.push("");
