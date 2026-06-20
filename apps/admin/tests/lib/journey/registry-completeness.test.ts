@@ -110,14 +110,17 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // symmetrically. G7 14 → 15.
     expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(15);
     // #1701 — G8 module-scoped settings (6 IELTS keys) + #1704 profile capture (1)
-    //        + #1743 moduleScaffoldPool (1) for Theme 2b stall detector
-    //        + #1932 moduleTopicPool (1) for Part 1 + Part 3 question banks
-    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(9);
+    //        + #1743 moduleScaffoldPool (1) + #1932 moduleTopicPool (1)
+    //        + #1955 modulePinFocusArea (1) + #1956 modulesilentMode (1)
+    //        + #1954 moduleGenerateLessonPlan (1) = 12
+    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(12);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 90", () => {
-    // 87 + 2 (Slice 13 intake question text editors) + 1 (Story #2105 lessonPlanMode)
-    expect(JOURNEY_SETTINGS.length).toBe(90);
+  it("(8) JOURNEY_SETTINGS.length === 93", () => {
+    // 84 + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
+    //   + 1 (moduleTopicPool #1932) + 2 (Slice 13 intake editors) + 1 (#2105 lessonPlanMode)
+    //   + 1 (modulePinFocusArea #1955) + 1 (silentMode #1956) + 1 (generateLessonPlan #1954) = 93
+    expect(JOURNEY_SETTINGS.length).toBe(93);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

@@ -22,6 +22,7 @@ import type { AssembledContext, GoalData, SubjectSourcesData } from "../types";
 import type { AuthoredModule, PlaybookConfig, SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
+import { resolveModuleFocusArea } from "./part3-focus";
 import {
   resolveScoringConfig,
   buildAssessmentReadinessDirective,
@@ -502,70 +503,37 @@ registerTransform("computeInstructions", (
       sharedState,
     ),
 
+    // #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — Part-3-only focus
+    // directive. Reads `Playbook.config.modules[].settings.pinFocusArea`
+    // (G8 toggle, default ON for Part-3-shape modules) + the learner's
+    // CallerTarget rows for the 4 IELTS skill parameters. Picks the
+    // criterion with the lowest `currentScore` and emits a
+    // `Focus on <Label> this session` directive. Returns null and
+    // renders nothing when no scoring history exists yet — graceful
+    // first-call behaviour.
+    //
+    // Sibling writer: `lib/voice/select-pinned-card.ts` writes the
+    // matching `Session.metadata.pinnedCard = {kind: "topicFocus", ...}`
+    // so the on-screen banner agrees byte-for-byte with the directive
+    // the model sees.
+    module_focus_area: resolveModuleFocusArea(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      context,
+    ),
+
     // #2011 (epic #2009 S2) — quiz-mode directive.
-    //
-    // Fires when the learner's locked module has `mode === "quiz"` in
-    // `Playbook.config.modules[].mode`. Reframes the session as a timed
-    // MCQ drill drawn from the per-Unit ContentQuestion bank rather than
-    // a teaching conversation. The MCQ infrastructure already exists
-    // (`lib/assessment/generate-mcqs.ts` + `app/api/vapi/tools/route.ts`
-    // serves ContentQuestion at runtime); this directive tells the LLM
-    // to use it that way.
-    //
-    // Returns null on any non-quiz mode — existing behaviour byte-
-    // identical for tutor / mixed / examiner / mock-exam modules.
-    //
-    // Producer↔consumer pairing per `.claude/rules/lattice-survey.md`
-    // §"deeper layer". The renderer push lives at
-    // `renderPromptSummary.ts` under "[QUIZ MODE]".
     module_quiz_directive: resolveModuleQuizDirective(
       (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
       sharedState,
     ),
 
     // #2013 (epic #2009 S4) — mock-exam mode directive.
-    //
-    // Fires when the learner's locked module has `mode === "mock-exam"`.
-    // Reframes the session as a board-chair scenario exam (4–6 probes
-    // anchored in the Unit's case study, no MCQs, no teaching mid-
-    // session, per-LO per-dimension close). When the playbook also
-    // sets `useFreshMastery: true` (the Exam Assessment isolation
-    // contract — `lib/curriculum/readiness-rollups.ts:25`), the
-    // directive appends a "prior mastery doesn't count" note so the
-    // AI scores fresh from THIS session alone.
-    //
-    // Returns null on any non-mock-exam mode — existing behaviour
-    // byte-identical for tutor / mixed / examiner / quiz modules.
-    //
-    // Lattice survey confirmed `build-per-segment-measure-prompt.ts`
-    // is IELTS-pipeline-gated (not a generic compose path), so the
-    // board-chair branch does NOT need to abstract that file.
-    //
-    // Producer↔consumer pairing per `.claude/rules/lattice-survey.md`
-    // §"deeper layer". The renderer push lives at
-    // `renderPromptSummary.ts` under "[EXAM ASSESSMENT MODE]".
     module_mock_exam_directive: resolveModuleMockExamDirective(
       (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
       sharedState,
     ),
 
     // #2051 (epic #2049 sub-epic B) — baseline-assessment depth directive.
-    // Emits a per-depth `{ depth, directive }` ONLY when the playbook's
-    // `firstCallMode === "baseline_assessment"` AND the session is the
-    // learner's first call (`isFirstCall || isFirstCallInDomain`). When
-    // the depth field is ABSENT but baseline mode is on, the resolver
-    // defaults to `"standard"` — preserves byte-identical output for
-    // existing baseline playbooks that pre-date the field.
-    //
-    // The directive lands AFTER the existing `BASELINE_ASSESSMENT_RULE`
-    // critical rule emitted by `transforms/preamble.ts` — it does NOT
-    // replace or merge into that rule. The renderer (renderPromptSummary)
-    // appends `directive` as a fresh paragraph so the LLM sees both:
-    // the universal baseline contract + the depth-specific calibration.
-    //
-    // Producer↔consumer pairing per `.claude/rules/lattice-survey.md`
-    // §"deeper layer". The renderer push lives at
-    // `renderPromptSummary.ts` under "[BASELINE DEPTH]".
     baseline_assessment_depth: resolveBaselineAssessmentDepth(
       (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
       sharedState,

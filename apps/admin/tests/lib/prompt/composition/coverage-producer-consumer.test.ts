@@ -127,6 +127,12 @@ const PAIRS: Array<{
     since: "#1951",
   },
   {
+    key: "module_focus_area",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.module_focus_area",
+    since: "#1955",
+  },
+  {
     key: "baseline_assessment_depth",
     producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
     consumerNeedle: "llmPrompt.instructions?.baseline_assessment_depth",

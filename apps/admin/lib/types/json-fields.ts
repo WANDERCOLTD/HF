@@ -1359,6 +1359,18 @@ export interface AuthoredModuleSettings {
    */
   profileFieldsToCapture?: ProfileFieldToCapture[];
   /**
+   * #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — G8 toggle gating the
+   * Part-3 focus-area pin. When true (default ON for Part-3-shaped
+   * modules), the composer emits the `Focus on <Label>` directive AND
+   * `select-pinned-card.ts` writes `Session.metadata.pinnedCard =
+   * {kind: "topicFocus", ...}` so the learner sees a banner naming the
+   * skill they're working on. When false, neither side fires.
+   *
+   * Has no effect on non-Part-3 modules — the consumer transform
+   * (`part3-focus.ts`) also gates on `isPart3ShapedModule(lockedModule)`.
+   */
+  pinFocusArea?: boolean;
+  /**
    * #1956 (Boaz/Eldar gap analysis Unit 1.3) — when true on an
    * exam / assessment module, the BASELINE_ASSESSMENT critical-rule
    * preamble is replaced by a silent variant that preserves the

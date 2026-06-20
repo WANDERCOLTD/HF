@@ -290,6 +290,6 @@ describe("Journey settings save round-trip smoke test", () => {
     // intent — the intake spec is institution-wide.
     expect(get("skipped-domain").length).toBe(1);
     expect(get("skipped-behavior-targets").length).toBe(1); // first session targets
-    expect(get("skipped-module-scope").length).toBe(9);    // G8 — Theme 1 + #1704 + #1743 moduleScaffoldPool + #1932 moduleTopicPool
+    expect(get("skipped-module-scope").length).toBe(12);   // G8 — Theme 1 + #1704 + #1743 + #1932 + #1955 + #1956 + #1954
   });
 });
