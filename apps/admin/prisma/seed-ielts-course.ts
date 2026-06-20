@@ -3,7 +3,14 @@
  *
  * Creates an IELTS Speaking Practice course on the Abacus Academy domain
  * (created by seed-golden.ts), driven by the canonical course-reference
- * markdown at `tests/fixtures/course-reference-ielts-v2.2.md`.
+ * markdown at `docs/external/ielts/ielts-speaking/Upload Docs/course-ref.md`
+ * — the SAME doc an operator would upload through the wizard. This is what
+ * makes "seed parity with wizard" achievable: both paths read the same
+ * bytes. PR #2125 PR1 moved the seed off the truncated 227-line fixture
+ * at `tests/fixtures/course-reference-ielts-v2.2.md` so the demo set
+ * matches production output. The old fixture is kept on disk for now
+ * (referenced by `tests/lib/seed-ielts-fixture.test.ts` history); cleanup
+ * is a follow-on concern.
  *
  * Unlike `seed-demo-course.ts` — which hand-rolls every row — this seed
  * uses the live projection pipeline: read the markdown, call
@@ -56,9 +63,14 @@ const CONTENT_SOURCE_SLUG = "ielts-speaking-course-ref";
 const FIXTURE_PATH = path.join(
   __dirname,
   "..",
-  "tests",
-  "fixtures",
-  "course-reference-ielts-v2.2.md",
+  "..",
+  "..",
+  "docs",
+  "external",
+  "ielts",
+  "ielts-speaking",
+  "Upload Docs",
+  "course-ref.md",
 );
 
 export async function main(prisma: PrismaClient): Promise<void> {
