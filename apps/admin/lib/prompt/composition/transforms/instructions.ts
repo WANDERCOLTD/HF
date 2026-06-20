@@ -512,6 +512,32 @@ registerTransform("computeInstructions", (
       sharedState,
     ),
 
+    // #2013 (epic #2009 S4) — mock-exam mode directive.
+    //
+    // Fires when the learner's locked module has `mode === "mock-exam"`.
+    // Reframes the session as a board-chair scenario exam (4–6 probes
+    // anchored in the Unit's case study, no MCQs, no teaching mid-
+    // session, per-LO per-dimension close). When the playbook also
+    // sets `useFreshMastery: true` (the Exam Assessment isolation
+    // contract — `lib/curriculum/readiness-rollups.ts:25`), the
+    // directive appends a "prior mastery doesn't count" note so the
+    // AI scores fresh from THIS session alone.
+    //
+    // Returns null on any non-mock-exam mode — existing behaviour
+    // byte-identical for tutor / mixed / examiner / quiz modules.
+    //
+    // Lattice survey confirmed `build-per-segment-measure-prompt.ts`
+    // is IELTS-pipeline-gated (not a generic compose path), so the
+    // board-chair branch does NOT need to abstract that file.
+    //
+    // Producer↔consumer pairing per `.claude/rules/lattice-survey.md`
+    // §"deeper layer". The renderer push lives at
+    // `renderPromptSummary.ts` under "[EXAM ASSESSMENT MODE]".
+    module_mock_exam_directive: resolveModuleMockExamDirective(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
+
     // #2051 (epic #2049 sub-epic B) — baseline-assessment depth directive.
     // Emits a per-depth `{ depth, directive }` ONLY when the playbook's
     // `firstCallMode === "baseline_assessment"` AND the session is the
@@ -909,6 +935,72 @@ function resolveModuleQuizDirective(
     "- After all questions: state the score, name the weakest LO, offer forward-pointer to Revision Aid.",
     "- Time budget: ~30–60 seconds per question; total 10 minutes.",
   ].join("\n");
+
+  return { directive };
+}
+
+/**
+ * #2013 (epic #2009 S4) — mock-exam mode directive.
+ *
+ * Returns a directive when the locked module's `mode === "mock-exam"`.
+ * Otherwise returns null. The directive reframes the session as a
+ * board-chair scenario exam: 4–6 probes anchored in the Unit's case
+ * study, no MCQs, no teaching mid-session, per-LO per-dimension
+ * close. Stays in board-chair frame throughout.
+ *
+ * When `config.useFreshMastery === true` (the Exam Assessment
+ * isolation contract — see `lib/curriculum/readiness-rollups.ts:25`),
+ * appends a "prior mastery doesn't count" note so the AI scores
+ * fresh from THIS session alone. The actual data isolation (writing
+ * to `Call.scratchMastery` rather than long-term `lo_mastery:*`) is
+ * already enforced at `lib/curriculum/track-progress.ts` and
+ * `lib/curriculum/scratch-mastery.ts`; this note tells the AI to
+ * align its narration with the data behaviour.
+ *
+ * No feature flag — the gate is the mode literal itself. Out of
+ * scope: per-LO per-dimension SCORING RUBRIC infra (Story E,
+ * deferred). This directive only frames the conversation; the
+ * scoring side stays on existing CallScore/CallerAttribute paths.
+ */
+function resolveModuleMockExamDirective(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): { directive: string } | null {
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+  if (matched.mode !== "mock-exam") return null;
+
+  const lines = [
+    "EXAM ASSESSMENT MODE — board-chair framing. You are NOT the senior mentor today.",
+    "You are the Chair of the learner's board.",
+    "- Open: introduce yourself as the Chair. Frame the session as a mock Exam Assessment. Tell the learner each prompt should show judgement, not just knowledge.",
+    "- Run 4–6 scenario probes anchored in the Unit's case study with a NEW twist per probe.",
+    "- Push back on weak answers: name where the answer fell short and ask the learner to lift it.",
+    "- Per-dimension scoring: internal only during the session. Surface at close.",
+    "- Close: per-LO per-dimension breakdown (Foundation / Developing / Practitioner / Distinction), two Revision Aid pointers.",
+    "- NO MCQs in this mode. NO teaching mid-session (max 30-second framework reminders only).",
+    "- Stay in board-chair frame throughout. Break frame only at the close.",
+    "- Time: 40 minutes. 4–6 probes. One Unit per session.",
+  ];
+  // `useFreshMastery` lives on PlaybookConfig as an untyped extension
+  // field (see `lib/curriculum/playbook-mastery-config.ts:59` for the
+  // canonical read pattern). Mirror that here.
+  const useFreshMastery =
+    config && "useFreshMastery" in config
+      ? (config as { useFreshMastery?: unknown }).useFreshMastery === true
+      : false;
+  if (useFreshMastery) {
+    lines.push(
+      "- Prior mastery DOES NOT carry in. Score this Unit fresh from THIS session's evidence alone. Do not surface prior LO scores in feedback.",
+    );
+  }
+  const directive = lines.join("\n");
 
   return { directive };
 }
