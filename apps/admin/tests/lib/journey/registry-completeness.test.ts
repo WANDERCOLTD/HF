@@ -8,8 +8,8 @@
  *   4. Every composeImpact.kinds[] element is a valid ComposeImpactKind
  *   5. No duplicate ids within JOURNEY_SETTINGS
  *   6. Every group G1..G8 has entries
- *   7. Exact group counts: G1:8 G2:10 G3:4 G4:27 G5:6 G6:11 G7:15 G8:7
- *   8. JOURNEY_SETTINGS.length === 88 (45 base + Lane 3 + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704)
+ *   7. Exact group counts: G1:9 G2:10 G3:4 G4:28 G5:5 G6:10 G7:15 G8:9
+ *   8. JOURNEY_SETTINGS.length === 90 (45 base + Lane 3 + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704 + 1 G7 #2105)
  *   9. VOICE_SETTINGS.length === 11
  *  10. Cross-registry `interruptSensitivity` shares storagePath
  *  11. writeGate === "operator-only" → composeImpact.requiresReprompt
@@ -91,7 +91,10 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // Lane 3 PR1 — A_intake (G1) gained 3 contracts: intakeGoals,
     // intakeAiIntroCall, intakeKnowledgeCheckMode (catch-up follow-on
     // from #1780 coverage audit).
-    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(7);
+    // Slice 13 grey-out epic — added intakeAboutYouQuestion +
+    // intakeGoalsQuestion text contracts so educators can edit the
+    // intake prompts. G1 7 → 9.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(9);
     expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
     // #1871 — voiceProsodyMode added (I_scoring / G4). 27 -> 28.
@@ -102,18 +105,22 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(5);
     expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(10);
     // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7; Lane 3 catch-up bumped further.
-    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(14);
+    // Story #2105 — lessonPlanMode surfaced as a contract so the
+    // Continuous + Strict-Prerequisites conflict can be declared
+    // symmetrically. G7 14 → 15.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(15);
     // #1701 — G8 module-scoped settings (6 IELTS keys) + #1704 profile capture (1)
-    //        + #1743 moduleScaffoldPool (1) for Theme 2b stall detector
-    //        + #1932 moduleTopicPool (1) for Part 1 + Part 3 question banks
-    //        + #1955 modulePinFocusArea (1) for Part 3 focus pin
-    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(10);
+    //        + #1743 moduleScaffoldPool (1) + #1932 moduleTopicPool (1)
+    //        + #1955 modulePinFocusArea (1) + #1956 modulesilentMode (1)
+    //        + #1954 moduleGenerateLessonPlan (1) = 12
+    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(12);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 88", () => {
-    // 84 (post midJourneyStopTrigger removal) + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
-    //   + 1 (moduleTopicPool #1932) + 1 (modulePinFocusArea #1955)
-    expect(JOURNEY_SETTINGS.length).toBe(88);
+  it("(8) JOURNEY_SETTINGS.length === 93", () => {
+    // 84 + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
+    //   + 1 (moduleTopicPool #1932) + 2 (Slice 13 intake editors) + 1 (#2105 lessonPlanMode)
+    //   + 1 (modulePinFocusArea #1955) + 1 (silentMode #1956) + 1 (generateLessonPlan #1954) = 93
+    expect(JOURNEY_SETTINGS.length).toBe(93);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

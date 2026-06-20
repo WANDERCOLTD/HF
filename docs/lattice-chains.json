@@ -1,0 +1,247 @@
+{
+  "$schema": "./lattice-chains-schema.json",
+  "$comment": "Machine-readable Lattice chain manifest. Story #2057. Walked by tests/lib/lattice-chain-closure.test.ts. Validated against docs/lattice-chains.md by lattice-self-maintenance.test.ts.",
+  "version": 1,
+  "chains": [
+    {
+      "id": "beh-aggregate-cascade",
+      "title": "Behavior Aggregation Cascade (BEH-AGG-001 + ADAPT-BEH-001)",
+      "description": "Per-call BEH-* CallScore \u2192 rolled-up behavior_profile:* CallerAttribute \u2192 ADAPT-BEH-001 CallerTarget upsert \u2192 composed prompt section. ADAPT leg closed by story #2074 (Phase 1 = 3 of 9 buckets: companion / supervision / engagement).",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "outputKey": "CallScore.parameterId",
+          "outputKeySamples": [
+            "BEH-CONVERSATIONAL-DEPTH",
+            "BEH-WARMTH",
+            "BEH-PATIENCE-LEVEL"
+          ],
+          "kind": "row-write"
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/docs-archive/bdd-specs/BEH-AGG-001-behavior-aggregation.spec.json",
+          "consumesKey": "parameters[].config.aggregationRules[].sourceParameter",
+          "consumesKeySamples": [
+            "BEH-CONVERSATIONAL-DEPTH",
+            "BEH-WARMTH",
+            "BEH-PATIENCE-LEVEL"
+          ],
+          "outputKey": "CallerAttribute(scope=BEH-AGG-001, key=behavior_profile:{group}:{dimension})",
+          "outputKeySamples": [
+            "behavior_profile:companion:engagement_level",
+            "behavior_profile:supervision:tutor_fidelity",
+            "behavior_profile:engagement:cognitive_activation"
+          ],
+          "kind": "callerAttribute-write",
+          "runner": "apps/admin/lib/pipeline/aggregate-runner.ts"
+        },
+        {
+          "stage": "ADAPT",
+          "consumer": "apps/admin/docs-archive/bdd-specs/ADAPT-BEH-001-behavior-adaptation.spec.json",
+          "consumesKey": "parameters[].config.adaptationRules[].condition.profileKey (with dataSource=callerAttribute, scope defaults to BEH-AGG-001)",
+          "consumesKeySamples": [
+            "behavior_profile:companion:engagement_level",
+            "behavior_profile:supervision:tutor_fidelity",
+            "behavior_profile:engagement:cognitive_activation"
+          ],
+          "outputKey": "CallerTarget(callerId, parameterId={parameter}).targetValue",
+          "outputKeySamples": [
+            "BEH-ENGAGEMENT",
+            "BEH-DEFINITION-PRECISION",
+            "BEH-INTELLECTUAL-CHALLENGE",
+            "BEH-FORMALITY",
+            "BEH-DIRECTNESS",
+            "BEH-WARMTH",
+            "BEH-QUESTION-RATE"
+          ],
+          "kind": "row-write",
+          "runner": "apps/admin/lib/pipeline/adapt-runner.ts",
+          "outputNotes": "Phase 1 covers 3 of 9 BEH-AGG-001 buckets (companion / supervision / engagement). Deliberately avoids BEH-EMPATHY-RATE + BEH-PROACTIVE (owned by ADAPT-PERS-001). Remaining 6 buckets (personality / curriculum / learning / reinforcement / onboarding / core_style) deferred to Phase 2."
+        },
+        {
+          "stage": "COMPOSE",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/quickstart.ts",
+          "consumesKey": "CallerAttribute.scope === config.specs.aggBehavior",
+          "consumesKeySamples": [
+            "BEH-AGG-001"
+          ],
+          "outputKey": "learning_guidance section text",
+          "kind": "section-emit",
+          "outputNotes": "Emitted as 'Companion profile signals' / 'Personality profile signals' / etc. sub-sections via behaviorAttrs grouped by namespace prefix. The CallerTarget written by ADAPT (link 3) is read by the targets.ts transform at compose time \u2014 see chain `behavior-target-cascade`."
+        }
+      ]
+    },
+    {
+      "id": "skill-ema-cascade",
+      "title": "Skill EMA Aggregation Cascade (SKILL-AGG-001)",
+      "description": "Per-call skill_* CallScore \u2192 time-decay EMA into CallerTarget.currentScore \u2192 ACHIEVE goal progress.",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "outputKey": "CallScore.parameterId",
+          "outputKeySamples": [
+            "skill_speaking_fluency",
+            "skill_pronunciation",
+            "skill_grammar"
+          ],
+          "kind": "row-write"
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/docs-archive/bdd-specs/SKILL-AGG-001-skill-ema-aggregation.spec.json",
+          "consumesKey": "parameters[].config.aggregationRules[].sourceParameterPattern",
+          "consumesKeySamples": [
+            "skill_*"
+          ],
+          "outputKey": "CallerTarget.currentScore",
+          "kind": "callerTarget-write",
+          "runner": "apps/admin/lib/pipeline/aggregate-runner.ts",
+          "method": "ema_to_caller_target"
+        },
+        {
+          "stage": "ACHIEVE-GOAL",
+          "consumer": "apps/admin/lib/goals/strategies/skill_ema.ts",
+          "consumesKey": "CallerTarget.currentScore",
+          "outputKey": "Goal.progress numeric value",
+          "kind": "goal-progress-update"
+        }
+      ]
+    },
+    {
+      "id": "coach-aggregate-cascade",
+      "title": "Coaching Aggregation Cascade (COACH-AGG-001)",
+      "description": "Per-call COACH_* CallScore \u2192 threshold-mapped CallerAttribute \u2192 composed prompt section via quickstart.ts learning_guidance.",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "outputKey": "CallScore.parameterId",
+          "outputKeySamples": [
+            "COACH_CLARITY",
+            "COACH_ACTION",
+            "COACH_AWARENESS",
+            "COACH_FOLLOWUP"
+          ],
+          "kind": "row-write"
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/docs-archive/bdd-specs/COACH-AGG-001-coaching-aggregation.spec.json",
+          "consumesKey": "parameters[].config.aggregationRules[].sourceParameter",
+          "consumesKeySamples": [
+            "COACH_CLARITY",
+            "COACH_ACTION"
+          ],
+          "outputKey": "CallerAttribute(scope=COACH-AGG-001, key={goal_clarity,action_commitment,self_awareness,follow_through,competency_level})",
+          "kind": "callerAttribute-write",
+          "runner": "apps/admin/lib/pipeline/aggregate-runner.ts"
+        },
+        {
+          "stage": "COMPOSE",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/quickstart.ts",
+          "consumesKey": "CallerAttribute.scope === config.specs.aggCoaching",
+          "consumesKeySamples": [
+            "goal_clarity",
+            "action_commitment",
+            "self_awareness",
+            "follow_through"
+          ],
+          "outputKey": "learning_guidance section text",
+          "kind": "section-emit"
+        }
+      ]
+    },
+    {
+      "id": "lo-mastery-cascade",
+      "title": "Per-LO Mastery Cascade (LEARN-ASSESS-001)",
+      "description": "EXTRACT-stage LEARN-ASSESS-001 (assessmentMode=curriculum_mastery) scores each discussed Learning Objective 0-1 in the call transcript → AGGREGATE writes per-LO mastery to CallerAttribute(key=curriculum:{specSlug}:lo_mastery:{moduleSlug}:{loRef}) via the canonical track-progress writer (monotonic ratchet, slug-canonical, #611 Fix A) → ADAPT-stage `lo_rollup` Goal strategy reads the per-LO rows to update LEARN Goal.progress → COMPOSE reads the same rows via buildLoMasteryMap to emit per-module mastery into the composed prompt. 4 links rather than 5: LO mastery skips the SCORE_AGENT stage (it does not write per-LO CallScore rows; the EXTRACT outputs flow directly in-memory through learningAssessment.outcomes to the AGGREGATE writer).",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/docs-archive/bdd-specs/LEARN-ASSESS-001-curriculum-mastery.spec.json",
+          "outputKey": "learningAssessment.outcomes[loRef] (in-memory; per-LO 0-1 mastery score)",
+          "outputKeySamples": [
+            "loMastery"
+          ],
+          "kind": "in-memory-pass",
+          "outputNotes": "LEARN-ASSESS-001 (specRole=EXTRACT, outputType=LEARN) drives the prompt that asks the model to score each discussed Learning Objective 0-1. The pipeline route's `runLearningAssessment` parses the response into `learningAssessment.outcomes: Record<loRef, number>` and threads it directly to `updateCurriculumProgress({loMastery})` without intermediate CallScore writes. #611 Fix A canonical slug-form is enforced at the AGGREGATE write boundary, not here."
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/lib/curriculum/track-progress.ts",
+          "consumesKey": "updates.loMastery.outcomes (in-memory pass from runLearningAssessment)",
+          "consumesKeySamples": [
+            "loMastery"
+          ],
+          "outputKey": "CallerAttribute(scope=CURRICULUM, key=curriculum:{specSlug}:lo_mastery:{moduleSlug}:{loRef})",
+          "outputKeySamples": [
+            "lo_mastery"
+          ],
+          "kind": "callerAttribute-write",
+          "outputNotes": "Single chokepoint for per-LO mastery writes. Monotonic ratchet via Math.max(existing, clamped). Slug-canonical: `moduleId` is resolved through `resolveModuleSlug(curriculumId, moduleIdOrName)` (#611 Fix A) before key construction to prevent dual-key drift. Per-Playbook tier cap applied to the contribution. ESLint guard `hf-curriculum/no-bare-module-progress-update` blocks competing writers; `tests/lib/mastery-roundtrip.test.ts` pins the write→read shape."
+        },
+        {
+          "stage": "ADAPT",
+          "consumer": "apps/admin/lib/goals/strategies/lo_rollup.ts",
+          "consumesKey": "CallerAttribute(scope=CURRICULUM) suffix-pattern :lo_mastery:{moduleSlug}:{loRef} via lib/goals/track-progress.ts::deriveLearnGoalProgressFromRef",
+          "consumesKeySamples": [
+            "lo_rollup"
+          ],
+          "outputKey": "Goal.progress (mean of per-LO mastery across modules the goal.ref resolves to)",
+          "kind": "goal-progress-update",
+          "outputNotes": "`lo_rollup` is the only valid `Goal.progressStrategy` for LEARN goals tracking per-LO mastery (StrategyKey enum, `no-bare-strategy-key` ESLint rule, #1599). Reader is `deriveLearnGoalProgressFromRef` in `lib/goals/track-progress.ts:419` (suffix-match on `:lo_mastery:<moduleSlug>:<actualLoRef>`). Working-set selection at COMPOSE time also reads `loMasteryMap[moduleId:loRef]` for module choice, but the Goal-strategy reader is the canonical ADAPT-stage consumer."
+        },
+        {
+          "stage": "COMPOSE",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/modules.ts",
+          "consumesKey": "CallerAttribute.scope === 'CURRICULUM' AND key startsWith curriculum:{specSlug}:lo_mastery:",
+          "consumesKeySamples": [
+            "buildLoMasteryMap"
+          ],
+          "outputKey": "per-module mastery section in composed prompt (working-set selection + per-LO thresholds)",
+          "kind": "section-emit",
+          "outputNotes": "`buildLoMasteryMap(callerAttributes, specSlug)` in `lib/prompt/composition/lo-mastery-map.ts` returns `Record<moduleSlug:loRef, number>` after filtering CURRICULUM-scope rows by `curriculum:{specSlug}:lo_mastery:` prefix (#928 cross-course bleed prevention). `modules.ts` then threads `loMasteryMap` into the scheduler / working-set-selector to pick LOs whose mastery is below threshold for the next call. COMPOSE re-reads the AGGREGATE-written CallerAttribute rows directly; it does not consume the ADAPT-stage Goal.progress output."
+        }
+      ]
+    },
+    {
+      "id": "wizard-config-write-invariant",
+      "title": "Wizard Config Write Invariant (chat-tool merge → COMPOSE-stage reader, #1995)",
+      "description": "Live IELTS Speaking Practice incident on hf_sandbox 2026-06-18: `Playbook.config.teachingMode = \"directive\"` (a value from the `interactionPattern` union, not the `teachingMode` union) crashed every new-learner ComposedPrompt build. PR #1993 added read-side defensive fallback; #1995 closes the write-side reuse gap by routing every chat-tool merge site through the runtime type guards in `lib/content-trust/resolve-config.ts`. Five-layer Coverage-pillar closure: source SETs at `lib/wizard/enum-sets.ts`, runtime guards `is*`, ESLint `hf-wizard/no-untyped-enum-write-in-wizard` chokepoint, type narrowing in `PlaybookConfig`, AI tool schema `enum: [...]` arrays, and a ratchet vitest that pins all of the above.",
+      "links": [
+        {
+          "stage": "PRODUCER",
+          "producer": "apps/admin/lib/chat/wizard-tool-executor/tools/create_course/_new-config-merge.ts",
+          "outputKey": "Playbook.config.{interactionPattern, teachingMode, audience, planEmphasis, lessonPlanModel} via updatePlaybookConfig",
+          "outputKeySamples": [
+            "teachingMode",
+            "interactionPattern",
+            "audience",
+            "planEmphasis",
+            "lessonPlanModel"
+          ],
+          "kind": "config-write",
+          "outputNotes": "Sibling writer at _reuse-config-merge.ts; admin-tool-handlers.ts::handleUpdatePlaybookConfig via filterEnumBearingUpdates. All three sites guarded by isTeachingMode / isInteractionPattern / isAudience / isPlanEmphasis / isLessonPlanModel / isFirstCallMode / isProgressionMode from lib/content-trust/resolve-config.ts."
+        },
+        {
+          "stage": "CONSUMER",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/preamble.ts",
+          "consumesKey": "Playbook.config.teachingMode (RETURNING_CALLER_BY_MODE lookup)",
+          "consumesKeySamples": [
+            "teachingMode"
+          ],
+          "outputKey": "criticalRules[] entries in composed prompt (the load-bearing read that crashed pre-#1993)",
+          "outputKeySamples": [
+            "RETURNING_CALLER_BY_MODE"
+          ],
+          "kind": "section-emit",
+          "runner": "apps/admin/lib/prompt/composition/CompositionExecutor.ts",
+          "outputNotes": "Read-side fallback added in PR #1993 (`isTeachingMode(...) ? mode : \"recall\"`) is defence-in-depth; #1995's write-side guards make the fallback path unreachable in the steady state. Sibling consumers: lib/content-trust/resolve-config.ts::INTENT_PATTERN_OVERRIDES (interactionPattern), lib/prompt/composition/transforms/audience.ts (audience)."
+        }
+      ]
+    }
+  ]
+}

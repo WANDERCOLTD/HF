@@ -3975,10 +3975,17 @@ html.light {
 
 /* Modal/Overlay defined in full below (search .hf-modal-overlay) */
 
-/* ── Page container (max-width centered) ── */
+/* ── Page container (max-width centered) ──
+   Responsive cap: 1400px on wide screens, but never wider than the
+   viewport minus the left nav (~240px) minus a 40px breathing margin.
+   Pre-fix `max-width: 1400px` was a hard cap that ignored viewport
+   size — on a ~1440px laptop with the LH nav rendered, content
+   extended ~250px past the right edge and clipped horizontally.
+   The min() expression caps growth at the smaller of (1400, available).
+*/
 .hf-page-container {
   padding: 24px;
-  max-width: 1400px;
+  max-width: min(1400px, calc(100vw - 280px));
   margin: 0 auto;
 }
 .hf-page-container.hf-page-wide {

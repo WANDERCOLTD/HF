@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Save } from "lucide-react";
 
 interface JsonEditorModalProps {
@@ -64,8 +65,9 @@ export function JsonEditorModal({
   }, [isOpen, requestClose]);
 
   if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -210,6 +212,7 @@ export function JsonEditorModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -196,6 +196,55 @@ export interface AutoEnableLink {
 }
 
 // =============================================================
+// Conflict declaration — non-blocking peer-combination warning
+// =============================================================
+
+/** Declarative peer-combination warning: when THIS setting's value is in
+ *  `whenThisValues` AND the OTHER setting's value is in
+ *  `whenOtherValues`, the Inspector renders an amber non-blocking
+ *  `<ConflictWarningChip>` above the row with the `resolution` text.
+ *
+ *  Story: [#2105](https://github.com/WANDERCOLTD/HF/issues/2105) S3 of
+ *  epic #2102 — Coverage-pillar extension to surface operator-tunable
+ *  conflicting combinations BEFORE learners hit them.
+ *
+ *  Distinct from `gatedBy` (hard READ-side gate, child renders disabled)
+ *  and `autoEnableLinks` (hard WRITE-side coupling, server forces a
+ *  value). Conflicts are operator-judgement warnings — the operator MAY
+ *  save the combination; they just need to understand the trade-off.
+ *
+ *  **Discipline rule (warning-fatigue answer):** if the system CAN
+ *  auto-resolve the combination, use `gatedBy` or `autoEnableLinks`. If
+ *  the OPERATOR must understand the trade-off and choose, use
+ *  `conflicts`.
+ *
+ *  **Symmetry contract:** declarations MUST be reciprocal. When
+ *  CONTRACT_A declares `{ conflictsWithId: "B", ... }`, CONTRACT_B MUST
+ *  declare `{ conflictsWithId: "A", whenThisValues: <B's trigger>,
+ *  whenOtherValues: <A's trigger>, ... }`. The coverage test enforces
+ *  this — both sides get the chip when the combination fires.
+ *
+ *  See `.claude/rules/registry-consumer-coverage.md` for the broader
+ *  Coverage-pillar pattern this extends. */
+export interface SettingConflictDecl {
+  /** Other contract id that conflicts with this one. */
+  conflictsWithId: string;
+  /** Values of THIS contract that trigger the conflict. */
+  whenThisValues: readonly unknown[];
+  /** Values of the OTHER contract that trigger the conflict. */
+  whenOtherValues: readonly unknown[];
+  /** Non-blocking — renders amber chip, not lock. Constrained to a
+   *  single value today so the type system signals the future-proof
+   *  intent: the discipline is "operator can save", not "operator must
+   *  fix". */
+  severity: "warning";
+  /** Educator-readable explanation + actionable resolution hint. MUST
+   *  be >60 chars so authors write substantive guidance, not a sentence
+   *  fragment. The coverage test enforces the floor. */
+  resolution: string;
+}
+
+// =============================================================
 // Slice C (#1721) — menu buckets
 // =============================================================
 
@@ -356,6 +405,19 @@ export interface JourneySettingContract {
      *  value is in this set. */
     inactiveValues: readonly unknown[];
   };
+
+  /** Story #2105 — non-blocking peer-combination warnings. Each entry
+   *  declares a conflict with another contract. The Inspector renders an
+   *  amber `<ConflictWarningChip>` above the row when both sides match.
+   *
+   *  Symmetric: when CONTRACT_A declares conflict with CONTRACT_B,
+   *  CONTRACT_B MUST also declare reciprocal conflict with CONTRACT_A.
+   *  The `conflict-warnings-coverage` vitest enforces this.
+   *
+   *  Lowest-priority `RelevanceState` — never shadows `out-of-shape` or
+   *  `gated-off`; an operator-only-conflict combination on a hard-gated
+   *  setting renders as `gated-off`, not `conflicted`. */
+  conflicts?: readonly SettingConflictDecl[];
 }
 
 // Re-export for sibling registries (Settings tab Voice subset).

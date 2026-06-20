@@ -284,9 +284,12 @@ describe("Journey settings save round-trip smoke test", () => {
     // Domain-rooted contracts route to /api/domains/[id]/onboarding,
     // not this journey-setting PATCH. The cascade still surfaces them
     // in the menu; the write lands on the Domain row, not Playbook.
-    // Today: intakeSpecId + onboardingFlowPhases.
-    expect(get("skipped-domain").length).toBe(2);
+    // Slice 14 audit (2026-06-19) moved onboardingFlowPhases primary
+    // write to config.onboardingFlowPhases (PATCH was 501-failing on
+    // domain.X writes). Only intakeSpecId remains Domain-rooted by
+    // intent — the intake spec is institution-wide.
+    expect(get("skipped-domain").length).toBe(1);
     expect(get("skipped-behavior-targets").length).toBe(1); // first session targets
-    expect(get("skipped-module-scope").length).toBe(10);   // G8 — Theme 1 + #1704 + #1743 moduleScaffoldPool + #1932 moduleTopicPool + #1955 modulePinFocusArea
+    expect(get("skipped-module-scope").length).toBe(12);   // G8 — Theme 1 + #1704 + #1743 + #1932 + #1955 + #1956 + #1954
   });
 });

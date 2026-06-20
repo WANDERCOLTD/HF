@@ -34,6 +34,8 @@ import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
 import { SurveyStopDetail } from '@/components/shared/SurveyStopDetail';
 import type { PlaybookConfig, SurveyStepConfig } from '@/lib/types/json-fields';
 import { isPreSurveyEnabled } from '@/lib/learner/survey-config';
+import { AgentTuner } from '@/components/shared/AgentTuner';
+import { AgentTunerNlpGate } from '@/components/shared/AgentTunerNlpGate';
 import { isFormStop } from '@/lib/lesson-plan/session-ui';
 import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
@@ -1963,6 +1965,30 @@ export default function CourseDetailPage() {
 
               {/* #1273 — Voice extracted to its own tab. Find it at
                   /x/courses/<id>?tab=voice. */}
+
+              {/* #2056 — operator-only NLP behaviour tuner. Mount gated
+                  on `config.agentTunerNlpEnabled` (opt-in) so the panel
+                  only renders when the playbook explicitly turns it on
+                  via the Inspector. Reads via <AgentTunerNlpGate> which
+                  resolves the flag through `isAgentTunerNlpEnabled`. */}
+              <AgentTunerNlpGate playbookConfig={detail.config as PlaybookConfig | null | undefined}>
+                <SectionHeader title="Behavior tuner (NLP)" icon={Zap} collapsible defaultCollapsed persistKey={`${courseId}.agent-tuner-nlp`}>
+                  <div className="hf-card hf-mb-lg" data-testid="agent-tuner-nlp-mount">
+                    <p className="hf-text-xs hf-text-muted hf-mb-md">
+                      Describe the personality you want in natural language; the agent translates intent to behaviour pills.
+                    </p>
+                    <AgentTuner
+                      bare
+                      context={{
+                        subjectName: detail.name,
+                        domainName: detail.domain.name,
+                      }}
+                      onChange={() => { /* writes via tray; see #2056 */ }}
+                      label="Tune behavior"
+                    />
+                  </div>
+                </SectionHeader>
+              </AgentTunerNlpGate>
 
               <SectionHeader title="Metadata" icon={FileText} collapsible defaultCollapsed persistKey={`${courseId}.metadata`}>
                 <div className="hf-card">

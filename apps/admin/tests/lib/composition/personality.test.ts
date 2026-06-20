@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { computePersonalityAdaptation } from "@/lib/prompt/composition/transforms/personality";
+import {
+  computePersonalityAdaptation,
+  computePersonalityAdaptationDirectives,
+} from "@/lib/prompt/composition/transforms/personality";
 import { getTransform } from "@/lib/prompt/composition/TransformRegistry";
 import type { AssembledContext, CompositionSectionDef, PersonalityData } from "@/lib/prompt/composition/types";
 
@@ -195,5 +198,190 @@ describe("computePersonalityAdaptation", () => {
     });
     const result = computePersonalityAdaptation(personality, thresholds);
     expect(result.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// =====================================================
+// computePersonalityAdaptationDirectives — #2083 / epic #2078 S1
+//
+// Wires the 5 producer-only `BEH-*-ADAPTATION` parameters into the compose
+// read path. Each directive reads (a) the caller's matching B5-* score from
+// the personality snapshot and (b) the parameter's interpretationHigh/Low
+// rationale from the BehaviorTarget cascade. Together they close the
+// personality-adaptation gap pinned by `parameter-coverage.test.ts`.
+// =====================================================
+
+function makeAdaptationTarget(
+  parameterId: string,
+  interpretationHigh: string,
+  interpretationLow: string,
+  targetValue = 0.5,
+) {
+  return {
+    parameterId,
+    targetValue,
+    parameter: {
+      parameterId,
+      interpretationHigh,
+      interpretationLow,
+      name: parameterId,
+    },
+  };
+}
+
+function makeAllFiveAdaptationTargets() {
+  return [
+    makeAdaptationTarget(
+      "BEH-OPENNESS-ADAPTATION",
+      "Exploratory Style: Explore ideas, creative discussions, intellectual curiosity",
+      "Practical Style: Concrete, practical, tried-and-true approaches",
+    ),
+    makeAdaptationTarget(
+      "BEH-CONSCIENTIOUSNESS-ADAPTATION",
+      "Structured Detail: Organized, detailed, action-oriented responses",
+      "Flexible Overview: Big picture focus, adaptable, less rigid",
+    ),
+    makeAdaptationTarget(
+      "BEH-EXTRAVERSION-ADAPTATION",
+      "Energetic Dialogue: Dynamic, enthusiastic, expressive conversation",
+      "Measured Pace: Quieter, space-giving, reflective style",
+    ),
+    makeAdaptationTarget(
+      "BEH-AGREEABLENESS-ADAPTATION",
+      "Warm Cooperative: Friendly, harmony-focused, relationship-building",
+      "Direct Honest: Straightforward, efficient, no-nonsense",
+    ),
+    makeAdaptationTarget(
+      "BEH-NEUROTICISM-ADAPTATION",
+      "Reassuring Calm: Extra reassurance, calm steady presence, acknowledge concerns",
+      "Straightforward: Direct communication, trust their resilience",
+    ),
+  ];
+}
+
+describe("computePersonalityAdaptationDirectives (#2083 / epic #2078 S1)", () => {
+  const thresholds = { high: 0.65, low: 0.35 };
+  const targets = makeAllFiveAdaptationTargets();
+
+  it("returns empty array when personality data is null", () => {
+    expect(computePersonalityAdaptationDirectives(null, targets, thresholds)).toEqual([]);
+  });
+
+  it("emits a HIGH directive for openness when BEH-B5-O score is high", () => {
+    const personality = {
+      ...makePersonality(),
+      "BEH-B5-O": 0.85,
+    } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    const directive = result.find((d) => d.toLowerCase().includes("openness"));
+    expect(directive).toBeDefined();
+    expect(directive).toContain("HIGH");
+    expect(directive).toContain("85%");
+    expect(directive).toContain("Exploratory Style");
+  });
+
+  it("emits a LOW directive for conscientiousness when BEH-B5-C score is low", () => {
+    const personality = {
+      ...makePersonality(),
+      "BEH-B5-C": 0.15,
+    } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    const directive = result.find((d) => d.toLowerCase().includes("conscientiousness"));
+    expect(directive).toBeDefined();
+    expect(directive).toContain("LOW");
+    expect(directive).toContain("15%");
+    expect(directive).toContain("Flexible Overview");
+  });
+
+  it("emits a HIGH directive for extraversion (BEH-B5-E)", () => {
+    const personality = { ...makePersonality(), "BEH-B5-E": 0.9 } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    const directive = result.find((d) => d.toLowerCase().includes("extraversion"));
+    expect(directive).toBeDefined();
+    expect(directive).toContain("HIGH");
+    expect(directive).toContain("Energetic Dialogue");
+  });
+
+  it("emits a LOW directive for agreeableness (BEH-B5-A)", () => {
+    const personality = { ...makePersonality(), "BEH-B5-A": 0.2 } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    const directive = result.find((d) => d.toLowerCase().includes("agreeableness"));
+    expect(directive).toBeDefined();
+    expect(directive).toContain("LOW");
+    expect(directive).toContain("Direct Honest");
+  });
+
+  it("emits a HIGH directive for neuroticism (BEH-B5-N)", () => {
+    const personality = { ...makePersonality(), "BEH-B5-N": 0.8 } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    const directive = result.find((d) => d.toLowerCase().includes("neuroticism"));
+    expect(directive).toBeDefined();
+    expect(directive).toContain("HIGH");
+    expect(directive).toContain("Reassuring Calm");
+  });
+
+  it("skips moderate values (no directive in the band 35% – 65%)", () => {
+    const personality = {
+      ...makePersonality(),
+      "BEH-B5-O": 0.5,
+      "BEH-B5-C": 0.5,
+      "BEH-B5-E": 0.5,
+      "BEH-B5-A": 0.5,
+      "BEH-B5-N": 0.5,
+    } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    expect(result).toEqual([]);
+  });
+
+  it("falls back to legacy CallerPersonality fields when BEH-B5-* keys absent", () => {
+    // Older callers may carry only the legacy `openness` / `extraversion` /
+    // etc. fields from the pre-rebuild `CallerPersonality` table. The
+    // helper must still produce a directive for those rows.
+    const personality = makePersonality({
+      openness: 0.9, // legacy field; no BEH-B5-O key
+    });
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    const directive = result.find((d) => d.toLowerCase().includes("openness"));
+    expect(directive).toBeDefined();
+    expect(directive).toContain("HIGH");
+  });
+
+  it("emits no directive when the matching ADAPTATION target is missing from mergedTargets", () => {
+    // No targets in the cascade → the helper still emits a directive
+    // (rationale text is omitted because there's no interpretationHigh/Low
+    // to cite, but the HIGH/LOW signal still goes through). This guards
+    // the "compose runs before BehaviorTarget seed has fired for new
+    // installations" edge case.
+    const personality = { ...makePersonality(), "BEH-B5-O": 0.9 } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, [], thresholds);
+    const directive = result.find((d) => d.toLowerCase().includes("openness"));
+    expect(directive).toBeDefined();
+    expect(directive).toContain("HIGH");
+  });
+
+  it("emits all 5 directives when caller is extreme on every Big Five dimension", () => {
+    const personality = {
+      ...makePersonality(),
+      "BEH-B5-O": 0.9,
+      "BEH-B5-C": 0.1,
+      "BEH-B5-E": 0.9,
+      "BEH-B5-A": 0.1,
+      "BEH-B5-N": 0.9,
+    } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    expect(result).toHaveLength(5);
+  });
+
+  it("uses BEH-B5-* key when both canonical key and legacy field are present", () => {
+    // Canonical key wins; the legacy fallback only fires when the canonical
+    // key isn't there.
+    const personality = {
+      ...makePersonality({ openness: 0.1 }),
+      "BEH-B5-O": 0.9, // canonical wins → HIGH directive
+    } as PersonalityData;
+    const result = computePersonalityAdaptationDirectives(personality, targets, thresholds);
+    const directive = result.find((d) => d.toLowerCase().includes("openness"));
+    expect(directive).toContain("HIGH");
+    expect(directive).toContain("90%");
   });
 });

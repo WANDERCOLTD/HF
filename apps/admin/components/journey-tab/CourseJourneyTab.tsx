@@ -39,7 +39,10 @@ import {
   type CourseDetailTabId,
 } from "@/lib/journey/buckets-by-tab";
 import { bucketToTab } from "@/lib/journey/bucket-to-tab";
-import { getBucketsForSection } from "@/lib/journey/bucket-relations";
+import {
+  getBucketsForSection,
+  isBucketCrossCutting,
+} from "@/lib/journey/bucket-relations";
 import { JOURNEY_MENU_ITEMS_BY_ID } from "@/lib/journey/menu-items";
 import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 import { JOURNEY_SETTINGS_BY_ID } from "@/lib/journey/setting-contracts.entries";
@@ -49,6 +52,11 @@ import { CommandPalette } from "./CommandPalette";
 import { JourneyInspectorPanel } from "./JourneyInspectorPanel";
 import { JourneyLhMenu } from "./JourneyLhMenu";
 import { PreviewLocatorHint } from "./PreviewLocatorHint";
+// Pulls in the shared `.hf-designer-canvas-dim` rule used by the
+// cross-cutting-bucket dim wrapper below. CourseJourneyTab is a sibling
+// tri-pane shape (not DesignerShell) but reuses the same class so the
+// dim affordance is visually identical across all four tabs.
+import "@/components/shared/designer-shell/designer-shell.css";
 import "./journey-tab.css";
 import { useBubblePulse } from "./use-bubble-pulse";
 import { useJourneySelection } from "./use-journey-selection";
@@ -98,6 +106,12 @@ export function CourseJourneyTab({
   const [localConfig, setLocalConfig] = useState<
     Record<string, unknown> | null
   >(playbookConfig);
+  // Slice 2 grey-out epic — monotonic counter bumped on every Inspector
+  // save. Passed through to <PreviewLens composeNonce={...}> so the
+  // middle pane re-composes automatically when the right-hand Inspector
+  // writes. Replaces the manual "Refresh preview" round-trip operators
+  // had to do after every toggle.
+  const [composeNonce, setComposeNonce] = useState<number>(0);
   useEffect(() => {
     setLocalConfig(playbookConfig);
   }, [playbookConfig]);
@@ -117,10 +131,75 @@ export function CourseJourneyTab({
       // value on the next route change. Don't surface the network error
       // here; the save itself already succeeded.
     }
+    // Bump the preview nonce regardless of refetch success — the save
+    // already landed on the server, so the preview is now stale even if
+    // our local snapshot didn't update.
+    setComposeNonce((n) => n + 1);
   }, [courseId]);
 
   // Slice C — multi-pulse over all bucket sections.
   useBubblePulse(canvasRef, selection.bucketId);
+
+  // Slice 9 grey-out epic — interaction tick counter. Bumped on every
+  // bucket / preview click regardless of whether the selection actually
+  // changed. JourneyInspectorPanel + the middle-pane bubble pulse listen
+  // to this so clicking the same bucket / divider twice still gives
+  // visible feedback. Without this, React skips the bucket-change effect
+  // when the value is unchanged.
+  const [interactionTick, setInteractionTick] = useState<number>(0);
+  const bump = useCallback(() => setInteractionTick((n) => n + 1), []);
+
+  // Slice 8 grey-out epic — RHS Inspector row click closes the
+  // tri-pane signal: pulse + scroll the matching middle-pane bubble
+  // (looked up via `[data-setting-id=<id>]` injected at bubble emit).
+  // Also write the selection so the RHS row itself stays highlighted.
+  const handleInspectorRowFocus = useCallback(
+    (settingId: string) => {
+      // Always bump — same row re-click should re-pulse the middle bubble.
+      bump();
+      if (selection.focusedSettingId === settingId) return;
+      // Slice 10 grey-out epic — when the requested setting lives in a
+      // DIFFERENT bucket (e.g. RelevanceWrapper's "Enable {parent} first"
+      // chip on a gated-off control whose parent owns a different bucket
+      // — like intakeAiIntroCall gated by firstCallMode), switch the
+      // bucket to the owner so the educator lands on the parent control,
+      // not an empty Inspector view.
+      const owner = JOURNEY_SETTINGS_BY_ID[settingId];
+      const nextBucket = owner?.menuGroupKey ?? selection.bucketId;
+      selection.setBucketId(nextBucket, settingId);
+    },
+    [selection, bump],
+  );
+
+  // Pulse + scroll the middle-pane bubble matching the focused setting.
+  // Runs on every focusedSettingId change AND every interactionTick bump
+  // (so re-clicking the same row still re-pulses). One-shot 1.5s.
+  useEffect(() => {
+    const settingId = selection.focusedSettingId;
+    if (!settingId) return;
+    const root = canvasRef.current;
+    if (!root) return;
+    const el = root.querySelector<HTMLElement>(
+      `[data-setting-id="${settingId}"]`,
+    );
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    const offscreen = rect.top < rootRect.top || rect.bottom > rootRect.bottom;
+    if (offscreen) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    // Toggle class via remove → reflow → add so same-id re-click
+    // restarts the CSS animation.
+    el.classList.remove("hf-preview-bubble-focus");
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    el.offsetWidth;
+    el.classList.add("hf-preview-bubble-focus");
+    const timer = window.setTimeout(() => {
+      el.classList.remove("hf-preview-bubble-focus");
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [selection.focusedSettingId, interactionTick]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -157,8 +236,9 @@ export function CourseJourneyTab({
       selection.setBucketId(next);
       setPickStripSection(null);
       setCrossTabHint(null);
+      bump();
     },
-    [selection],
+    [selection, bump],
   );
 
   // Bubble click in PreviewLens → derive bucket(s). If any in-tab →
@@ -166,7 +246,7 @@ export function CourseJourneyTab({
   // in-tab (cross-tab scenario) → surface the hint card for the first
   // bucket chronologically and clear the LH selection.
   const handlePreviewSectionSelect = useCallback(
-    (section: ComposeSectionKey | null) => {
+    (section: ComposeSectionKey | null, settingId?: string) => {
       if (!section) {
         setPickStripSection(null);
         setCrossTabHint(null);
@@ -180,9 +260,14 @@ export function CourseJourneyTab({
       }
       const inTab = buckets.filter(isJourneyBucket);
       if (inTab.length > 0) {
-        selection.setBucketId(inTab[0]);
+        // Slice 4 grey-out epic — when the bubble unambiguously maps to a
+        // specific contract id, pass it as the second arg so the
+        // Inspector can scroll+highlight that row. Bucket clicks without
+        // a setting id stay on the bucket-level focus path.
+        selection.setBucketId(inTab[0], settingId ?? null);
         setPickStripSection(inTab.length >= 2 ? section : null);
         setCrossTabHint(null);
+        bump();
         return;
       }
       // Cross-tab: pick the first bucket chronologically and offer to
@@ -232,11 +317,19 @@ export function CourseJourneyTab({
           <JourneyLhMenu
             selectedBucketId={selection.bucketId}
             onSelectBucket={handleLhSelect}
-            filter={selection.filter}
-            onFilterChange={selection.setFilter}
+            filters={selection.filters}
+            onToggleFilter={selection.toggleFilter}
           />
         </aside>
-        <main ref={canvasRef} className="hf-journey-pane hf-journey-canvas">
+        <main
+          ref={canvasRef}
+          className={`hf-journey-pane hf-journey-canvas${
+            isBucketCrossCutting(selection.bucketId)
+              ? " hf-designer-canvas-dim"
+              : ""
+          }`}
+          data-cross-cutting={isBucketCrossCutting(selection.bucketId)}
+        >
           <PreviewLocatorHint
             selectedBucketId={selection.bucketId}
             pickStripSection={pickStripSection}
@@ -245,6 +338,7 @@ export function CourseJourneyTab({
           <PreviewLens
             courseId={courseId}
             onSelectSection={handlePreviewSectionSelect}
+            composeNonce={composeNonce}
             suppressSidetray
           />
         </main>
@@ -260,7 +354,12 @@ export function CourseJourneyTab({
               onJump={handleJump}
             />
           ) : (
-            <JourneyInspectorPanel selectedBucketId={selection.bucketId} />
+            <JourneyInspectorPanel
+              selectedBucketId={selection.bucketId}
+              focusedSettingId={selection.focusedSettingId}
+              onRowFocus={handleInspectorRowFocus}
+              interactionTick={interactionTick}
+            />
           )}
         </aside>
         <CommandPalette

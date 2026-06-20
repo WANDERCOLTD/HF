@@ -229,7 +229,7 @@ async function attachToExistingCourse(
       },
     });
 
-    await tx.subjectSource.create({
+    const subjectSource = await tx.subjectSource.create({
       data: {
         subjectId: subjectId!,
         sourceId: source.id,
@@ -245,10 +245,13 @@ async function attachToExistingCourse(
     });
 
     if (assertions.length > 0) {
+      // #2125 PR2 — pass subjectSourceId so assertions don't leak cross-course
+      // through SectionDataLoader's strict-FK filter (ENTITIES.md §6 I1).
       await tx.contentAssertion.createMany({
         data: assertions.map((a) => ({
           ...a,
           sourceId: source.id,
+          subjectSourceId: subjectSource.id,
         })),
       });
     }
@@ -364,7 +367,7 @@ async function createCourseFromRef(
     });
 
     // 7. Link to subject
-    await tx.subjectSource.create({
+    const subjectSource = await tx.subjectSource.create({
       data: {
         subjectId: subject.id,
         sourceId: source.id,
@@ -381,10 +384,13 @@ async function createCourseFromRef(
 
     // 8. Create assertions
     if (assertions.length > 0) {
+      // #2125 PR2 — pass subjectSourceId so assertions don't leak cross-course
+      // through SectionDataLoader's strict-FK filter (ENTITIES.md §6 I1).
       await tx.contentAssertion.createMany({
         data: assertions.map((a) => ({
           ...a,
           sourceId: source.id,
+          subjectSourceId: subjectSource.id,
         })),
       });
     }

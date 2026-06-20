@@ -17,12 +17,18 @@
 
 import { registerTransform } from "../TransformRegistry";
 import { classifyValue } from "../types";
-import { computePersonalityAdaptation } from "./personality";
+import { computePersonalityAdaptation, computePersonalityAdaptationDirectives } from "./personality";
 import type { AssembledContext, GoalData, SubjectSourcesData } from "../types";
 import type { AuthoredModule, PlaybookConfig, SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
 import { resolveModuleFocusArea } from "./part3-focus";
+import {
+  resolveScoringConfig,
+  buildAssessmentReadinessDirective,
+  buildProgressSignalDirective,
+} from "@/lib/prompt/composition/scoring-config";
+import { buildLoMasteryMap } from "@/lib/prompt/composition/lo-mastery-map";
 
 // Goal-type × progress-bracket adaptation guidance.
 // Tells the AI HOW to adapt teaching based on goal type and progress level.
@@ -264,8 +270,19 @@ registerTransform("computeInstructions", (
       };
     })(),
 
-    // Personality adaptation (route.ts lines 2017-2075)
-    personality_adaptation: computePersonalityAdaptation(personality, thresholds),
+    // Personality adaptation (route.ts lines 2017-2075).
+    //
+    // #2083 (epic #2078 S1) — appended block: the 5 ADAPTATION-target
+    // parameters (BEH-OPENNESS-ADAPTATION, BEH-CONSCIENTIOUSNESS-ADAPTATION,
+    // BEH-EXTRAVERSION-ADAPTATION, BEH-AGREEABLENESS-ADAPTATION,
+    // BEH-NEUROTICISM-ADAPTATION) read the caller's matching B5-* score from
+    // `CallerPersonalityProfile.parameterValues` and emit a directive citing
+    // the parameter's `interpretationHigh` / `interpretationLow`. Closes the
+    // producer-only gap pinned by `parameter-coverage.test.ts`.
+    personality_adaptation: [
+      ...computePersonalityAdaptation(personality, thresholds),
+      ...computePersonalityAdaptationDirectives(personality, mergedTargets, thresholds),
+    ],
 
     // Behavior targets summary (route.ts lines 2076-2087)
     // #1951 — kept at top-5 as the safety-fallback path for when the new
@@ -387,6 +404,51 @@ registerTransform("computeInstructions", (
     // Voice — delegates to separate transform (already computed)
     voice: sections.instructions_voice || null,
 
+    // #2052 sub-epic C — assessment_readiness_directive.
+    //
+    // Reads `Playbook.config.assessmentReadinessThreshold`. When set,
+    // gates pre/mid/post-test stop firing on the learner's aggregated
+    // `behavior_profile:learning:*` rollup (produced by BEH-AGG-001 —
+    // see `lib/measurement/...` AGGREGATE spec). Falls back to
+    // averaged per-LO mastery when the rollup is absent. Returns null
+    // when the operator hasn't set the threshold (byte-identical
+    // previous behaviour).
+    //
+    // @see lib/prompt/composition/scoring-config.ts
+    assessment_readiness_directive: buildAssessmentReadinessDirective(
+      resolveScoringConfig(
+        (loadedData.playbooks?.[0]?.config ?? null) as PlaybookConfig | null,
+      ),
+      loadedData.callerAttributes,
+      buildLoMasteryMap(
+        loadedData.callerAttributes,
+        sharedState.curriculumSpecSlug,
+      ),
+    ),
+
+    // #2052 sub-epic C — progress_signal_directive.
+    //
+    // Reads `Playbook.config.progressSignals.lowWater` / `.highWater`.
+    // When set, compares the learner's aggregated
+    // `behavior_profile:engagement:*` rollup against the band:
+    //   - below lowWater  → "encouragement"
+    //   - above highWater → "stretch"
+    //   - in between      → "in_band"
+    // Returns null when neither water mark is set (byte-identical
+    // previous behaviour).
+    //
+    // @see lib/prompt/composition/scoring-config.ts
+    progress_signal_directive: buildProgressSignalDirective(
+      resolveScoringConfig(
+        (loadedData.playbooks?.[0]?.config ?? null) as PlaybookConfig | null,
+      ),
+      loadedData.callerAttributes,
+      buildLoMasteryMap(
+        loadedData.callerAttributes,
+        sharedState.curriculumSpecSlug,
+      ),
+    ),
+
     // #1732 (epic #1730 G8 consumer A) — module-scoped question count
     // directive. Resolves `Playbook.config.modules[].settings.questionTarget`
     // against `sharedState.lockedModule`. Gated by
@@ -457,6 +519,24 @@ registerTransform("computeInstructions", (
     module_focus_area: resolveModuleFocusArea(
       (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
       context,
+    ),
+
+    // #2011 (epic #2009 S2) — quiz-mode directive.
+    module_quiz_directive: resolveModuleQuizDirective(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
+
+    // #2013 (epic #2009 S4) — mock-exam mode directive.
+    module_mock_exam_directive: resolveModuleMockExamDirective(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
+    ),
+
+    // #2051 (epic #2049 sub-epic B) — baseline-assessment depth directive.
+    baseline_assessment_depth: resolveBaselineAssessmentDepth(
+      (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
+      sharedState,
     ),
   };
 });
@@ -579,6 +659,81 @@ function resolveModuleCueCard(
     topic: picked.topic,
     bullets,
     directive,
+  };
+}
+
+/**
+ * #2051 (epic #2049 sub-epic B / Contract 1) — baseline-assessment depth.
+ *
+ * Returns a `{ depth, directive }` object ONLY when ALL hold:
+ *   - `Playbook.config.firstCallMode === "baseline_assessment"`
+ *   - `sharedState.isFirstCall || sharedState.isFirstCallInDomain` (the
+ *     learner's first session in this course)
+ *
+ * Depth defaults to `"standard"` when the playbook is in baseline mode but
+ * `Playbook.config.baselineAssessmentDepth` is undefined — preserves the
+ * existing 5-question implicit shape for playbooks that pre-date the
+ * field. An explicit `"light"` / `"standard"` / `"deep"` is honoured.
+ *
+ * Returns `null` when:
+ *   - Playbook is not in baseline mode (any other firstCallMode), OR
+ *   - The call is not the first call (Call 2+), OR
+ *   - The depth value is unrecognised (defensive — type guard catches
+ *     stale JSON from manual DB edits).
+ *
+ * The directive is APPENDED after the existing `BASELINE_ASSESSMENT_RULE`
+ * critical rule (emitted by `transforms/preamble.ts`) — it does NOT replace
+ * or merge into that rule. The renderer pushes both into the prompt body.
+ *
+ * The depth-specific directives are kept inline here (not in
+ * `defaults/critical-rules.ts`) because they are the per-depth calibration
+ * shape — adding light/standard/deep variants in the defaults file would
+ * either over-specify the canonical rule (forcing every consumer to handle
+ * the depth shape) or drift to a sibling file. Inline keeps the surface
+ * minimal until a future story moves depth-variant rules to spec config.
+ *
+ * @see docs/groomed/2051-call1-shape-consumers.md §Contract 1
+ */
+type BaselineDepth = "light" | "standard" | "deep";
+const BASELINE_DEPTH_DIRECTIVES: Record<BaselineDepth, string> = {
+  light:
+    "Assessment depth: LIGHT. Ask up to 3 diagnostic questions only — one per learning objective starting from the first objective in the sequence. Do not exceed 3 questions total. Manage time so the session closes within 3 minutes of the assessment opening.",
+  standard:
+    "Assessment depth: STANDARD. Ask up to 5 diagnostic questions — one per learning objective working through the sequence. Do not exceed 5 questions total. Target 5 minutes for the assessment.",
+  deep:
+    "Assessment depth: DEEP. Ask up to 8 diagnostic questions — work through all learning objectives in sequence, then select the 2 LOs where the learner showed the least confidence and ask one follow-up probe each. Target 8 minutes. Do not correct or teach during the follow-ups — they are additional diagnostic evidence.",
+};
+
+function isBaselineDepth(value: unknown): value is BaselineDepth {
+  return value === "light" || value === "standard" || value === "deep";
+}
+
+function resolveBaselineAssessmentDepth(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): { depth: BaselineDepth; directive: string } | null {
+  // Gate 1 — baseline mode only.
+  if (config.firstCallMode !== "baseline_assessment") return null;
+  // Gate 2 — first call only. Use the union of both first-call signals so
+  // domain-switch re-onboarding also fires the baseline calibration on the
+  // first call within the new domain (same shape as `pedagogy.ts`).
+  const isFirstCallAny =
+    sharedState.isFirstCall || sharedState.isFirstCallInDomain === true;
+  if (!isFirstCallAny) return null;
+
+  // Defensive: an unknown stored value falls through to null rather than
+  // crashing the composer. The depth-variant directive simply isn't emitted
+  // — the existing BASELINE_ASSESSMENT_RULE still fires.
+  const raw = config.baselineAssessmentDepth;
+  const depth: BaselineDepth = raw === undefined
+    ? "standard" // default when baseline-mode is on but the field is absent
+    : isBaselineDepth(raw)
+      ? raw
+      : "standard"; // unknown stored value → silent fall-through to standard
+
+  return {
+    depth,
+    directive: BASELINE_DEPTH_DIRECTIVES[depth],
   };
 }
 
@@ -719,4 +874,112 @@ function resolveModuleTopicPool(
     questions,
     directive,
   };
+}
+
+/**
+ * #2011 (epic #2009 S2) — quiz-mode directive.
+ *
+ * Returns a directive when the locked module's `mode === "quiz"`.
+ * Otherwise returns null. The directive reframes the session as a
+ * timed MCQ drill — the LLM still uses the same VAPI ContentQuestion
+ * search tool at runtime; the prompt tells it WHEN to use MCQs as
+ * the conversation shape rather than as in-line retrieval prompts.
+ *
+ * No feature flag — the gate is the mode literal itself. Out of
+ * scope: per-module `questionTarget` count override (today the
+ * directive carries the canonical 8–12 range; a future story can
+ * wire `Playbook.config.modules[].settings.questionTarget` if the
+ * trio variants need per-Unit budgets).
+ */
+function resolveModuleQuizDirective(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): { directive: string } | null {
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+  if (matched.mode !== "quiz") return null;
+
+  const directive = [
+    "QUIZ MODE — this session is a timed MCQ drill, not a teaching conversation.",
+    "- Deliver 8–12 questions drawn from the ContentQuestion bank for this Unit.",
+    "- Present each question with 4 options in randomised order (conversational tone, NOT \"A: / B: / C: / D:\").",
+    "- Give exactly TWO sentences of feedback per question: (1) correct/incorrect; (2) the underlying principle.",
+    "- NO follow-up questions, NO extended teaching. Move on immediately after feedback.",
+    "- After all questions: state the score, name the weakest LO, offer forward-pointer to Revision Aid.",
+    "- Time budget: ~30–60 seconds per question; total 10 minutes.",
+  ].join("\n");
+
+  return { directive };
+}
+
+/**
+ * #2013 (epic #2009 S4) — mock-exam mode directive.
+ *
+ * Returns a directive when the locked module's `mode === "mock-exam"`.
+ * Otherwise returns null. The directive reframes the session as a
+ * board-chair scenario exam: 4–6 probes anchored in the Unit's case
+ * study, no MCQs, no teaching mid-session, per-LO per-dimension
+ * close. Stays in board-chair frame throughout.
+ *
+ * When `config.useFreshMastery === true` (the Exam Assessment
+ * isolation contract — see `lib/curriculum/readiness-rollups.ts:25`),
+ * appends a "prior mastery doesn't count" note so the AI scores
+ * fresh from THIS session alone. The actual data isolation (writing
+ * to `Call.scratchMastery` rather than long-term `lo_mastery:*`) is
+ * already enforced at `lib/curriculum/track-progress.ts` and
+ * `lib/curriculum/scratch-mastery.ts`; this note tells the AI to
+ * align its narration with the data behaviour.
+ *
+ * No feature flag — the gate is the mode literal itself. Out of
+ * scope: per-LO per-dimension SCORING RUBRIC infra (Story E,
+ * deferred). This directive only frames the conversation; the
+ * scoring side stays on existing CallScore/CallerAttribute paths.
+ */
+function resolveModuleMockExamDirective(
+  config: PlaybookConfig,
+  sharedState: AssembledContext["sharedState"],
+): { directive: string } | null {
+  const lockedModule = sharedState.lockedModule;
+  if (!lockedModule) return null;
+
+  const authoredModules: AuthoredModule[] = config.modules ?? [];
+  const matched = authoredModules.find(
+    (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+  );
+  if (!matched) return null;
+  if (matched.mode !== "mock-exam") return null;
+
+  const lines = [
+    "EXAM ASSESSMENT MODE — board-chair framing. You are NOT the senior mentor today.",
+    "You are the Chair of the learner's board.",
+    "- Open: introduce yourself as the Chair. Frame the session as a mock Exam Assessment. Tell the learner each prompt should show judgement, not just knowledge.",
+    "- Run 4–6 scenario probes anchored in the Unit's case study with a NEW twist per probe.",
+    "- Push back on weak answers: name where the answer fell short and ask the learner to lift it.",
+    "- Per-dimension scoring: internal only during the session. Surface at close.",
+    "- Close: per-LO per-dimension breakdown (Foundation / Developing / Practitioner / Distinction), two Revision Aid pointers.",
+    "- NO MCQs in this mode. NO teaching mid-session (max 30-second framework reminders only).",
+    "- Stay in board-chair frame throughout. Break frame only at the close.",
+    "- Time: 40 minutes. 4–6 probes. One Unit per session.",
+  ];
+  // `useFreshMastery` lives on PlaybookConfig as an untyped extension
+  // field (see `lib/curriculum/playbook-mastery-config.ts:59` for the
+  // canonical read pattern). Mirror that here.
+  const useFreshMastery =
+    config && "useFreshMastery" in config
+      ? (config as { useFreshMastery?: unknown }).useFreshMastery === true
+      : false;
+  if (useFreshMastery) {
+    lines.push(
+      "- Prior mastery DOES NOT carry in. Score this Unit fresh from THIS session's evidence alone. Do not surface prior LO scores in feedback.",
+    );
+  }
+  const directive = lines.join("\n");
+
+  return { directive };
 }

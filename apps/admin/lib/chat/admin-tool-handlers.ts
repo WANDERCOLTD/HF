@@ -32,6 +32,106 @@ import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
 import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { explainVoiceCascade } from "@/lib/cascade/voice-explain";
 import { PlaybookCurriculumRole } from "@prisma/client";
+import {
+  isTeachingMode,
+  isInteractionPattern,
+  isAudience,
+  isPlanEmphasis,
+  isLessonPlanModel,
+  isFirstCallMode,
+} from "@/lib/content-trust/resolve-config";
+
+/**
+ * #1995 — enum-validated filter for `update_playbook_config` input.
+ *
+ * The chat-tool merge path used to pass whatever string the AI returned
+ * straight to `updatePlaybookConfig`. The live IELTS Speaking Practice
+ * incident (2026-06-18) showed this fails silently — `teachingMode =
+ * "directive"` reached the DB and crashed every ComposedPrompt build.
+ * We now log-and-skip invalid enum-bearing fields; the merge proceeds
+ * for valid fields so the operator's other edits land cleanly.
+ *
+ * Allow-list: fields like `welcomeMessage` / `subjectDiscipline` /
+ * `courseContext` are intentionally free-form string and pass through
+ * untouched. Only fields with a registered enum union are gated.
+ */
+function filterEnumBearingUpdates(
+  updates: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(updates)) {
+    switch (key) {
+      case "interactionPattern":
+        if (value === undefined || value === null || isInteractionPattern(value)) {
+          out[key] = value;
+        } else {
+          console.warn(
+            `[admin-tools:guard] dropped update_playbook_config.${key} — invalid value ${JSON.stringify(value)}. ` +
+              `Story #1995 — chat-tool enum validation.`,
+          );
+        }
+        break;
+      case "teachingMode":
+        if (value === undefined || value === null || isTeachingMode(value)) {
+          out[key] = value;
+        } else {
+          console.warn(
+            `[admin-tools:guard] dropped update_playbook_config.${key} — invalid value ${JSON.stringify(value)}. ` +
+              `Story #1995 — chat-tool enum validation.`,
+          );
+        }
+        break;
+      case "audience":
+        if (value === undefined || value === null || isAudience(value)) {
+          out[key] = value;
+        } else {
+          console.warn(
+            `[admin-tools:guard] dropped update_playbook_config.${key} — invalid value ${JSON.stringify(value)}. ` +
+              `Story #1995 — chat-tool enum validation.`,
+          );
+        }
+        break;
+      case "planEmphasis":
+      case "emphasis":
+        if (value === undefined || value === null || isPlanEmphasis(value)) {
+          out[key] = value;
+        } else {
+          console.warn(
+            `[admin-tools:guard] dropped update_playbook_config.${key} — invalid value ${JSON.stringify(value)}. ` +
+              `Story #1995 — chat-tool enum validation.`,
+          );
+        }
+        break;
+      case "lessonPlanModel":
+        if (value === undefined || value === null || isLessonPlanModel(value)) {
+          out[key] = value;
+        } else {
+          console.warn(
+            `[admin-tools:guard] dropped update_playbook_config.${key} — invalid value ${JSON.stringify(value)}. ` +
+              `Story #1995 — chat-tool enum validation.`,
+          );
+        }
+        break;
+      case "firstCallMode":
+        if (value === undefined || value === null || isFirstCallMode(value)) {
+          out[key] = value;
+        } else {
+          console.warn(
+            `[admin-tools:guard] dropped update_playbook_config.${key} — invalid value ${JSON.stringify(value)}. ` +
+              `Story #1995 — chat-tool enum validation.`,
+          );
+        }
+        break;
+      default:
+        // Non-enum field — pass through untouched. Free-form string fields
+        // like `welcomeMessage`, `subjectDiscipline`, `courseContext` etc.
+        // are intentionally not guarded.
+        out[key] = value;
+        break;
+    }
+  }
+  return out;
+}
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -1097,7 +1197,12 @@ async function handleUpdatePlaybookConfig(input: Record<string, any>) {
   if (safety.error) {
     return { error: safety.error };
   }
-  const updates = safety.normalised as Record<string, unknown>;
+  // #1995 — enum-validation filter: drop invalid enum-bearing field writes
+  // (interactionPattern / teachingMode / audience / planEmphasis /
+  // lessonPlanModel / firstCallMode). Log + skip; do not crash.
+  const updates = filterEnumBearingUpdates(
+    safety.normalised as Record<string, unknown>,
+  );
 
   const playbook = await prisma.playbook.findUnique({
     where: { id: playbookId },

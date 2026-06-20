@@ -450,6 +450,56 @@ export const config = {
     },
 
     /**
+     * Behavior-aggregation spec (default: BEH-AGG-001)
+     * Single AGGREGATE spec with 9 domain-grouped sections (companion,
+     * personality, supervision, engagement, curriculum, learning,
+     * reinforcement, onboarding, core-style). Born of #1967 M2 closing
+     * the link-8 cascade-feedback loop for 70 measured BEH-* params.
+     * Read by `quickstart.ts` _learning_guidance via scope filter (not
+     * by per-key hardcoding) — surfaces rolled-up behavior_profile:*
+     * signals into the composed prompt.
+     * Can be overridden via BEH_AGG_SPEC_SLUG env var.
+     */
+    get aggBehavior(): string {
+      return optional("BEH_AGG_SPEC_SLUG", "BEH-AGG-001");
+    },
+
+    /**
+     * Cognitive Activation MEASURE spec (default: CA-001-cognitive-activation)
+     * Source of the CallScore rows that BEH-AGG-001 rolls up into the
+     * `behavior_profile:engagement:cognitive_activation` /
+     * `:conversational_dominance` / `:tone_assertiveness` namespaces. Read by the
+     * sub-epic #2086 engagement-targets manifest (lib/pipeline/engagement-targets-manifest.ts).
+     * Can be overridden via CA_001_SPEC_SLUG env var.
+     */
+    get cognitiveActivation(): string {
+      return optional("CA_001_SPEC_SLUG", "CA-001-cognitive-activation");
+    },
+
+    /**
+     * Engagement Adaptation spec (default: ADAPT-ENG-001-engagement-adaptation)
+     * The ADAPT spec that adapt-runner consumes for the 13 engagement+onboarding
+     * targets wired by sub-epic #2086 (S4 of #2078). Also self-measures its own
+     * fidelity (BEH-CALL-FREQUENCY-ADAPTATION etc.) — see the engagement section
+     * of BEH-AGG-001 for the roll-up keys.
+     * Can be overridden via ADAPT_ENG_SPEC_SLUG env var.
+     */
+    get adaptEng(): string {
+      return optional("ADAPT_ENG_SPEC_SLUG", "ADAPT-ENG-001-engagement-adaptation");
+    },
+
+    /**
+     * Caller Onboarding MEASURE spec (default: INIT-001-caller-onboarding)
+     * Source of the one-shot onboarding-quality scores rolled up by BEH-AGG-001's
+     * onboarding section. Read by the sub-epic #2086 engagement-targets manifest
+     * for the 3 onboarding-quality parameter bindings.
+     * Can be overridden via INIT_001_SPEC_SLUG env var.
+     */
+    get callerOnboarding(): string {
+      return optional("INIT_001_SPEC_SLUG", "INIT-001-caller-onboarding");
+    },
+
+    /**
      * Default Archetype Spec (default: TUT-001)
      * The base archetype used when scaffolding new domain overlays.
      * Can be overridden via DEFAULT_ARCHETYPE_SLUG env var.

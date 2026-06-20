@@ -79,6 +79,12 @@
   font-size: 11px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hf-journey-group-count-divider {
+  opacity: 0.55;
+  margin: 0 1px;
 }
 
 .hf-journey-group-body {
@@ -103,10 +109,55 @@
   background: color-mix(in srgb, var(--surface-secondary) 50%, transparent);
 }
 
+/* Slice 7 grey-out epic — strengthen the active-bucket cue. Operators
+ * complained the prior 12% tint + 500 weight was easy to miss. We add:
+ *   - a 3px left accent bar (clear "you are here" marker)
+ *   - 18% accent fill (still calm but unmistakable)
+ *   - 600 weight on the label
+ *   - tinted count badge so the per-bucket number reads as part of
+ *     the selection treatment, not noise
+ */
 .hf-journey-setting-row.hf-selected {
-  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: 600;
+  position: relative;
+}
+
+.hf-journey-setting-row.hf-selected::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent-primary);
+}
+
+.hf-journey-setting-row.hf-selected .hf-journey-bucket-count {
+  background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+  color: var(--accent-primary);
+}
+
+/* Group header signals which group contains the active bucket — a thin
+ * dot + accent-tinted caption so educators scanning the LH see WHICH
+ * super-group their current bucket lives in. */
+.hf-journey-group.hf-journey-group-has-selected
+  > .hf-journey-group-header {
+  position: relative;
+}
+.hf-journey-group.hf-journey-group-has-selected
+  > .hf-journey-group-header::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  transform: translateY(-50%);
 }
 
 .hf-journey-canvas {
@@ -234,6 +285,58 @@
   border: 1px solid color-mix(in srgb, var(--status-warning-text) 35%, transparent);
 }
 
+/* Story #2105 — ConflictWarningChip. Amber, non-blocking. Mounts above
+ * the JourneyField row (like WriteGateLockChip) when computeRelevanceState
+ * returns state === "conflicted". Operator MAY save the combination;
+ * the chip carries the resolution text + a "Resolve" link to the peer. */
+.hf-conflict-warning-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--status-warning-text);
+  background: color-mix(in srgb, var(--status-warning-text) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-warning-text) 30%, transparent);
+  border-radius: 6px;
+  line-height: 1.4;
+}
+
+.hf-conflict-warning-chip-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.hf-conflict-warning-chip-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.hf-conflict-warning-chip-text {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.hf-conflict-warning-chip-resolve {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--status-warning-text);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--status-warning-text) 40%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.hf-conflict-warning-chip-resolve:hover {
+  background: color-mix(in srgb, var(--status-warning-text) 15%, transparent);
+}
+
 /* Slice C (#1721) — bucket-grained LH menu. */
 .hf-journey-bucket-label {
   flex: 1;
@@ -289,6 +392,142 @@
 .hf-journey-inspector-row:last-child {
   border-bottom: 0;
   padding-bottom: 0;
+}
+
+/* Slice 6 grey-out epic — LH bucket click glow on the Inspector. Pairs
+ * with the persistent middle-pane bubble pulse from `useBubblePulse`.
+ * Brief ~900ms accent fade so the educator's eye sees that BOTH the
+ * middle pane AND the right-hand pane retargeted to the bucket. */
+@keyframes hf-journey-inspector-bucket-pulse {
+  0%   { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-primary) 35%, transparent); }
+  60%  { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-primary) 18%, transparent); }
+  100% { box-shadow: inset 0 0 0 2px transparent; }
+}
+
+.hf-journey-inspector-bucket-pulse {
+  border-radius: 12px;
+  animation: hf-journey-inspector-bucket-pulse 900ms ease-out forwards;
+}
+
+/* Slice 4 grey-out epic — preview-bubble click highlight on the matching
+ * Inspector row. Class is added by FocusableRow for ~1.8s, then removed.
+ * Keep the pulse subtle — the educator's eye needs to land, not be
+ * startled. Background ramps in over 120ms and fades over 1500ms. */
+@keyframes hf-journey-inspector-row-focus-pulse {
+  0%   { background: color-mix(in srgb, var(--accent-primary) 18%, transparent); }
+  60%  { background: color-mix(in srgb, var(--accent-primary) 12%, transparent); }
+  100% { background: transparent; }
+}
+
+.hf-journey-inspector-row-focus {
+  border-radius: 8px;
+  margin: -6px -8px -6px -8px;
+  padding: 6px 8px 18px 8px;
+  animation: hf-journey-inspector-row-focus-pulse 1700ms ease-out forwards;
+}
+
+/* Slice 8 grey-out epic — middle-pane bubble pulse fired by RHS row
+ * click (or middle bubble click → focusedSettingId set → this fires).
+ * Subtle box-shadow halo since bubbles are already visually busy. */
+@keyframes hf-preview-bubble-focus-pulse {
+  0%   { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 45%, transparent); }
+  60%  { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 22%, transparent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
+.hf-preview-bubble-focus {
+  animation: hf-preview-bubble-focus-pulse 1400ms ease-out forwards;
+}
+
+/* Slice 9 grey-out epic — explicit Save button next to text fields. */
+.hf-jf-control-with-save {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.hf-jf-control-with-save > input,
+.hf-jf-control-with-save > textarea {
+  flex: 1 1 auto;
+}
+.hf-jf-save-btn {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+.hf-jf-save-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Slice 15 grey-out epic — producer-only contract badge. Inspector
+ * row + preview bubble both wear this chip when the contract's value
+ * has no runtime consumer reading it. Disappears as wires ship. */
+.hf-producer-only-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-warning-text, #d97706) 12%, transparent);
+  color: var(--status-warning-text, #b45309);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid color-mix(in srgb, var(--status-warning-text, #d97706) 28%, transparent);
+  cursor: help;
+}
+.hf-producer-only-chip-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+.hf-producer-only-chip-text {
+  white-space: nowrap;
+}
+.hf-producer-only-chip-dest {
+  font-weight: 600;
+}
+/* Tinted bubble for preview-side. Subtler since bubbles are visually
+ * busy and the chip carries the literal text. */
+.hf-preview-bubble-producer-only::before {
+  content: "🚫";
+  margin-right: 6px;
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+/* Slice 12 grey-out epic — empty-state for phase filters with no
+ * matching Journey-tab buckets (e.g. "Module"). */
+.hf-journey-lh-empty {
+  padding: 16px 14px;
+  margin: 8px 8px 16px;
+  border: 1px dashed color-mix(in srgb, var(--border-default) 60%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-secondary) 30%, transparent);
+  text-align: center;
+}
+.hf-journey-lh-empty p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.hf-journey-lh-empty p.hf-text-muted {
+  margin-bottom: 12px;
+}
+.hf-journey-lh-empty .hf-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+/* Slice 13 grey-out epic — phase chip whose filter resolves to 0
+ * buckets in the current tab. Still clickable; the empty-state card
+ * below explains where the settings live. */
+.hf-chip.hf-chip-empty {
+  opacity: 0.45;
+}
+.hf-chip.hf-chip-empty.hf-chip-selected {
+  opacity: 0.75;
 }
 
 .hf-journey-inspector-subgroup {

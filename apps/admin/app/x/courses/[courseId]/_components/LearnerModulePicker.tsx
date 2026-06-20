@@ -24,6 +24,8 @@ import {
   Mic,
   Pencil,
   Layers,
+  ListChecks,
+  ClipboardList,
   CircleDot,
   CircleDashed,
   AlertCircle,
@@ -137,16 +139,20 @@ export function LearnerModulePicker({
   const inProgress = useMemo(() => new Set(inProgressModuleIds), [inProgressModuleIds]);
 
   // Pre-compute the set of locked module ids — modules whose prereqs
-  // aren't all MASTERED while the course runs in strict mode. Drives
+  // aren't all MASTERED AND whose effective-strict flag is true. Drives
   // the tile-level lock badge + desaturate (Slice 4.6) AND suppresses
   // the recommended-next badge on the same tile so the two affordances
-  // never contradict each other. Empty set when `strictPrerequisites`
-  // is false → tiles stay un-decorated and Slice 4.5's soft-warning
-  // path is untouched.
+  // never contradict each other. A module is locked only when ITS OWN
+  // effective-strict resolves to true:
+  //   `mod.prerequisiteStrict ?? strictPrerequisites ?? false`
+  // (#2104 — per-module override so IELTS Mock Exam can hard-lock
+  // while Parts 1/2/3 stay soft-warn even though the course-level
+  // flag is `false`.)
   const lockedModuleIds = useMemo(() => {
-    if (!strictPrerequisites) return new Set<string>();
     const locked = new Set<string>();
     for (const m of modules) {
+      const effectiveStrict = m.prerequisiteStrict ?? strictPrerequisites ?? false;
+      if (!effectiveStrict) continue;
       const unmet = computeUnmetPrereqs(m, modulesById);
       if (unmet.length > 0) locked.add(m.id);
     }
@@ -173,7 +179,10 @@ export function LearnerModulePicker({
         onSelect(moduleId);
         return;
       }
-      if (strictPrerequisites) {
+      // #2104 — per-module override of course-level `strictPrerequisites`.
+      // Resolution: `mod.prerequisiteStrict ?? strictPrerequisites ?? false`.
+      const effectiveStrict = mod.prerequisiteStrict ?? strictPrerequisites ?? false;
+      if (effectiveStrict) {
         setPendingHardLock({ module: mod, unmetPrereqs: unmet });
         return;
       }
@@ -228,6 +237,7 @@ export function LearnerModulePicker({
           recommendedModuleId={recommendedModuleId}
           recommendedReason={recommendedReason}
           lockedModuleIds={lockedModuleIds}
+          lessonPlanMode={lessonPlanMode}
         />
       ) : (
         <TilesLayout
@@ -486,6 +496,7 @@ function RailLayout({
   recommendedModuleId,
   recommendedReason,
   lockedModuleIds,
+  lessonPlanMode,
 }: {
   modules: AuthoredModule[];
   completed: Set<string>;
@@ -494,6 +505,7 @@ function RailLayout({
   recommendedModuleId: string | null;
   recommendedReason: string | null;
   lockedModuleIds: Set<string>;
+  lessonPlanMode: "structured" | "continuous" | null;
 }) {
   // Sort by `position` if provided, otherwise preserve catalogue order.
   const ordered = [...modules].sort((a, b) => {
@@ -509,9 +521,15 @@ function RailLayout({
         const isInProgress = inProgress.has(m.id) && !isComplete;
         const isLocked = lockedModuleIds.has(m.id);
         const Tag = onSelect ? "button" : "div";
-        const prereqsUnmet = prerequisiteSlugs(m.prerequisites).filter(
-          (slug) => !completed.has(slug),
-        );
+        // #2103 — continuous courses are free-choice ("tutor advises but
+        // never gates"); the "Recommended after X" badge is cognitive noise
+        // for IELTS and any sibling continuous-mode course.
+        const prereqsUnmet =
+          lessonPlanMode === "continuous"
+            ? []
+            : prerequisiteSlugs(m.prerequisites).filter(
+                (slug) => !completed.has(slug),
+              );
         const advisoryHint =
           prereqsUnmet.length > 0
             ? `Recommended after ${prereqsUnmet.join(", ")}`
@@ -591,6 +609,8 @@ function RailLayout({
 function ModeIcon({ mode }: { mode: AuthoredModule["mode"] }) {
   if (mode === "examiner") return <GraduationCap size={18} aria-hidden="true" className="learner-picker__icon" />;
   if (mode === "mixed") return <Layers size={18} aria-hidden="true" className="learner-picker__icon" />;
+  if (mode === "quiz") return <ListChecks size={18} aria-hidden="true" className="learner-picker__icon" />;
+  if (mode === "mock-exam") return <ClipboardList size={18} aria-hidden="true" className="learner-picker__icon" />;
   return <Pencil size={18} aria-hidden="true" className="learner-picker__icon" />;
 }
 

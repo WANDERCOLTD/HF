@@ -354,22 +354,20 @@ const PATTERN_LITERALS: PatternLiteral[] = (() => {
 // ────────────────────────────────────────────────────────────
 
 /**
- * 2026-06-18 incumbent — of the parameters classified `measured` by
- * M1, this many have no AGGREGATE / ADAPT / REWARD consumer.
+ * 2026-06-19 — zero open loops. BEH-AGG-001-behavior-aggregation.spec.json
+ * (single AGGREGATE spec with 9 domain-grouped parameter sections —
+ * companion, personality, supervision, engagement, curriculum, learning,
+ * reinforcement, onboarding, core-style) was authored 2026-06-19 closing
+ * the link-8 cascade-feedback loop for the 70 remaining gap params.
  *
- * Post-M2 land: 82 measured / 15 closed / 67 gap.
- * Post-M4 land: 85 measured (+ BEH-WARMTH/DIRECTNESS/FORMALITY via
- * STYLE-001 alias) / 15 closed / 70 gap — the 3 newly-measured params
- * appear as `targetParameter` (OUTPUT side) in COACH-ADAPT-001 /
- * ADAPT-PERS-001 / COMP-ADAPT-001 but NOT as `sourceParameterId`
- * (consumer side), so the loop doesn't close for them yet.
+ * Historical trajectory: 67 (M2 land 2026-06-18) → 70 (M4 added 3
+ * newly-measured BEH-WARMTH/DIRECTNESS/FORMALITY via STYLE-001 alias) → 0.
  *
- * M4 + spec-author follow-ons drive this toward 0. Closing the loop
- * for parameter P means: extend an existing spec's `aggregationRules`
- * / `adaptationRules` to cite P as a `sourceParameter` /
- * `sourceParameterId`, OR author a new AGGREGATE/ADAPT spec.
+ * If a future PR adds a newly-measured parameter without a consumer,
+ * the ratchet fires. Resolution: extend BEH-AGG-001 with a new rule (or
+ * author a new spec) reading the param's `sourceParameterId`.
  */
-const EXPECTED_GAP_COUNT = 70;
+const EXPECTED_GAP_COUNT = 0;
 
 // ────────────────────────────────────────────────────────────
 // Tests

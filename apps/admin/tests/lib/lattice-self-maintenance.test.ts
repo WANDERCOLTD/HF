@@ -170,7 +170,11 @@ const EXPECTED_INVENTORY_EXEMPT_COUNT = 3;
  *
  * Each follow-up PR that adds a row drops the corresponding count.
  */
-const EXPECTED_ORPHAN_COUNT_COVERAGE = 6;
+// 2026-06-20 — #2087 / S2 of #2078 adds
+// `tests/lib/pipeline/adapt-learn-001-phase-b-coverage.test.ts` (Phase B
+// 18-param ADAPT-LEARN-001 spec coverage). The inventory row lands in a
+// follow-on doc PR; bump 6 → 7 to reflect the new structural gate.
+const EXPECTED_ORPHAN_COUNT_COVERAGE = 7;
 const EXPECTED_ORPHAN_COUNT_ESLINT = 24;
 const EXPECTED_ORPHAN_COUNT_SCRIPTS = 15;
 const EXPECTED_ORPHAN_COUNT_RULES = 15;
@@ -317,5 +321,29 @@ describe("Lattice self-maintenance (meta-gate)", () => {
       ciScripts.length +
       ruleFiles.length;
     expect(total).toBeGreaterThan(20);
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // #2057 — machine-readable manifest pairing
+  // ────────────────────────────────────────────────────────────
+
+  it("machine-readable manifest exists at docs/lattice-chains.json (paired with the prose inventory)", () => {
+    const manifestPath = join(REPO_ROOT, "docs", "lattice-chains.json");
+    let manifest: { version?: number; chains?: unknown[] } | null = null;
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    } catch (e) {
+      expect.fail(`docs/lattice-chains.json missing or unparseable: ${e}`);
+    }
+    expect(manifest, "manifest must be a JSON object").toBeTruthy();
+    expect(manifest!.version, "manifest.version must be set").toBe(1);
+    expect(
+      Array.isArray(manifest!.chains),
+      "manifest.chains must be an array",
+    ).toBe(true);
+    expect(
+      (manifest!.chains as unknown[]).length,
+      "manifest.chains must have at least one chain",
+    ).toBeGreaterThan(0);
   });
 });

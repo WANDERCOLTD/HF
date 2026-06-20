@@ -3,7 +3,14 @@
  *
  * Creates an IELTS Speaking Practice course on the Abacus Academy domain
  * (created by seed-golden.ts), driven by the canonical course-reference
- * markdown at `tests/fixtures/course-reference-ielts-v2.2.md`.
+ * markdown at `docs/external/ielts/ielts-speaking/Upload Docs/course-ref.md`
+ * — the SAME doc an operator would upload through the wizard. This is what
+ * makes "seed parity with wizard" achievable: both paths read the same
+ * bytes. PR #2125 PR1 moved the seed off the truncated 227-line fixture
+ * at `tests/fixtures/course-reference-ielts-v2.2.md` so the demo set
+ * matches production output. The old fixture is kept on disk for now
+ * (referenced by `tests/lib/seed-ielts-fixture.test.ts` history); cleanup
+ * is a follow-on concern.
  *
  * Unlike `seed-demo-course.ts` — which hand-rolls every row — this seed
  * uses the live projection pipeline: read the markdown, call
@@ -43,9 +50,14 @@ import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
 
+import * as crypto from "crypto";
+
 import { projectCourseReference } from "../lib/wizard/project-course-reference";
 import { applyProjection } from "../lib/wizard/apply-projection";
 import { findOrCreateSeedPlaybook } from "../lib/seed/find-or-create-seed-playbook";
+import { saveAssertions } from "../lib/content-trust/save-assertions";
+import type { ExtractedAssertion } from "../lib/content-trust/extract-assertions";
+import { categoryToTeachMethod } from "../lib/content-trust/resolve-config";
 
 const DOMAIN_SLUG = "abacus-academy";
 const SUBJECT_SLUG = "ielts-speaking";
@@ -56,9 +68,14 @@ const CONTENT_SOURCE_SLUG = "ielts-speaking-course-ref";
 const FIXTURE_PATH = path.join(
   __dirname,
   "..",
-  "tests",
-  "fixtures",
-  "course-reference-ielts-v2.2.md",
+  "..",
+  "..",
+  "docs",
+  "external",
+  "ielts",
+  "ielts-speaking",
+  "Upload Docs",
+  "course-ref.md",
 );
 
 export async function main(prisma: PrismaClient): Promise<void> {
@@ -103,7 +120,7 @@ export async function main(prisma: PrismaClient): Promise<void> {
     });
   }
 
-  await prisma.subjectSource.upsert({
+  const subjectSource = await prisma.subjectSource.upsert({
     where: { subjectId_sourceId: { subjectId: subject.id, sourceId: source.id } },
     update: {},
     create: { subjectId: subject.id, sourceId: source.id },
@@ -195,6 +212,97 @@ export async function main(prisma: PrismaClient): Promise<void> {
     for (const w of result.warnings) {
       console.warn(`  ⚠ ${w.severity}: [${w.code}] ${w.message}`);
     }
+  }
+
+  // ── 4a. Derived ContentAssertion rows (#2125 PR2) ──
+  // Without these the Content tab on /x/courses/<id> shows "No categories
+  // yet" + the Course Map / Teaching Points panels are empty. Derive a
+  // small set of assertions from the projection output we already have in
+  // memory — skills (skill_framework), modules (session_flow), and the
+  // course's directive teaching approach (teaching_rule). This is
+  // intentionally narrower than wizard AI extraction would produce on
+  // the same doc — the operator can upgrade with richer assertions via a
+  // CourseRefData fixture or AI re-extract once this is in place.
+  //
+  // Writes route through `saveAssertions(sourceId, assertions,
+  // subjectSourceId)` — the canonical chokepoint. This (a) honours the
+  // ai-to-db-guard `maxAssertionsPerDocument` cap, (b) dedups by
+  // contentHash so re-seed is idempotent, and (c) passes subjectSourceId
+  // to close the ENTITIES.md §6 I1 invariant (without it, assertions
+  // leak cross-course in SectionDataLoader's curriculumAssertions filter).
+  const derivedAssertions: ExtractedAssertion[] = [];
+
+  // All three categories below are INSTRUCTION_CATEGORIES → categoryToTeachMethod
+  // returns "tutor_instruction" (short-circuited per #605 so tutor-facing
+  // directives never inherit a learner-facing method). Stamped here so the
+  // per-subject methods breakdown shows them grouped correctly instead of
+  // bucketing under "unassigned".
+  for (const skill of projection.skills) {
+    const tierText =
+      skill.tiers?.secure || skill.tiers?.developing || skill.tiers?.emerging || skill.name;
+    const text = `${skill.name} (${skill.ref}). Secure tier: ${tierText}`;
+    derivedAssertions.push({
+      assertion: text,
+      category: "skill_framework",
+      chapter: "Skills Framework",
+      section: skill.ref,
+      tags: ["ielts", "skill", skill.ref.toLowerCase()],
+      examRelevance: 1.0,
+      contentHash: crypto.createHash("sha256").update(text).digest("hex"),
+      teachMethod: categoryToTeachMethod("skill_framework", "practice"),
+    });
+  }
+
+  for (const mod of projection.curriculumModules) {
+    const loRefs = mod.learningObjectives.map((lo) => lo.ref).join(", ");
+    const text = `${mod.title}${mod.description ? `. ${mod.description}` : ""}${loRefs ? ` Primary outcomes: ${loRefs}.` : ""}`;
+    derivedAssertions.push({
+      assertion: text,
+      category: "session_flow",
+      chapter: "Modules",
+      section: mod.slug,
+      tags: ["ielts", "module", mod.slug],
+      examRelevance: 1.0,
+      contentHash: crypto.createHash("sha256").update(text).digest("hex"),
+      teachMethod: categoryToTeachMethod("session_flow", "practice"),
+    });
+  }
+
+  const teachingText =
+    "IELTS Speaking tutor uses a directive correction-retry cycle. Names the single most score-limiting issue after each answer, provides the correction, and asks for an immediate retry. Theory is embedded in practice — never standalone lectures. Target speech ratio ~80% student / ~20% tutor.";
+  derivedAssertions.push({
+    assertion: teachingText,
+    category: "teaching_rule",
+    chapter: "Teaching Approach",
+    tags: ["ielts", "pedagogy", "directive", "correction-retry"],
+    examRelevance: 0.5,
+    contentHash: crypto.createHash("sha256").update(teachingText).digest("hex"),
+    teachMethod: categoryToTeachMethod("teaching_rule", "practice"),
+  });
+
+  const saveResult = await saveAssertions(source.id, derivedAssertions, subjectSource.id);
+  console.log(
+    `  Assertions: +${saveResult.created} written, ` +
+      `dedup ${saveResult.duplicatesSkipped}` +
+      (saveResult.truncatedByCap ? `, truncated ${saveResult.truncatedByCap} by cap` : ""),
+  );
+
+  // Self-heal teachMethod on already-existing rows from the previous seed
+  // run that wrote them with teachMethod=null (PR #2130 shipped without
+  // the categoryToTeachMethod call — assertions dedup on contentHash so
+  // saveAssertions above won't rewrite them; this fills the column in
+  // place). Idempotent: WHERE teachMethod IS NULL means subsequent runs
+  // touch zero rows.
+  const teachMethodBackfill = await prisma.contentAssertion.updateMany({
+    where: {
+      sourceId: source.id,
+      teachMethod: null,
+      category: { in: ["skill_framework", "session_flow", "teaching_rule"] },
+    },
+    data: { teachMethod: "tutor_instruction" },
+  });
+  if (teachMethodBackfill.count > 0) {
+    console.log(`  teachMethod backfilled on ${teachMethodBackfill.count} legacy row(s)`);
   }
 
   // ── 4b. Post-projection coversModules upsert for the Mock module (#550) ──

@@ -45,11 +45,36 @@ import {
   selectPinnedCardForModule,
   selectTopicFocusCard,
 } from "@/lib/voice/select-pinned-card";
+import {
+  CallRateLimitError,
+  evaluateCallRateLimit,
+  getMaxCallsPerDay,
+  resolveCallCountPolicy,
+} from "@/lib/journey/runtime-gates";
+import { log } from "@/lib/logger";
 import type {
   PinnedCardContent,
   PlaybookConfig,
   SessionMetadata,
 } from "@/lib/types/json-fields";
+
+/** Session kinds whose limit-day count contributes to the per-day cap.
+ *  Excludes ENROLLMENT (pre-playbook intake) and ASSESSMENT (operator-
+ *  triggered tests) so they don't burn the learner's daily budget. */
+const RATE_LIMITED_KINDS: ReadonlySet<SessionKindString> = new Set<SessionKindString>([
+  "VOICE_CALL",
+  "SIM_CALL",
+  "TEXT_CHAT",
+]);
+
+/** Returns the Date at the start of the calling caller's today, UTC.
+ *  The cap is a calendar-day budget; the timezone is intentionally UTC
+ *  to match the rest of the DB / metering surface. */
+function startOfTodayUtc(now: Date = new Date()): Date {
+  const d = new Date(now);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
 
 export type SessionKind = SessionKindString;
 
@@ -143,24 +168,79 @@ export async function createSession(
   // so we can resolve the per-session pinned card pool. Side-effect-free
   // read; safe outside the transaction. Skipped when the IELTS module
   // settings flag is off (the same gate the prompt-side reader uses).
-  let pinnedCardConfig: PlaybookConfig | null = null;
-  // #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — for Part-3-shape modules
-  // we also need the learner's CallerTarget rows so `selectTopicFocusCard`
-  // can pick the lowest-scoring IELTS criterion. Same gate.
+  //
+  // #2056 — runtime gates (callCountPolicy + maxCallsPerDay) also live on
+  // the Playbook config. Load the row once, reuse for both.
+  // #1955 — Part-3-shape modules also need CallerTarget rows so
+  // `selectTopicFocusCard` can pick the lowest-scoring IELTS criterion.
+  let playbookConfig: PlaybookConfig | null = null;
   let pinnedCardCallerTargets: Array<{
     parameterId: string;
     currentScore: number | null;
   }> = [];
-  if (isIeltsModuleSettingsEnabled() && playbookId && resolvedRequestedSlug) {
+  if (playbookId) {
     const playbook = await prisma.playbook.findUnique({
       where: { id: playbookId },
       select: { config: true },
     });
-    pinnedCardConfig = (playbook?.config ?? null) as PlaybookConfig | null;
-    pinnedCardCallerTargets = await prisma.callerTarget.findMany({
-      where: { callerId: args.callerId },
-      select: { parameterId: true, currentScore: true },
-    });
+    playbookConfig = (playbook?.config ?? null) as PlaybookConfig | null;
+    if (isIeltsModuleSettingsEnabled() && resolvedRequestedSlug) {
+      pinnedCardCallerTargets = await prisma.callerTarget.findMany({
+        where: { callerId: args.callerId },
+        select: { parameterId: true, currentScore: true },
+      });
+    }
+  }
+  const pinnedCardConfig: PlaybookConfig | null =
+    isIeltsModuleSettingsEnabled() && resolvedRequestedSlug ? playbookConfig : null;
+
+  // (3c) #2056 (sub-epic G of #2049) — per-day rate limit. Evaluated
+  // BEFORE the transaction so the counter increment never fires on a
+  // refused session. Skipped for ENROLLMENT / ASSESSMENT kinds (operator
+  // / pre-playbook contexts; see RATE_LIMITED_KINDS).
+  if (RATE_LIMITED_KINDS.has(args.kind)) {
+    const policy = resolveCallCountPolicy(playbookConfig);
+    const cap = getMaxCallsPerDay(playbookConfig);
+    if (policy !== "unlimited" && cap !== null) {
+      const usedToday = await prisma.session.count({
+        where: {
+          callerId: args.callerId,
+          kind: { in: Array.from(RATE_LIMITED_KINDS) },
+          startedAt: { gte: startOfTodayUtc() },
+        },
+      });
+      const verdict = evaluateCallRateLimit({
+        policy,
+        maxCallsPerDay: cap,
+        usedToday,
+      });
+      if (verdict.decision === "block-over-cap") {
+        log("api", "call.rate_limit.over_cap", {
+          callerId: args.callerId,
+          playbookId,
+          kind: args.kind,
+          cap: verdict.cap,
+          usedToday: verdict.usedToday,
+          policy: verdict.policy,
+        });
+        throw new CallRateLimitError({
+          callerId: args.callerId,
+          playbookId,
+          cap: verdict.cap,
+          usedToday: verdict.usedToday,
+        });
+      }
+      if (verdict.decision === "allow-soft-cap-hit") {
+        log("api", "call.rate_limit.soft_cap_hit", {
+          callerId: args.callerId,
+          playbookId,
+          kind: args.kind,
+          cap: verdict.cap,
+          usedToday: verdict.usedToday,
+          policy: verdict.policy,
+        });
+      }
+    }
   }
 
   // (4) usedPromptId — I-CT2 cascade. May be null on a brand-new caller.

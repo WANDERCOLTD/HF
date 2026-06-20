@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-19T14:22:59.905Z",
+  "generatedAt": "2026-06-20T11:14:37.491Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1855,
-  "edgeCount": 4360,
+  "fileCount": 1868,
+  "edgeCount": 4400,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1666,6 +1666,10 @@
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/goals/track-progress.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pipeline/route.ts",
+      "to": "lib/lesson-plan/build-post-assessment-plan.ts"
     },
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
@@ -6573,6 +6577,10 @@
     },
     {
       "from": "app/api/student/survey-config/route.ts",
+      "to": "lib/intake/returning-learner.ts"
+    },
+    {
+      "from": "app/api/student/survey-config/route.ts",
       "to": "lib/learner/survey-config.ts"
     },
     {
@@ -8753,6 +8761,10 @@
     },
     {
       "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
+      "to": "lib/journey/producer-only-registry.ts"
+    },
+    {
+      "from": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "to": "lib/prompt/composition/defaults/substitute-greeting-tokens.ts"
     },
     {
@@ -9114,6 +9126,14 @@
     {
       "from": "app/x/courses/[courseId]/page.tsx",
       "to": "components/scoring-tab/CourseScoringTab.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "components/shared/AgentTuner.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "components/shared/AgentTunerNlpGate.tsx"
     },
     {
       "from": "app/x/courses/[courseId]/page.tsx",
@@ -10824,6 +10844,10 @@
       "to": "hooks/useStudentCallerId.ts"
     },
     {
+      "from": "app/x/student/progress/page.tsx",
+      "to": "lib/curriculum/offboarding-banner.ts"
+    },
+    {
       "from": "app/x/student/stuff/page.tsx",
       "to": "hooks/useStudentCallerId.ts"
     },
@@ -11805,6 +11829,10 @@
     },
     {
       "from": "lib/chat/admin-tool-handlers.ts",
+      "to": "lib/content-trust/resolve-config.ts"
+    },
+    {
+      "from": "lib/chat/admin-tool-handlers.ts",
       "to": "lib/curriculum/ensure-primary-playbook-link.ts"
     },
     {
@@ -12144,6 +12172,10 @@
       "to": "lib/chat/wizard-tool-executor/tools/create_course/_context.ts"
     },
     {
+      "from": "lib/chat/wizard-tool-executor/tools/create_course/_new-config-merge.ts",
+      "to": "lib/content-trust/resolve-config.ts"
+    },
+    {
       "from": "lib/chat/wizard-tool-executor/tools/create_course/_new-path.ts",
       "to": "lib/chat/wizard-tool-executor/_shared/apply-student-experience.ts"
     },
@@ -12186,6 +12218,10 @@
     {
       "from": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-config-merge.ts",
       "to": "lib/chat/wizard-tool-executor/tools/create_course/_context.ts"
+    },
+    {
+      "from": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-config-merge.ts",
+      "to": "lib/content-trust/resolve-config.ts"
     },
     {
       "from": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-path.ts",
@@ -12785,6 +12821,14 @@
     },
     {
       "from": "lib/content-trust/resolve-config.ts",
+      "to": "lib/prompt/composition/transforms/audience.ts"
+    },
+    {
+      "from": "lib/content-trust/resolve-config.ts",
+      "to": "lib/prompt/composition/transforms/audience.ts"
+    },
+    {
+      "from": "lib/content-trust/resolve-config.ts",
       "to": "lib/prompts/prompt-settings.ts"
     },
     {
@@ -12970,6 +13014,10 @@
     {
       "from": "lib/curriculum/mark-orientation-shown.ts",
       "to": "lib/pipeline/course-style.ts"
+    },
+    {
+      "from": "lib/curriculum/offboarding-banner.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/curriculum/playbook-mastery-config.ts",
@@ -13984,6 +14032,10 @@
       "to": "lib/journey/setting-groups.ts"
     },
     {
+      "from": "lib/journey/runtime-gates.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/journey/section-staleness-bridge.ts",
       "to": "lib/compose/index.ts"
     },
@@ -14152,6 +14204,18 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/lesson-plan/build-post-assessment-plan.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/lesson-plan/build-post-assessment-plan.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/lesson-plan/build-post-assessment-plan.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/lesson-plan/defaults.ts",
       "to": "lib/prisma.ts"
     },
@@ -14294,6 +14358,10 @@
     {
       "from": "lib/ops/compose-next-prompt.ts",
       "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/ops/compute-reward.ts",
+      "to": "lib/prompt/composition/scoring-config.ts"
     },
     {
       "from": "lib/ops/compute-reward.ts",
@@ -14445,7 +14513,15 @@
     },
     {
       "from": "lib/pipeline/adapt-runner.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/pipeline/adapt-runner.ts",
       "to": "lib/learner/profile.ts"
+    },
+    {
+      "from": "lib/pipeline/adapt-runner.ts",
+      "to": "lib/pipeline/engagement-targets-manifest.ts"
     },
     {
       "from": "lib/pipeline/adapt-runner.ts",
@@ -14514,6 +14590,10 @@
     {
       "from": "lib/pipeline/detect-silent-writers.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/pipeline/engagement-targets-manifest.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "lib/pipeline/event-gate.ts",
@@ -14845,6 +14925,10 @@
     },
     {
       "from": "lib/prompt/composition/CompositionExecutor.ts",
+      "to": "lib/prompt/composition/transforms/companion.ts"
+    },
+    {
+      "from": "lib/prompt/composition/CompositionExecutor.ts",
       "to": "lib/prompt/composition/transforms/conversationArtifacts.ts"
     },
     {
@@ -14854,6 +14938,10 @@
     {
       "from": "lib/prompt/composition/CompositionExecutor.ts",
       "to": "lib/prompt/composition/transforms/courseComplete.ts"
+    },
+    {
+      "from": "lib/prompt/composition/CompositionExecutor.ts",
+      "to": "lib/prompt/composition/transforms/curriculum-adaptation.ts"
     },
     {
       "from": "lib/prompt/composition/CompositionExecutor.ts",
@@ -15048,6 +15136,10 @@
       "to": "lib/voice/types.ts"
     },
     {
+      "from": "lib/prompt/composition/scoring-config.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/prompt/composition/SectionDataLoader.ts",
       "to": "lib/config.ts"
     },
@@ -15144,6 +15236,18 @@
       "to": "lib/prompt/composition/types.ts"
     },
     {
+      "from": "lib/prompt/composition/transforms/companion.ts",
+      "to": "lib/measurement/neutral-target.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/companion.ts",
+      "to": "lib/prompt/composition/TransformRegistry.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/companion.ts",
+      "to": "lib/prompt/composition/types.ts"
+    },
+    {
       "from": "lib/prompt/composition/transforms/conversationArtifacts.ts",
       "to": "lib/prompt/composition/loaders/conversationArtifacts.ts"
     },
@@ -15173,6 +15277,18 @@
     },
     {
       "from": "lib/prompt/composition/transforms/courseComplete.ts",
+      "to": "lib/prompt/composition/types.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/curriculum-adaptation.ts",
+      "to": "lib/prompt/composition/TransformRegistry.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/curriculum-adaptation.ts",
+      "to": "lib/prompt/composition/transforms/targets.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/curriculum-adaptation.ts",
       "to": "lib/prompt/composition/types.ts"
     },
     {
@@ -15206,6 +15322,14 @@
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
       "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/instructions.ts",
+      "to": "lib/prompt/composition/lo-mastery-map.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/instructions.ts",
+      "to": "lib/prompt/composition/scoring-config.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
@@ -15277,11 +15401,19 @@
     },
     {
       "from": "lib/prompt/composition/transforms/modules.ts",
+      "to": "lib/pipeline/scheduler-decision.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/modules.ts",
       "to": "lib/prisma.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/modules.ts",
       "to": "lib/prompt/composition/lo-mastery-map.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/modules.ts",
+      "to": "lib/prompt/composition/scoring-config.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/modules.ts",
@@ -15298,6 +15430,10 @@
     {
       "from": "lib/prompt/composition/transforms/modules.ts",
       "to": "lib/tolerance/resolve-tolerance.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/modules.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/offboarding.ts",
@@ -16153,6 +16289,14 @@
     },
     {
       "from": "lib/voice/create-session.ts",
+      "to": "lib/journey/runtime-gates.ts"
+    },
+    {
+      "from": "lib/voice/create-session.ts",
+      "to": "lib/logger.ts"
+    },
+    {
+      "from": "lib/voice/create-session.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -16378,6 +16522,10 @@
     {
       "from": "lib/voice/providers/vapi/index.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/voice/providers/vapi/index.ts",
+      "to": "lib/voice/interrupt-sensitivity.ts"
     },
     {
       "from": "lib/voice/providers/vapi/index.ts",
@@ -16788,8 +16936,20 @@
       "to": "lib/prompt/composition/transforms/audience.ts"
     },
     {
+      "from": "lib/wizard/detect-course-config.ts",
+      "to": "lib/wizard/enum-sets.ts"
+    },
+    {
       "from": "lib/wizard/detect-module-settings.ts",
       "to": "lib/types/json-fields.ts"
+    },
+    {
+      "from": "lib/wizard/enum-sets.ts",
+      "to": "lib/content-trust/resolve-config.ts"
+    },
+    {
+      "from": "lib/wizard/enum-sets.ts",
+      "to": "lib/prompt/composition/transforms/audience.ts"
     },
     {
       "from": "lib/wizard/graph-evaluator.ts",
@@ -18017,7 +18177,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 57
+      "outDegree": 58
     },
     {
       "path": "app/api/calls/[callId]/post-call-redirect/route.ts",
@@ -19772,7 +19932,7 @@
     {
       "path": "app/api/student/survey-config/route.ts",
       "inDegree": 0,
-      "outDegree": 6
+      "outDegree": 7
     },
     {
       "path": "app/api/student/survey/route.ts",
@@ -20742,7 +20902,7 @@
     {
       "path": "app/x/courses/[courseId]/_components/PreviewLens.tsx",
       "inDegree": 0,
-      "outDegree": 12
+      "outDegree": 13
     },
     {
       "path": "app/x/courses/[courseId]/_components/authored-modules-panel.css",
@@ -20822,7 +20982,7 @@
     {
       "path": "app/x/courses/[courseId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 48
+      "outDegree": 50
     },
     {
       "path": "app/x/courses/[courseId]/sessions/[sessionNum]/page.tsx",
@@ -21692,7 +21852,7 @@
     {
       "path": "app/x/student/progress/page.tsx",
       "inDegree": 0,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "app/x/student/stuff/page.tsx",
@@ -22136,7 +22296,12 @@
     },
     {
       "path": "components/shared/AgentTuner.tsx",
-      "inDegree": 2,
+      "inDegree": 3,
+      "outDegree": 0
+    },
+    {
+      "path": "components/shared/AgentTunerNlpGate.tsx",
+      "inDegree": 1,
       "outDegree": 0
     },
     {
@@ -23132,7 +23297,7 @@
     {
       "path": "lib/chat/admin-tool-handlers.ts",
       "inDegree": 1,
-      "outDegree": 19
+      "outDegree": 20
     },
     {
       "path": "lib/chat/admin-tools.ts",
@@ -23347,7 +23512,7 @@
     {
       "path": "lib/chat/wizard-tool-executor/tools/create_course/_new-config-merge.ts",
       "inDegree": 1,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/chat/wizard-tool-executor/tools/create_course/_new-path.ts",
@@ -23367,7 +23532,7 @@
     {
       "path": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-config-merge.ts",
       "inDegree": 1,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/chat/wizard-tool-executor/tools/create_course/_reuse-path.ts",
@@ -23481,7 +23646,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 95,
+      "inDegree": 97,
       "outDegree": 0
     },
     {
@@ -23651,8 +23816,8 @@
     },
     {
       "path": "lib/content-trust/resolve-config.ts",
-      "inDegree": 70,
-      "outDegree": 3
+      "inDegree": 74,
+      "outDegree": 5
     },
     {
       "path": "lib/content-trust/sanitize-module.ts",
@@ -23813,6 +23978,11 @@
       "path": "lib/curriculum/mastery-tiers.ts",
       "inDegree": 4,
       "outDegree": 0
+    },
+    {
+      "path": "lib/curriculum/offboarding-banner.ts",
+      "inDegree": 1,
+      "outDegree": 1
     },
     {
       "path": "lib/curriculum/playbook-mastery-config.ts",
@@ -24360,6 +24530,11 @@
       "outDegree": 1
     },
     {
+      "path": "lib/intake/returning-learner.ts",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "lib/intake/session-store.ts",
       "inDegree": 7,
       "outDegree": 2
@@ -24480,6 +24655,16 @@
       "outDegree": 0
     },
     {
+      "path": "lib/journey/producer-only-registry.ts",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/journey/runtime-gates.ts",
+      "inDegree": 1,
+      "outDegree": 1
+    },
+    {
       "path": "lib/journey/section-staleness-bridge.ts",
       "inDegree": 1,
       "outDegree": 4
@@ -24590,6 +24775,11 @@
       "outDegree": 3
     },
     {
+      "path": "lib/lesson-plan/build-post-assessment-plan.ts",
+      "inDegree": 1,
+      "outDegree": 3
+    },
+    {
       "path": "lib/lesson-plan/defaults.ts",
       "inDegree": 2,
       "outDegree": 2
@@ -24631,7 +24821,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 37,
+      "inDegree": 39,
       "outDegree": 3
     },
     {
@@ -24646,13 +24836,18 @@
     },
     {
       "path": "lib/measurement/neutral-target.ts",
-      "inDegree": 3,
+      "inDegree": 4,
       "outDegree": 0
     },
     {
       "path": "lib/measurement/parameter-spec-map.ts",
       "inDegree": 2,
       "outDegree": 1
+    },
+    {
+      "path": "lib/measurement/supv-rew-consumer-manifest.ts",
+      "inDegree": 0,
+      "outDegree": 0
     },
     {
       "path": "lib/measurement/write-call-score.ts",
@@ -24722,7 +24917,7 @@
     {
       "path": "lib/ops/compute-reward.ts",
       "inDegree": 2,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/ops/kb-links-extract.ts",
@@ -24787,7 +24982,7 @@
     {
       "path": "lib/pipeline/adapt-runner.ts",
       "inDegree": 1,
-      "outDegree": 3
+      "outDegree": 5
     },
     {
       "path": "lib/pipeline/adaptive-loop-invariants.ts",
@@ -24818,6 +25013,11 @@
       "path": "lib/pipeline/detect-silent-writers.ts",
       "inDegree": 2,
       "outDegree": 3
+    },
+    {
+      "path": "lib/pipeline/engagement-targets-manifest.ts",
+      "inDegree": 1,
+      "outDegree": 1
     },
     {
       "path": "lib/pipeline/event-gate.ts",
@@ -24886,7 +25086,7 @@
     },
     {
       "path": "lib/pipeline/scheduler-decision.ts",
-      "inDegree": 8,
+      "inDegree": 9,
       "outDegree": 1
     },
     {
@@ -24951,7 +25151,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 676,
+      "inDegree": 677,
       "outDegree": 0
     },
     {
@@ -24977,7 +25177,7 @@
     {
       "path": "lib/prompt/composition/CompositionExecutor.ts",
       "inDegree": 1,
-      "outDegree": 40
+      "outDegree": 42
     },
     {
       "path": "lib/prompt/composition/SectionDataLoader.ts",
@@ -24986,7 +25186,7 @@
     },
     {
       "path": "lib/prompt/composition/TransformRegistry.ts",
-      "inDegree": 33,
+      "inDegree": 35,
       "outDegree": 1
     },
     {
@@ -25026,7 +25226,7 @@
     },
     {
       "path": "lib/prompt/composition/lo-mastery-map.ts",
-      "inDegree": 4,
+      "inDegree": 5,
       "outDegree": 0
     },
     {
@@ -25080,6 +25280,11 @@
       "outDegree": 3
     },
     {
+      "path": "lib/prompt/composition/scoring-config.ts",
+      "inDegree": 3,
+      "outDegree": 1
+    },
+    {
       "path": "lib/prompt/composition/transforms/actions.ts",
       "inDegree": 1,
       "outDegree": 2
@@ -25091,8 +25296,13 @@
     },
     {
       "path": "lib/prompt/composition/transforms/audience.ts",
-      "inDegree": 11,
+      "inDegree": 14,
       "outDegree": 2
+    },
+    {
+      "path": "lib/prompt/composition/transforms/companion.ts",
+      "inDegree": 1,
+      "outDegree": 3
     },
     {
       "path": "lib/prompt/composition/transforms/conversationArtifacts.ts",
@@ -25110,6 +25320,11 @@
       "outDegree": 3
     },
     {
+      "path": "lib/prompt/composition/transforms/curriculum-adaptation.ts",
+      "inDegree": 1,
+      "outDegree": 3
+    },
+    {
       "path": "lib/prompt/composition/transforms/identity.ts",
       "inDegree": 2,
       "outDegree": 6
@@ -25117,7 +25332,7 @@
     {
       "path": "lib/prompt/composition/transforms/instructions.ts",
       "inDegree": 2,
-      "outDegree": 7
+      "outDegree": 9
     },
     {
       "path": "lib/prompt/composition/transforms/interleaveReview.ts",
@@ -25147,7 +25362,7 @@
     {
       "path": "lib/prompt/composition/transforms/modules.ts",
       "inDegree": 4,
-      "outDegree": 8
+      "outDegree": 11
     },
     {
       "path": "lib/prompt/composition/transforms/offboarding.ts",
@@ -25216,7 +25431,7 @@
     },
     {
       "path": "lib/prompt/composition/transforms/targets.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 6
     },
     {
@@ -25246,7 +25461,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 44,
+      "inDegree": 46,
       "outDegree": 1
     },
     {
@@ -25586,7 +25801,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 131,
+      "inDegree": 136,
       "outDegree": 0
     },
     {
@@ -25637,7 +25852,7 @@
     {
       "path": "lib/voice/create-session.ts",
       "inDegree": 7,
-      "outDegree": 10
+      "outDegree": 12
     },
     {
       "path": "lib/voice/cue-scheduler-runner.ts",
@@ -25672,6 +25887,11 @@
     {
       "path": "lib/voice/ended-reason-labels.ts",
       "inDegree": 0,
+      "outDegree": 0
+    },
+    {
+      "path": "lib/voice/interrupt-sensitivity.ts",
+      "inDegree": 1,
       "outDegree": 0
     },
     {
@@ -25747,7 +25967,7 @@
     {
       "path": "lib/voice/providers/vapi/index.ts",
       "inDegree": 2,
-      "outDegree": 4
+      "outDegree": 5
     },
     {
       "path": "lib/voice/reconcile-missing-bootstrap.ts",
@@ -25972,7 +26192,7 @@
     {
       "path": "lib/wizard/detect-course-config.ts",
       "inDegree": 1,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "lib/wizard/detect-mock-shape-modules.ts",
@@ -25988,6 +26208,11 @@
       "path": "lib/wizard/detect-pedagogy.ts",
       "inDegree": 1,
       "outDegree": 0
+    },
+    {
+      "path": "lib/wizard/enum-sets.ts",
+      "inDegree": 1,
+      "outDegree": 2
     },
     {
       "path": "lib/wizard/graph-evaluator.ts",
@@ -26728,7 +26953,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 676,
+      "inDegree": 677,
       "outDegree": 0
     },
     {
@@ -26738,23 +26963,23 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 131,
+      "inDegree": 136,
       "outDegree": 0
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 95,
+      "inDegree": 97,
       "outDegree": 0
     },
     {
       "path": "lib/content-trust/resolve-config.ts",
-      "inDegree": 70,
-      "outDegree": 3
+      "inDegree": 74,
+      "outDegree": 5
     },
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 57
+      "outDegree": 58
     },
     {
       "path": "lib/learner-scope.ts",
@@ -26769,27 +26994,27 @@
     {
       "path": "app/x/courses/[courseId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 48
+      "outDegree": 50
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 44,
+      "inDegree": 46,
       "outDegree": 1
+    },
+    {
+      "path": "lib/prompt/composition/CompositionExecutor.ts",
+      "inDegree": 1,
+      "outDegree": 42
+    },
+    {
+      "path": "lib/logger.ts",
+      "inDegree": 39,
+      "outDegree": 3
     },
     {
       "path": "lib/metering/instrumented-ai.ts",
       "inDegree": 35,
       "outDegree": 6
-    },
-    {
-      "path": "lib/prompt/composition/CompositionExecutor.ts",
-      "inDegree": 1,
-      "outDegree": 40
-    },
-    {
-      "path": "lib/logger.ts",
-      "inDegree": 37,
-      "outDegree": 3
     },
     {
       "path": "app/api/chat/route.ts",
@@ -26798,7 +27023,7 @@
     },
     {
       "path": "lib/prompt/composition/TransformRegistry.ts",
-      "inDegree": 33,
+      "inDegree": 35,
       "outDegree": 1
     },
     {

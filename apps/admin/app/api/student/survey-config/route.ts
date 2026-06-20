@@ -8,7 +8,7 @@
  *         2. playbook.config.onboardingFlowPhases (legacy fallback for pre)
  *         3. SURVEY_TEMPLATES_V1 contract defaults
  *       Also returns assessment config (personality questions, pre/post-test settings).
- * @response 200 { ok, subject, welcome, assessment, onboarding, offboarding }
+ * @response 200 { ok, subject, skipIntake, welcome, assessment, onboarding, offboarding }
  * @response 404 { ok: false, error: "..." }
  */
 
@@ -29,6 +29,7 @@ import {
   getSurveyTemplateConfig,
 } from "@/lib/learner/survey-config";
 import { DEFAULT_PERSONALITY_QUESTIONS } from "@/lib/assessment/personality-defaults";
+import { isReturningLearner } from "@/lib/intake/returning-learner";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -66,6 +67,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const pbConfig = (enrollment.playbook.config ?? {}) as PlaybookConfig;
     const subject = enrollment.playbook.domain?.name ?? enrollment.playbook.name;
     const templates = await getSurveyTemplateConfig();
+
+    // ── #2050 Intake-skip gate ──
+    // When `config.skipIntakeIfReturning === true` AND the caller has
+    // prior intake history (submitted PERSONALITY/PRE_SURVEY OR
+    // INTAKE_CHAT projection), surface a top-level `skipIntake` flag.
+    // WelcomeSurveyFlow short-circuits to `onAlreadyDone()` on this
+    // signal so the learner bypasses re-answering. Producer side is
+    // the `intakeSkipIfReturning` JourneySettingContract.
+    const skipIntake =
+      pbConfig.skipIntakeIfReturning === true &&
+      (await isReturningLearner(prisma, auth.callerId));
 
     // ── Resolution chain: pre-survey questions ──
     // 1. config.surveys.pre.questions (educator override)
@@ -110,6 +122,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       ok: true,
       subject,
       tone: pbConfig.interactionPattern ?? "default",
+      skipIntake,
       welcome: { ...DEFAULT_WELCOME_CONFIG, ...pbConfig.welcome },
       assessment: {
         personality: {

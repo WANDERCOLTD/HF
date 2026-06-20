@@ -75,9 +75,11 @@ describe("detectAuthoredModules — IELTS v2.2 fixture", () => {
   });
 
   it("enforces ID regex on every parsed module", () => {
+    // Pattern relaxed to include hyphens + length cap raised to 80
+    // (CIO/CTO unit-doc IDs). Updated 2026-06-20 for the trio-import fix.
     for (const m of result.modules) {
-      expect(m.id).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(m.id.length).toBeLessThanOrEqual(32);
+      expect(m.id).toMatch(/^[a-z][a-z0-9_-]*$/);
+      expect(m.id.length).toBeLessThanOrEqual(80);
     }
   });
 
@@ -338,5 +340,67 @@ describe("hasAuthoredModules", () => {
   it("returns false when modulesAuthored is false", () => {
     const result = detectAuthoredModules(`**Modules authored:** No\n`);
     expect(hasAuthoredModules(result)).toBe(false);
+  });
+});
+
+// ── Mode normalisation — #2010 quiz + mock-exam (epic #2009) ───────────
+
+/**
+ * Build a minimal Module Catalogue with three rows, varying only the Mode
+ * column. The CIO/CTO trio (Pop Quiz / Standard / Exam) declares modes
+ * like "Quiz", "Mock-Exam", and "Mock Exam" (space variant); pre-#2010
+ * these all fell through `normaliseMode` to `null` and were silently
+ * dropped to the `defaults.mode ?? "tutor"` fallback at the call site.
+ */
+function buildMinimalModesFixture(modes: readonly string[]): string {
+  const rows = modes
+    .map(
+      (m, idx) =>
+        `| \`mod_${idx}\` | Module ${idx} | Yes | ${m} | 20 min | All four | No | No | Once | Source 1 | OUT-01 |`,
+    )
+    .join("\n");
+  return `# Course Reference
+
+## Modules
+
+**Modules authored:** Yes
+
+### Module Catalogue (machine-readable summary)
+
+| ID | Label | Learner-selectable | Mode | Duration | Scoring fired | Voice band readout | Session-terminal | Frequency | Content source | Outcomes (primary) |
+|---|---|---|---|---|---|---|---|---|---|---|
+${rows}
+
+**OUT-01: Sample outcome statement for module mode tests.**
+`;
+}
+
+describe("detectAuthoredModules — mode parsing #2010 (quiz, mock-exam)", () => {
+  it("parses Mode: Quiz to 'quiz' (not silently dropped to tutor)", () => {
+    const result = detectAuthoredModules(buildMinimalModesFixture(["Quiz"]));
+    expect(result.modulesAuthored).toBe(true);
+    expect(result.modules).toHaveLength(1);
+    expect(result.modules[0].mode).toBe("quiz");
+  });
+
+  it("parses Mode: Mock-Exam (hyphenated) to 'mock-exam'", () => {
+    const result = detectAuthoredModules(buildMinimalModesFixture(["Mock-Exam"]));
+    expect(result.modules[0].mode).toBe("mock-exam");
+  });
+
+  it("parses Mode: Mock exam (space variant) to 'mock-exam'", () => {
+    const result = detectAuthoredModules(buildMinimalModesFixture(["Mock exam"]));
+    expect(result.modules[0].mode).toBe("mock-exam");
+  });
+
+  it("regression — existing modes still parse correctly", () => {
+    const result = detectAuthoredModules(
+      buildMinimalModesFixture(["Tutor", "Mixed", "Examiner"]),
+    );
+    expect(result.modules.map((m) => m.mode)).toEqual([
+      "tutor",
+      "mixed",
+      "examiner",
+    ]);
   });
 });

@@ -221,3 +221,57 @@
   flex-wrap: wrap;
   margin-top: 8px;
 }
+
+/* ── Post-Assessment next-steps panel (#1954 Boaz/Eldar Unit 1.1) ── */
+.hf-results-next-steps {
+  padding: 20px 24px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.hf-results-next-steps-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hf-results-next-steps-focus {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.hf-results-next-steps-focus-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.hf-results-next-steps-focus-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent-primary, #4f46e5);
+}
+
+.hf-results-next-steps-reason {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.hf-results-next-steps-rec {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}

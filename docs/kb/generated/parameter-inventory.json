@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-19T14:23:04.238Z",
+  "generatedAt": "2026-06-20T11:14:27.994Z",
   "generator": "scripts/capture/parameter-inventory.ts",
   "parameterCount": 154,
   "active": 139,
   "deprecated": 15,
-  "gaps": 103,
+  "gaps": 21,
   "entries": [
     {
       "parameterId": "BEH-ABSTRACT-VS-CONCRETE",
@@ -111,8 +111,11 @@
       "aliases": [
         "agreeableness_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/instructions.ts",
+        "lib/prompt/composition/transforms/personality.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "analogy-usage",
@@ -137,8 +140,10 @@
       "aliases": [
         "application_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-APPLICATION-SCORE",
@@ -152,7 +157,8 @@
         "application_score"
       ],
       "consumerFiles": [
-        "app/api/calls/[callId]/pipeline/route.ts"
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
       ],
       "classification": "covered"
     },
@@ -181,7 +187,8 @@
       ],
       "consumerFiles": [
         "app/api/calls/[callId]/pipeline/route.ts",
-        "app/api/parameters/display-config/route.ts"
+        "app/api/parameters/display-config/route.ts",
+        "lib/prompt/composition/transforms/personality.ts"
       ],
       "classification": "covered"
     },
@@ -198,7 +205,8 @@
       ],
       "consumerFiles": [
         "app/api/calls/[callId]/pipeline/route.ts",
-        "app/api/parameters/display-config/route.ts"
+        "app/api/parameters/display-config/route.ts",
+        "lib/prompt/composition/transforms/personality.ts"
       ],
       "classification": "covered"
     },
@@ -215,7 +223,8 @@
       ],
       "consumerFiles": [
         "app/api/calls/[callId]/pipeline/route.ts",
-        "app/api/parameters/display-config/route.ts"
+        "app/api/parameters/display-config/route.ts",
+        "lib/prompt/composition/transforms/personality.ts"
       ],
       "classification": "covered"
     },
@@ -232,7 +241,8 @@
       ],
       "consumerFiles": [
         "app/api/calls/[callId]/pipeline/route.ts",
-        "app/api/parameters/display-config/route.ts"
+        "app/api/parameters/display-config/route.ts",
+        "lib/prompt/composition/transforms/personality.ts"
       ],
       "classification": "covered"
     },
@@ -250,7 +260,8 @@
       "consumerFiles": [
         "app/api/calls/[callId]/pipeline/route.ts",
         "app/api/parameters/display-config/route.ts",
-        "app/api/parameters/route.ts"
+        "app/api/parameters/route.ts",
+        "lib/prompt/composition/transforms/personality.ts"
       ],
       "classification": "covered"
     },
@@ -276,7 +287,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-ADVANCE-READINESS",
@@ -287,8 +298,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-ANALOGY-USAGE",
@@ -299,8 +312,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-APPROACH-SWITCHING",
@@ -325,7 +340,8 @@
       "aliases": [],
       "consumerFiles": [
         "app/api/calls/[callId]/pipeline/route.ts",
-        "app/api/educator/classrooms/[id]/differentiation/route.ts"
+        "app/api/educator/classrooms/[id]/differentiation/route.ts",
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
       ],
       "classification": "covered"
     },
@@ -338,8 +354,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-CONCEPT-DENSITY",
@@ -364,8 +382,11 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/CompositionExecutor.ts",
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-CONVERSATIONAL-TONE",
@@ -391,7 +412,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-DIAGRAM-LANGUAGE",
@@ -403,7 +424,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-DIRECTNESS",
@@ -435,7 +456,8 @@
       ],
       "consumerFiles": [
         "app/api/x/seed-domains/route.ts",
-        "lib/goals/strategies/connect_warmth_avg.ts"
+        "lib/goals/strategies/connect_warmth_avg.ts",
+        "lib/measurement/supv-rew-consumer-manifest.ts"
       ],
       "classification": "covered"
     },
@@ -462,8 +484,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-FEELING-LANGUAGE",
@@ -475,7 +499,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-FORMALITY",
@@ -504,8 +528,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-GUIDED-PRACTICE",
@@ -516,8 +542,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-IMAGERY-DENSITY",
@@ -529,7 +557,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-INSIGHT-FREQUENCY",
@@ -554,8 +582,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-INTERLEAVING",
@@ -566,8 +596,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-LIST-STRUCTURE",
@@ -579,7 +611,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-MEMORY-REFERENCE",
@@ -590,8 +622,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-MODALITY-CONSISTENCY",
@@ -626,8 +660,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-NUANCE-EXPLORATION",
@@ -638,8 +674,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-PACE-MATCH",
@@ -672,8 +710,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-PAUSE-TOLERANCE",
@@ -724,8 +764,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-PROACTIVE",
@@ -750,8 +792,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-PRODUCTIVE-STRUGGLE",
@@ -762,8 +806,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-QUESTION-RATE",
@@ -791,7 +837,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-REPETITION-FREQUENCY",
@@ -815,7 +861,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-RESPECT-EXPERIENCE",
@@ -826,8 +872,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-RESPONSE-LEN",
@@ -859,7 +907,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-SCAFFOLDING",
@@ -884,8 +932,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-SPATIAL-METAPHOR",
@@ -897,7 +947,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-STORY-INVITATION",
@@ -908,8 +958,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-TERMINOLOGY-FORMAL",
@@ -921,7 +973,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-TURN-LENGTH",
@@ -948,7 +1000,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-WARMTH",
@@ -985,8 +1037,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-WRITTEN-ALTERNATIVE",
@@ -998,7 +1052,7 @@
       "skipInterpretationLengthCheck": false,
       "aliases": [],
       "consumerFiles": [],
-      "classification": "gap"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-CALL-FREQUENCY-ADAPTATION",
@@ -1011,8 +1065,10 @@
       "aliases": [
         "call_frequency_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "check-for-understanding",
@@ -1023,8 +1079,10 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-CHUNK-SIZE",
@@ -1038,6 +1096,7 @@
         "chunk-size"
       ],
       "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts",
         "lib/voice/audio-slice.ts"
       ],
       "classification": "covered"
@@ -1053,8 +1112,10 @@
       "aliases": [
         "communication_complexity_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-DEPTH-PREFERENCE",
@@ -1067,8 +1128,10 @@
       "aliases": [
         "COMP-DEPTH-PREFERENCE"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-ENERGY",
@@ -1081,8 +1144,10 @@
       "aliases": [
         "COMP-ENERGY"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-ENGAGEMENT",
@@ -1095,8 +1160,13 @@
       "aliases": [
         "COMP-ENGAGEMENT"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "lib/measurement/supv-rew-consumer-manifest.ts",
+        "lib/pipeline/engagement-targets-manifest.ts",
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-MOOD",
@@ -1109,8 +1179,10 @@
       "aliases": [
         "COMP-MOOD"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-COMPOSITE-REWARD",
@@ -1124,7 +1196,9 @@
         "composite_reward"
       ],
       "consumerFiles": [
-        "app/api/playbooks/[playbookId]/parameters/route.ts"
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/playbooks/[playbookId]/parameters/route.ts",
+        "lib/measurement/supv-rew-consumer-manifest.ts"
       ],
       "classification": "covered"
     },
@@ -1139,8 +1213,10 @@
       "aliases": [
         "comprehension_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-COMPREHENSION-SCORE",
@@ -1153,8 +1229,10 @@
       "aliases": [
         "comprehension_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-REMINISCENCE",
@@ -1167,8 +1245,10 @@
       "aliases": [
         "COMP-REMINISCENCE"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "concept-density",
@@ -1195,8 +1275,10 @@
       "aliases": [
         "concept_exposure"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-CONSCIENTIOUSNESS-ADAPTATION",
@@ -1209,8 +1291,11 @@
       "aliases": [
         "conscientiousness_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/instructions.ts",
+        "lib/prompt/composition/transforms/personality.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-CONTEXT-SETTING-QUALITY",
@@ -1223,8 +1308,10 @@
       "aliases": [
         "context_setting_quality"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-CONV-DOM",
@@ -1237,8 +1324,10 @@
       "aliases": [
         "CONV_DOM"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "CONV_PACE",
@@ -1267,8 +1356,10 @@
       "aliases": [
         "CP-004"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-CRISIS-DETECTION-SCORE",
@@ -1281,8 +1372,10 @@
       "aliases": [
         "crisis_detection_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-DEFAULT-TARGETS-QUALITY",
@@ -1336,8 +1429,10 @@
       "aliases": [
         "engagement_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-ENGAGEMENT-PROMPTS",
@@ -1364,8 +1459,11 @@
       "aliases": [
         "engagement_reward"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-ENGAGEMENT-TREND-SCORE",
@@ -1378,8 +1476,10 @@
       "aliases": [
         "engagement_trend_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-ENGAGEMENT-WITH-EXAMPLES",
@@ -1406,8 +1506,11 @@
       "aliases": [
         "error-elaboration"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "example-richness",
@@ -1464,8 +1567,11 @@
       "aliases": [
         "extraversion_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/instructions.ts",
+        "lib/prompt/composition/transforms/personality.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "formality_actual",
@@ -1502,8 +1608,10 @@
       "aliases": [
         "goal_discovery_quality"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-GOAL-PROGRESS-REWARD",
@@ -1516,8 +1624,11 @@
       "aliases": [
         "goal_progress_reward"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-INSIGHT-QUALITY",
@@ -1530,8 +1641,10 @@
       "aliases": [
         "insight_quality"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/companion.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "kinesthetic_adaptation",
@@ -1556,8 +1669,10 @@
       "aliases": [
         "learning_progress_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-LEARNING-REWARD",
@@ -1570,8 +1685,11 @@
       "aliases": [
         "learning_reward"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-LEARNING-VELOCITY-ADAPTATION",
@@ -1584,8 +1702,10 @@
       "aliases": [
         "learning_velocity_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-MASTERY-ADAPTATION",
@@ -1598,8 +1718,10 @@
       "aliases": [
         "mastery_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-MODULE-INTRODUCTION",
@@ -1612,8 +1734,10 @@
       "aliases": [
         "module_introduction"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-MODULE-MASTERY",
@@ -1630,7 +1754,8 @@
         "app/api/callers/[callerId]/lo-progress/route.ts",
         "app/api/calls/[callId]/pipeline/route.ts",
         "lib/compose/section-loaders.ts",
-        "lib/compose/section.ts"
+        "lib/compose/section.ts",
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
       ],
       "classification": "covered"
     },
@@ -1659,8 +1784,11 @@
       "aliases": [
         "neuroticism_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/instructions.ts",
+        "lib/prompt/composition/transforms/personality.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-OPENNESS-ADAPTATION",
@@ -1673,8 +1801,11 @@
       "aliases": [
         "openness_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/instructions.ts",
+        "lib/prompt/composition/transforms/personality.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "pace_indicators",
@@ -1715,8 +1846,10 @@
       "aliases": [
         "pause-for-questions"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-PREFERENCE-ELICITATION-QUALITY",
@@ -1729,8 +1862,10 @@
       "aliases": [
         "preference_elicitation_quality"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-PREREQUISITE-ADAPTATION",
@@ -1743,8 +1878,10 @@
       "aliases": [
         "prerequisite_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-PREREQUISITE-CHECK",
@@ -1757,8 +1894,10 @@
       "aliases": [
         "prerequisite_check"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-QUESTION-ASKING-RATE",
@@ -1785,8 +1924,11 @@
       "aliases": [
         "rapport_reward"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-READING-WRITING-ADAPTATION",
@@ -1823,7 +1965,9 @@
       "hasInterpretationLow": true,
       "skipInterpretationLengthCheck": false,
       "aliases": [],
-      "consumerFiles": [],
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
       "classification": "deprecated"
     },
     {
@@ -1851,8 +1995,10 @@
       "aliases": [
         "response_length_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-REVIEW-ADAPTATION",
@@ -1865,8 +2011,10 @@
       "aliases": [
         "review_adaptation"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-REVIEW-STATUS",
@@ -1879,8 +2027,10 @@
       "aliases": [
         "review_status"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-SAFETY-COMPLIANCE-SCORE",
@@ -1893,8 +2043,10 @@
       "aliases": [
         "safety_compliance_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "scaffolding",
@@ -1918,6 +2070,7 @@
         "lib/chat/wizard-tool-executor/tools/create_course/_reuse-path.ts",
         "lib/goals/track-progress.ts",
         "lib/prompt/composition/transforms/course-instructions.ts",
+        "lib/prompt/composition/transforms/curriculum-adaptation.ts",
         "lib/prompt/composition/transforms/pedagogy-mode.ts",
         "lib/prompt/composition/transforms/preamble.ts"
       ],
@@ -1950,8 +2103,10 @@
       "aliases": [
         "student_application_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-STYLE-CONSISTENCY-SCORE",
@@ -1964,8 +2119,10 @@
       "aliases": [
         "style_consistency_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-TARGET-ALIGNMENT-SCORE",
@@ -1978,8 +2135,10 @@
       "aliases": [
         "target_alignment_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-TONE-ASSERT",
@@ -1992,8 +2151,10 @@
       "aliases": [
         "TONE_ASSERT"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/pipeline/engagement-targets-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-TUTOR-FIDELITY-SCORE",
@@ -2006,8 +2167,10 @@
       "aliases": [
         "tutor_fidelity_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-TUTOR-INTRO-SCORE",
@@ -2020,8 +2183,10 @@
       "aliases": [
         "tutor_intro_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "BEH-TUTOR-SEQUENCE-SCORE",
@@ -2034,8 +2199,10 @@
       "aliases": [
         "tutor_sequence_score"
       ],
-      "consumerFiles": [],
-      "classification": "gap"
+      "consumerFiles": [
+        "lib/measurement/supv-rew-consumer-manifest.ts"
+      ],
+      "classification": "covered"
     },
     {
       "parameterId": "VARK-A",

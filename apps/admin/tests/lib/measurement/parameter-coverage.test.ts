@@ -61,6 +61,23 @@ interface RegistryEntry {
   parameterId: string;
   name?: string;
   domainGroup?: string;
+  /**
+   * #2084 S6 (Fork 3 → walk aliases) — registry alias array. SUPV-001 + REW-001
+   * declare their parameters with snake_case ids (e.g. `response_length_score`,
+   * `engagement_reward`) and the registry mirrors those alongside the BEH-*
+   * canonical id. When classifying coverage we walk the alias list so a
+   * consumer can match against EITHER form without forcing a rename pass
+   * across the registry. The snake_case → camelCase mirror still applies.
+   */
+  aliases?: string[];
+  /**
+   * Honest-zero cleanup (post-#2122) — deprecated params are NOT runtime
+   * consumers. Short-circuit to `exempt` instead of letting them fall to
+   * `gap`. Pre-fix the 5 `*_actual` deprecated rows (directness / formality /
+   * pacing / warmth / empathy_expression) showed as gaps despite having
+   * `usage.compose: "deprecated"`.
+   */
+  deprecatedAt?: string;
 }
 
 interface Registry {
@@ -122,10 +139,59 @@ function walkTs(dir: string): string[] {
   return out;
 }
 
+// Runtime-consumed spec files. The original (#2087) only included ADAPT-*
+// because adapt-runner reads them at runtime. The honest-zero cleanup
+// (post-#2122) extended this to every spec family the pipeline consumes:
+//   - ADAPT-*   — adapt-runner reads adaptationRules[].actions[].targetParameter
+//   - STYLE-*   — pipeline measure stage reads parameters[].id (e.g. STYLE-001
+//                 measures BEH-EXPLORATION-STRUCTURE via the `exploration_structure` alias)
+//   - MEASURE-* — pipeline measure stage reads parameters[].id
+//   - SUPV-*    — SCORE_AGENT reads parameters[].id for supervision scoring
+//   - REW-*     — REWARD-runner reads parameters[].id for per-component CallScore
+//   - AGG-*     — AGGREGATE-runner reads sourceParameter / sourceParameterId
+// Including these spec JSONs as consumer source makes spec-driven parameter
+// wiring count as `covered` regardless of which spec family measures it.
+const SPEC_CONSUMER_DIRS = ["docs-archive/bdd-specs"];
+const SPEC_CONSUMER_PATTERNS = [
+  /^ADAPT-[A-Z]+-\d+.*\.spec\.json$/,
+  /^STYLE-\d+.*\.spec\.json$/,
+  /^MEASURE-\d+.*\.spec\.json$/,
+  /^SUPV-\d+.*\.spec\.json$/,
+  /^REW-\d+.*\.spec\.json$/,
+  /^[A-Z]+-AGG-\d+.*\.spec\.json$/,
+];
+
+function walkSpecJson(dir: string): string[] {
+  const out: string[] = [];
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    const full = join(dir, e);
+    let st;
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) continue;
+    if (SPEC_CONSUMER_PATTERNS.some((re) => re.test(e))) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 const CONSUMER_SOURCE: string = (() => {
   const files: string[] = [];
   for (const dir of CONSUMER_DIRS) {
     files.push(...walkTs(join(APPS_ADMIN, dir)));
+  }
+  for (const dir of SPEC_CONSUMER_DIRS) {
+    files.push(...walkSpecJson(join(APPS_ADMIN, dir)));
   }
   return files
     .map((f) => {
@@ -166,6 +232,23 @@ function searchTerms(id: string): string[] {
   return Array.from(out);
 }
 
+/**
+ * #2084 S6 (Fork 3 → walk aliases) — produce search terms for BOTH the
+ * canonical parameter id AND each declared alias. Lets a consumer that
+ * writes the snake_case alias (e.g. `engagement_reward` from REW-001.spec)
+ * match a registry row whose canonical id is `BEH-ENGAGEMENT-REWARD`.
+ *
+ * Empty / missing alias array degrades to canonical-only.
+ */
+function searchTermsWithAliases(entry: RegistryEntry): string[] {
+  const out = new Set<string>(searchTerms(entry.parameterId));
+  for (const alias of entry.aliases ?? []) {
+    if (!alias || typeof alias !== "string") continue;
+    for (const t of searchTerms(alias)) out.add(t);
+  }
+  return Array.from(out);
+}
+
 // ────────────────────────────────────────────────────────────
 // Exempt list — categories of parameters with documented partial wiring
 // ────────────────────────────────────────────────────────────
@@ -181,10 +264,10 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
 };
 
 /**
- * 2026-06-17 audit baseline. 118 of 154 parameters lack a runtime
- * consumer — they're in the registry, BehaviorTarget seed wires a System
- * default, educators can theoretically tune them, but nothing in the
- * compose / scoring / cascade / chat paths reads the result.
+ * 2026-06-17 audit baseline. 118 of 154 parameters lacked a runtime
+ * consumer at audit time — in the registry, BehaviorTarget seed wires a
+ * System default, educators can theoretically tune them, but nothing in
+ * the compose / scoring / cascade / chat paths reads the result.
  *
  * Concentrated in:
  *   - learning-adaptation (23 gaps) — adaptive learning transforms not built
@@ -193,8 +276,42 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   - companion (11) — companion-style transforms partial
  *
  * Each wired consumer drops this number by 1.
+ *
+ * **History:**
+ * - 2026-06-17 — 118 (initial baseline, registered at #1907 audit)
+ * - 2026-06-19 — 106 (#2085 S5 wires 12 companion params via
+ *   `transforms/companion.ts`).
+ * - 2026-06-20 — 52 (#2087 S2 wires 31 learning-style params via
+ *   parametersAsDirectives dispatcher + ADAPT-LEARN-001 spec branches +
+ *   ADAPT-*.spec.json scan extension).
+ * - 2026-06-20 — #2086 S4 wires 13 engagement+onboarding via
+ *   ADAPT-ENG-001 spec branches (further drops actual count; ratchet
+ *   retains 52 as upper bound).
+ * - 2026-06-20 — #2084 S6 wires 15 supervision + reward params via
+ *   SCORE_AGENT extension + REW-001 per-component mirror via the
+ *   canonical `writeCallScore` chokepoint. Fork 3 alias-walking caught
+ *   4 incidental matches in companion/curriculum-adaptation/engagement
+ *   that previously slipped on snake_case vs canonical BEH-* form.
+ *   See `lib/measurement/supv-rew-consumer-manifest.ts` for the wired
+ *   list and PR #2088 for the design brief. Ratchet retains 52 as
+ *   upper bound; cleanup PR will tighten once stable.
+ * - 2026-06-20 — #2077 (Phase 2 of #2076) wires 27 ADAPT rules in
+ *   ADAPT-BEH-001 across the remaining 5 buckets (personality /
+ *   curriculum / learning / reinforcement / onboarding). 8 of 9
+ *   BEH-AGG-001 output buckets now have ADAPT consumers; bucket 9
+ *   (behavior-core: BEH-WARMTH / BEH-FORMALITY / BEH-DIRECTNESS /
+ *   BEH-TONE / BEH-RESPONSE-LEN / BEH-TURN-LENGTH) is intentionally
+ *   operator-cascade-set and NOT adapted.
+ * - 2026-06-20 — honest-zero cleanup: ratchet drops to **0**. Two
+ *   structural test fixes: (a) `classify()` honours `deprecatedAt` and
+ *   short-circuits 5 `*_actual` deprecated rows (directness / formality /
+ *   pacing / warmth + empathy_expression) to `exempt`; (b) SPEC_CONSUMER_
+ *   PATTERNS extended from ADAPT-* only to ADAPT/STYLE/MEASURE/SUPV/REW/AGG-*,
+ *   so BEH-EXPLORATION-STRUCTURE (measured by STYLE-001 via alias
+ *   `exploration_structure`) now classifies as covered. Every active
+ *   parameter has a real consumer.
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 118;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 0;
 
 // ────────────────────────────────────────────────────────────
 // Classification
@@ -219,6 +336,18 @@ function classify(p: RegistryEntry): ParamResult {
       domainGroup: p.domainGroup,
     };
   }
+  // Deprecated params have no runtime consumer by design — they're scheduled
+  // for removal. Classify as `exempt` rather than letting them fall to `gap`.
+  // The registry already declares `usage.compose: "deprecated"`; this honours
+  // that declaration in the gap ratchet.
+  if (p.deprecatedAt) {
+    return {
+      id: p.parameterId,
+      classification: "exempt",
+      reason: `deprecatedAt ${p.deprecatedAt}`,
+      domainGroup: p.domainGroup,
+    };
+  }
   // #1907 — dispatcher-covered classification. Parameters carrying a
   // `promptInjection` block in the registry are read dynamically by the
   // `parametersAsDirectives` transform (no literal mention in consumer
@@ -232,7 +361,12 @@ function classify(p: RegistryEntry): ParamResult {
       domainGroup: p.domainGroup,
     };
   }
-  for (const term of searchTerms(p.parameterId)) {
+  // #2084 S6 (Fork 3) — walk aliases at search time. The supervision +
+  // reward params live in the registry as BEH-* canonical with snake_case
+  // in `aliases[]`; SCORE_AGENT writes the snake_case form (from
+  // SUPV-001.spec.json parameters[].id) for SUPV-001. This lets a single
+  // consumer string match either id form.
+  for (const term of searchTermsWithAliases(p)) {
     if (term.length < 4) continue; // skip too-generic
     const re = new RegExp(
       `\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,

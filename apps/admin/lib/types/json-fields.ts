@@ -212,8 +212,14 @@ export const DEFAULT_NPS_CONFIG: NpsConfig = {
  * (Split implemented in #222; field accepted here so resolver is forward-compatible.)
  */
 export interface IntakeConfig {
-  goals: { enabled: boolean };
-  aboutYou: { enabled: boolean };
+  /** Goals question. `question` overrides the hardcoded default; absent
+   *  → fall through to the canonical "What would you most like to get
+   *  out of this course?". @bucket A_intake */
+  goals: { enabled: boolean; question?: string };
+  /** About-you confidence prompt. `question` overrides the hardcoded
+   *  default; absent → "On a scale of 1–5, how confident do you feel
+   *  about this topic?". @bucket A_intake */
+  aboutYou: { enabled: boolean; question?: string };
   knowledgeCheck: {
     enabled: boolean;
     deliveryMode?: "mcq" | "socratic";
@@ -414,8 +420,13 @@ export interface PlaybookConfig {
   audience?: string;
   constraints?: string[]; // teacher-level "NEVER do this" pedagogical anti-patterns
   // Identity axes (stored by course-setup wizard)
-  interactionPattern?: string; // HOW: "socratic" | "directive" | "advisory" | "coaching" | ...
-  teachingMode?: string; // WHAT: "recall" | "comprehension" | "practice" | "syllabus"
+  // #1995 — narrow to the union types instead of `string` so a future
+  // `as string` cast at a chat-tool write site fails at compile time.
+  // The runtime guards in `lib/content-trust/resolve-config.ts` defend
+  // the DB-read side (where the JSON column may still carry a stale
+  // wrong-union value seeded before #1995 landed).
+  interactionPattern?: import("@/lib/content-trust/resolve-config").InteractionPattern;
+  teachingMode?: import("@/lib/content-trust/resolve-config").TeachingMode;
   subjectDiscipline?: string; // e.g. "GCSE Biology", "A-Level Economics"
   // Plan intents (used by lesson plan regeneration fallback)
   suggestedSessionCount?: number; // Educator's initial suggestion — may differ from generated plan
@@ -449,6 +460,18 @@ export interface PlaybookConfig {
   offboarding?: OffboardingConfig;
   /** Student welcome flow configuration — controls which phases show before first session */
   welcome?: WelcomeConfig;
+  /**
+   * #2050 — When true, learners who completed the intake on a prior enrolment
+   * (any playbook) are bypassed: the WelcomeSurveyFlow short-circuits and
+   * the learner lands on `/x/student` rather than re-answering PERSONALITY
+   * + PRE_SURVEY questions. Detected via CallerAttribute(scope='PERSONALITY' | 'PRE_SURVEY')
+   * submitted_at OR scope='INTAKE_CHAT' attrs (the intake projection from
+   * EnrollmentIntake — `intake.*` keys). Default false — preserves the
+   * existing every-enrollment intake behaviour.
+   *
+   * @bucket Course parameter — educator-tunable on the Intake lens (G1).
+   */
+  skipIntakeIfReturning?: boolean;
   /** NPS / satisfaction feedback configuration */
   nps?: NpsConfig;
   /**
@@ -609,6 +632,71 @@ export interface PlaybookConfig {
    */
   firstCallMode?: "onboarding" | "teach_immediately" | "baseline_assessment";
   /**
+   * #2052 sub-epic C — scoring consumer fields wired from the producer-only
+   * registry into runtime. These fields are read by
+   * `lib/prompt/composition/scoring-config.ts::resolveScoringConfig` (a
+   * single chokepoint used by `transforms/modules.ts` for LO mastery,
+   * `transforms/instructions.ts` for progress-signal directives, and
+   * `lib/ops/compute-reward.ts` for REWARD strategy selection).
+   *
+   * Each setting is OPTIONAL — when absent, the consumer falls back to its
+   * previous behaviour (tier preset / hardcoded thresholds / default strategy).
+   *
+   * Producer-only debt closed: see `lib/journey/producer-only-registry.ts`
+   * (these 5 ids are no longer listed) + sub-epic C of epic #2049.
+   *
+   * @bucket Course parameter — operator-tunable via the Inspector.
+   * @see lib/prompt/composition/scoring-config.ts
+   * @see docs/CHAIN-CONTRACTS.md §3 (REWARD invariant — rewardStrategy is
+   *      on the boundary between AGGREGATE outputs and REWARD reads)
+   */
+  /**
+   * Mastery score required to mark a Learning Objective as passed. When set,
+   * overrides the per-tier-preset default in `lib/prompt/composition/modules`
+   * loMastery cut so the LLM treats LOs at-or-above this number as passed.
+   * Range [0,1]. When unset the existing tierPresetId-derived cut applies
+   * (byte-identical previous behaviour).
+   */
+  loMasteryThreshold?: number;
+  /**
+   * Mastery the learner must reach before a post-test / assessment stop
+   * fires. Read by the instructions transform to gate
+   * `assessment_readiness_directive` against the learner's aggregated
+   * `behavior_profile:learning:*` rollup (or per-LO mastery when the
+   * rollup is unavailable). Range [0,1]. Unset = no gating directive
+   * (byte-identical previous behaviour — stop fires per existing rules).
+   */
+  assessmentReadinessThreshold?: number;
+  /**
+   * Progress-signal water marks. The instructions transform emits a
+   * `progress_signal_directive` when the learner's aggregated engagement
+   * mastery falls outside the band [lowWater, highWater]. Below lowWater
+   * → "emphasise encouragement"; above highWater → "emphasise stretch".
+   * Either side may be unset to disable that half of the band.
+   *
+   * Read from `behavior_profile:engagement:*` CallerAttributes produced
+   * by BEH-AGG-001 (PR 75906d9d / commit a8234bf3 in lattice). When
+   * the rollup is absent the consumer uses the average of per-LO
+   * mastery as a fallback signal.
+   */
+  progressSignals?: {
+    lowWater?: number;
+    highWater?: number;
+  };
+  /**
+   * Which reward signal the adaptive loop optimises for. Read by
+   * `lib/ops/compute-reward.ts` to choose between three modes:
+   *   - `"learner_mastery"` — weight behaviour-target diffs by mastery
+   *     improvement (uses `behavior_profile:learning:*` aggregates when
+   *     available; falls back to standard behavior+outcome blend).
+   *   - `"educator_drift"` — weight behaviour-target diffs only; ignore
+   *     outcome signals (operator's tuning is the truth).
+   *   - `"blended"` — current default (behaviorWeight * behavior +
+   *     outcomeWeight * outcome).
+   * Unset = `"blended"` (byte-identical previous behaviour).
+   */
+  rewardStrategy?: "learner_mastery" | "educator_drift" | "blended";
+  /**
    * #598 Slice 1 — Course-level tolerance overrides for the mastery / spacing /
    * decay cascade (ADR 2026-05-22-tolerance-placement.md).
    *
@@ -733,6 +821,43 @@ export interface PlaybookConfig {
     dailyCap?: number;
   };
   /**
+   * #2055 (sub-epic F of #2049) — Call 1 framing variant of the recap.
+   *
+   * Distinct from `priorCallRecap` (Call 2+ history). When true on Call 1,
+   * the quickstart transform emits a brief `opening_recap` field that
+   * surfaces the learner's intake answers (goal / concern / confidence)
+   * at the top of the prompt so the AI tutor opens with continuity rather
+   * than a cold ask.
+   *
+   * Default false (absent → no recap section emitted). Calls 2+ ignore
+   * this flag — `priorCallFeedback` handles continuity then.
+   *
+   * @bucket Course parameter. Educator-tunable on the Journey lens.
+   * @see lib/prompt/composition/transforms/quickstart.ts (opening_recap field)
+   */
+  openingRecapEnabled?: boolean;
+  /**
+   * #2055 (sub-epic F of #2049) — cost gate for the AI-synthesised recap.
+   *
+   * When `false`, the loader short-circuits to the templated path WITHOUT
+   * the AI call (saves the per-call billing). When `true` or undefined,
+   * the existing gate sequence runs — env kill switch, `priorCallRecap`
+   * config, allowlist, daily cap, depth dispatch, cache, synthesize.
+   *
+   * Distinct from `priorCallRecap.enabled`: that flag is the FEATURE
+   * toggle (do we have a synthesised recap at all?); this one is the
+   * COST toggle (when the feature is on, do we actually pay for AI?).
+   * Operators flip this off when budget tightens without losing the
+   * templated fallback path.
+   *
+   * Default: undefined → behaves as if true (preserves existing gate
+   * sequence). Explicit false → short-circuit.
+   *
+   * @bucket Course parameter. Educator-tunable on the Journey lens.
+   * @see lib/prompt/composition/loaders/priorCallFeedback.ts::maybeSynthesizeRecap
+   */
+  recapSynthesisEnabled?: boolean;
+  /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
    * unmet prerequisites vs. show a soft-warning override modal. Default false
    * (soft warning), per IELTS learner-picks ethos. Set true for assessment
@@ -742,6 +867,93 @@ export interface PlaybookConfig {
    * Read at picker time by `lib/curriculum/recommend-module.ts` (E2 Slice 2.5).
    */
   strictPrerequisites?: boolean;
+  /**
+   * #2051 (epic #2049 sub-epic B) — Baseline assessment depth picker. Only
+   * read when `firstCallMode === "baseline_assessment"` and the call is the
+   * learner's first session. Drives a per-depth directive appended after the
+   * `BASELINE_ASSESSMENT_RULE` critical rule:
+   *   - `"light"` — 3 diagnostic questions, ~3 minutes
+   *   - `"standard"` (default when absent) — 5 diagnostic questions, ~5 min
+   *   - `"deep"` — 8 diagnostic questions + 2 confidence follow-up probes,
+   *     ~8 minutes
+   * When the field is ABSENT and the playbook is in baseline mode, the
+   * runtime falls back to `"standard"` (preserves the 5-question pre-existing
+   * implicit shape). When `firstCallMode !== "baseline_assessment"`, the
+   * field is ignored — no directive emits.
+   *
+   * @bucket 1 — Course-level only. No cascade; not applicable to per-learner
+   * overrides (depth choice is operator pedagogy).
+   *
+   * @see lib/prompt/composition/transforms/instructions.ts ::
+   *      `resolveBaselineAssessmentDepth`
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 1
+   */
+  baselineAssessmentDepth?: "light" | "standard" | "deep";
+  /**
+   * #2051 (epic #2049 sub-epic B) — Call 1 module allow-list. When present
+   * and non-empty, the scheduler's module candidate pool is filtered to
+   * ONLY modules whose `id` or `slug` appears in this array on the
+   * learner's first call. Modules outside the array are INELIGIBLE on
+   * Call 1 (exclusive, not priority).
+   *
+   * Safety fallback: when every listed module is already mastered by the
+   * learner, the filter is bypassed (full pool restored) and a
+   * `[modules] firstCallCurriculumFocus: all listed modules already mastered`
+   * log line fires — prevents Call 1 from stalling on a brand-new learner
+   * who somehow completed every gated module out-of-band.
+   *
+   * When `lockedModule` is set (learner picked via the Module Picker), the
+   * filter is BYPASSED — the learner's explicit choice wins.
+   *
+   * Absent or empty array → no filtering (existing behaviour). Does NOT
+   * affect `completedModules`, `tpProgress`, or `loMasteryMap` — only the
+   * scheduler's candidate pool input is narrowed.
+   *
+   * @bucket 1 — Course-level only. No cascade.
+   *
+   * @see lib/prompt/composition/transforms/modules.ts (filter applied just
+   *      before `selectNextExchange`)
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 2
+   */
+  firstCallCurriculumFocus?: string[];
+  /**
+   * #2051 (epic #2049 sub-epic B) — Module sequencing policy. Tunes how the
+   * scheduler resolves the next module to teach within a structured course
+   * (`lessonPlanMode === "structured"`).
+   *
+   * - `"strict"` — module candidate pool is filtered to exclude any module
+   *   whose `prerequisites` array contains a module slug NOT in
+   *   `completedModules`. Hard gate at the scheduler pool layer; the AI
+   *   cannot skip a prerequisite. Safety fallback: if all modules end up
+   *   filtered (misconfigured course), the full pool is restored and a
+   *   warning logs.
+   * - `"interleaved"` — every 4th call (callNumber where
+   *   `(callNumber - 1) % 4 === 3`) is forced to `mode: "review"` so the
+   *   scheduler picks a mastered module for review. Aligns with the
+   *   existing `interleaveReviewMinDays` review-freshness threshold (which
+   *   is unaffected — it controls staleness, not cadence).
+   * - `"learner_led"` (default-equivalent) — no scheduler change.
+   *   Byte-identical to field absent. Safe low-friction default.
+   *
+   * `appliesTo: ["structured"]` on the contract — continuous courses
+   * short-circuit with a console.warn + no-op (defensive; Inspector gate
+   * prevents in practice).
+   *
+   * `strictPrerequisites` (sibling field) gates the UI picker. The two
+   * are COMPLEMENTARY: `moduleSequencePolicy: "strict"` controls the
+   * scheduler pool; `strictPrerequisites: true` hard-locks the picker
+   * UI. An educator may set both.
+   *
+   * `lockedModule` (learner-picked) ALWAYS bypasses this filter — the
+   * learner's explicit choice wins.
+   *
+   * @bucket 1 — Course-level only. No cascade.
+   *
+   * @see lib/prompt/composition/transforms/modules.ts (filter applied just
+   *      before `selectNextExchange`)
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 3
+   */
+  moduleSequencePolicy?: "strict" | "interleaved" | "learner_led";
   /**
    * #492 E3 Slice 3.3 — minimum freshness threshold (in days) for the
    * interleave-review nudge. A mastered module qualifies for review when its
@@ -806,6 +1018,45 @@ export interface PlaybookConfig {
    * @see app/api/courses/[courseId]/demo-script/route.ts
    */
   demoScript?: DemoScript;
+  /**
+   * #2056 (G of #2049) — runtime gate flags previously producer-only.
+   *
+   * `agentTunerNlpEnabled` — when true, the operator-facing AgentTuner UI
+   * (NLP behaviour-pill editor) is mounted on the Course Detail surface.
+   * Default treats `undefined` as `false` — the panel is opt-in per course.
+   * Read by `lib/journey/runtime-gates.ts::isAgentTunerNlpEnabled` and the
+   * `<AgentTunerNlpGate>` wrapper. Operator-only writeGate enforced by the
+   * `journey-setting` PATCH route.
+   *
+   * @bucket Course parameter — operator-only toggle on the Inspector.
+   */
+  agentTunerNlpEnabled?: boolean;
+  /**
+   * #2056 (G of #2049) — call-counter policy selector.
+   *
+   * - `"hard_cap"`: when the per-day session count reaches `maxCallsPerDay`,
+   *   `createSession` REFUSES with a `CallRateLimitError`.
+   * - `"soft_cap"`: when the per-day session count reaches `maxCallsPerDay`,
+   *   `createSession` LOGS a warning to AppLog (`call.rate_limit.soft_cap_hit`)
+   *   and allows the session.
+   * - `"unlimited"`: cap is not consulted; `maxCallsPerDay` is ignored.
+   *
+   * Default treats `undefined` as `"unlimited"` so existing playbooks behave
+   * exactly as they did pre-#2056. Read by
+   * `lib/journey/runtime-gates.ts::resolveCallCountPolicy`.
+   */
+  callCountPolicy?: "hard_cap" | "soft_cap" | "unlimited";
+  /**
+   * #2056 (G of #2049) — per-day session-count cap.
+   *
+   * Consumed by `createSession` together with `callCountPolicy`. When unset
+   * (or 0 / negative) the cap is treated as absent regardless of policy.
+   * On hit:
+   *   - `hard_cap` → throws `CallRateLimitError`; route emits
+   *     `call.rate_limit.over_cap` AppLog + 429 response.
+   *   - `soft_cap` → logs `call.rate_limit.soft_cap_hit` and proceeds.
+   */
+  maxCallsPerDay?: number;
   [key: string]: any;
 }
 
@@ -892,7 +1143,7 @@ export interface LegacyCurriculumModuleJSON {
 // as JSON on Playbook.config.modules. Issue #236.
 // ---------------------------------------------------------------------------
 
-export type AuthoredModuleMode = "examiner" | "tutor" | "mixed";
+export type AuthoredModuleMode = "examiner" | "tutor" | "mixed" | "quiz" | "mock-exam";
 export type AuthoredModuleFrequency = "once" | "repeatable" | "cooldown";
 export type ModuleSource = "authored" | "derived";
 export type PickerLayout = "tiles" | "rail";
@@ -986,6 +1237,28 @@ export interface AuthoredModule {
   terminal?: boolean;
   coversModules?: string[];
   masteryThreshold?: number;
+
+  /**
+   * #2104 (epic #2102 S2) — per-module override of the course-level
+   * `PlaybookConfig.strictPrerequisites` flag.
+   *
+   * Resolution at picker time:
+   *   `mod.prerequisiteStrict ?? PlaybookConfig.strictPrerequisites ?? false`
+   *
+   * Use case: IELTS Speaking Practice keeps the course-level flag at
+   * `false` (soft-warn for Parts 1/2/3 — free-pick ethos) while
+   * setting `prerequisiteStrict: true` on the Mock Exam module to
+   * hard-lock it until the practice prereqs are mastered. Without
+   * this per-module knob the course-level flag forces all-or-nothing.
+   *
+   * Read by `LearnerModulePicker.tsx` (`lockedModuleIds` useMemo +
+   * `handlePick`). The Soft-Warn / Hard-Lock modal pair is unchanged
+   * — the override just selects which one fires for this module.
+   *
+   * Absent (default) → falls back to course-level flag = zero
+   * regression for every existing course-ref.
+   */
+  prerequisiteStrict?: boolean;
 
   /**
    * #1701 (epic #1700 Theme 1) — module-scoped settings layer (G8).
@@ -1097,6 +1370,45 @@ export interface AuthoredModuleSettings {
    * (`part3-focus.ts`) also gates on `isPart3ShapedModule(lockedModule)`.
    */
   pinFocusArea?: boolean;
+  /**
+   * #1956 (Boaz/Eldar gap analysis Unit 1.3) — when true on an
+   * exam / assessment module, the BASELINE_ASSESSMENT critical-rule
+   * preamble is replaced by a silent variant that preserves the
+   * diagnostic-only behavioural envelope (no teaching / no review /
+   * no remediation / no corrections) but drops the test-announcement
+   * framing and explicitly tells the tutor not to signal phase
+   * breaks. Session runs as a natural conversation. Default false
+   * (opt-in per module). Module-scoped — does NOT affect non-locked
+   * sessions or non-exam modules.
+   *
+   * Reads in `lib/prompt/composition/transforms/preamble.ts::
+   * computePreamble` when `firstCallMode === "baseline_assessment"`
+   * AND the locked module's settings declare `silentMode: true`.
+   * The Playbook-level `firstCallMode` and this module-level
+   * `silentMode` are deliberately orthogonal: `firstCallMode`
+   * controls structure (diagnostic-only flow); `silentMode`
+   * controls announcement wording.
+   *
+   * @bucket exam
+   */
+  silentMode?: boolean;
+  /**
+   * #1954 (Boaz/Eldar gap analysis Unit 1.1) — when true on an
+   * exam / assessment module, the AGGREGATE stage emits a personalised
+   * `SessionLessonPlan` to `Session.metadata.lessonPlan` after the
+   * four-criteria completion gate (#1953) fires "complete". The plan
+   * identifies the weakest IELTS criterion in this session and
+   * recommends a next module focus. Default: educators opt in per
+   * module; the IELTS baseline fixture sets this to `true`.
+   *
+   * Reads in `app/api/calls/[callId]/pipeline/route.ts::
+   * stageExecutors.AGGREGATE` inside the same try-block that runs the
+   * four-criteria gate. Fire-and-forget — failures log but never
+   * block the AGGREGATE stage.
+   *
+   * @bucket exam
+   */
+  generateLessonPlan?: boolean;
 }
 
 export interface ModuleDefaults {
@@ -1198,4 +1510,36 @@ export interface SessionMetadata {
    * `startSec` ordering.
    */
   phaseBoundaries?: PhaseBoundary[];
+  /**
+   * #1954 (Boaz/Eldar gap analysis Unit 1.1) — personalised next-step
+   * plan emitted post-AGGREGATE when this session's locked module
+   * declared `generateLessonPlan: true` AND the four IELTS criteria
+   * scored non-zero (the #1953 completion gate fired "complete").
+   * Read by the Results screen "Your next steps" panel. Optional —
+   * absent when the gate didn't fire OR the toggle was off.
+   */
+  lessonPlan?: SessionLessonPlan;
+}
+
+/**
+ * #1954 — minimal next-step plan shape. Deterministic from per-criterion
+ * IELTS CallScore rows: identifies the WEAKEST criterion (lowest score)
+ * and emits a one-line focus rationale + recommended next module slug.
+ * Not AI-generated. Cheap, stable, fire-and-forget at AGGREGATE end.
+ */
+export interface SessionLessonPlan {
+  /** Canonical IELTS criterion id — one of `skill_fluency_and_coherence_fc`,
+   *  `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`,
+   *  `skill_pronunciation_p`. The weakest of the four scored on this session. */
+  focusCriterion: string;
+  /** Human-readable label for the focus criterion (educator + learner facing). */
+  focusLabel: string;
+  /** The numeric score (0..1) the focus criterion achieved on this session. */
+  focusScore: number;
+  /** One-line rationale rendered under the panel headline. */
+  reason: string;
+  /** Slug of the next module the rollup recommends (when computable). */
+  nextRecommendedModuleSlug?: string;
+  /** UTC ISO timestamp the plan was emitted. */
+  emittedAt: string;
 }

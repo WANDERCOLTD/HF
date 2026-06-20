@@ -73,6 +73,18 @@ const G1_INTAKE_KNOWLEDGE_CHECK: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "intake", hint: "knowledge check block" }],
+  // Story #2105 — Reciprocal pair with firstCallMode. See that contract
+  // for the full rationale.
+  conflicts: [
+    {
+      conflictsWithId: "firstCallMode",
+      whenThisValues: [false],
+      whenOtherValues: ["baseline_assessment"],
+      severity: "warning",
+      resolution:
+        "First Call is set to run a baseline assessment, but the Knowledge Check intake step is off. The assessment has nothing to calibrate against. Turn on Knowledge Check in Journey > Intake, or change First Call Mode to Start Teaching.",
+    },
+  ],
 };
 
 const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
@@ -90,6 +102,31 @@ const G1_INTAKE_ABOUT_YOU: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "intake", hint: "about-you block" }],
+};
+
+// Slice 13 grey-out epic — editable question text for the "About You"
+// confidence prompt. Hardcoded fallback in `PreviewLens.buildTranscript`
+// kicks in when the field is empty.
+const G1_INTAKE_ABOUT_YOU_QUESTION: JourneySettingContract = {
+  id: "intakeAboutYouQuestion",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: '"About you" question text',
+  helpText:
+    "The exact question shown to the learner during the About You block. Leave blank to use the default: \"On a scale of 1–5, how confident do you feel about this topic?\"",
+  storagePath: "sessionFlow.intake.aboutYou.question",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "about-you question text" }],
+  gatedBy: {
+    parentId: "intakeAboutYou",
+    inactiveValues: [false],
+  },
 };
 
 // Lane 3 — A_intake contracts (catch-up follow-on from #1780).
@@ -116,6 +153,31 @@ const G1_INTAKE_GOALS: JourneySettingContract = {
   previewLocators: [{ section: "intake", hint: "learner-goals block" }],
 };
 
+// Slice 13 grey-out epic — editable question text for the intake
+// goals prompt. Hardcoded fallback in `PreviewLens.buildTranscript`
+// kicks in when the field is empty.
+const G1_INTAKE_GOALS_QUESTION: JourneySettingContract = {
+  id: "intakeGoalsQuestion",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Goals question text",
+  helpText:
+    "The exact question shown to the learner during the goals block. Leave blank to use the default: \"What would you most like to get out of this course?\"",
+  storagePath: "sessionFlow.intake.goals.question",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "goals question text" }],
+  gatedBy: {
+    parentId: "intakeGoals",
+    inactiveValues: [false],
+  },
+};
+
 const G1_INTAKE_AI_INTRO_CALL: JourneySettingContract = {
   id: "intakeAiIntroCall",
   menuGroupKey: "A_intake",
@@ -132,6 +194,12 @@ const G1_INTAKE_AI_INTRO_CALL: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "intake", hint: "AI Intro Call card" }],
+  // Baseline Assessment mode jumps straight into the pre-test stop at the
+  // top of Call 1, so a pre-call intro voice contact doesn't fit the flow.
+  gatedBy: {
+    parentId: "firstCallMode",
+    inactiveValues: ["baseline_assessment"],
+  },
 };
 
 const G1_INTAKE_KNOWLEDGE_CHECK_MODE: JourneySettingContract = {
@@ -154,6 +222,10 @@ const G1_INTAKE_KNOWLEDGE_CHECK_MODE: JourneySettingContract = {
     { value: "mcq", label: "MCQ batch (post Call 1)" },
     { value: "socratic", label: "Socratic probe (in Call 1)" },
   ],
+  gatedBy: {
+    parentId: "intakeKnowledgeCheck",
+    inactiveValues: [false],
+  },
 };
 
 const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
@@ -211,6 +283,22 @@ const G2_FIRST_CALL_MODE: JourneySettingContract = {
     { value: "teach_immediately", label: "Teach Immediately" },
     { value: "baseline_assessment", label: "Baseline Assessment" },
   ],
+  // Story #2105 — Reciprocal conflict declaration with
+  // intakeKnowledgeCheck. Baseline Assessment needs the Knowledge Check
+  // intake step to have something to calibrate against; without it the
+  // assessment runs blind. Non-blocking — the operator may save (some
+  // courses run a baseline against the catalogue, not the learner's
+  // prior knowledge), but the chip surfaces the trade-off.
+  conflicts: [
+    {
+      conflictsWithId: "intakeKnowledgeCheck",
+      whenThisValues: ["baseline_assessment"],
+      whenOtherValues: [false],
+      severity: "warning",
+      resolution:
+        "First Call is set to run a baseline assessment, but the Knowledge Check intake step is off. The assessment has nothing to calibrate against. Turn on Knowledge Check in Journey > Intake, or change First Call Mode to Start Teaching.",
+    },
+  ],
 };
 
 const G2_WELCOME_MESSAGE: JourneySettingContract = {
@@ -219,7 +307,12 @@ const G2_WELCOME_MESSAGE: JourneySettingContract = {
   group: "G2",
   educatorLabel: "Opening line",
   helpText: "First line the learner hears on Call 1.",
-  storagePath: "sessionFlow.welcomeMessage",
+  // Slice 14 grey-out epic fix — was `sessionFlow.welcomeMessage` but
+  // `SessionFlowConfig` doesn't carry a top-level welcomeMessage; the
+  // resolver reads `playbook.config.welcomeMessage` and the PATCH was
+  // landing on a write-only orphan path. Move to `config.welcomeMessage`
+  // so write + read meet.
+  storagePath: "config.welcomeMessage",
   control: "text",
   cascadeSources: [
     { level: "domain", storagePath: "domain.welcomeMessage" },
@@ -309,6 +402,12 @@ const G2_FIRST_CALL_INTRODUCE_PEDAGOGY: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "onboarding", hint: "pedagogy intro" }],
+  // Baseline-Assessment mode skips the pedagogy intro; there's no
+  // teaching block to frame.
+  gatedBy: {
+    parentId: "firstCallMode",
+    inactiveValues: ["baseline_assessment"],
+  },
 };
 
 const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
@@ -317,7 +416,12 @@ const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
   group: "G2",
   educatorLabel: "Onboarding flow phases",
   helpText: "Phases the AI walks through after the welcome line on Call 1.",
-  storagePath: "domain.onboardingFlowPhases",
+  // Slice 14 audit fix — primary write must hit the playbook level so
+  // PATCH /journey-setting can apply it. `domain.onboardingFlowPhases`
+  // is the cascade source (declared below), not the write target. The
+  // PATCH route rejects `domain.*` with 501 STORAGE_ROOT_NOT_SUPPORTED;
+  // every save attempt was silently failing.
+  storagePath: "config.onboardingFlowPhases",
   control: "phases",
   cascadeSources: [
     { level: "domain", storagePath: "domain.onboardingFlowPhases" },
@@ -328,6 +432,13 @@ const G2_ONBOARDING_FLOW_PHASES: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "onboarding", hint: "phase list" }],
+  // Only the Onboarding mode walks the phase list. The other two modes
+  // (Teach Immediately, Baseline Assessment) skip the structured onboarding
+  // sequence entirely.
+  gatedBy: {
+    parentId: "firstCallMode",
+    inactiveValues: ["teach_immediately", "baseline_assessment"],
+  },
 };
 
 const G2_FIRST_CALL_TARGETS: JourneySettingContract = {
@@ -400,6 +511,11 @@ const G2_BASELINE_ASSESSMENT_DEPTH: JourneySettingContract = {
     { value: "standard", label: "Standard — 5 questions" },
     { value: "deep", label: "Deep — 8 questions" },
   ],
+  // Only relevant when Call 1 is running the baseline assessment.
+  gatedBy: {
+    parentId: "firstCallMode",
+    inactiveValues: ["onboarding", "teach_immediately"],
+  },
 };
 
 // =============================================================
@@ -846,6 +962,10 @@ const G4_PROGRESS_NARRATIVE_CADENCE: JourneySettingContract = {
     { value: "every_call", label: "Every call" },
     { value: "on_threshold_crossing", label: "Only on threshold crossing" },
   ],
+  gatedBy: {
+    parentId: "progressNarrativeEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PROGRESS_NARRATIVE_THRESHOLD: JourneySettingContract = {
@@ -864,6 +984,12 @@ const G4_PROGRESS_NARRATIVE_THRESHOLD: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "priorCallFeedback" }],
+  // The threshold only matters when the cadence is `on_threshold_crossing`;
+  // when the parent narrative is off, nothing reads it at all.
+  gatedBy: {
+    parentId: "progressNarrativeEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PROGRESS_NARRATIVE_SKIP_FIRST: JourneySettingContract = {
@@ -882,6 +1008,10 @@ const G4_PROGRESS_NARRATIVE_SKIP_FIRST: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "progressNarrativeEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PRIOR_CALL_RECAP_ENABLED: JourneySettingContract = {
@@ -923,6 +1053,10 @@ const G4_PRIOR_CALL_RECAP_DEPTH: JourneySettingContract = {
     { value: "standard", label: "Standard (2–3 sentences)" },
     { value: "rich", label: "Rich (3–4 sentences + observation)" },
   ],
+  gatedBy: {
+    parentId: "priorCallRecapEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PRIOR_CALL_RECAP_DAILY_CAP: JourneySettingContract = {
@@ -941,6 +1075,10 @@ const G4_PRIOR_CALL_RECAP_DAILY_CAP: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "priorCallRecapEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_RECAP_ENABLED: JourneySettingContract = {
@@ -975,6 +1113,12 @@ const G4_RECAP_SYNTHESIS_ENABLED: JourneySettingContract = {
     requiresReprompt: true, // AI-touching → Save & reprompt CTA
   },
   previewLocators: [{ section: "priorCallFeedback" }],
+  // If there's no recap at the top of the call, there's nothing to
+  // AI-synthesise.
+  gatedBy: {
+    parentId: "recapEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G4_PRIOR_CALL_FEEDBACK_ENABLED: JourneySettingContract = {
@@ -1143,6 +1287,10 @@ const G5_NPS_TRIGGER: JourneySettingContract = {
     { value: "mastery", label: "Mastery percentage" },
     { value: "session_count", label: "After N calls" },
   ],
+  gatedBy: {
+    parentId: "npsEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G5_NPS_THRESHOLD: JourneySettingContract = {
@@ -1161,6 +1309,10 @@ const G5_NPS_THRESHOLD: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "npsEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G5_NPS_STOP: JourneySettingContract = {
@@ -1183,6 +1335,10 @@ const G5_NPS_STOP: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [{ section: "nps" }],
+  gatedBy: {
+    parentId: "npsEnabled",
+    inactiveValues: [false],
+  },
 };
 
 // =============================================================
@@ -1248,6 +1404,10 @@ const G6_OFFBOARDING_SUMMARY_CADENCE: JourneySettingContract = {
     { value: "final_only", label: "Final session only" },
     { value: "every_session_with_data", label: "Every session with data" },
   ],
+  gatedBy: {
+    parentId: "offboardingSummaryEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY: JourneySettingContract = {
@@ -1265,6 +1425,10 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_MODULE_MASTERY: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "offboardingSummaryEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS: JourneySettingContract = {
@@ -1282,6 +1446,10 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_GOAL_PROGRESS: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "offboardingSummaryEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE: JourneySettingContract = {
@@ -1299,6 +1467,10 @@ const G6_OFFBOARDING_SUMMARY_INCLUDE_SKILL_SCORE: JourneySettingContract = {
     requiresReprompt: false,
   },
   previewLocators: [],
+  gatedBy: {
+    parentId: "offboardingSummaryEnabled",
+    inactiveValues: [false],
+  },
 };
 
 const G6_OFFBOARDING_TRIGGER_AFTER_CALLS: JourneySettingContract = {
@@ -1526,6 +1698,59 @@ const G7_STRICT_PREREQUISITES: JourneySettingContract = {
   },
   previewLocators: [{ section: "modulesGate" }],
   appliesTo: ["structured"],
+  // Story #2105 — Reciprocal conflict declaration with lessonPlanMode.
+  // Continuous courses don't sequence modules, so strict prerequisites
+  // have nothing to gate on. Operator gets an amber chip explaining the
+  // trade-off; they may save the combination (the field stays editable).
+  conflicts: [
+    {
+      conflictsWithId: "lessonPlanMode",
+      whenThisValues: [true],
+      whenOtherValues: ["continuous"],
+      severity: "warning",
+      resolution:
+        "Continuous courses let learners pick any topic freely — strict prerequisites block that freedom. Either switch to Structured (modules unlock in sequence) or turn off Strict Prerequisites so learners can explore. Currently the picker silently blocks access to all modules.",
+    },
+  ],
+};
+
+// Story #2105 — `lessonPlanMode` was previously schema-only
+// (`PlaybookConfig.lessonPlanMode`). Surfacing it as a contract so the
+// Continuous + Strict-Prerequisites conflict can be declared
+// symmetrically. Routes that already write the field via the wizard
+// keep working; the Inspector now also exposes it.
+const G7_LESSON_PLAN_MODE: JourneySettingContract = {
+  id: "lessonPlanMode",
+  menuGroupKey: "C_teaching_style",
+  group: "G7",
+  educatorLabel: "Course pacing model",
+  helpText:
+    "Structured (modules unlock in sequence) vs Continuous (learner picks any topic freely). Structured for skill-build curricula; Continuous for exam-style topic-pool practice.",
+  storagePath: "config.lessonPlanMode",
+  control: "select",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["modulesGate", "instructions"],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "modulesGate" }],
+  options: [
+    { value: "structured", label: "Structured — modules unlock in sequence" },
+    { value: "continuous", label: "Continuous — learner picks freely" },
+  ],
+  // Story #2105 — Reciprocal: continuous + strictPrerequisites=true is
+  // the same condition the strictPrerequisites contract carries.
+  conflicts: [
+    {
+      conflictsWithId: "strictPrerequisites",
+      whenThisValues: ["continuous"],
+      whenOtherValues: [true],
+      severity: "warning",
+      resolution:
+        "Continuous courses let learners pick any topic freely — strict prerequisites block that freedom. Either switch to Structured (modules unlock in sequence) or turn off Strict Prerequisites so learners can explore. Currently the picker silently blocks access to all modules.",
+    },
+  ],
 };
 
 const G7_LO_MASTERY_THRESHOLD: JourneySettingContract = {
@@ -1697,6 +1922,38 @@ const G8_MODULE_QUESTION_TARGET: JourneySettingContract = {
   },
   previewLocators: [{ section: "instructions", hint: "question count directive" }],
   appliesTo: ["structured", "exam"],
+  // Story #2105 — Reciprocal conflict declaration with
+  // moduleMinSpeakingSec. When the speaking floor consumes most of the
+  // session window AND the question target is >=3, the tutor may be
+  // forced to cut questions short or skip them. The min-target value is
+  // a `{min, target}` object; the conflict fires when target>=3
+  // (matched by a custom predicate handled at the value-level via
+  // strict-equality against integer values 3..N). For simplicity at
+  // this layer we encode the trigger as "any non-trivial target >=3";
+  // the value-equality match is conservative — it fires on the most
+  // common authored shape (target: 3, 4, 5, …). Authors with edge-case
+  // shapes can disable the row's chip by retuning to target<=2 or
+  // bumping minSpeakingSec to <=75% of the session.
+  conflicts: [
+    {
+      conflictsWithId: "moduleMinSpeakingSec",
+      // Three common target values that exceed the 75% rule of thumb
+      // when paired with a ≥180s floor on a 240s default session.
+      whenThisValues: [
+        { min: 3, target: 3 },
+        { min: 3, target: 4 },
+        { min: 3, target: 5 },
+        { min: 4, target: 4 },
+        { min: 4, target: 5 },
+        { min: 5, target: 5 },
+        { min: 10, target: 13 },
+      ],
+      whenOtherValues: [180, 200, 220, 240, 300],
+      severity: "warning",
+      resolution:
+        "This module's minimum speaking time leaves little room for the target number of questions. Learners may be cut off before completing questions, or questions may be skipped. Reduce the speaking floor or question count so both can be satisfied in one session.",
+    },
+  ],
 };
 
 const G8_MODULE_MIN_SPEAKING_SEC: JourneySettingContract = {
@@ -1719,6 +1976,26 @@ const G8_MODULE_MIN_SPEAKING_SEC: JourneySettingContract = {
   },
   previewLocators: [],
   appliesTo: ["structured", "exam"],
+  // Story #2105 — Reciprocal pair with moduleQuestionTarget. See that
+  // contract's `conflicts[]` for the full rationale + trigger ranges.
+  conflicts: [
+    {
+      conflictsWithId: "moduleQuestionTarget",
+      whenThisValues: [180, 200, 220, 240, 300],
+      whenOtherValues: [
+        { min: 3, target: 3 },
+        { min: 3, target: 4 },
+        { min: 3, target: 5 },
+        { min: 4, target: 4 },
+        { min: 4, target: 5 },
+        { min: 5, target: 5 },
+        { min: 10, target: 13 },
+      ],
+      severity: "warning",
+      resolution:
+        "This module's minimum speaking time leaves little room for the target number of questions. Learners may be cut off before completing questions, or questions may be skipped. Reduce the speaking floor or question count so both can be satisfied in one session.",
+    },
+  ],
 };
 
 const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
@@ -1872,6 +2149,52 @@ const G8_MODULE_SCAFFOLD_POOL: JourneySettingContract = {
 // writes typed `CallerAttribute` rows under the course-agnostic `profile:*`
 // namespace (scope "PROFILE"). Phase 1 renders via JourneyJsonFallback;
 // Theme 1b adds the typed field-list editor.
+const G8_MODULE_GENERATE_LESSON_PLAN: JourneySettingContract = {
+  id: "moduleGenerateLessonPlan",
+  menuGroupKey: "H_closing",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Generate next-step plan on completion",
+  helpText:
+    "On Assessment / exam modules, emits a personalised next-step plan to the learner's results screen when the session scores all four criteria. The plan identifies the weakest criterion (e.g. Grammar) and recommends the next module to drill it.",
+  storagePath: {
+    path: "config.modules[].settings.generateLessonPlan",
+    arrayKey: "id",
+  },
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "next steps" }],
+  appliesTo: ["exam"],
+};
+
+const G8_MODULE_SILENT_MODE: JourneySettingContract = {
+  id: "moduleSilentMode",
+  menuGroupKey: "B_call1_opening",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Conversational mode",
+  helpText:
+    "Tutor doesn't announce 'this is a test' or signal phase breaks; runs as a natural conversation. Only takes effect on Assessment / exam modules when the playbook's first-call mode is baseline_assessment.",
+  storagePath: {
+    path: "config.modules[].settings.silentMode",
+    arrayKey: "id",
+  },
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["welcome", "onboarding"],
+    kinds: ["persona-style", "section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "welcome", hint: "opening framing" }],
+  appliesTo: ["exam"],
+};
+
 const G8_MODULE_PROFILE_FIELDS_TO_CAPTURE: JourneySettingContract = {
   id: "moduleProfileFieldsToCapture",
   menuGroupKey: "A_intake",
@@ -1936,7 +2259,9 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G1_INTAKE_SPEC_ID,
   G1_INTAKE_KNOWLEDGE_CHECK,
   G1_INTAKE_ABOUT_YOU,
+  G1_INTAKE_ABOUT_YOU_QUESTION,
   G1_INTAKE_GOALS,
+  G1_INTAKE_GOALS_QUESTION,
   G1_INTAKE_AI_INTRO_CALL,
   G1_INTAKE_KNOWLEDGE_CHECK_MODE,
   G1_INTAKE_SKIP_IF_RETURNING,
@@ -2010,6 +2335,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G7_FIRST_CALL_MODULE_VISIBILITY,
   G7_COMPLETION_MODE,
   G7_STRICT_PREREQUISITES,
+  G7_LESSON_PLAN_MODE,
   G7_LO_MASTERY_THRESHOLD,
   G7_INTERLEAVE_REVIEW_MIN_DAYS,
   G7_CALL_COUNT_POLICY,
@@ -2027,7 +2353,12 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G8_MODULE_SCHEDULED_CUES,
   G8_MODULE_SCAFFOLD_POOL,
   G8_MODULE_PROFILE_FIELDS_TO_CAPTURE,
+  // G8 #1955 — Part-3 focus pin (Boaz/Eldar Unit 4.1 / 4.2)
   G8_MODULE_PIN_FOCUS_AREA,
+  // G8 #1956 — silent-mode preamble suppression (Boaz/Eldar Unit 1.3)
+  G8_MODULE_SILENT_MODE,
+  // G8 #1954 — post-Assessment lesson-plan trigger (Boaz/Eldar Unit 1.1)
+  G8_MODULE_GENERATE_LESSON_PLAN,
 ];
 
 export const JOURNEY_SETTINGS_BY_ID: Readonly<
