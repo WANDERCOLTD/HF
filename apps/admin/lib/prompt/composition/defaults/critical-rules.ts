@@ -60,3 +60,22 @@ export const RETURNING_CALLER_BY_MODE: Record<TeachingMode, string> = {
  */
 export const BASELINE_ASSESSMENT_RULE =
   "BASELINE_ASSESSMENT: This first call captures diagnostic evidence only — no teaching, no review, no remediation. Ask the learner to demonstrate their current ability against the learning objectives in turn; score what you observe. Do not correct mistakes, do not explain answers, do not introduce new material. The purpose is to establish where the learner starts so progress can be measured. Encourage attempts but never lead the learner to a correct answer.";
+
+/**
+ * #1956 (Boaz/Eldar gap analysis Unit 1.3) — silent variant of
+ * `BASELINE_ASSESSMENT_RULE` used when the locked module's
+ * `settings.silentMode === true`. Preserves the diagnostic-only
+ * behavioural envelope (no teaching / no review / no remediation /
+ * no corrections) but DROPS the test-announcement framing and
+ * EXPLICITLY tells the tutor not to signal phase breaks.
+ *
+ * Session runs as a natural conversation. The tutor still observes
+ * the learner's current ability across the learning objectives and
+ * still does not correct or lead — only the surface framing changes.
+ *
+ * Override path (same shape as the announced variant):
+ * `prompt_preamble.config.criticalRules.baselineAssessmentSilent`
+ * in COMP-001 spec config.
+ */
+export const BASELINE_ASSESSMENT_RULE_SILENT =
+  "This session is diagnostic — no teaching, no review, no remediation, no corrections. Run it as a natural conversation. Ask open questions that invite extended answers across the learning objectives so you can observe the learner's current ability. Do NOT announce that this is a test, assessment, or evaluation. Do NOT signal phase boundaries or session structure. Do not correct mistakes or explain answers. Encourage attempts naturally but never lead the learner to a correct answer.";
