@@ -82,6 +82,7 @@ import "./transforms/interleaveReview";
 import "./transforms/courseComplete";
 import "./transforms/conversationArtifacts";
 import "./transforms/memoryDeltas";
+import "./transforms/companion";
 
 /**
  * Execute the full composition pipeline.
@@ -1113,6 +1114,26 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "null" },
       transform: "computeAudienceGuidance",
       outputKey: "audienceGuidance",
+    },
+    {
+      // #2085 (S5 of epic #2078) — companion-domain directive emitter.
+      // Reads the cascade-resolved BehaviorTargets for the 12
+      // producer-only companion parameters (BEH-CONVERSATIONAL-DEPTH /
+      // INTELLECTUAL-CHALLENGE / MEMORY-REFERENCE / PATIENCE-LEVEL /
+      // RESPECT-EXPERIENCE / STORY-INVITATION / DEPTH-PREFERENCE /
+      // ENERGY / ENGAGEMENT / MOOD / REMINISCENCE / INSIGHT-QUALITY)
+      // and emits natural-language tutor directives. Depends on
+      // `behavior_targets` because it reads from
+      // `sections.behaviorTargets._merged`.
+      id: "companion_directives",
+      name: "Companion Directives",
+      priority: 12.83,
+      dataSource: "_assembled",
+      activateWhen: { condition: "always" },
+      fallback: { action: "null" },
+      transform: "companionDirectives",
+      outputKey: "companionDirectives",
+      dependsOn: ["behavior_targets"],
     },
     {
       id: "activity_toolkit",

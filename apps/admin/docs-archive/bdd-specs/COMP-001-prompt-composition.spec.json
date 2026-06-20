@@ -994,6 +994,21 @@
       "outputKey": "audienceGuidance"
     },
     {
+      "id": "companion_directives",
+      "name": "Companion Directives",
+      "priority": 12.83,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "companionDirectives",
+      "outputKey": "companionDirectives",
+      "dependsOn": ["behavior_targets"]
+    },
+    {
       "id": "activity_toolkit",
       "name": "Activity Toolkit",
       "priority": 12.85,
