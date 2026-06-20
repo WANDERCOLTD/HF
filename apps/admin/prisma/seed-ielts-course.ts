@@ -50,9 +50,13 @@ import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
 
+import * as crypto from "crypto";
+
 import { projectCourseReference } from "../lib/wizard/project-course-reference";
 import { applyProjection } from "../lib/wizard/apply-projection";
 import { findOrCreateSeedPlaybook } from "../lib/seed/find-or-create-seed-playbook";
+import { saveAssertions } from "../lib/content-trust/save-assertions";
+import type { ExtractedAssertion } from "../lib/content-trust/extract-assertions";
 
 const DOMAIN_SLUG = "abacus-academy";
 const SUBJECT_SLUG = "ielts-speaking";
@@ -115,7 +119,7 @@ export async function main(prisma: PrismaClient): Promise<void> {
     });
   }
 
-  await prisma.subjectSource.upsert({
+  const subjectSource = await prisma.subjectSource.upsert({
     where: { subjectId_sourceId: { subjectId: subject.id, sourceId: source.id } },
     update: {},
     create: { subjectId: subject.id, sourceId: source.id },
@@ -208,6 +212,71 @@ export async function main(prisma: PrismaClient): Promise<void> {
       console.warn(`  ⚠ ${w.severity}: [${w.code}] ${w.message}`);
     }
   }
+
+  // ── 4a. Derived ContentAssertion rows (#2125 PR2) ──
+  // Without these the Content tab on /x/courses/<id> shows "No categories
+  // yet" + the Course Map / Teaching Points panels are empty. Derive a
+  // small set of assertions from the projection output we already have in
+  // memory — skills (skill_framework), modules (session_flow), and the
+  // course's directive teaching approach (teaching_rule). This is
+  // intentionally narrower than wizard AI extraction would produce on
+  // the same doc — the operator can upgrade with richer assertions via a
+  // CourseRefData fixture or AI re-extract once this is in place.
+  //
+  // Writes route through `saveAssertions(sourceId, assertions,
+  // subjectSourceId)` — the canonical chokepoint. This (a) honours the
+  // ai-to-db-guard `maxAssertionsPerDocument` cap, (b) dedups by
+  // contentHash so re-seed is idempotent, and (c) passes subjectSourceId
+  // to close the ENTITIES.md §6 I1 invariant (without it, assertions
+  // leak cross-course in SectionDataLoader's curriculumAssertions filter).
+  const derivedAssertions: ExtractedAssertion[] = [];
+
+  for (const skill of projection.skills) {
+    const tierText =
+      skill.tiers?.secure || skill.tiers?.developing || skill.tiers?.emerging || skill.name;
+    const text = `${skill.name} (${skill.ref}). Secure tier: ${tierText}`;
+    derivedAssertions.push({
+      assertion: text,
+      category: "skill_framework",
+      chapter: "Skills Framework",
+      section: skill.ref,
+      tags: ["ielts", "skill", skill.ref.toLowerCase()],
+      examRelevance: 1.0,
+      contentHash: crypto.createHash("sha256").update(text).digest("hex"),
+    });
+  }
+
+  for (const mod of projection.curriculumModules) {
+    const loRefs = mod.learningObjectives.map((lo) => lo.ref).join(", ");
+    const text = `${mod.title}${mod.description ? `. ${mod.description}` : ""}${loRefs ? ` Primary outcomes: ${loRefs}.` : ""}`;
+    derivedAssertions.push({
+      assertion: text,
+      category: "session_flow",
+      chapter: "Modules",
+      section: mod.slug,
+      tags: ["ielts", "module", mod.slug],
+      examRelevance: 1.0,
+      contentHash: crypto.createHash("sha256").update(text).digest("hex"),
+    });
+  }
+
+  const teachingText =
+    "IELTS Speaking tutor uses a directive correction-retry cycle. Names the single most score-limiting issue after each answer, provides the correction, and asks for an immediate retry. Theory is embedded in practice — never standalone lectures. Target speech ratio ~80% student / ~20% tutor.";
+  derivedAssertions.push({
+    assertion: teachingText,
+    category: "teaching_rule",
+    chapter: "Teaching Approach",
+    tags: ["ielts", "pedagogy", "directive", "correction-retry"],
+    examRelevance: 0.5,
+    contentHash: crypto.createHash("sha256").update(teachingText).digest("hex"),
+  });
+
+  const saveResult = await saveAssertions(source.id, derivedAssertions, subjectSource.id);
+  console.log(
+    `  Assertions: +${saveResult.created} written, ` +
+      `dedup ${saveResult.duplicatesSkipped}` +
+      (saveResult.truncatedByCap ? `, truncated ${saveResult.truncatedByCap} by cap` : ""),
+  );
 
   // ── 4b. Post-projection coversModules upsert for the Mock module (#550) ──
   // The fixture parser (`detectAuthoredModules`) does not yet handle a
