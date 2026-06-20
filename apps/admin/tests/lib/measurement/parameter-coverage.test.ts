@@ -181,7 +181,7 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
 };
 
 /**
- * 2026-06-17 audit baseline. 118 of 154 parameters lack a runtime
+ * 2026-06-17 audit baseline. 118 of 154 parameters lacked a runtime
  * consumer — they're in the registry, BehaviorTarget seed wires a System
  * default, educators can theoretically tune them, but nothing in the
  * compose / scoring / cascade / chat paths reads the result.
@@ -193,8 +193,16 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   - companion (11) — companion-style transforms partial
  *
  * Each wired consumer drops this number by 1.
+ *
+ * #2083 (epic #2078 S1, 2026-06-19) — drops 5: the 5 personality-adaptation
+ * parameters (BEH-OPENNESS-ADAPTATION, BEH-CONSCIENTIOUSNESS-ADAPTATION,
+ * BEH-EXTRAVERSION-ADAPTATION, BEH-AGREEABLENESS-ADAPTATION,
+ * BEH-NEUROTICISM-ADAPTATION) are now read by
+ * `lib/prompt/composition/transforms/personality.ts::
+ * computePersonalityAdaptationDirectives`, wired into `instructions.ts`
+ * via the existing `personality_adaptation` array. 118 → 113.
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 118;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 113;
 
 // ────────────────────────────────────────────────────────────
 // Classification

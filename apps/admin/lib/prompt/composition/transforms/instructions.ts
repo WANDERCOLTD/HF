@@ -17,7 +17,7 @@
 
 import { registerTransform } from "../TransformRegistry";
 import { classifyValue } from "../types";
-import { computePersonalityAdaptation } from "./personality";
+import { computePersonalityAdaptation, computePersonalityAdaptationDirectives } from "./personality";
 import type { AssembledContext, GoalData, SubjectSourcesData } from "../types";
 import type { AuthoredModule, PlaybookConfig, SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
@@ -269,8 +269,19 @@ registerTransform("computeInstructions", (
       };
     })(),
 
-    // Personality adaptation (route.ts lines 2017-2075)
-    personality_adaptation: computePersonalityAdaptation(personality, thresholds),
+    // Personality adaptation (route.ts lines 2017-2075).
+    //
+    // #2083 (epic #2078 S1) — appended block: the 5 ADAPTATION-target
+    // parameters (BEH-OPENNESS-ADAPTATION, BEH-CONSCIENTIOUSNESS-ADAPTATION,
+    // BEH-EXTRAVERSION-ADAPTATION, BEH-AGREEABLENESS-ADAPTATION,
+    // BEH-NEUROTICISM-ADAPTATION) read the caller's matching B5-* score from
+    // `CallerPersonalityProfile.parameterValues` and emit a directive citing
+    // the parameter's `interpretationHigh` / `interpretationLow`. Closes the
+    // producer-only gap pinned by `parameter-coverage.test.ts`.
+    personality_adaptation: [
+      ...computePersonalityAdaptation(personality, thresholds),
+      ...computePersonalityAdaptationDirectives(personality, mergedTargets, thresholds),
+    ],
 
     // Behavior targets summary (route.ts lines 2076-2087)
     // #1951 — kept at top-5 as the safety-fallback path for when the new
