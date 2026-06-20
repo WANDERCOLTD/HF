@@ -87,8 +87,15 @@ export function extractOutcomeStatements(bodyText: string): Record<string, strin
 
 // ── Module ID validation ──────────────────────────────────────────────
 
-const MODULE_ID_PATTERN = /^[a-z][a-z0-9_]*$/;
-const MAX_MODULE_ID_LENGTH = 32;
+// Pattern: lowercase letter prefix, then lowercase/digits/underscores/hyphens.
+// Hyphens added to support unit-doc-derived IDs (CIO/CTO trio: filenames
+// like `standard-unit-04-it-operations-infrastructure`). Length cap bumped
+// from 32 → 80 for the same reason — unit doc filenames carry semantic
+// segments and run longer than the original 32-char IELTS budget. The
+// regex still excludes uppercase, spaces, and special chars that would
+// break JSON keys / URL slugs.
+const MODULE_ID_PATTERN = /^[a-z][a-z0-9_-]*$/;
+const MAX_MODULE_ID_LENGTH = 80;
 
 // ── Header declaration patterns ───────────────────────────────────────
 
@@ -322,7 +329,7 @@ function rowToModule(
   if (!MODULE_ID_PATTERN.test(rawId) || rawId.length > MAX_MODULE_ID_LENGTH) {
     warnings.push({
       code: "MODULE_ID_INVALID",
-      message: `Module ID "${rawId}" does not match required pattern /^[a-z][a-z0-9_]*$/ (max ${MAX_MODULE_ID_LENGTH} chars).`,
+      message: `Module ID "${rawId}" does not match required pattern /^[a-z][a-z0-9_-]*$/ (max ${MAX_MODULE_ID_LENGTH} chars).`,
       path: `modules.${rawId}.id`,
       severity: "error",
     });
