@@ -1353,6 +1353,23 @@ export interface AuthoredModuleSettings {
    * @bucket exam
    */
   silentMode?: boolean;
+  /**
+   * #1954 (Boaz/Eldar gap analysis Unit 1.1) — when true on an
+   * exam / assessment module, the AGGREGATE stage emits a personalised
+   * `SessionLessonPlan` to `Session.metadata.lessonPlan` after the
+   * four-criteria completion gate (#1953) fires "complete". The plan
+   * identifies the weakest IELTS criterion in this session and
+   * recommends a next module focus. Default: educators opt in per
+   * module; the IELTS baseline fixture sets this to `true`.
+   *
+   * Reads in `app/api/calls/[callId]/pipeline/route.ts::
+   * stageExecutors.AGGREGATE` inside the same try-block that runs the
+   * four-criteria gate. Fire-and-forget — failures log but never
+   * block the AGGREGATE stage.
+   *
+   * @bucket exam
+   */
+  generateLessonPlan?: boolean;
 }
 
 export interface ModuleDefaults {
@@ -1454,4 +1471,36 @@ export interface SessionMetadata {
    * `startSec` ordering.
    */
   phaseBoundaries?: PhaseBoundary[];
+  /**
+   * #1954 (Boaz/Eldar gap analysis Unit 1.1) — personalised next-step
+   * plan emitted post-AGGREGATE when this session's locked module
+   * declared `generateLessonPlan: true` AND the four IELTS criteria
+   * scored non-zero (the #1953 completion gate fired "complete").
+   * Read by the Results screen "Your next steps" panel. Optional —
+   * absent when the gate didn't fire OR the toggle was off.
+   */
+  lessonPlan?: SessionLessonPlan;
+}
+
+/**
+ * #1954 — minimal next-step plan shape. Deterministic from per-criterion
+ * IELTS CallScore rows: identifies the WEAKEST criterion (lowest score)
+ * and emits a one-line focus rationale + recommended next module slug.
+ * Not AI-generated. Cheap, stable, fire-and-forget at AGGREGATE end.
+ */
+export interface SessionLessonPlan {
+  /** Canonical IELTS criterion id — one of `skill_fluency_and_coherence_fc`,
+   *  `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`,
+   *  `skill_pronunciation_p`. The weakest of the four scored on this session. */
+  focusCriterion: string;
+  /** Human-readable label for the focus criterion (educator + learner facing). */
+  focusLabel: string;
+  /** The numeric score (0..1) the focus criterion achieved on this session. */
+  focusScore: number;
+  /** One-line rationale rendered under the panel headline. */
+  reason: string;
+  /** Slug of the next module the rollup recommends (when computable). */
+  nextRecommendedModuleSlug?: string;
+  /** UTC ISO timestamp the plan was emitted. */
+  emittedAt: string;
 }

@@ -48,6 +48,7 @@ import { config as appConfig } from "@/lib/config";
 import { updateCurriculumProgress, getCurriculumProgress, completeModule } from "@/lib/curriculum/track-progress";
 import { validateIeltsCompletion } from "@/lib/curriculum/validate-ielts-completion";
 import { markModuleIncomplete } from "@/lib/curriculum/mark-module-incomplete";
+import { buildPostAssessmentPlan } from "@/lib/lesson-plan/build-post-assessment-plan";
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
@@ -3615,6 +3616,27 @@ const stageExecutors: Record<string, StageExecutor> = {
           ctx.log.info("IELTS completion gate: complete", {
             callId: ctx.callId,
             moduleId: ctx.call.curriculumModuleId,
+          });
+          // #1954 (Boaz/Eldar gap analysis Unit 1.1) — Post-Assessment
+          // lesson-plan trigger. Fire-and-forget the plan generator
+          // ONLY when the four-criteria completion gate fires
+          // "complete". The helper itself gates on the locked
+          // module's `generateLessonPlan` toggle (default off; IELTS
+          // baseline fixture sets it true) so this call is cheap and
+          // safe across all non-IELTS playbooks. The .catch wrapper
+          // guarantees AGGREGATE completion even if plan generation
+          // throws unexpectedly — defence in depth on top of the
+          // helper's own try/catch.
+          buildPostAssessmentPlan({
+            callId: ctx.callId,
+            callerId: ctx.callerId,
+            sessionId: ctx.call.sessionId ?? null,
+            playbookId: ctx.call.playbookId ?? null,
+            curriculumModuleId: ctx.call.curriculumModuleId ?? null,
+          }).catch((err: unknown) => {
+            ctx.log.warn(
+              `Post-Assessment lesson plan failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
           });
         }
       }

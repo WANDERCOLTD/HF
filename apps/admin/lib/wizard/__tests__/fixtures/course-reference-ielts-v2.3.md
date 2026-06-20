@@ -184,6 +184,7 @@ appliesTo: [exam, structured]
 settings:
   # Fixed-duration exam simulation, warmer framing than Mock.
   silentMode: true              # #1956 (Boaz/Eldar Unit 1.3) — conversational, no test announcement
+  generateLessonPlan: true      # #1954 (Boaz/Eldar Unit 1.1) — emit next-step plan on completion
   minSpeakingSec: 1200          # 20-minute fixed session length
   questionTarget: { min: 0, target: 0 }   # examiner-driven; questions per Part are scripted, not a learner-target
   cueCardPool: source:cue-card-bank-baseline-v1   # Source 4 — Baseline Assessment topic pool (Part 2 sub-pool)

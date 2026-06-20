@@ -82,14 +82,12 @@ import "./transforms/interleaveReview";
 import "./transforms/courseComplete";
 import "./transforms/conversationArtifacts";
 import "./transforms/memoryDeltas";
-<<<<<<< HEAD
 // #2082 (S3 of epic #2078) — wires 22 producer-only curriculum-adaptation
 // parameters via a new transform that reads cascade BehaviorTarget values
 // + LEARN-ASSESS-001-derived per-module mastery from sharedState.
 import "./transforms/curriculum-adaptation";
-=======
+// #2083 — companion-adaptation transform sibling.
 import "./transforms/companion";
->>>>>>> origin/main
 
 /**
  * Execute the full composition pipeline.
