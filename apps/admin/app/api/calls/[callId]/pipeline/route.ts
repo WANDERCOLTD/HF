@@ -1479,16 +1479,24 @@ async function runBatchedAgentAnalysis(
     log.info("Short transcript - capping confidence", { wordCount, cap: confidenceCap });
   }
 
-  // Get DOMAIN MEASURE specs from caller's domain playbook (or fallback)
-  // Need playbookId first to filter system specs
+  // Get DOMAIN MEASURE + MEASURE_AGENT specs from caller's domain playbook
+  // (or fallback). Need playbookId first to filter system specs.
+  //
+  // #2084 S6 — extended to load BOTH `MEASURE` (caller-behaviour scoring,
+  // e.g. CA-001) AND `MEASURE_AGENT` (agent-quality supervision, e.g.
+  // STYLE-001 + SUPV-001). The SCORE_AGENT stage IS the canonical home for
+  // MEASURE_AGENT outputType per PIPELINE.md §1 + §1.1 — the stage name
+  // doesn't match the enum (see §1.1 landmine). Pre-#2084 the executor
+  // only loaded `MEASURE`, leaving the 11 SUPV-001 supervision-quality
+  // parameters producer-only despite their spec being seeded.
   const { specs: playbookSpecs, playbookId, fallback } = await getPlaybookSpecs(
     callerId,
-    ["MEASURE"],
+    ["MEASURE", "MEASURE_AGENT"],
     log
   );
 
-  // Get SYSTEM MEASURE specs filtered by playbook toggle settings
-  const systemSpecs = await getSystemSpecs(["MEASURE"], playbookId, log);
+  // Get SYSTEM MEASURE + MEASURE_AGENT specs filtered by playbook toggle settings
+  const systemSpecs = await getSystemSpecs(["MEASURE", "MEASURE_AGENT"], playbookId, log);
 
   // Combine SYSTEM + DOMAIN specs (deduplicate by ID)
   const allSpecIds = new Set<string>();
@@ -1870,6 +1878,118 @@ async function computeReward(
       scoredAt: new Date(),
     },
   });
+
+  // #2084 S6 — REW-001 per-parameter CallScore mirror.
+  //
+  // REW-001 declares 4 reward-component parameters (`BEH-ENGAGEMENT-REWARD`,
+  // `BEH-LEARNING-REWARD`, `BEH-RAPPORT-REWARD`, `BEH-GOAL-PROGRESS-REWARD`)
+  // plus `BEH-COMPOSITE-REWARD` (the weighted blend). Pre-#2084 every reward
+  // computation wrote ONLY a single `RewardScore` row holding `overallScore +
+  // parameterDiffs[]` — the 4 component parameters had NO runtime consumer,
+  // showing up as producer-only in parameter-coverage.test.ts.
+  //
+  // Per the design brief at PR #2088 (Fork 2 → A "lighter shape"), we mirror
+  // the computed reward components onto `CallScore` rows keyed by the
+  // canonical BEH-* parameter ids that already exist in the
+  // `behavior-parameters.registry.json` registry. The chokepoint
+  // `writeCallScore` requires a real `AnalysisSpec.id`; we resolve the
+  // active SYSTEM-scope REW-001 spec at runtime.
+  //
+  // Component derivation (pragmatic — improve in a follow-on PR):
+  //   - engagement_reward      → behaviorScore  (alignment-with-targets proxy)
+  //   - learning_reward        → behaviorScore  (we don't yet decompose
+  //                                              memory-extraction count here;
+  //                                              the LEARN-stage memories are
+  //                                              the proper basis. Until then
+  //                                              behaviorScore is the honest
+  //                                              proxy — REW-001 spec text
+  //                                              ties this to information
+  //                                              density which behaviorScore
+  //                                              correlates with).
+  //   - rapport_reward         → behaviorScore  (personality-style alignment
+  //                                              proxy; ditto.)
+  //   - goal_progress_reward   → goalProgressScore ?? 0
+  //
+  // BEH-COMPOSITE-REWARD is intentionally NOT mirrored here — it's already
+  // "covered" via the categorisation route at
+  // app/api/playbooks/[playbookId]/parameters/route.ts:339. The CallScore
+  // overallScore field on RewardScore IS the composite. Writing it as a
+  // CallScore too would create competing readers.
+  //
+  // BEH-ERROR-ELABORATION (also in the `reinforcement` domain group) is
+  // explicitly excluded from S6 — it's a learning-style directive, not a
+  // reward parameter. Picked up by S2 (#2087).
+  //
+  // Sibling-writer survey (per lattice-survey.md):
+  // - `CallScore` is written by: SCORE_AGENT runner (EXTRACT/MEASURE writes),
+  //   PROSODY consumer (`lib/pipeline/prosody-consumer.ts`), ADAPT delta
+  //   deriver. All route through `writeCallScore`. No collision — our writes
+  //   use distinct parameterIds (BEH-*-REWARD) not used by any other writer.
+  // - The chokepoint's idempotence key is `(callId, parameterId, moduleId)`;
+  //   re-running REWARD overwrites the row in place. moduleId is NULL here
+  //   because reward components are call-scoped not module-scoped.
+  try {
+    const rewSpec = await prisma.analysisSpec.findFirst({
+      where: { outputType: "REWARD", scope: "SYSTEM", isActive: true },
+      select: { id: true },
+    });
+    if (!rewSpec) {
+      log.warn(
+        "REW-001 mirror skipped: no active SYSTEM REWARD spec found — " +
+          "per-parameter CallScore rows not written (BEH-*-REWARD producer-only)",
+      );
+    } else {
+      const rewardComponents: Array<{
+        parameterId: string;
+        score: number;
+        sourceField: string;
+      }> = [
+        { parameterId: "BEH-ENGAGEMENT-REWARD", score: behaviorScore, sourceField: "behaviorScore" },
+        { parameterId: "BEH-LEARNING-REWARD", score: behaviorScore, sourceField: "behaviorScore" },
+        { parameterId: "BEH-RAPPORT-REWARD", score: behaviorScore, sourceField: "behaviorScore" },
+        {
+          parameterId: "BEH-GOAL-PROGRESS-REWARD",
+          score: goalProgressScore ?? 0,
+          sourceField: "goalProgressScore",
+        },
+      ];
+
+      for (const component of rewardComponents) {
+        const clamped = Math.max(0, Math.min(1, component.score));
+        await writeCallScore({
+          callId,
+          callerId: call.callerId,
+          parameterId: component.parameterId,
+          analysisSpecId: rewSpec.id,
+          moduleId: null,
+          score: clamped,
+          confidence: 0.7,
+          evidence: [
+            `REW-001 component mirror — ${component.sourceField}=${component.score.toFixed(3)} → clamped=${clamped.toFixed(3)}`,
+          ],
+          reasoning:
+            `Reward component derived during pipeline REWARD stage. ` +
+            `overallScore=${overallScore.toFixed(3)}, behaviorScore=${behaviorScore.toFixed(3)}, ` +
+            `goalProgressScore=${goalProgressScore?.toFixed(3) ?? "null"}. ` +
+            `See app/api/calls/[callId]/pipeline/route.ts::computeReward (#2084 S6).`,
+          scoredBy: "reward_components_v1",
+        });
+      }
+
+      log.info("REW-001 per-component CallScore mirror written", {
+        callId,
+        rewSpecId: rewSpec.id,
+        componentsCount: rewardComponents.length,
+      });
+    }
+  } catch (mirrorErr) {
+    // Non-fatal — log + continue. The RewardScore row above is the
+    // canonical reward store; the per-component mirror is closing the
+    // parameter-coverage loop. A failure here doesn't break ADAPT/UPDATE.
+    log.warn(
+      `REW-001 per-component CallScore mirror failed (non-fatal): ${mirrorErr instanceof Error ? mirrorErr.message : String(mirrorErr)}`,
+    );
+  }
 
   log.info(`Reward computed`, {
     overallScore,

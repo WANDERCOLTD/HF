@@ -61,6 +61,15 @@ interface RegistryEntry {
   parameterId: string;
   name?: string;
   domainGroup?: string;
+  /**
+   * #2084 S6 (Fork 3 → walk aliases) — registry alias array. SUPV-001 + REW-001
+   * declare their parameters with snake_case ids (e.g. `response_length_score`,
+   * `engagement_reward`) and the registry mirrors those alongside the BEH-*
+   * canonical id. When classifying coverage we walk the alias list so a
+   * consumer can match against EITHER form without forcing a rename pass
+   * across the registry. The snake_case → camelCase mirror still applies.
+   */
+  aliases?: string[];
 }
 
 interface Registry {
@@ -203,6 +212,23 @@ function searchTerms(id: string): string[] {
   return Array.from(out);
 }
 
+/**
+ * #2084 S6 (Fork 3 → walk aliases) — produce search terms for BOTH the
+ * canonical parameter id AND each declared alias. Lets a consumer that
+ * writes the snake_case alias (e.g. `engagement_reward` from REW-001.spec)
+ * match a registry row whose canonical id is `BEH-ENGAGEMENT-REWARD`.
+ *
+ * Empty / missing alias array degrades to canonical-only.
+ */
+function searchTermsWithAliases(entry: RegistryEntry): string[] {
+  const out = new Set<string>(searchTerms(entry.parameterId));
+  for (const alias of entry.aliases ?? []) {
+    if (!alias || typeof alias !== "string") continue;
+    for (const t of searchTerms(alias)) out.add(t);
+  }
+  return Array.from(out);
+}
+
 // ────────────────────────────────────────────────────────────
 // Exempt list — categories of parameters with documented partial wiring
 // ────────────────────────────────────────────────────────────
@@ -231,38 +257,24 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *
  * Each wired consumer drops this number by 1.
  *
- * 2026-06-19 — #2085 (S5 of epic #2078) wired the 12 producer-only
- * companion-domain parameters (BEH-CONVERSATIONAL-DEPTH /
- * INTELLECTUAL-CHALLENGE / MEMORY-REFERENCE / PATIENCE-LEVEL /
- * RESPECT-EXPERIENCE / STORY-INVITATION / DEPTH-PREFERENCE / ENERGY /
- * ENGAGEMENT / MOOD / REMINISCENCE / INSIGHT-QUALITY) via the new
- * `transforms/companion.ts` transform. Ratchet drops 118 → 106.
- *
- * 2026-06-20 — #2087 / S2 of #2078 (learning-style 31-param wiring):
- *   - Phase A: 13 trivial prompt-injection wires added to the registry
- *     (BEH-ACTION-VERBS / BEH-DEFINITION-PRECISION / BEH-DIAGRAM-LANGUAGE
- *     / BEH-FEELING-LANGUAGE / BEH-IMAGERY-DENSITY / BEH-LIST-STRUCTURE
- *     / BEH-REAL-WORLD-EXAMPLES / BEH-REPETITION-OFFER / BEH-RHYTHM-ATTENTION
- *     / BEH-SPATIAL-METAPHOR / BEH-TERMINOLOGY-FORMAL / BEH-VERBAL-ELABORATION
- *     / BEH-WRITTEN-ALTERNATIVE). Covered via the parametersAsDirectives
- *     dispatcher (#1907).
- *   - Phase B: 18 spec-driven wires extending ADAPT-LEARN-001 with two new
- *     adapt_to_vark_modality + adapt_to_interaction_extensions parameters
- *     whose adaptationRules name the 18 producer-only ids as targetParameter.
- *     adapt-runner.ts consumes the spec generically (no runner change).
- *   - Test enhancement: CONSUMER_SOURCE now also scans
- *     docs-archive/bdd-specs/ADAPT-*.spec.json — the runner's consumption of
- *     spec JSON makes the spec's targetParameter strings consumer-source-equivalent.
- *   - Ratchet: 106 → 52 (post-#2085 companion + post-S2 learning-style +
- *     post-spec-scan extension).
- *
- * 2026-06-20 — sub-epic #2086 (S4 of #2078) wires the 13
- * engagement+onboarding params via ADAPT-ENG-001 spec branches +
- * `lib/pipeline/engagement-targets-manifest.ts`. With the spec-scan
- * extension already in place (from S2), these 13 params now classify as
- * covered. Ratchet retains S2's 52 as the upper bound — S4's deltas
- * will further drop the actual gap count; bump-down deferred to a
- * cleanup PR once S6 lands.
+ * **History:**
+ * - 2026-06-17 — 118 (initial baseline, registered at #1907 audit)
+ * - 2026-06-19 — 106 (#2085 S5 wires 12 companion params via
+ *   `transforms/companion.ts`).
+ * - 2026-06-20 — 52 (#2087 S2 wires 31 learning-style params via
+ *   parametersAsDirectives dispatcher + ADAPT-LEARN-001 spec branches +
+ *   ADAPT-*.spec.json scan extension).
+ * - 2026-06-20 — #2086 S4 wires 13 engagement+onboarding via
+ *   ADAPT-ENG-001 spec branches (further drops actual count; ratchet
+ *   retains 52 as upper bound).
+ * - 2026-06-20 — #2084 S6 wires 15 supervision + reward params via
+ *   SCORE_AGENT extension + REW-001 per-component mirror via the
+ *   canonical `writeCallScore` chokepoint. Fork 3 alias-walking caught
+ *   4 incidental matches in companion/curriculum-adaptation/engagement
+ *   that previously slipped on snake_case vs canonical BEH-* form.
+ *   See `lib/measurement/supv-rew-consumer-manifest.ts` for the wired
+ *   list and PR #2088 for the design brief. Ratchet retains 52 as
+ *   upper bound; cleanup PR will tighten once stable.
  */
 const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 52;
 
@@ -302,7 +314,12 @@ function classify(p: RegistryEntry): ParamResult {
       domainGroup: p.domainGroup,
     };
   }
-  for (const term of searchTerms(p.parameterId)) {
+  // #2084 S6 (Fork 3) — walk aliases at search time. The supervision +
+  // reward params live in the registry as BEH-* canonical with snake_case
+  // in `aliases[]`; SCORE_AGENT writes the snake_case form (from
+  // SUPV-001.spec.json parameters[].id) for SUPV-001. This lets a single
+  // consumer string match either id form.
+  for (const term of searchTermsWithAliases(p)) {
     if (term.length < 4) continue; // skip too-generic
     const re = new RegExp(
       `\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
