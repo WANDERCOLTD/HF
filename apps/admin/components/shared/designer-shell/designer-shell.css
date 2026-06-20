@@ -48,6 +48,22 @@
   min-width: 0;
 }
 
+/* Cross-cutting dim — applied by tri-pane consumers (journey / teaching /
+ * scoring) when the LH selection's settings only affect cross-cutting
+ * compose sections (behaviorTargets, personality, instructions, …). The
+ * Preview pane has no discrete bubble to pulse, so we de-emphasise it
+ * and let the Inspector RHS carry the operator's attention. The opacity
+ * is scoped to `.hf-preview-lens` (the Preview root) so the sibling
+ * `PreviewLocatorHint` chip stays full-opacity and the dim has a verbal
+ * companion. Pointer events stay on — the bubble-click + pick-strip
+ * escape route still works through the dimmed canvas. Pair:
+ * CROSS_CUTTING_SECTIONS + isBucketCrossCutting() in
+ * lib/journey/bucket-relations.ts. */
+.hf-designer-canvas-dim .hf-preview-lens {
+  opacity: 0.6;
+  transition: opacity 160ms ease-out;
+}
+
 .hf-designer-inspector {
   min-width: 0;
   background: var(--surface-primary);

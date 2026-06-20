@@ -160,6 +160,14 @@ export function CourseModulesTab({
           onSelect={setSelectedModuleId}
         />
       }
+      // When a module is selected, the LH selection has no impact on the
+      // Preview (which is course-wide until the module-scoped variant
+      // ships — see TODO below). Same rationale as the cross-cutting
+      // dim in the bucket-driven tabs: refocus the operator on the RHS
+      // ModuleInspectorPanel.
+      canvasClassName={
+        selectedModuleId !== null ? "hf-designer-canvas-dim" : undefined
+      }
       canvas={
         <>
           {/* TODO(preview-scope): extend PreviewLens to accept ?moduleId
