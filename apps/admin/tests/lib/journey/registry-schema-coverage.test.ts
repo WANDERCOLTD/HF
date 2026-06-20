@@ -147,6 +147,9 @@ const APPLIES_TO_ALL: readonly string[] = [
   // firstCallModuleVisibility is structured-only — NOT in this list.
   "completionMode",
   // strictPrerequisites is structured-only — NOT in this list.
+  // Story #2105 — lessonPlanMode applies to every shape (continuous /
+  // structured / exam) since the field IS what discriminates the first two.
+  "lessonPlanMode",
   "loMasteryThreshold",
   "interleaveReviewMinDays",
   "callCountPolicy",

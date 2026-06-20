@@ -10,9 +10,9 @@ Auto-generated from `apps/admin/docs-archive/bdd-specs/behavior-parameters.regis
 |---|---:|
 | Active parameters | 139 |
 | Deprecated | 15 |
-| Covered by consumer file | 35 |
-| Covered by promptInjection dispatcher | 1 |
-| **Producer-only (gap)** | **103** |
+| Covered by consumer file | 104 |
+| Covered by promptInjection dispatcher | 14 |
+| **Producer-only (gap)** | **21** |
 | **Total** | **154** |
 
 Producer-only entries are parameters with neither a code-level consumer nor a registry-driven `promptInjection` dispatcher — the operator can tune the cascade but nothing reads the value. See [`tests/lib/measurement/parameter-coverage.test.ts`](../../apps/admin/tests/lib/measurement/parameter-coverage.test.ts) for the ratchet pinning this count downward.
@@ -32,77 +32,77 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
-| `BEH-CONVERSATIONAL-DEPTH` | gap | H/L | — | — |
-| `BEH-DEPTH-PREFERENCE` | gap | H/L | COMP-DEPTH-PREFERENCE | — |
-| `BEH-EMPATHY-RATE` | covered | H/L | empathy_expression, response_empathy_score | `app/api/x/seed-domains/route.ts`, `lib/goals/strategies/connect_warmth_avg.ts` |
-| `BEH-ENERGY` | gap | H/L | COMP-ENERGY | — |
-| `BEH-ENGAGEMENT` | gap | H/L | COMP-ENGAGEMENT | — |
+| `BEH-CONVERSATIONAL-DEPTH` | covered | H/L | — | `lib/prompt/composition/CompositionExecutor.ts`, `lib/prompt/composition/transforms/companion.ts` |
+| `BEH-DEPTH-PREFERENCE` | covered | H/L | COMP-DEPTH-PREFERENCE | `lib/prompt/composition/transforms/companion.ts` |
+| `BEH-EMPATHY-RATE` | covered | H/L | empathy_expression, response_empathy_score | `app/api/x/seed-domains/route.ts`, `lib/goals/strategies/connect_warmth_avg.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-ENERGY` | covered | H/L | COMP-ENERGY | `lib/prompt/composition/transforms/companion.ts` |
+| `BEH-ENGAGEMENT` | covered | H/L | COMP-ENGAGEMENT | `app/api/calls/[callId]/pipeline/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts`, `lib/pipeline/engagement-targets-manifest.ts`, +1 more |
 | `BEH-INSIGHT-FREQUENCY` | covered | H/L | — | `lib/goals/strategies/connect_warmth_avg.ts` |
-| `BEH-INSIGHT-QUALITY` | gap | H/L | insight_quality | — |
-| `BEH-INTELLECTUAL-CHALLENGE` | gap | H/L | — | — |
-| `BEH-MEMORY-REFERENCE` | gap | H/L | — | — |
-| `BEH-MOOD` | gap | H/L | COMP-MOOD | — |
+| `BEH-INSIGHT-QUALITY` | covered | H/L | insight_quality | `lib/prompt/composition/transforms/companion.ts` |
+| `BEH-INTELLECTUAL-CHALLENGE` | covered | H/L | — | `lib/prompt/composition/transforms/companion.ts` |
+| `BEH-MEMORY-REFERENCE` | covered | H/L | — | `lib/prompt/composition/transforms/companion.ts` |
+| `BEH-MOOD` | covered | H/L | COMP-MOOD | `lib/prompt/composition/transforms/companion.ts` |
 | `BEH-PACE-MATCH` | covered | H/L | CONV_PACE, adapt_to_pace_preference, pace_indicators, pacing_actual | `app/api/x/seed-domains/route.ts`, `lib/chat/admin-tools.ts`, `lib/pipeline/prosody-consumer.ts`, +1 more |
-| `BEH-PATIENCE-LEVEL` | gap | H/L | — | — |
+| `BEH-PATIENCE-LEVEL` | covered | H/L | — | `lib/prompt/composition/transforms/companion.ts` |
 | `BEH-PROACTIVE` | covered | H/L | — | `app/api/x/seed-domains/route.ts` |
 | `BEH-QUESTION-RATE` | covered | H/L | — | `app/api/x/seed-domains/route.ts`, `lib/goals/track-progress.ts`, `lib/prompt/composition/transforms/quickstart.ts` |
-| `BEH-REMINISCENCE` | gap | H/L | COMP-REMINISCENCE | — |
-| `BEH-RESPECT-EXPERIENCE` | gap | H/L | — | — |
-| `BEH-STORY-INVITATION` | gap | H/L | — | — |
+| `BEH-REMINISCENCE` | covered | H/L | COMP-REMINISCENCE | `lib/prompt/composition/transforms/companion.ts` |
+| `BEH-RESPECT-EXPERIENCE` | covered | H/L | — | `lib/prompt/composition/transforms/companion.ts` |
+| `BEH-STORY-INVITATION` | covered | H/L | — | `lib/prompt/composition/transforms/companion.ts` |
 
 ## `curriculum-adaptation` (32)
 
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
-| `BEH-ADVANCE-READINESS` | gap | H/L | — | — |
-| `BEH-ANALOGY-USAGE` | gap | H/L | — | — |
-| `BEH-APPLICATION-ADAPTATION` | gap | H/L | application_adaptation | — |
-| `BEH-APPLICATION-SCORE` | covered | H/L | application_score | `app/api/calls/[callId]/pipeline/route.ts` |
-| `BEH-CHALLENGE-LEVEL` | covered | H/L | — | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/educator/classrooms/[id]/differentiation/route.ts` |
-| `BEH-CHECK-FOR-UNDERSTANDING` | gap | H/L | — | — |
-| `BEH-COMPREHENSION-ADAPTATION` | gap | H/L | comprehension_adaptation | — |
-| `BEH-COMPREHENSION-SCORE` | gap | H/L | comprehension_score | — |
+| `BEH-ADVANCE-READINESS` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-ANALOGY-USAGE` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-APPLICATION-ADAPTATION` | covered | H/L | application_adaptation | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-APPLICATION-SCORE` | covered | H/L | application_score | `app/api/calls/[callId]/pipeline/route.ts`, `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-CHALLENGE-LEVEL` | covered | H/L | — | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/educator/classrooms/[id]/differentiation/route.ts`, `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-CHECK-FOR-UNDERSTANDING` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-COMPREHENSION-ADAPTATION` | covered | H/L | comprehension_adaptation | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-COMPREHENSION-SCORE` | covered | H/L | comprehension_score | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
 | `BEH-CONCEPT-DENSITY` | covered | H/L | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
-| `BEH-CONCEPT-EXPOSURE` | gap | H/L | concept_exposure | — |
+| `BEH-CONCEPT-EXPOSURE` | covered | H/L | concept_exposure | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
 | `BEH-EXAMPLE-RICHNESS` | covered | H/L | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
-| `BEH-EXPLANATION-VARIETY` | gap | H/L | — | — |
-| `BEH-FOUNDATION-FOCUS` | gap | H/L | — | — |
-| `BEH-GUIDED-PRACTICE` | gap | H/L | — | — |
-| `BEH-INTERLEAVING` | gap | H/L | — | — |
-| `BEH-MASTERY-ADAPTATION` | gap | H/L | mastery_adaptation | — |
-| `BEH-MODULE-INTRODUCTION` | gap | H/L | module_introduction | — |
-| `BEH-MODULE-MASTERY` | covered | H/L | module_mastery | `app/api/callers/[callerId]/lo-progress/route.ts`, `app/api/calls/[callId]/pipeline/route.ts`, `lib/compose/section-loaders.ts`, +1 more |
-| `BEH-NEW-CONTENT-RATE` | gap | H/L | — | — |
-| `BEH-NUANCE-EXPLORATION` | gap | H/L | — | — |
+| `BEH-EXPLANATION-VARIETY` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-FOUNDATION-FOCUS` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-GUIDED-PRACTICE` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-INTERLEAVING` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-MASTERY-ADAPTATION` | covered | H/L | mastery_adaptation | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-MODULE-INTRODUCTION` | covered | H/L | module_introduction | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-MODULE-MASTERY` | covered | H/L | module_mastery | `app/api/callers/[callerId]/lo-progress/route.ts`, `app/api/calls/[callId]/pipeline/route.ts`, `lib/compose/section-loaders.ts`, +2 more |
+| `BEH-NEW-CONTENT-RATE` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-NUANCE-EXPLORATION` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
 | `BEH-PRACTICE-RATIO` | gap | H/L | — | — |
-| `BEH-PREREQUISITE-ADAPTATION` | gap | H/L | prerequisite_adaptation | — |
-| `BEH-PREREQUISITE-CALLBACK` | gap | H/L | — | — |
-| `BEH-PREREQUISITE-CHECK` | gap | H/L | prerequisite_check | — |
-| `BEH-PROBING-QUESTIONS` | gap | H/L | — | — |
-| `BEH-PRODUCTIVE-STRUGGLE` | gap | H/L | — | — |
+| `BEH-PREREQUISITE-ADAPTATION` | covered | H/L | prerequisite_adaptation | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-PREREQUISITE-CALLBACK` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-PREREQUISITE-CHECK` | covered | H/L | prerequisite_check | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-PROBING-QUESTIONS` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-PRODUCTIVE-STRUGGLE` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
 | `BEH-REPETITION-FREQUENCY` | gap | H/L | — | — |
-| `BEH-REVIEW-ADAPTATION` | gap | H/L | review_adaptation | — |
-| `BEH-REVIEW-STATUS` | gap | H/L | review_status | — |
+| `BEH-REVIEW-ADAPTATION` | covered | H/L | review_adaptation | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-REVIEW-STATUS` | covered | H/L | review_status | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
 | `BEH-SCAFFOLDING` | covered | H/L | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
-| `BEH-SPACED-RETRIEVAL-PRIORITY` | gap | H/L | — | — |
-| `BEH-WORKED-EXAMPLES` | gap | H/L | — | — |
+| `BEH-SPACED-RETRIEVAL-PRIORITY` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
+| `BEH-WORKED-EXAMPLES` | covered | H/L | — | `lib/prompt/composition/transforms/curriculum-adaptation.ts` |
 
 ## `engagement` (13)
 
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
-| `BEH-CALL-FREQUENCY-ADAPTATION` | gap | H/L | call_frequency_adaptation | — |
-| `BEH-CHUNK-SIZE` | covered | H/L | chunk-size | `lib/voice/audio-slice.ts` |
-| `BEH-COGNITIVE-ACTIVATION` | gap | H/L | CP-004 | — |
-| `BEH-COMMUNICATION-COMPLEXITY-ADAPTATION` | gap | H/L | communication_complexity_adaptation | — |
-| `BEH-CONV-DOM` | gap | H/L | CONV_DOM | — |
-| `BEH-ENGAGEMENT-ADAPTATION` | gap | H/L | engagement_adaptation | — |
-| `BEH-LEARNING-VELOCITY-ADAPTATION` | gap | H/L | learning_velocity_adaptation | — |
-| `BEH-PAUSE-FOR-QUESTIONS` | gap | H/L | pause-for-questions | — |
-| `BEH-TONE-ASSERT` | gap | H/L | TONE_ASSERT | — |
+| `BEH-CALL-FREQUENCY-ADAPTATION` | covered | H/L | call_frequency_adaptation | `lib/pipeline/engagement-targets-manifest.ts` |
+| `BEH-CHUNK-SIZE` | covered | H/L | chunk-size | `lib/pipeline/engagement-targets-manifest.ts`, `lib/voice/audio-slice.ts` |
+| `BEH-COGNITIVE-ACTIVATION` | covered | H/L | CP-004 | `lib/pipeline/engagement-targets-manifest.ts` |
+| `BEH-COMMUNICATION-COMPLEXITY-ADAPTATION` | covered | H/L | communication_complexity_adaptation | `lib/pipeline/engagement-targets-manifest.ts` |
+| `BEH-CONV-DOM` | covered | H/L | CONV_DOM | `lib/pipeline/engagement-targets-manifest.ts` |
+| `BEH-ENGAGEMENT-ADAPTATION` | covered | H/L | engagement_adaptation | `lib/pipeline/engagement-targets-manifest.ts` |
+| `BEH-LEARNING-VELOCITY-ADAPTATION` | covered | H/L | learning_velocity_adaptation | `lib/pipeline/engagement-targets-manifest.ts` |
+| `BEH-PAUSE-FOR-QUESTIONS` | covered | H/L | pause-for-questions | `lib/pipeline/engagement-targets-manifest.ts` |
+| `BEH-TONE-ASSERT` | covered | H/L | TONE_ASSERT | `lib/pipeline/engagement-targets-manifest.ts` |
 | `BEH-TURN-LENGTH` | covered | H/L | — | `lib/chat/unified-assistant-prompt.ts`, `lib/prompt/composition/transforms/quickstart.ts` |
 | `BEH-WARMTH` | covered | H/L | BEH-CONVERSATIONAL-TONE, warmth_actual | `app/api/cascade/resolve/route.ts`, `app/api/chat/factual-grounding-intercept.ts`, `app/api/x/seed-domains/route.ts`, +7 more |
-| `check-for-understanding` | gap | H/L | — | — |
+| `check-for-understanding` | covered | H/L | — | `lib/pipeline/engagement-targets-manifest.ts` |
 | `CONV_PACE` | deprecated | H/L | — | `lib/chat/admin-tools.ts`, `lib/pipeline/prosody-consumer.ts`, `lib/pipeline/prosody-types.ts` |
 
 ## `learning-adaptation` (49)
@@ -115,43 +115,43 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 | `auditory_adaptation` | deprecated | H/L | — | — |
 | `BEH-ABSTRACT-OK` | gap | H/L | — | — |
 | `BEH-ABSTRACT-VS-CONCRETE` | promptInjection-dispatcher | H/L | abstract-vs-concrete | — |
-| `BEH-ACTION-VERBS` | gap | H/L | — | — |
+| `BEH-ACTION-VERBS` | promptInjection-dispatcher | H/L | — | — |
 | `BEH-ADAPT-TO-FEEDBACK-STYLE` | gap | H/L | adapt_to_feedback_style | — |
 | `BEH-ADAPT-TO-INTERACTION-STYLE` | gap | H/L | adapt_to_interaction_style | — |
 | `BEH-ADAPT-TO-QUESTION-FREQUENCY` | gap | H/L | adapt_to_question_frequency | — |
 | `BEH-AGGREGATE-PROFILE` | gap | H/L | aggregate_profile | — |
 | `BEH-APPROACH-SWITCHING` | gap | H/L | — | — |
 | `BEH-CONVERSATIONAL-TONE` | deprecated | H/L | — | `lib/chat/unified-assistant-prompt.ts` |
-| `BEH-DEFINITION-PRECISION` | gap | H/L | — | — |
-| `BEH-DIAGRAM-LANGUAGE` | gap | H/L | — | — |
+| `BEH-DEFINITION-PRECISION` | promptInjection-dispatcher | H/L | — | — |
+| `BEH-DIAGRAM-LANGUAGE` | promptInjection-dispatcher | H/L | — | — |
 | `BEH-ENGAGEMENT-PROMPTS` | gap | H/L | engagement-prompts | — |
 | `BEH-ENGAGEMENT-WITH-EXAMPLES` | gap | H/L | engagement_with_examples | — |
 | `BEH-EXPLANATION-DEPTH` | covered | H/L | explanation-depth | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
-| `BEH-FEELING-LANGUAGE` | gap | H/L | — | — |
-| `BEH-IMAGERY-DENSITY` | gap | H/L | — | — |
-| `BEH-LIST-STRUCTURE` | gap | H/L | — | — |
+| `BEH-FEELING-LANGUAGE` | promptInjection-dispatcher | H/L | — | — |
+| `BEH-IMAGERY-DENSITY` | promptInjection-dispatcher | H/L | — | — |
+| `BEH-LIST-STRUCTURE` | promptInjection-dispatcher | H/L | — | — |
 | `BEH-MODALITY-CONSISTENCY` | gap | H/L | — | — |
 | `BEH-MODALITY-VARIETY` | gap | H/L | — | — |
 | `BEH-MULTIMODAL-ADAPTATION` | gap | H/L | multimodal_adaptation | — |
 | `BEH-PRACTICE-EXERCISES` | gap | H/L | — | — |
 | `BEH-QUESTION-ASKING-RATE` | gap | H/L | question_asking_rate | — |
 | `BEH-READING-WRITING-ADAPTATION` | gap | H/L | reading_writing_adaptation | — |
-| `BEH-REAL-WORLD-EXAMPLES` | gap | H/L | — | — |
-| `BEH-REPETITION-OFFER` | gap | H/L | — | — |
+| `BEH-REAL-WORLD-EXAMPLES` | promptInjection-dispatcher | H/L | — | — |
+| `BEH-REPETITION-OFFER` | promptInjection-dispatcher | H/L | — | — |
 | `BEH-RESPONSE-LENGTH-PREFERENCE` | gap | H/L | response_length_preference | — |
-| `BEH-RHYTHM-ATTENTION` | gap | H/L | — | — |
+| `BEH-RHYTHM-ATTENTION` | promptInjection-dispatcher | H/L | — | — |
 | `BEH-SOCRATIC-QUESTIONING` | covered | H/L | socratic-questioning | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
-| `BEH-SPATIAL-METAPHOR` | gap | H/L | — | — |
-| `BEH-TERMINOLOGY-FORMAL` | gap | H/L | — | — |
-| `BEH-VERBAL-ELABORATION` | gap | H/L | — | — |
-| `BEH-WRITTEN-ALTERNATIVE` | gap | H/L | — | — |
+| `BEH-SPATIAL-METAPHOR` | promptInjection-dispatcher | H/L | — | — |
+| `BEH-TERMINOLOGY-FORMAL` | promptInjection-dispatcher | H/L | — | — |
+| `BEH-VERBAL-ELABORATION` | promptInjection-dispatcher | H/L | — | — |
+| `BEH-WRITTEN-ALTERNATIVE` | promptInjection-dispatcher | H/L | — | — |
 | `concept-density` | covered | H/L | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
 | `example-richness` | covered | H/L | — | `app/api/educator/classrooms/[id]/differentiation/route.ts` |
 | `formality-level` | deprecated | —/— | — | — |
 | `kinesthetic_adaptation` | deprecated | H/L | — | — |
 | `pace_indicators` | deprecated | H/L | — | `lib/chat/admin-tools.ts`, `lib/pipeline/prosody-consumer.ts`, `lib/pipeline/prosody-types.ts` |
 | `repetition-frequency` | gap | H/L | — | — |
-| `scaffolding` | covered | H/L | — | `app/api/communities/route.ts`, `app/api/content-sources/[sourceId]/extract/route.ts`, `app/api/course-pack/analyze/route.ts`, +11 more |
+| `scaffolding` | covered | H/L | — | `app/api/communities/route.ts`, `app/api/content-sources/[sourceId]/extract/route.ts`, `app/api/course-pack/analyze/route.ts`, +12 more |
 | `VARK-A` | covered | H/L | — | `app/api/parameters/display-config/route.ts` |
 | `VARK-K` | covered | H/L | — | `app/api/parameters/display-config/route.ts` |
 | `VARK-PROFILE` | gap | H/L | — | — |
@@ -163,28 +163,28 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
-| `BEH-CONTEXT-SETTING-QUALITY` | gap | H/L | context_setting_quality | — |
+| `BEH-CONTEXT-SETTING-QUALITY` | covered | H/L | context_setting_quality | `lib/pipeline/engagement-targets-manifest.ts` |
 | `BEH-DEFAULT-TARGETS-QUALITY` | covered | H/L | default_targets_quality | `app/api/onboarding/personas/[slug]/route.ts`, `app/api/onboarding/route.ts` |
-| `BEH-GOAL-DISCOVERY-QUALITY` | gap | H/L | goal_discovery_quality | — |
-| `BEH-PREFERENCE-ELICITATION-QUALITY` | gap | H/L | preference_elicitation_quality | — |
+| `BEH-GOAL-DISCOVERY-QUALITY` | covered | H/L | goal_discovery_quality | `lib/pipeline/engagement-targets-manifest.ts` |
+| `BEH-PREFERENCE-ELICITATION-QUALITY` | covered | H/L | preference_elicitation_quality | `lib/pipeline/engagement-targets-manifest.ts` |
 | `BEH-WELCOME-QUALITY` | covered | H/L | welcome_quality | `app/api/onboarding/route.ts` |
 
 ## `personality-adaptation` (14)
 
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
-| `BEH-AGREEABLENESS-ADAPTATION` | gap | H/L | agreeableness_adaptation | — |
-| `BEH-B5-A` | covered | H/L | B5-A | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts` |
-| `BEH-B5-C` | covered | H/L | B5-C | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts` |
-| `BEH-B5-E` | covered | H/L | B5-E | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts` |
-| `BEH-B5-N` | covered | H/L | B5-N | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts` |
-| `BEH-B5-O` | covered | H/L | B5-O | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts`, `app/api/parameters/route.ts` |
-| `BEH-CONSCIENTIOUSNESS-ADAPTATION` | gap | H/L | conscientiousness_adaptation | — |
+| `BEH-AGREEABLENESS-ADAPTATION` | covered | H/L | agreeableness_adaptation | `lib/prompt/composition/transforms/instructions.ts`, `lib/prompt/composition/transforms/personality.ts` |
+| `BEH-B5-A` | covered | H/L | B5-A | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts`, `lib/prompt/composition/transforms/personality.ts` |
+| `BEH-B5-C` | covered | H/L | B5-C | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts`, `lib/prompt/composition/transforms/personality.ts` |
+| `BEH-B5-E` | covered | H/L | B5-E | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts`, `lib/prompt/composition/transforms/personality.ts` |
+| `BEH-B5-N` | covered | H/L | B5-N | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts`, `lib/prompt/composition/transforms/personality.ts` |
+| `BEH-B5-O` | covered | H/L | B5-O | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/parameters/display-config/route.ts`, `app/api/parameters/route.ts`, +1 more |
+| `BEH-CONSCIENTIOUSNESS-ADAPTATION` | covered | H/L | conscientiousness_adaptation | `lib/prompt/composition/transforms/instructions.ts`, `lib/prompt/composition/transforms/personality.ts` |
 | `BEH-DIRECTNESS` | covered | H/L | directness_actual | `app/api/x/seed-domains/route.ts` |
-| `BEH-EXTRAVERSION-ADAPTATION` | gap | H/L | extraversion_adaptation | — |
+| `BEH-EXTRAVERSION-ADAPTATION` | covered | H/L | extraversion_adaptation | `lib/prompt/composition/transforms/instructions.ts`, `lib/prompt/composition/transforms/personality.ts` |
 | `BEH-FORMALITY` | covered | H/L | formality-level, formality_actual | `app/api/x/seed-domains/route.ts`, `lib/chat/unified-assistant-prompt.ts` |
-| `BEH-NEUROTICISM-ADAPTATION` | gap | H/L | neuroticism_adaptation | — |
-| `BEH-OPENNESS-ADAPTATION` | gap | H/L | openness_adaptation | — |
+| `BEH-NEUROTICISM-ADAPTATION` | covered | H/L | neuroticism_adaptation | `lib/prompt/composition/transforms/instructions.ts`, `lib/prompt/composition/transforms/personality.ts` |
+| `BEH-OPENNESS-ADAPTATION` | covered | H/L | openness_adaptation | `lib/prompt/composition/transforms/instructions.ts`, `lib/prompt/composition/transforms/personality.ts` |
 | `BEH-PAUSE-TOLERANCE` | covered | H/L | — | `lib/chat/unified-assistant-prompt.ts`, `lib/measurement/neutral-target.ts`, `lib/prompt/composition/transforms/quickstart.ts` |
 | `BEH-RESPONSE-LEN` | covered | H/L | — | `app/api/chat/route.ts`, `lib/chat/admin-tool-handlers.ts`, `lib/chat/admin-tools.ts`, +4 more |
 
@@ -192,27 +192,27 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
-| `BEH-COMPOSITE-REWARD` | covered | H/L | composite_reward | `app/api/playbooks/[playbookId]/parameters/route.ts` |
-| `BEH-ENGAGEMENT-REWARD` | gap | H/L | engagement_reward | — |
-| `BEH-ERROR-ELABORATION` | gap | H/L | error-elaboration | — |
-| `BEH-GOAL-PROGRESS-REWARD` | gap | H/L | goal_progress_reward | — |
-| `BEH-LEARNING-REWARD` | gap | H/L | learning_reward | — |
-| `BEH-RAPPORT-REWARD` | gap | H/L | rapport_reward | — |
+| `BEH-COMPOSITE-REWARD` | covered | H/L | composite_reward | `app/api/calls/[callId]/pipeline/route.ts`, `app/api/playbooks/[playbookId]/parameters/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-ENGAGEMENT-REWARD` | covered | H/L | engagement_reward | `app/api/calls/[callId]/pipeline/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-ERROR-ELABORATION` | covered | H/L | error-elaboration | `app/api/calls/[callId]/pipeline/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-GOAL-PROGRESS-REWARD` | covered | H/L | goal_progress_reward | `app/api/calls/[callId]/pipeline/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-LEARNING-REWARD` | covered | H/L | learning_reward | `app/api/calls/[callId]/pipeline/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-RAPPORT-REWARD` | covered | H/L | rapport_reward | `app/api/calls/[callId]/pipeline/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
 
 ## `supervision` (12)
 
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
-| `BEH-CRISIS-DETECTION-SCORE` | gap | H/L | crisis_detection_score | — |
-| `BEH-ENGAGEMENT-TREND-SCORE` | gap | H/L | engagement_trend_score | — |
-| `BEH-LEARNING-PROGRESS-SCORE` | gap | H/L | learning_progress_score | — |
-| `BEH-RESPONSE-LENGTH-SCORE` | gap | H/L | response_length_score | — |
-| `BEH-SAFETY-COMPLIANCE-SCORE` | gap | H/L | safety_compliance_score | — |
-| `BEH-STUDENT-APPLICATION-SCORE` | gap | H/L | student_application_score | — |
-| `BEH-STYLE-CONSISTENCY-SCORE` | gap | H/L | style_consistency_score | — |
-| `BEH-TARGET-ALIGNMENT-SCORE` | gap | H/L | target_alignment_score | — |
-| `BEH-TUTOR-FIDELITY-SCORE` | gap | H/L | tutor_fidelity_score | — |
-| `BEH-TUTOR-INTRO-SCORE` | gap | H/L | tutor_intro_score | — |
-| `BEH-TUTOR-SEQUENCE-SCORE` | gap | H/L | tutor_sequence_score | — |
-| `response_empathy_score` | deprecated | H/L | — | — |
+| `BEH-CRISIS-DETECTION-SCORE` | covered | H/L | crisis_detection_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-ENGAGEMENT-TREND-SCORE` | covered | H/L | engagement_trend_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-LEARNING-PROGRESS-SCORE` | covered | H/L | learning_progress_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-RESPONSE-LENGTH-SCORE` | covered | H/L | response_length_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-SAFETY-COMPLIANCE-SCORE` | covered | H/L | safety_compliance_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-STUDENT-APPLICATION-SCORE` | covered | H/L | student_application_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-STYLE-CONSISTENCY-SCORE` | covered | H/L | style_consistency_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-TARGET-ALIGNMENT-SCORE` | covered | H/L | target_alignment_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-TUTOR-FIDELITY-SCORE` | covered | H/L | tutor_fidelity_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-TUTOR-INTRO-SCORE` | covered | H/L | tutor_intro_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-TUTOR-SEQUENCE-SCORE` | covered | H/L | tutor_sequence_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `response_empathy_score` | deprecated | H/L | — | `lib/measurement/supv-rew-consumer-manifest.ts` |
 

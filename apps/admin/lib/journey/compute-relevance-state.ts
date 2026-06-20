@@ -20,10 +20,18 @@
  *   4. inherited      The cascade envelope's effective value comes
  *                     from a layer other than the course (Domain or
  *                     System).
- *   5. active         Default — the control is editable here.
+ *   5. conflicted     A `conflicts[]` declaration on the contract OR a
+ *                     reciprocal declaration on a peer is currently
+ *                     active (this value + the peer value both match
+ *                     the trigger sets). Story #2105 — non-blocking;
+ *                     the chip is the only visible difference vs
+ *                     active. LOWEST priority — hard-gated settings
+ *                     never classify as conflicted.
+ *   6. active         Default — the control is editable here.
  *
  * Sibling to `<RelevanceWrapper>` (the render-side consumer of this
- * helper's output).
+ * helper's output) and `<ConflictWarningChip>` (which mounts above the
+ * row when state === "conflicted").
  */
 
 import type { PlaybookConfig } from "../types/json-fields";
@@ -31,6 +39,7 @@ import { isGatedBy } from "./is-gated-by";
 import type {
   CourseShape,
   JourneySettingContract,
+  SettingConflictDecl,
 } from "./setting-contracts";
 
 export type RelevanceState =
@@ -38,7 +47,8 @@ export type RelevanceState =
   | "inherited"
   | "auto-derived"
   | "gated-off"
-  | "out-of-shape";
+  | "out-of-shape"
+  | "conflicted";
 
 /** Layer of the effective value — a thin mirror of the cascade
  *  `Layer` union for the inputs to this helper, kept independent so
@@ -62,7 +72,8 @@ export interface ComputeRelevanceStateArgs {
 
 export interface ComputeRelevanceStateResult {
   state: RelevanceState;
-  /** Free-text rationale to surface in the overlay chip. */
+  /** Free-text rationale to surface in the overlay chip. For
+   *  `conflicted`, this carries the conflict's `resolution` text. */
   reason?: string;
   /** Gating / auto-derive parent id (when applicable). */
   parentId?: string;
@@ -70,6 +81,10 @@ export interface ComputeRelevanceStateResult {
   parentLabel?: string;
   /** Layer name for inherited state (e.g. "Domain"). */
   layerOrigin?: string;
+  /** When state === "conflicted", the contract id of the peer setting
+   *  the conflict is with. Used by `<ConflictWarningChip>`'s "Resolve"
+   *  link to navigate the operator to the peer setting. */
+  conflictsWithId?: string;
 }
 
 /**
@@ -130,7 +145,24 @@ export function computeRelevanceState(
     };
   }
 
-  // 5) active — editable here.
+  // 5) conflicted — Story #2105. LOWEST priority. After every hard
+  // gate has been checked, walk this contract's `conflicts[]` declarations
+  // AND any reciprocal declarations on peers in the registry. When both
+  // sides match their respective trigger sets, surface a non-blocking
+  // amber chip via the result; the panel mounts <ConflictWarningChip>
+  // separately. Render-side keeps the field editable — operator MAY save
+  // the combination after understanding the trade-off.
+  const conflict = findActiveConflict(setting, playbookConfig, registry);
+  if (conflict) {
+    return {
+      state: "conflicted",
+      reason: conflict.resolution,
+      conflictsWithId: conflict.peerId,
+      parentLabel: conflict.peerLabel,
+    };
+  }
+
+  // 6) active — editable here.
   return { state: "active" };
 }
 
@@ -211,6 +243,98 @@ function isNoopEnforce(enforce: unknown): boolean {
     enforce === null
   );
 }
+
+interface ActiveConflict {
+  peerId: string;
+  peerLabel: string;
+  resolution: string;
+}
+
+/**
+ * Story #2105 — resolve any active `conflicts[]` declaration.
+ *
+ * Symmetric walk: checks BOTH this contract's own `conflicts[]` AND
+ * every peer's `conflicts[]` that names this contract via
+ * `conflictsWithId`. Either side may surface the conflict; the chip
+ * appears on both because the symmetry-coverage test enforces
+ * reciprocal declarations.
+ *
+ * The first match wins (a setting can be in at most one conflict
+ * surface at a time per the TL spec). Future extension: a multi-conflict
+ * scenario would extend this to return an array.
+ */
+function findActiveConflict(
+  setting: JourneySettingContract,
+  playbookConfig: PlaybookConfig,
+  registry: readonly JourneySettingContract[],
+): ActiveConflict | null {
+  const ownPath =
+    typeof setting.storagePath === "string"
+      ? setting.storagePath
+      : setting.storagePath.path;
+  const ownValue = readByDotPath(playbookConfig, ownPath);
+
+  // 1) Own conflicts[] — this contract names peers it conflicts with.
+  if (setting.conflicts) {
+    for (const decl of setting.conflicts) {
+      const peer = registry.find((c) => c.id === decl.conflictsWithId);
+      if (!peer) continue;
+      const peerPath =
+        typeof peer.storagePath === "string"
+          ? peer.storagePath
+          : peer.storagePath.path;
+      const peerValue = readByDotPath(playbookConfig, peerPath);
+      if (
+        matchesAny(ownValue, decl.whenThisValues) &&
+        matchesAny(peerValue, decl.whenOtherValues)
+      ) {
+        return {
+          peerId: peer.id,
+          peerLabel: peer.educatorLabel,
+          resolution: decl.resolution,
+        };
+      }
+    }
+  }
+
+  // 2) Peer conflicts[] — a peer names this contract via conflictsWithId.
+  // The symmetry assertion in coverage means own-walk usually finds it
+  // first, but the reciprocal walk is defensive against author drift.
+  for (const peer of registry) {
+    if (peer.id === setting.id) continue;
+    if (!peer.conflicts) continue;
+    for (const decl of peer.conflicts) {
+      if (decl.conflictsWithId !== setting.id) continue;
+      const peerPath =
+        typeof peer.storagePath === "string"
+          ? peer.storagePath
+          : peer.storagePath.path;
+      const peerValue = readByDotPath(playbookConfig, peerPath);
+      // From the peer's POV: peer value is "this", our value is "other".
+      if (
+        matchesAny(peerValue, decl.whenThisValues) &&
+        matchesAny(ownValue, decl.whenOtherValues)
+      ) {
+        return {
+          peerId: peer.id,
+          peerLabel: peer.educatorLabel,
+          resolution: decl.resolution,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function matchesAny(value: unknown, candidates: readonly unknown[]): boolean {
+  return candidates.some((c) => c === value);
+}
+
+// SettingConflictDecl is re-exported for downstream callers; this
+// satisfies the unused-import discipline when the symbol is referenced
+// only in type position.
+export type { SettingConflictDecl };
 
 function readByDotPath(config: PlaybookConfig, path: string): unknown {
   const trimmed = path.startsWith("config.") ? path.slice(7) : path;

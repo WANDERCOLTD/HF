@@ -135,6 +135,14 @@ const EXPECTED_OPTION_VALUES: Record<string, OptionPin> = {
     values: ["terminal-only", "all-modules", "any"],
     canonical: "lib/types/json-fields.ts::PlaybookConfig.completionMode (#494)",
   },
+  lessonPlanMode: {
+    // Story #2105 — surfaced as a Journey contract so the
+    // Continuous + Strict-Prerequisites conflict can be declared
+    // symmetrically. Canonical literal set lives at
+    // PlaybookConfig.lessonPlanMode.
+    values: ["structured", "continuous"],
+    canonical: "lib/types/json-fields.ts::PlaybookConfig.lessonPlanMode",
+  },
 
   // ── J_feedback ──────────────────────────────────────────────────
   progressNarrativeCadence: {

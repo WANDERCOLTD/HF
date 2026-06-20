@@ -281,11 +281,9 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *   BEH-AGG-001 output buckets now have ADAPT consumers; bucket 9
  *   (behavior-core: BEH-WARMTH / BEH-FORMALITY / BEH-DIRECTNESS /
  *   BEH-TONE / BEH-RESPONSE-LEN / BEH-TURN-LENGTH) is intentionally
- *   operator-cascade-set and NOT adapted. Actual gap count drops to
- *   6 — all 6 are behavior-core orphans
- *   (directness_actual / empathy_expression / BEH-EXPLORATION-STRUCTURE /
- *   formality_actual / pacing_actual / warmth_actual). Ratchet
- *   tightened to 6 per the Phase 2 brief.
+ *   operator-cascade-set and NOT adapted. Ratchet tightened to 6 —
+ *   all remaining gaps are behavior-core orphans (4 *_actual
+ *   aggregator outputs + empathy_expression + BEH-EXPLORATION-STRUCTURE).
  */
 const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 6;
 
