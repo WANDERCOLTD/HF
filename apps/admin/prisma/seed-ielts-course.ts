@@ -57,6 +57,7 @@ import { applyProjection } from "../lib/wizard/apply-projection";
 import { findOrCreateSeedPlaybook } from "../lib/seed/find-or-create-seed-playbook";
 import { saveAssertions } from "../lib/content-trust/save-assertions";
 import type { ExtractedAssertion } from "../lib/content-trust/extract-assertions";
+import { categoryToTeachMethod } from "../lib/content-trust/resolve-config";
 
 const DOMAIN_SLUG = "abacus-academy";
 const SUBJECT_SLUG = "ielts-speaking";
@@ -231,6 +232,11 @@ export async function main(prisma: PrismaClient): Promise<void> {
   // leak cross-course in SectionDataLoader's curriculumAssertions filter).
   const derivedAssertions: ExtractedAssertion[] = [];
 
+  // All three categories below are INSTRUCTION_CATEGORIES → categoryToTeachMethod
+  // returns "tutor_instruction" (short-circuited per #605 so tutor-facing
+  // directives never inherit a learner-facing method). Stamped here so the
+  // per-subject methods breakdown shows them grouped correctly instead of
+  // bucketing under "unassigned".
   for (const skill of projection.skills) {
     const tierText =
       skill.tiers?.secure || skill.tiers?.developing || skill.tiers?.emerging || skill.name;
@@ -243,6 +249,7 @@ export async function main(prisma: PrismaClient): Promise<void> {
       tags: ["ielts", "skill", skill.ref.toLowerCase()],
       examRelevance: 1.0,
       contentHash: crypto.createHash("sha256").update(text).digest("hex"),
+      teachMethod: categoryToTeachMethod("skill_framework", "practice"),
     });
   }
 
@@ -257,6 +264,7 @@ export async function main(prisma: PrismaClient): Promise<void> {
       tags: ["ielts", "module", mod.slug],
       examRelevance: 1.0,
       contentHash: crypto.createHash("sha256").update(text).digest("hex"),
+      teachMethod: categoryToTeachMethod("session_flow", "practice"),
     });
   }
 
@@ -269,6 +277,7 @@ export async function main(prisma: PrismaClient): Promise<void> {
     tags: ["ielts", "pedagogy", "directive", "correction-retry"],
     examRelevance: 0.5,
     contentHash: crypto.createHash("sha256").update(teachingText).digest("hex"),
+    teachMethod: categoryToTeachMethod("teaching_rule", "practice"),
   });
 
   const saveResult = await saveAssertions(source.id, derivedAssertions, subjectSource.id);
@@ -277,6 +286,24 @@ export async function main(prisma: PrismaClient): Promise<void> {
       `dedup ${saveResult.duplicatesSkipped}` +
       (saveResult.truncatedByCap ? `, truncated ${saveResult.truncatedByCap} by cap` : ""),
   );
+
+  // Self-heal teachMethod on already-existing rows from the previous seed
+  // run that wrote them with teachMethod=null (PR #2130 shipped without
+  // the categoryToTeachMethod call — assertions dedup on contentHash so
+  // saveAssertions above won't rewrite them; this fills the column in
+  // place). Idempotent: WHERE teachMethod IS NULL means subsequent runs
+  // touch zero rows.
+  const teachMethodBackfill = await prisma.contentAssertion.updateMany({
+    where: {
+      sourceId: source.id,
+      teachMethod: null,
+      category: { in: ["skill_framework", "session_flow", "teaching_rule"] },
+    },
+    data: { teachMethod: "tutor_instruction" },
+  });
+  if (teachMethodBackfill.count > 0) {
+    console.log(`  teachMethod backfilled on ${teachMethodBackfill.count} legacy row(s)`);
+  }
 
   // ── 4b. Post-projection coversModules upsert for the Mock module (#550) ──
   // The fixture parser (`detectAuthoredModules`) does not yet handle a
