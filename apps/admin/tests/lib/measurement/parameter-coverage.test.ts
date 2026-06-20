@@ -194,13 +194,14 @@ const PARAMETER_EXEMPT: Record<string, ExemptEntry> = {
  *
  * Each wired consumer drops this number by 1.
  *
- * #2082 (S3 of epic #2078) — dropped by 22: the new
- * `transforms/curriculum-adaptation.ts` transform reads
- * 22 curriculum-adaptation parameter IDs literally (CURR_A_MASTERY_PARAMS
- * + CURR_B_INSTRUCTIONAL_PARAMS) which the substring matcher classifies
- * as `covered`. 118 - 22 = 96.
+ * 2026-06-19 — #2085 (S5 of epic #2078) wired the 12 producer-only
+ * companion-domain parameters (BEH-CONVERSATIONAL-DEPTH /
+ * INTELLECTUAL-CHALLENGE / MEMORY-REFERENCE / PATIENCE-LEVEL /
+ * RESPECT-EXPERIENCE / STORY-INVITATION / DEPTH-PREFERENCE / ENERGY /
+ * ENGAGEMENT / MOOD / REMINISCENCE / INSIGHT-QUALITY) via the new
+ * `transforms/companion.ts` transform. Ratchet drops 118 → 106.
  */
-const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 96;
+const EXPECTED_EXEMPT_COUNT_INITIAL_BUDGET = 106;
 
 // ────────────────────────────────────────────────────────────
 // Classification
