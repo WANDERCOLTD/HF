@@ -289,6 +289,66 @@
           "outputNotes": "Returns null when no row exists (honest empty-state — no hardcoded fallback per feedback_no_hardcoded_score_backfill.md). Renderer push registered in coverage-producer-consumer.test.ts PAIRS manifest."
         }
       ]
+    },
+    {
+      "id": "ielts-llm-scoring-cascade",
+      "title": "IELTS Speaking LLM Scoring Cascade (IELTS-MEASURE-001 → SKILL-AGG-001 → ADAPT → COMPOSE)",
+      "description": "IELTS Speaking criteria scored via LLM transcript judgment per IELTS-MEASURE-001 (SCORE_AGENT stage, writes 4 skill_* CallScore rows via the canonical chokepoint at lib/measurement/write-call-score.ts) → SKILL-AGG-001 sourceParameterPattern \"skill_*\" closes loop via EMA-to-CallerTarget.currentScore → IELTS-P3-FOCUS-001 + sibling ADAPT specs read CallerTarget.currentScore and write CallerAttribute session-focus → compose transform emits [SESSION FOCUS] + PinnedCardContent. Vendor prosody signal lives in disjoint prosody_raw_* namespace (S3 / #2157); LR + GRA stay LLM-only forever, FC + P may be augmented by tool-use post-MVP. Closes epic #2135 S4 (#2139).",
+      "links": [
+        {
+          "stage": "MEASURE",
+          "producer": "apps/admin/lib/measurement/write-call-score.ts",
+          "outputKey": "CallScore.parameterId",
+          "outputKeySamples": [
+            "skill_fluency_and_coherence_fc",
+            "skill_lexical_resource_lr",
+            "skill_grammatical_range_and_accuracy_gra",
+            "skill_pronunciation_p"
+          ],
+          "kind": "row-write",
+          "outputNotes": "IELTS-MEASURE-001 (specRole=META, outputType=MEASURE) is the LLM-judged transcript scoring spec authored by epic #2135 S2 (PR #2143). Runs via the SCORE_AGENT stage (executor at app/api/calls/[callId]/pipeline/route.ts::stageExecutors.SCORE_AGENT). Writes one CallScore row per IELTS skill criterion (FC / LR / GRA / P), routed through the canonical chokepoint lib/measurement/write-call-score.ts — every write carries a real analysisSpecId (M3 ESLint chokepoint hf-measurement/no-bare-call-score-write blocks bare prisma.callScore.create outside this writer). Disjoint from prosody-consumer (S3, #2157) which writes prosody_raw_fc / _p / _lr / _gra. The 4 skill_* parameter ids live in IELTS-MEASURE-001.spec.json's parameters[] array — they are NOT in behavior-parameters.registry.json (consistent with sibling prosody_pace_wpm / prosody_hesitation_rate per .claude/rules/parameter-coverage.md \"outside this ratchet's scope by design\")."
+        },
+        {
+          "stage": "AGGREGATE",
+          "consumer": "apps/admin/docs-archive/bdd-specs/SKILL-AGG-001-skill-ema-aggregation.spec.json",
+          "consumesKey": "parameters[].config.aggregationRules[].sourceParameterPattern",
+          "consumesKeySamples": [
+            "skill_*"
+          ],
+          "outputKey": "CallerTarget.currentScore",
+          "kind": "callerTarget-write",
+          "runner": "apps/admin/lib/pipeline/aggregate-runner.ts",
+          "method": "ema_to_caller_target",
+          "outputNotes": "Pattern-based closure — SKILL-AGG-001's sourceParameterPattern \"skill_*\" closes the loop for every measured skill_* parameter via M2's closed-pattern classification (tests/lib/measurement/parameter-loop-closure.test.ts). EMA half-life and first-call cap come from SKILL_MEASURE_V1 contract; per-playbook override via Playbook.config.skillScoringEmaHalfLifeDays + skillMinCallsToFull."
+        },
+        {
+          "stage": "ADAPT",
+          "consumer": "apps/admin/lib/pipeline/runners/session-focus-policy.ts",
+          "consumesKey": "CallerTarget.currentScore (scope-based via spec.config.inputSkills — runner reads `where: {callerId, parameterId: {in: config.inputSkills}}` from each ADAPT spec's config; the 4 skill_* ids live in spec.config, not in generic runner source)",
+          "consumesKeySamples": [
+            "inputSkills",
+            "currentScore"
+          ],
+          "outputKey": "CallerAttribute(scope=specSlug, key=session_focus:next_{moduleSlug}).stringValue",
+          "outputKeySamples": [
+            "session_focus:next_"
+          ],
+          "kind": "callerAttribute-write",
+          "runner": "apps/admin/app/api/calls/[callId]/pipeline/route.ts",
+          "outputNotes": "First IELTS-specific consumer is IELTS-P3-FOCUS-001 (PR #2150 / epic #2145 S4). The runner is generic — input skill ids are spec-config driven (per-course); consumesKey is scope-based to skip per-sample overlap check (samples are field names present in runner source, not parameter ids). Honest empty-state: writes nothing when CallerTarget.currentScore rows do not exist (no hardcoded fallback per feedback_no_hardcoded_score_backfill.md). The written value is the LEARNER-facing label from spec.selectionRules (e.g. 'giving reasons'), NEVER an internal parameter id (learner-ui-leak-coverage.test.ts pins this)."
+        },
+        {
+          "stage": "COMPOSE",
+          "consumer": "apps/admin/lib/prompt/composition/transforms/session-focus.ts",
+          "consumesKey": "CallerAttribute.key startsWith pattern 'session_focus:next_' (scope-based — generic transform for any course/module slug)",
+          "consumesKeySamples": [
+            "session_focus:next_"
+          ],
+          "outputKey": "[SESSION FOCUS] block in composed prompt + PinnedCardContent.focusArea projection",
+          "kind": "section-emit",
+          "outputNotes": "Returns null when no row exists (honest empty-state). Renderer push registered in coverage-producer-consumer.test.ts PAIRS manifest. The criterion labels (Fluency and Coherence / Lexical Resource / Grammatical Range and Accuracy / Pronunciation) are INTERNAL and never leak into learner UI dirs (pinned by tests/lib/sim-chat/learner-ui-leak-coverage.test.ts); the projection emits the technique focus label (e.g. 'giving reasons') instead."
+        }
+      ]
     }
   ]
 }

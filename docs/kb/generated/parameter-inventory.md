@@ -8,12 +8,12 @@ Auto-generated from `apps/admin/docs-archive/bdd-specs/behavior-parameters.regis
 
 | Class | Count |
 |---|---:|
-| Active parameters | 139 |
+| Active parameters | 140 |
 | Deprecated | 15 |
-| Covered by consumer file | 104 |
+| Covered by consumer file | 105 |
 | Covered by promptInjection dispatcher | 14 |
 | **Producer-only (gap)** | **21** |
-| **Total** | **154** |
+| **Total** | **155** |
 
 Producer-only entries are parameters with neither a code-level consumer nor a registry-driven `promptInjection` dispatcher — the operator can tune the cascade but nothing reads the value. See [`tests/lib/measurement/parameter-coverage.test.ts`](../../apps/admin/tests/lib/measurement/parameter-coverage.test.ts) for the ratchet pinning this count downward.
 
@@ -199,12 +199,13 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 | `BEH-LEARNING-REWARD` | covered | H/L | learning_reward | `app/api/calls/[callId]/pipeline/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
 | `BEH-RAPPORT-REWARD` | covered | H/L | rapport_reward | `app/api/calls/[callId]/pipeline/route.ts`, `lib/measurement/supv-rew-consumer-manifest.ts` |
 
-## `supervision` (12)
+## `supervision` (13)
 
 | Parameter | Classification | Interpretations | Aliases | Consumer files |
 |---|---|---|---|---|
 | `BEH-CRISIS-DETECTION-SCORE` | covered | H/L | crisis_detection_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
 | `BEH-ENGAGEMENT-TREND-SCORE` | covered | H/L | engagement_trend_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
+| `BEH-INTERNAL-LEAK` | covered | H/L | — | `lib/pipeline/runners/supervise/leak-scan.ts` |
 | `BEH-LEARNING-PROGRESS-SCORE` | covered | H/L | learning_progress_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
 | `BEH-RESPONSE-LENGTH-SCORE` | covered | H/L | response_length_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
 | `BEH-SAFETY-COMPLIANCE-SCORE` | covered | H/L | safety_compliance_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
