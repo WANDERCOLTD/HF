@@ -567,6 +567,150 @@ async function runChecks(): Promise<CheckResult[]> {
     warnOnly: true,
   });
 
+  // Query 14 — #2166 (BIG LATTICE MISS #2) — soft source-refs in
+  // `Playbook.config.modules[]` that don't resolve to any `ContentSource`
+  // row. Same shape as Query 11 (AnalysisSpec.config.parameters[].id soft
+  // FK), different surface.
+  //
+  // Two ref shapes are walked per module entry:
+  //   1. `contentSourceRef` (top-level on `AuthoredModule`) — free-form
+  //      label like "Source 4 — Baseline topic pool"; matched against
+  //      `ContentSource.name` OR `ContentSource.slug`.
+  //   2. `settings.cueCardPool` / `settings.topicPool` / `settings.scaffoldPool`
+  //      (per `lib/wizard/resolve-module-source-refs.ts::RESOLVABLE_FIELDS`)
+  //      — only when stored as a `source:<slug>` string (unresolved state;
+  //      the resolved state inlines the array). Strip the `source:` prefix
+  //      then match against `ContentSource.slug`.
+  //
+  // Live evidence (2026-06-21 hf_sandbox): 5/5 IELTS Speaking Practice
+  // modules carry `contentSourceRef: "Source N — …"` but Sources 1-5 don't
+  // exist in `ContentSource`. At runtime `selectPinnedCardForModule`
+  // silently returns null and the shell renders without a cue card — no
+  // AppLog subject, no operator-visible signal. Partner-blocker for Mock
+  // + Part 2 + Baseline practice flows.
+  //
+  // WARN-only initially while the IELTS Sources 1-5 backfill story is in
+  // flight (sibling story per epic #2166 S6). Promote to error severity
+  // once the incumbent debt is cleared.
+  //
+  // CI's ephemeral DB has no Playbook seed → returns 0 rows by
+  // construction. Load-bearing run is via `npm run check:fk` against
+  // hosted DBs (DATABASE_URL_SANDBOX / DATABASE_URL_STAGING).
+  type DanglingSourceRefRow = {
+    playbook_id: string;
+    playbook_name: string;
+    module_slug: string;
+    unresolved_module_ref: string | null;
+    unresolved_cue_card_ref: string | null;
+    unresolved_topic_pool_ref: string | null;
+    unresolved_scaffold_ref: string | null;
+  };
+  let danglingSourceRefs: DanglingSourceRefRow[] = [];
+  try {
+    danglingSourceRefs = await prisma.$queryRaw<DanglingSourceRefRow[]>`
+      WITH module_refs AS (
+        SELECT
+          p.id AS playbook_id,
+          p.name AS playbook_name,
+          am->>'id' AS module_slug,
+          am->>'contentSourceRef' AS module_content_ref,
+          am->'settings'->>'cueCardPool' AS cue_card_pool_ref,
+          am->'settings'->>'topicPool' AS topic_pool_ref,
+          am->'settings'->>'scaffoldPool' AS scaffold_pool_ref
+        FROM "Playbook" p,
+             jsonb_array_elements(p.config->'modules') am
+        WHERE p."publishedAt" IS NOT NULL
+          AND jsonb_typeof(p.config->'modules') = 'array'
+      )
+      SELECT
+        playbook_id,
+        playbook_name,
+        module_slug,
+        CASE
+          WHEN module_content_ref IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM "ContentSource" cs
+              WHERE cs.name = mr.module_content_ref
+                 OR cs.slug = mr.module_content_ref
+            )
+          THEN module_content_ref
+          ELSE NULL
+        END AS unresolved_module_ref,
+        CASE
+          WHEN cue_card_pool_ref LIKE 'source:%'
+            AND NOT EXISTS (
+              SELECT 1 FROM "ContentSource" cs
+              WHERE cs.slug = SUBSTRING(mr.cue_card_pool_ref FROM 8)
+            )
+          THEN cue_card_pool_ref
+          ELSE NULL
+        END AS unresolved_cue_card_ref,
+        CASE
+          WHEN topic_pool_ref LIKE 'source:%'
+            AND NOT EXISTS (
+              SELECT 1 FROM "ContentSource" cs
+              WHERE cs.slug = SUBSTRING(mr.topic_pool_ref FROM 8)
+            )
+          THEN topic_pool_ref
+          ELSE NULL
+        END AS unresolved_topic_pool_ref,
+        CASE
+          WHEN scaffold_pool_ref LIKE 'source:%'
+            AND NOT EXISTS (
+              SELECT 1 FROM "ContentSource" cs
+              WHERE cs.slug = SUBSTRING(mr.scaffold_pool_ref FROM 8)
+            )
+          THEN scaffold_pool_ref
+          ELSE NULL
+        END AS unresolved_scaffold_ref
+      FROM module_refs mr
+      WHERE
+        (module_content_ref IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM "ContentSource" cs
+          WHERE cs.name = mr.module_content_ref OR cs.slug = mr.module_content_ref
+        ))
+        OR (cue_card_pool_ref LIKE 'source:%' AND NOT EXISTS (
+          SELECT 1 FROM "ContentSource" cs
+          WHERE cs.slug = SUBSTRING(mr.cue_card_pool_ref FROM 8)
+        ))
+        OR (topic_pool_ref LIKE 'source:%' AND NOT EXISTS (
+          SELECT 1 FROM "ContentSource" cs
+          WHERE cs.slug = SUBSTRING(mr.topic_pool_ref FROM 8)
+        ))
+        OR (scaffold_pool_ref LIKE 'source:%' AND NOT EXISTS (
+          SELECT 1 FROM "ContentSource" cs
+          WHERE cs.slug = SUBSTRING(mr.scaffold_pool_ref FROM 8)
+        ))
+      ORDER BY playbook_name, module_slug;
+    `;
+  } catch (err) {
+    // JSON path query syntax differs across Postgres versions / SQLite
+    // dev DBs. Same defensive shape as Query 11 — tolerate failure with
+    // a warn so unrelated CI doesn't block.
+    console.warn(
+      `[fk-check] Playbook.config module source-ref scan errored: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  results.push({
+    name: "playbook-module-dangling-source-ref",
+    description:
+      "#2166 (BIG LATTICE MISS #2) — Playbook.config.modules[] carries a soft source-ref (contentSourceRef / settings.cueCardPool / settings.topicPool / settings.scaffoldPool) that doesn't resolve to a ContentSource row. JSON column has no DB FK constraint. Runtime resolvers (selectPinnedCardForModule, resolveModuleSourceRefs) silently return null on miss — no operator-visible signal until a learner gets an empty shell. WARN-only until the IELTS Sources 1-5 backfill (sibling story) clears the incumbent debt; promote to error severity then.",
+    rows: danglingSourceRefs.map((r) => ({
+      id: `${r.playbook_name}/${r.module_slug}`,
+      detail: {
+        playbookId: r.playbook_id,
+        moduleSlug: r.module_slug,
+        unresolvedModuleRef: r.unresolved_module_ref ?? undefined,
+        unresolvedCueCardRef: r.unresolved_cue_card_ref ?? undefined,
+        unresolvedTopicPoolRef: r.unresolved_topic_pool_ref ?? undefined,
+        unresolvedScaffoldRef: r.unresolved_scaffold_ref ?? undefined,
+      },
+    })),
+    warnOnly: true,
+  });
+
   return results;
 }
 
