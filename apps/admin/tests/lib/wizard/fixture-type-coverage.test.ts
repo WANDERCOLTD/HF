@@ -63,8 +63,10 @@ const FIXTURE_KEY_EXEMPT: Record<string, string> = {
     "module-scoped incomplete-attempt duration gate (sec). Type addition deferred to follow-on; sibling of minSpeakingSec.",
   scoringCriteria:
     "per-module whitelist of scoring criteria (e.g. [FC, LR, GRA, Pron]). Type addition deferred — pairs with Theme 6 segmentKey work.",
-  scoreReadoutMode:
-    "per-module score readout policy (on-screen / end-of-module-on-screen / aloud). Type addition deferred — paired with Mock Results screen.",
+  // #2162 (this PR): scoreReadoutMode joined AuthoredModuleSettings with the
+  // typed ScoreReadoutMode union. Wizard parser now emits it through. Consumer
+  // wiring (Results screen + end-of-module readout) is the follow-on PR.
+  // Exempt entry removed; bump ratchet 4 → 3.
 };
 
 /** `AuthoredModuleSettings` type members deliberately not exercised by any
@@ -75,7 +77,9 @@ const TYPE_MEMBER_EXEMPT: Record<string, string> = {};
 // #1932 (epic #1931 S0): dropped from 5 → 4 — `topicPool` joined
 // `AuthoredModuleSettings` with a full type + registry + consumer
 // + resolver wiring; it is no longer exempt.
-const EXPECTED_FIXTURE_KEY_EXEMPT_COUNT = 4;
+// #2162: dropped from 4 → 3 — `scoreReadoutMode` joined
+// `AuthoredModuleSettings` with the typed `ScoreReadoutMode` union.
+const EXPECTED_FIXTURE_KEY_EXEMPT_COUNT = 3;
 const EXPECTED_TYPE_MEMBER_EXEMPT_COUNT = 0;
 
 // ────────────────────────────────────────────────────────────────────

@@ -231,6 +231,8 @@ describe("detectModuleSettings — error / edge cases", () => {
     // appliesTo, prepSilenceSec, scoringCriteria are intentionally
     // not in AuthoredModuleSettings — parser should NOT emit
     // MODULE_SETTINGS_UNKNOWN_FIELD warnings for them.
+    // #2162 — scoreReadoutMode is now a typed schema field
+    // (ScoreReadoutMode union); it carries through to the output.
     const md = [
       "#### Module 1 — Mock — Settings",
       "",
@@ -240,12 +242,15 @@ describe("detectModuleSettings — error / edge cases", () => {
       "settings:",
       "  prepSilenceSec: 60",
       "  scoringCriteria: [FC, LR]",
-      "  scoreReadoutMode: aloud",
+      "  scoreReadoutMode: aloud-with-indicative-qualifier",
       "  minSpeakingSec: 60",
       "```",
     ].join("\n");
     const r = detectModuleSettings(md, ["mock"]);
-    expect(r.byModuleId.get("mock")).toEqual({ minSpeakingSec: 60 });
+    expect(r.byModuleId.get("mock")).toEqual({
+      minSpeakingSec: 60,
+      scoreReadoutMode: "aloud-with-indicative-qualifier",
+    });
     // No UNKNOWN_FIELD warnings for the documented non-schema fields:
     expect(
       r.validationWarnings.filter(
