@@ -72,7 +72,8 @@ import { mapToMemoryCategory } from "@/lib/pipeline/memory";
 import { loadGuardrails, type GuardrailsConfig } from "@/lib/pipeline/guardrails";
 import { shouldRunCallerAnalysis } from "@/lib/pipeline/event-gate";
 import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
-import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile } from "@/lib/pipeline/specs-loader";
+import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile, filterByBehaviorTargetParams } from "@/lib/pipeline/specs-loader";
+import { ieltsLlmMeasureV1Enabled } from "@/lib/journey/module-settings-flag";
 import { writeCallScore, MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
 import { withTextNamespace } from "@/lib/pipeline/segment-key-namespace";
 import { normalizeScoreAgentEvidence } from "@/lib/pipeline/normalize-score-agent-evidence";
@@ -888,8 +889,35 @@ async function runBatchedCallerAnalysis(
   const callerProfile = await resolveCallerTeachingProfile(callerId, log);
   const allMeasureIds = combinedSpecs.filter(s => s.outputType === "MEASURE").map(s => s.id);
   const allLearnIds = combinedSpecs.filter(s => s.outputType === "LEARN").map(s => s.id);
-  const measureSpecIds = await filterByTeachingProfile(allMeasureIds, callerProfile, log);
+  let measureSpecIds = await filterByTeachingProfile(allMeasureIds, callerProfile, log);
   const learnSpecIds = await filterByTeachingProfile(allLearnIds, callerProfile, log);
+
+  // #2137 (epic #2135 S2) — apply the BehaviorTarget-presence gate AFTER
+  // the teaching-profile filter. Specs that opt in via
+  // `config.requiresBehaviorTargetParams: true` (e.g. IELTS-MEASURE-001)
+  // are dropped when the playbook has none of the spec's declared
+  // parameters on its BehaviorTarget rows. Generic — applies to any
+  // future course-specific scoring spec (CEFR / TOEFL / Spanish DELE).
+  measureSpecIds = await filterByBehaviorTargetParams(measureSpecIds, playbookId, log);
+
+  // #2137 (epic #2135 S2) — feature flag for the new IELTS LLM scoring
+  // path. Default OFF; when off, drop the IELTS-MEASURE-001 spec entirely
+  // so the legacy prosody-consumer path remains the sole IELTS-skill
+  // writer (no double-writes during the staged rollout). Slug-based
+  // check is deliberate — `seed-from-specs.ts` keys on slug, not id.
+  if (!ieltsLlmMeasureV1Enabled() && measureSpecIds.length > 0) {
+    const ieltsSpecs = await prisma.analysisSpec.findMany({
+      where: { id: { in: measureSpecIds }, slug: { startsWith: "IELTS-MEASURE-" } },
+      select: { id: true, slug: true },
+    });
+    if (ieltsSpecs.length > 0) {
+      const ieltsIds = new Set(ieltsSpecs.map((s) => s.id));
+      measureSpecIds = measureSpecIds.filter((id) => !ieltsIds.has(id));
+      log.info(
+        `[ielts-llm-measure-flag] HF_IELTS_LLM_MEASURE_V1=off — dropped ${ieltsSpecs.length} IELTS MEASURE spec(s): ${ieltsSpecs.map((s) => s.slug).join(", ")}`,
+      );
+    }
+  }
 
   // Load full MEASURE specs with triggers/actions
   const measureSpecs = measureSpecIds.length > 0
@@ -1175,7 +1203,50 @@ async function runBatchedCallerAnalysis(
       let shadowEvidenceUnknown = 0;
       if (parsed.scores) {
         for (const [parameterId, scoreData] of Object.entries(parsed.scores as Record<string, any>)) {
-          const score = Math.max(0, Math.min(1, scoreData.score ?? scoreData.s ?? 0.5));
+          // #2137 (epic #2135 S2) — honour the IELTS-MEASURE-001
+          // dual-confidence shape: `pronunciation` returns either a
+          // bare number OR `{ value: number|null, confidence: 'low' |
+          // 'medium' | 'high' }`. Unwrap to a flat number + capture
+          // the confidence tier marker for downstream (#2138 prosody-
+          // raw augmentation reader). Other criteria use a bare
+          // number|null.
+          let rawScoreValue: number | null | undefined;
+          let pronunciationConfidenceTier: string | null = null;
+          if (
+            scoreData !== null &&
+            typeof scoreData === "object" &&
+            "value" in scoreData
+          ) {
+            // Dual-confidence shape (Pronunciation).
+            rawScoreValue = (scoreData as { value: number | null }).value;
+            const tier = (scoreData as { confidence?: unknown }).confidence;
+            if (typeof tier === "string" && ["low", "medium", "high"].includes(tier)) {
+              pronunciationConfidenceTier = tier;
+            }
+          } else {
+            // Bare number|null shape (FC / LR / GRA / legacy).
+            rawScoreValue = scoreData?.score ?? scoreData?.s ?? null;
+          }
+
+          // **OPERATOR RULE (epic #2135 verbatim):**
+          // NEVER land hardcoded or AI-guessed score defaults to "fill"
+          // empty CallerTarget rows. When the LLM explicitly returns
+          // null (insufficient evidence), do NOT write a row. The empty
+          // band is honest; a 0.5 fallback corrupts the EMA aggregator.
+          //
+          // Back-compat: when the LLM omits the score field entirely
+          // (legacy non-IELTS spec response), preserve the existing
+          // 0.5 fallback so non-IELTS specs are unaffected.
+          if (rawScoreValue === null) {
+            log.info("Honest null score — skipping write (operator rule: no hardcoded defaults)", {
+              callId: call.id,
+              callerId,
+              parameterId,
+            });
+            continue;
+          }
+
+          const score = Math.max(0, Math.min(1, rawScoreValue ?? 0.5));
           const confidence = Math.max(0, Math.min(1, scoreData.confidence ?? scoreData.c ?? 0.7));
           const reasoning: string | undefined = scoreData.reasoning ?? scoreData.r ?? undefined;
           // G5 / #1155 — server-side fallback when LLM omits `he`/`eq`. The
@@ -1254,6 +1325,16 @@ async function runBatchedCallerAnalysis(
           // backstop — it should never fire because paramMap omits
           // parameters without a spec.
           const sourceSpec = paramMap.get(parameterId);
+          // #2137 (epic #2135 S2) — for IELTS Pronunciation, prefix the
+          // confidence tier into the evidence array so the prosody-raw
+          // augmentation reader (#2138 / S3) can recognise transcript-
+          // mode scores and raise to 'high' when vendor signal lands.
+          // No schema change required for v1; future hardening may add
+          // a dedicated `confidenceTier` column.
+          const evidenceArray =
+            pronunciationConfidenceTier !== null
+              ? [`confidence:${pronunciationConfidenceTier}`, "AI batched analysis"]
+              : ["AI batched analysis"];
           await writeCallScore({
             callId: call.id,
             callerId,
@@ -1264,7 +1345,7 @@ async function runBatchedCallerAnalysis(
             score,
             confidence,
             reasoning,
-            evidence: ["AI batched analysis"],
+            evidence: evidenceArray,
             scoredBy: `${engine}_batched_v2`,
             hasLearnerEvidence,
             evidenceQuality,

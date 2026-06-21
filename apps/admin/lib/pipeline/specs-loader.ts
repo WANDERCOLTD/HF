@@ -296,6 +296,129 @@ export async function filterByTeachingProfile(
 }
 
 /**
+ * Filter specs by BehaviorTarget parameter presence on the playbook.
+ *
+ * **Why this gate exists** (#2137, S2 of epic #2135):
+ *
+ * Some MEASURE specs only fire when the playbook has explicit operator
+ * intent to score the spec's parameters — captured as `BehaviorTarget`
+ * rows scoped to `PLAYBOOK`. Per the operator's revised gating signal
+ * (#2137 live-state correction 2026-06-21):
+ *
+ * > Detect by parameter presence: the spec fires if the playbook has
+ * > any of the spec's declared parameters in its `BehaviorTarget` rows.
+ *
+ * This tracks actual scoring intent rather than declarative metadata
+ * (e.g. `Subject.teachingProfile`) that may drift. Opted in per-spec
+ * via `config.requiresBehaviorTargetParams: true` — generic across
+ * future course-specific scoring specs (CEFR / TOEFL / Spanish DELE).
+ *
+ * Specs without the opt-in flag run unconditionally (preserves the
+ * existing `filterByTeachingProfile` semantics for the system-wide
+ * specs like PERS-001).
+ *
+ * Filter logic:
+ * - If a spec's config lacks `requiresBehaviorTargetParams: true` → pass through.
+ * - If `playbookId` is null → drop (no playbook-scope BehaviorTargets to check).
+ * - Else collect the spec's `parameters[].id` from its `triggers[].actions[].parameterId`
+ *   (the seeded shape from `seed-from-specs.ts`); if ANY are present on the
+ *   playbook's BehaviorTarget rows, the spec runs. Otherwise, drop.
+ */
+export async function filterByBehaviorTargetParams(
+  specIds: string[],
+  playbookId: string | null,
+  log: PipelineLogger,
+): Promise<string[]> {
+  if (specIds.length === 0) return specIds;
+
+  // Load configs + parameters (via triggers/actions) for the candidate specs.
+  const specs = await prisma.analysisSpec.findMany({
+    where: { id: { in: specIds } },
+    select: {
+      id: true,
+      slug: true,
+      config: true,
+      triggers: {
+        select: {
+          actions: {
+            select: { parameterId: true },
+          },
+        },
+      },
+    },
+  });
+
+  // Identify which specs opted in to this gate.
+  const optedIn = specs.filter((spec) => {
+    const cfg = spec.config as Record<string, unknown> | null;
+    return cfg?.requiresBehaviorTargetParams === true;
+  });
+
+  if (optedIn.length === 0) {
+    // Nothing opted in; pass through unchanged.
+    return specIds;
+  }
+
+  if (!playbookId) {
+    // Opted-in specs require a playbook to check; without one we cannot
+    // satisfy the gate. Drop them all and pass non-opted-in through.
+    const droppedSlugs = optedIn.map((s) => s.slug);
+    log.info(
+      `[behavior-target-gate] Dropping ${optedIn.length} opted-in spec(s) — no playbookId in scope: ${droppedSlugs.join(", ")}`,
+    );
+    const droppedIds = new Set(optedIn.map((s) => s.id));
+    return specIds.filter((id) => !droppedIds.has(id));
+  }
+
+  // Load the playbook's PLAYBOOK-scope BehaviorTarget parameterIds in one shot.
+  const playbookTargets = await prisma.behaviorTarget.findMany({
+    where: { scope: "PLAYBOOK", playbookId },
+    select: { parameterId: true },
+  });
+  const playbookParamSet = new Set(playbookTargets.map((t) => t.parameterId));
+
+  // For each opted-in spec, check whether any declared parameter is in the playbook set.
+  const passingIds = new Set<string>();
+  for (const spec of specs) {
+    const cfg = spec.config as Record<string, unknown> | null;
+    const requiresGate = cfg?.requiresBehaviorTargetParams === true;
+    if (!requiresGate) {
+      passingIds.add(spec.id);
+      continue;
+    }
+
+    // Collect spec's declared parameter ids from triggers/actions.
+    const declaredParamIds = new Set<string>();
+    for (const trigger of spec.triggers) {
+      for (const action of trigger.actions) {
+        if (action.parameterId) declaredParamIds.add(action.parameterId);
+      }
+    }
+
+    const matchedParam = Array.from(declaredParamIds).find((p) => playbookParamSet.has(p));
+    if (matchedParam) {
+      log.info(
+        `[behavior-target-gate] Spec "${spec.slug}" opted in and matched playbook BehaviorTarget "${matchedParam}" — running.`,
+      );
+      passingIds.add(spec.id);
+    } else {
+      log.info(
+        `[behavior-target-gate] Spec "${spec.slug}" opted in but no declared parameter is a BehaviorTarget on playbook ${playbookId} — dropping.`,
+      );
+    }
+  }
+
+  // Preserve specs not loaded by this helper (defensive — shouldn't happen).
+  for (const id of specIds) {
+    if (!specs.find((s) => s.id === id)) {
+      passingIds.add(id);
+    }
+  }
+
+  return Array.from(passingIds);
+}
+
+/**
  * Batch-load parameters by IDs in a single query instead of N queries.
  * Reduces DB round-trips from O(N) to O(1).
  */
