@@ -15,18 +15,33 @@
  *  PRs #1780-series added the registry entries but the consumer
  *  reads were deferred or forgotten).
  *
- * **How matching works:**
- *  Settings whose `storagePath.root` is a known cascade family
- *  (`sessionFlow.*`, `playbook.voiceConfig.*`, `behaviorTargets*`,
- *  `domain.*`) shortcut to COVERED — their reads go through the
- *  canonical resolver, which IS the consumer.
+ * **How matching works (corrected 2026-06-21 per A0 of #2225):**
+ *  Settings whose `(cascadeKnobKey ?? id)` matches a registered cascade
+ *  family in `lib/cascade/effective-value.ts::FAMILIES` shortcut to
+ *  COVERED via `family-shortcut` — their reads go through the canonical
+ *  resolver, which IS the consumer. The check uses the exported
+ *  `isResolvableKnob(knobKey)` helper so the test agrees with the
+ *  Inspector's runtime call `useEffectiveValue(cascadeKnobKey ?? id)`.
  *
- *  For `config.*` and `tolerances.*` paths the test concatenates
+ *  HISTORICAL BUG (pre-A0): the test previously shortcut on
+ *  `storagePath.root` matching `sessionFlow.*` / `playbook.voiceConfig.*` /
+ *  `behaviorTargets*` / `domain.*`. The cascade `FAMILIES` table only
+ *  matches FINE-GRAINED knob keys (`welcomeMessage`, `intake`,
+ *  `onboarding`, `stops`, `offboarding`, voice keys, BEH-*, mastery
+ *  knobs) — NOT the coarse storagePath roots. So leaf contracts like
+ *  `intakeGoalsQuestion` (knobKey `intakeGoalsQuestion`, NOT `intake`)
+ *  silently fell into `family-shortcut` even though `isResolvableKnob`
+ *  returns false for them. They appeared COVERED but the Inspector's
+ *  cascade chip rendered nothing. Fix replaces the storagePath-root
+ *  heuristic with the real `isResolvableKnob` check; non-cascade
+ *  contracts fall through to substring search as before.
+ *
+ *  For settings that aren't cascade-resolvable, the test concatenates
  *  source from the consumer surfaces (transforms / compose / cascade
  *  resolvers / pipeline schedulers) and checks that the most
- *  distinctive segment of the path appears as a substring. Generic
- *  trailing segments (`enabled`, `value`, `type`, `mode`) are
- *  stripped — the next-up segment is searched instead.
+ *  distinctive segment of the storagePath appears as a substring.
+ *  Generic trailing segments (`enabled`, `value`, `type`, `mode`)
+ *  are stripped — the next-up segment is searched instead.
  *
  *  Exemptions live in `REGISTRY_CONSUMER_EXEMPT_PATHS` with required
  *  one-line reason. The ratchet pins the current exempt count: it
@@ -54,6 +69,7 @@ import { join, resolve } from "node:path";
 
 import { JOURNEY_SETTINGS } from "@/lib/journey/setting-contracts.entries";
 import { VOICE_SETTINGS } from "@/lib/settings/voice-setting-contracts";
+import { isResolvableKnob } from "@/lib/cascade/effective-value";
 import type {
   JourneySettingContract,
   StoragePath,
@@ -188,15 +204,12 @@ function getPathString(sp: StoragePath): string {
   return typeof sp === "string" ? sp : sp.path;
 }
 
-function getStorageRoot(path: string): string {
-  if (path.startsWith("config.")) return "config";
-  if (path.startsWith("sessionFlow.")) return "sessionFlow";
-  if (path.startsWith("tolerances.")) return "tolerances";
-  if (path.startsWith("playbook.voiceConfig.")) return "playbook.voiceConfig";
-  if (path.startsWith("domain.")) return "domain";
-  if (path.startsWith("behaviorTargets")) return "behaviorTargets";
-  return "unknown";
-}
+// Note: `getStorageRoot` was removed 2026-06-21 (A0 of #2225). The
+// previous storagePath-root heuristic produced false-negative COVERED
+// classifications for contracts that LOOKED like they sat under a
+// cascade family but whose leaf knobKey isn't actually resolvable.
+// The replacement (`isResolvableKnob(cascadeKnobKey ?? id)`) lives
+// inline in `classify()`. See header docstring.
 
 /** Pick search terms to try. Strips `[]` placeholders + generic
  *  trailing names + handles `*Enabled` camelCase boolean suffixes by
@@ -260,19 +273,24 @@ function classify(c: JourneySettingContract): ClassResult {
     return { id: c.id, classification: "family-shortcut" };
   }
 
-  const path = getPathString(c.storagePath);
-  const root = getStorageRoot(path);
-
-  // Family shortcut — paths under a known cascade family are read
-  // through their canonical resolver (which IS in CONSUMER_DIRS).
-  if (
-    root === "sessionFlow" ||
-    root === "playbook.voiceConfig" ||
-    root === "behaviorTargets" ||
-    root === "domain"
-  ) {
+  // Family shortcut — the contract's knobKey actually matches a
+  // registered cascade family in `lib/cascade/effective-value.ts`.
+  // The Inspector calls `useEffectiveValue(cascadeKnobKey ?? id, scope)`
+  // at runtime; this check uses the SAME helper (`isResolvableKnob`)
+  // so the test's COVERED verdict aligns with the runtime cascade
+  // chip rendering. A contract that fails this check but whose
+  // storagePath looks like it sits "under" a cascade family (e.g.
+  // `sessionFlow.intake.goals.question`) is NOT covered by the
+  // cascade — it falls through to substring search below.
+  //
+  // Structural correction 2026-06-21 (A0 of #2225) — see header
+  // docstring for the historical false-negative this replaces.
+  const knobKey = c.cascadeKnobKey ?? c.id;
+  if (isResolvableKnob(knobKey)) {
     return { id: c.id, classification: "family-shortcut" };
   }
+
+  const path = getPathString(c.storagePath);
 
   // Exempt — known producer-only with documented reason.
   if (REGISTRY_CONSUMER_EXEMPT_PATHS[c.id]) {
