@@ -126,12 +126,13 @@ const PAIRS: Array<{
     consumerNeedle: "llmPrompt.instructions?.behavior_targets_semantics",
     since: "#1951",
   },
-  {
-    key: "module_focus_area",
-    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
-    consumerNeedle: "llmPrompt.instructions?.module_focus_area",
-    since: "#1955",
-  },
+  // module_focus_area pair retired by epic #2145 S4 (#2150) — the
+  // bespoke Part-3-focus path (`transforms/part3-focus.ts` +
+  // `lib/curriculum/derive-focus-area.ts`) leaked internal IELTS
+  // criterion names (Fluency and Coherence, Lexical Resource, …) into
+  // the composed prompt + pin. Replaced by the generic `session_focus`
+  // pair below (Phase A), which writes only the projected
+  // learner-facing label set (Part3TechniqueFocus union).
   {
     key: "baseline_assessment_depth",
     producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",

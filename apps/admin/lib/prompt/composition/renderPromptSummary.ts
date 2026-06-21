@@ -179,14 +179,6 @@ interface LLMPrompt {
       questions: string[];
       directive: string;
     } | null;
-    /** #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — Part-3 focus directive. */
-    module_focus_area?: {
-      parameterId: string;
-      paramSlug: string;
-      label: string;
-      score: number;
-      directive: string;
-    } | null;
     /** #2051 (epic #2049 sub-epic B / Contract 1) — baseline-assessment depth. */
     baseline_assessment_depth?: {
       depth: "light" | "standard" | "deep";
@@ -590,22 +582,7 @@ export function renderProviderPrompt(
     parts.push("");
     parts.push(topicPool.directive);
   }
-  // #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — Part-3 focus directive.
-  // Names the lowest-scoring IELTS skill criterion so the tutor directs
-  // questions and feedback toward the learner's development area. Same
-  // selection policy as `select-pinned-card.ts` so the on-screen banner
-  // and the prompt directive agree byte-for-byte. Null until the learner
-  // has at least one demonstrated `currentScore` on one of the 4 criteria.
-  //
-  // NOTE: scheduled for retirement in epic #2145 S4 — the generic
-  // session_focus block (below) replaces it once the
-  // IELTS-P3-FOCUS-001 spec is authored and #2137 wires real scores.
-  const focusArea = llmPrompt.instructions?.module_focus_area;
-  if (focusArea?.directive) {
-    parts.push("");
-    parts.push(focusArea.directive);
-  }
-  // #2145 Phase A — Generic SessionFocus 4th-layer substrate.
+  // #2145 Phase A + S4 — Generic SessionFocus 4th-layer substrate.
   // Reads `CallerAttribute(key = "session_focus:next_{moduleSlug}")`
   // written by the `session-focus-policy` AnalysisSpec runner. The
   // value is the projected LEARNER-FACING label (e.g. "giving reasons"

@@ -1,0 +1,147 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "IELTS-P3-FOCUS-001",
+  "title": "IELTS Part 3 Technique Focus — session-focus-policy projection",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-06-21",
+  "domain": "ielts-speaking",
+  "specType": "SYSTEM",
+  "specRole": "SYNTHESISE",
+  "outputType": "CALLER_ATTRIBUTE_NEXT",
+  "profileCondition": ["ielts-speaking"],
+  "config": {
+    "category": "session-focus-policy",
+    "profileCondition": ["ielts-speaking"],
+    "inputSkills": [
+      "skill_fluency_and_coherence_fc",
+      "skill_lexical_resource_lr",
+      "skill_grammatical_range_and_accuracy_gra",
+      "skill_pronunciation_p"
+    ],
+    "outputUnion": "Part3TechniqueFocus",
+    "writeKey": "session_focus:next_part3",
+    "moduleScope": {
+      "slugPattern": "part3"
+    },
+    "selectionRules": [
+      {
+        "whenWeakest": "skill_fluency_and_coherence_fc",
+        "thenLabel": "structuring an argument",
+        "rationale": "DRAFT — Fluency & Coherence weakness surfaces as halting / disorganised long turns. Practising 'structuring an argument' (signposting, premise → support → conclusion) gives the learner an explicit through-line to follow, which is the most reliable transcript-observable lift on FC bands. PEDAGOGY REVIEW PENDING."
+      },
+      {
+        "whenWeakest": "skill_lexical_resource_lr",
+        "thenLabel": "expanding an answer",
+        "rationale": "DRAFT — Lexical Resource weakness shows as short, lexically thin answers that don't push into less-common vocabulary or paraphrase. 'Expanding an answer' creates the surface area for the learner to attempt richer lexical choices and to circumlocute when stuck. PEDAGOGY REVIEW PENDING."
+      },
+      {
+        "whenWeakest": "skill_grammatical_range_and_accuracy_gra",
+        "thenLabel": "giving reasons",
+        "rationale": "DRAFT — Grammatical Range & Accuracy weakness rarely emerges in simple-clause answers; it surfaces when the learner attempts subordination, conditional, modal-hedged constructions. 'Giving reasons' explicitly invites because/although/if-clauses, exercising the structures GRA grades. PEDAGOGY REVIEW PENDING."
+      },
+      {
+        "whenWeakest": "skill_pronunciation_p",
+        "thenLabel": "handling a challenge",
+        "rationale": "DRAFT — Pronunciation is the loosest fit of the 4 mappings. 'Handling a challenge' (e.g. tutor pushing back, asking learner to elaborate or defend) demands sustained turns under interactive pressure — the kind of speech where pronunciation cleanliness is most observable in transcript cues (tutor confirmations, self-corrections, repair patterns per IELTS-MEASURE-001 P sub-metrics). PEDAGOGY REVIEW PENDING — Pronunciation is structurally not a Part 3 discussion technique; operator may prefer to rotate this slot or use only the 3 FC/LR/GRA rules."
+      }
+    ],
+    "operatorRule": "NEVER backfill `CallerAttribute(key=session_focus:next_*)` rows with hardcoded / AI-guessed defaults. Honest empty state (no row) is the right answer when no input skill has a scored CallerTarget.currentScore yet. (Epic #2135 rule applied to projected emphasis labels as well.)"
+  },
+  "story": {
+    "asA": "IELTS Speaking adaptive system",
+    "iWant": "to project the learner's weakest IELTS Speaking criterion onto one of 4 learner-facing Part 3 technique focus labels for the upcoming session",
+    "soThat": "the tutor and the on-screen 'Today's focus' pin steer toward developing the same technique without ever leaking the internal criterion name (FC/LR/GRA/P) to the learner — per BDD US-P3-01 and the learner-UI leak coverage gate (epic #2145 S2)"
+  },
+  "context": {
+    "applies": "IELTS Speaking Part 3 sessions only. Gate: `Subject.teachingProfile = 'ielts-speaking'` AND the locked module's slug includes 'part3' (per `moduleScope.slugPattern`).",
+    "dependsOn": [
+      "IELTS-MEASURE-001-ielts-speaking-criteria",
+      "SKILL-AGG-001"
+    ],
+    "assumptions": [
+      "IELTS-MEASURE-001 (#2155, flag-gated `HF_IELTS_LLM_MEASURE_V1`) writes `CallScore` rows for the 4 IELTS skill parameters; SKILL-AGG-001 aggregates into `CallerTarget.currentScore`. Until both fire, all `CallerTarget.currentScore` values are null and this runner writes nothing — the honest empty-state contract per epic #2135.",
+      "The generic `session-focus-policy` runner (PR #2153, `lib/pipeline/runners/session-focus-policy.ts`) is COURSE-AGNOSTIC. All course-specific knowledge lives in this spec's `config` block — inputSkills, outputUnion, writeKey, selectionRules, moduleScope. Adding a new course's session-focus policy is a new spec.json, not a new runner.",
+      "The pipeline dispatch at `app/api/calls/[callId]/pipeline/route.ts::runSessionFocusPolicySpecs` (added by #2154) loads every active `outputType: CALLER_ATTRIBUTE_NEXT` spec, validates `config.category === 'session-focus-policy'`, and routes to the runner. This spec satisfies the discriminator + config shape.",
+      "Selection-rule mapping (weakest criterion → technique label) is a PEDAGOGY DRAFT — see each rule's `rationale` field. The mapping is DATA-DRIVEN (no code change required to adjust); change the spec.json, re-seed, the next pipeline run uses the new rule set."
+    ],
+    "frameworks": {
+      "ielts": "IELTS Speaking Public Band Descriptors (FC/LR/GRA/P) — same source as IELTS-MEASURE-001. The 4 technique labels are anchored in HF's BDD US-P3-01 (`docs/HF-IELTS-Pre-Voice-Testing-Checklist.md` Unit 4 — 'giving reasons' / 'structuring an argument' / 'handling a challenge' / 'expanding an answer')."
+    }
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC-IELTS-P3-FOCUS-001",
+      "title": "Weakest IELTS skill projects to one Part 3 technique label",
+      "given": "A learner has scored `CallerTarget.currentScore` values for one or more of the 4 IELTS skill parameters (`skill_fluency_and_coherence_fc`, `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`, `skill_pronunciation_p`) AND a Part-3-shaped module is locked for the upcoming session",
+      "when": "The pipeline ADAPT stage dispatches CALLER_ATTRIBUTE_NEXT specs and invokes `runSessionFocusPolicy` with this spec's config",
+      "then": "The runner picks the parameter with the lowest finite `currentScore`, looks up the matching `selectionRules` entry, and writes `CallerAttribute(callerId, scope='IELTS-P3-FOCUS-001', key='session_focus:next_<moduleSlug>', stringValue=<one of the 4 Part3TechniqueFocus labels>)` — never a criterion label, never a parameter id"
+    },
+    {
+      "id": "AC-IELTS-P3-FOCUS-002",
+      "title": "Honest empty state when no scored inputs exist",
+      "given": "A learner has zero `CallerTarget` rows with a finite `currentScore` for any of the 4 IELTS skill parameters (first-ever IELTS session, or the LLM/prosody scoring pathway hasn't yet fired)",
+      "when": "The runner is invoked",
+      "then": "No `CallerAttribute` row is written. The next session's compose transform sees no `session_focus:next_*` row and omits the `[SESSION FOCUS]` block + the `topicFocus` pin. NO HARDCODED DEFAULT, NO AI-GUESSED MIDPOINT — per epic #2135 operator rule"
+    },
+    {
+      "id": "AC-IELTS-P3-FOCUS-003",
+      "title": "Module-scope gate respects Part-3 shape",
+      "given": "A learner with scored CallerTarget rows but a locked module whose slug does NOT include 'part3' (e.g. Part 1 interview, Part 2 long turn)",
+      "when": "The runner is invoked",
+      "then": "The runner returns `status: 'skipped:module-scope-gate'` and writes nothing — the focus key is Part 3-specific by design"
+    },
+    {
+      "id": "AC-IELTS-P3-FOCUS-004",
+      "title": "Learner-UI leak gate stays green",
+      "given": "The IELTS-P3-FOCUS-001 spec is the sole writer of `CallerAttribute(key='session_focus:next_part3')` rows after retirement of `lib/curriculum/derive-focus-area.ts`",
+      "when": "The `tests/lib/sim-chat/learner-ui-leak-coverage.test.ts` Coverage gate scans learner-UI dirs for literal occurrences of `IELTS_SKILL_LABELS` values (Fluency and Coherence / Lexical Resource / Grammatical Range and Accuracy / Pronunciation)",
+      "then": "Zero new leak entries fire; only the pre-existing Mock Results screen exempts (BDD US-Mock-05) remain. The Part 3 pin shows only one of `Part3TechniqueFocus` values"
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-P3-FOCUS-001",
+      "type": "learner_safe_label_only",
+      "description": "Every `thenLabel` in `config.selectionRules` MUST be a member of the `Part3TechniqueFocus` TypeScript union declared at `apps/admin/lib/types/json-fields.ts`. Pinned by `tests/lib/sim-chat/learner-ui-leak-coverage.test.ts::LEARNER_SAFE_REGISTRY.IELTS_PART3_TECHNIQUE.labels`. Drift between this spec's `selectionRules` and the union is a learner-safety regression.",
+      "severity": "critical"
+    },
+    {
+      "id": "CON-P3-FOCUS-002",
+      "type": "single_active_writer",
+      "description": "IELTS-P3-FOCUS-001 is the ONLY writer of `CallerAttribute(key='session_focus:next_part3')` after this PR retires `lib/curriculum/derive-focus-area.ts`, `lib/prompt/composition/transforms/part3-focus.ts`, and the criterion-label branch of `lib/voice/select-pinned-card.ts::selectTopicFocusCard`. Any future writer of this key MUST route through the canonical `session-focus-policy` runner (i.e. via a spec.json) — direct prisma writes from a bespoke helper are forbidden.",
+      "severity": "critical"
+    }
+  ],
+  "failureConditions": [
+    {
+      "id": "FC-P3-FOCUS-001",
+      "trigger": "malformed_config",
+      "threshold": { "operator": "eq", "value": 0 },
+      "implication": "If this spec's `config` fails `isSessionFocusPolicyConfig` validation (e.g. missing `inputSkills`, empty `selectionRules`), the dispatch in `runSessionFocusPolicySpecs` logs a warning and skips this spec for the call. The CALLER_ATTRIBUTE_NEXT pipeline continues for other specs.",
+      "severity": "warning"
+    }
+  ],
+  "related": [
+    {
+      "id": "IELTS-MEASURE-001",
+      "title": "IELTS Speaking transcript-judgment scoring — upstream producer of the 4 CallerTarget.currentScore values this spec reads",
+      "relationship": "upstream-producer"
+    },
+    {
+      "id": "SKILL-AGG-001",
+      "title": "Skill EMA aggregator — writes CallerTarget.currentScore from CallScore rows",
+      "relationship": "upstream-producer"
+    },
+    {
+      "id": "epic-2145",
+      "title": "Generic SessionFocus 4th-layer substrate — parent epic",
+      "relationship": "parent-epic"
+    },
+    {
+      "id": "epic-2135",
+      "title": "IELTS scoring as canonical MEASURE specs — establishes the input-score pipeline",
+      "relationship": "depends-on"
+    }
+  ]
+}
