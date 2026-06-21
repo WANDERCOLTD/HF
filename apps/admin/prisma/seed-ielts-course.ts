@@ -168,6 +168,18 @@ export async function main(prisma: PrismaClient): Promise<void> {
         },
         // No nps / surveys configured here — projection's goalTemplates carry
         // the learning + skill goals; the wizard adds engagement goals later.
+        //
+        // ── B4-impl of epic #2225 — approved cascade values (op approval:
+        //    https://github.com/WANDERCOLTD/HF/issues/2225#issuecomment-4763486228).
+        //    Storage paths verified via lib/settings/voice-setting-contracts.ts
+        //    (maxCallDuration → playbook.voiceConfig.maxDurationSeconds) +
+        //    lib/cascade/resolvers/mastery-policy.ts (tierPresetId +
+        //    skillScoringEmaHalfLifeDays both in CASCADABLE_KEYS).
+        voiceConfig: {
+          maxDurationSeconds: 1800,
+        },
+        tierPresetId: "ielts-speaking",
+        skillScoringEmaHalfLifeDays: 14,
       },
     },
   });
