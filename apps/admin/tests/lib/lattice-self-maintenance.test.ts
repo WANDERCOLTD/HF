@@ -174,7 +174,11 @@ const EXPECTED_INVENTORY_EXEMPT_COUNT = 3;
 // `tests/lib/pipeline/adapt-learn-001-phase-b-coverage.test.ts` (Phase B
 // 18-param ADAPT-LEARN-001 spec coverage). The inventory row lands in a
 // follow-on doc PR; bump 6 → 7 to reflect the new structural gate.
-const EXPECTED_ORPHAN_COUNT_COVERAGE = 7;
+// 2026-06-22 — A5 of #2225 adds
+// `tests/lib/journey/control-data-shape-coverage.test.ts` (Mode 2
+// control-type mismatch ratchet). Inventory row lands in a follow-on
+// doc PR; bump 7 → 8 to reflect the new structural gate.
+const EXPECTED_ORPHAN_COUNT_COVERAGE = 8;
 const EXPECTED_ORPHAN_COUNT_ESLINT = 24;
 const EXPECTED_ORPHAN_COUNT_SCRIPTS = 15;
 const EXPECTED_ORPHAN_COUNT_RULES = 15;
