@@ -2638,6 +2638,7 @@ enum AnalysisOutputType {
   REWARD // Compute reward scores from behavior measurements → RewardScore
   SUPERVISE // Enforce guardrails and safety bounds on computed values
   PROSODY // Score uploaded audio for IELTS / general voice signals (#1119) → Call.voiceProsody + VOICE_PROSODY_V1 contract
+  CALLER_ATTRIBUTE_NEXT // Per-session emphasis label written to CallerAttribute for next-call compose to read (#2154 / epic #2145 SessionFocus 4th-layer substrate). Distinct from ADAPT (which writes CallerTarget) — these specs write transient learner-facing labels via the session-focus-policy runner at lib/pipeline/runners/session-focus-policy.ts.
 }
 
 // Spec type: differentiates system-wide specs from domain-specific specs

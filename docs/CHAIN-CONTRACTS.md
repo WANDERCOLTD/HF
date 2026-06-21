@@ -314,6 +314,20 @@ Format per link:
 | **Audit counter** | `dualLoMasteryKeysSameLO` (informational), `callerAttributeOldKeyFormCount` (target 0 after #614). |
 | **Reinforced by** | #614 + reader-tightening follow-on (post-drain). |
 
+#### Link 6.b — AGGREGATE → ADAPT (CALLER_ATTRIBUTE_NEXT, #2154 / epic #2145 SessionFocus 4th-layer substrate)
+
+| Field | Value |
+|---|---|
+| **Producer** | AGGREGATE writes `CallerTarget.currentScore` for `skill_*` parameters via SKILL-AGG-001 (`ema_to_caller_target` rule, #417). The SessionFocus runner reads these scores. |
+| **Consumer** | ADAPT sub-op 9 — `app/api/calls/[callId]/pipeline/route.ts::runSessionFocusPolicySpecs` loads every `AnalysisSpec(outputType="CALLER_ATTRIBUTE_NEXT")` and routes to `lib/pipeline/runners/session-focus-policy.ts::runSessionFocusPolicy`. The runner reads `CallerTarget.currentScore` for the spec's declared `inputSkills`, picks the weakest, maps via spec-declared `selectionRules` to a LEARNER-facing label, and writes ONE `CallerAttribute(scope=specSlug, key="session_focus:next_{moduleSlug}").stringValue = label`. |
+| **Data shape** | `SessionFocusPolicyConfig` — `{ category: "session-focus-policy", inputSkills: string[], selectionRules: Array<{whenWeakest, thenLabel}>, writeKey: string, moduleScope?: { slugPattern?: string } }`. Written value is the LEARNER-facing label from `selectionRules.thenLabel` (e.g. "giving reasons" / "expanding an answer"), NEVER an internal parameter id or criterion slug. The next-call compose-time transform at `lib/prompt/composition/transforms/session-focus.ts` reads the row and emits a `[SESSION FOCUS]` block + `PinnedCardContent.focusArea`. |
+| **DataContract slug** | None — uses `CallerAttribute` directly with `scope = AnalysisSpec.slug` for traceable provenance + multi-course coexistence. |
+| **Enforcement** | Dispatch gated by `outputType === "CALLER_ATTRIBUTE_NEXT"` (Prisma enum value added by #2154). Defence-in-depth `isSessionFocusPolicyConfig` type-guard on `spec.config` before invocation. **Honest empty-state contract** (per `feedback_no_hardcoded_score_backfill.md`): the runner writes NOTHING when no `inputSkills` parameter has a finite `currentScore` OR when the locked module's slug doesn't match the spec's `moduleScope.slugPattern` gate — the compose transform returns null and the `[SESSION FOCUS]` block is omitted. NO hardcoded default label. |
+| **Test** | `tests/lib/pipeline/runners/session-focus-policy.test.ts` (20 tests after #2154 dispatch addition); `tests/lib/prompt/composition/transforms/session-focus.test.ts` (11 tests); compose pairs registered in `tests/lib/prompt/composition/coverage-producer-consumer.test.ts`. |
+| **Memory doc** | `docs/PIPELINE.md` §7 sub-op 9; `lib/pipeline/runners/session-focus-policy.ts` JSDoc header. |
+| **Audit counter** | `sessionFocusWrote` / `sessionFocusSkipped` / `sessionFocusFailed` per-stage counters surface in the pipeline response payload + `pipeline.stage.write_counts:ADAPT` `callerAttribute_session_focus` write-count log. |
+| **Reinforced by** | PR #2153 (Phase A runner + transform), PR #2154 (CALLER_ATTRIBUTE_NEXT enum + dispatch). Phase B IELTS-P3-FOCUS-001 spec authoring is epic #2145 S4 — depends on #2137 wiring real `CallerTarget.currentScore` for the 4 IELTS skill parameters via IELTS-MEASURE-001. |
+
 #### Link 6.a — COMPOSE → COMPOSE (carry-forward, #918)
 
 | Field | Value |

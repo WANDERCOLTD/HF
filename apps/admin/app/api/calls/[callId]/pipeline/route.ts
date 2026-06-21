@@ -32,6 +32,11 @@ import { runProsodyStage } from "@/lib/pipeline/prosody-runner";
 import { applyProsodyContractToAggregate } from "@/lib/pipeline/prosody-consumer";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
+import {
+  runSessionFocusPolicy,
+  isSessionFocusPolicyConfig,
+  type SessionFocusPolicyConfig,
+} from "@/lib/pipeline/runners/session-focus-policy";
 import { extractFailureAdaptation } from "@/lib/pipeline/extract-failure-adaptation";
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
 import { shouldSkipForEvidenceFirst, shouldSkipForZeroEvidence } from "@/lib/pipeline/evidence-gate";
@@ -2675,6 +2680,101 @@ async function computeAdapt(
 // =====================================================
 
 /**
+ * Run CALLER_ATTRIBUTE_NEXT specs (#2154, sibling of #2145 Phase A).
+ *
+ * Generic dispatch for the SessionFocus 4th-layer substrate. Loads every
+ * active AnalysisSpec with `outputType: "CALLER_ATTRIBUTE_NEXT"`, validates
+ * its `config` against the SessionFocusPolicyConfig shape (defence-in-depth),
+ * and routes to `lib/pipeline/runners/session-focus-policy.ts::runSessionFocusPolicy`.
+ *
+ * Honest empty-state contract: the runner writes nothing when no scored
+ * inputs exist OR when the locked module doesn't match the spec's scope
+ * gate. Each skip is surfaced via the result `status` for the operator-
+ * facing pipeline log.
+ *
+ * Non-blocking: failures are logged + collected; they never abort ADAPT.
+ *
+ * @see lib/pipeline/runners/session-focus-policy.ts — the runner
+ * @see docs/PIPELINE.md §2 / §4 / §6 — outputType taxonomy
+ */
+async function runSessionFocusPolicySpecs(
+  call: {
+    id: string;
+    curriculumModuleId?: string | null;
+    requestedModuleId?: string | null;
+  },
+  callerId: string,
+  log: PipelineLogger,
+): Promise<{ wrote: number; skipped: number; failed: number }> {
+  const specs = await getSpecsByOutputType("CALLER_ATTRIBUTE_NEXT", log);
+  if (specs.length === 0) {
+    return { wrote: 0, skipped: 0, failed: 0 };
+  }
+
+  // Load the locked module (slug) — same resolution shape used by other
+  // module-aware stages. `curriculumModuleId` is canonical; fallback to
+  // `requestedModuleId` for sim / harness paths that don't bind one yet.
+  let lockedModule: { slug?: string | null; id?: string | null } | null = null;
+  if (call.curriculumModuleId) {
+    const bound = await prisma.curriculumModule.findUnique({
+      where: { id: call.curriculumModuleId },
+      select: { slug: true, id: true },
+    });
+    if (bound) lockedModule = { slug: bound.slug, id: bound.id };
+  } else if (call.requestedModuleId) {
+    lockedModule = { slug: call.requestedModuleId, id: call.requestedModuleId };
+  }
+
+  // Load full spec rows for their `config` payload.
+  const fullSpecs = await prisma.analysisSpec.findMany({
+    where: { id: { in: specs.map((s) => s.id) } },
+    select: { id: true, slug: true, config: true },
+  });
+
+  let wrote = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const spec of fullSpecs) {
+    try {
+      if (!isSessionFocusPolicyConfig(spec.config)) {
+        log.warn(
+          `CALLER_ATTRIBUTE_NEXT spec ${spec.slug} has malformed config — skipped`,
+        );
+        failed++;
+        continue;
+      }
+      const result = await runSessionFocusPolicy({
+        callerId,
+        specSlug: spec.slug,
+        config: spec.config as SessionFocusPolicyConfig,
+        lockedModule,
+      });
+      if (result.status === "wrote") {
+        wrote++;
+        log.info(`CALLER_ATTRIBUTE_NEXT ${spec.slug}: wrote`, {
+          writeKey: result.writeKey,
+          label: result.writtenLabel,
+          weakestParameterId: result.weakestParameterId,
+        });
+      } else {
+        skipped++;
+        log.info(`CALLER_ATTRIBUTE_NEXT ${spec.slug}: ${result.status}`, {
+          moduleSlug: result.moduleSlug,
+        });
+      }
+    } catch (err: any) {
+      failed++;
+      log.error(`CALLER_ATTRIBUTE_NEXT ${spec.slug} threw (non-blocking)`, {
+        error: err?.message ?? String(err),
+      });
+    }
+  }
+
+  return { wrote, skipped, failed };
+}
+
+/**
  * Build prompt for ADAPT specs to compute personalized targets
  */
 function buildAdaptPrompt(
@@ -4107,6 +4207,35 @@ const stageExecutors: Record<string, StageExecutor> = {
       });
     }
 
+    // 9. CALLER_ATTRIBUTE_NEXT specs (#2154 / epic #2145 SessionFocus 4th-
+    //    layer substrate). Generic dispatch — loads every active spec with
+    //    outputType=CALLER_ATTRIBUTE_NEXT and routes to the session-focus-
+    //    policy runner. Writes ONE CallerAttribute(scope=specSlug,
+    //    key="session_focus:next_{moduleSlug}") per spec that finds a
+    //    weakest-Skill match within its inputSkills + module-scope gate.
+    //    Honest empty-state: writes nothing when no scored CallerTarget
+    //    rows exist; the compose-time transform at
+    //    `lib/prompt/composition/transforms/session-focus.ts` returns null
+    //    and the [SESSION FOCUS] block is omitted. Non-blocking — failures
+    //    are logged + counted but never abort ADAPT.
+    let sessionFocusWrote = 0;
+    let sessionFocusSkipped = 0;
+    let sessionFocusFailed = 0;
+    try {
+      const sfp = await runSessionFocusPolicySpecs(ctx.call, ctx.callerId, ctx.log);
+      sessionFocusWrote = sfp.wrote;
+      sessionFocusSkipped = sfp.skipped;
+      sessionFocusFailed = sfp.failed;
+      if (sfp.wrote + sfp.skipped + sfp.failed > 0) {
+        ctx.log.info("CALLER_ATTRIBUTE_NEXT dispatch complete", sfp);
+      }
+    } catch (err: any) {
+      ctx.log.error(
+        "CALLER_ATTRIBUTE_NEXT dispatch threw (non-blocking)",
+        { error: err?.message ?? String(err) },
+      );
+    }
+
     ctx.log.info(`ADAPT parallel ops completed in ${Date.now() - startTime}ms`);
 
     // #1622 — emit per-stage write counts for the eight ADAPT sub-ops.
@@ -4126,6 +4255,7 @@ const stageExecutors: Record<string, StageExecutor> = {
         callerTarget: ruleBasedResult.targetsCreated + ruleBasedResult.targetsUpdated + rewardLoopUpdates,
         goal: goalExtractionResult.goalsCreated + goalExtractionResult.goalsUpdated + goalResult.updated,
         failureLog: failureSignal ? 1 : 0,
+        callerAttribute_session_focus: sessionFocusWrote,
       },
       durationMs: Date.now() - startTime,
     });
@@ -4150,6 +4280,13 @@ const stageExecutors: Record<string, StageExecutor> = {
       // separately.
       rewardLoopProcessed,
       rewardLoopUpdates,
+      // #2154 — CALLER_ATTRIBUTE_NEXT dispatch counters (SessionFocus
+      // 4th-layer substrate). `sessionFocusWrote` is the per-call count
+      // of `session_focus:next_{moduleSlug}` CallerAttribute rows
+      // written for the next call to read.
+      sessionFocusWrote,
+      sessionFocusSkipped,
+      sessionFocusFailed,
     };
   },
 
