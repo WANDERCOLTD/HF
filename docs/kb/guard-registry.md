@@ -71,6 +71,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-bespoke-async-polling`](#guard-no-bespoke-async-polling) | Bespoke `setInterval`/`setTimeout` retry loops outside an allow-list; use `lib/async/wait-until-ready.ts` | G7 / 2026-06-11 | **meta** |
 | [`hf-security/no-secrets-in-client`](#guard-no-secrets-in-client) | Plaintext credentials / secret-shaped literals in `"use client"` files (they ship in the browser bundle) | HF-J / 2026-06-11 | **a** |
 | [`hf-config/no-hardcoded-spec-slug`](#guard-no-hardcoded-spec-slug) | Hardcoded spec-slug literals (`TUT-001`, `GOAL-001`, …) in `lib/`+`app/` runtime; use `config.specs.*`. **Active (error)** after HF-I sweep | HF-I / 2026-06-11 | **b** |
+| [`hf-pipeline/no-course-specific-measure-query`](#guard-no-course-specific-measure-query) | Course-name prefix literals (`IELTS-`, `TOEFL-`, `CEFR-`, `CIO_`, ...) in Prisma `startsWith` / `endsWith` / `contains` filters AND String-method dispatch (`.startsWith` / `.endsWith` / `.includes`) inside `app/api/calls/`, `lib/pipeline/`, `lib/measurement/`. Forces course-agnostic dispatch by `outputType` / `specRole` / `config` opt-in flag (CHAIN-CONTRACTS.md spec-driven dispatch). Complementary to `no-hardcoded-spec-slug` (which covers comparison literals; this rule covers filter / dispatch literals). | #2183 / 2026-06-20 | **b** |
 | [`hf-goals/no-bare-strategy-key`](#guard-no-bare-strategy-key) | Bare string literals assigned to `Goal.progressStrategy` outside the canonical `StrategyKey` enum; allow-list covers the strategies registry alias map + test files | #1599 | **a** |
 | [`hf-rbac/require-tiered-redactor`](#guard-require-tiered-redactor) | Routes tagged `@tieredVisibility` (JSDoc) must import + invoke `visibilityTierForRole(...)` and a `redact<Resource>ForTier(...)` from `lib/rbac/policies/*`; hardens the whitelist-default-safe property of the visibility-policy pattern | #1685 Wave C5 | **a** |
 | [`hf-privacy/no-pii-in-applog-metadata`](#guard-no-pii-in-applog-metadata) | Block literal PII-keyed objects (`email` / `phone` / `transcript` / `name` / `value` / `promptPreview` / `responsePreview`) being passed as `metadata` to `prisma.appLog.create` or `log(...)` / `logAI(...)` calls. Allow-list: `lib/logger.ts`, `lib/metering/meter-call.ts`, `tests/**`, `scripts/**`, `prisma/fixtures/**`. Per-site escape via `// @piiRedacted` comment. CHAIN-CONTRACTS.md §6a I-PR3. | #1926 | **a** |
@@ -354,6 +355,42 @@ JWT, Google `AIza`). Server files, `process.env.*` / identifier values, and empt
 pass. The one known offence (the build-stripped demo creds) carries a documented
 `eslint-disable` with rationale. Severity `error` from day 1. **Survives hardening:** "no
 secret in browser-shipped code" is an architecture-independent data-safety invariant.
+
+<a id="guard-no-course-specific-measure-query"></a>
+**`hf-pipeline/no-course-specific-measure-query`** · class **b** · born #2183 / 2026-06-20 · **status: active (error)** ·
+[rule source](../../apps/admin/eslint-rules/no-course-specific-measure-query.mjs) ·
+test → [`tests/eslint-rules/no-course-specific-measure-query.test.ts`](../../apps/admin/tests/eslint-rules/no-course-specific-measure-query.test.ts) ·
+rule doc → [`.claude/rules/no-course-specific-measure-query.md`](../../.claude/rules/no-course-specific-measure-query.md)
+
+The 2026-06-21 audit (epic #2176 S8 / story #2181 — NO HARDCODINGS) found
+course-name prefix literals embedded in spec-dispatch surfaces — the partner-blocker
+class where any non-IELTS course (TOEFL, CEFR, CIO/CTO Speaking, KS2-SATs) adopting
+MEASURE specs would silently route through code that only matched `"IELTS-"`. The
+rule fires on string literals of shape `^[A-Z]{3,}[-_]` when they appear as (a) the
+VALUE of a Prisma filter clause (`startsWith` / `endsWith` / `contains`) OR (b) an
+ARGUMENT to a String prototype method of the same name. Path-scoped to
+`app/api/calls/`, `app/api/pipeline/`, `app/api/score/`, `lib/pipeline/`,
+`lib/measurement/` — other surfaces (`lib/curriculum/` slug resolvers, `lib/voice/`
+provider-name handlers) are NOT spec-dispatch and legitimately handle product names
+as data. Allow-list: `lib/config.ts` (where env-overridable prefix constants live),
+`prisma/seed*.ts`, `prisma/migrations/**`, tests, scripts, `_archived/**`. Per-site
+escape via `// hf-pipeline-disable-next-line no-course-specific-measure-query: <reason>`
+on the preceding line. **Activation:** the original story-cited fingerprint at
+`pipeline/route.ts:915` was already course-agnosticised by #2155 / #2137 (replaced
+by `filterByBehaviorTargetParams` reading the opt-in `requiresBehaviorTargetParams: true`
+spec config flag — the reference course-agnostic dispatch pattern). The one
+remaining incumbent at `lib/pipeline/specs-loader.ts:431` (per-Playbook kill-switch
+override #2158) is repaired in the same PR by hoisting the prefix to a module-level
+constant `LLM_IELTS_MEASURE_SLUG_PREFIX`; the rule's CallExpression visitor matches
+Literal arguments only, so the identifier-reference call passes structurally.
+Complementary to `hf-config/no-hardcoded-spec-slug` (which covers comparison
+literals like `slug === "TUT-001"`); this rule covers the dispatch / filter
+literal surface. **Survives hardening as scaffold (b):** it protects today's
+spec-driven dispatch indirection (outputType / specRole / config opt-in); retire
+if the dispatch mechanism itself changes. **Future hardening:** replace the
+slug-prefix kill-switch check at `specs-loader.ts:431` with a spec-config opt-in
+(`cfg.disableViaPlaybookConfigKey: "aiMeasurement.X"`) so the kill-switch becomes
+fully course-agnostic without the module-level constant.
 
 <a id="guard-no-hardcoded-spec-slug"></a>
 **`hf-config/no-hardcoded-spec-slug`** · class **b** · born HF-I / 2026-06-11 · **status: active (error)** ·

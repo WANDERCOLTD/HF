@@ -33,6 +33,7 @@ import requireAiScopeInCascadeZone from "./eslint-rules/require-ai-scope-in-casc
 import noCustomerWriteToCanonicalInterpretation from "./eslint-rules/no-customer-write-to-canonical-interpretation.mjs";
 import noUntypedEnumWriteInWizard from "./eslint-rules/no-untyped-enum-write-in-wizard.mjs";
 import noHardcodedVoiceId from "./eslint-rules/no-hardcoded-voice-id.mjs";
+import noCourseSpecificMeasureQuery from "./eslint-rules/no-course-specific-measure-query.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -209,6 +210,12 @@ const eslintConfig = defineConfig([
         rules: {
           "no-module-read-without-course-style-guard":
             noModuleReadWithoutCourseStyleGuard,
+          // #2183 — block course-specific literals (e.g. "IELTS-MEASURE-")
+          // in spec-dispatch Prisma filters + String-method calls inside
+          // app/api/calls/, lib/pipeline/, lib/measurement/. Forces
+          // course-agnostic dispatch by outputType / specRole / opt-in
+          // config flag per CHAIN-CONTRACTS.md.
+          "no-course-specific-measure-query": noCourseSpecificMeasureQuery,
         },
       },
       // #1333 + #1342 + #1344 — block bare `prisma.call.create` AND
@@ -502,6 +509,20 @@ const eslintConfig = defineConfig([
       // (provider slug) — this rule extends to voice IDs WITHIN a catalogue.
       // See `.claude/rules/no-hardcoded-voice-id.md`.
       "hf-voice/no-hardcoded-voice-id": "warn",
+
+      // #2183 — error severity from day 1. The one remaining incumbent
+      // (`lib/pipeline/specs-loader.ts:431` per-Playbook kill-switch
+      // override scoped to IELTS-MEASURE-*) is refactored in the same PR
+      // by lifting the prefix to a named helper `coursePrefixForKillSwitch`
+      // and adding a per-site escape comment with #2158 rationale. Any
+      // new spec-dispatch site that hardcodes `IELTS-` / `CEFR-` / `TOEFL-`
+      // / `CIO_` etc. in a Prisma filter (`startsWith` / `endsWith` /
+      // `contains`) or String method (`.startsWith` / `.endsWith` /
+      // `.includes`) inside `app/api/calls/`, `lib/pipeline/`, or
+      // `lib/measurement/` fails CI. Per-site escape via
+      // `// hf-pipeline-disable-next-line no-course-specific-measure-query: <reason>`.
+      // See `.claude/rules/no-course-specific-measure-query.md`.
+      "hf-pipeline/no-course-specific-measure-query": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
