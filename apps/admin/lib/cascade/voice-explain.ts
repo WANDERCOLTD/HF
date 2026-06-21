@@ -32,6 +32,7 @@ import {
   type VoiceCallSettings,
 } from "@/lib/system-settings";
 import { getVoiceSystemSettings } from "@/lib/voice/system-settings";
+import { DEFAULT_VOICE_PROVIDER_SLUG } from "@/lib/voice/default-provider";
 import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import {
   cascadeableKeys,
@@ -168,7 +169,8 @@ async function loadRawInputs(
   const sys = await getVoiceSystemSettings();
   // Same enabled-slug rule as load-voice-config.ts (#1271).
   const explicit = sys.defaultProviderSlug?.trim();
-  const enabledSlug = explicit && explicit.length > 0 ? explicit : "vapi";
+  const enabledSlug =
+    explicit && explicit.length > 0 ? explicit : DEFAULT_VOICE_PROVIDER_SLUG;
 
   const [vpRow, adapter, caller, playbook] = await Promise.all([
     prisma.voiceProvider.findUnique({
