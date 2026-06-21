@@ -22,6 +22,7 @@ import {
 import { tierLabel } from "@/lib/banding/tier-colors";
 import { CascadeValue } from "@/components/shared/CascadeValue";
 import { CascadeInspectorTray } from "@/components/cascade/CascadeInspectorTray";
+import { useEffectiveValue } from "@/lib/cascade/use-effective-value";
 import { BandingPicker } from "@/components/shared/BandingPicker";
 import { VariantPresetPill } from "@/components/shared/VariantPresetPill";
 import type { Effective } from "@/lib/cascade/layer-types";
@@ -1075,6 +1076,9 @@ function RubricCalibrationLens({ courseId }: { courseId: string }) {
 // Replaces the retired `HF_IELTS_LLM_MEASURE_V1` env flag.
 // ────────────────────────────────────────────────────────────
 
+const AI_MEASUREMENT_DISABLE_LLM_KNOB =
+  "aiMeasurement.disableLlmIeltsScoring";
+
 function AiMeasurementMethodSection({
   courseId,
   aiMeasurement,
@@ -1092,6 +1096,18 @@ function AiMeasurementMethodSection({
   // /api/courses/[courseId]/design (#2158 design route extension).
   const [disabled, setDisabled] = useState(
     aiMeasurement.disableLlmIeltsScoring,
+  );
+  const [tray, setTray] = useState<boolean>(false);
+
+  // Cascade-honesty (Story #2206 S2 / epic #2185): route the toggle
+  // through `useEffectiveValue` → `<CascadeValue>` + `<LayerBadge>`
+  // per `.claude/rules/cascade-reuse.md`. The chip surfaces provenance
+  // so a Domain-level override (institution-wide flip) is auditable
+  // rather than silent. Snapshot fallback when the knob is not
+  // resolvable (e.g., feature-flag off in older deploys).
+  const { envelope, unresolvable } = useEffectiveValue<boolean | null>(
+    AI_MEASUREMENT_DISABLE_LLM_KNOB,
+    { courseId },
   );
 
   const llmActive = !disabled;
@@ -1149,12 +1165,29 @@ function AiMeasurementMethodSection({
       </header>
       <div className="hf-card-compact">
         <div className="hf-flex hf-items-center hf-gap-sm hf-mb-md">
-          <span
-            className={`hf-pill ${llmActive ? "hf-pill-success" : "hf-pill-neutral"}`}
-            data-testid="ai-measurement-status-pill"
-          >
-            {statusLabel}
-          </span>
+          {envelope && !unresolvable ? (
+            <CascadeValue
+              envelope={envelope}
+              knobKey={AI_MEASUREMENT_DISABLE_LLM_KNOB}
+              ariaLabel="LLM IELTS scoring — inspect cascade chain"
+              onInspect={() => setTray(true)}
+              hideSubtitle
+            >
+              <span
+                className={`hf-pill ${llmActive ? "hf-pill-success" : "hf-pill-neutral"}`}
+                data-testid="ai-measurement-status-pill"
+              >
+                {statusLabel}
+              </span>
+            </CascadeValue>
+          ) : (
+            <span
+              className={`hf-pill ${llmActive ? "hf-pill-success" : "hf-pill-neutral"}`}
+              data-testid="ai-measurement-status-pill"
+            >
+              {statusLabel}
+            </span>
+          )}
           <span className="hf-text-xs hf-text-muted">
             (auto-detected from IELTS BehaviorTargets)
           </span>
@@ -1185,6 +1218,14 @@ function AiMeasurementMethodSection({
           {error && <span className="hf-text-xs hf-text-error">{error}</span>}
         </div>
       </div>
+      {tray ? (
+        <CascadeInspectorTray
+          knobKey={AI_MEASUREMENT_DISABLE_LLM_KNOB}
+          knobLabel="LLM IELTS scoring"
+          scopeChain={{ playbookId: courseId }}
+          onClose={() => setTray(false)}
+        />
+      ) : null}
     </section>
   );
 }
