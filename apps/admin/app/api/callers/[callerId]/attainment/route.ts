@@ -39,6 +39,7 @@ import { resolveAllSkillsForPlaybook } from "@/lib/curriculum/resolve-skill";
 import { isUseFreshMastery } from "@/lib/curriculum/playbook-mastery-config";
 import { getSkillTierMapping, scoreToTier } from "@/lib/goals/track-progress";
 import { getCourseStyle } from "@/lib/pipeline/course-style";
+import { MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
 import {
   computeTalkTimeStats,
   evaluateTalkTimeBudgets,
@@ -60,6 +61,18 @@ export interface AttainmentSkillBand {
   bandLabel: number | null;
   /** True when `currentScore > targetValue` — surfaces the ABOVE_TARGET visual. */
   exceedsTarget: boolean;
+  /**
+   * #2140 (S5 of #2135) — true when prosody-consumer wrote ≥1 `CallScore`
+   * row for this parameter on any of the caller's recent calls (last
+   * `PROSODY_LOOKBACK_CALLS`). Detected via the `PROSODY` sentinel
+   * `analysisSpecId` (`MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY`) — the
+   * canonical lineage marker for prosody-derived scores. Pure
+   * observability flag; no PII, no scoring metadata, no operator-only
+   * fields. Surfaced as a "+ prosody" chip in `AttainmentTab`'s
+   * `SkillBandsSection`. False when no prosody envelope ever fired or
+   * when the consumer doesn't write to this parameter.
+   */
+  prosodyContributed: boolean;
 }
 
 export interface AttainmentGoalTrail {
@@ -176,6 +189,14 @@ export interface AttainmentResponse {
 /** Max number of evidence excerpts surfaced in the trail. Older entries
  *  are truncated; `totalCount` reports the full length. */
 const GOAL_TRAIL_MAX_EXCERPTS = 4;
+
+/**
+ * #2140 (S5 of #2135) — lookback window for the prosody-contribution probe.
+ * Bounded so the per-skill chip detection stays O(N_skills × 10 calls) rather
+ * than walking the caller's full `CallScore` history. Matches the rough
+ * "recent" window the AttainmentTab evidence list shows.
+ */
+const PROSODY_LOOKBACK_CALLS = 10;
 
 /**
  * Synthesise an `AttainmentGoalTrail` from the JSON in `Goal.progressMetrics`.
@@ -335,6 +356,33 @@ export async function GET(
     });
     const nameByParam = new Map(parameters.map((p) => [p.parameterId, p.name]));
 
+    // #2140 (S5 of #2135) — detect which of these skill parameters had
+    // prosody-consumer contribution on a recent call. The lineage marker
+    // is `analysisSpecId === MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY` per
+    // the canonical chokepoint in `lib/measurement/write-call-score.ts`.
+    // Bounded by the most-recent N call ids so this stays O(N_skills × 10).
+    const recentCalls = await prisma.call.findMany({
+      where: { callerId },
+      orderBy: { createdAt: "desc" },
+      take: PROSODY_LOOKBACK_CALLS,
+      select: { id: true },
+    });
+    const prosodyContributingParams = new Set<string>();
+    if (recentCalls.length > 0) {
+      const recentCallIds = recentCalls.map((c) => c.id);
+      const prosodyScores = await prisma.callScore.findMany({
+        where: {
+          callId: { in: recentCallIds },
+          parameterId: { in: parameterIds },
+          analysisSpecId: MEASUREMENT_SENTINEL_SPEC_IDS.PROSODY,
+        },
+        select: { parameterId: true },
+      });
+      for (const s of prosodyScores) {
+        prosodyContributingParams.add(s.parameterId);
+      }
+    }
+
     for (const s of skills) {
       const t = targetByParam.get(s.parameterId);
       const score = t?.currentScore ?? null;
@@ -361,6 +409,7 @@ export async function GET(
         tier,
         bandLabel,
         exceedsTarget,
+        prosodyContributed: prosodyContributingParams.has(s.parameterId),
       });
     }
   }

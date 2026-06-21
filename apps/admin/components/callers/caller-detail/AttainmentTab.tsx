@@ -53,6 +53,16 @@ interface SkillBand {
   tier: string;
   bandLabel: number | null;
   exceedsTarget: boolean;
+  /**
+   * #2140 (S5 of #2135) — true when the prosody-consumer contributed
+   * `CallScore` rows for this parameter on the caller's recent calls
+   * (detected via the `PROSODY` sentinel analysisSpecId in the API
+   * route). Surfaced as a small "+ prosody" chip next to the band so
+   * the operator + learner know the audio augmentation was applied.
+   * Optional for forward-compat with route responses pre-#2140 —
+   * treated as `false` when missing.
+   */
+  prosodyContributed?: boolean;
 }
 
 interface ModuleProgress {
@@ -519,6 +529,15 @@ function SkillBandsSection({
                 <span className="hf-attainment-skill-ref">{band.skillRef}</span>
                 <span className="hf-attainment-skill-name">
                   {band.parameterName}
+                  {band.prosodyContributed ? (
+                    <span
+                      className="hf-skill-band-prosody-chip"
+                      title="Vendor audio analysis contributed to this score"
+                      data-testid={`hf-skill-band-prosody-chip-${band.skillRef}`}
+                    >
+                      + prosody
+                    </span>
+                  ) : null}
                 </span>
                 <TierCell
                   tier={tierForCell}
