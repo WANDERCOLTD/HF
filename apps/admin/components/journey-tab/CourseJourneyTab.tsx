@@ -354,11 +354,19 @@ export function CourseJourneyTab({
               onJump={handleJump}
             />
           ) : (
+            /* #2243 — Journey tab is a journey-rail tuner, not a
+             * per-module authoring surface. The "This module" subgroup
+             * the Inspector renders for mixed-scope buckets was
+             * designed around a module-selector this tab never supplied
+             * — module-scope rows resolved to null and rendered "No
+             * entries yet" array editors. Per-module authoring lives in
+             * the Modules tab. */
             <JourneyInspectorPanel
               selectedBucketId={selection.bucketId}
               focusedSettingId={selection.focusedSettingId}
               onRowFocus={handleInspectorRowFocus}
               interactionTick={interactionTick}
+              excludeModuleScope
             />
           )}
         </aside>

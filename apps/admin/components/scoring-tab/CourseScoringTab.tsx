@@ -144,7 +144,16 @@ export function CourseScoringTab({
               onJump={jumpToOwningTab}
             />
           ) : (
-            <JourneyInspectorPanel selectedBucketId={selectedId} />
+            /* #2243 — Scoring tab is a tuning surface, not a per-module
+             * authoring surface. Module-scoped contracts need a
+             * `selectedModuleId` arraySelector this tab can't supply;
+             * without it, the array-keyed read path resolves to null and
+             * array editors render "No entries yet". Operators edit
+             * per-module settings in the Modules tab. */
+            <JourneyInspectorPanel
+              selectedBucketId={selectedId}
+              excludeModuleScope
+            />
           )
         }
       />

@@ -119,9 +119,13 @@ describe("JourneyInspectorPanel — #2243 excludeModuleScope filter", () => {
     ).toBeNull();
   });
 
-  it("does NOT drop module-scope rows when excludeModuleScope is false (Journey tab default)", () => {
-    // Sanity — the default Inspector still renders the mixed-scope
-    // subgroups, so this regression is Teaching-tab-scoped.
+  it("does NOT drop module-scope rows when excludeModuleScope is false (default contract)", () => {
+    // Contract pin — the default still renders the mixed-scope
+    // subgroups so any future consumer that DOES supply an
+    // arraySelector (e.g. wizard / Modules-tab-equivalent) continues to
+    // get the full bucket. Today Teaching + Journey + Scoring all
+    // explicitly pass `excludeModuleScope`; the default path is
+    // exercised by no production consumer but the contract is pinned.
     render(
       <JourneySettingMutatorProvider courseId="c1" playbookConfig={{}}>
         <JourneyInspectorPanel selectedBucketId="A_intake" />
@@ -141,4 +145,38 @@ describe("JourneyInspectorPanel — #2243 excludeModuleScope filter", () => {
       ),
     ).toBeInTheDocument();
   });
+});
+
+// #2243 follow-on — pin that all three tab consumers (Teaching, Journey,
+// Scoring) thread `excludeModuleScope` through to JourneyInspectorPanel.
+// Source-level grep is the durable structural pin: a future refactor
+// that silently drops the prop on any of these mount points fails CI.
+// ModuleInspectorPanel is excluded — it supplies its own
+// selectedModuleId/arraySelector context and DOES render module-scope.
+describe("JourneyInspectorPanel consumers — #2243 excludeModuleScope wiring", () => {
+  const fs = require("node:fs") as typeof import("node:fs");
+  const path = require("node:path") as typeof import("node:path");
+
+  const CONSUMERS = [
+    "components/teaching-tab/CourseTeachingTab.tsx",
+    "components/journey-tab/CourseJourneyTab.tsx",
+    "components/scoring-tab/CourseScoringTab.tsx",
+  ];
+
+  for (const relPath of CONSUMERS) {
+    it(`${relPath} mounts <JourneyInspectorPanel> with excludeModuleScope`, () => {
+      const absPath = path.resolve(__dirname, "../../..", relPath);
+      const source = fs.readFileSync(absPath, "utf8");
+      // The mount must reference both the component and the prop.
+      expect(source).toContain("JourneyInspectorPanel");
+      expect(source).toContain("excludeModuleScope");
+      // Belt-and-braces — the prop is between the component name and
+      // the JSX close. A future refactor that imports the component
+      // but accidentally renames or comments out the prop fails this
+      // pin.
+      const mountRegex =
+        /<JourneyInspectorPanel\b[\s\S]*?excludeModuleScope[\s\S]*?\/>/;
+      expect(source).toMatch(mountRegex);
+    });
+  }
 });
