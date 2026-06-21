@@ -65,15 +65,17 @@ const REPO_ROOT = resolve(REPO_ADMIN, "..", "..");
 // ────────────────────────────────────────────────────────────
 // Internal-label registry — course-agnostic, extensible.
 //
-// Each course registers a named set of labels that are internal-only:
-// they describe assessment dimensions, parameter axes, or scoring
-// shapes that the learner is NOT supposed to see directly. The
-// adaptive engine reads them; the composed prompt + UI render
-// PROJECTIONS of them (mode pills, technique labels, band names) —
-// never the raw label.
+// SHARED SOURCE OF TRUTH: docs/kb/generated/internal-label-registry.json
+// (#2151 S5 of epic #2145).
 //
-// To extend: add a new key to INTERNAL_LABEL_REGISTRY. The walk
-// auto-picks it up. No further test edits needed.
+// Both gates read the same JSON:
+//   - BUILD-TIME (this file, PR #2144) — static-literal scan of
+//     learner-UI source files.
+//   - RUNTIME (lib/pipeline/runners/supervise/leak-scan.ts, #2151) —
+//     SUPERVISE-stage scan of the composed prompt + pinned cards.
+//
+// To extend: add a new top-level entry to `registry` in the JSON.
+// Both gates auto-pick it up. No code edit needed.
 // ────────────────────────────────────────────────────────────
 
 interface InternalLabelSet {
@@ -83,31 +85,25 @@ interface InternalLabelSet {
   labels: readonly string[];
 }
 
-const INTERNAL_LABEL_REGISTRY: Record<string, InternalLabelSet> = {
-  IELTS_CRITERIA: {
-    description:
-      "IELTS scoring criteria — internal scoring axes. The learner sees the technique focus label (Part 3 — see Part3TechniqueFocus union + IELTS-P3-FOCUS-001 spec, epic #2145 S4) or the overall band (Mock Results, BDD US-Mock-05), never these criterion names directly during normal session UI. The bespoke `derive-focus-area.ts::IELTS_SKILL_LABELS` source that previously leaked these into the Part-3 pin was retired by epic #2145 S4 (#2150).",
-    labels: [
-      "Fluency and Coherence",
-      "Lexical Resource",
-      "Grammatical Range and Accuracy",
-      "Pronunciation",
-    ],
-  },
-  IELTS_CRITERION_SLUGS: {
-    description:
-      "IELTS criterion slug form — these are internal parameter IDs / slugs the engine uses to address skill scores. Never appear in learner-rendered text.",
-    labels: [
-      "skill_fluency_and_coherence_fc",
-      "skill_lexical_resource_lr",
-      "skill_grammatical_range_and_accuracy_gra",
-      "skill_pronunciation_p",
-    ],
-  },
-  // Future course registrations slot in here. E.g.:
-  // CIO_CTO_COMPETENCIES: { description: "...", labels: [...] }
-  // KS2_SATS_STRANDS: { description: "...", labels: [...] }
-};
+interface SharedInternalLabelRegistryJson {
+  version: number;
+  registry: Record<string, InternalLabelSet>;
+}
+
+const SHARED_REGISTRY_PATH = resolve(
+  REPO_ROOT,
+  "docs",
+  "kb",
+  "generated",
+  "internal-label-registry.json",
+);
+
+const SHARED_REGISTRY_JSON = JSON.parse(
+  readFileSync(SHARED_REGISTRY_PATH, "utf8"),
+) as SharedInternalLabelRegistryJson;
+
+export const INTERNAL_LABEL_REGISTRY: Record<string, InternalLabelSet> =
+  SHARED_REGISTRY_JSON.registry;
 
 // ────────────────────────────────────────────────────────────
 // Learner-safe label registry — #2145 Phase A Generic SessionFocus
@@ -185,9 +181,13 @@ interface LeakExemptEntry {
   reason: string;
 }
 
-type LeakKey = `${keyof typeof INTERNAL_LABEL_REGISTRY}:${string}`;
+// After the #2151 migration, INTERNAL_LABEL_REGISTRY is loaded from the
+// shared JSON so `keyof typeof` resolves to `string`. The keys still
+// follow the `{setKey}:{label}` convention; stale-row + reason checks
+// pin the relationship at test time.
+type LeakKey = string;
 
-const LEARNER_UI_LEAK_EXEMPT: Partial<Record<LeakKey, LeakExemptEntry>> = {
+const LEARNER_UI_LEAK_EXEMPT: Record<LeakKey, LeakExemptEntry> = {
   // BDD US-Mock-05 (HF-IELTS-Pre-Voice-Testing-Checklist.md) explicitly
   // sanctions the Mock Results screen to display per-criterion scores
   // (Overall band + FC / LR / GRA / P bands + one strength + one
@@ -374,7 +374,7 @@ describe("Learner-UI leak coverage (Lattice Coverage)", () => {
   it("every exempt entry has a substantive reason (>20 chars)", () => {
     for (const [k, entry] of Object.entries(LEARNER_UI_LEAK_EXEMPT)) {
       expect(
-        entry!.reason.trim().length,
+        entry.reason.trim().length,
         `${k}: reason too short`,
       ).toBeGreaterThan(20);
     }

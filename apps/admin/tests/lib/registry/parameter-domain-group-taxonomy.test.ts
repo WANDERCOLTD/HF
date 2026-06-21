@@ -110,8 +110,10 @@ describe("#1948 — domainGroup canonical taxonomy", () => {
     ).toEqual([]);
   });
 
-  it("parameter count is 154 (registry sanity check)", () => {
-    expect(registry.parameters.length).toBe(154);
+  it("parameter count is 155 (registry sanity check)", () => {
+    // 2026-06-21 — #2151 added BEH-INTERNAL-LEAK (supervision) — SUPERVISE-alarm
+    // signal for LEAK-SCAN-001 runtime gate. Bump 154 → 155.
+    expect(registry.parameters.length).toBe(155);
   });
 
   it("distribution matches docs/PARAMETER-TAXONOMY.md after migration", () => {
@@ -125,7 +127,8 @@ describe("#1948 — domainGroup canonical taxonomy", () => {
       companion: 17,
       "personality-adaptation": 14,
       engagement: 13,
-      supervision: 12,
+      // 2026-06-21 — #2151 BEH-INTERNAL-LEAK (SUPERVISE-alarm) bumps supervision 12 → 13.
+      supervision: 13,
       "behavior-core": 6,
       reinforcement: 6,
       onboarding: 5,

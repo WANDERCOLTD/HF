@@ -1,0 +1,86 @@
+{
+  "id": "LEAK-SCAN-001",
+  "title": "Internal-Label Leak Scan (SUPERVISE-stage runtime gate)",
+  "version": "1.0",
+  "status": "Active",
+  "date": "2026-06-21",
+  "domain": "supervision",
+  "specType": "SYSTEM",
+  "outputType": "SUPERVISE",
+  "specRole": "OBSERVE",
+  "story": {
+    "asA": "supervision-layer operator",
+    "iWant": "to be alerted when an internal-only label (criterion name, parameter slug, scoring-axis identifier) leaks into a learner-visible surface at runtime",
+    "soThat": "the live IELTS Part 3 / Mock leak class (#1955 / PR #2134) is caught even when it flows through templating, props, or other dynamic paths that the static-literal Coverage gate (PR #2144) can't see"
+  },
+  "context": {
+    "applies": "Every pipeline run after COMPOSE has produced a ComposedPrompt. The runner scans the composed prompt body + any PinnedCardContent stamped on the session.",
+    "dependsOn": [
+      "PR #2144 — shared internal-label registry at docs/kb/generated/internal-label-registry.json",
+      "PR #2153 — #2145 Phase A SessionFocus substrate (the projection path this gate watches)"
+    ],
+    "assumptions": [
+      "The static-literal Coverage gate (apps/admin/tests/lib/sim-chat/learner-ui-leak-coverage.test.ts) catches HARDCODED leaks at build time.",
+      "This runtime gate catches the COMPLEMENTARY class — labels that reach the learner surface via dynamic projection (props, templated strings, copy-paste from internal data into PinnedCardContent.focusArea or tutor prompt).",
+      "Both gates read the SAME registry JSON — one source of truth. Adding a label there extends both gates simultaneously."
+    ]
+  },
+  "config": {
+    "registryPath": "docs/kb/generated/internal-label-registry.json",
+    "scanScopes": [
+      "composedPrompt.prompt",
+      "session.pinnedCard"
+    ],
+    "alarmSubject": "supervise.internal_leak_detected",
+    "callScoreParameterId": "BEH-INTERNAL-LEAK"
+  },
+  "parameters": [
+    {
+      "id": "BEH-INTERNAL-LEAK",
+      "name": "Internal-Label Leak Count",
+      "description": "Number of unique internal-only labels detected in learner-visible surfaces during this pipeline run. SUPERVISE-alarm signal — operator-only; no AGGREGATE / ADAPT / REWARD consumer (the alarm is read by humans via AppLog, not folded into the cascade).",
+      "config": {
+        "honestEmptyState": true,
+        "writeOnlyWhenNonZero": true,
+        "scoreSemantics": "Unique-leak count. score = uniqueLeakCount (e.g. 0 → no write; 2 → score=2). NOT normalised to 0-1; the operator reads the raw count from AppLog.metadata when triaging the alarm."
+      }
+    }
+  ],
+  "acceptanceCriteria": [
+    {
+      "id": "AC-LEAK-1",
+      "title": "Leak detected → CallScore + AppLog",
+      "given": "A composed prompt containing one or more internal-only labels from the shared registry",
+      "when": "LEAK-SCAN-001 runs at SUPERVISE stage",
+      "then": "writeCallScore is invoked with parameterId=BEH-INTERNAL-LEAK and score equal to the unique-leak count; AppLog subject 'supervise.internal_leak_detected' is emitted with per-leak detail (label, setKey, surface, sessionId, callerId)"
+    },
+    {
+      "id": "AC-LEAK-2",
+      "title": "No leaks → silent no-op",
+      "given": "A composed prompt with NO internal-only labels (the happy path)",
+      "when": "LEAK-SCAN-001 runs at SUPERVISE stage",
+      "then": "No CallScore row is written; no AppLog row is emitted (per the honest-empty-state contract — fake zero-scores corrupt downstream EMA)"
+    },
+    {
+      "id": "AC-LEAK-3",
+      "title": "Empty registry → silent no-op",
+      "given": "The shared registry JSON contains no label sets (or all sets are empty)",
+      "when": "LEAK-SCAN-001 runs at SUPERVISE stage",
+      "then": "No CallScore row is written; no AppLog row is emitted; the runner returns cleanly without throwing"
+    }
+  ],
+  "constraints": [
+    {
+      "id": "C-LEAK-1",
+      "type": "honest-empty-state",
+      "description": "The runner MUST NOT write a zero CallScore on the happy path. Per ~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_no_hardcoded_score_backfill.md — honest empty rows are operator-actionable; fake-zero scores corrupt EMA and mask architectural gaps.",
+      "severity": "critical"
+    },
+    {
+      "id": "C-LEAK-2",
+      "type": "shared-registry-discipline",
+      "description": "The runtime gate (this spec) and the build-time gate (apps/admin/tests/lib/sim-chat/learner-ui-leak-coverage.test.ts) MUST read the SAME JSON. A divergence test pins this — adding a label in one place auto-extends both gates.",
+      "severity": "critical"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$comment": "Shared internal-label registry — drives BOTH the build-time learner-UI leak coverage gate (PR #2144, apps/admin/tests/lib/sim-chat/learner-ui-leak-coverage.test.ts) AND the runtime SUPERVISE LEAK-SCAN-001 gate (#2151, apps/admin/lib/pipeline/runners/supervise/leak-scan.ts). Keep them in sync — ONE canonical list. Adding a new course → add a new top-level set to `registry`; both gates auto-pick it up. Removing a label → both gates auto-relax. Story: #2151 (S5 of epic #2145).",
+  "version": 1,
+  "registry": {
+    "IELTS_CRITERIA": {
+      "description": "IELTS scoring criteria — internal scoring axes. The learner sees the technique focus label (Part 3 — see Part3TechniqueFocus union + IELTS-P3-FOCUS-001 spec, epic #2145 S4) or the overall band (Mock Results, BDD US-Mock-05), never these criterion names directly during normal session UI. The bespoke `derive-focus-area.ts::IELTS_SKILL_LABELS` source that previously leaked these into the Part-3 pin was retired by epic #2145 S4 (#2164).",
+      "labels": [
+        "Fluency and Coherence",
+        "Lexical Resource",
+        "Grammatical Range and Accuracy",
+        "Pronunciation"
+      ]
+    },
+    "IELTS_CRITERION_SLUGS": {
+      "description": "IELTS criterion slug form — these are internal parameter IDs / slugs the engine uses to address skill scores. Never appear in learner-rendered text.",
+      "labels": [
+        "skill_fluency_and_coherence_fc",
+        "skill_lexical_resource_lr",
+        "skill_grammatical_range_and_accuracy_gra",
+        "skill_pronunciation_p"
+      ]
+    }
+  }
+}
