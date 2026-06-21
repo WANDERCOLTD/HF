@@ -28,6 +28,7 @@ import { CourseJourneyTab } from '@/components/journey-tab/CourseJourneyTab';
 import { CourseTeachingTab } from '@/components/teaching-tab/CourseTeachingTab';
 import { CourseScoringTab } from '@/components/scoring-tab/CourseScoringTab';
 import { CourseModulesTab } from '@/components/modules-tab/CourseModulesTab';
+import { CourseContentTab } from './CourseContentTab';
 import { CourseLearnersTab } from './CourseLearnersTab';
 import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
@@ -454,7 +455,11 @@ export default function CourseDetailPage() {
     { id: 'teaching', label: <TabWithHelp tabId="teaching">Teaching</TabWithHelp>, icon: <Sliders size={14} /> },
     { id: 'scoring', label: <TabWithHelp tabId="scoring">Scoring</TabWithHelp>, icon: <Calculator size={14} /> },
     { id: 'modules', label: <TabWithHelp tabId="modules">Modules</TabWithHelp>, icon: <Layers size={14} /> },
-    { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Content</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
+    // #2204 (U2 of #2185): Teaching Content tab — bi-pane browse of typed
+    // teaching content (MCQ Bank / Cue Cards / Topic Prompts / Scenario
+    // Probes / Reflection Prompts). Position AFTER Modules per the story.
+    { id: 'content', label: <TabWithHelp tabId="content">Teaching Content</TabWithHelp>, icon: <BookMarked size={14} /> },
+    { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Sources</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
     // P5 (#1850): Design tab retired — every lens now lives on Journey /
     // Teaching / Scoring / Voice / Modules tabs. Legacy deep links flow
     // through `LEGACY_TAB_REDIRECTS` → 'journey'.
@@ -1833,6 +1838,13 @@ export default function CourseDetailPage() {
           onTabSwitch={handleCrossTabSwitch}
           playbookConfig={detail?.config as Record<string, unknown> | null | undefined}
         />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* TEACHING CONTENT TAB — #2204 (U2 of #2185)     */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'content' && (
+        <CourseContentTab courseId={courseId!} />
       )}
 
       {/* ═══════════════════════════════════════════════ */}

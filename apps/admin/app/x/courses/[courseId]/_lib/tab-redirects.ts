@@ -57,7 +57,10 @@ export const LEGACY_TAB_REDIRECTS: Record<string, string> = {
   'session-flow': 'journey',
   // Pre-P5 aliases retained from CourseDesignTab era.
   genome: 'intelligence',
-  content: 'intelligence',
+  // NOTE: 'content' was previously redirected → 'intelligence' (Sources).
+  // As of #2204 (U2 of #2185) 'content' is a real tab id (Teaching Content
+  // skeleton). The redirect is removed so the new tab is reachable via the
+  // canonical ?tab=content URL.
 };
 
 /**

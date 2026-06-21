@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-21T15:43:12.911Z",
+  "generatedAt": "2026-06-21T16:15:25.523Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1873,
-  "edgeCount": 4411,
+  "fileCount": 1880,
+  "edgeCount": 4419,
   "skippedEdges": 1,
   "edges": [
     {
@@ -3730,6 +3730,18 @@
     {
       "from": "app/api/courses/[courseId]/test-learner/route.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/typed-content/route.ts",
+      "to": "lib/permissions.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/typed-content/route.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "app/api/courses/[courseId]/typed-content/route.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "app/api/courses/route.ts",
@@ -8832,6 +8844,26 @@
       "to": "app/x/courses/[courseId]/cohort-progress.css"
     },
     {
+      "from": "app/x/courses/[courseId]/CourseContentTab.tsx",
+      "to": "components/content-tab/content-tab.css"
+    },
+    {
+      "from": "app/x/courses/[courseId]/CourseContentTab.tsx",
+      "to": "components/content-tab/ContentDetailPanel.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/CourseContentTab.tsx",
+      "to": "components/content-tab/ContentLhPicker.tsx"
+    },
+    {
+      "from": "app/x/courses/[courseId]/CourseContentTab.tsx",
+      "to": "components/content-tab/types.ts"
+    },
+    {
+      "from": "app/x/courses/[courseId]/CourseContentTab.tsx",
+      "to": "components/shared/designer-shell/DesignerShell.tsx"
+    },
+    {
       "from": "app/x/courses/[courseId]/CourseCurriculumTab.tsx",
       "to": "app/x/courses/[courseId]/_components/AuthoredModulesPanel.tsx"
     },
@@ -9062,6 +9094,10 @@
     {
       "from": "app/x/courses/[courseId]/page.tsx",
       "to": "app/x/courses/[courseId]/course-learners.css"
+    },
+    {
+      "from": "app/x/courses/[courseId]/page.tsx",
+      "to": "app/x/courses/[courseId]/CourseContentTab.tsx"
     },
     {
       "from": "app/x/courses/[courseId]/page.tsx",
@@ -16984,10 +17020,6 @@
       "to": "lib/types/json-fields.ts"
     },
     {
-      "from": "lib/wizard/detect-module-settings.ts",
-      "to": "lib/types/json-fields.ts"
-    },
-    {
       "from": "lib/wizard/enum-sets.ts",
       "to": "lib/content-trust/resolve-config.ts"
     },
@@ -18820,6 +18852,11 @@
     },
     {
       "path": "app/api/courses/[courseId]/test-learner/route.ts",
+      "inDegree": 0,
+      "outDegree": 3
+    },
+    {
+      "path": "app/api/courses/[courseId]/typed-content/route.ts",
       "inDegree": 0,
       "outDegree": 3
     },
@@ -20839,6 +20876,11 @@
       "outDegree": 1
     },
     {
+      "path": "app/x/courses/[courseId]/CourseContentTab.tsx",
+      "inDegree": 1,
+      "outDegree": 5
+    },
+    {
       "path": "app/x/courses/[courseId]/CourseCurriculumTab.tsx",
       "inDegree": 1,
       "outDegree": 4
@@ -21026,7 +21068,7 @@
     {
       "path": "app/x/courses/[courseId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 50
+      "outDegree": 51
     },
     {
       "path": "app/x/courses/[courseId]/sessions/[sessionNum]/page.tsx",
@@ -22129,6 +22171,26 @@
       "outDegree": 0
     },
     {
+      "path": "components/content-tab/ContentDetailPanel.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/content-tab/ContentLhPicker.tsx",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/content-tab/content-tab.css",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/content-tab/types.ts",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
       "path": "components/course-design/ModuleVisibilitySettings.tsx",
       "inDegree": 1,
       "outDegree": 0
@@ -22680,6 +22742,11 @@
     },
     {
       "path": "components/shared/category-treemap.css",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "components/shared/designer-shell/DesignerShell.tsx",
       "inDegree": 1,
       "outDegree": 0
     },
@@ -25020,7 +25087,7 @@
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 473,
+      "inDegree": 474,
       "outDegree": 3
     },
     {
@@ -25205,7 +25272,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 678,
+      "inDegree": 679,
       "outDegree": 0
     },
     {
@@ -26261,7 +26328,7 @@
     {
       "path": "lib/wizard/detect-module-settings.ts",
       "inDegree": 2,
-      "outDegree": 2
+      "outDegree": 1
     },
     {
       "path": "lib/wizard/detect-pedagogy.ts",
@@ -27022,12 +27089,12 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 678,
+      "inDegree": 679,
       "outDegree": 0
     },
     {
       "path": "lib/permissions.ts",
-      "inDegree": 473,
+      "inDegree": 474,
       "outDegree": 3
     },
     {
@@ -27063,7 +27130,7 @@
     {
       "path": "app/x/courses/[courseId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 50
+      "outDegree": 51
     },
     {
       "path": "lib/prompt/composition/types.ts",
