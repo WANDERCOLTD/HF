@@ -2713,6 +2713,150 @@
           "specSlug": "INIT-001-caller-onboarding"
         }
       }
+    },
+    {
+      "parameterId": "skill_fluency_and_coherence_fc",
+      "name": "IELTS — Fluency & Coherence",
+      "definition": "IELTS Fluency & Coherence — sustained speaking without breakdown, connected discourse with logical organisation. LLM-judged from transcript by IELTS-MEASURE-001 using the IELTS Public Band Descriptors; score is `ielts_band(fc) / 9` clamped to [0, 1]. Sibling prosody-raw signal (prosody_raw_fc) MAY augment confidence post-MVP via tool-use, but the LLM transcript score remains authoritative.",
+      "domainGroup": "learner-model",
+      "defaultTarget": 0.611,
+      "aliases": [
+        "fluency_and_coherence",
+        "skill_fc"
+      ],
+      "interpretationHigh": "Speaks fluently with only occasional repetition or self-correction; develops topics coherently and appropriately; uses a range of connectives and discourse markers with flexibility.",
+      "interpretationLow": "Long pauses, frequent breakdowns; only basic connectives ('and', 'but'); responses often single words or short phrases with little topic development.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "IELTS-MEASURE-001-ielts-speaking-criteria"
+        }
+      }
+    },
+    {
+      "parameterId": "skill_lexical_resource_lr",
+      "name": "IELTS — Lexical Resource",
+      "definition": "IELTS Lexical Resource — vocabulary range, precision of word choice, paraphrase flexibility, idiomatic appropriacy. TRANSCRIPT-ONLY — vendor audio cannot judge. LLM-judged from transcript by IELTS-MEASURE-001 using the IELTS Public Band Descriptors; score is `ielts_band(lr) / 9` clamped to [0, 1]. prosody_raw_lr exists for completeness but is NOT consumed — the LLM is authoritative.",
+      "domainGroup": "learner-model",
+      "defaultTarget": 0.611,
+      "aliases": [
+        "lexical_resource",
+        "skill_lr"
+      ],
+      "interpretationHigh": "Wide range of vocabulary used fluently and precisely; skilful use of less common and idiomatic vocabulary; paraphrases effectively when needed.",
+      "interpretationLow": "Very basic vocabulary; cannot discuss most topics; meaning often opaque; relies on memorised phrases with no paraphrase attempted.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "IELTS-MEASURE-001-ielts-speaking-criteria"
+        }
+      }
+    },
+    {
+      "parameterId": "skill_grammatical_range_and_accuracy_gra",
+      "name": "IELTS — Grammatical Range & Accuracy",
+      "definition": "IELTS Grammatical Range & Accuracy — variety of sentence structures, complexity (subordination, conditionals, modals), and error frequency/gravity. TRANSCRIPT-ONLY — vendor audio cannot judge grammar. LLM-judged from transcript by IELTS-MEASURE-001 using the IELTS Public Band Descriptors; score is `ielts_band(gra) / 9` clamped to [0, 1]. prosody_raw_gra exists for completeness but is NOT consumed — the LLM is authoritative.",
+      "domainGroup": "learner-model",
+      "defaultTarget": 0.611,
+      "aliases": [
+        "grammatical_range_and_accuracy",
+        "skill_gra"
+      ],
+      "interpretationHigh": "Wide range of structures used flexibly; the majority of sentences are error-free, with only occasional inappropriacies; complex forms (subordination, conditionals, modals) appear naturally.",
+      "interpretationLow": "Basic sentence forms with limited accuracy; rarely produces subordinate clauses; persistent errors that frequently impede meaning.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "IELTS-MEASURE-001-ielts-speaking-criteria"
+        }
+      }
+    },
+    {
+      "parameterId": "skill_pronunciation_p",
+      "name": "IELTS — Pronunciation",
+      "definition": "IELTS Pronunciation — phoneme accuracy, stress, rhythm, intonation, intelligibility. Dual-confidence scoring: LLM-judged from transcript cues (self-corrections, tutor pronunciation feedback, repair patterns, hesitations, long-turn cleanliness) at medium confidence; when prosody vendor is wired (epic #2135 S3), prosody_raw_p MAY augment via tool-use and raise confidence to high. Score is `ielts_band(p) / 9` clamped to [0, 1].",
+      "domainGroup": "learner-model",
+      "defaultTarget": 0.611,
+      "aliases": [
+        "pronunciation",
+        "skill_p"
+      ],
+      "interpretationHigh": "Uses a wide range of pronunciation features with precision and subtlety; sustained flexible use of features; easy to understand throughout with first-language accent having minimal effect.",
+      "interpretationLow": "Pronunciation requires frequent listener effort; some or much speech may be unintelligible; limited control of stress, rhythm, and intonation.",
+      "usage": {
+        "compose": "semantics-block",
+        "measurement": {
+          "specSlug": "IELTS-MEASURE-001-ielts-speaking-criteria"
+        }
+      }
+    },
+    {
+      "parameterId": "prosody_raw_fc",
+      "name": "Prosody — Fluency & Coherence raw signal",
+      "definition": "Vendor-measured Fluency & Coherence band signal (band 0–9 normalised to 0–1). Written by lib/pipeline/prosody-consumer.ts during AGGREGATE when the prosody envelope mode is 'ielts'. Distinct from skill_fluency_and_coherence_fc (which is the LLM-judged transcript score from IELTS-MEASURE-001 via SCORE_AGENT). Audio fluency features are reasonably observable from vendor signal, so vendor confidence is 0.9. Optionally consumed by IELTS-MEASURE-001 via tool-use (post-MVP) to augment LLM judgment; not consumed by any AGGREGATE/ADAPT/REWARD spec — see parameter-loop-closure ratchet note.",
+      "domainGroup": "voice-delivery",
+      "defaultTarget": 0.5,
+      "aliases": [],
+      "interpretationHigh": "Vendor audio analysis reports strong fluency band (sustained speech, low hesitation rate, low filler density).",
+      "interpretationLow": "Vendor audio analysis reports weak fluency band (frequent long pauses, high hesitation, broken speech rhythm).",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Vendor-derived audio-feature signal produced by lib/pipeline/prosody-consumer.ts (computedBy: prosody-vendor seed); written to CallScore directly by the adapter, not by an AnalysisSpec measure stage. Not transcript-derivable — the LLM cannot reproduce vendor audio-feature outputs from transcript content. Optionally consumed by IELTS-MEASURE-001 via tool-use (post-MVP) to augment FC confidence, but the LLM transcript score on skill_fluency_and_coherence_fc remains authoritative."
+        }
+      }
+    },
+    {
+      "parameterId": "prosody_raw_p",
+      "name": "Prosody — Pronunciation raw signal",
+      "definition": "Vendor-measured Pronunciation band signal (band 0–9 normalised to 0–1). Written by lib/pipeline/prosody-consumer.ts during AGGREGATE when the prosody envelope mode is 'ielts'. Distinct from skill_pronunciation_p (which is the LLM-judged transcript score from IELTS-MEASURE-001). Phoneme accuracy is the vendor's strongest signal — vendor confidence is 0.9. Optionally consumed by IELTS-MEASURE-001 via tool-use (post-MVP) to augment LLM judgment and raise the LLM's transcript-only confidence from medium to high; not consumed by any AGGREGATE/ADAPT/REWARD spec — see parameter-loop-closure ratchet note.",
+      "domainGroup": "voice-delivery",
+      "defaultTarget": 0.5,
+      "aliases": [],
+      "interpretationHigh": "Vendor audio analysis reports strong pronunciation band (precise phoneme accuracy, controlled stress and intonation, high intelligibility).",
+      "interpretationLow": "Vendor audio analysis reports weak pronunciation band (frequent phoneme errors, limited prosodic control, low intelligibility).",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Vendor-derived audio-feature signal produced by lib/pipeline/prosody-consumer.ts (computedBy: prosody-vendor seed); written to CallScore directly by the adapter, not by an AnalysisSpec measure stage. Not transcript-derivable — phoneme accuracy and prosodic control are the vendor's strongest signal class, fundamentally not reproducible from transcript text. Optionally consumed by IELTS-MEASURE-001 via tool-use (post-MVP) to lift skill_pronunciation_p confidence from medium to high."
+        }
+      }
+    },
+    {
+      "parameterId": "prosody_raw_lr",
+      "name": "Prosody — Lexical Resource raw signal",
+      "definition": "Vendor-measured Lexical Resource band signal (band 0–9 normalised to 0–1). Written by lib/pipeline/prosody-consumer.ts during AGGREGATE when the prosody envelope mode is 'ielts'. Distinct from skill_lexical_resource_lr (which is the LLM-judged transcript score from IELTS-MEASURE-001 — the authoritative LR score). The vendor cannot reliably score vocabulary from audio features alone; this row is an audio-feature approximation only, vendor confidence 0.7. NOT consumed by IELTS-MEASURE-001 — kept for completeness + forensics; not consumed by any AGGREGATE/ADAPT/REWARD spec.",
+      "domainGroup": "voice-delivery",
+      "defaultTarget": 0.5,
+      "aliases": [],
+      "interpretationHigh": "Vendor audio-feature approximation suggests rich lexical signal; treat as weak corroboration only — the LLM transcript score is authoritative.",
+      "interpretationLow": "Vendor audio-feature approximation suggests sparse lexical signal; treat as weak corroboration only — the LLM transcript score is authoritative.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Vendor-derived audio-feature signal produced by lib/pipeline/prosody-consumer.ts (computedBy: prosody-vendor seed); written to CallScore directly by the adapter, not by an AnalysisSpec measure stage. Not transcript-derivable AND vendor cannot reliably score vocabulary from audio features alone — kept for forensics + completeness; the LLM-judged skill_lexical_resource_lr from IELTS-MEASURE-001 is the authoritative LR score."
+        }
+      }
+    },
+    {
+      "parameterId": "prosody_raw_gra",
+      "name": "Prosody — Grammatical Range & Accuracy raw signal",
+      "definition": "Vendor-measured Grammatical Range & Accuracy band signal (band 0–9 normalised to 0–1). Written by lib/pipeline/prosody-consumer.ts during AGGREGATE when the prosody envelope mode is 'ielts'. Distinct from skill_grammatical_range_and_accuracy_gra (which is the LLM-judged transcript score from IELTS-MEASURE-001 — the authoritative GRA score). The vendor cannot reliably score grammar from audio features alone; this row is an audio-feature approximation only, vendor confidence 0.7. NOT consumed by IELTS-MEASURE-001 — kept for completeness + forensics; not consumed by any AGGREGATE/ADAPT/REWARD spec.",
+      "domainGroup": "voice-delivery",
+      "defaultTarget": 0.5,
+      "aliases": [],
+      "interpretationHigh": "Vendor audio-feature approximation suggests grammatical complexity signal; treat as weak corroboration only — the LLM transcript score is authoritative.",
+      "interpretationLow": "Vendor audio-feature approximation suggests limited grammatical signal; treat as weak corroboration only — the LLM transcript score is authoritative.",
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "Vendor-derived audio-feature signal produced by lib/pipeline/prosody-consumer.ts (computedBy: prosody-vendor seed); written to CallScore directly by the adapter, not by an AnalysisSpec measure stage. Not transcript-derivable AND vendor cannot reliably score grammar from audio features alone — kept for forensics + completeness; the LLM-judged skill_grammatical_range_and_accuracy_gra from IELTS-MEASURE-001 is the authoritative GRA score."
+        }
+      }
     }
   ]
 }
