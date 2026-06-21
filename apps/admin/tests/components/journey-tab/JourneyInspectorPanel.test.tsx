@@ -55,3 +55,90 @@ describe("JourneyInspectorPanel — Slice C (#1721) bucket-stacking", () => {
     expect(screen.getByText(/Sign-up & pre-call profile/)).toBeInTheDocument();
   });
 });
+
+// #2243 (U? of #2185) — Teaching tab is a tuner, not a per-module
+// authoring surface. When the consumer passes `excludeModuleScope`, the
+// Inspector drops every `scope: "module"` contract from the rendered
+// bucket. The Modules tab is the canonical editor for per-module
+// settings (it supplies the `selectedModuleId` arraySelector). Without
+// this filter, the Teaching tab Inspector renders empty
+// array-editors for module-scope contracts ("No entries yet") because
+// the array-keyed read path lands without a selector → the inline cue
+// cards on the Playbook are unreachable.
+describe("JourneyInspectorPanel — #2243 excludeModuleScope filter", () => {
+  it("drops module-scope rows from a mixed-scope bucket", () => {
+    // A_intake mixes course-scope and module-scope settings; the only
+    // module-scope contract is `moduleProfileFieldsToCapture`.
+    render(
+      <JourneySettingMutatorProvider courseId="c1" playbookConfig={{}}>
+        <JourneyInspectorPanel selectedBucketId="A_intake" excludeModuleScope />
+      </JourneySettingMutatorProvider>,
+    );
+    // Bucket renders as a single (course-only) stack — no `course` /
+    // `module` subgroups.
+    expect(
+      screen.queryByTestId("hf-journey-subgroup-module-A_intake"),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId("hf-journey-subgroup-course-A_intake"),
+    ).toBeNull();
+    // The module-scope row does NOT mount.
+    expect(
+      screen.queryByTestId(
+        "hf-journey-inspector-row-moduleProfileFieldsToCapture",
+      ),
+    ).toBeNull();
+    // The bucket container itself IS present (course-scope settings render).
+    expect(
+      screen.getByTestId("hf-journey-inspector-bucket-A_intake"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the modules-tab hint when a bucket is all-module-scope", () => {
+    // E_learner_visual is the bucket the operator's screenshot showed —
+    // it carries `moduleCueCardPool`, `moduleTopicPool`, and
+    // `modulePinFocusArea`, all `scope: "module"`. With excludeModuleScope,
+    // the visible set is empty → the hint fires.
+    render(
+      <JourneySettingMutatorProvider courseId="c1" playbookConfig={{}}>
+        <JourneyInspectorPanel
+          selectedBucketId="E_learner_visual"
+          excludeModuleScope
+        />
+      </JourneySettingMutatorProvider>,
+    );
+    expect(
+      screen.getByTestId(
+        "hf-journey-inspector-module-only-E_learner_visual",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Modules tab/)).toBeInTheDocument();
+    // The would-be broken array-editor row never mounts.
+    expect(
+      screen.queryByTestId("hf-journey-inspector-row-moduleCueCardPool"),
+    ).toBeNull();
+  });
+
+  it("does NOT drop module-scope rows when excludeModuleScope is false (Journey tab default)", () => {
+    // Sanity — the default Inspector still renders the mixed-scope
+    // subgroups, so this regression is Teaching-tab-scoped.
+    render(
+      <JourneySettingMutatorProvider courseId="c1" playbookConfig={{}}>
+        <JourneyInspectorPanel selectedBucketId="A_intake" />
+      </JourneySettingMutatorProvider>,
+    );
+    // A_intake → mixed → renders both subgroups.
+    expect(
+      screen.getByTestId("hf-journey-subgroup-course-A_intake"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("hf-journey-subgroup-module-A_intake"),
+    ).toBeInTheDocument();
+    // The module-scope row mounts.
+    expect(
+      screen.getByTestId(
+        "hf-journey-inspector-row-moduleProfileFieldsToCapture",
+      ),
+    ).toBeInTheDocument();
+  });
+});
