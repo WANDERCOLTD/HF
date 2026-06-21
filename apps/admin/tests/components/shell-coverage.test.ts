@@ -140,15 +140,19 @@ const EXPECTED_EXEMPT_COUNT = 0;
  *   - `results-readout`  (S4-S7 of epic #2163)
  *   - `intake-wizard`    (S4-S7 of epic #2163)
  *
- * PR #2202 landed the first 3 shells; this PR (#2206 / W1+W2+W3) drops
+ * PR #2202 landed the first 3 shells; PR #2218 (#2206 / W1+W2+W3) drops
  * the ratchet from 5 → 2 in the same commit that wires SimChat to
  * dispatch via `resolveLearnerShell`. The remaining 2 gaps
- * (results-readout + intake-wizard) close in S4-S7 of epic #2163.
+ * (results-readout + intake-wizard) close in W6 + W7 of #2206.
  *
- * When `ResultsReadoutShell.tsx` ships (W6, this PR), drop to 1.
- * When `IntakeWizardShell.tsx` ships (W7), drop to 0.
+ * W6 (PR #2220) shipped `ResultsReadoutShell.tsx` — dropped 5 → 1.
+ * W7 (this PR) ships `IntakeWizardShell.tsx` (the typed shell for the
+ * ENROLLMENT learner surface; ENROLLMENT sessions ride above SimChat
+ * per `lib/voice/resolve-learner-shell.ts` rule order, so the shell is
+ * a standalone capability frame, not a SimChat-mounted overlay).
+ * Drops ratchet from 1 → 0 (all 5 LearnerShellKind values covered).
  */
-const EXPECTED_GAP_COUNT = 1;
+const EXPECTED_GAP_COUNT = 0;
 
 // ────────────────────────────────────────────────────────────
 // Classification

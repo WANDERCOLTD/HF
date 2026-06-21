@@ -270,3 +270,81 @@
   justify-content: center;
   margin-top: 8px;
 }
+
+/* IntakeWizardShell — full-frame container for the ENROLLMENT learner
+ * surface. Light theme by default per SHELL_DEFAULTS["intake-wizard"]
+ * (colourTheme === "default"). The shell wraps wizard content authored
+ * by the host page; it does not impose layout opinions on the children
+ * beyond the outer frame, banner, and dismiss affordance. */
+.hf-intake-wizard-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  min-height: 100%;
+  padding: 24px;
+  background: var(--intake-shell-bg, var(--surface-primary));
+  color: var(--intake-shell-text, var(--text-primary));
+}
+
+.hf-intake-wizard-shell[data-colour-theme="default"] {
+  --intake-shell-bg: var(--surface-primary);
+  --intake-shell-text: var(--text-primary);
+}
+
+.hf-intake-wizard-shell[data-colour-theme="dark"] {
+  --intake-shell-bg: #0b0f1a;
+  --intake-shell-text: #e8ecf3;
+}
+
+.hf-intake-wizard-shell[data-colour-theme="neutral"] {
+  --intake-shell-bg: var(--surface-secondary);
+  --intake-shell-text: var(--text-primary);
+}
+
+.hf-intake-wizard-shell[data-colour-theme="brand"] {
+  --intake-shell-bg: color-mix(in srgb, var(--accent-primary) 10%, var(--surface-primary));
+  --intake-shell-text: var(--text-primary);
+}
+
+.hf-intake-shell-banner {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--intake-shell-text);
+}
+
+.hf-intake-shell-dismiss {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.hf-intake-shell-dismiss:hover {
+  background: var(--surface-secondary);
+}
+
+.hf-intake-shell-dismiss:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.hf-intake-shell-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 auto;
+}
