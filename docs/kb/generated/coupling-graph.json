@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-21T16:25:35.253Z",
+  "generatedAt": "2026-06-21T15:43:12.911Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1873,
-  "edgeCount": 4410,
+  "edgeCount": 4411,
   "skippedEdges": 1,
   "edges": [
     {
@@ -16984,6 +16984,10 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/wizard/detect-module-settings.ts",
+      "to": "lib/types/json-fields.ts"
+    },
+    {
       "from": "lib/wizard/enum-sets.ts",
       "to": "lib/content-trust/resolve-config.ts"
     },
@@ -25856,7 +25860,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 137,
+      "inDegree": 138,
       "outDegree": 0
     },
     {
@@ -26257,7 +26261,7 @@
     {
       "path": "lib/wizard/detect-module-settings.ts",
       "inDegree": 2,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/wizard/detect-pedagogy.ts",
@@ -27028,7 +27032,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 137,
+      "inDegree": 138,
       "outDegree": 0
     },
     {

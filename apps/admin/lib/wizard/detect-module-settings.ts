@@ -45,8 +45,10 @@
 
 import type {
   AuthoredModuleSettings,
+  ScoreReadoutMode,
   ValidationWarning,
 } from "@/lib/types/json-fields";
+import { SCORE_READOUT_MODE_VALUES } from "@/lib/types/json-fields";
 
 // ── Public types ─────────────────────────────────────────────────────
 
@@ -98,6 +100,8 @@ const KNOWN_FIELDS: ReadonlySet<keyof AuthoredModuleSettings> = new Set([
   "closingLine",
   "firstTimeOrientationLine",
   "scheduledCues",
+  // #2162 — typed in lib/types/json-fields.ts as ScoreReadoutMode.
+  "scoreReadoutMode",
   // Below: present in schema but YAML uses source-reference strings in v2.3,
   // not the resolved shape. Parser skips them with a warning so the resolver
   // stage (not yet wired) can pick them up from the raw markdown if needed.
@@ -112,7 +116,6 @@ const NON_SCHEMA_FIELDS: ReadonlySet<string> = new Set([
   "prepSilenceSec",
   "incompleteThresholdSec",
   "scoringCriteria",
-  "scoreReadoutMode",
   // Source-ref shapes (string instead of resolved structured value):
   // `topicPool` joined this group after #1932 added it to the schema —
   // its YAML form is a `source:<id>` string, the resolver substitutes
@@ -634,6 +637,23 @@ export function detectModuleSettings(
             break;
           }
           out.scheduledCues = value;
+          break;
+        }
+        case "scoreReadoutMode": {
+          // #2162 — validate against the typed ScoreReadoutMode union.
+          if (
+            typeof value !== "string" ||
+            !(SCORE_READOUT_MODE_VALUES as readonly string[]).includes(value)
+          ) {
+            result.validationWarnings.push({
+              code: "MODULE_SETTINGS_TYPE_MISMATCH",
+              message: `Field "${rawKey}" in moduleId="${moduleId}" expects one of ${SCORE_READOUT_MODE_VALUES.join(" | ")}, got ${JSON.stringify(value)}.`,
+              severity: "warning",
+              path: `modules.${moduleId}.settings.${rawKey}`,
+            });
+            break;
+          }
+          out.scoreReadoutMode = value as ScoreReadoutMode;
           break;
         }
         default: {

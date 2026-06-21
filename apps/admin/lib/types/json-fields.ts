@@ -1462,6 +1462,23 @@ export interface AuthoredModuleSettings {
    * @bucket exam
    */
   generateLessonPlan?: boolean;
+  /**
+   * #2162 — per-module score readout policy. Drives when and how scores
+   * reach the learner at the end of a module session. Per IELTS course-ref
+   * v2.3 + HF-IELTS-Pre-Voice-Testing-Checklist Unit 5.
+   *
+   * Closes the v2.3-fixture exempt entry on `fixture-type-coverage` — the
+   * key existed in the YAML but had no TypeScript type, so the wizard
+   * parser silently dropped it. Typing it ends the silent-drop class for
+   * this key.
+   *
+   * Consumer wiring follows in a follow-on PR (Results screen +
+   * end-of-module readout). For now this types the data shape so the
+   * wizard parser carries it through into `Playbook.config.modules[i].settings`.
+   *
+   * @bucket exam
+   */
+  scoreReadoutMode?: ScoreReadoutMode;
 }
 
 export interface ModuleDefaults {
@@ -2135,3 +2152,101 @@ export interface SessionLessonPlan {
   /** UTC ISO timestamp the plan was emitted. */
   emittedAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// #2162 — BDD-defined typed unions (CueCardType / StallType / ScoreReadoutMode).
+//
+// Three learner-experienced enums declared by the IELTS BDD spec + course-ref
+// v2.3 that previously existed only as freeform strings or YAML keys without
+// TypeScript typing. Each is a 4th-layer Lattice primitive — sibling to
+// `Part3TechniqueFocus` (#2145 Phase A), `LearnerShellKind` (#2163 S1),
+// `AssessmentKind` (#2176 S1). Big-matrix audit (PR #2144 conversation,
+// 2026-06-21) catalogued these as the remaining gap; this section closes it.
+//
+// Each union carries a `*_VALUES` const tuple so runtime callers can
+// enumerate canonical values (mirrors AUTHORED_MODULE_MODE_VALUES and
+// LEARNER_SHELL_KIND_VALUES patterns consumed by Coverage gates).
+// ---------------------------------------------------------------------------
+
+/**
+ * #2162 — cue card type.
+ *
+ * Drives the Part 2 (and Mock Part 2) prep-phase topic prompt. The cue card
+ * either anchors on a personal topic ("Describe a person who has influenced
+ * you...") or an abstract topic ("Describe an invention that changed the
+ * world..."). Per BDD US-P2-01 (HF IELTS — BDD Stories) + IELTS course-ref
+ * v2.3 Source 5 (cue card pool).
+ *
+ * Learner-visible: the cue card text itself is learner-facing; the type
+ * label ("personal" / "abstract") is internal — used by the prep-phase
+ * transform to vary the prompt scaffold, not surfaced to the learner.
+ */
+export type CueCardType = "personal" | "abstract";
+
+/** Canonical enumeration. Sibling to AUTHORED_MODULE_MODE_VALUES. */
+export const CUE_CARD_TYPE_VALUES = ["personal", "abstract"] as const;
+
+/**
+ * #2162 — stall type.
+ *
+ * Drives the Part 3 scaffold trigger — which scaffold pool entry the tutor
+ * picks when the learner stalls. Per BDD US-P3-02b (HF IELTS — BDD Stories)
+ * + IELTS course-ref v2.3 Source 7 (Part 3 stall scaffolds discussion,
+ * scaffold-tag taxonomy).
+ *
+ * Each value names a distinct stall SHAPE the tutor recognises:
+ * - `i-dont-know` — explicit "I don't know" without a follow-on attempt
+ * - `opinion-gap` — learner has no opinion on the asked topic
+ * - `abstraction-freeze` — learner stalls on the abstract framing
+ * - `vocabulary-search` — learner searching for a word, partial speech
+ * - `blank-out` — long silence with no signal
+ *
+ * Internal-only label per Lattice learner-UI leak Coverage; the tutor's
+ * prompt is what reaches the learner, never the tag name.
+ */
+export type StallType =
+  | "i-dont-know"
+  | "opinion-gap"
+  | "abstraction-freeze"
+  | "vocabulary-search"
+  | "blank-out";
+
+/** Canonical enumeration. Sibling to AUTHORED_MODULE_MODE_VALUES. */
+export const STALL_TYPE_VALUES = [
+  "i-dont-know",
+  "opinion-gap",
+  "abstraction-freeze",
+  "vocabulary-search",
+  "blank-out",
+] as const;
+
+/**
+ * #2162 — score readout mode.
+ *
+ * Drives when and how per-criterion / overall scores reach the learner at
+ * the end of a module session. Per IELTS course-ref v2.3 (per-module
+ * `scoreReadoutMode` field on Baseline / Part 2 / Part 3 / Mock modules)
+ * + HF-IELTS-Pre-Voice-Testing-Checklist.md Unit 5 (Mock Results screen).
+ *
+ * - `on-screen` — bands shown in the on-screen Results panel but NOT
+ *   stated aloud by the tutor (e.g. Baseline — warmer-than-Mock close)
+ * - `end-of-module-on-screen` — bands shown only at the end-of-module
+ *   readout, not during the session (Part 2 / Part 3 default)
+ * - `aloud-with-indicative-qualifier` — tutor states bands aloud with
+ *   an "indicative" qualifier (Mock Exam — the only mode that says
+ *   bands aloud)
+ *
+ * Learner-visible: yes. The READOUT MODE is internal but the consequence
+ * (whether bands are spoken vs displayed) is learner-experienced.
+ */
+export type ScoreReadoutMode =
+  | "on-screen"
+  | "end-of-module-on-screen"
+  | "aloud-with-indicative-qualifier";
+
+/** Canonical enumeration. Sibling to AUTHORED_MODULE_MODE_VALUES. */
+export const SCORE_READOUT_MODE_VALUES = [
+  "on-screen",
+  "end-of-module-on-screen",
+  "aloud-with-indicative-qualifier",
+] as const;
