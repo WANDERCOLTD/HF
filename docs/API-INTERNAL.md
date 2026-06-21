@@ -10181,6 +10181,29 @@ Aggregates prompt staleness across every demo caller
 
 ---
 
+### `GET` /api/courses/:courseId/typed-content
+
+Aggregates typed teaching content (MCQs, cue cards, topic
+
+**Auth**: session (OPERATOR+) · **Scope**: `courses:read`
+
+**Response** `200`
+```json
+{ ok: true, courseId, groups, modules, sources }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
 ### `GET` /api/courses/[courseId]/classrooms
 
 List all classrooms (cohort groups) assigned to a course (playbook).
@@ -16364,8 +16387,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 542 |
-| Files with annotations | 528 |
+| Route files found | 543 |
+| Files with annotations | 529 |
 | Files missing annotations | 14 |
 | Coverage | 97.4% |
 

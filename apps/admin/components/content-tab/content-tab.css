@@ -1,0 +1,181 @@
+/* CourseContentTab — typed teaching-content browse (#2204 / U2 of #2185).
+ *
+ * Bi-pane shape: LH intent groups (mirrors `.hf-modules-lh-row`),
+ * RHS detail with filter chips + provenance chips per row.
+ * Tokens only — no hardcoded hex per `.claude/rules/ui-design-system.md`.
+ */
+
+.hf-content-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hf-content-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* LH intent-group rows. Mirrors `.hf-modules-lh-row` so the two
+ * sibling tabs share a rhythm. */
+.hf-content-lh-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+  position: relative;
+}
+.hf-content-lh-row:hover {
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
+  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-default));
+}
+.hf-content-lh-row:active {
+  transform: translateY(1px);
+}
+.hf-content-lh-row.hf-selected {
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--surface-primary));
+  border-color: var(--accent-primary);
+  font-weight: 600;
+}
+.hf-content-lh-row.hf-selected::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+}
+.hf-content-lh-row .hf-journey-bucket-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hf-content-lh-row .hf-journey-bucket-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-secondary) 80%, transparent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.hf-content-lh-row.hf-selected .hf-journey-bucket-count {
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-primary));
+  color: var(--accent-primary);
+}
+
+/* Filter chip row — per-Module / per-Source chips above the item list. */
+.hf-content-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hf-content-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.hf-content-chip:hover {
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
+}
+.hf-content-chip-active {
+  background: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-primary));
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+/* Item list — stacked cards. */
+.hf-content-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hf-content-row {
+  display: flex;
+  gap: 12px;
+}
+
+.hf-content-row-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hf-content-row-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+  word-break: break-word;
+}
+
+.hf-content-bullets {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hf-content-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Provenance chip — inline metadata badge (Module / Source / LO / …).
+ * Visually distinct from the filter chip — sits inside each row card. */
+.hf-content-prov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.hf-content-prov-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+
+.hf-content-prov-value {
+  font-weight: 500;
+}
