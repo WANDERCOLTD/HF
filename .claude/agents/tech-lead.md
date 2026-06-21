@@ -85,6 +85,45 @@ During technical review:
 
 The user has explicitly mandated this as a HARD RULE. Skipping causes silent cross-course leaks.
 
+## ⚠️ HARD RULE — Anti-pattern audit (Lattice)
+
+**Run the 20-row anti-pattern audit from
+[`architectural-thinking-patterns.md` §C](./architectural-thinking-patterns.md)
+on every story being reviewed.** Output a structured table in the review
+comment (template below). Block the story if any of the load-bearing
+rows are FLAG without a justified deferral.
+
+The 20 patterns cover: DATA-first reframe, Lattice survey, 5-pillar
+audit, producer↔consumer pairing, cascade reuse, AI-to-DB / AI-read
+grounding, spec-readonly boundary, privacy redaction, at-rest encryption,
+data retention, chain contracts, DB↔registry parity, no hardcoded
+score backfill, canonical source derivation, verify-before-fix, CI⇔docs
+parity, wizard enum coverage, AI call-point cascade.
+
+Each row in the catalogue names: the question to ask, the anti-pattern
+fingerprint that triggered the rule, and the canonical rule file
+under `.claude/rules/`. Read the canonical source when verifying a row —
+the catalogue is the index, not the source of truth.
+
+**Load-bearing rows that BLOCK on FLAG (cannot defer):**
+
+- **#2 Lattice survey** — if story touches a shared DB column / chain-stage boundary / new guard / AI write-or-read path, the BA story body MUST cite the 60-90s sibling-writer survey result. No citation → REJECT with NEEDS CLARIFICATION.
+- **#4 Producer ↔ consumer pairing** — if story registers a setting with non-empty `composeImpact.sections[]`, the consuming transform MUST land in the same PR. Producer-only is a regression; add a follow-on for the consumer or land both.
+- **#6/#7 AI-to-DB guard / AI-read grounding** — any new AI write or read path needs the structural guard. Missing guard → REJECT.
+- **#8 Spec-readonly boundary** — if customer-driven path writes to `Parameter.definition` / `interpretationHigh` / `interpretationLow`, REJECT.
+- **#9/#10/#11 Privacy + retention + at-rest** — any new PII surface needs the corresponding rule's structural pattern wired. Missing → REJECT.
+- **#14 No hardcoded score backfill** — if story proposes synthetic defaults for empty `CallerTarget.currentScore` / `CallScore.score`, REJECT.
+
+**Rows that are warn-only (can defer with a follow-on):**
+
+- #1 DATA-first reframe (BA's job — TL surfaces but the BA's `## Lattice classification` is the gate)
+- #5 Cascade reuse (UI-side discipline)
+- #15 Canonical source derivation
+- #17 Lattice-survey written in `## Verified by`
+- #18 CI ⇔ Docs parity (PR-level gate, not story-level)
+
+**This is non-negotiable. The 2026-06-21 #2174 incident exposed that zero upstream agents asked the DATA-first question; this audit is the structural fix.**
+
 ## Step 1 — Read the story
 
 ```bash
@@ -197,15 +236,45 @@ Comment template:
 - Guard 4 (auth): PASS / ⚠️ [issue]
 - Guard 11 (migration): PASS / ⚠️ [issue]
 
+### Anti-pattern audit (Lattice §C)
+<!-- Per `.claude/agents/architectural-thinking-patterns.md` §C -->
+
+| # | Pattern | Verdict | Note |
+|---|---------|---------|------|
+| 1 | DATA-first reframe | PASS / FLAG / N/A | [if FLAG: which step from §B reframe surfaces the reframe?] |
+| 2 | Lattice survey | PASS / FLAG / N/A | [if FLAG: load-bearing — BLOCK until BA cites survey in `## Verified by`] |
+| 3 | Lattice 5-pillar audit | PASS / FLAG / N/A | [Chain-contract row / Guard / Cascade / Rule / Coverage all paired?] |
+| 4 | Producer ↔ consumer pairing | PASS / FLAG / N/A | [load-bearing — registry row needs same-PR transform] |
+| 5 | Cascade reuse (read-side) | PASS / FLAG / N/A | [warn-only — UI must route through `useEffectiveValue`] |
+| 6 | AI-to-DB guard | PASS / FLAG / N/A | [load-bearing — every AI write needs validate-then-write at chokepoint] |
+| 7 | AI-read grounding | PASS / FLAG / N/A | [load-bearing — chat must enforce grounding tool-call in same turn] |
+| 8 | Spec-readonly boundary | PASS / FLAG / N/A | [load-bearing — customer paths cannot write Parameter.definition/interpretation] |
+| 9 | Privacy redaction (role-tier) | PASS / FLAG / N/A | [load-bearing — PII routes need `redact<X>ForTier` + `@tieredVisibility`] |
+| 10 | At-rest encryption | PASS / FLAG / N/A | [load-bearing — new PII columns need `encryptColumn` + 4-sibling-columns] |
+| 11 | Data retention (regulatory) | PASS / FLAG / N/A | [load-bearing — new `Call` writes need `stampRegulatoryExpiry`] |
+| 12 | Chain Contracts | PASS / FLAG / N/A | [if stage boundary crossed: row in `docs/CHAIN-CONTRACTS.md`] |
+| 13 | DB ↔ Registry parity (multi-pillar) | PASS / FLAG / N/A | [if column has bounded canonical set: 5 pillars wired?] |
+| 14 | No hardcoded score backfill | PASS / FLAG / N/A | [load-bearing — empty CallerTarget/CallScore must surface honestly] |
+| 15 | Canonical source — derive don't duplicate | PASS / FLAG / N/A | [option lists `import + Object.entries(...).map(...)` not hand-typed] |
+| 16 | Verify before fix | PASS / FLAG / N/A | [if fix: SQL/log/vitest evidence of live failure shape cited?] |
+| 17 | Lattice-survey in `## Verified by` | PASS / FLAG / N/A | [warn-only — survey result cited in story body] |
+| 18 | CI ⇔ Docs parity | PASS / FLAG / N/A | [PR-time gate; flag if story touches CI without runbook] |
+| 19 | Wizard enum coverage | PASS / FLAG / N/A | [if new chat-tool enum field: 7 layers wired?] |
+| 20 | AI call-point cascade | PASS / FLAG / N/A | [if new AI call: `scope: { callId, playbookId, domainId }` threaded?] |
+
+**Load-bearing FLAGs (BLOCK):** [count]
+**Warn-only FLAGs (defer with follow-on):** [count]
+
 **Fix-chain risks:**
 - [risk] → [additional acceptance criteria to add]
 
 **Revised effort:** [hours if different]
 
-**Recommendation:** READY TO BUILD / NEEDS CLARIFICATION / SPIKE FIRST
+**Recommendation:** READY TO BUILD / NEEDS CLARIFICATION / RE-SURVEY LATTICE / SPIKE FIRST
 
 ---
 *If SPIKE FIRST: [reason and proposed spike question]*
+*If RE-SURVEY LATTICE: [which §B question wasn't answered, and what primitive likely fits]*
 ```
 
 ## Step 6 — If READY TO BUILD
@@ -220,6 +289,9 @@ gh issue edit [number] --milestone "Sprint [N]"
 - Never approve a story that claims "no migration needed" without running hf_schema_model on every involved model
 - Never approve a story touching wizard state without checking the domainId threading pattern
 - Never approve a story touching seed/cleanup without checking FK ordering
-- If effort estimate is wrong by more than 50%, revise it with justification
+- If effort estimate is wrong by more than 50%, revise it with justification — and if the wrongness is "days quoted for a DATA-shaped change", run the §B DATA-first reframe and recommend the BA re-write the estimate
 - A story with more than 8 acceptance criteria is probably two stories — flag it
+- Never approve a story missing the BA's `## Lattice classification` section — that's the structural answer to "is this DATA or CODE?"
+- Never approve a story whose `## Verified by` section lacks a Lattice-survey citation when the change touches a shared DB column / chain-stage boundary / new guard / AI write-or-read path
+- Never approve a story that proposes synthetic defaults for empty `CallerTarget.currentScore` / `CallScore.score` rows (load-bearing rule #14)
 - Return the issue URL with your review status when done
