@@ -180,6 +180,98 @@ describe("resolveMasteryPolicyKnob — skillTierMapping", () => {
   });
 });
 
+describe("resolveMasteryPolicyKnob — #2174 S3 promoted scoring knobs", () => {
+  // 4 new knobs added 2026-06-21 per Q2 + Q3 in docs/SCORING-EDITABILITY.md.
+  // Same `Domain.config[knobKey]` → `Playbook.config[knobKey]` shape as
+  // skillTierMapping + skillScoringEmaHalfLifeDays.
+
+  it("tierPresetId — DOMAIN default for a CEFR-shaped Domain (Q2 fingerprint)", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValueOnce({
+      id: "pb-1",
+      name: "Spanish A2",
+      config: {},
+      domainId: "dom-cefr",
+    });
+    mockPrisma.domain.findUnique.mockResolvedValueOnce({
+      id: "dom-cefr",
+      name: "CEFR Language School",
+      config: { tierPresetId: "cefr" },
+    });
+    const result = await resolveMasteryPolicyKnob(
+      { playbookId: "pb-1" },
+      "tierPresetId",
+    );
+    expect(result.value).toBe("cefr");
+    expect(result.source).toBe("DOMAIN");
+    expect(result.isInherited).toBe(true);
+  });
+
+  it("loMasteryThreshold — PLAYBOOK overrides DOMAIN", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValueOnce({
+      id: "pb-1",
+      name: "IELTS Mock",
+      config: { loMasteryThreshold: 0.75 },
+      domainId: "dom-1",
+    });
+    mockPrisma.domain.findUnique.mockResolvedValueOnce({
+      id: "dom-1",
+      name: "Test Prep Co",
+      config: { loMasteryThreshold: 0.6 },
+    });
+    const result = await resolveMasteryPolicyKnob(
+      { playbookId: "pb-1" },
+      "loMasteryThreshold",
+    );
+    expect(result.value).toBe(0.75);
+    expect(result.source).toBe("PLAYBOOK");
+  });
+
+  it("assessmentReadinessThreshold — DOMAIN-only inheritance flags isInherited:true", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValueOnce({
+      id: "pb-1",
+      name: "OCEAN",
+      config: {},
+      domainId: "dom-1",
+    });
+    mockPrisma.domain.findUnique.mockResolvedValueOnce({
+      id: "dom-1",
+      name: "Acme",
+      config: { assessmentReadinessThreshold: 0.8 },
+    });
+    const result = await resolveMasteryPolicyKnob(
+      { playbookId: "pb-1" },
+      "assessmentReadinessThreshold",
+    );
+    expect(result.value).toBe(0.8);
+    expect(result.source).toBe("DOMAIN");
+    expect(result.isInherited).toBe(true);
+  });
+
+  it("progressSignals — object-valued knob returned untouched (no per-field merge)", async () => {
+    const domainSignals = { lowWater: 0.3, highWater: 0.7 };
+    const playbookSignals = { lowWater: 0.25, highWater: 0.85 };
+    mockPrisma.playbook.findUnique.mockResolvedValueOnce({
+      id: "pb-1",
+      name: "Spot the Spin",
+      config: { progressSignals: playbookSignals },
+      domainId: "dom-1",
+    });
+    mockPrisma.domain.findUnique.mockResolvedValueOnce({
+      id: "dom-1",
+      name: "Acme",
+      config: { progressSignals: domainSignals },
+    });
+    const result = await resolveMasteryPolicyKnob(
+      { playbookId: "pb-1" },
+      "progressSignals",
+    );
+    // PLAYBOOK wins as a whole object — NOT a per-field merge across layers
+    // (consistent with skillTierMapping object-knob semantics).
+    expect(result.value).toEqual(playbookSignals);
+    expect(result.source).toBe("PLAYBOOK");
+  });
+});
+
 describe("resolveMasteryPolicyKnob — provenance TODO", () => {
   it("returns setAt: null + setBy: null until config authorship metadata lands", async () => {
     mockPrisma.playbook.findUnique.mockResolvedValueOnce({

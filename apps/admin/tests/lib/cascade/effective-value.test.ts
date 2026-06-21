@@ -18,6 +18,7 @@ const resolveSessionFlowKnob = vi.fn();
 const resolveWelcomeMessage = vi.fn();
 const resolveVoiceConfigKnob = vi.fn();
 const resolveIdentitySpec = vi.fn();
+const resolveMasteryPolicyKnob = vi.fn();
 
 vi.mock("@/lib/cascade/resolvers/behavior-target", () => ({
   resolveBehaviorTarget,
@@ -33,6 +34,9 @@ vi.mock("@/lib/cascade/resolvers/voice-config", () => ({
 }));
 vi.mock("@/lib/cascade/resolvers/identity-spec", () => ({
   resolveIdentitySpec,
+}));
+vi.mock("@/lib/cascade/resolvers/mastery-policy", () => ({
+  resolveMasteryPolicyKnob,
 }));
 
 const FAKE_ENVELOPE = {
@@ -52,6 +56,7 @@ beforeEach(async () => {
   resolveWelcomeMessage.mockResolvedValue(FAKE_ENVELOPE);
   resolveVoiceConfigKnob.mockResolvedValue(FAKE_ENVELOPE);
   resolveIdentitySpec.mockResolvedValue(FAKE_ENVELOPE);
+  resolveMasteryPolicyKnob.mockResolvedValue(FAKE_ENVELOPE);
 });
 
 describe("resolveEffective dispatch", () => {
@@ -103,6 +108,26 @@ describe("resolveEffective dispatch", () => {
       scopeChain: { playbookId: "pb1" },
     });
     expect(resolveIdentitySpec).toHaveBeenCalledOnce();
+  });
+
+  it("routes the 2 original + 4 #2174-S3-promoted scoring knobs to mastery-policy resolver", async () => {
+    const { resolveEffective } = await import("@/lib/cascade/effective-value");
+    // 2 original (SP1-D 2026-06-13) + 4 promoted (#2174 S3 2026-06-21).
+    const knobs = [
+      "skillTierMapping",
+      "skillScoringEmaHalfLifeDays",
+      "tierPresetId",
+      "loMasteryThreshold",
+      "assessmentReadinessThreshold",
+      "progressSignals",
+    ];
+    for (const k of knobs) {
+      await resolveEffective({
+        knobKey: k,
+        scopeChain: { playbookId: "pb1" },
+      });
+    }
+    expect(resolveMasteryPolicyKnob).toHaveBeenCalledTimes(6);
   });
 
   it("throws on unknown knob key", async () => {
@@ -221,6 +246,17 @@ describe("isResolvableKnob", () => {
     expect(isResolvableKnob("intake")).toBe(true);
     expect(isResolvableKnob("stops")).toBe(true);
     expect(isResolvableKnob("offboarding")).toBe(true);
+  });
+
+  it("mastery-policy + #2174-S3-promoted scoring knobs resolve", async () => {
+    const { isResolvableKnob } = await import("@/lib/cascade/effective-value");
+    // 2 original (SP1-D 2026-06-13) + 4 promoted (#2174 S3 2026-06-21).
+    expect(isResolvableKnob("skillTierMapping")).toBe(true);
+    expect(isResolvableKnob("skillScoringEmaHalfLifeDays")).toBe(true);
+    expect(isResolvableKnob("tierPresetId")).toBe(true);
+    expect(isResolvableKnob("loMasteryThreshold")).toBe(true);
+    expect(isResolvableKnob("assessmentReadinessThreshold")).toBe(true);
+    expect(isResolvableKnob("progressSignals")).toBe(true);
   });
 
   it("returns false for skill_* and other non-cascade parameter ids", async () => {

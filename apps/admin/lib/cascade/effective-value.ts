@@ -113,6 +113,38 @@ const FAMILIES: readonly KnobFamily[] = [
     match: (k) => k === "skillTierMapping" || k === "skillScoringEmaHalfLifeDays",
     resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
   },
+  // ── #2174 S3 (2026-06-21) — 4 scoring knobs promoted to Domain → Course
+  // cascade per Q2 + Q3 in docs/SCORING-EDITABILITY.md. All four reuse the
+  // mastery-policy resolver (same `Domain.config[knobKey]` →
+  // `Playbook.config[knobKey]` shape). Each lands as its own FAMILIES
+  // entry so the diagnostic `name` is specific in error messages and the
+  // cascade-resolve route's cache stats. Resolver function unchanged —
+  // SUPPORTED_KEYS in mastery-policy.ts widened by 4 to accept them.
+  {
+    name: "tier-preset",
+    match: (k) => k === "tierPresetId",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  {
+    name: "lo-mastery-threshold",
+    match: (k) => k === "loMasteryThreshold",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  {
+    name: "assessment-readiness-threshold",
+    match: (k) => k === "assessmentReadinessThreshold",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  {
+    // Object-valued knob (`{lowWater?, highWater?}`). Resolver returns the
+    // winning layer's object untouched — NO per-field merging across
+    // layers (consistent with the existing object-valued `skillTierMapping`
+    // behaviour). Consumers cherry-pick `lowWater`/`highWater` from the
+    // resolved value.
+    name: "progress-signals",
+    match: (k) => k === "progressSignals",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
 ];
 
 function pickResolver(knobKey: string): AnyResolver {

@@ -1,23 +1,46 @@
 /**
- * Mastery-policy cascade resolver — covers the two genuinely cascade-eligible
- * mastery knobs (Sprint 1 SP1-D, post-investigation 2026-06-13):
+ * Mastery-policy cascade resolver — covers the genuinely cascade-eligible
+ * mastery + scoring knobs:
  *
- *   - `skillTierMapping` — full tier-threshold + tierBands override
- *     (IELTS-style 9-band vs CEFR vs custom). Institution may want a
- *     domain-wide default so individual courses inherit a single rubric
- *     style across the institution.
+ *   - `skillTierMapping` (Sprint 1 SP1-D, 2026-06-13) — full tier-threshold +
+ *     tierBands override (IELTS-style 9-band vs CEFR vs custom). Institution
+ *     may want a domain-wide default so individual courses inherit a single
+ *     rubric style across the institution.
  *
- *   - `skillScoringEmaHalfLifeDays` — mastery responsiveness in days
- *     (default 14). Short-demo institutions may want 4d at the Domain
- *     level; year-long programmes may want 30d. Per-course override stays
- *     available.
+ *   - `skillScoringEmaHalfLifeDays` (Sprint 1 SP1-D, 2026-06-13) — mastery
+ *     responsiveness in days (default 14). Short-demo institutions may want
+ *     4d at the Domain level; year-long programmes may want 30d. Per-course
+ *     override stays available.
  *
- * These two knobs are READ today from `Playbook.config` only — by
- * `lib/banding/presets.ts`, `lib/pipeline/aggregate-runner.ts:204-206`,
- * `lib/goals/track-progress.ts::getSkillTierMapping`. The cascade layer
- * adds Domain → Playbook resolution + provenance for the educator UI
- * (Rubric Calibration lens in SP3-A). The underlying readers can stay
- * Playbook-only until SP3-A is ready to wire them through this resolver.
+ *   - `tierPresetId` (#2174 S3, 2026-06-21) — banding preset id
+ *     (`generic` / `ielts-speaking` / `cefr` / `5-level` / `custom`). Per
+ *     Q2 in `docs/SCORING-EDITABILITY.md`: a Domain that hosts many courses
+ *     sharing one preset (e.g. a CEFR-shaped Domain with 6 CEFR courses)
+ *     should be able to set the preset once at Domain level.
+ *
+ *   - `loMasteryThreshold` (#2174 S3 / #2052 sub-epic C) — mastery score
+ *     required to mark a Learning Objective as passed. Range [0,1].
+ *     Read by `lib/prompt/composition/scoring-config.ts::resolveScoringConfig`.
+ *
+ *   - `assessmentReadinessThreshold` (#2174 S3 / #2052) — mastery the
+ *     learner must reach before a post-test/assessment stop fires. Read by
+ *     `transforms/instructions.ts` for the assessment_readiness_directive.
+ *
+ *   - `progressSignals` (#2174 S3 / #2052) — `{lowWater?, highWater?}`
+ *     watermarks on engagement-mastery rollup. Object-valued knob — the
+ *     resolver treats it as `unknown` and returns the winning layer's
+ *     blob untouched; consumers cherry-pick `lowWater`/`highWater` from
+ *     the resolved value. NO per-field merging across layers (consistent
+ *     with `skillTierMapping`, which is also object-valued and "last
+ *     non-null layer wins").
+ *
+ * These knobs are READ today from `Playbook.config` only — by
+ * `lib/banding/presets.ts`, `lib/pipeline/aggregate-runner.ts`,
+ * `lib/goals/track-progress.ts`, `lib/prompt/composition/scoring-config.ts`,
+ * `transforms/instructions.ts`. The cascade layer adds Domain → Playbook
+ * resolution + provenance for the educator UI. The underlying readers can
+ * stay Playbook-only until a follow-on slice wires them through this
+ * resolver.
  *
  * The other three mastery knobs are NOT cascade-eligible by design:
  *   - `useFreshMastery` — variant-preset intrinsic ("Exam Assessment" identity)
@@ -48,7 +71,16 @@ import { prisma } from "@/lib/prisma";
 import type { Effective, LayerHit } from "../layer-types";
 import type { ScopeChain } from "../effective-value";
 
-const SUPPORTED_KEYS = ["skillTierMapping", "skillScoringEmaHalfLifeDays"] as const;
+const SUPPORTED_KEYS = [
+  "skillTierMapping",
+  "skillScoringEmaHalfLifeDays",
+  // #2174 S3 — 4 additional scoring knobs promoted to Domain → Course
+  // cascade (Q2 + Q3 from docs/SCORING-EDITABILITY.md).
+  "tierPresetId",
+  "loMasteryThreshold",
+  "assessmentReadinessThreshold",
+  "progressSignals",
+] as const;
 type MasteryPolicyKey = (typeof SUPPORTED_KEYS)[number];
 
 function isMasteryPolicyKey(k: string): k is MasteryPolicyKey {
