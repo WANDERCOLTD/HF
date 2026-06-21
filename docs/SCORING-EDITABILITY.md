@@ -117,15 +117,40 @@ the editable + cascade-aware surface and which must stay HF-canonical.
 | Per-caller targets editor | `PATCH /api/callers/[callerId]/behavior-targets` | §B `BehaviorTarget.targetValue` (CALLER scope) |
 | Parameter PUT (SUPERADMIN) | `PUT /api/parameters/[id]` (auth raised in #1947) | §A `Parameter.definition` / `interpretationHigh` / `interpretationLow` / `name` / etc. — **HF-IP override surface**, not customer-tunable |
 
-### TUNABLE classifications not yet reachable via UI (= the #2174 S2-S4 backlog)
+### TUNABLE classifications — registry-row status (post-#2174 S2 verification)
 
-| Row | Field | Why reach for it next |
-|---|---|---|
-| §C | `Playbook.config.skillMinCallsToFull` | Already TUNABLE shape; just no editor. Cheapest first reach. |
-| §C | `Playbook.config.loMasteryThreshold` | Read-side wired (#2052); editor pending. |
-| §C | `Playbook.config.assessmentReadinessThreshold` | Read-side wired (#2052); editor pending. |
-| §C | `Playbook.config.progressSignals.{lowWater, highWater}` | Read-side wired (#2052); editor pending. |
-| §B | `BehaviorTarget.targetValue` at **per-skill** granularity inside Rubric Calibration lens | The lens shows the target tier today (`tierLabelForTarget(skill)` at `CourseSkillsTab.tsx:963-965`) but no editor — the AgentTuner does the work elsewhere. Co-locating the editor with the rubric closes a UX loop. |
+This table is the **#2174 S2 result**. The story's premise was that the
+5 PlaybookConfig-rooted scoring knobs needed registry rows wired so the
+generic `JourneyInspectorPanel` auto-renders them. The S2 verification
+(this PR) found the 5 contract rows ALREADY exist in
+`lib/journey/setting-contracts.entries.ts` — they were landed earlier
+by prior epics (Slice C1 of #1721 for `progressSignal*`; #2052 sub-epic
+C for the rest; #2105 for `loMasteryThreshold`). All 5 also satisfy
+`EXPECTED_SCHEMA_PATHS` in `tests/lib/journey/registry-schema-coverage.test.ts`
+and pass `registry-consumer-coverage.test.ts`.
+
+| Row | Field | Contract row | Type field | Schema-coverage path | Runtime consumer | UI today |
+|---|---|---|---|---|---|---|
+| §C | `Playbook.config.skillMinCallsToFull` | ✅ `G4_SKILL_MIN_CALLS_TO_FULL` (`setting-contracts.entries.ts:805`, id `skillMinCallsToFull`, `menuGroupKey: "I_scoring"`) | ✅ `json-fields.ts:547` | ✅ test L102 | ✅ `lib/pipeline/aggregate-runner.ts:208` + `compute-mastery.ts` + `diagnostic-from-mock.ts` | Generic Inspector renders via menuGroupKey `I_scoring` |
+| §C | `Playbook.config.loMasteryThreshold` | ✅ `G7_LO_MASTERY_THRESHOLD` (`setting-contracts.entries.ts:1793`, id `loMasteryThreshold`, `menuGroupKey: "I_scoring"`) | ✅ `json-fields.ts:687` | ✅ test L154 | ✅ `lib/prompt/composition/scoring-config.ts:78` + `transforms/modules.ts` | Generic Inspector renders via menuGroupKey `I_scoring` |
+| §C | `Playbook.config.assessmentReadinessThreshold` | ✅ `G7_ASSESSMENT_READINESS_THRESHOLD` (`setting-contracts.entries.ts:1869`, id `assessmentReadinessThreshold`, `menuGroupKey: "K_between_calls"`) | ✅ `json-fields.ts:696` | ✅ test L158 | ✅ `lib/prompt/composition/scoring-config.ts:79` + `transforms/instructions.ts::assessment_readiness_directive` | Generic Inspector renders via menuGroupKey `K_between_calls` |
+| §C | `Playbook.config.progressSignals.lowWater` | ✅ `G4_PROGRESS_SIGNAL_LOW_WATER` (`setting-contracts.entries.ts:1196`, id `progressSignalLowWater`, `menuGroupKey: "J_feedback"`) | ✅ `json-fields.ts:709-712` | ✅ test L120 | ✅ `lib/prompt/composition/scoring-config.ts:80` + `transforms/instructions.ts::progress_signal_directive` | Generic Inspector renders via menuGroupKey `J_feedback` |
+| §C | `Playbook.config.progressSignals.highWater` | ✅ `G4_PROGRESS_SIGNAL_HIGH_WATER` (`setting-contracts.entries.ts:1213`, id `progressSignalHighWater`, `menuGroupKey: "J_feedback"`) | ✅ `json-fields.ts:709-712` | ✅ test L121 | ✅ `lib/prompt/composition/scoring-config.ts:81` + `transforms/instructions.ts::progress_signal_directive` | Generic Inspector renders via menuGroupKey `J_feedback` |
+| §B | `BehaviorTarget.targetValue` at **per-skill** granularity inside Rubric Calibration lens | ❌ **NOT wireable through the generic journey-setting PATCH route** — the route at `app/api/courses/[courseId]/journey-setting/route.ts:200-208` returns `compoundOwnedSave: true` for the `behaviorTargets` storage root and delegates to `FirstSessionSettings`. A per-skill targetValue editor co-located in Rubric Calibration is genuinely new UI + write-path work (NOT a registry row). | n/a | n/a | ✅ already canonical TUNABLE surface (cascade-resolved) | AgentTuner sliders + per-playbook/per-caller PUT routes (no Rubric-tab inline editor) |
+
+**S2 outcome:** no new contract rows needed. The 5 PlaybookConfig scoring
+knobs are structurally complete — `JourneyInspectorPanel` already renders
+them in their respective buckets (`I_scoring`, `J_feedback`,
+`K_between_calls`). An operator visiting the Inspector for any of those
+buckets sees the slider/number control today; the journey-setting PATCH
+route writes; cascade promotion is S3.
+
+**Item §B (BehaviorTarget per-skill targetValue in Rubric Calibration
+lens) is split as follow-on story
+[#2186](https://github.com/WANDERCOLTD/HF/issues/2186)** — it requires a
+new UI component co-located in `CourseSkillsTab.tsx` + reuse of the
+existing `/api/playbooks/[id]/targets` PUT (no new route needed) and is
+materially different work from "wire registry rows."
 
 ### Cascade-eligible but not yet cascade-aware (= candidate S3 promotions)
 
