@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-20T11:14:37.491Z",
+  "generatedAt": "2026-06-21T10:45:23.549Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1868,
-  "edgeCount": 4400,
+  "fileCount": 1871,
+  "edgeCount": 4407,
   "skippedEdges": 1,
   "edges": [
     {
@@ -12956,6 +12956,10 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/curriculum/derive-focus-area.ts",
+      "to": "lib/curriculum/validate-ielts-completion.ts"
+    },
+    {
       "from": "lib/curriculum/diagnostic-from-mock.ts",
       "to": "lib/curriculum/compute-mastery.ts"
     },
@@ -15337,6 +15341,10 @@
     },
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
+      "to": "lib/prompt/composition/transforms/part3-focus.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/instructions.ts",
       "to": "lib/prompt/composition/transforms/personality.ts"
     },
     {
@@ -15470,6 +15478,22 @@
     {
       "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
       "to": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/curriculum/derive-focus-area.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/prompt/composition/types.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/pedagogy-mode.ts",
@@ -16718,6 +16742,10 @@
     {
       "from": "lib/voice/runtime-features.ts",
       "to": "lib/voice/sse-registry.ts"
+    },
+    {
+      "from": "lib/voice/select-pinned-card.ts",
+      "to": "lib/curriculum/derive-focus-area.ts"
     },
     {
       "from": "lib/voice/select-pinned-card.ts",
@@ -23930,6 +23958,11 @@
       "outDegree": 1
     },
     {
+      "path": "lib/curriculum/derive-focus-area.ts",
+      "inDegree": 2,
+      "outDegree": 1
+    },
+    {
       "path": "lib/curriculum/diagnostic-from-mock.ts",
       "inDegree": 1,
       "outDegree": 2
@@ -24051,7 +24084,7 @@
     },
     {
       "path": "lib/curriculum/validate-ielts-completion.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 1
     },
     {
@@ -24651,7 +24684,7 @@
     },
     {
       "path": "lib/journey/module-settings-flag.ts",
-      "inDegree": 8,
+      "inDegree": 9,
       "outDegree": 0
     },
     {
@@ -25332,7 +25365,7 @@
     {
       "path": "lib/prompt/composition/transforms/instructions.ts",
       "inDegree": 2,
-      "outDegree": 9
+      "outDegree": 10
     },
     {
       "path": "lib/prompt/composition/transforms/interleaveReview.ts",
@@ -25372,6 +25405,11 @@
     {
       "path": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
       "inDegree": 0,
+      "outDegree": 4
+    },
+    {
+      "path": "lib/prompt/composition/transforms/part3-focus.ts",
+      "inDegree": 1,
       "outDegree": 4
     },
     {
@@ -25461,7 +25499,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 46,
+      "inDegree": 47,
       "outDegree": 1
     },
     {
@@ -25801,7 +25839,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 136,
+      "inDegree": 137,
       "outDegree": 0
     },
     {
@@ -26022,7 +26060,7 @@
     {
       "path": "lib/voice/select-pinned-card.ts",
       "inDegree": 1,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/voice/session-flag.ts",
@@ -26885,6 +26923,11 @@
       "outDegree": 0
     },
     {
+      "path": "scripts/verify-1955-precondition.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
       "path": "scripts/verify-409-resolution.ts",
       "inDegree": 0,
       "outDegree": 2
@@ -26963,7 +27006,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 136,
+      "inDegree": 137,
       "outDegree": 0
     },
     {
@@ -26998,7 +27041,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 46,
+      "inDegree": 47,
       "outDegree": 1
     },
     {
