@@ -4,8 +4,11 @@
  * Pins the canonical shape of `IELTS-MEASURE-001-ielts-speaking-criteria.spec.json`
  * so that future refactors cannot:
  *
- * 1. Rename or drop any of the four canonical IELTS skill parameter ids
- *    (must exactly match `prosody-consumer.ts::IELTS_PARAM_IDS`).
+ * 1. Rename or drop any of the four canonical IELTS skill parameter ids.
+ *    Post-#2138 (epic #2135 S3) the IELTS-MEASURE-001 LLM spec is the
+ *    SOLE writer of these IDs via the canonical SCORE_AGENT path;
+ *    prosody-consumer now writes its own disjoint `prosody_raw_*`
+ *    namespace.
  * 2. Re-classify outputType away from `MEASURE` (would silently drop the
  *    spec from the SCORE_AGENT stage's `["MEASURE", "MEASURE_AGENT"]` pickup).
  * 3. Remove `profileCondition: ["ielts-speaking"]` (would fire the spec on
@@ -51,10 +54,11 @@ const SPEC_PATH = join(
   "IELTS-MEASURE-001-ielts-speaking-criteria.spec.json",
 );
 
-// Canonical IELTS skill parameter ids — MUST match
-// `lib/pipeline/prosody-consumer.ts::IELTS_PARAM_IDS` verbatim.
-// These are the four slots that flow into SKILL-AGG-001's EMA pipeline
-// and bind to the SKILL_MEASURE_V1 contract's parameter set.
+// Canonical IELTS skill parameter ids. Post-#2138 (epic #2135 S3) these
+// are written EXCLUSIVELY by IELTS-MEASURE-001 via SCORE_AGENT — prosody
+// writes a disjoint `prosody_raw_*` namespace. These four slots flow into
+// SKILL-AGG-001's EMA pipeline and bind to the SKILL_MEASURE_V1 contract's
+// parameter set.
 const CANONICAL_IELTS_PARAM_IDS = [
   "skill_fluency_and_coherence_fc",
   "skill_lexical_resource_lr",
