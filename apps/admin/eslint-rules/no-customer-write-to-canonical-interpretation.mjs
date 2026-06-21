@@ -73,6 +73,20 @@ const ALLOWED_PATH_SUFFIXES = [
   // spec.json files — i.e. a canonical HF authoring path that has
   // shifted into a route. Allow-listed.
   "app/api/admin/sync-parameters/route.ts",
+  // Wizard projection — HF-canonical author for per-course Parameter
+  // rows mined from course-ref content. The `config.bandThresholds`
+  // and merge-config writes here originate from RUB sections the
+  // operator authored in the course-ref doc the wizard parses; the
+  // wizard executes HF code that classifies + persists them under
+  // canonical id schemes. Per #2174 audit (docs/SCORING-EDITABILITY.md)
+  // `Parameter.config` is DECISION-NEEDED (open shape, HF-only until
+  // specific subfields are classified TUNABLE). Until that refinement
+  // lands, the file-level allow-list acknowledges that wizard projection
+  // is the blessed customer-driven authoring path for Parameter rows —
+  // the boundary still blocks all OTHER customer writers. Tracked as
+  // follow-on tech debt to refine the rule to allow specific config
+  // sub-keys (e.g. bandThresholds) rather than the whole field.
+  "lib/wizard/apply-projection.ts",
 ];
 
 const ALLOWED_PATH_CONTAINS = [

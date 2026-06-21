@@ -51,6 +51,15 @@ const tester = new RuleTester({
 });
 
 const WIZARD = "/repo/apps/admin/lib/wizard/apply-projection.ts";
+// #2174 S5 follow-on: WIZARD is allow-listed for `Parameter.config` writes
+// (the wizard IS the HF-canonical author of per-course Parameter rows mined
+// from course-ref RUB sections). Use CUSTOMER_WIZARD_SIBLING for the
+// "rule fires on a customer-driven path" tests that previously stood up
+// WIZARD as the convenient stand-in. CUSTOMER_WIZARD_SIBLING represents
+// a hypothetical sibling under lib/wizard/ that is NOT the projection
+// chokepoint — still customer-driven, still subject to the rule.
+const CUSTOMER_WIZARD_SIBLING =
+  "/repo/apps/admin/lib/wizard/some-future-customer-writer.ts";
 const POST_ROUTE = "/repo/apps/admin/app/api/parameters/route.ts";
 const SUPERADMIN_ROUTE = "/repo/apps/admin/app/api/parameters/[id]/route.ts";
 const SYNC = "/repo/apps/admin/app/api/admin/sync-parameters/route.ts";
@@ -135,6 +144,19 @@ tester.run("no-customer-write-to-canonical-interpretation", rule as never, {
       filename: WIZARD,
       code: `await prisma.behaviorTarget.create({ data: { parameterId, targetValue: 0.5 } });`,
     },
+    // #2174 S5 follow-on — wizard projection is allow-listed for
+    // Parameter.config writes (the wizard IS the HF-canonical author of
+    // per-course Parameter rows mined from course-ref RUB sections).
+    // Other customer-write paths remain blocked (see CUSTOMER_WIZARD_SIBLING
+    // tests in `invalid:`).
+    {
+      filename: WIZARD,
+      code: `await prisma.parameter.update({ where: { parameterId }, data: { config: { bandThresholds: bands } } });`,
+    },
+    {
+      filename: WIZARD,
+      code: `await prisma.parameter.create({ data: { parameterId: "X", config: { bandThresholds: {} } } });`,
+    },
     // Reads always pass.
     {
       filename: WIZARD,
@@ -144,7 +166,7 @@ tester.run("no-customer-write-to-canonical-interpretation", rule as never, {
   invalid: [
     // Wizard create with `definition` — the #1984 mitigation target.
     {
-      filename: WIZARD,
+      filename: CUSTOMER_WIZARD_SIBLING,
       code: `await prisma.parameter.create({ data: { parameterId: "X", name: "X", definition: p.description, domainGroup: "skill" } });`,
       errors: [{ messageId: "customerWriteToSpecField" }],
     },
@@ -183,7 +205,7 @@ tester.run("no-customer-write-to-canonical-interpretation", rule as never, {
     },
     // Multiple spec fields in one payload — fires once per field.
     {
-      filename: WIZARD,
+      filename: CUSTOMER_WIZARD_SIBLING,
       code: `await prisma.parameter.create({ data: { parameterId: "X", definition: "a", interpretationHigh: "b", interpretationLow: "c" } });`,
       errors: [
         { messageId: "customerWriteToSpecField" },
@@ -195,7 +217,7 @@ tester.run("no-customer-write-to-canonical-interpretation", rule as never, {
     // customer-callable path. The LLM grading rubric must come from
     // the canonical seed.
     {
-      filename: WIZARD,
+      filename: CUSTOMER_WIZARD_SIBLING,
       code: `await prisma.parameter.create({ data: { parameterId: "X", tiers: { "7": "Band 7: speaks fluently..." } } });`,
       errors: [{ messageId: "customerWriteToSpecField" }],
     },
@@ -207,7 +229,7 @@ tester.run("no-customer-write-to-canonical-interpretation", rule as never, {
     // #2174 S5 — defensive extension: tierScheme (the band scheme,
     // e.g. [3, 4, 5.5, 7] for IELTS).
     {
-      filename: WIZARD,
+      filename: CUSTOMER_WIZARD_SIBLING,
       code: `await prisma.parameter.create({ data: { parameterId: "X", tierScheme: [3, 4, 5.5, 7] } });`,
       errors: [{ messageId: "customerWriteToSpecField" }],
     },
@@ -220,7 +242,7 @@ tester.run("no-customer-write-to-canonical-interpretation", rule as never, {
     // default target tier; customer tunes via BehaviorTarget.targetValue
     // cascade, NOT by mutating the Parameter row).
     {
-      filename: WIZARD,
+      filename: CUSTOMER_WIZARD_SIBLING,
       code: `await prisma.parameter.create({ data: { parameterId: "X", defaultTarget: 0.7 } });`,
       errors: [{ messageId: "customerWriteToSpecField" }],
     },
@@ -236,7 +258,7 @@ tester.run("no-customer-write-to-canonical-interpretation", rule as never, {
     // lib/wizard/apply-projection.ts will need either a chokepoint
     // helper or an allow-list update — surfaced in the PR body.
     {
-      filename: WIZARD,
+      filename: CUSTOMER_WIZARD_SIBLING,
       code: `await prisma.parameter.create({ data: { parameterId: "X", config: { bandThresholds: {} } } });`,
       errors: [{ messageId: "customerWriteToSpecField" }],
     },
@@ -258,7 +280,7 @@ tester.run("no-customer-write-to-canonical-interpretation", rule as never, {
     },
     // #2174 S5 — multiple new spec fields in one payload fire once each.
     {
-      filename: WIZARD,
+      filename: CUSTOMER_WIZARD_SIBLING,
       code: `await prisma.parameter.create({ data: { parameterId: "X", tiers: {}, tierScheme: [], defaultTarget: 0.5, config: {} } });`,
       errors: [
         { messageId: "customerWriteToSpecField" },
