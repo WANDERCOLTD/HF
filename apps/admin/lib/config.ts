@@ -773,6 +773,88 @@ export const config = {
     get sessionTypes(): string {
       return optional("SESSION_TYPES_CONTRACT_SLUG", "SESSION_TYPES_V1");
     },
+
+    /**
+     * SKILL_MEASURE_V1 DataContract identifier (default: SKILL_MEASURE_V1).
+     * Carries tuned `emaHalfLifeDays`, `minCallsToFull`, `thresholds`, and
+     * `tierBands` used by the SKILL_AGG aggregation pipeline + per-LO
+     * tier-mapping resolution. Read at runtime by
+     * `lib/pipeline/aggregate-runner.ts` and `lib/goals/track-progress.ts`.
+     * Adopted #2182 — bare `ContractRegistry.getContract("SKILL_MEASURE_V1")`
+     * literals are blocked by `hf-config/no-bare-spec-identifier`. Override
+     * via SKILL_MEASURE_V1_CONTRACT_ID env var.
+     */
+    get skillMeasureV1(): string {
+      return optional("SKILL_MEASURE_V1_CONTRACT_ID", "SKILL_MEASURE_V1");
+    },
+
+    /**
+     * PROSODY-SCORE-V1 measurement-sentinel AnalysisSpec id
+     * (default: PROSODY-SCORE-V1). The seeded sentinel row that the
+     * PROSODY adapter writes against when no IELTS/PROSODY analysis
+     * spec is linked to the parameter. Read by
+     * `lib/measurement/write-call-score.ts::MEASUREMENT_SENTINEL_SPEC_IDS`.
+     * Adopted #2182 — bare `"PROSODY-SCORE-V1"` literals are blocked
+     * by `hf-config/no-bare-spec-identifier`. Override via
+     * PROSODY_SCORE_V1_SPEC_ID env var.
+     */
+    get prosodyScoreV1(): string {
+      return optional("PROSODY_SCORE_V1_SPEC_ID", "PROSODY-SCORE-V1");
+    },
+
+    /**
+     * MOCK-MEASURE-V1 measurement-sentinel AnalysisSpec id
+     * (default: MOCK-MEASURE-V1). The seeded sentinel row used by the
+     * `engine === "mock"` pipeline branch. Read by
+     * `lib/measurement/write-call-score.ts::MEASUREMENT_SENTINEL_SPEC_IDS`.
+     * Adopted #2182. Override via MOCK_MEASURE_V1_SPEC_ID env var.
+     */
+    get mockMeasureV1(): string {
+      return optional("MOCK_MEASURE_V1_SPEC_ID", "MOCK-MEASURE-V1");
+    },
+
+    /**
+     * ADAPT-DELTA-V1 measurement-sentinel AnalysisSpec id
+     * (default: ADAPT-DELTA-V1). The seeded sentinel row that ADAPT
+     * delta scores (`<parameterId>-DELTA` rows derived from
+     * current - previous) attribute against when no parent spec
+     * attribution exists. Read by
+     * `lib/measurement/write-call-score.ts::MEASUREMENT_SENTINEL_SPEC_IDS`.
+     * Adopted #2182. Override via ADAPT_DELTA_V1_SPEC_ID env var.
+     */
+    get adaptDeltaV1(): string {
+      return optional("ADAPT_DELTA_V1_SPEC_ID", "ADAPT-DELTA-V1");
+    },
+
+    /**
+     * ENTITY_ACCESS_V1 DataContract identifier (default: ENTITY_ACCESS_V1).
+     * Carries the entity-access policy matrix consumed by
+     * `lib/access-control.ts::checkEntityAccess` and the admin access-
+     * matrix routes. Adopted #2182. Override via
+     * ENTITY_ACCESS_V1_CONTRACT_ID env var.
+     */
+    get entityAccessV1(): string {
+      return optional("ENTITY_ACCESS_V1_CONTRACT_ID", "ENTITY_ACCESS_V1");
+    },
+
+    /**
+     * EXAM_READINESS_V1 DataContract identifier (default: EXAM_READINESS_V1).
+     * Read by `lib/curriculum/exam-readiness.ts`. Adopted #2182. Override
+     * via EXAM_READINESS_V1_CONTRACT_ID env var.
+     */
+    get examReadinessV1(): string {
+      return optional("EXAM_READINESS_V1_CONTRACT_ID", "EXAM_READINESS_V1");
+    },
+
+    /**
+     * CURRICULUM_PROGRESS_V1 DataContract identifier
+     * (default: CURRICULUM_PROGRESS_V1). Read by
+     * `lib/prompt/compose-content-section.ts`. Adopted #2182.
+     * Override via CURRICULUM_PROGRESS_V1_CONTRACT_ID env var.
+     */
+    get curriculumProgressV1(): string {
+      return optional("CURRICULUM_PROGRESS_V1_CONTRACT_ID", "CURRICULUM_PROGRESS_V1");
+    },
   },
 
   // ---------------------------------------------------------------------------

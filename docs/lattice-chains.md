@@ -261,6 +261,7 @@ Three structural patterns, in order of preference:
 | `source-ref-coverage.md` | `tests/lib/wizard/source-ref-coverage.test.ts` (2026-06-20, #2166) + `apps/admin/scripts/check-fk-consistency.ts` Query 14 | ⚠️ PARTIAL (PR-time 0 gaps; DB-time 5-module IELTS incumbent debt, WARN-only) |
 | `course-assessment-plan-coverage.md` | `course-assessment-plan-coverage.test.ts` under `apps/admin/tests/lib/assessment/` (#2176 S3, in flight via sibling agent) | ⚠️ PARTIAL (6+ courses missing plans) |
 | `data-presence-coverage.md` | Meta-rule for the Data Presence sub-pillar (umbrella epic #2168). Per-instance rule files land under `.claude/rules/data-presence-<surface>-coverage.md`. First instance: source-ref → ContentSource (#2166, in flight). | ⚠️ CONVENTION+UMBRELLA (instances drive their own enforcement) |
+| `no-bare-spec-identifier.md` | `eslint-rules/no-bare-spec-identifier.mjs` (#2182, 2026-06-21) + `tests/eslint-rules/no-bare-spec-identifier.test.ts` (26 RuleTester cases) + `lib/config.ts::config.specs.{skillMeasureV1,prosodyScoreV1,mockMeasureV1,adaptDeltaV1,entityAccessV1,examReadinessV1,curriculumProgressV1}` accessors | ✅ PROTECTED (clean sweep at land — 7 sites repaired across 6 files) |
 
 ### Session / learner boundaries
 
