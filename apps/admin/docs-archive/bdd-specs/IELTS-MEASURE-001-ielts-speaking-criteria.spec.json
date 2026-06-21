@@ -1,0 +1,467 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "IELTS-MEASURE-001",
+  "title": "IELTS Speaking Assessment — LLM Transcript Judgment (FC/LR/GRA/P)",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-06-20",
+  "domain": "ielts-speaking",
+  "specType": "SYSTEM",
+  "specRole": "META",
+  "outputType": "MEASURE",
+  "profileCondition": ["ielts-speaking"],
+  "config": {
+    "profileCondition": ["ielts-speaking"],
+    "scoringGate": "always",
+    "operatorRule": "NEVER land hardcoded / AI-guessed score defaults to fill empty CallerTarget rows. Honest empty bands surface gaps; fake scores corrupt EMA. (Epic #2135.)"
+  },
+  "story": {
+    "asA": "IELTS preparation system",
+    "iWant": "To score every learner speaking transcript against the four official IELTS Speaking criteria (Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation) using LLM transcript judgment",
+    "soThat": "Mastery progression, adaptive feedback, and completion gating work for every IELTS caller from session 1 — without requiring a prosody vendor; when a vendor is later wired, it ENHANCES FC + P only via the prosody-raw consumer (S3)."
+  },
+  "context": {
+    "applies": "IELTS Speaking-profile courses only — gated by Subject.teachingProfile = 'ielts-speaking' via lib/pipeline/specs-loader.ts::filterByTeachingProfile.",
+    "dependsOn": [],
+    "assumptions": [
+      "Transcript contains learner speech (Part 1 interview, Part 2 long turn, or Part 3 discussion).",
+      "OPERATOR RULE — NEVER fabricate scores. If a criterion has insufficient learner evidence in the transcript, the corresponding score MUST be null and hasLearnerEvidence MUST be false. Honest empty bands surface gaps; fake scores corrupt the EMA aggregator.",
+      "Band anchors reference HF's active IELTS slot mapping: Band 3 (approachingEmerging) → Band 4 (emerging) → Band 5.5 (developing) → Band 7 (secure), per lib/banding/presets.ts::TIER_PRESETS['ielts-speaking'].",
+      "Pronunciation (P) is judged from TRANSCRIPT CUES ONLY in this spec (self-corrections, mis-pronunciation feedback from tutor, phonological substitutions explicitly described). When a prosody vendor lands (epic #2135 S3), the prosody-raw consumer augments P + FC via tool-use; LR + GRA remain LLM-only forever.",
+      "Per-criterion scores are normalised to 0–1 by dividing the IELTS band (1–9) by 9 (e.g. Band 7 → 0.778). The downstream SKILL-AGG-001 EMA pipeline expects 0–1 inputs."
+    ],
+    "frameworks": {
+      "ielts": "IELTS Speaking Public Band Descriptors — Bands 1-9, four criteria (FC, LR, GRA, P). British Council / IDP / Cambridge Assessment English."
+    }
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC-IELTS-001",
+      "title": "Fluency & Coherence scored",
+      "given": "A learner speaking transcript with sufficient turn-taking and connected speech",
+      "when": "The system analyses fluency markers (pace, hesitation, self-correction, connectives) and coherence markers (topic-tracking, logical progression, signposting)",
+      "then": "A fluency_and_coherence score 0–1 (representing IELTS band / 9) is produced, OR null if insufficient evidence",
+      "rationale": "FC is the surface-most criterion — can the learner keep speaking at length without breakdown, and does what they say hang together? (IELTS Public Descriptors §FC)",
+      "measuredBy": ["skill_fluency_and_coherence_fc"]
+    },
+    {
+      "id": "AC-IELTS-002",
+      "title": "Lexical Resource scored",
+      "given": "A learner transcript containing topical, idiomatic, paraphrase, and collocation choices",
+      "when": "The system analyses range (varied vocabulary), precision (apt word choice), flexibility (paraphrase when stuck), and idiomaticity (less common items used naturally)",
+      "then": "A lexical_resource score 0–1 (representing IELTS band / 9) is produced, OR null if insufficient evidence",
+      "rationale": "LR is text-content-only — vendor audio cannot see vocabulary. LLM transcript judgment is the only valid signal. (IELTS Public Descriptors §LR)",
+      "measuredBy": ["skill_lexical_resource_lr"]
+    },
+    {
+      "id": "AC-IELTS-003",
+      "title": "Grammatical Range & Accuracy scored",
+      "given": "A learner transcript containing sentence structures (simple, compound, complex) and a mix of correct and erroneous forms",
+      "when": "The system analyses range (variety of structures), complexity (subordination, conditionals, modals), and accuracy (error frequency, error gravity, error type)",
+      "then": "A grammatical_range_and_accuracy score 0–1 (representing IELTS band / 9) is produced, OR null if insufficient evidence",
+      "rationale": "GRA is text-content-only — vendor audio cannot judge grammar. LLM transcript judgment is the only valid signal. (IELTS Public Descriptors §GRA)",
+      "measuredBy": ["skill_grammatical_range_and_accuracy_gra"]
+    },
+    {
+      "id": "AC-IELTS-004",
+      "title": "Pronunciation scored from transcript cues only (vendor-augmentable)",
+      "given": "A learner transcript with possible transcribed self-corrections, tutor pronunciation feedback, or transcript-visible phonological notes",
+      "when": "The system analyses transcript-cued pronunciation evidence — explicit self-corrections, tutor feedback like 'try saying X', misheard items the tutor needed to confirm",
+      "then": "A pronunciation score 0–1 (representing IELTS band / 9) is produced when transcript cues exist, OR null otherwise. When prosody vendor signal is available (post-S3), the prosody-raw consumer augments this score; in this LLM-only spec, the absence of vendor signal is honest, not a fabrication.",
+      "rationale": "Without audio, pronunciation evidence is sparse in pure transcripts. A null score for P is the correct output when no transcript cues exist — better than a guessed midpoint. Per epic #2135 S3, prosody-raw augments this slot when wired.",
+      "measuredBy": ["skill_pronunciation_p"]
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-IELTS-001",
+      "type": "operator_rule_never_fabricate",
+      "description": "NEVER land hardcoded or AI-guessed score defaults to fill empty rows. If insufficient learner evidence exists for a criterion, the score MUST be null and hasLearnerEvidence MUST be false. The downstream EMA aggregator (SKILL-AGG-001) handles nulls by skipping; a fake 0.5 'balanced default' corrupts the rolling average.",
+      "severity": "critical"
+    },
+    {
+      "id": "CON-IELTS-002",
+      "type": "transcript_only_pronunciation",
+      "description": "Pronunciation MUST be scored from transcript cues only in this spec. Do NOT infer phonological accuracy from text-only signals (transcript spelling reflects the ASR's interpretation, not the learner's actual pronunciation). When no transcript cues exist, return null + hasLearnerEvidence: false for the pronunciation field.",
+      "severity": "critical"
+    },
+    {
+      "id": "CON-IELTS-003",
+      "type": "normalisation_0_1",
+      "description": "Scores MUST be normalised to 0–1 by dividing the IELTS band (1–9) by 9 before returning. The downstream SKILL-AGG-001 EMA expects 0–1 inputs. Band 3 → 0.333, Band 4 → 0.444, Band 5.5 → 0.611, Band 7 → 0.778.",
+      "severity": "critical"
+    }
+  ],
+  "failureConditions": [
+    {
+      "id": "FC-IELTS-001",
+      "trigger": "insufficient_learner_speech",
+      "threshold": { "operator": "lt", "value": 40 },
+      "implication": "Transcript contains fewer than 40 words of learner speech across the call. Set ALL four scores to null and hasLearnerEvidence to false. Do NOT score on insufficient evidence. The honest empty band is what the operator rule preserves.",
+      "severity": "warning"
+    }
+  ],
+  "parameters": [
+    {
+      "id": "skill_fluency_and_coherence_fc",
+      "name": "fluency_and_coherence",
+      "description": "IELTS Fluency & Coherence — sustained speaking without breakdown, connected discourse with logical organisation.",
+      "section": "IELTS Speaking Criteria",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "framework": {
+        "ielts": { "criterion": "FC", "name": "Fluency & Coherence", "bandRange": "1-9" }
+      },
+      "formula": "ielts_band(fc) / 9 — normalised against the IELTS Public Band Descriptors for Fluency & Coherence.",
+      "subMetrics": [
+        {
+          "id": "fluency",
+          "name": "Fluency",
+          "weight": 0.5,
+          "description": "Ability to keep going — speech rate, hesitation pattern, self-correction without breakdown",
+          "definitions": {
+            "high": "Speaks at length without noticeable effort; hesitations are content-related, not language-related; self-corrections are minor",
+            "low": "Long pauses to search for words; frequent false-starts; speech breaks down before complete idea is delivered"
+          }
+        },
+        {
+          "id": "coherence",
+          "name": "Coherence",
+          "weight": 0.5,
+          "description": "Organisation of ideas — topic development, logical progression, signposting and connectives",
+          "definitions": {
+            "high": "Develops topics fully and appropriately; uses a range of cohesive devices flexibly; ideas link clearly",
+            "low": "Topics are barely developed; few or repetitive connectives; relationships between ideas are unclear"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.34, "label": "Band 3 — Limited User", "implication": "Long pauses, frequent breakdowns, basic linking only ('and', 'but')" },
+        { "min": 0.34, "max": 0.5, "label": "Band 4 — Limited User", "implication": "Cannot respond without noticeable pauses; speech may be slow with frequent repetition; links basic sentences but with repetitious use of simple connectives" },
+        { "min": 0.5, "max": 0.65, "label": "Band 5.5 — Modest User", "implication": "Usually maintains flow of speech but uses repetition, self-correction and/or slow speech to keep going; over-uses certain connectives and discourse markers" },
+        { "min": 0.65, "max": 0.84, "label": "Band 7 — Good User", "implication": "Speaks at length without noticeable effort or loss of coherence; may demonstrate language-related hesitation at times; uses a range of connectives and discourse markers with some flexibility" },
+        { "min": 0.84, "max": 1.0, "label": "Band 8+ — Very Good / Expert User", "implication": "Speaks fluently with only occasional repetition or self-correction; develops topics coherently and appropriately" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.333,
+          "example": "Tutor: 'Tell me about your hometown.' Learner: '...uh... my home... is... Spain. Madrid. Is... uh... big.'",
+          "rationale": "Band 3 — extreme breakdown, words rather than phrases, no topic development.",
+          "isGold": true
+        },
+        {
+          "score": 0.444,
+          "example": "'I live in Madrid. It is a big city. There are many people. The food is good. I like the food. And the weather is hot in summer.'",
+          "rationale": "Band 4 — simple sentences strung together with basic connectives, minimal topic development, no real coherence devices.",
+          "isGold": true
+        },
+        {
+          "score": 0.611,
+          "example": "'I'm from Madrid, which is the capital of Spain. It's quite a busy city, you know, with lots of people from different — um, different backgrounds. The thing I like most is probably the food. And, well, the weather can be hot but it's nice.'",
+          "rationale": "Band 5.5 — maintains flow with some hedging and self-correction; uses 'which' subordination and discourse markers ('you know', 'well') though repetitively.",
+          "isGold": true
+        },
+        {
+          "score": 0.778,
+          "example": "'I'm originally from Madrid — which, despite being the capital, has a really distinctive neighbourhood feel. What I appreciate most is the way different barrios each have their own character. So you can move ten minutes and feel like you've crossed into another world. That's something I think Madrid does better than other European capitals.'",
+          "rationale": "Band 7 — sustained speech, varied connectives ('which', 'despite', 'so', 'that'), explicit topic development with a comparative judgment, language-related hesitation absent.",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Strong FC. Push complexity: longer Part 3 abstract discussion, faster topic switches, comparative judgments across cultures or time.",
+        "whenLow": "FC under strain. Use shorter Part 1 questions, slow the pace, model connectives explicitly ('first... then... finally...'), prioritise breakdown-recovery over polish.",
+        "whenMedium": "Mid-band FC. Push for sustained Part 2 long turns (≥90s), introduce one new discourse marker per session, gently flag repetitive connectives."
+      },
+      "usedBy": ["AC-IELTS-001"],
+      "promptTemplate": "RUBRIC[skill_fluency_and_coherence_fc] — IELTS Fluency & Coherence (transcript-derivable).\nScore the LEARNER on Fluency & Coherence using IELTS Public Band Descriptors. Output a number 0-1 (IELTS band / 9) OR null if insufficient evidence.\n\nIELTS BAND ANCHORS (HF-active slots):\n- Band 3 (0.333): Long pauses, frequent breakdowns; only basic connectives ('and', 'but'); responses often single words or short phrases.\n- Band 4 (0.444): Cannot respond without noticeable pauses; slow speech with frequent repetition; basic sentences linked with repetitious simple connectives.\n- Band 5.5 (0.611): Usually maintains flow but uses repetition, self-correction or slow speech to keep going; over-uses certain connectives/discourse markers; some topic development.\n- Band 7 (0.778): Speaks at length without noticeable effort; language-related hesitation rare; uses a range of connectives and discourse markers with some flexibility; coherent topic development.\n\nWHAT TO LOOK FOR:\n- Fluency signals: speech rate, hesitation pattern (filler 'um/uh' frequency vs content-related pauses), self-correction frequency, false-starts, breakdown points.\n- Coherence signals: range and accuracy of connectives, signposting ('first... however... in conclusion...'), topic-tracking across multiple turns, logical progression within a long turn.\n\nNULL HANDLING (operator rule — never fabricate):\nIf the transcript contains fewer than ~40 words of learner speech, OR the learner produced only one-word answers throughout, set this score to NULL and set hasLearnerEvidence to false. Do NOT guess a 'balanced' 0.5 default. The empty band is the honest output and the EMA aggregator handles nulls by skipping.\n\nEVIDENCE: Cite one to three short transcript quotes (≤15 words each) that justify your band judgment."
+    },
+    {
+      "id": "skill_lexical_resource_lr",
+      "name": "lexical_resource",
+      "description": "IELTS Lexical Resource — vocabulary range, precision of word choice, paraphrase flexibility, idiomatic appropriacy. TRANSCRIPT-ONLY — vendor audio cannot judge.",
+      "section": "IELTS Speaking Criteria",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "framework": {
+        "ielts": { "criterion": "LR", "name": "Lexical Resource", "bandRange": "1-9" }
+      },
+      "formula": "ielts_band(lr) / 9 — normalised against the IELTS Public Band Descriptors for Lexical Resource.",
+      "subMetrics": [
+        {
+          "id": "range",
+          "name": "Range",
+          "weight": 0.35,
+          "description": "Breadth of vocabulary — topical, idiomatic, less common items",
+          "definitions": {
+            "high": "Uses a wide range of vocabulary including less common and idiomatic items, with some inaccuracy at the margins",
+            "low": "Uses simple vocabulary, often repetitive; cannot discuss most topics; relies on memorised phrases"
+          }
+        },
+        {
+          "id": "precision",
+          "name": "Precision",
+          "weight": 0.35,
+          "description": "Appropriacy of word choice to meaning and context",
+          "definitions": {
+            "high": "Word choice is apt and natural; collocations are conventional; meaning conveyed precisely",
+            "low": "Frequent wrong word choice; unnatural collocations; meaning often distorted or unclear"
+          }
+        },
+        {
+          "id": "flexibility",
+          "name": "Flexibility (paraphrase)",
+          "weight": 0.3,
+          "description": "Ability to paraphrase when an exact word is not available",
+          "definitions": {
+            "high": "Paraphrases successfully when stuck, often with effective circumlocution",
+            "low": "Stops at unknown words; cannot find another way to express the idea"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.34, "label": "Band 3 — Limited User", "implication": "Very basic vocabulary; cannot discuss most topics; meaning often opaque" },
+        { "min": 0.34, "max": 0.5, "label": "Band 4 — Limited User", "implication": "Sufficient vocabulary for familiar topics only; rarely paraphrases; frequent inappropriate word choice" },
+        { "min": 0.5, "max": 0.65, "label": "Band 5.5 — Modest User", "implication": "Manages to talk about familiar and unfamiliar topics with limited flexibility; attempts paraphrase with mixed success" },
+        { "min": 0.65, "max": 0.84, "label": "Band 7 — Good User", "implication": "Uses vocabulary resource flexibly to discuss a variety of topics; uses some less common and idiomatic items with occasional inaccuracy; paraphrases effectively" },
+        { "min": 0.84, "max": 1.0, "label": "Band 8+ — Very Good / Expert User", "implication": "Wide range of vocabulary used fluently and precisely; skilful use of less common and idiomatic vocabulary" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.333,
+          "example": "'I like... thing. Music. Music is good. I like music. Music make me happy. I like music every day.'",
+          "rationale": "Band 3 — extreme repetition of 'music' and 'like', single content word per clause, no paraphrase attempted.",
+          "isGold": true
+        },
+        {
+          "score": 0.444,
+          "example": "'I like music very much. Pop music. Sometimes I listen to rock. The songs make me happy. I have many songs on my phone.'",
+          "rationale": "Band 4 — familiar topic vocabulary, basic adjectives ('very much', 'happy', 'many'), no idiomatic items, no paraphrase under pressure.",
+          "isGold": true
+        },
+        {
+          "score": 0.611,
+          "example": "'I'm really into pop music — like the catchy kind with strong beats. When I'm working, it kind of puts me in the zone, you know? I've also recently started exploring older stuff, like 80s rock, which has a different feel altogether.'",
+          "rationale": "Band 5.5 — some idiomatic items ('catchy', 'in the zone'), discourse fillers ('you know', 'kind of'), attempts to discuss a wider range ('older stuff') with mild imprecision.",
+          "isGold": true
+        },
+        {
+          "score": 0.778,
+          "example": "'I'd say my taste leans towards underground electronic — the kind of stuff that hasn't quite broken into the mainstream. There's something compelling about discovering an artist before they blow up. That said, I've got nothing against a good chart hit when the production is on point.'",
+          "rationale": "Band 7 — varied vocabulary used flexibly ('underground', 'mainstream', 'broken into'), idiomatic ('blow up', 'on point'), nuanced concessive ('that said'), precise collocations.",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Strong LR. Push topical breadth — abstract Part 3 themes (technology ethics, intergenerational change), demand idiomatic precision, mark unnatural collocations explicitly.",
+        "whenLow": "Limited LR. Stay on familiar Part 1 topics (food, weather, weekend), recycle the same vocabulary intentionally, model paraphrase ('another way to say X is Y'), introduce 1-2 new high-utility items per session.",
+        "whenMedium": "Mid-band LR. Target circumlocution drills ('describe X without using its name'), flag repetitive vocabulary in feedback, push for one less-common item per long turn."
+      },
+      "usedBy": ["AC-IELTS-002"],
+      "promptTemplate": "RUBRIC[skill_lexical_resource_lr] — IELTS Lexical Resource (TRANSCRIPT-ONLY — vendor cannot see vocabulary).\nScore the LEARNER on Lexical Resource using IELTS Public Band Descriptors. Output a number 0-1 (IELTS band / 9) OR null if insufficient evidence.\n\nIELTS BAND ANCHORS (HF-active slots):\n- Band 3 (0.333): Very basic vocabulary; cannot discuss most topics; meaning often unclear from word choice.\n- Band 4 (0.444): Sufficient vocabulary for familiar topics only; rarely paraphrases; frequent inappropriate word choice.\n- Band 5.5 (0.611): Manages familiar AND unfamiliar topics with limited flexibility; attempts paraphrase with mixed success; some less-common items used inaccurately.\n- Band 7 (0.778): Uses vocabulary flexibly across a variety of topics; some less-common and idiomatic items with occasional inaccuracy; paraphrases effectively when stuck.\n\nWHAT TO LOOK FOR:\n- Range: count distinct content words; note variety of topical lexis, less-common items, idiomatic chunks.\n- Precision: are collocations conventional? Is the right word chosen for the meaning?\n- Flexibility: when the learner doesn't know a word, do they paraphrase or stop? Is the paraphrase effective?\n\nNULL HANDLING (operator rule — never fabricate):\nIf the transcript has fewer than ~40 words of learner speech, OR the learner only echoed back the tutor's vocabulary without producing original content, set this score to NULL and hasLearnerEvidence to false. Do NOT default to 0.5. An honest empty band protects the EMA.\n\nEVIDENCE: Cite one to three short transcript quotes (≤15 words each) showing range, precision, or paraphrase attempts."
+    },
+    {
+      "id": "skill_grammatical_range_and_accuracy_gra",
+      "name": "grammatical_range_and_accuracy",
+      "description": "IELTS Grammatical Range & Accuracy — variety of sentence structures, complexity (subordination, conditionals, modals), and error frequency/gravity. TRANSCRIPT-ONLY — vendor audio cannot judge grammar.",
+      "section": "IELTS Speaking Criteria",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "framework": {
+        "ielts": { "criterion": "GRA", "name": "Grammatical Range & Accuracy", "bandRange": "1-9" }
+      },
+      "formula": "ielts_band(gra) / 9 — normalised against the IELTS Public Band Descriptors for Grammatical Range & Accuracy.",
+      "subMetrics": [
+        {
+          "id": "range",
+          "name": "Range",
+          "weight": 0.4,
+          "description": "Variety of structures used — simple, compound, complex; conditionals, passives, modals, subordinate clauses",
+          "definitions": {
+            "high": "Uses a wide range of structures flexibly including complex forms (conditionals, relative clauses, modals)",
+            "low": "Mostly simple SVO sentences; few or no subordinate or conditional structures"
+          }
+        },
+        {
+          "id": "accuracy",
+          "name": "Accuracy",
+          "weight": 0.4,
+          "description": "Frequency, type, and gravity of grammatical errors",
+          "definitions": {
+            "high": "Most sentences error-free; errors are minor and do not impede communication (e.g. occasional article slips)",
+            "low": "Frequent basic errors (subject-verb agreement, tense, word order) that often impede meaning"
+          }
+        },
+        {
+          "id": "complexity",
+          "name": "Complexity",
+          "weight": 0.2,
+          "description": "Use of complex constructions (subordination, embedding, hedging modals)",
+          "definitions": {
+            "high": "Embeds clauses naturally; hedges with modals; uses passives and conditionals when context calls for them",
+            "low": "Cannot produce complex constructions even when prompted; sticks to short main clauses"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.34, "label": "Band 3 — Limited User", "implication": "Basic sentence forms with limited accuracy; rarely produces subordinate clauses" },
+        { "min": 0.34, "max": 0.5, "label": "Band 4 — Limited User", "implication": "Basic sentence forms; some complex structures attempted but with errors causing comprehension problems" },
+        { "min": 0.5, "max": 0.65, "label": "Band 5.5 — Modest User", "implication": "Uses a mix of simple and complex structures with limited flexibility; some errors but meaning is mostly clear" },
+        { "min": 0.65, "max": 0.84, "label": "Band 7 — Good User", "implication": "Uses a range of complex structures with some flexibility; frequently produces error-free sentences though some errors persist" },
+        { "min": 0.84, "max": 1.0, "label": "Band 8+ — Very Good / Expert User", "implication": "Wide range of structures used flexibly; the majority of sentences are error-free, with only occasional inappropriacies" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.333,
+          "example": "'I go school every day. Yesterday I go shop. Tomorrow I go park. I like.'",
+          "rationale": "Band 3 — no tense marking, no articles, no subordination; meaning recoverable but errors pervasive.",
+          "isGold": true
+        },
+        {
+          "score": 0.444,
+          "example": "'I am going to the school every day. When I was young, I am going to the park with my brother. I think it is good.'",
+          "rationale": "Band 4 — attempts continuous and past forms but with tense errors; one subordinate clause attempted ('when I was young') with mixed accuracy.",
+          "isGold": true
+        },
+        {
+          "score": 0.611,
+          "example": "'I usually go to work by metro, although sometimes if it's raining I might take a taxi instead. When I was younger I used to cycle, but the traffic has got worse over the years.'",
+          "rationale": "Band 5.5 — mix of simple and complex (conditional 'if', concession 'although', present perfect); minor errors don't impede meaning.",
+          "isGold": true
+        },
+        {
+          "score": 0.778,
+          "example": "'If I'd known how much the commute would affect my schedule, I probably would have looked for somewhere closer to the office. That said, I've come to appreciate the time on the train as a kind of mental buffer between work and home life.'",
+          "rationale": "Band 7 — third conditional, hedged modals, perfect aspect, embedded subordinate clauses, error-free across multiple complex structures.",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Strong GRA. Push complex hypotheticals ('if you had to choose...'), demand reported speech across tenses, mark over-formal register if it appears.",
+        "whenLow": "Limited GRA. Recycle a single tense per topic, drill SVO accuracy explicitly, introduce ONE complex form per session (e.g. 'because' clauses), don't penalise minor errors that don't block meaning.",
+        "whenMedium": "Mid-band GRA. Target subordination explicitly ('which', 'although', 'whereas'), prompt for conditional forms in Part 3, give precise error correction on the highest-frequency error type."
+      },
+      "usedBy": ["AC-IELTS-003"],
+      "promptTemplate": "RUBRIC[skill_grammatical_range_and_accuracy_gra] — IELTS Grammatical Range & Accuracy (TRANSCRIPT-ONLY — vendor cannot judge grammar).\nScore the LEARNER on Grammatical Range & Accuracy using IELTS Public Band Descriptors. Output a number 0-1 (IELTS band / 9) OR null if insufficient evidence.\n\nIELTS BAND ANCHORS (HF-active slots):\n- Band 3 (0.333): Basic sentence forms only; limited accuracy; rarely produces subordinate clauses.\n- Band 4 (0.444): Basic sentence forms; some complex structures attempted but errors cause comprehension problems.\n- Band 5.5 (0.611): Mix of simple AND complex with limited flexibility; errors present but meaning mostly clear.\n- Band 7 (0.778): Range of complex structures with some flexibility; frequently error-free though some errors persist.\n\nWHAT TO LOOK FOR:\n- Range: count distinct structure types (SVO, SVOO, passive, conditional, modal-hedged, relative clauses, reported speech).\n- Accuracy: count basic errors (subject-verb agreement, tense, word order, article use) — note frequency AND whether they impede meaning.\n- Complexity: are complex constructions attempted naturally or only when forced? Hedging modals ('might', 'would', 'could')?\n\nNULL HANDLING (operator rule — never fabricate):\nIf the transcript has fewer than ~40 words of learner speech, OR the learner only gave one-word answers throughout, set this score to NULL and hasLearnerEvidence to false. Do NOT default to a 'balanced' 0.5. An honest empty band protects the EMA from corruption.\n\nEVIDENCE: Cite one to three short transcript quotes (≤15 words each) demonstrating range, accuracy, or error patterns."
+    },
+    {
+      "id": "skill_pronunciation_p",
+      "name": "pronunciation",
+      "description": "IELTS Pronunciation — transcript-cued evidence only in this spec (self-corrections, tutor pronunciation feedback, phonological substitutions explicitly described). When prosody vendor is wired (epic #2135 S3), the prosody-raw consumer augments this slot.",
+      "section": "IELTS Speaking Criteria",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "framework": {
+        "ielts": { "criterion": "P", "name": "Pronunciation", "bandRange": "1-9" }
+      },
+      "formula": "ielts_band(p) / 9 — normalised against the IELTS Public Band Descriptors for Pronunciation. NULL when transcript cues are absent.",
+      "subMetrics": [
+        {
+          "id": "intelligibility_cues",
+          "name": "Intelligibility Cues",
+          "weight": 0.5,
+          "description": "Transcript evidence of intelligibility — tutor confirmation requests, repeat-back signals, mishearings",
+          "definitions": {
+            "high": "No tutor 'sorry, can you repeat?' or 'did you mean X?' moments; tutor flows naturally through learner turns",
+            "low": "Frequent tutor requests for repetition, explicit confirmations ('did you say X?'), or transcript-noted mishearings"
+          }
+        },
+        {
+          "id": "self_correction_cues",
+          "name": "Self-correction Cues",
+          "weight": 0.3,
+          "description": "Transcript evidence of pronunciation-related self-correction or pronunciation-targeted tutor feedback",
+          "definitions": {
+            "high": "No pronunciation self-correction needed; tutor offers no pronunciation feedback",
+            "low": "Frequent self-correction targeting a sound or word ('I mean — wuh — work'); tutor provides explicit pronunciation feedback ('try saying it like THIS')"
+          }
+        },
+        {
+          "id": "register_appropriacy",
+          "name": "Register / Stress Cues",
+          "weight": 0.2,
+          "description": "Transcript-visible cues to sentence stress, intonation, register (e.g. ALL-CAPS transcribed emphasis, exclamation-marked utterances, transcript-noted flat delivery)",
+          "definitions": {
+            "high": "Transcript shows natural intonation-marked utterances where context supports them; appropriate register shifts",
+            "low": "Flat or monotonous delivery noted in transcript; register-inappropriate utterances (e.g. casual register in formal Part 2)"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.34, "label": "Band 3 — Limited User", "implication": "Pronunciation requires frequent listener effort; some/much speech may be unintelligible" },
+        { "min": 0.34, "max": 0.5, "label": "Band 4 — Limited User", "implication": "Uses a limited range of pronunciation features with mixed control; mispronunciations cause comprehension difficulty at times" },
+        { "min": 0.5, "max": 0.65, "label": "Band 5.5 — Modest User", "implication": "Some effective use of pronunciation features but with limited control; mispronunciations occur but do not generally reduce intelligibility" },
+        { "min": 0.65, "max": 0.84, "label": "Band 7 — Good User", "implication": "Shows all positive features of band 6 (some effective use of features, sustained pronunciation control) plus some of the features of band 8 (wide range, easy to understand)" },
+        { "min": 0.84, "max": 1.0, "label": "Band 8+ — Very Good / Expert User", "implication": "Uses a wide range of pronunciation features with precision and subtlety; sustained flexible use of features; easy to understand throughout" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.333,
+          "example": "Tutor (repeated 3 times in transcript): 'Sorry, could you say that again?' / Learner: 'I sed... I sed... I am... [unintelligible].' / Tutor: 'Did you say SAID? Let me know if I'm hearing right.'",
+          "rationale": "Band 3 — frequent unintelligibility, multiple repetition requests, tutor cannot reliably parse the utterance.",
+          "isGold": true
+        },
+        {
+          "score": 0.444,
+          "example": "Learner: 'I work in a — uh — bank. The bank. I wuh-wuh-work in the bank.' Tutor: 'Got it — and what do you do at the bank?'",
+          "rationale": "Band 4 — visible self-correction on 'work', mild intelligibility issue surmounted, tutor able to continue but with some friction.",
+          "isGold": true
+        },
+        {
+          "score": 0.611,
+          "example": "Learner: 'I'm an analyst at — at an investment bank. Most of my day is spent on financial modelling.' Tutor: 'Right — investment banking. And how long have you done that?' (No mishearings, one minor restart noted.)",
+          "rationale": "Band 5.5 — mostly intelligible, one minor false-start, no repetition requests from tutor.",
+          "isGold": true
+        },
+        {
+          "score": 0.778,
+          "example": "Learner full Part 2 long turn delivered without tutor interruption, transcript shows no 'sorry?' / 'pardon?' / 'did you say...' from tutor across 90 seconds of speech. One natural intonation cue noted ('REALLY tricky, that one').",
+          "rationale": "Band 7 — sustained intelligibility across an extended turn, transcript-visible stress cue used appropriately, no friction in tutor uptake.",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Strong P from transcript signal. Push connected speech features in Part 3 (long abstract turns), avoid over-correction. When prosody vendor is wired, the augmentation chip will confirm.",
+        "whenLow": "Transcript shows intelligibility friction. Slow tutor pace, confirm-back what was heard, target the highest-frequency problem sound explicitly. Mark P as null if friction is structural rather than learner-pronunciation (e.g. ASR limitations).",
+        "whenMedium": "Mid-band P from transcript. Do one targeted minimal-pair drill per session if the same sound reoccurs in self-corrections. Otherwise focus on FC/LR/GRA — pronunciation evidence is sparse in pure transcript and a vendor augmentation is the better long-term signal."
+      },
+      "usedBy": ["AC-IELTS-004"],
+      "promptTemplate": "RUBRIC[skill_pronunciation_p] — IELTS Pronunciation (TRANSCRIPT CUES ONLY — vendor wiring deferred to epic #2135 S3).\nScore the LEARNER on Pronunciation using IELTS Public Band Descriptors. Output a number 0-1 (IELTS band / 9) OR null if no transcript cues exist.\n\nIELTS BAND ANCHORS (HF-active slots):\n- Band 3 (0.333): Frequent unintelligibility, multiple tutor repetition requests, parts of utterances cannot be parsed.\n- Band 4 (0.444): Limited range of pronunciation features with mixed control; mispronunciations sometimes cause comprehension difficulty.\n- Band 5.5 (0.611): Some effective use of pronunciation features with limited control; mispronunciations occur but generally don't reduce intelligibility.\n- Band 7 (0.778): Sustained pronunciation control across extended turns; range of features (stress, intonation) used appropriately; easy to understand throughout.\n\nWHAT TO LOOK FOR (TRANSCRIPT CUES ONLY):\n- Tutor signals: 'sorry?', 'pardon?', 'did you say X?', 'could you repeat that?' — count frequency.\n- Learner self-corrections targeting a sound or word ('wuh-wuh-work', 'I sed — I mean SAID').\n- Explicit tutor pronunciation feedback ('try saying it like THIS', 'the stress goes on the second syllable').\n- Transcript-visible stress/intonation cues (ALL-CAPS emphasis, exclamation marks, transcript-noted flat delivery).\n\nNULL HANDLING (operator rule — never fabricate; this slot has tightest defaults):\nIf the transcript has NO transcript cues bearing on pronunciation (no tutor repetition requests, no self-corrections, no pronunciation feedback) — set this score to NULL and hasLearnerEvidence to false. Pure absence of signal is NOT evidence of high pronunciation; it is evidence of transcript-mode limitation. The empty band is the honest output. Prosody vendor augmentation (epic #2135 S3) is the right long-term answer; do NOT guess a 'midpoint' to plug the gap.\n\nEVIDENCE: Cite one to three transcript quotes showing the cues you found. If NO cues found, state explicitly: 'No transcript cues bearing on pronunciation' — and return null."
+    }
+  ],
+  "responseShape": {
+    "description": "The LLM MUST return a strict JSON object matching this shape. Per-criterion null scores are mandatory when evidence is insufficient.",
+    "schema": {
+      "scores": {
+        "fluency_and_coherence": "number 0-1 (IELTS band / 9) OR null",
+        "lexical_resource": "number 0-1 (IELTS band / 9) OR null",
+        "grammatical_range_and_accuracy": "number 0-1 (IELTS band / 9) OR null",
+        "pronunciation": "number 0-1 (IELTS band / 9) OR null"
+      },
+      "evidence": {
+        "fluency_and_coherence": "string — 1-3 short transcript quotes justifying the FC band, OR 'insufficient evidence' if null",
+        "lexical_resource": "string — 1-3 short transcript quotes justifying the LR band, OR 'insufficient evidence' if null",
+        "grammatical_range_and_accuracy": "string — 1-3 short transcript quotes justifying the GRA band, OR 'insufficient evidence' if null",
+        "pronunciation": "string — 1-3 transcript pronunciation cues, OR 'no transcript cues bearing on pronunciation' if null"
+      },
+      "hasLearnerEvidence": "boolean — false when ALL four scores are null (transcript had <40 words of learner speech); true otherwise"
+    }
+  },
+  "related": [
+    {
+      "id": "SKILL-AGG-001",
+      "title": "Skill EMA aggregator — consumes CallScore rows on skill_* parameter ids",
+      "relationship": "downstream-consumer"
+    },
+    {
+      "id": "SKILL_MEASURE_V1",
+      "title": "Skill measurement contract — declares the 4 IELTS skill parameter ids (FC/LR/GRA/P)",
+      "relationship": "implements"
+    },
+    {
+      "id": "epic-2135",
+      "title": "IELTS scoring as canonical MEASURE specs — parent epic",
+      "relationship": "parent-epic"
+    }
+  ]
+}
