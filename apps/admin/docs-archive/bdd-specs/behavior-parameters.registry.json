@@ -735,6 +735,23 @@
       }
     },
     {
+      "parameterId": "BEH-INTERNAL-LEAK",
+      "name": "Internal-Label Leak Count",
+      "definition": "Number of unique internal-only labels (criterion names, parameter slugs, scoring axes from the shared INTERNAL_LABEL_REGISTRY) detected in learner-visible surfaces during this pipeline run. SUPERVISE-stage alarm signal produced by LEAK-SCAN-001 — the runtime complement to the PR #2144 build-time leak Coverage gate.",
+      "domainGroup": "supervision",
+      "defaultTarget": 0,
+      "interpretationHigh": "Leak alarm",
+      "interpretationLow": "Clean",
+      "skipInterpretationLengthCheck": true,
+      "usage": {
+        "compose": "transform-direct",
+        "measurement": {
+          "kind": "operator-only",
+          "reason": "SUPERVISE-alarm signal consumed by operator via AppLog (subject: supervise.internal_leak_detected) — read by humans for triage, NOT folded into the AGGREGATE/ADAPT/REWARD cascade. New shape of 'operator-only': SUPERVISE-alarm. The honest-empty-state contract means a CallScore row is written ONLY when the leak count > 0 (writeOnlyWhenNonZero per LEAK-SCAN-001 spec config); the alarm subject + per-leak metadata in AppLog is the operator surface, not a cascaded score. Sibling to the build-time static-literal gate (PR #2144 apps/admin/tests/lib/sim-chat/learner-ui-leak-coverage.test.ts) — both gates read the same canonical registry JSON at docs/kb/generated/internal-label-registry.json. The compose-transform consumer (LEAK_SCAN_PARAMETER_ID literal in apps/admin/lib/pipeline/runners/supervise/leak-scan.ts) satisfies the parameter-coverage substring scan."
+        }
+      }
+    },
+    {
       "parameterId": "BEH-LIST-STRUCTURE",
       "name": "List Structure",
       "definition": "How much the AI organises information into numbered lists, hierarchies, and structured formats.",
