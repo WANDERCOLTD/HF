@@ -23,6 +23,13 @@
  * Inspector threads `selectedModuleId` through as `arraySelector` so
  * the route resolves the right `modules[]` element.
  *
+ * Story #2205 (U4 of #2185): the HOW-card body is now mode-aware. The
+ * panel reads `selectedModuleMode` and dispatches to a typed variant
+ * (`HowCardTutor` / `HowCardMixed` / `HowCardExaminer` / `HowCardQuiz`
+ * / `HowCardMockExam`) via `getHowCardVariant`. The variant declares
+ * WHICH G8 contracts surface in priority order; this panel still owns
+ * the row chrome (test-id, RelevanceWrapper, JourneyField rendering).
+ *
  * Parallels the CourseTeachingTab → JourneyInspectorPanel relationship,
  * but the per-module data model justifies a separate panel rather than
  * extending JourneyInspectorPanel with a module-scope mode (the
@@ -30,21 +37,30 @@
  * `Playbook.config.modules[i].settings.*`).
  */
 
+import type React from "react";
 import { useCallback, useMemo } from "react";
 
 import { JourneyField } from "@/components/journey-controls";
 import { RelevanceWrapper } from "@/components/journey-controls/RelevanceWrapper";
 import { getCourseShape } from "@/lib/journey/course-shape";
-import { JOURNEY_SETTINGS } from "@/lib/journey/setting-contracts.entries";
 import type {
   CourseShape,
   JourneySettingContract,
   StoragePathStruct,
 } from "@/lib/journey/setting-contracts";
 import type {
+  AuthoredModuleMode,
   AuthoredModuleSettings,
   PlaybookConfig,
 } from "@/lib/types/json-fields";
+
+import {
+  HowCardExaminer,
+  HowCardMixed,
+  HowCardMockExam,
+  HowCardQuiz,
+  HowCardTutor,
+} from "./inspector-variants";
 
 interface ModuleInspectorPanelProps {
   /** Course id — passed to the PATCH route URL. */
@@ -52,6 +68,11 @@ interface ModuleInspectorPanelProps {
   selectedModuleId: string | null;
   /** The selected module's label — used in the panel header. */
   selectedModuleLabel?: string | null;
+  /** The selected module's mode — drives the HOW-card variant dispatch.
+   *  Story #2205. Optional so legacy callers without it default to the
+   *  tutor variant (matches the tutor-as-default convention pinned by
+   *  `mode-ui-coverage.test.ts`). */
+  selectedModuleMode?: AuthoredModuleMode | string | null;
   /** The selected module's G8 settings sub-object (from
    *  `/api/courses/:courseId/modules` → `modules[].settings`).
    *  Undefined or empty → all fields render with default values. */
@@ -77,13 +98,6 @@ function lastSegmentOfStoragePath(contract: JourneySettingContract): string {
   const segments = path.split(".").map((s) => s.replace(/\[\]$/, ""));
   return segments[segments.length - 1] ?? "";
 }
-
-/** All G8 entries declared in the registry. Scope-guard avoids leaking
- *  non-module Inspector rows in if the registry ever gains G8 entries
- *  with a different scope. */
-const G8_SETTINGS: readonly JourneySettingContract[] = JOURNEY_SETTINGS.filter(
-  (c) => c.group === "G8" && c.scope === "module",
-);
 
 /** P3d (#1850) — true when the contract declares an `appliesTo` set
  *  that excludes the current `courseShape`. Show-don't-hide: the row
@@ -128,6 +142,7 @@ export function ModuleInspectorPanel({
   courseId,
   selectedModuleId,
   selectedModuleLabel,
+  selectedModuleMode,
   settings,
   playbookConfig,
   onSaved,
@@ -184,6 +199,51 @@ export function ModuleInspectorPanel({
     [courseId, selectedModuleId, onSaved],
   );
 
+  // Per-contract row renderer. The variant components delegate row
+  // chrome (test-id, RelevanceWrapper, JourneyField rendering) here
+  // so they stay declarative — they only choose WHICH contracts and
+  // in what order. Settings are memoised so the renderRow callback
+  // identity stays stable across renders that don't change them.
+  const moduleSettings = useMemo(
+    () => (settings ?? {}) as Record<string, unknown>,
+    [settings],
+  );
+  const renderRow = useCallback(
+    (contract: JourneySettingContract) => {
+      const key = lastSegmentOfStoragePath(contract);
+      const value = key ? moduleSettings[key] : undefined;
+      const outOfShape = isOutOfShape(contract, courseShape);
+      const field = (
+        <JourneyField
+          contract={contract}
+          value={value}
+          options={contract.options}
+          onSave={(next) => handleSave(contract.id, next)}
+        />
+      );
+      return (
+        <div
+          key={contract.id}
+          className="hf-journey-inspector-row"
+          data-testid={`hf-module-inspector-row-${contract.id}`}
+          data-relevance-state={outOfShape ? "out-of-shape" : "active"}
+        >
+          {outOfShape ? (
+            <RelevanceWrapper
+              state="out-of-shape"
+              reason={outOfShapeReason(contract, courseShape)}
+            >
+              {field}
+            </RelevanceWrapper>
+          ) : (
+            field
+          )}
+        </div>
+      );
+    },
+    [moduleSettings, courseShape, handleSave],
+  );
+
   if (!selectedModuleId) {
     return (
       <div
@@ -194,19 +254,6 @@ export function ModuleInspectorPanel({
       </div>
     );
   }
-
-  if (G8_SETTINGS.length === 0) {
-    return (
-      <div
-        className="hf-journey-inspector-empty"
-        data-testid="hf-module-inspector-no-settings"
-      >
-        No module-scoped settings registered yet.
-      </div>
-    );
-  }
-
-  const moduleSettings = (settings ?? {}) as Record<string, unknown>;
 
   return (
     <div
@@ -222,40 +269,37 @@ export function ModuleInspectorPanel({
         </p>
       </div>
 
-      <div className="hf-journey-inspector-stack">
-        {G8_SETTINGS.map((contract) => {
-          const key = lastSegmentOfStoragePath(contract);
-          const value = key ? moduleSettings[key] : undefined;
-          const outOfShape = isOutOfShape(contract, courseShape);
-          const field = (
-            <JourneyField
-              contract={contract}
-              value={value}
-              options={contract.options}
-              onSave={(next) => handleSave(contract.id, next)}
-            />
-          );
-          return (
-            <div
-              key={contract.id}
-              className="hf-journey-inspector-row"
-              data-testid={`hf-module-inspector-row-${contract.id}`}
-              data-relevance-state={outOfShape ? "out-of-shape" : "active"}
-            >
-              {outOfShape ? (
-                <RelevanceWrapper
-                  state="out-of-shape"
-                  reason={outOfShapeReason(contract, courseShape)}
-                >
-                  {field}
-                </RelevanceWrapper>
-              ) : (
-                field
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <ModeAwareHowCard
+        mode={selectedModuleMode ?? null}
+        moduleId={selectedModuleId}
+        settings={settings}
+        onSettingChange={handleSave}
+        renderRow={renderRow}
+      />
     </div>
   );
+}
+
+/**
+ * Mode dispatch — story #2205. Declarative per-mode JSX rendering
+ * (no dynamic component variable) so the static-components compiler
+ * rule stays happy. Each variant is a stable top-level component
+ * referenced by its identity, not assigned to a local variable.
+ *
+ * The default branch also serves the canonical tutor mode value
+ * (tutor-as-default convention per mode-ui-coverage exempts).
+ */
+function ModeAwareHowCard(props: {
+  mode: AuthoredModuleMode | string | null;
+  moduleId: string;
+  settings: Partial<AuthoredModuleSettings> | null;
+  onSettingChange: (settingId: string, value: unknown) => Promise<void>;
+  renderRow: (contract: JourneySettingContract) => React.ReactNode;
+}) {
+  const { mode, ...rest } = props;
+  if (mode === "examiner") return <HowCardExaminer {...rest} />;
+  if (mode === "mixed") return <HowCardMixed {...rest} />;
+  if (mode === "quiz") return <HowCardQuiz {...rest} />;
+  if (mode === "mock-exam") return <HowCardMockExam {...rest} />;
+  return <HowCardTutor {...rest} />;
 }

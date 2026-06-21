@@ -171,6 +171,7 @@ function ModuleHowCard({
         courseId={courseId}
         selectedModuleId={selectedModuleId}
         selectedModuleLabel={selectedModule.label}
+        selectedModuleMode={selectedModule.mode ?? null}
         settings={selectedModule.settings ?? null}
         playbookConfig={playbookConfig}
         onSaved={onSaved}
