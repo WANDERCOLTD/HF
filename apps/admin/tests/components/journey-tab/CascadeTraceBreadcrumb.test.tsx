@@ -57,12 +57,19 @@ function renderInProvider(
 }
 
 describe("CascadeTraceBreadcrumb — Slice C2 (#1737) hook integration", () => {
-  it("renders nothing when cascadeSources is empty AND no courseId scope", () => {
-    const { container } = renderInProvider(
+  it("renders the Course-only pill when cascadeSources is empty AND no courseId scope (A3 of #2225)", () => {
+    // A3 of epic #2225: intrinsically course-only contracts (no Domain
+    // or System ancestor declared) now render an explicit "Course-only"
+    // pill instead of nothing. Pre-A3, 73 course-only contracts rendered
+    // a silent blank that confused operators.
+    renderInProvider(
       <CascadeTraceBreadcrumb contract={baseContract} />,
       { courseId: null },
     );
-    expect(container.firstChild).toBeNull();
+    expect(
+      screen.getByTestId("hf-cascade-trace-welcomeMessage-course-only"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Course-only")).toBeInTheDocument();
   });
 
   it("renders the static chain when courseId missing (no scope to resolve)", () => {
@@ -187,5 +194,120 @@ describe("CascadeTraceBreadcrumb — Slice C2 (#1737) hook integration", () => {
     });
     const url = vi.mocked(global.fetch).mock.calls[0][0] as string;
     expect(url).toContain("knobKey=voiceProvider");
+  });
+});
+
+describe("CascadeTraceBreadcrumb — A3 of #2225 (Course-only pill)", () => {
+  it("renders Course-only pill when cascadeSources.length === 0 AND unresolvable === true (route 400)", async () => {
+    // courseId is present, so the hook fetches. The route returns 400
+    // (knob not in cascade family) → unresolvable: true → component
+    // falls through to StaticChain. StaticChain sees zero
+    // cascadeSources, so renders the Course-only pill.
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: () =>
+        Promise.resolve({
+          ok: false,
+          error: 'Unknown cascade knob key: "welcomeMessage"',
+        }),
+    } as Response);
+
+    renderInProvider(
+      <CascadeTraceBreadcrumb contract={baseContract} />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("hf-cascade-trace-welcomeMessage-course-only"),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByText("Course-only")).toBeInTheDocument();
+  });
+
+  it("does NOT render Course-only pill when cascadeSources.length > 0 (static chain wins)", async () => {
+    // With non-empty cascadeSources, even when unresolvable the
+    // StaticChain renders the existing layer-chip strip — NOT the
+    // Course-only pill. The two render paths are mutually exclusive.
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: () =>
+        Promise.resolve({
+          ok: false,
+          error: 'Unknown cascade knob key: "welcomeMessage"',
+        }),
+    } as Response);
+
+    renderInProvider(
+      <CascadeTraceBreadcrumb
+        contract={{
+          ...baseContract,
+          cascadeSources: [
+            { level: "domain", storagePath: "domain.welcomeMessage" },
+            { level: "group", storagePath: "config.sessionFlow.welcomeMessage" },
+          ],
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("hf-cascade-trace-welcomeMessage"),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByTestId("hf-cascade-trace-welcomeMessage-course-only"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Course-only")).not.toBeInTheDocument();
+  });
+
+  it("does NOT render Course-only pill when envelope resolves (cascade-resolved path takes over)", async () => {
+    // When the route returns a real envelope, the resolved-path renders
+    // <CascadeValue> — neither StaticChain branch is taken. Course-only
+    // pill MUST NOT appear.
+    const envelope: Effective<string> = {
+      value: "vapi",
+      source: "PLAYBOOK",
+      layers: [
+        {
+          layer: "PLAYBOOK",
+          scopeId: "pb-1",
+          scopeLabel: "Course",
+          value: "vapi",
+          setAt: null,
+          setBy: null,
+        },
+      ],
+      isInherited: false,
+      recommendedLayerForEdit: "PLAYBOOK",
+    };
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(envelope),
+    } as Response);
+
+    renderInProvider(
+      <CascadeTraceBreadcrumb
+        contract={{
+          ...baseContract,
+          id: "voiceProviderContract",
+          cascadeKnobKey: "voiceProvider",
+          cascadeSources: [],
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("hf-cascade-trace-voiceProviderContract"),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByTestId(
+        "hf-cascade-trace-voiceProviderContract-course-only",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Course-only")).not.toBeInTheDocument();
   });
 });
