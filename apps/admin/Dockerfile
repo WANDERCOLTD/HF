@@ -31,6 +31,9 @@ COPY package.json package-lock.json ./
 # latent; #1012 added 13 file: references and #1013 resynced the lock, which
 # is when Cloud Build started failing with ENOENT on the tarballs.
 COPY vendor ./vendor
+# Toolchain for native deps (e.g. better-sqlite3 via promptfoo devDep) — node-gyp needs Python + C++ on Alpine.
+# Lives in deps stage only; runner image copies only node_modules + .next from builder, so the toolchain doesn't ship to prod.
+RUN apk add --no-cache python3 make g++
 RUN npm ci
 # Prisma generate happens once here so all downstream targets share the cached client.
 COPY prisma ./prisma
