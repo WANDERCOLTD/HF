@@ -519,6 +519,26 @@ export interface PlaybookConfig {
     postTest?: { enabled: boolean };
   };
   /**
+   * #2176 S1 — per-course assessable upfront → midpoint → end plan.
+   *
+   * Declarative; the runtime sampling engine at
+   * `lib/assessment/sample-questions.ts` reads this to materialise
+   * assessment moments. The Coverage gate at
+   * `tests/lib/assessment/course-assessment-plan-coverage.test.ts`
+   * cross-checks each declared `AssessmentMoment` against the
+   * `Playbook.config.modules[]` list, the `firstCallMode` flag, and
+   * the AnalysisSpec corpus.
+   *
+   * Operator framing: a course either declares a plan OR sets
+   * `noAssessmentPlan: true` to opt out explicitly. Leaving the field
+   * absent is a Coverage `gap` — the ratchet surfaces it for the
+   * operator to decide.
+   *
+   * @bucket Course parameter — operator-tunable on the Assessment lens
+   * (S7 follow-on; field shipped declaratively first per epic #2176).
+   */
+  assessmentPlan?: CourseAssessmentPlan;
+  /**
    * Whether the AI may share course materials (PDFs, reference docs) with
    * students during sessions. Default: true (preserves existing reading-
    * comprehension course behaviour). Set to false for voice-only courses
@@ -1533,6 +1553,260 @@ export type Part3TechniqueFocus =
   | "structuring an argument"
   | "handling a challenge"
   | "expanding an answer";
+
+// ════════════════════════════════════════════════════════════════════
+// CourseAssessmentPlan — 4th-layer primitive
+// (epic #2176)
+//
+// Operator framing: "an assessment is extremely similar to cross-
+// curriculum N questions". Assessment IS a typed sampling pattern over
+// typed teaching content, NOT a separate SessionKind.
+//
+// Today's fragmentation: 4 enums (`SessionKindString.ASSESSMENT` —
+// type-only ghost / `JourneyStopKind.assessment` — intake-time stop /
+// `FirstCallMode.baseline_assessment` — first-call flag /
+// `AuthoredModuleMode = "examiner" | "quiz" | "mock-exam"` — per-
+// module behaviour) each do a different thing. None cross-check each
+// other. This primitive composes them: at PR time the Coverage gate
+// at `tests/lib/assessment/course-assessment-plan-coverage.test.ts`
+// asserts each declared `AssessmentMoment` resolves to a real module
+// with the right mode, real content sources, and a runnable scoring
+// spec.
+//
+// Sibling 4th-layer primitives:
+//   - `SessionFocus` / `Part3TechniqueFocus` (above) — per-session
+//     emphasis label
+//   - `LearnerShell` / `LearnerShellKind` (#2163, PR #2173) — per-
+//     session capability frame
+//   - `CourseAssessmentPlan` (this primitive) — per-course assessable
+//     upfront → midpoint → end plan
+//
+// See epic #2176 for the full architecture, locked decisions, and
+// slice plan. S1 (this PR) ships the types + Playbook config field.
+// S2 ships the sampling engine. S3 ships the Coverage gate. S4
+// resolves the SessionKind ghost decision. S5-S6 author per-course
+// plans. S7 wires the rule file + lattice inventory.
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * TODO(#2173): drop this local stub once PR #2173 merges and import
+ * `LearnerShellKind` directly from above. Today the union mirrors PR
+ * #2173's source-of-truth declaration — kept in lockstep so the
+ * `AssessmentMoment.shellKind` field resolves at compile time. The
+ * Coverage gate's runtime exhaustiveness check (#2176 S3) will catch
+ * any drift the moment #2173 lands.
+ */
+export type LearnerShellKind =
+  | "chat-feed"
+  | "exam"
+  | "mcq-rounds"
+  | "results-readout"
+  | "intake-wizard";
+
+/**
+ * TODO(#2173): drop this local stub once PR #2173 merges and import
+ * `LEARNER_SHELL_KIND_VALUES` directly. Mirrors PR #2173's source-of-
+ * truth runtime-enumeration array.
+ */
+export const LEARNER_SHELL_KIND_VALUES = [
+  "chat-feed",
+  "exam",
+  "mcq-rounds",
+  "results-readout",
+  "intake-wizard",
+] as const satisfies readonly LearnerShellKind[];
+
+/**
+ * #2176 S1 — the FIVE assessable moments a course may declare.
+ *
+ * Each value names a typed sampling pattern over the curriculum's
+ * teaching content:
+ *
+ * - `"upfront-baseline"` — diagnostic at first contact. Cross-LO
+ *   sampling, lighter scoring. IELTS Baseline Assessment module is the
+ *   canonical instance.
+ * - `"midpoint-check"` — periodic per-Unit checks during the course.
+ *   Per-unit scope. Used by CIO/CTO Pop Quiz (every Unit fires this).
+ * - `"end-mock"` — terminal full-length simulation. Cross-Part sampling
+ *   under examiner conditions. IELTS Mock Exam is the canonical
+ *   instance.
+ * - `"popquiz"` — short sampling burst (e.g. 5 MCQs) that can fire
+ *   mid-module or at module-end. CIO/CTO Pop Quiz variant.
+ * - `"rubric-board-chair"` — rubric-driven board-chair frame for the
+ *   CIO/CTO Exam Assessment variant (per #2009 + #2015 follow-on).
+ *
+ * The value is **course-agnostic**. A course declares which moments
+ * apply via `Playbook.config.assessmentPlan` (see `CourseAssessmentPlan`
+ * below). Per-course extensions follow the same per-course typed-union
+ * pattern PR #2173 established for `LearnerShellKind`.
+ *
+ * Locked decision 1 (epic #2176): new primitive lives here in
+ * `lib/types/json-fields.ts` alongside the other 4th-layer primitives.
+ */
+export type AssessmentKind =
+  | "upfront-baseline"
+  | "midpoint-check"
+  | "end-mock"
+  | "popquiz"
+  | "rubric-board-chair";
+
+/**
+ * Sibling const array for runtime enumeration of `AssessmentKind`.
+ * Mirrors `AUTHORED_MODULE_MODE_VALUES` + `LEARNER_SHELL_KIND_VALUES`.
+ * The Coverage gate at
+ * `tests/lib/assessment/course-assessment-plan-coverage.test.ts` walks
+ * this array; new union values land in the matrix automatically.
+ */
+export const ASSESSMENT_KIND_VALUES = [
+  "upfront-baseline",
+  "midpoint-check",
+  "end-mock",
+  "popquiz",
+  "rubric-board-chair",
+] as const satisfies readonly AssessmentKind[];
+
+/**
+ * #2176 S1 — declarative sampling policy applied at assessment time.
+ *
+ * Carries WHAT to sample (`scope` + `contentKind`), HOW MANY items
+ * (`count.{min, target, max}`), and OPTIONAL stratification rules
+ * (e.g. "≥1 question per IELTS criterion"). Read by the sampling
+ * engine at `lib/assessment/sample-questions.ts` (S2).
+ *
+ * Locked decision 2 (epic #2176): policy is data, not code. A new
+ * sampling scope (e.g. "weakest-lo-anchored") is added to the union
+ * here AND a branch in the engine consumes it. Course-specific
+ * preferences live in `Playbook.config.assessmentPlan`, never in
+ * imperative per-course code.
+ */
+export interface AssessmentSamplingPolicy {
+  /**
+   * Sampling scope across the curriculum:
+   * - `"per-unit"` — sample questions only from a single module (per-
+   *   Unit Pop Quiz instance).
+   * - `"cross-curriculum"` — sample across all modules in the
+   *   curriculum (Mock Exam, Baseline diagnostic).
+   * - `"weakest-skill-anchored"` — sample with preference for
+   *   questions tagged with the caller's weakest skill (read from
+   *   `CallerTarget.currentScore`).
+   * - `"weakest-lo-anchored"` — sample with preference for the
+   *   caller's weakest LO (read from `CallerAttribute(key =
+   *   "lo_mastery:*")`).
+   */
+  scope: "per-unit" | "cross-curriculum" | "weakest-skill-anchored" | "weakest-lo-anchored";
+
+  /**
+   * Count band: engine MUST return between `min` and `max` items
+   * inclusive, targeting `target`. When the pool can't satisfy `min`,
+   * the engine returns `{ok: false, reason: "empty-pool"}` and the
+   * caller (session creator) decides whether to block or substitute
+   * with a smaller sample. Operator-visible AppLog subject fires on
+   * empty-pool — never silent null (per `.claude/rules/verify-before-fix.md`).
+   */
+  count: { min: number; target: number; max: number };
+
+  /**
+   * Which content surface the sampler reads:
+   * - `"mcq"` — `ContentQuestion` rows (MCQ pool, per #2167 + #2009)
+   * - `"cue-card"` — cue-card pool per `lib/wizard/resolve-module-source-refs.ts`
+   * - `"topic-prompt"` — topic-pool per same
+   * - `"scenario-probe"` — scenario-probe pool (CIO/CTO board-chair
+   *   variant, per #2009 + #2015)
+   */
+  contentKind: "mcq" | "cue-card" | "topic-prompt" | "scenario-probe";
+
+  /**
+   * Optional stratification rules ensuring sampling distribution.
+   * - `perCriterion` — minimum N items per scoring criterion (e.g.
+   *   IELTS Mock declares `perCriterion: 1` so every criterion gets
+   *   at least one observation).
+   * - `perLO` — minimum N items per learning outcome.
+   * - `minSkillCoverage` — fractional skill-axis coverage (0-1).
+   *
+   * Absent stratification = pure random sampling within the scope's
+   * pool.
+   */
+  stratification?: { perCriterion?: number; perLO?: number; minSkillCoverage?: number };
+}
+
+/**
+ * #2176 S1 — a single assessable moment in a course.
+ *
+ * Composes the four primitives:
+ * - `kind` — WHICH assessment shape (upfront / midpoint / end / etc.)
+ * - `moduleSlug` — WHICH module hosts the assessment (the wizard's
+ *   `Playbook.config.modules[].slug` value). The Coverage gate cross-
+ *   checks this slug exists in the playbook's modules list AND its
+ *   `AuthoredModuleMode` matches the assessment kind.
+ * - `samplingPolicy` — HOW the questions are selected (above).
+ * - `shellKind` — WHICH learner shell wraps the session at runtime.
+ *   The Coverage gate cross-checks this is a valid `LearnerShellKind`
+ *   value. Typical mapping:
+ *     - upfront-baseline / end-mock → `"exam"`
+ *     - popquiz / midpoint-check → `"mcq-rounds"`
+ *     - rubric-board-chair → `"exam"` (decision deferred per #2009)
+ * - `scoringSpec` — slug of the `AnalysisSpec` that grades the
+ *   session post-MEASURE. Coverage gate verifies the spec exists in
+ *   the corpus at `docs-archive/bdd-specs/*.spec.json`.
+ *
+ * Locked decision 3 (epic #2176): one row per moment; courses with
+ * multiple midpoints declare them as `midpoints: AssessmentMoment[]`.
+ */
+export interface AssessmentMoment {
+  kind: AssessmentKind;
+  /** Slug of the module that delivers this moment. Must exist in `Playbook.config.modules[]`. */
+  moduleSlug: string;
+  /** Declarative sampling policy (above). */
+  samplingPolicy: AssessmentSamplingPolicy;
+  /** Learner shell frame the session runs inside (see PR #2173). */
+  shellKind: LearnerShellKind;
+  /** Slug of the AnalysisSpec that scores the session (must exist in spec corpus). */
+  scoringSpec: string;
+}
+
+/**
+ * #2176 S1 — the per-course assessment plan.
+ *
+ * Lives at `Playbook.config.assessmentPlan` (JSON column extension —
+ * no migration; declarative). Locked decision 4 (epic #2176): plan is
+ * declarative, no imperative code per course.
+ *
+ * **Shape:**
+ * - `upfront` — optional single moment fired at first-call (often a
+ *   "Baseline Assessment" module). The Coverage gate cross-checks
+ *   `FirstCallMode === "baseline_assessment"` ↔ `upfront.kind ===
+ *   "upfront-baseline"` consistency.
+ * - `midpoints` — ordered list of mid-course assessable moments.
+ *   Empty / absent = no formal midpoint checks (continuous courses,
+ *   coaching-led variants).
+ * - `end` — optional terminal moment (Mock Exam / Exam Assessment).
+ * - `noAssessmentPlan: true` — explicit operator declaration that
+ *   this course has NO formal assessment plan by design (e.g. CIO/CTO
+ *   Revision Aid, Big Five — coaching-led, no scoring axis). Coverage
+ *   gate classifies this as `exempt-no-plan` rather than `gap`,
+ *   forcing the operator to make the per-course decision once instead
+ *   of leaving the plan field undefined.
+ *
+ * When both `noAssessmentPlan: true` AND any moment are present, the
+ * runtime + Coverage gate prefer the moments and surface a warning
+ * (`assessment.plan.contradiction` AppLog subject) — the explicit
+ * exemption is treated as stale.
+ */
+export interface CourseAssessmentPlan {
+  /** Optional first-call diagnostic moment. */
+  upfront?: AssessmentMoment;
+  /** Optional ordered list of mid-course assessable moments. */
+  midpoints?: AssessmentMoment[];
+  /** Optional terminal moment (Mock Exam / Exam Assessment). */
+  end?: AssessmentMoment;
+  /**
+   * Explicit operator declaration: this course has NO formal
+   * assessment plan by design. Coverage gate accepts as `exempt-no-
+   * plan` (no `gap`). Do not combine with declared moments — see
+   * interface JSDoc.
+   */
+  noAssessmentPlan?: true;
+}
 
 /**
  * Human-readable label for a CallScore.segmentKey value. Course-agnostic —
