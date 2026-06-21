@@ -1589,32 +1589,13 @@ export type Part3TechniqueFocus =
 // ════════════════════════════════════════════════════════════════════
 
 /**
- * TODO(#2173): drop this local stub once PR #2173 merges and import
- * `LearnerShellKind` directly from above. Today the union mirrors PR
- * #2173's source-of-truth declaration — kept in lockstep so the
- * `AssessmentMoment.shellKind` field resolves at compile time. The
- * Coverage gate's runtime exhaustiveness check (#2176 S3) will catch
- * any drift the moment #2173 lands.
+ * `LearnerShellKind` + `LEARNER_SHELL_KIND_VALUES` are declared as
+ * the canonical PR #2173 substrate below (search for "epic #2163
+ * S1 substrate"). The #2176 S1 primitives below this comment
+ * reference both — they resolve to the canonical declarations via
+ * normal TypeScript symbol lookup since both live in this same
+ * module.
  */
-export type LearnerShellKind =
-  | "chat-feed"
-  | "exam"
-  | "mcq-rounds"
-  | "results-readout"
-  | "intake-wizard";
-
-/**
- * TODO(#2173): drop this local stub once PR #2173 merges and import
- * `LEARNER_SHELL_KIND_VALUES` directly. Mirrors PR #2173's source-of-
- * truth runtime-enumeration array.
- */
-export const LEARNER_SHELL_KIND_VALUES = [
-  "chat-feed",
-  "exam",
-  "mcq-rounds",
-  "results-readout",
-  "intake-wizard",
-] as const satisfies readonly LearnerShellKind[];
 
 /**
  * #2176 S1 — the FIVE assessable moments a course may declare.
