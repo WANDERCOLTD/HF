@@ -120,6 +120,7 @@ Three structural patterns, in order of preference:
 | RBAC role-level adoption (no magic role arrays) | `lib/roles.ts` (`ROLE_LEVEL` + `isRoleAtOrAbove` + `rolesAtOrAbove` + `isOperatorTrackAdmin`) | 4 sites: `ViewModeContext`, `dashboard-config`, `dashboard/route`, `system-ini` | ✅ PROTECTED | `tests/lib/roles.test.ts` | — | Ratchet rejects new `["SUPERADMIN","ADMIN","OPERATOR"]` triplet literals in `app`/`lib`/`contexts`. EDUCATOR exclusion documented (track distinction, not level). |
 | `TEACHING_CALLER_ROLES` (CallerRole subset) | `lib/caller-roles.ts` (`TEACHING_CALLER_ROLES` + `isTeachingCallerRole`) | 3 routes: `classroom`, `cohorts`, `ensure-cohort` | ✅ PROTECTED | `tests/lib/teaching-caller-roles.test.ts` | — | Ratchet rejects bare `["TEACHER","TUTOR"]` literals and `role === "TEACHER" \|\| role === "TUTOR"` chains. |
 | `DEFAULT_VOICE_PROVIDER_SLUG` | `lib/voice/default-provider.ts` | `load-voice-config.ts:48` + `poll-stale-calls.ts:112` | ✅ PROTECTED | `tests/lib/voice/default-provider.test.ts` | — | Ratchet rejects `?? "vapi"` fallbacks under `lib/voice/` outside the provider's own identity files. |
+| `AuthoredModuleMode` value → 3-axis consumer (teaching/adminUI/learnerUI) | `lib/types/json-fields.ts::AuthoredModuleMode` | `lib/prompt/composition/transforms/instructions.ts` (teaching) + `app/x/courses/[courseId]/_components/{AuthoredModulesPanel,LearnerModulePicker}.tsx` (adminUI) + `components/sim/ExamModeShell.tsx` (learnerUI) | ⚠️ PARTIAL | `tests/lib/sim-chat/mode-ui-coverage.test.ts` (2026-06-21) | MED (2 incumbent gaps) | Bidirectional 3-axis coverage. Exempts: 6 (tutor×3 + mixed×2 + examiner.teaching template). Gaps: quiz.learnerUI + mock-exam.learnerUI — learner experiences identical SimChat regardless of mode. Closing PRs #2077/#2081/#2090 wired teaching + adminUI but never landed learner UI. |
 
 ### Cascade
 
@@ -219,6 +220,9 @@ Three structural patterns, in order of preference:
 | `pipeline-and-prompt.md` | `qmd search` mandate + docs cross-ref | ⚠️ CONVENTION-ONLY |
 | `database-patterns.md` | Author discipline | ⚠️ CONVENTION-ONLY |
 | `ui-design-system.md` | `arch-checker` + `ui-reviewer` agents | ⚠️ CONVENTION-ONLY |
+| `mode-ui-coverage.md` | `tests/lib/sim-chat/mode-ui-coverage.test.ts` (2026-06-21) | ⚠️ PARTIAL (2 incumbent learner-UI gaps) |
+| `sessionkind-reader-coverage.md` | `tests/lib/voice/sessionkind-reader-coverage.test.ts` (2026-06-21) | ⚠️ PARTIAL (2 type-only ghosts: ASSESSMENT, TEXT_CHAT) |
+| `learner-ui-leak-coverage.md` | `tests/lib/sim-chat/learner-ui-leak-coverage.test.ts` (2026-06-21) — static-literal class | ⚠️ PARTIAL (runtime data-flow class deferred to #2135 S4 / #2139 SUPERVISE-spec) |
 
 ### Session / learner boundaries
 
@@ -226,6 +230,8 @@ Three structural patterns, in order of preference:
 |---|---|---|---|---|---|---|
 | Pipeline-stage output → learner-facing sanitiser | pipeline output strings | `app/api/student/scheduler-decision` + SCHEDULER_REASONS constant | ✅ PROTECTED | `epic-100-chain-walk.md` Link L1 (2026-05-27) + #923 / PR #924 + tests | — | Regex guard blocks log-prefix strings; read-side sanitizer + stale guard |
 | Composed prompt → ComposedPrompt persistence | `lib/prompt/composition/persist.ts` | `Call.usedPromptId` FK + `next call read` | ✅ PROTECTED | `docs/CHAIN-CONTRACTS.md` Link 3 (Session boundary I-CT2 cascade) + atomic create-session helper | — | Most-recent-active ComposedPrompt resolution cascade |
+| `SessionKindString` value → writer + reader pairing | `lib/voice/session-rules.ts::SessionKindString` (5 values) | writers under `lib/voice` + `lib/intake` + `lib/test-harness` + `app/api`; readers via `=== "X"` or Prisma `where: { kind: "X" }` | ⚠️ PARTIAL | `tests/lib/voice/sessionkind-reader-coverage.test.ts` (2026-06-21) | MED (2 ghost kinds) | Bidirectional writer + reader coverage. Exempts: 4 (ASSESSMENT writer/reader + TEXT_CHAT writer/reader — both declared on epic #1338, both type-only ghosts). Type-exhaustiveness `case "X":` branches in `initialCounterFlags` deliberately excluded — that's type plumbing, not business logic. Decision pending per ghost: implement or remove from union. |
+| Internal-only labels → MUST NOT leak into learner-UI source (static literals) | `INTERNAL_LABEL_REGISTRY` in test file — course-agnostic (IELTS_CRITERIA + IELTS_CRITERION_SLUGS today) | `components/sim/**` + `app/x/student/**` + `apps/foh/app/**` + `apps/foh/components/**` | ⚠️ PARTIAL | `tests/lib/sim-chat/learner-ui-leak-coverage.test.ts` (2026-06-21) | HIGH (live #1955 bug class) | Catches the static-literal class. Exempts: 2 (Mock Results screen sanctioned per BDD US-Mock-05). Runtime data-flow class (the actual #1955 leak — `IELTS_SKILL_LABELS` flowing through props from `select-pinned-card.ts` to SimChat) deferred to epic #2135 S4 / #2139 SUPERVISE-spec scan. Static + runtime gates close the loop together. |
 
 ### Privacy / consent (epic #1915)
 
