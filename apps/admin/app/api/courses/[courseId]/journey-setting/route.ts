@@ -29,9 +29,24 @@
  *      in the SAME `updatePlaybookConfig` transformer (one transaction).
  *   5. Return updated effective value + autoEnableLinks fan-out summary.
  *
+ * Storage roots:
+ *   - `config.*` / `sessionFlow.*` / `tolerances.*` / `playbook.voiceConfig.*`
+ *     → Playbook.config mutation via `updatePlaybookConfig`
+ *   - `behaviorTargets[…]` → 200 + `compoundOwnedSave: true` (Phase 3 —
+ *     the FirstSessionSettings compound editor owns the save via
+ *     `/api/courses/[courseId]/first-session`)
+ *   - `domain.<scalar>` (today only `domain.onboardingIdentitySpecId`
+ *     via the `intakeSpecId` contract) → A4 of #2225 — write through
+ *     `updateDomainConfig`, fan out section-staleness to every
+ *     dependent Playbook in the Domain. The Domain timestamp bump
+ *     (done by `updateDomainConfig`) covers prompt-level staleness;
+ *     this route handles section-grain staleness fanout.
+ *
  * Not handled yet (returned as 501):
- *   - storage roots `domain.*` (domain writes go to a different route)
- *   - storage root `behaviorTargets[…]` (separate model — Phase 3)
+ *   - storage root `domain.config.*` (no contract uses this shape today;
+ *     when one lands, branch on `resolved.segments[0] === "config"` and
+ *     route through `updateDomainConfig` with a `config` transformer)
+ *   - storage root `unknown` (typo / drift — 501)
  *
  * Auto-enable cycle protection: only 1 hop is permitted per ADR L3.
  * If the enforce-target itself has autoEnableLinks, those are NOT
@@ -55,7 +70,9 @@ import {
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import { bumpSectionHash } from "@/lib/compose/section-staleness";
+import { bumpDomainSectionStaleness } from "@/lib/compose/bump-domain-staleness";
 import { getSectionsForSetting } from "@/lib/journey/section-staleness-bridge";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
@@ -207,18 +224,104 @@ export async function PATCH(
     });
   }
 
-  if (
-    resolved.root === "domain" ||
-    resolved.root === "unknown"
-  ) {
+  if (resolved.root === "unknown") {
     return NextResponse.json(
       {
         ok: false,
-        error: `Storage root '${resolved.root}' not yet wired through this route (Phase 3 follow-up).`,
+        error: `Storage root 'unknown' not supported (storagePath: ${typeof contract.storagePath === "string" ? contract.storagePath : contract.storagePath.path}).`,
         code: "STORAGE_ROOT_NOT_SUPPORTED",
       },
       { status: 501 },
     );
+  }
+
+  // A4 of #2225 — Domain-rooted writes. Today there is exactly ONE
+  // contract whose primary storagePath lives under `domain.*`:
+  // `intakeSpecId` → `domain.onboardingIdentitySpecId` (a scalar column,
+  // not a JSON blob key). When a future contract lands on
+  // `domain.config.*`, branch here on `resolved.segments[0] === "config"`
+  // and route through `updateDomainConfig` with a `config` transformer.
+  if (resolved.root === "domain") {
+    if (resolved.segments.length !== 1) {
+      // Nested domain paths (e.g. `domain.config.foo`) — not wired yet.
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Domain-rooted storagePath '${typeof contract.storagePath === "string" ? contract.storagePath : contract.storagePath.path}' is nested; only single-segment scalar Domain columns are wired today.`,
+          code: "STORAGE_ROOT_NOT_SUPPORTED",
+        },
+        { status: 501 },
+      );
+    }
+    const scalarKey = resolved.segments[0];
+
+    // Resolve Domain id via Course (Playbook) → Domain.
+    const course = await prisma.playbook.findFirst({
+      where: { id: courseId },
+      select: { id: true, domainId: true },
+    });
+    if (!course) {
+      return NextResponse.json(
+        { ok: false, error: `Playbook ${courseId} not found` },
+        { status: 404 },
+      );
+    }
+
+    // updateDomainConfig is the canonical writer for the 4 compose-
+    // affecting Domain fields (onboardingFlowPhases, onboardingDefaultTargets,
+    // onboardingWelcome, onboardingIdentitySpecId). It bumps
+    // `Domain.composeInputsUpdatedAt` which the staleness check reads —
+    // every dependent Playbook sees the stale signal automatically.
+    type DomainUpdatableKey =
+      | "onboardingFlowPhases"
+      | "onboardingDefaultTargets"
+      | "onboardingWelcome"
+      | "onboardingIdentitySpecId";
+    const ALLOWED_DOMAIN_KEYS: ReadonlySet<DomainUpdatableKey> = new Set([
+      "onboardingFlowPhases",
+      "onboardingDefaultTargets",
+      "onboardingWelcome",
+      "onboardingIdentitySpecId",
+    ]);
+    if (!ALLOWED_DOMAIN_KEYS.has(scalarKey as DomainUpdatableKey)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Domain column '${scalarKey}' is not in the updateDomainConfig allow-list. Add it to COMPOSE_AFFECTING_DOMAIN_FIELDS + DomainUpdatable first.`,
+          code: "DOMAIN_KEY_NOT_ALLOWED",
+        },
+        { status: 400 },
+      );
+    }
+    const domainKey = scalarKey as DomainUpdatableKey;
+
+    await updateDomainConfig(
+      course.domainId,
+      (cur) => ({ ...cur, [domainKey]: value as never }),
+      { reason: `journey-setting:${settingId}` },
+    );
+
+    // Section-grain staleness fanout: bump each affected section on
+    // every Playbook in this Domain. Fire-and-forget; the prompt-grain
+    // `Domain.composeInputsUpdatedAt` bump from `updateDomainConfig`
+    // above is the primary signal.
+    const bumpedSections = Array.from(
+      new Set<string>(getSectionsForSetting(settingId)),
+    );
+    if (bumpedSections.length > 0) {
+      void bumpDomainSectionStaleness(
+        course.domainId,
+        bumpedSections as Parameters<typeof bumpDomainSectionStaleness>[1],
+        { settingId, value },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      effectiveValue: value,
+      autoEnabled: [],
+      bumpedSections,
+    });
   }
 
   // Find the playbook for this course
