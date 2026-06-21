@@ -124,3 +124,149 @@
   gap: 12px;
   justify-content: center;
 }
+
+/* ResultsReadoutShell (W6 of memory/handoff_lattice_all_settings_to_ui_2026_06_21.md,
+ * #2185 U11) — post-exam Mock Results screen. The ONE sanctioned
+ * learner-facing surface that displays per-criterion bands (per BDD
+ * US-Mock-05 + .claude/rules/learner-ui-leak-coverage.md exemptions).
+ * Brand-themed celebration palette per SHELL_DEFAULTS["results-readout"]
+ * (colourTheme === "brand"). Full-screen overlay (chatFeedVisibility ===
+ * "none"). No timer, no progress bar, no mode pill — the result IS the
+ * screen. */
+.hf-results-readout-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  padding: 48px 24px;
+  overflow-y: auto;
+  background: var(--results-shell-bg, var(--surface-primary));
+  color: var(--results-shell-text, var(--text-primary));
+}
+
+.hf-results-readout-shell[data-colour-theme="default"] {
+  --results-shell-bg: var(--surface-primary);
+  --results-shell-text: var(--text-primary);
+}
+
+.hf-results-readout-shell[data-colour-theme="dark"] {
+  --results-shell-bg: #0b0f1a;
+  --results-shell-text: #e8ecf3;
+}
+
+.hf-results-readout-shell[data-colour-theme="neutral"] {
+  --results-shell-bg: var(--surface-secondary);
+  --results-shell-text: var(--text-primary);
+}
+
+.hf-results-readout-shell[data-colour-theme="brand"] {
+  --results-shell-bg: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-primary));
+  --results-shell-text: var(--text-primary);
+}
+
+.hf-results-readout-overall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 48px;
+  border-radius: 20px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+}
+
+.hf-results-readout-overall-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--results-shell-text) 60%, transparent);
+}
+
+.hf-results-readout-overall-score {
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-primary);
+}
+
+.hf-results-readout-tier {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--results-shell-text);
+}
+
+.hf-results-readout-criteria {
+  width: 100%;
+  max-width: 720px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hf-results-readout-criteria li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+}
+
+.hf-results-readout-criterion-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--results-shell-text) 70%, transparent);
+}
+
+.hf-results-readout-criterion-score {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-results-readout-narrative {
+  width: 100%;
+  max-width: 720px;
+  padding: 20px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  color: var(--results-shell-text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.hf-results-readout-loading,
+.hf-results-readout-error,
+.hf-results-readout-empty {
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  border-radius: 12px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  text-align: center;
+  color: var(--results-shell-text);
+}
+
+.hf-results-readout-error {
+  border-color: color-mix(in srgb, var(--accent-error, #c44) 40%, var(--border-default));
+}
+
+.hf-results-readout-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}

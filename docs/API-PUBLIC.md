@@ -945,6 +945,38 @@ Returns learning trajectory for a caller. The shape adapts to
 
 ---
 
+### `GET` /api/v1/callers/:callerId/mock-results?sessionId=…
+
+Returns the per-criterion Mock results payload for the
+
+**Auth**: session (VIEWER+ — STUDENT scoped to own caller) · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller.id |
+
+**Response** `200`
+```json
+{ok: true, result: ResultsReadoutPayload | null}
+```
+
+**Response** `400`
+```json
+{ok: false, error: string}
+```
+
+**Response** `403`
+```json
+{ok: false, error: string}
+```
+
+**Response** `500`
+```json
+{ok: false, error: string}
+```
+
+---
+
 ### `POST` /api/v1/callers/:callerId/reset
 
 Full reset for a caller — deletes ALL runtime data (calls, transcripts,

@@ -17,6 +17,10 @@ import { useVoiceMode } from './useVoiceMode';
 import { ExamModeShell } from './ExamModeShell';
 import { ChatFeedShell } from './ChatFeedShell';
 import { MCQRoundsShell } from './MCQRoundsShell';
+import {
+  ResultsReadoutShell,
+  type ResultsReadoutPayload,
+} from './ResultsReadoutShell';
 import { resolveLearnerShell } from '@/lib/voice/resolve-learner-shell';
 import type { AuthoredModuleMode } from '@/lib/types/json-fields';
 import { useProviderCall } from './useProviderCall';
@@ -1321,21 +1325,20 @@ export function SimChat({
   const { shellKind: resolvedShellKind, capabilities: resolvedCapabilities, matchedRuleId } = learnerShellResult;
 
   // Defensive fallback path. When the resolver returns a kind we don't
-  // have a consumer for yet (e.g. `results-readout`, `intake-wizard` —
-  // epic #2163 S4-S7), fall back to ChatFeedShell AND fire an
-  // operator-visible signal so the silent-degrade trap doesn't catch us
-  // (per `.claude/rules/data-presence-coverage.md` "NO SILENT FALLBACKS").
-  // `ENROLLMENT` is structurally impossible here (SimChat is SIM_CALL),
-  // but the fallback exists so any future kind addition is observable.
+  // have a consumer for yet (currently only `intake-wizard` — epic
+  // #2163 S4-S7 / W7 of the same handoff), fall back to ChatFeedShell
+  // AND fire an operator-visible signal so the silent-degrade trap
+  // doesn't catch us (per `.claude/rules/data-presence-coverage.md`
+  // "NO SILENT FALLBACKS"). `results-readout` was wired by PR #2220
+  // (W6) and is no longer a fallback case; `ENROLLMENT` is structurally
+  // impossible here (SimChat is SIM_CALL).
   useEffect(() => {
     if (
       resolvedShellKind !== 'chat-feed' &&
       resolvedShellKind !== 'exam' &&
-      resolvedShellKind !== 'mcq-rounds'
+      resolvedShellKind !== 'mcq-rounds' &&
+      resolvedShellKind !== 'results-readout'
     ) {
-      // Structured payload — surfaces in the browser console (operator-
-      // visible during dev / staging) AND any client-error reporter the
-      // surface plugs into.
       console.warn('[learner_shell.fallback_unwired]', {
         subject: 'learner_shell.fallback_unwired',
         shellKind: resolvedShellKind,
@@ -1345,6 +1348,61 @@ export function SimChat({
       });
     }
   }, [resolvedShellKind, matchedRuleId, callerId, requestedModuleId]);
+
+  // W6 of memory/handoff_lattice_all_settings_to_ui_2026_06_21.md
+  // (story #2185 U11) — ResultsReadoutShell overlay state. Per BDD
+  // US-Mock-05 this is the ONE sanctioned learner surface that displays
+  // per-criterion bands.
+  //
+  // Mount gate: Mock-style module (same `examMode` signal as the dark
+  // exam shell) AND the call has ended. The fetch is best-effort —
+  // null result yields the empty state (never fake bands per the
+  // operator-pinned "no hardcoded score backfill" rule).
+  const showResultsShell = examMode && callPhase === 'ended';
+  const [resultsResult, setResultsResult] = useState<ResultsReadoutPayload | null>(
+    null,
+  );
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!showResultsShell || !callId) {
+      setResultsResult(null);
+      setResultsError(null);
+      setResultsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setResultsLoading(true);
+    setResultsError(null);
+    fetch(
+      `/api/callers/${encodeURIComponent(callerId)}/mock-results?sessionId=${encodeURIComponent(
+        callId,
+      )}`,
+      { signal: controller.signal, credentials: 'same-origin' },
+    )
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(
+        (body: {
+          ok?: boolean;
+          result?: ResultsReadoutPayload | null;
+          error?: string;
+        } | null) => {
+          if (!body?.ok) {
+            setResultsError(body?.error ?? 'Could not load results.');
+            setResultsResult(null);
+            return;
+          }
+          setResultsResult(body.result ?? null);
+        },
+      )
+      .catch((err) => {
+        if ((err as Error)?.name === 'AbortError') return;
+        setResultsError('Could not load results.');
+        setResultsResult(null);
+      })
+      .finally(() => setResultsLoading(false));
+    return () => controller.abort();
+  }, [showResultsShell, callerId, callId]);
   const examSpeakerRole: 'examiner' | 'learner' | 'idle' =
     voiceMode.state === 'ai-speaking'
       ? 'examiner'
@@ -2326,6 +2384,17 @@ export function SimChat({
     />
   ) : null;
 
+  // W6 — ResultsReadoutShell mounts as a full-screen overlay once the
+  // Mock-style call has ended. Embedded mode (operator-side views)
+  // skips the overlay so the chat feed remains inspectable.
+  const resultsShell = showResultsShell && !isEmbedded ? (
+    <ResultsReadoutShell
+      result={resultsResult}
+      loading={resultsLoading}
+      error={resultsError}
+    />
+  ) : null;
+
   if (isEmbedded) {
     return <div className="sim-embedded">{content}</div>;
   }
@@ -2333,44 +2402,44 @@ export function SimChat({
   // Standalone: dispatch on the resolver's shellKind. The resolver IS the
   // policy — when a new shell variant lands, extend SHELL_SELECTION_RULES
   // in `lib/voice/resolve-learner-shell.ts`, not this switch.
+  //
+  // W6 (PR #2220): every branch also mounts `resultsShell` (the
+  // ResultsReadoutShell overlay) so post-Mock terminal state shows
+  // per-criterion bands per BDD US-Mock-05 regardless of the underlying
+  // shell wrapper.
   switch (resolvedShellKind) {
     case 'exam':
-      // Exam shell is rendered as a position-fixed overlay on top of the
-      // chat-feed content (the chat is still beneath, so transcript +
-      // pipeline + voiceMode lifecycle continue uninterrupted). Existing
-      // #1745 overlay behaviour is preserved via `examShellOverlay`.
       return (
         <ChatFeedShell capabilities={resolvedCapabilities}>
           {content}
           {examShellOverlay}
+          {resultsShell}
         </ChatFeedShell>
       );
     case 'mcq-rounds':
-      // Quiz-mode shell. MCQ data feed is stubbed at the shell level
-      // pending #2180 sampling engine; today the shell wraps the chat
-      // feed underneath so existing call lifecycle still works.
       return (
         <MCQRoundsShell capabilities={resolvedCapabilities}>
           {content}
           {examShellOverlay}
+          {resultsShell}
         </MCQRoundsShell>
       );
     case 'chat-feed':
-      // Default — wrap content in the typed ChatFeedShell. Behaviour is
-      // byte-identical to the pre-#2206 default render path.
       return (
         <ChatFeedShell capabilities={resolvedCapabilities}>
           {content}
           {examShellOverlay}
+          {resultsShell}
         </ChatFeedShell>
       );
     default:
-      // Unwired kind (results-readout / intake-wizard / future) — fall back
-      // to ChatFeedShell. The AppLog was already fired by the effect above.
+      // Unwired kind (intake-wizard / future) — fall back to ChatFeedShell.
+      // AppLog fired by the effect above.
       return (
         <ChatFeedShell capabilities={resolvedCapabilities}>
           {content}
           {examShellOverlay}
+          {resultsShell}
         </ChatFeedShell>
       );
   }
