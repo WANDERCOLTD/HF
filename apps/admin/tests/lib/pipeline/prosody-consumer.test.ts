@@ -16,7 +16,7 @@
  *   surfaces alive.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { VoiceProsodyFeatures } from "@/lib/pipeline/prosody-types";
 
 const { mockPrisma, mockWriteCallScore } = vi.hoisted(() => ({
@@ -205,6 +205,70 @@ describe("prosody-consumer — parameter slot routing", () => {
       expect(result.applied).toBe(false);
       expect(result.mode).toBe("unavailable");
       expect(mockWriteCallScore).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("#2137 — HF_IELTS_LLM_MEASURE_V1 flag gating of IELTS-skill writes", () => {
+    const originalEnv = process.env.HF_IELTS_LLM_MEASURE_V1;
+
+    afterEach(() => {
+      if (originalEnv === undefined) {
+        delete process.env.HF_IELTS_LLM_MEASURE_V1;
+      } else {
+        process.env.HF_IELTS_LLM_MEASURE_V1 = originalEnv;
+      }
+    });
+
+    it("when HF_IELTS_LLM_MEASURE_V1=true → skips IELTS-skill writes (LLM spec owns those rows)", async () => {
+      process.env.HF_IELTS_LLM_MEASURE_V1 = "true";
+      vi.resetModules();
+      const mod = await import("@/lib/pipeline/prosody-consumer");
+      const fn = mod.applyProsodyContractToAggregate;
+
+      const envelope: VoiceProsodyFeatures = {
+        mode: "ielts",
+        ieltsScores: {
+          fluencyCoherence: 7,
+          pronunciation: 6.5,
+          lexicalResource: 7.5,
+          grammaticalRange: 6,
+          overall: 7,
+        },
+      };
+      mockPrisma.call.findUnique.mockResolvedValue({ voiceProsody: envelope });
+
+      const result = await fn("call-1", "caller-1");
+
+      // Envelope was applied (mode resolved), but ZERO IELTS-skill rows written.
+      expect(result.applied).toBe(true);
+      expect(result.mode).toBe("ielts");
+      expect(result.scoresWritten).toBe(0);
+      expect(mockWriteCallScore).not.toHaveBeenCalled();
+    });
+
+    it("when flag is unset → preserves the legacy 4-row IELTS write (no regression)", async () => {
+      delete process.env.HF_IELTS_LLM_MEASURE_V1;
+      vi.resetModules();
+      const mod = await import("@/lib/pipeline/prosody-consumer");
+      const fn = mod.applyProsodyContractToAggregate;
+
+      const envelope: VoiceProsodyFeatures = {
+        mode: "ielts",
+        ieltsScores: {
+          fluencyCoherence: 7,
+          pronunciation: 6.5,
+          lexicalResource: 7.5,
+          grammaticalRange: 6,
+          overall: 7,
+        },
+      };
+      mockPrisma.call.findUnique.mockResolvedValue({ voiceProsody: envelope });
+
+      const result = await fn("call-1", "caller-1");
+
+      expect(result.applied).toBe(true);
+      expect(result.scoresWritten).toBe(4);
+      expect(mockWriteCallScore).toHaveBeenCalledTimes(4);
     });
   });
 });

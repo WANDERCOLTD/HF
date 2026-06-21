@@ -13,6 +13,7 @@
   "config": {
     "profileCondition": ["ielts-speaking"],
     "scoringGate": "always",
+    "requiresBehaviorTargetParams": true,
     "operatorRule": "NEVER land hardcoded / AI-guessed score defaults to fill empty CallerTarget rows. Honest empty bands surface gaps; fake scores corrupt EMA. (Epic #2135.)"
   },
   "story": {

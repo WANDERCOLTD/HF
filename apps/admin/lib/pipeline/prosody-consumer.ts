@@ -30,6 +30,7 @@ import {
   writeCallScore,
   MEASUREMENT_SENTINEL_SPEC_IDS,
 } from "@/lib/measurement/write-call-score";
+import { ieltsLlmMeasureV1Enabled } from "@/lib/journey/module-settings-flag";
 
 import type {
   GeneralSignals,
@@ -181,6 +182,18 @@ async function writeIeltsCallScores(
   ielts: IeltsScores,
   segmentKey?: string,
 ): Promise<number> {
+  // #2137 (epic #2135 S2) — when the LLM MEASURE path is on, the
+  // IELTS-MEASURE-001 spec owns the 4 IELTS skill CallScore rows.
+  // Prosody-consumer MUST skip the IELTS-skill write to avoid the
+  // dual-writer race documented in epic #2135 ("LLM spec writes first
+  // via canonical chokepoint; prosody-consumer ONLY writes if the LLM
+  // spec produced a row OR via different parameterIds"). The prosody-
+  // raw augmentation path (#2138 / S3) introduces separate parameter
+  // ids (`prosody_raw_*`) that the LLM spec reads via tool-use.
+  if (ieltsLlmMeasureV1Enabled()) {
+    return 0;
+  }
+
   const rows: Array<{ parameterId: string; band: number }> = [
     { parameterId: IELTS_PARAM_IDS.fluencyCoherence, band: ielts.fluencyCoherence },
     { parameterId: IELTS_PARAM_IDS.pronunciation, band: ielts.pronunciation },
