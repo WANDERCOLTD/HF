@@ -1,4 +1,8 @@
-/* #1745 — Mock exam stripped UI */
+/* #1745 — Mock exam stripped UI; #2198 — capability-driven theme variants
+ * via [data-colour-theme] attribute. Per .claude/rules/ui-design-system.md
+ * — CSS variables drive theme switching, never inline style for static
+ * properties. color-mix() for opacity, never hex suffix.
+ */
 
 .hf-exam-shell {
   position: fixed;
@@ -9,6 +13,36 @@
   align-items: center;
   background: var(--exam-shell-bg, #0b0f1a);
   color: var(--exam-shell-text, #e8ecf3);
+}
+
+/* Default (light) theme — applied to chat-feed / mcq-rounds /
+ * intake-wizard shells when they're mounted via a capability-driven
+ * surface (not used by the chat-feed shell wrapper today; reserved for
+ * future surfaces that mount via ExamModeShell-style overlay).
+ */
+.hf-exam-shell[data-colour-theme="default"] {
+  --exam-shell-bg: var(--surface-primary);
+  --exam-shell-text: var(--text-primary);
+}
+
+/* Dark theme — exam shell (mock-exam stripped UI).
+ * Mirrors the pre-refactor hardcoded values byte-identically. */
+.hf-exam-shell[data-colour-theme="dark"] {
+  --exam-shell-bg: #0b0f1a;
+  --exam-shell-text: #e8ecf3;
+}
+
+/* Neutral theme — reserved palette. */
+.hf-exam-shell[data-colour-theme="neutral"] {
+  --exam-shell-bg: var(--surface-secondary);
+  --exam-shell-text: var(--text-primary);
+}
+
+/* Brand theme — results-readout celebration screen.
+ * Uses accent + brand tokens. */
+.hf-exam-shell[data-colour-theme="brand"] {
+  --exam-shell-bg: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-primary));
+  --exam-shell-text: var(--text-primary);
 }
 
 .hf-exam-shell-bg {
@@ -46,4 +80,33 @@
   display: flex;
   gap: 12px;
   justify-content: center;
+}
+
+/* Shell mode pill — driven by capabilities.modePillKey.
+ * Generic across every shell (#2198). */
+.hf-shell-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  color: var(--exam-shell-text, var(--text-primary));
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, transparent);
+}
+
+/* Shell timer — placeholder; visible only when
+ * capabilities.showTimer === "visible". */
+.hf-shell-timer {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface-secondary, transparent);
+  color: var(--exam-shell-text, var(--text-primary));
 }

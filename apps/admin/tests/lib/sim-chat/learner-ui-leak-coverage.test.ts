@@ -206,6 +206,41 @@ const LEARNER_UI_LEAK_EXEMPT: Record<LeakKey, LeakExemptEntry> = {
     reason:
       "Mock Results screen sanctioned per BDD US-Mock-05 — per-criterion bands shown only on Results screen; not in pin/session UI",
   },
+  // ──────────────────────────────────────────────────────────────────
+  // LEARNER_SHELL_KIND_NAMES — PR #2198 (S3 of epic #2163).
+  //
+  // The 5 LearnerShellKind values are internal-only per locked decision 6
+  // (learner sees capability EFFECTS — timer / mode pill / colour theme —
+  // never the kind name string). The shell components in components/sim/
+  // legitimately reference the kind names as:
+  //   1. Keys in the SHELL_DEFAULTS map (`SHELL_DEFAULTS["chat-feed"]`).
+  //   2. Diagnostic data-shell-kind attribute values for the runtime
+  //      SUPERVISE LEAK-SCAN-001 gate to assert the rendered frame.
+  //   3. Local stub type union (until PR #2173 merges).
+  // None of these expose the kind name to the learner's eyeballs — the
+  // strings live in HTML attribute values + map keys, not rendered text.
+  // Exempt with reason; ratchet bumped 2 → 7.
+  // ──────────────────────────────────────────────────────────────────
+  "LEARNER_SHELL_KIND_NAMES:chat-feed": {
+    reason:
+      "Structural use only — SHELL_DEFAULTS key + data-shell-kind diagnostic attribute (epic #2163 locked decision 6). Not rendered as visible text.",
+  },
+  "LEARNER_SHELL_KIND_NAMES:exam": {
+    reason:
+      "Structural use only — SHELL_DEFAULTS key + data-shell-kind diagnostic attribute (epic #2163 locked decision 6). Not rendered as visible text.",
+  },
+  "LEARNER_SHELL_KIND_NAMES:mcq-rounds": {
+    reason:
+      "Structural use only — SHELL_DEFAULTS key + data-shell-kind diagnostic attribute (epic #2163 locked decision 6). Not rendered as visible text.",
+  },
+  "LEARNER_SHELL_KIND_NAMES:results-readout": {
+    reason:
+      "Structural use only — SHELL_DEFAULTS key + data-shell-kind diagnostic attribute (epic #2163 locked decision 6). Not rendered as visible text.",
+  },
+  "LEARNER_SHELL_KIND_NAMES:intake-wizard": {
+    reason:
+      "Structural use only — SHELL_DEFAULTS key + data-shell-kind diagnostic attribute (epic #2163 locked decision 6). Not rendered as visible text.",
+  },
 };
 
 /** Ratchet — total incumbent leaks beyond exempt. The #1955-class
@@ -219,8 +254,11 @@ const LEARNER_UI_LEAK_EXEMPT: Record<LeakKey, LeakExemptEntry> = {
 const EXPECTED_LEAK_COUNT = 0;
 
 /** Ratchet — exempt list size. 2 incumbents at launch (both Mock
- *  Results screen labels). */
-const EXPECTED_EXEMPT_COUNT = 2;
+ *  Results screen labels). +5 from PR #2198 — the 5 LearnerShellKind
+ *  values referenced as SHELL_DEFAULTS map keys + data-shell-kind
+ *  diagnostic attributes in the new ChatFeedShell / MCQRoundsShell /
+ *  refactored ExamModeShell. Total: 7. */
+const EXPECTED_EXEMPT_COUNT = 7;
 
 // ────────────────────────────────────────────────────────────
 // Source-walk
