@@ -38,6 +38,7 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 import { ModuleEditor, type ModuleEditorRow } from "./ModuleEditor";
 import { ModulesLhPicker } from "./ModulesLhPicker";
+import { ModulesPreviewLens } from "./PreviewLens";
 import "./modules-tab.css";
 
 type ModuleRow = ModuleEditorRow;
@@ -185,7 +186,16 @@ export function CourseModulesTab({
             owningTabLabel={crossTabHint.owningTabLabel}
             onJump={jumpToOwningTab}
           />
-        ) : null
+        ) : (
+          // #2206 U5 of #2185 — SIM-shell preview on RHS pane.
+          // Mounts the LearnerShell stub matching the selected module's
+          // resolved shellKind so the operator can validate the per-
+          // module behaviour against what the learner sees.
+          <ModulesPreviewLens
+            courseId={courseId}
+            selectedModule={selectedModule}
+          />
+        )
       }
     />
   );
