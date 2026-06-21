@@ -88,6 +88,32 @@ export function ContentDetailPanel({
     [selectedKind, groups.reflectionPrompts],
   );
 
+  // Per-chip counts for the active kind's filter axis. Client-derived from
+  // the groups already in props — no API change. (Pattern 1.)
+  const countsByModule = useMemo<Record<string, number>>(() => {
+    const acc: Record<string, number> = {};
+    if (selectedKind === "cueCards") {
+      for (const c of groups.cueCards) {
+        acc[c.module.moduleId] = (acc[c.module.moduleId] ?? 0) + 1;
+      }
+    } else if (selectedKind === "topicPrompts") {
+      for (const t of groups.topicPrompts) {
+        acc[t.module.moduleId] = (acc[t.module.moduleId] ?? 0) + 1;
+      }
+    }
+    return acc;
+  }, [selectedKind, groups.cueCards, groups.topicPrompts]);
+
+  const countsBySource = useMemo<Record<string, number>>(() => {
+    const acc: Record<string, number> = {};
+    if (selectedKind === "mcqs") {
+      for (const m of groups.mcqs) {
+        acc[m.source.sourceId] = (acc[m.source.sourceId] ?? 0) + 1;
+      }
+    }
+    return acc;
+  }, [selectedKind, groups.mcqs]);
+
   const isEmpty = (() => {
     switch (selectedKind) {
       case "mcqs":
@@ -137,6 +163,7 @@ export function ContentDetailPanel({
         >
           <FilterChip
             label="All modules"
+            count={totalForKind}
             isActive={moduleFilter == null}
             onClick={() => setModuleFilter(null)}
             testId="hf-content-chip-module-all"
@@ -145,6 +172,7 @@ export function ContentDetailPanel({
             <FilterChip
               key={m.moduleId}
               label={m.moduleLabel}
+              count={countsByModule[m.moduleId] ?? 0}
               isActive={moduleFilter === m.moduleId}
               onClick={() => setModuleFilter(m.moduleId)}
               testId={`hf-content-chip-module-${m.moduleId}`}
@@ -162,6 +190,7 @@ export function ContentDetailPanel({
         >
           <FilterChip
             label="All sources"
+            count={totalForKind}
             isActive={sourceFilter == null}
             onClick={() => setSourceFilter(null)}
             testId="hf-content-chip-source-all"
@@ -170,6 +199,7 @@ export function ContentDetailPanel({
             <FilterChip
               key={s.sourceId}
               label={s.sourceName}
+              count={countsBySource[s.sourceId] ?? 0}
               isActive={sourceFilter === s.sourceId}
               onClick={() => setSourceFilter(s.sourceId)}
               testId={`hf-content-chip-source-${s.sourceId}`}
@@ -220,21 +250,26 @@ export function ContentDetailPanel({
 
 interface FilterChipProps {
   label: string;
+  count: number;
   isActive: boolean;
   onClick: () => void;
   testId: string;
 }
 
-function FilterChip({ label, isActive, onClick, testId }: FilterChipProps) {
+function FilterChip({ label, count, isActive, onClick, testId }: FilterChipProps) {
+  const isEmpty = count === 0;
   return (
     <button
       type="button"
-      className={`hf-content-chip ${isActive ? "hf-content-chip-active" : ""}`}
+      className={`hf-content-chip ${isActive ? "hf-content-chip-active" : ""} ${isEmpty ? "hf-content-chip-empty" : ""}`}
       onClick={onClick}
       data-testid={testId}
       aria-pressed={isActive}
     >
-      {label}
+      <span className="hf-content-chip-label">{label}</span>
+      <span className="hf-content-chip-count" data-testid={`${testId}-count`}>
+        {count}
+      </span>
     </button>
   );
 }
