@@ -23,8 +23,10 @@
  *      UI consumer (3-axis: teaching/adminUI/learnerUI presence).
  *    - PR #2155 wired `IELTS-MEASURE-001` into SCORE_AGENT — the first
  *      non-default-fallback spec selection. Today it's gated by
- *      `requiresBehaviorTargetParams` + `HF_IELTS_LLM_MEASURE_V1`,
- *      NOT by `module.mode`, so it doesn't bump any mode out of
+ *      `requiresBehaviorTargetParams` + the per-course override
+ *      `config.aiMeasurement.disableLlmIeltsScoring` (story #2158,
+ *      retired `HF_IELTS_LLM_MEASURE_V1` env flag), NOT by
+ *      `module.mode`, so it doesn't bump any mode out of
  *      default-fallback. Future mode-specific spec selection (per
  *      epic #2135 + course-specific stories) will drop the
  *      `default-fallback` exemption row and graduate that mode to

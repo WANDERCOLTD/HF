@@ -22,8 +22,10 @@
  *     parameter IDs (`skill_*`) directly. Those are now owned by the
  *     IELTS-MEASURE-001 LLM spec via the canonical SCORE_AGENT path
  *     (#2155). Prosody now writes its own `prosody_raw_*` namespace —
- *     no collision possible regardless of `HF_IELTS_LLM_MEASURE_V1`
- *     flag state. This test pins the new namespace AND the negative
+ *     no collision possible regardless of any legacy env var
+ *     (`HF_IELTS_LLM_MEASURE_V1` was retired by story #2158 in favour
+ *     of the per-course `config.aiMeasurement.disableLlmIeltsScoring`
+ *     override). This test pins the new namespace AND the negative
  *     assertion that prosody NEVER writes the IELTS skill IDs.
  */
 
@@ -219,9 +221,12 @@ describe("prosody-consumer — parameter slot routing", () => {
         (c) => (c[0] as { parameterId: string }).parameterId,
       );
       // The structural separation — prosody-consumer NEVER touches the
-      // 4 IELTS skill IDs (regardless of HF_IELTS_LLM_MEASURE_V1 flag
-      // state). The flag now controls only the LLM-judged path's
-      // enablement; prosody-raw writes run unconditionally.
+      // 4 IELTS skill IDs (regardless of env state — the legacy
+      // HF_IELTS_LLM_MEASURE_V1 flag was retired by story #2158 in
+      // favour of the per-course
+      // `config.aiMeasurement.disableLlmIeltsScoring` override).
+      // Prosody-raw writes run unconditionally on the disjoint
+      // `prosody_raw_*` namespace.
       expect(paramIds).not.toContain("skill_fluency_and_coherence_fc");
       expect(paramIds).not.toContain("skill_pronunciation_p");
       expect(paramIds).not.toContain("skill_lexical_resource_lr");
@@ -347,10 +352,12 @@ describe("prosody-consumer — parameter slot routing", () => {
       expect(evidence[0]).toContain("band=7.0");
     });
 
-    it("flag state irrelevant to prosody-raw writes — flag=true still writes 4 prosody_raw_* rows", async () => {
-      // #2138 — post-S3 the flag controls ONLY the LLM-judged path.
-      // Prosody-raw writes run unconditionally because the namespaces
-      // are disjoint (no dual-writer race possible).
+    it("prosody-raw writes run unconditionally — env state has no bearing (story #2158 retired the env flag)", async () => {
+      // #2138 — post-S3 the prosody writer targets disjoint
+      // `prosody_raw_*` IDs from the LLM-judged IELTS skill IDs, so no
+      // flag check is required. #2158 retired the `HF_IELTS_LLM_MEASURE_V1`
+      // env flag entirely; this test pins that even setting the env var
+      // (legacy operator habit) is a no-op on the prosody side.
       const originalEnv = process.env.HF_IELTS_LLM_MEASURE_V1;
       process.env.HF_IELTS_LLM_MEASURE_V1 = "true";
       try {

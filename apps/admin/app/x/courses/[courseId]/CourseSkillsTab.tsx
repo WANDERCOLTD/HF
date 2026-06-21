@@ -731,6 +731,11 @@ interface RubricCalibrationVariantPreset {
   scoringMode: string | null;
 }
 
+interface RubricCalibrationAiMeasurement {
+  isIeltsShaped: boolean;
+  disableLlmIeltsScoring: boolean;
+}
+
 interface RubricCalibrationResponse {
   courseId: string;
   playbookStatus: string;
@@ -738,6 +743,7 @@ interface RubricCalibrationResponse {
   skills: RubricCalibrationSkill[];
   masteryPolicyChips: RubricCalibrationMasteryPolicyChip[];
   variantPreset: RubricCalibrationVariantPreset;
+  aiMeasurement: RubricCalibrationAiMeasurement;
   empty: boolean;
 }
 
@@ -901,6 +907,18 @@ function RubricCalibrationLens({ courseId }: { courseId: string }) {
         <BandingPicker courseId={courseId} onSaved={refresh} />
       </section>
 
+      {/* Story #2158 — AI Measurement Method card. Hidden on
+          non-IELTS-shaped courses (auto-detect = N/A) — the kill-switch
+          is a no-op there since `filterByBehaviorTargetParams` would
+          drop IELTS-MEASURE-* before the override is consulted. */}
+      {data.aiMeasurement.isIeltsShaped ? (
+        <AiMeasurementMethodSection
+          courseId={courseId}
+          aiMeasurement={data.aiMeasurement}
+          onSaved={refresh}
+        />
+      ) : null}
+
       <section className="hf-rubric-skills">
         <header className="hf-rubric-section-header">
           <h3>Per-skill rubric</h3>
@@ -1048,6 +1066,126 @@ function RubricCalibrationLens({ courseId }: { courseId: string }) {
         />
       ) : null}
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// Story #2158 — AI Measurement Method card.
+// Per-course kill-switch for the LLM-judged IELTS MEASURE path.
+// Replaces the retired `HF_IELTS_LLM_MEASURE_V1` env flag.
+// ────────────────────────────────────────────────────────────
+
+function AiMeasurementMethodSection({
+  courseId,
+  aiMeasurement,
+  onSaved,
+}: {
+  courseId: string;
+  aiMeasurement: RubricCalibrationAiMeasurement;
+  onSaved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  // Local optimistic state — falls back to the snapshot prop on
+  // re-render. The toggle persists to PlaybookConfig via PUT
+  // /api/courses/[courseId]/design (#2158 design route extension).
+  const [disabled, setDisabled] = useState(
+    aiMeasurement.disableLlmIeltsScoring,
+  );
+
+  const llmActive = !disabled;
+  const statusLabel = llmActive
+    ? "LLM-judged"
+    : "Default rubric-only";
+
+  const persist = async (nextDisabled: boolean) => {
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    setDisabled(nextDisabled);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/design`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          aiMeasurement: {
+            // Send `null` when the operator turns it OFF so the key is
+            // cleared from PlaybookConfig (returns to auto-detect = ON
+            // default), `true` when ON.
+            disableLlmIeltsScoring: nextDisabled ? true : null,
+          },
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) {
+        throw new Error(json?.error ?? `${res.status} ${res.statusText}`);
+      }
+      setSuccess(true);
+      onSaved();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Save failed";
+      setError(msg);
+      // Roll back the optimistic flip.
+      setDisabled(!nextDisabled);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section
+      className="hf-rubric-ai-measurement"
+      data-testid="ai-measurement-method-section"
+    >
+      <header className="hf-rubric-section-header">
+        <h3>AI Measurement Method</h3>
+        <p>
+          When enabled (default for IELTS-shaped courses), the LLM judges
+          Fluency &amp; Coherence, Lexical Resource, Grammatical Range
+          &amp; Accuracy, and Pronunciation from the transcript on each
+          call. Without it, only rubric-based scoring runs.
+        </p>
+      </header>
+      <div className="hf-card-compact">
+        <div className="hf-flex hf-items-center hf-gap-sm hf-mb-md">
+          <span
+            className={`hf-pill ${llmActive ? "hf-pill-success" : "hf-pill-neutral"}`}
+            data-testid="ai-measurement-status-pill"
+          >
+            {statusLabel}
+          </span>
+          <span className="hf-text-xs hf-text-muted">
+            (auto-detected from IELTS BehaviorTargets)
+          </span>
+        </div>
+        <label className="hf-flex hf-gap-sm hf-items-start hf-cursor-pointer">
+          <input
+            type="checkbox"
+            checked={disabled}
+            onChange={(e) => persist(e.target.checked)}
+            disabled={saving}
+            data-testid="ai-measurement-disable-toggle"
+          />
+          <div className="hf-flex-1">
+            <div className="hf-text-sm hf-text-bold">
+              Disable LLM IELTS scoring for this course
+            </div>
+            <div className="hf-text-xs hf-text-muted">
+              When ticked, the IELTS-MEASURE-001 spec is filtered out for
+              this course even though it has IELTS skill BehaviorTargets.
+              Only rubric-based scoring will run; the 4 IELTS skill bands
+              receive no LLM-judged CallScore rows.
+            </div>
+          </div>
+        </label>
+        <div className="hf-flex hf-gap-sm hf-items-center hf-mt-sm">
+          {saving && <span className="hf-text-xs hf-text-muted">Saving…</span>}
+          {success && <span className="hf-text-xs hf-text-success">Saved.</span>}
+          {error && <span className="hf-text-xs hf-text-error">{error}</span>}
+        </div>
+      </div>
+    </section>
   );
 }
 

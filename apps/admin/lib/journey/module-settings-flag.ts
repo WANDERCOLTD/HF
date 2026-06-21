@@ -29,55 +29,35 @@ export function isIeltsModuleSettingsEnabled(): boolean {
 }
 
 /**
- * Feature flag for epic #2135 — IELTS-MEASURE-001 LLM transcript scoring.
+ * Story #2158 (epic #2135 follow-on, 2026-06-21) — the
+ * `HF_IELTS_LLM_MEASURE_V1` env flag and `ieltsLlmMeasureV1Enabled()`
+ * helper were RETIRED here.
  *
- * **Default OFF.** When enabled (`HF_IELTS_LLM_MEASURE_V1=true`), the
- * `IELTS-MEASURE-001` AnalysisSpec runs via the EXTRACT / SCORE_AGENT
- * stage and writes `CallScore` rows for the 4 IELTS skill parameter IDs
- * (`skill_fluency_and_coherence_fc`, `skill_pronunciation_p`,
- * `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`).
+ * The IELTS LLM-judged MEASURE path is now selected at the COURSE LEVEL
+ * via two layered mechanisms:
  *
- * **Post-#2138 (S3) flag scope:**
+ *   1. **Auto-detect** (default ON, runs whenever the playbook has IELTS
+ *      BehaviorTarget intent):
+ *      `lib/pipeline/specs-loader.ts::filterByBehaviorTargetParams` (#2155)
+ *      runs IELTS-MEASURE-001 whenever the playbook carries any of the 4
+ *      IELTS skill parameters on its PLAYBOOK-scope `BehaviorTarget` rows.
+ *      The operator's BehaviorTarget intent IS the signal — no separate
+ *      enablement flag is required.
  *
- * The flag now controls ONLY the LLM-judged path's enablement. It no
- * longer gates the prosody-consumer at all — #2138 refactored the
- * prosody IELTS-mode writer to target separate `prosody_raw_*`
- * parameter IDs (`prosody_raw_fc` / `_p` / `_lr` / `_gra`). The two
- * writers now target disjoint parameterId namespaces, so no dual-writer
- * race is possible regardless of flag state. Prosody-raw rows always
- * land when the vendor envelope is present.
+ *   2. **Per-course override** (kill-switch):
+ *      `PlaybookConfig.aiMeasurement.disableLlmIeltsScoring = true`
+ *      filters IELTS-MEASURE-001 OUT for that specific course even when
+ *      auto-detect would otherwise run it. Surfaced in the Course Skills
+ *      tab → Rubric Calibration lens → "AI Measurement Method" card and
+ *      protected by the `JourneySettingContract`
+ *      `aiMeasurementDisableLlmIeltsScoring` (G4 / I_scoring bucket).
  *
- * Lifecycle:
- *   - Flag OFF (today's default) → no LLM-judged IELTS skill scores.
- *     Prosody-raw rows still land (audio-feature signal preserved).
- *     Note: the 4 IELTS skill IDs receive ZERO CallScore rows in this
- *     state — that is the gap epic #2135 exists to close. Flip ON.
- *   - Flag ON → LLM-judged IELTS skill scores land via SCORE_AGENT.
- *     Prosody-raw rows continue to land independently. Tool-use
- *     augmentation (LLM consuming prosody-raw to boost FC + P
- *     confidence) is a post-MVP enhancement, not gated by this flag.
- *   - Post-S6 verification → consider promoting to always-on and
- *     retiring the flag in a follow-on chore.
+ * Prosody-consumer's IELTS-skill writes are namespace-disjoint from the
+ * LLM spec (PR #2157 / story #2138 — `prosody_raw_*` parameter IDs) so
+ * no env-flag check is required on the prosody side either.
  *
  * **OPERATOR RULE (verbatim, from epic #2135):**
  * NEVER land hardcoded or AI-guessed score defaults to "fill" empty
- * CallerTarget rows. Honest empty bands surface gaps; fake scores
+ * `CallerTarget` rows. Honest empty bands surface gaps; fake scores
  * corrupt EMA.
- *
- * Sibling pattern to `isIeltsModuleSettingsEnabled` above. Read once
- * per call — not cached so vitests can flip between tests.
  */
-export const IELTS_LLM_MEASURE_ENV_VAR = "HF_IELTS_LLM_MEASURE_V1";
-
-/**
- * Return true ONLY when `HF_IELTS_LLM_MEASURE_V1` is the literal string
- * `"true"`. Any other value returns false — default-off until S6
- * verification confirms the LLM path produces correct bands.
- */
-export function ieltsLlmMeasureV1Enabled(): boolean {
-  const env = (globalThis as {
-    process?: { env?: Record<string, string | undefined> };
-  }).process?.env;
-  const raw = env?.[IELTS_LLM_MEASURE_ENV_VAR];
-  return raw === "true";
-}

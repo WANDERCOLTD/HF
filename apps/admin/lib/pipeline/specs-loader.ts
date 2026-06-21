@@ -323,6 +323,17 @@ export async function filterByTeachingProfile(
  * - Else collect the spec's `parameters[].id` from its `triggers[].actions[].parameterId`
  *   (the seeded shape from `seed-from-specs.ts`); if ANY are present on the
  *   playbook's BehaviorTarget rows, the spec runs. Otherwise, drop.
+ *
+ * **Per-course kill-switch override** (story #2158, epic #2135 follow-on):
+ *
+ * After the BehaviorTarget-presence check passes, the per-Playbook
+ * override `config.aiMeasurement.disableLlmIeltsScoring` is consulted.
+ * When true, IELTS-MEASURE-* specs are dropped for that course even
+ * though their canonical opt-in gate would otherwise admit them. This
+ * replaces the retired `HF_IELTS_LLM_MEASURE_V1` env flag with a
+ * course-level cascade-aware knob (#2158). The kill-switch is narrowly
+ * scoped to IELTS-MEASURE-* specs by design — operator intent is
+ * disabling "LLM-judged IELTS scoring," not all opted-in scoring specs.
  */
 export async function filterByBehaviorTargetParams(
   specIds: string[],
@@ -370,6 +381,21 @@ export async function filterByBehaviorTargetParams(
     return specIds.filter((id) => !droppedIds.has(id));
   }
 
+  // Story #2158 — read the per-Playbook IELTS LLM scoring kill-switch.
+  // Loaded alongside the BehaviorTarget rows below so we don't double the
+  // round-trip count. When true → IELTS-MEASURE-* specs are dropped even
+  // when their declared params are on the playbook.
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { config: true },
+  });
+  const playbookConfig = playbook?.config as Record<string, unknown> | null;
+  const aiMeasurementCfg = playbookConfig?.aiMeasurement as
+    | { disableLlmIeltsScoring?: boolean }
+    | null
+    | undefined;
+  const disableLlmIeltsScoring = aiMeasurementCfg?.disableLlmIeltsScoring === true;
+
   // Load the playbook's PLAYBOOK-scope BehaviorTarget parameterIds in one shot.
   const playbookTargets = await prisma.behaviorTarget.findMany({
     where: { scope: "PLAYBOOK", playbookId },
@@ -397,6 +423,17 @@ export async function filterByBehaviorTargetParams(
 
     const matchedParam = Array.from(declaredParamIds).find((p) => playbookParamSet.has(p));
     if (matchedParam) {
+      // Story #2158 — per-course kill-switch override. Narrow to
+      // IELTS-MEASURE-* specs: the operator's intent is "disable LLM-
+      // judged IELTS scoring for this course," not "disable every
+      // opted-in scoring spec." Future course-specific specs (CEFR /
+      // TOEFL) will get their own override field if needed.
+      if (disableLlmIeltsScoring && spec.slug.startsWith("IELTS-MEASURE-")) {
+        log.info(
+          `[behavior-target-gate] Spec "${spec.slug}" matched playbook BehaviorTarget "${matchedParam}" but per-course override config.aiMeasurement.disableLlmIeltsScoring=true — dropping.`,
+        );
+        continue;
+      }
       log.info(
         `[behavior-target-gate] Spec "${spec.slug}" opted in and matched playbook BehaviorTarget "${matchedParam}" — running.`,
       );

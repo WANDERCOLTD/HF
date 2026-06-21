@@ -103,6 +103,22 @@ export interface RubricCalibrationVariantPreset {
   scoringMode: string | null;
 }
 
+/**
+ * Story #2158 — surfacing the IELTS LLM scoring override on the Rubric
+ * Calibration lens. Carries enough state for the "AI Measurement
+ * Method" card to render:
+ *   - `isIeltsShaped` — whether the playbook carries any of the 4 IELTS
+ *     skill parameters on its PLAYBOOK-scope BehaviorTargets. Same
+ *     signal `filterByBehaviorTargetParams` uses at pipeline time, so
+ *     the UI's auto-detect verdict matches runtime exactly.
+ *   - `disableLlmIeltsScoring` — the per-course operator override.
+ *     Defaults `false` when the config key isn't set.
+ */
+export interface RubricCalibrationAiMeasurement {
+  isIeltsShaped: boolean;
+  disableLlmIeltsScoring: boolean;
+}
+
 export interface RubricCalibrationResponse {
   courseId: string;
   playbookStatus: string;
@@ -117,8 +133,23 @@ export interface RubricCalibrationResponse {
   masteryPolicyChips: RubricCalibrationMasteryPolicyChip[];
   /** Variant-intrinsic mastery knobs — no cascade. */
   variantPreset: RubricCalibrationVariantPreset;
+  /** Story #2158 — AI Measurement Method card state. */
+  aiMeasurement: RubricCalibrationAiMeasurement;
   empty: boolean;
 }
+
+/**
+ * Story #2158 — the 4 IELTS skill parameter IDs. Same constants used by
+ * `lib/pipeline/prosody-consumer.ts` (legacy `IELTS_PARAM_IDS`) and by
+ * the seed at `prisma/seed-from-specs.ts`. Kept inline here to avoid a
+ * cross-layer import dependency for a 4-element tuple.
+ */
+const IELTS_SKILL_PARAMETER_IDS: readonly string[] = [
+  "skill_fluency_and_coherence_fc",
+  "skill_pronunciation_p",
+  "skill_lexical_resource_lr",
+  "skill_grammatical_range_and_accuracy_gra",
+];
 
 /** Extract `SKILL-NN` from a trigger.notes string like `skillRef:SKILL-01 (#417)`. */
 function skillRefFromNotes(notes: string | null): string | null {
@@ -234,6 +265,30 @@ export async function GET(
       typeof pbConfig.scoringMode === "string" ? pbConfig.scoringMode : null,
   };
 
+  // Story #2158 — IELTS-shape detection mirrors the runtime gate at
+  // `lib/pipeline/specs-loader.ts::filterByBehaviorTargetParams`. We
+  // query the playbook's PLAYBOOK-scope BehaviorTargets and ask whether
+  // ANY of the 4 IELTS skill parameter IDs are present — that's the
+  // single signal that toggles auto-detect on. Same query the pipeline
+  // runs each call, so the UI's verdict can't drift from runtime.
+  const ieltsTargets = await prisma.behaviorTarget.findMany({
+    where: {
+      scope: "PLAYBOOK",
+      playbookId: courseId,
+      parameterId: { in: [...IELTS_SKILL_PARAMETER_IDS] },
+    },
+    select: { parameterId: true },
+  });
+  const isIeltsShaped = ieltsTargets.length > 0;
+  const aiMeasurementCfg = pbConfig.aiMeasurement as
+    | { disableLlmIeltsScoring?: boolean }
+    | null
+    | undefined;
+  const aiMeasurement: RubricCalibrationAiMeasurement = {
+    isIeltsShaped,
+    disableLlmIeltsScoring: aiMeasurementCfg?.disableLlmIeltsScoring === true,
+  };
+
   const response: RubricCalibrationResponse = {
     courseId,
     playbookStatus: playbook.status,
@@ -262,6 +317,7 @@ export async function GET(
       { knobKey: "skillScoringEmaHalfLifeDays", envelope: halfLifeEnvelope },
     ],
     variantPreset,
+    aiMeasurement,
     empty: skills.length === 0,
   };
 

@@ -415,6 +415,33 @@ export interface PlaybookConfig {
    * (Phase 2, follow-on).
    */
   aiOverrides?: AIOverridesMap;
+  /**
+   * Story #2158 (epic #2135 follow-on) — per-course AI measurement
+   * overrides. Today carries a single kill-switch:
+   *
+   *   - `disableLlmIeltsScoring` (default false): when true, the
+   *     IELTS-MEASURE-001 AnalysisSpec is filtered OUT for this course
+   *     even when `filterByBehaviorTargetParams` would otherwise run it
+   *     (i.e. operator has IELTS skill BehaviorTargets on the playbook).
+   *     Use to disable LLM-judged IELTS scoring on a course-by-course
+   *     basis without re-engineering the BehaviorTargets.
+   *
+   * Read by `lib/pipeline/specs-loader.ts::filterByBehaviorTargetParams`
+   * after the BehaviorTarget-presence check passes. Surfaced in the
+   * Course Skills tab → Rubric Calibration lens → "AI Measurement
+   * Method" card and a page-header pill on IELTS-shaped courses.
+   * Protected by the `JourneySettingContract`
+   * `aiMeasurementDisableLlmIeltsScoring` (G4 / I_scoring bucket).
+   *
+   * @bucket Course parameter — operator-tunable on the Skills tab.
+   */
+  aiMeasurement?: {
+    /**
+     * When true, the IELTS LLM-judged MEASURE spec (IELTS-MEASURE-001)
+     * is filtered OUT for this course. Default false.
+     */
+    disableLlmIeltsScoring?: boolean;
+  };
   onboardingFlowPhases?: OnboardingFlowPhases;
   physicalMaterials?: string;
   audience?: string;
