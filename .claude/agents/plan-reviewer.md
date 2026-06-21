@@ -43,6 +43,19 @@ Check each item. Mark PASS or FLAG:
 - [ ] **Edges** — empty states, error states, permission boundaries, missing data handled
 - [ ] **Navigation** — how the user arrives (sidebar? link? wizard step?) and where they go next
 
+## Step 4.5 — Lattice-respecting plan checklist (HF-specific)
+
+Per [`architectural-thinking-patterns.md` §D](./architectural-thinking-patterns.md).
+Mark PASS or FLAG:
+
+- [ ] **DATA-first reframe applied** — plan classifies work as DATA-on-existing-Lattice OR justifies new code with a named missing primitive (per §B 6-question reframe)
+- [ ] **Lattice survey cited** — plan body cites the 60-90s sibling-writer survey result for any shared-column / chain-boundary / new-guard / AI-path change (per [`.claude/rules/lattice-survey.md`](../../HF/.claude/rules/lattice-survey.md))
+- [ ] **Generic primitive named** — plan names the existing component/route/resolver that will render the new knob (NOT "we'll build a new component for...")
+- [ ] **5-pillar audit acknowledged** — new structural infra paired with Chain-contract row + Guard + Cascade + Rule + Coverage test (per [`feedback_lattice_5th_pillar_coverage.md`](~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_lattice_5th_pillar_coverage.md))
+- [ ] **No hardcoded backfill** — plan does NOT propose synthetic score defaults for empty `CallerTarget` / `CallScore` rows (per [`feedback_no_hardcoded_score_backfill.md`](~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_no_hardcoded_score_backfill.md))
+- [ ] **Canonical source derivation** — plan does NOT hand-type option values that exist in a canonical const (per [`feedback_canonical_source_discipline.md`](~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_canonical_source_discipline.md))
+- [ ] **Producer ↔ consumer paired** — if plan registers a setting with non-empty `composeImpact.sections[]`, the consuming transform is in the same plan slice (per [`.claude/rules/registry-consumer-coverage.md`](../../HF/.claude/rules/registry-consumer-coverage.md))
+
 ## Step 5 — Report
 
 Output a concise report:
@@ -65,6 +78,15 @@ Output a concise report:
 - Runtime path: PASS / FLAG
 - Edges: PASS / FLAG
 - Navigation: PASS / FLAG
+
+### Lattice-respecting Checklist
+- DATA-first reframe applied: PASS / FLAG
+- Lattice survey cited: PASS / FLAG
+- Generic primitive named: PASS / FLAG
+- 5-pillar audit acknowledged: PASS / FLAG
+- No hardcoded backfill: PASS / FLAG
+- Canonical source derivation: PASS / FLAG
+- Producer ↔ consumer paired: PASS / FLAG
 
 ### Verdict
 APPROVED — ready to present to user

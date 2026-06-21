@@ -97,6 +97,51 @@ When writing the story:
 
 **This is non-negotiable. The 2026-04-16 triple-leak debugging session is the why.**
 
+## ⚠️ HARD RULE — Generic Lattice classification (DATA-first effort estimate)
+
+**Before quoting ANY effort estimate, you MUST run the 6-question
+DATA-first reframe from [`architectural-thinking-patterns.md` §B](./architectural-thinking-patterns.md).**
+HF's architecture is a Lattice (Chain Contracts × Guards × Cascade ×
+Rules × Coverage) — infrastructure ships ONCE and extensions are DATA
+forever. A bespoke-component estimate when a DATA row would do is the
+canonical failure mode.
+
+**The 6 questions (apply in order):**
+
+1. Is there a `JourneySettingContract` / `VoiceSettingsContract` shape that fits? → ROW in entries file. No new component.
+2. Is the cascade-resolved value covered by `lib/cascade/effective-value.ts::FAMILIES`? → if no, add an entry. Generic resolver auto-walks.
+3. Is there an ESLint chokepoint for the boundary you're enforcing? → extend the constant; don't write a new rule.
+4. Is the UI insertion point the Course Pane? → default YES. New windows/modals/pages need explicit justification.
+5. Is LearnerShell selection declared as DATA on Playbook config? → if tempted to write a per-course shell variant, STOP.
+6. Is the runtime behaviour driven by a spec.json under `docs-archive/bdd-specs/`? → author the spec; do not author a bespoke runner.
+
+When writing the story:
+- Cite the reuse-finder brief's `### Lattice primitives covering this surface` block in the `## Already exists — do not rebuild` section.
+- Add a `## Lattice classification` section per the template in `architectural-thinking-patterns.md` §B Step 2.
+- If the breakdown contains phrases like "Add a new section...", "New component for editing...", "New API route to handle...", "New cascade resolver for...", "New ESLint rule that enforces..." — STOP and re-frame per §B Step 3 fingerprint table.
+- If reframe genuinely doesn't work, the story body's `## Verified by` section MUST name WHICH existing primitive doesn't fit AND WHY.
+- Effort estimates: data-rows + type-extensions are HOURS; genuine new code is DAYS. Mixing them without classification is the #2174 fingerprint.
+
+**This is non-negotiable. The 2026-06-21 #2174 incident (4-6d bespoke editor work reframed to ~1.5d DATA-first by the operator mid-execution) is the why.**
+
+## ⚠️ HARD RULE — Verify before claim ("done / clean / complete")
+
+**Before writing claims like "no migration needed", "no existing code
+covers this", "no test pins this", "no consumer wired" — you MUST run
+the actual audit (schema query, qmd search, grep) per [`feedback_verify_before_claim_done.md`](~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_verify_before_claim_done.md).**
+
+Confirmation-bias answers ("looks good!" / "nothing exists yet") have
+been repeatedly contradicted by 60-second checks. Honest enumeration
+of follow-ons beats false confidence.
+
+When writing the story:
+- Every "Already exists" entry needs a citation (path + line range).
+- Every "Needs building" entry assumes the inverse-probe was run — if there's an existing variant in a sibling vocabulary form (kebab/camel/snake, alternate route name, leading underscore), surface it.
+- "No migration needed" requires running `schema` skill / reading `prisma/schema.prisma` for every model the story touches.
+- "No test covers this" requires probing every `tests/<area>/` namespace + `evals/` + seed-script tests.
+
+**This is non-negotiable. See sibling rule [`.claude/rules/agent-report-verification.md`](../../HF/.claude/rules/agent-report-verification.md) for the inverse-probe taxonomy.**
+
 ## Step 1 — Search before writing
 
 Use qmd and hf-graph tools to find what already exists:
@@ -153,6 +198,13 @@ Issue body template:
 - [specific thing 1]
 - [specific thing 2]
 
+## Lattice classification
+<!-- MANDATORY per `architectural-thinking-patterns.md` §B -->
+- DATA-on-existing-Lattice: [N rows / N constant entries / N spec.json files / N type-union extensions — name the surfaces]
+- Genuinely new code: [list each piece + justify why existing primitive doesn't fit]
+- DATA/CODE ratio: [N% data, N% code]
+- Estimate basis: [data-rows + type-extensions / hours] OR [new code / days]
+
 ## Acceptance criteria
 <!-- Every criterion must be independently testable -->
 - [ ] [happy path]
@@ -161,6 +213,8 @@ Issue body template:
 - [ ] [V3 path unaffected] (if this is V4 work)
 - [ ] [no migration needed confirmed] (or: migration created)
 - [ ] [promptfoo eval passes] (if AI behaviour changes)
+- [ ] [Lattice survey result cited in `## Verified by`] (if story crosses chain-stage boundary / adds guard / touches shared DB column / extends AI path)
+- [ ] [Coverage test updated] (if story adds a registry row / schema field / route / parameter — name the specific *-coverage.test.ts)
 
 ## Risks
 <!-- FK ordering, state propagation, auth level, migration, async patterns -->
@@ -170,8 +224,14 @@ Issue body template:
 <!-- Explicitly state what is NOT included -->
 - [thing that might seem related but is not in this story]
 
+## Verified by
+<!-- Per `.claude/rules/verify-before-fix.md` — cite concrete evidence -->
+<!-- For Lattice-touching stories: cite the sibling-writer survey result here -->
+- [SQL query result / log subject / vitest result / existing-file citation that proves the premise]
+
 ## Effort estimate
 ~[N]h
+<!-- If estimate quoted in days for a DATA-shaped change, justify per `architectural-thinking-patterns.md` §B Step 3 -->
 
 ## Spike needed?
 [YES — reason] / [NO — clear pattern at path/to/file.ts]
