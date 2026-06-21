@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-21T14:48:40.359Z",
+  "generatedAt": "2026-06-21T12:42:47.933Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1873,
-  "edgeCount": 4410,
+  "fileCount": 1872,
+  "edgeCount": 4409,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1670,6 +1670,10 @@
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/goals/track-progress.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pipeline/route.ts",
+      "to": "lib/journey/module-settings-flag.ts"
     },
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
@@ -14736,14 +14740,6 @@
       "to": "lib/prompt/composition/transforms/session-focus.ts"
     },
     {
-      "from": "lib/pipeline/runners/supervise/leak-scan.ts",
-      "to": "lib/logger.ts"
-    },
-    {
-      "from": "lib/pipeline/runners/supervise/leak-scan.ts",
-      "to": "lib/measurement/write-call-score.ts"
-    },
-    {
       "from": "lib/pipeline/scheduler-decision.ts",
       "to": "lib/prisma.ts"
     },
@@ -18217,7 +18213,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 59
+      "outDegree": 60
     },
     {
       "path": "app/api/calls/[callId]/post-call-redirect/route.ts",
@@ -24691,7 +24687,7 @@
     },
     {
       "path": "lib/journey/module-settings-flag.ts",
-      "inDegree": 8,
+      "inDegree": 9,
       "outDegree": 0
     },
     {
@@ -24861,7 +24857,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 40,
+      "inDegree": 39,
       "outDegree": 3
     },
     {
@@ -24891,7 +24887,7 @@
     },
     {
       "path": "lib/measurement/write-call-score.ts",
-      "inDegree": 4,
+      "inDegree": 3,
       "outDegree": 1
     },
     {
@@ -25127,11 +25123,6 @@
     {
       "path": "lib/pipeline/runners/session-focus-policy.ts",
       "inDegree": 1,
-      "outDegree": 2
-    },
-    {
-      "path": "lib/pipeline/runners/supervise/leak-scan.ts",
-      "inDegree": 0,
       "outDegree": 2
     },
     {
@@ -27044,7 +27035,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 59
+      "outDegree": 60
     },
     {
       "path": "lib/learner-scope.ts",
@@ -27067,14 +27058,14 @@
       "outDegree": 1
     },
     {
-      "path": "lib/logger.ts",
-      "inDegree": 40,
-      "outDegree": 3
-    },
-    {
       "path": "lib/prompt/composition/CompositionExecutor.ts",
       "inDegree": 1,
       "outDegree": 42
+    },
+    {
+      "path": "lib/logger.ts",
+      "inDegree": 39,
+      "outDegree": 3
     },
     {
       "path": "lib/metering/instrumented-ai.ts",

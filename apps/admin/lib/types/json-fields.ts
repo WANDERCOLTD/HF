@@ -1589,32 +1589,13 @@ export type Part3TechniqueFocus =
 // ════════════════════════════════════════════════════════════════════
 
 /**
- * TODO(#2173): drop this local stub once PR #2173 merges and import
- * `LearnerShellKind` directly from above. Today the union mirrors PR
- * #2173's source-of-truth declaration — kept in lockstep so the
- * `AssessmentMoment.shellKind` field resolves at compile time. The
- * Coverage gate's runtime exhaustiveness check (#2176 S3) will catch
- * any drift the moment #2173 lands.
+ * `LearnerShellKind` + `LEARNER_SHELL_KIND_VALUES` are declared as
+ * the canonical PR #2173 substrate below (search for "epic #2163
+ * S1 substrate"). The #2176 S1 primitives below this comment
+ * reference both — they resolve to the canonical declarations via
+ * normal TypeScript symbol lookup since both live in this same
+ * module.
  */
-export type LearnerShellKind =
-  | "chat-feed"
-  | "exam"
-  | "mcq-rounds"
-  | "results-readout"
-  | "intake-wizard";
-
-/**
- * TODO(#2173): drop this local stub once PR #2173 merges and import
- * `LEARNER_SHELL_KIND_VALUES` directly. Mirrors PR #2173's source-of-
- * truth runtime-enumeration array.
- */
-export const LEARNER_SHELL_KIND_VALUES = [
-  "chat-feed",
-  "exam",
-  "mcq-rounds",
-  "results-readout",
-  "intake-wizard",
-] as const satisfies readonly LearnerShellKind[];
 
 /**
  * #2176 S1 — the FIVE assessable moments a course may declare.
@@ -1807,6 +1788,270 @@ export interface CourseAssessmentPlan {
    */
   noAssessmentPlan?: true;
 }
+
+/**
+ * #2163 Slice 1 — declare LearnerShell as a typed Lattice primitive.
+ *
+ * **What a shell is.** A `LearnerShell` is the capability FRAME a learner
+ * experiences during a session. Today's only concrete shell is
+ * `ExamModeShell` (Mock exam dark stripped UI with dual waveform instead
+ * of chat feed); the implicit chat-feed default is the other one in
+ * production. Both encode their rules — what to render, what to block,
+ * what mode pill to show — as procedural JSX. This union types the
+ * primitive so a shell becomes a DECLARATIVE capability map instead.
+ *
+ * **5th-layer companion to SessionFocus** (`Part3TechniqueFocus` above).
+ * Both are session-scoped course-agnostic projections of internal state
+ * into learner-facing structure. SessionFocus carries the emphasis
+ * LABEL ("giving reasons"); LearnerShell carries the capability FRAME
+ * (allowModuleSwitch / showTimer / chatFeedVisibility / colourTheme /
+ * dismissOnEnd / etc.). They compose: a Mock exam session can have
+ * `LearnerShell = "exam"` (frame) + `SessionFocus = "expanding an answer"`
+ * (emphasis), and the learner sees both.
+ *
+ * **Internal-only.** The shell kind name (`"exam"` / `"chat-feed"` etc.)
+ * is INTERNAL to the engine. The learner never sees the kind string in
+ * their UI — they see the capability EFFECTS (timer visible / mode pill
+ * copy / colour theme). Protected by extension to PR #2144's
+ * `learner-ui-leak-coverage.test.ts` registry (S1, this slice).
+ *
+ * **Declarative selection (S2, separate PR).** A pure
+ * `resolveLearnerShell(session, module) → { shellKind, capabilities }`
+ * picks the shell from session+module context. No
+ * `if (module.mode === "X")` branches scattered across UI files.
+ *
+ * **Initial values** (epic #2163 locked decision 1):
+ * - `chat-feed` — default for tutor / mixed modes. Free-flow chat,
+ *   visible scrollback, module-switch allowed, no timer.
+ * - `exam` — examiner / mock-exam modes. Dual waveform replaces chat,
+ *   module-switch blocked, timer hidden-internal (server enforces),
+ *   dark theme, dismiss to results-screen.
+ * - `mcq-rounds` — quiz mode. Cue card replaces chat feed, rounds
+ *   counter replaces fill-bar, module-switch blocked mid-round.
+ * - `results-readout` — post-exam Mock Results screen. Brand-theme,
+ *   no chat, no timer, dismiss to next-module.
+ * - `intake-wizard` — pre-call onboarding wizard. Full chat,
+ *   module-switch blocked (intake is its own flow), no timer.
+ *
+ * **Per-course extensions** (epic #2163 locked decision 1, follow-on)
+ * use the same per-course typed-union pattern that #2145 established
+ * for SessionFocus.
+ *
+ * See epic #2163 for the full architecture, locked decisions, and S2-S7
+ * slice plan. See `LearnerShellCapabilities` below for the capability
+ * frame each shell kind populates via `SHELL_DEFAULTS`.
+ */
+export type LearnerShellKind =
+  | "chat-feed"
+  | "exam"
+  | "mcq-rounds"
+  | "results-readout"
+  | "intake-wizard";
+
+/**
+ * Sibling const array for runtime enumeration of `LearnerShellKind`.
+ * Mirrors the `AUTHORED_MODULE_MODE_VALUES` pattern used by
+ * `tests/lib/sim-chat/mode-ui-coverage.test.ts`. Use this when you need
+ * to iterate every shell kind (e.g. Coverage tests, exhaustiveness
+ * checks, admin badge rendering). The paired vitest at
+ * `tests/lib/types/learner-shell-types.test.ts` asserts this array
+ * matches the union source-of-truth.
+ */
+export const LEARNER_SHELL_KIND_VALUES = [
+  "chat-feed",
+  "exam",
+  "mcq-rounds",
+  "results-readout",
+  "intake-wizard",
+] as const satisfies readonly LearnerShellKind[];
+
+/**
+ * #2163 Slice 1 — capability frame consumed by a learner shell.
+ *
+ * Every field declares ONE affordance the shell turns on / off / tunes.
+ * Shell components consume the capability map at render time instead of
+ * branching on the shell kind directly:
+ *
+ * ```tsx
+ * // GOOD — declarative
+ * {capabilities.showTimer === "visible" ? <Timer /> : null}
+ *
+ * // BAD — procedural, shell-kind-bound
+ * {shellKind === "exam" ? null : <Timer />}
+ * ```
+ *
+ * The declarative path is what makes the Coverage gate (S2) tractable:
+ * Coverage walks each capability field and asserts at least one shell
+ * consumer reads it. Procedural shell-kind branches defeat that walk.
+ *
+ * **Capability defaults are HF-canonical** (epic #2163 locked decision
+ * 8). Per-course customisation lives in `PlaybookConfig.learnerShell`
+ * (S5/S7) and is `disabled`-only — a course can disable a default
+ * capability but cannot enable an arbitrary new one. Prevents drift
+ * across courses.
+ */
+export interface LearnerShellCapabilities {
+  /**
+   * Whether the learner can switch to a different module mid-session.
+   * `false` for exam / mcq-rounds (in-flight assessment must finish
+   * before module switch is allowed) / results-readout / intake-wizard
+   * (intake is its own flow). `true` for the default chat-feed shell.
+   */
+  allowModuleSwitch: boolean;
+  /**
+   * Timer affordance.
+   * - `"visible"` — render an on-screen countdown / elapsed clock
+   *   (no current shell uses this; reserved for future timed-but-
+   *   visible scenarios e.g. lesson-pace pacing).
+   * - `"hidden-internal"` — server enforces a time bound but the
+   *   learner sees no clock (Mock exam, MCQ rounds — pacing is the
+   *   examiner's job, not the learner's stress).
+   * - `"none"` — no time bound applies.
+   */
+  showTimer: "visible" | "hidden-internal" | "none";
+  /**
+   * Progress affordance.
+   * - `"fill-bar"` — continuous progress bar (chat-feed default —
+   *   reflects module mastery / coverage).
+   * - `"monologue-bar"` — Part 2 monologue countdown bar style
+   *   (used by exam shells when the examiner is in monologue phase).
+   * - `"mcq-counter"` — "Round 3 of 8" style counter for MCQ rounds.
+   * - `"none"` — no progress affordance (intake-wizard / results-
+   *   readout).
+   */
+  showProgressBar: "fill-bar" | "monologue-bar" | "mcq-counter" | "none";
+  /**
+   * Chat scrollback visibility.
+   * - `"full"` — full chat feed with scrollback (chat-feed default,
+   *   intake-wizard).
+   * - `"cue-card-only"` — pinned cue card with no scrollback
+   *   (mcq-rounds — the cue card IS the question; chat history is
+   *   distracting).
+   * - `"none"` — chat feed hidden entirely (exam / results-readout
+   *   — dual waveform / results panel replaces it).
+   */
+  chatFeedVisibility: "full" | "cue-card-only" | "none";
+  /**
+   * Whether a "back to home" affordance is available mid-session.
+   * `false` for exam / mcq-rounds / results-readout — these have
+   * structured exits (dismiss to results-screen / next-module).
+   * `true` for chat-feed / intake-wizard — these are interruptable.
+   */
+  allowBackToHome: boolean;
+  /**
+   * Visual identity theme.
+   * - `"default"` — standard HF light theme (chat-feed / mcq-rounds
+   *   / intake-wizard).
+   * - `"dark"` — exam shell stripped dark UI (per `ExamModeShell`
+   *   today).
+   * - `"neutral"` — toned-down neutral palette (reserved).
+   * - `"brand"` — course-brand accent palette (results-readout —
+   *   the post-exam celebration screen).
+   */
+  colourTheme: "default" | "dark" | "neutral" | "brand";
+  /**
+   * Resource key for the mode pill label + icon. `null` when the shell
+   * doesn't render a mode pill (intake-wizard, results-readout). The
+   * key is resolved by the pill-renderer (`AuthoredModulesPanel` /
+   * `LearnerModulePicker`) against the existing mode-pill resource
+   * map. Authored shells declare their canonical pill key here so
+   * pill copy + colour stay in one source.
+   */
+  modePillKey: string | null;
+  /**
+   * Where the learner lands when the session ends.
+   * - `"home"` — back to module picker / FOH home (chat-feed,
+   *   mcq-rounds, intake-wizard).
+   * - `"results-screen"` — Mock results panel (exam shell).
+   * - `"next-module"` — auto-advance to the next module in the
+   *   curriculum (results-readout — operator continues the flow).
+   */
+  dismissOnEnd: "home" | "results-screen" | "next-module";
+  /**
+   * Stall-chip visual nudge behaviour (#1955-style).
+   * - `"subtle-fade"` — fade in a small "still listening…" chip when
+   *   the learner stalls (chat-feed default).
+   * - `"none"` — no stall affordance (exam — the examiner sets the
+   *   pace; mcq-rounds — the question itself drives; results-readout
+   *   — no learner input; intake-wizard — wizard own stall UX).
+   */
+  stallChipBehaviour: "subtle-fade" | "none";
+}
+
+/**
+ * HF-canonical default capability map per `LearnerShellKind` (epic
+ * #2163 locked decision 8 — capabilities not customer-tunable for v1).
+ *
+ * Each entry is a complete `LearnerShellCapabilities` — no field is
+ * optional, no shell falls back to "default behaviour" implicitly.
+ * The paired vitest at
+ * `tests/lib/types/learner-shell-types.test.ts` enforces Cartesian
+ * completeness: every shell kind has every capability field defined.
+ *
+ * Source of truth for the per-shell rows: epic #2163 §"Default
+ * capability map per shell" + `ExamModeShell.tsx` for the exam-shell
+ * row.
+ */
+export const SHELL_DEFAULTS: Record<
+  LearnerShellKind,
+  LearnerShellCapabilities
+> = {
+  "chat-feed": {
+    allowModuleSwitch: true,
+    showTimer: "none",
+    showProgressBar: "fill-bar",
+    chatFeedVisibility: "full",
+    allowBackToHome: true,
+    colourTheme: "default",
+    modePillKey: "tutor",
+    dismissOnEnd: "home",
+    stallChipBehaviour: "subtle-fade",
+  },
+  exam: {
+    allowModuleSwitch: false,
+    showTimer: "hidden-internal",
+    showProgressBar: "monologue-bar",
+    chatFeedVisibility: "none",
+    allowBackToHome: false,
+    colourTheme: "dark",
+    modePillKey: "mock-exam",
+    dismissOnEnd: "results-screen",
+    stallChipBehaviour: "none",
+  },
+  "mcq-rounds": {
+    allowModuleSwitch: false,
+    showTimer: "hidden-internal",
+    showProgressBar: "mcq-counter",
+    chatFeedVisibility: "cue-card-only",
+    allowBackToHome: false,
+    colourTheme: "default",
+    modePillKey: "quiz",
+    dismissOnEnd: "home",
+    stallChipBehaviour: "none",
+  },
+  "results-readout": {
+    allowModuleSwitch: false,
+    showTimer: "none",
+    showProgressBar: "none",
+    chatFeedVisibility: "none",
+    allowBackToHome: false,
+    colourTheme: "brand",
+    modePillKey: null,
+    dismissOnEnd: "next-module",
+    stallChipBehaviour: "none",
+  },
+  "intake-wizard": {
+    allowModuleSwitch: false,
+    showTimer: "none",
+    showProgressBar: "none",
+    chatFeedVisibility: "full",
+    allowBackToHome: true,
+    colourTheme: "default",
+    modePillKey: null,
+    dismissOnEnd: "home",
+    stallChipBehaviour: "none",
+  },
+};
 
 /**
  * Human-readable label for a CallScore.segmentKey value. Course-agnostic —

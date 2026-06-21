@@ -40,28 +40,24 @@
 import { useMemo, useState } from "react";
 import { Eye, Sparkles } from "lucide-react";
 
+import { type LearnerShellKind } from "@/lib/types/json-fields";
 import type { ModuleEditorRow } from "./ModuleEditor";
 import "./preview-lens.css";
 
-// ── TODO(2206-stub): replace with `@/lib/voice/resolve-learner-shell` once
-// PR #2199 ships. Kept INTERFACE-shaped so the swap is a single import line.
+// ── PreviewLens-local capability shape (NOT the canonical one from
+// PR #2173). This stub's `LearnerShellCapabilities` describes the
+// mock-data affordances of the RHS preview (mic/text/cueCard) — what
+// the operator SEES in the preview pane — not the runtime capability
+// frame (allowModuleSwitch / showTimer / etc.) that
+// `resolveLearnerShell` returns. When PR #2202 lands the real shell
+// components, this local shape collapses; until then it's the
+// stub data this lens renders.
 //
-// The real resolver reads from cascade (system → playbook → module) and
-// returns the chosen shell kind plus its capability overrides. The stub
-// is purely structural — it picks a shellKind from `module.mode` so the
-// preview renders the right shell today without runtime data.
+// `LearnerShellKind` IS canonical and imported from `@/lib/types/json-fields`
+// above — adding a kind requires updating the real union per
+// `.claude/rules/lattice-survey.md`.
 
-/** Mirror of #2199's exported union — adding a kind here without
- *  updating the real one (when it lands) is a contract violation per
- *  `.claude/rules/lattice-survey.md`. */
-type LearnerShellKind =
-  | "chat-feed"
-  | "exam"
-  | "mcq-rounds"
-  | "results-readout"
-  | "intake-wizard";
-
-/** Mirror of #2199's capability shape. The cascade chip lists every
+/** Local preview-mode capability shape. The cascade chip lists every
  *  capability key whose value diverges from SHELL_DEFAULTS. */
 interface LearnerShellCapabilities {
   micEnabled: boolean;

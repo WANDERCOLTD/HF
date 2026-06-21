@@ -52,113 +52,18 @@
  *  named imports once #2173 lands on `main`.
  */
 
-import type { AuthoredModuleMode } from "@/lib/types/json-fields";
+import {
+  SHELL_DEFAULTS,
+  type AuthoredModuleMode,
+  type LearnerShellCapabilities,
+  type LearnerShellKind,
+} from "@/lib/types/json-fields";
 import type { SessionKindString } from "@/lib/voice/session-rules";
 
-// ────────────────────────────────────────────────────────────────────
-// TODO(#2173-rebase): replace the local stubs below with imports from
-// `@/lib/types/json-fields` once PR #2173 lands on main:
-//
-//   import {
-//     SHELL_DEFAULTS,
-//     type LearnerShellKind,
-//     type LearnerShellCapabilities,
-//   } from "@/lib/types/json-fields";
-//
-// The stubs are byte-identical to PR #2173's S1 shapes (same union
-// values, same capability field names, same defaults map). When #2173
-// merges, the LOCAL_ prefix vanishes and existing call sites need
-// nothing more than the import swap.
-// ────────────────────────────────────────────────────────────────────
-
-/**
- * **Local stub** — mirrors PR #2173's `LearnerShellKind` exactly.
- * Drop once #2173 lands; switch to the imported type.
- */
-export type LearnerShellKind =
-  | "chat-feed"
-  | "exam"
-  | "mcq-rounds"
-  | "results-readout"
-  | "intake-wizard";
-
-/**
- * **Local stub** — mirrors PR #2173's `LearnerShellCapabilities`.
- * Drop once #2173 lands; switch to the imported interface.
- */
-export interface LearnerShellCapabilities {
-  allowModuleSwitch: boolean;
-  showTimer: "visible" | "hidden-internal" | "none";
-  showProgressBar: "fill-bar" | "monologue-bar" | "mcq-counter" | "none";
-  chatFeedVisibility: "full" | "cue-card-only" | "none";
-  allowBackToHome: boolean;
-  colourTheme: "default" | "dark" | "neutral" | "brand";
-  modePillKey: string | null;
-  dismissOnEnd: "home" | "results-screen" | "next-module";
-  stallChipBehaviour: "subtle-fade" | "none";
-}
-
-/**
- * **Local stub** — mirrors PR #2173's `SHELL_DEFAULTS` row-for-row.
- * Drop once #2173 lands; switch to the imported const.
- */
-const SHELL_DEFAULTS: Record<LearnerShellKind, LearnerShellCapabilities> = {
-  "chat-feed": {
-    allowModuleSwitch: true,
-    showTimer: "none",
-    showProgressBar: "fill-bar",
-    chatFeedVisibility: "full",
-    allowBackToHome: true,
-    colourTheme: "default",
-    modePillKey: "tutor",
-    dismissOnEnd: "home",
-    stallChipBehaviour: "subtle-fade",
-  },
-  exam: {
-    allowModuleSwitch: false,
-    showTimer: "hidden-internal",
-    showProgressBar: "monologue-bar",
-    chatFeedVisibility: "none",
-    allowBackToHome: false,
-    colourTheme: "dark",
-    modePillKey: "mock-exam",
-    dismissOnEnd: "results-screen",
-    stallChipBehaviour: "none",
-  },
-  "mcq-rounds": {
-    allowModuleSwitch: false,
-    showTimer: "hidden-internal",
-    showProgressBar: "mcq-counter",
-    chatFeedVisibility: "cue-card-only",
-    allowBackToHome: false,
-    colourTheme: "default",
-    modePillKey: "quiz",
-    dismissOnEnd: "home",
-    stallChipBehaviour: "none",
-  },
-  "results-readout": {
-    allowModuleSwitch: false,
-    showTimer: "none",
-    showProgressBar: "none",
-    chatFeedVisibility: "none",
-    allowBackToHome: false,
-    colourTheme: "brand",
-    modePillKey: null,
-    dismissOnEnd: "next-module",
-    stallChipBehaviour: "none",
-  },
-  "intake-wizard": {
-    allowModuleSwitch: false,
-    showTimer: "none",
-    showProgressBar: "none",
-    chatFeedVisibility: "full",
-    allowBackToHome: true,
-    colourTheme: "default",
-    modePillKey: null,
-    dismissOnEnd: "home",
-    stallChipBehaviour: "none",
-  },
-};
+// Re-export the canonical types from json-fields.ts (PR #2173) so existing
+// consumers that import `LearnerShellKind` / `LearnerShellCapabilities`
+// from this module continue to compile without a churn-PR rename.
+export type { LearnerShellCapabilities, LearnerShellKind };
 
 // ────────────────────────────────────────────────────────────────────
 // Selection rules — declarative data table.

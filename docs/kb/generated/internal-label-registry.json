@@ -19,6 +19,16 @@
         "skill_grammatical_range_and_accuracy_gra",
         "skill_pronunciation_p"
       ]
+    },
+    "LEARNER_SHELL_KIND_NAMES": {
+      "description": "LearnerShellKind union members (epic #2163 Slice 1) — internal capability-frame identifiers consumed by `resolveLearnerShell` and shell components. The learner experiences the capability EFFECTS (timer / mode pill / colour theme / dismiss target), never the kind string. Source: lib/types/json-fields.ts::LearnerShellKind. Per epic #2163 locked decision 6: shell selection is INTERNAL — the learner never sees the shell name in their UI.",
+      "labels": [
+        "chat-feed",
+        "exam",
+        "mcq-rounds",
+        "results-readout",
+        "intake-wizard"
+      ]
     }
   }
 }
