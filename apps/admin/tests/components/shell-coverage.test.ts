@@ -17,10 +17,11 @@
  *  `resolveLearnerShell`) but no concrete UI consumer is shipped — the
  *  learner sees the default chat-feed regardless of declared shell.
  *
- *  Today's incumbent: only `ExamModeShell` ships on main.
- *  `ChatFeedShell` + `MCQRoundsShell` arrive via PR #2202 (S3 of #2163).
- *  `ResultsReadoutShell` + `IntakeWizardShell` are the remaining
- *  GAP entries.
+ *  Today's incumbent: `ExamModeShell` + `ChatFeedShell` + `MCQRoundsShell`
+ *  + `ResultsReadoutShell` ship on main. `ResultsReadoutShell` lands via
+ *  W6 of `memory/handoff_lattice_all_settings_to_ui_2026_06_21.md`
+ *  (story #2185 U11, demo-critical for IELTS Mock → Mock Results screen).
+ *  `IntakeWizardShell` is the remaining GAP entry, deferred to W7.
  *
  *  Sibling to:
  *   - `tests/lib/sim-chat/mode-ui-coverage.test.ts` — AuthoredModuleMode
@@ -144,10 +145,10 @@ const EXPECTED_EXEMPT_COUNT = 0;
  * dispatch via `resolveLearnerShell`. The remaining 2 gaps
  * (results-readout + intake-wizard) close in S4-S7 of epic #2163.
  *
- * When `ResultsReadoutShell.tsx` ships, drop to 1.
- * When `IntakeWizardShell.tsx` ships, drop to 0.
+ * When `ResultsReadoutShell.tsx` ships (W6, this PR), drop to 1.
+ * When `IntakeWizardShell.tsx` ships (W7), drop to 0.
  */
-const EXPECTED_GAP_COUNT = 2;
+const EXPECTED_GAP_COUNT = 1;
 
 // ────────────────────────────────────────────────────────────
 // Classification

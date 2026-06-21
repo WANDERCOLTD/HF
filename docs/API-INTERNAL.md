@@ -2909,6 +2909,38 @@ Get all media shared with a caller across their calls. Supports sort, order, typ
 
 ---
 
+### `GET` /api/callers/:callerId/mock-results?sessionId=…
+
+Returns the per-criterion Mock results payload for the
+
+**Auth**: session (VIEWER+ — STUDENT scoped to own caller) · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller.id |
+
+**Response** `200`
+```json
+{ok: true, result: ResultsReadoutPayload | null}
+```
+
+**Response** `400`
+```json
+{ok: false, error: string}
+```
+
+**Response** `403`
+```json
+{ok: false, error: string}
+```
+
+**Response** `500`
+```json
+{ok: false, error: string}
+```
+
+---
+
 ### `GET` /api/callers/:callerId/prompt-staleness
 
 Returns whether the active composed prompt for this caller is stale (upstream compose-affecting writes newer than the cached `ComposedPrompt.composedAt`). Powers the `<StalePromptPill />` UI.
@@ -16387,8 +16419,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 543 |
-| Files with annotations | 529 |
+| Route files found | 544 |
+| Files with annotations | 530 |
 | Files missing annotations | 14 |
 | Coverage | 97.4% |
 
