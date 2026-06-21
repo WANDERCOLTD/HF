@@ -9,18 +9,21 @@
  *
  * Fetch: one-shot `GET /api/calls/[callId]/pinned-card` when the
  * supplied `callId` becomes available (a sim `[Talk Here]` click). The
- * card never changes mid-session — no SSE / polling.
+ * card never changes mid-session — no SSE / polling, and the expand
+ * path after collapse reuses the in-memory `card` state (no refetch).
  *
  * Render variants by `kind`:
  *   - "cueCard":   topic + bullets + optional secondaryNote
  *   - "topicFocus": topic + optional focusArea (single-line)
  *
- * Dismissibility: Esc key removes the card for the rest of the session
- * (does not refetch on the next render). The learner can also call this
- * a "soft" hide by clicking the ✕ button.
+ * Collapse / restore (#2227, U8 of #2185): clicking ✕ (or pressing Esc)
+ * collapses the card to a small persistent chip in the same slot region.
+ * Clicking the chip expands the card back to full view. Esc toggles
+ * between the two states. The pre-#2227 "hard dismiss" is gone — the
+ * card can no longer become unrecoverable during a session.
  *
  * Auto-clear: when `phaseEnded` flips true (callPhase === "ended" /
- * "wrapping" at the consumer), the card stops rendering.
+ * "wrapping" at the consumer), neither the card nor the chip renders.
  */
 
 "use client";
@@ -39,11 +42,11 @@ export function PinnedCardSlot({
   phaseEnded,
 }: PinnedCardSlotProps): React.ReactElement | null {
   const [card, setCard] = useState<PinnedCardContent | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
-  // Reset dismissal when callId changes — a new call earns a fresh card.
+  // Reset collapse when callId changes — a new call earns a fresh card.
   useEffect(() => {
-    setDismissed(false);
+    setCollapsed(false);
     setCard(null);
   }, [callId]);
 
@@ -66,18 +69,37 @@ export function PinnedCardSlot({
     return () => controller.abort();
   }, [callId]);
 
-  const handleDismiss = useCallback(() => setDismissed(true), []);
+  const handleToggle = useCallback(() => setCollapsed((prev) => !prev), []);
 
   useEffect(() => {
-    if (!card || dismissed || phaseEnded) return;
+    if (!card || phaseEnded) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleDismiss();
+      if (e.key === "Escape") handleToggle();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [card, dismissed, phaseEnded, handleDismiss]);
+  }, [card, phaseEnded, handleToggle]);
 
-  if (!card || dismissed || phaseEnded) return null;
+  if (!card || phaseEnded) return null;
+
+  if (collapsed) {
+    const restoreLabel =
+      card.kind === "cueCard" ? "Show cue card" : "Show topic focus";
+    return (
+      <button
+        type="button"
+        className="hf-pinned-card-restore"
+        aria-label={restoreLabel}
+        data-testid="pinned-card-restore-chip"
+        onClick={handleToggle}
+      >
+        <span className="hf-pinned-card-restore-icon" aria-hidden="true">
+          📌
+        </span>
+        <span className="hf-pinned-card-restore-label">{card.topic}</span>
+      </button>
+    );
+  }
 
   if (card.kind === "cueCard") {
     return (
@@ -90,8 +112,8 @@ export function PinnedCardSlot({
         <button
           type="button"
           className="hf-pinned-card-dismiss"
-          aria-label="Dismiss pinned card"
-          onClick={handleDismiss}
+          aria-label="Collapse pinned card"
+          onClick={handleToggle}
         >
           ✕
         </button>
@@ -121,8 +143,8 @@ export function PinnedCardSlot({
       <button
         type="button"
         className="hf-pinned-card-dismiss"
-        aria-label="Dismiss pinned card"
-        onClick={handleDismiss}
+        aria-label="Collapse pinned card"
+        onClick={handleToggle}
       >
         ✕
       </button>
