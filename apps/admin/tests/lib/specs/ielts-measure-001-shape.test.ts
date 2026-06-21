@@ -14,6 +14,24 @@
  *    four per-parameter promptTemplates (the rule that protects the EMA
  *    from fabricated scores).
  *
+ * Post-IP-review (PR #2143):
+ *
+ * 5. (Decision 1) Pronunciation uses DUAL-CONFIDENCE scoring — the
+ *    responseShape's `scores.pronunciation` is an object carrying both
+ *    `value` and `confidence` ('low' | 'medium' | 'high').
+ * 6. (Decision 3 anti-regression) The literal phrase "third conditional"
+ *    must NOT appear anywhere in the spec — Band 7 is flexibility + accuracy
+ *    across the structural inventory per the public IELTS descriptor; no
+ *    single named structure is required.
+ * 7. (Decision 4) The duplicate `operator_rule_never_fabricate` constraint
+ *    is removed — the operator rule lives in `config.operatorRule` (canonical
+ *    declaration) + per-parameter NULL HANDLING blocks (closest to where
+ *    the LLM scores). Two places, not three.
+ * 8. (Decision 2 anti-regression) The literal substring "idiom" must NOT
+ *    appear inside any LR Band 5 / Band 5.5 anchor (interpretation-scale
+ *    entry or scoring anchor rationale). Idiom is a Band 7 expectation per
+ *    the RUB-LR descriptor.
+ *
  * Sibling tests live alongside the canonical pattern Coverage gates:
  * `tests/lib/measurement/parameter-measurement-coverage.test.ts` will
  * pick up this spec when registry usage.measurement is wired (S4).
@@ -44,6 +62,20 @@ const CANONICAL_IELTS_PARAM_IDS = [
   "skill_pronunciation_p",
 ] as const;
 
+interface ScoringAnchor {
+  score?: number;
+  example?: string;
+  rationale?: string;
+  isGold?: boolean;
+}
+
+interface InterpretationScaleEntry {
+  min?: number;
+  max?: number;
+  label?: string;
+  implication?: string;
+}
+
 interface SpecJson {
   id?: string;
   outputType?: string;
@@ -56,6 +88,8 @@ interface SpecJson {
     name?: string;
     description?: string;
     promptTemplate?: string;
+    interpretationScale?: InterpretationScaleEntry[];
+    scoringAnchors?: ScoringAnchor[];
   }>;
   constraints?: Array<{ id?: string; type?: string; severity?: string }>;
   failureConditions?: Array<{ id?: string; trigger?: string }>;
@@ -146,10 +180,13 @@ describe("IELTS-MEASURE-001 spec shape (#2136)", () => {
     expect(gra?.promptTemplate).toMatch(/TRANSCRIPT-ONLY/i);
   });
 
-  it("P parameter notes transcript-cues-only + vendor augmentation deferred", () => {
+  it("P parameter declares dual-confidence scoring + vendor augmentation deferred to S3 (Decision 1)", () => {
     const p = spec.parameters?.find((x) => x.id === "skill_pronunciation_p");
-    expect(p?.promptTemplate).toMatch(/TRANSCRIPT CUES ONLY/i);
+    expect(p?.promptTemplate).toMatch(/DUAL-CONFIDENCE/i);
+    expect(p?.promptTemplate).toMatch(/confidence/i);
     expect(p?.promptTemplate).toMatch(/#2135 S3/);
+    // The transcript-only confidence cap is the load-bearing part of the design.
+    expect(p?.promptTemplate).toMatch(/cap.*medium|≤\s*medium|medium\.\s+Never\s+['']?high/i);
   });
 
   it("declares insufficient-speech failure condition with threshold", () => {
@@ -159,28 +196,113 @@ describe("IELTS-MEASURE-001 spec shape (#2136)", () => {
     expect(fc, "missing insufficient_learner_speech failureCondition").toBeDefined();
   });
 
-  it("declares the operator-rule constraint at critical severity", () => {
+  it("(Decision 4) does NOT declare a duplicate operator_rule_never_fabricate constraint", () => {
+    // Pre-IP-review, the operator rule was pinned in 3 places (config.operatorRule,
+    // constraints[0], every per-parameter NULL HANDLING block). Decision 4 dropped
+    // the middle duplication. The rule still lives in config.operatorRule (canonical
+    // declaration) + per-parameter NULL HANDLING (closest to where LLM is scoring).
     const con = (spec.constraints ?? []).find(
       (c) => c.type === "operator_rule_never_fabricate",
     );
-    expect(con, "missing operator_rule_never_fabricate constraint").toBeDefined();
-    expect(con?.severity).toBe("critical");
+    expect(
+      con,
+      "operator_rule_never_fabricate constraint should be removed (Decision 4 — drop the 3-place redundancy to 2)",
+    ).toBeUndefined();
   });
 
-  it("declares the response shape with per-criterion nullable scores", () => {
+  it("retains the canonical operator rule in config.operatorRule (Decision 4 — the kept place)", () => {
+    // The operator rule's canonical home is config.operatorRule. After Decision 4
+    // dropped the constraints[] duplication, this stays as the SoT alongside the
+    // per-parameter NULL HANDLING blocks (the runtime LLM-visible enforcement).
+    expect(spec.config?.operatorRule).toMatch(/NEVER.*hardcoded.*AI-guessed/i);
+  });
+
+  it("(Decision 2 anti-regression) the literal substring 'idiom' does NOT appear in any LR Band 5 / Band 5.5 anchor", () => {
+    // The RUB-LR descriptor places idiom at Band 7 (the lift from 5.5 → 7). The
+    // Band 5/5.5 anchor language was previously contaminated with idiomatic content
+    // ('catchy', 'in the zone') and prose framing that demanded idiom at 5.5. Post-
+    // Decision-2 the Band 5/5.5 anchor describes successful-paraphrase emergence on
+    // literal vocabulary; idiom enters at Band 7.
+    const lr = spec.parameters?.find(
+      (p) => p.id === "skill_lexical_resource_lr",
+    );
+    expect(lr, "missing LR parameter").toBeDefined();
+
+    // interpretationScale: any entry whose label mentions Band 5 (or 5.5) must NOT
+    // mention idiom in its implication text.
+    for (const entry of lr?.interpretationScale ?? []) {
+      if (entry.label && /Band\s*5/.test(entry.label)) {
+        expect(
+          entry.implication ?? "",
+          `LR ${entry.label} interpretation must not contain 'idiom'`,
+        ).not.toMatch(/idiom/i);
+      }
+    }
+
+    // scoringAnchors: score 0.611 is the Band 5.5 slot (the band that previously
+    // over-promised idiom). Lower bands (3, 4) are allowed to mention idiom in
+    // their negative descriptors ("no idiomatic items at Band 4" is correct and
+    // useful — it sets up the contrast). The contamination this test catches is
+    // idiom showing up as a Band 5.5 expectation.
+    const band55Anchor = lr?.scoringAnchors?.find(
+      (a) => typeof a.score === "number" && a.score >= 0.5 && a.score < 0.65,
+    );
+    expect(
+      band55Anchor,
+      "LR Band 5.5 scoring anchor (score in [0.5, 0.65)) must exist",
+    ).toBeDefined();
+    expect(
+      band55Anchor?.rationale ?? "",
+      `LR Band 5.5 scoring anchor (score ${band55Anchor?.score}) must not contain 'idiom'`,
+    ).not.toMatch(/idiom/i);
+  });
+
+  it("(Decision 3 anti-regression) the literal phrase 'third conditional' does NOT appear anywhere in the spec", () => {
+    // Per the public IELTS GRA Band 7 descriptor, "a range of structures flexibly
+    // used; error-free sentences frequent; both simple and complex used effectively
+    // despite some errors" — NO specific structure (including third conditional)
+    // is required. Anchoring Band 7 to third conditional would bias the LLM toward
+    // a specific construction and miss flexible Band-7 performance on other forms.
+    const raw = readFileSync(SPEC_PATH, "utf8");
+    expect(raw, "spec must not anchor Band 7 GRA to 'third conditional'").not.toMatch(
+      /third[- ]conditional/i,
+    );
+  });
+
+  it("(Decision 1) declares the response shape with per-criterion nullable scores AND confidence on pronunciation", () => {
     const schema = spec.responseShape?.schema as
-      | { scores?: Record<string, string>; hasLearnerEvidence?: string }
+      | {
+          scores?: Record<string, unknown>;
+          hasLearnerEvidence?: string;
+        }
       | undefined;
     expect(schema?.scores).toBeDefined();
-    // Each of the four criterion slots in `scores` must permit null.
+
+    // FC / LR / GRA: nullable scalar scores (definitionally transcript-judged).
     for (const key of [
       "fluency_and_coherence",
       "lexical_resource",
       "grammatical_range_and_accuracy",
-      "pronunciation",
     ]) {
-      expect(schema?.scores?.[key]).toMatch(/null/);
+      const slot = schema?.scores?.[key];
+      expect(typeof slot, `${key} should be a string description`).toBe("string");
+      expect(slot as string).toMatch(/null/);
     }
+
+    // Pronunciation: dual-confidence object with `value` (nullable) + `confidence`.
+    const pronunciation = schema?.scores?.pronunciation as
+      | { value?: string; confidence?: string }
+      | undefined;
+    expect(
+      pronunciation,
+      "scores.pronunciation must be an object carrying value + confidence (Decision 1)",
+    ).toBeTypeOf("object");
+    expect(pronunciation?.value, "scores.pronunciation.value must permit null").toMatch(/null/);
+    expect(
+      pronunciation?.confidence,
+      "scores.pronunciation.confidence must declare the 'low' | 'medium' | 'high' enum (Decision 1)",
+    ).toMatch(/low.*medium.*high|low.*\|.*medium.*\|.*high/i);
+
     expect(schema?.hasLearnerEvidence).toBeDefined();
   });
 });
