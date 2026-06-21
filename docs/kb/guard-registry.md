@@ -82,6 +82,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`arraykey-writer-coverage`](#guard-arraykey-writer-coverage) | Bidirectional Coverage between `JOURNEY_SETTINGS` / `VOICE_SETTINGS` contracts whose `storagePath` declares `arrayKey` and writer routes accepting `arraySelector` in their body Zod schema. 14 arrayKey contracts at land time (5 fixed-selector + 9 runtime-selector for G8 module-scoped settings). Pairs with #1888 P3c — closes the drift class where a route refactor dropping `arraySelector` would silently break every per-instance write. | #1912 | **b** |
 | [`courses-template-version-coverage`](#guard-courses-template-version-coverage) | Bidirectional Coverage between production course-ref filesystem (`docs/courses/**/*.course-ref.md` + `docs/external/**/Upload Docs/*.course-ref.md`) and the `hf-template-version: "X.Y"` YAML front-matter marker. A production course-ref without the marker fails CI — the wizard parser can't disambiguate the template revision the doc was authored against. Ratchet at 0 exempt at land time; 6 production course-refs all on v5.1. | #1991 | **a** |
 | [`hf-voice/no-hardcoded-voice-id`](#guard-no-hardcoded-voice-id) | Hardcoded provider-catalogue voice-ID literals (`aura-asteria-en`, `sonic-amelia-en-female`, …) in `lib/` + `app/` runtime code; read from `config.voice.defaults.<provider>.voiceId` instead. Extensible regex registry per provider catalogue. Lands at `warn` after single offender repaired (`lib/chat/admin-tool-handlers.ts:2861`); promotion to `error` in a follow-on PR. Allow-list: `lib/voice/**`, `lib/config.ts`, `prisma/`, `scripts/`, `tests/`, `app/api/voice-providers/**`. Sibling to `lib/voice/default-provider.ts::DEFAULT_VOICE_PROVIDER_SLUG` (provider slug). | #2184 | **b** |
+| [`hf-config/no-bare-spec-identifier`](#guard-no-bare-spec-identifier) | Bare string literals passed to `ContractRegistry.getContract(...)` OR carrying versioned contract-identifier shape (`[A-Z_-]+_V\d+`) in `lib/`+`app/` runtime; use `config.specs.*`. Sibling to `no-hardcoded-spec-slug` (slug shape) — this rule catches the IDENTIFIER argument shape AND the const-map shape. Clean sweep at land — 7 sites repaired across 6 files; 7 new `config.specs.*` accessors. | #2182 | **a** |
 
 ### Guard detail
 
@@ -415,6 +416,36 @@ rationale, and 13 runtime consumers across 7 files were routed through 4 new get
 (`aggComprehension` / `aggDiscussion` / `aggCoaching` / `goalProgress`). Rule severity
 promoted dormant → `error`. **Survives hardening as scaffold (b):** it protects today's
 `config.specs.*` indirection; retire if the slug-config mechanism changes.
+
+<a id="guard-no-bare-spec-identifier"></a>
+**`hf-config/no-bare-spec-identifier`** · class **a** · born #2182 / 2026-06-21 · **status: active (error)** ·
+[rule source](../../apps/admin/eslint-rules/no-bare-spec-identifier.mjs) ·
+test → [`tests/eslint-rules/no-bare-spec-identifier.test.ts`](../../apps/admin/tests/eslint-rules/no-bare-spec-identifier.test.ts) ·
+rule file → [`.claude/rules/no-bare-spec-identifier.md`](../../.claude/rules/no-bare-spec-identifier.md)
+
+Sibling to `no-hardcoded-spec-slug` — that catches the `XXX-NNN` AnalysisSpec **slug** shape;
+this catches the **identifier argument** shape AND the **const-map** shape that drives
+DataContract / measure-sentinel lookups (`SKILL_MEASURE_V1`, `PROSODY-SCORE-V1`,
+`ENTITY_ACCESS_V1`, etc.). Contract identifiers are env-overridable config; a literal
+silently stops resolving the moment the corresponding `*_CONTRACT_ID` / `*_SPEC_ID` env
+override flips. Two visitors fire: (1) string Literal argument to
+`ContractRegistry.getContract(...)` (catches the call-site form regardless of suffix); (2)
+Property / VariableDeclarator value matching `^[A-Z][A-Z0-9_-]*[_-]V\d+$` (catches the
+const-map form — e.g. `PROSODY: "PROSODY-SCORE-V1"`). Feature-flag prefix exclusions
+(`HF_FLAG_*`, `HF_IELTS_*`, `NEXT_PUBLIC_*`) prevent false positives on env-var conventions.
+Allow-list (in the rule): `lib/config.ts` (canonical home), `lib/registry/**`,
+`prisma/seed*`, `prisma/migrations/`, `prisma/fixtures/`, `scripts/`, `eslint-rules/**`,
+`docs/**`, `docs-archive/**`, `tests/**`. **Clean sweep at land:** 7 incumbent sites
+repaired across 6 files (`lib/pipeline/aggregate-runner.ts:184`, `lib/goals/track-progress.ts:132`,
+`lib/measurement/write-call-score.ts:174` per the original audit; plus
+`lib/access-control.ts:100`, two sites in `app/api/admin/access-control/entity-access/route.ts`,
+`app/api/admin/access-matrix/route.ts:19`, `lib/curriculum/exam-readiness.ts:36`,
+`lib/prompt/compose-content-section.ts:220` surfaced by the broader lint). 7 new accessors
+added to `config.specs.*` (`skillMeasureV1`, `prosodyScoreV1`, `mockMeasureV1`, `adaptDeltaV1`,
+`entityAccessV1`, `examReadinessV1`, `curriculumProgressV1`). **Survives hardening as class
+a:** the chokepoint pattern matches `no-bare-call-create` (#1333) / `no-bare-strategy-key`
+(#1599) / `no-bare-parameter-write` (#2031); the rule defends the Lattice Configuration-over-
+Code pillar at the contract-identifier surface.
 
 ## CI check scripts — `apps/admin/scripts/`
 

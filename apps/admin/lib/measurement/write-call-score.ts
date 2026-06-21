@@ -27,6 +27,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { config } from "@/lib/config";
 
 export interface WriteCallScoreInput {
   /** The call this score grades. Required. */
@@ -170,13 +171,17 @@ export async function writeCallScore(
 export const MEASUREMENT_SENTINEL_SPEC_IDS = {
   /** PROSODY adapter (`lib/pipeline/prosody-consumer.ts`) writes against
    *  this sentinel when no IELTS/PROSODY analysis spec is linked to the
-   *  parameter. */
-  PROSODY: "PROSODY-SCORE-V1",
-  /** Mock engine path (`engine === "mock"` branch). */
-  MOCK: "MOCK-MEASURE-V1",
+   *  parameter. Sourced from `config.specs.prosodyScoreV1` (#2182) so a
+   *  PROSODY_SCORE_V1_SPEC_ID env override flows through every consumer
+   *  + the seed in one place. */
+  PROSODY: config.specs.prosodyScoreV1,
+  /** Mock engine path (`engine === "mock"` branch). Sourced from
+   *  `config.specs.mockMeasureV1` (#2182). */
+  MOCK: config.specs.mockMeasureV1,
   /** ADAPT stage delta scores (`<parameterId>-DELTA` rows derived from
    *  current - previous). These inherit the parent parameter's spec id
    *  when available; this sentinel is the fallback when no parent
-   *  attribution exists. */
-  ADAPT_DELTA: "ADAPT-DELTA-V1",
-} as const;
+   *  attribution exists. Sourced from `config.specs.adaptDeltaV1`
+   *  (#2182). */
+  ADAPT_DELTA: config.specs.adaptDeltaV1,
+};

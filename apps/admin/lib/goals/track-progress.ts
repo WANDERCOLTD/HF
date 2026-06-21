@@ -13,6 +13,7 @@ import {
 } from "@/lib/goals/append-progress-entry";
 import { PARAMS } from "@/lib/registry";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import { config } from "@/lib/config";
 import {
   getStrategy,
   loadGoalProgressSpec,
@@ -129,7 +130,7 @@ export async function getSkillTierMapping(
     }
   }
   try {
-    const contract = await ContractRegistry.getContract("SKILL_MEASURE_V1");
+    const contract = await ContractRegistry.getContract(config.specs.skillMeasureV1);
     const thresholds = (contract?.thresholds ?? null) as SkillTierMapping["thresholds"] | null;
     const tierBands = ((contract as any)?.tierBands ?? null) as SkillTierMapping["tierBands"] | null;
     if (thresholds && tierBands) return { thresholds, tierBands };

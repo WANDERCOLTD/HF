@@ -34,6 +34,7 @@ import noCustomerWriteToCanonicalInterpretation from "./eslint-rules/no-customer
 import noUntypedEnumWriteInWizard from "./eslint-rules/no-untyped-enum-write-in-wizard.mjs";
 import noHardcodedVoiceId from "./eslint-rules/no-hardcoded-voice-id.mjs";
 import noCourseSpecificMeasureQuery from "./eslint-rules/no-course-specific-measure-query.mjs";
+import noBareSpecIdentifier from "./eslint-rules/no-bare-spec-identifier.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -273,6 +274,13 @@ const eslintConfig = defineConfig([
       "hf-config": {
         rules: {
           "no-hardcoded-spec-slug": noHardcodedSpecSlug,
+          // #2182 — block bare spec-identifier literals (contract ids like
+          // SKILL_MEASURE_V1, MEASURE sentinel ids like PROSODY-SCORE-V1)
+          // outside the allow-list. Sibling to no-hardcoded-spec-slug:
+          // that catches the XXX-NNN AnalysisSpec slug shape; this catches
+          // the ContractRegistry.getContract(literal) argument shape AND
+          // the const-map shape ([A-Z_-]+_(V<n>|SPEC|ID)).
+          "no-bare-spec-identifier": noBareSpecIdentifier,
         },
       },
       // #1599 — Block bare string literals assigned to `progressStrategy`;
@@ -523,6 +531,15 @@ const eslintConfig = defineConfig([
       // `// hf-pipeline-disable-next-line no-course-specific-measure-query: <reason>`.
       // See `.claude/rules/no-course-specific-measure-query.md`.
       "hf-pipeline/no-course-specific-measure-query": "error",
+
+      // #2182 — error from day 1. Allow-list (in the rule): lib/config.ts,
+      // lib/registry/, prisma/seed*, prisma/migrations/, scripts/generate-registry,
+      // docs/, docs-archive/, eslint-rules/, tests/. The 3 incumbent offenders
+      // (`lib/pipeline/aggregate-runner.ts:184`, `lib/goals/track-progress.ts:132`,
+      // `lib/measurement/write-call-score.ts:174`) are repaired in the same PR
+      // (#2182) — clean sweep. Sibling to hf-config/no-hardcoded-spec-slug.
+      // See `.claude/rules/no-bare-spec-identifier.md`.
+      "hf-config/no-bare-spec-identifier": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-21T12:42:47.933Z",
+  "generatedAt": "2026-06-21T14:48:57.212Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1872,
-  "edgeCount": 4409,
+  "fileCount": 1873,
+  "edgeCount": 4422,
   "skippedEdges": 1,
   "edges": [
     {
@@ -22,6 +22,10 @@
     {
       "from": "app/api/admin/access-control/entity-access/route.ts",
       "to": "lib/audit.ts"
+    },
+    {
+      "from": "app/api/admin/access-control/entity-access/route.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "app/api/admin/access-control/entity-access/route.ts",
@@ -46,6 +50,10 @@
     {
       "from": "app/api/admin/access-control/sidebar-visibility/route.ts",
       "to": "lib/sidebar/sidebar-manifest.json"
+    },
+    {
+      "from": "app/api/admin/access-matrix/route.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "app/api/admin/access-matrix/route.ts",
@@ -11257,6 +11265,10 @@
     },
     {
       "from": "lib/access-control.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/access-control.ts",
       "to": "lib/contracts/registry.ts"
     },
     {
@@ -12968,6 +12980,10 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/curriculum/derive-focus-area.ts",
+      "to": "lib/curriculum/validate-ielts-completion.ts"
+    },
+    {
       "from": "lib/curriculum/diagnostic-from-mock.ts",
       "to": "lib/curriculum/compute-mastery.ts"
     },
@@ -12982,6 +12998,10 @@
     {
       "from": "lib/curriculum/display-names.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/curriculum/exam-readiness.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "lib/curriculum/exam-readiness.ts",
@@ -13749,6 +13769,10 @@
     },
     {
       "from": "lib/goals/track-progress.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/goals/track-progress.ts",
       "to": "lib/contracts/registry.ts"
     },
     {
@@ -14289,6 +14313,10 @@
     },
     {
       "from": "lib/measurement/write-call-score.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/measurement/write-call-score.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -14554,6 +14582,10 @@
     {
       "from": "lib/pipeline/adaptive-loop-invariants.ts",
       "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/pipeline/aggregate-runner.ts",
+      "to": "lib/config.ts"
     },
     {
       "from": "lib/pipeline/aggregate-runner.ts",
@@ -14865,6 +14897,10 @@
     },
     {
       "from": "lib/privacy/stamp-regulatory-expiry.ts",
+      "to": "lib/config.ts"
+    },
+    {
+      "from": "lib/prompt/compose-content-section.ts",
       "to": "lib/config.ts"
     },
     {
@@ -15357,11 +15393,11 @@
     },
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
-      "to": "lib/prompt/composition/transforms/personality.ts"
+      "to": "lib/prompt/composition/transforms/part3-focus.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
-      "to": "lib/prompt/composition/transforms/session-focus.ts"
+      "to": "lib/prompt/composition/transforms/personality.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
@@ -15494,6 +15530,22 @@
     {
       "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
       "to": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/curriculum/derive-focus-area.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/prompt/composition/types.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/pedagogy-mode.ts",
@@ -16753,7 +16805,7 @@
     },
     {
       "from": "lib/voice/select-pinned-card.ts",
-      "to": "lib/prompt/composition/transforms/session-focus.ts"
+      "to": "lib/curriculum/derive-focus-area.ts"
     },
     {
       "from": "lib/voice/select-pinned-card.ts",
@@ -17653,7 +17705,7 @@
     {
       "path": "app/api/admin/access-control/entity-access/route.ts",
       "inDegree": 0,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "app/api/admin/access-control/sidebar-visibility/route.ts",
@@ -17663,7 +17715,7 @@
     {
       "path": "app/api/admin/access-matrix/route.ts",
       "inDegree": 0,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "app/api/admin/app-config/route.ts",
@@ -22923,7 +22975,7 @@
     {
       "path": "lib/access-control.ts",
       "inDegree": 23,
-      "outDegree": 2
+      "outDegree": 3
     },
     {
       "path": "lib/actions/extract-actions.ts",
@@ -23682,7 +23734,7 @@
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 97,
+      "inDegree": 105,
       "outDegree": 0
     },
     {
@@ -23966,6 +24018,11 @@
       "outDegree": 1
     },
     {
+      "path": "lib/curriculum/derive-focus-area.ts",
+      "inDegree": 2,
+      "outDegree": 1
+    },
+    {
       "path": "lib/curriculum/diagnostic-from-mock.ts",
       "inDegree": 1,
       "outDegree": 2
@@ -23983,7 +24040,7 @@
     {
       "path": "lib/curriculum/exam-readiness.ts",
       "inDegree": 2,
-      "outDegree": 3
+      "outDegree": 4
     },
     {
       "path": "lib/curriculum/find-sibling-curricula.ts",
@@ -24087,7 +24144,7 @@
     },
     {
       "path": "lib/curriculum/validate-ielts-completion.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 1
     },
     {
@@ -24423,7 +24480,7 @@
     {
       "path": "lib/goals/track-progress.ts",
       "inDegree": 16,
-      "outDegree": 6
+      "outDegree": 7
     },
     {
       "path": "lib/graph/visual-encoding.ts",
@@ -24687,7 +24744,7 @@
     },
     {
       "path": "lib/journey/module-settings-flag.ts",
-      "inDegree": 9,
+      "inDegree": 10,
       "outDegree": 0
     },
     {
@@ -24888,7 +24945,7 @@
     {
       "path": "lib/measurement/write-call-score.ts",
       "inDegree": 3,
-      "outDegree": 1
+      "outDegree": 2
     },
     {
       "path": "lib/messaging/adapters/email-resend.ts",
@@ -25028,7 +25085,7 @@
     {
       "path": "lib/pipeline/aggregate-runner.ts",
       "inDegree": 3,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/pipeline/compute-overall-band.ts",
@@ -25213,7 +25270,7 @@
     {
       "path": "lib/prompt/compose-content-section.ts",
       "inDegree": 1,
-      "outDegree": 5
+      "outDegree": 6
     },
     {
       "path": "lib/prompt/composition/CompositionExecutor.ts",
@@ -25416,6 +25473,11 @@
       "outDegree": 4
     },
     {
+      "path": "lib/prompt/composition/transforms/part3-focus.ts",
+      "inDegree": 1,
+      "outDegree": 4
+    },
+    {
       "path": "lib/prompt/composition/transforms/pedagogy-mode.ts",
       "inDegree": 1,
       "outDegree": 4
@@ -25462,7 +25524,7 @@
     },
     {
       "path": "lib/prompt/composition/transforms/session-focus.ts",
-      "inDegree": 3,
+      "inDegree": 1,
       "outDegree": 2
     },
     {
@@ -25507,7 +25569,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 47,
+      "inDegree": 48,
       "outDegree": 1
     },
     {
@@ -25847,7 +25909,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 137,
+      "inDegree": 138,
       "outDegree": 0
     },
     {
@@ -26343,11 +26405,6 @@
     {
       "path": "prisma/seed-from-specs.ts",
       "inDegree": 5,
-      "outDegree": 0
-    },
-    {
-      "path": "scripts/2150-null-criterion-focus-attributes.ts",
-      "inDegree": 0,
       "outDegree": 0
     },
     {
@@ -27019,12 +27076,12 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 137,
+      "inDegree": 138,
       "outDegree": 0
     },
     {
       "path": "lib/config.ts",
-      "inDegree": 97,
+      "inDegree": 105,
       "outDegree": 0
     },
     {
@@ -27054,7 +27111,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 47,
+      "inDegree": 48,
       "outDegree": 1
     },
     {
