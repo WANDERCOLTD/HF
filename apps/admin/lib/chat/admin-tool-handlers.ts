@@ -8,6 +8,7 @@
 
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { config } from "@/lib/config";
 import type { UserRole } from "@prisma/client";
 import { startCurriculumGeneration } from "@/lib/jobs/curriculum-runner";
 import { runIniChecks } from "@/lib/system-ini";
@@ -2855,10 +2856,12 @@ async function handleTestVoice(input: Record<string, any>) {
     (typeof playbookVoice.voiceProvider === "string" && playbookVoice.voiceProvider) ||
     (typeof vpConfig.voiceProvider === "string" && vpConfig.voiceProvider) ||
     "deepgram";
+  // #2184 — provider-catalogue voice IDs are env-overridable config; never a
+  // bare literal. The catalogue lives in `config.voice.defaults.<provider>.*`.
   const voiceId =
     (typeof playbookVoice.voiceId === "string" && playbookVoice.voiceId) ||
     (typeof vpConfig.voiceId === "string" && vpConfig.voiceId) ||
-    "aura-asteria-en";
+    config.voice.defaults.deepgram.voiceId;
 
   const creds = (vpRow.credentials ?? {}) as Record<string, unknown>;
   const deepgramKey =

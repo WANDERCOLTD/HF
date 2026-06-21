@@ -898,6 +898,26 @@ export const config = {
     get whisperModel(): string {
       return optional("VOICE_WHISPER_MODEL", "whisper-1");
     },
+    /**
+     * Provider-catalogue voice-ID defaults (#2184).
+     *
+     * Used as the last-resort fallback when neither `Playbook.config.voice.voiceId`
+     * nor `VoiceProvider.config.voiceId` is set. Each entry is keyed by the
+     * provider's catalogue (Deepgram Aura, future Cartesia Sonic, …) so a
+     * catalogue-side rename surfaces as a config decision rather than a silent
+     * synthesis break.
+     *
+     * Companion rule: `eslint-rules/no-hardcoded-voice-id.mjs` blocks bare
+     * voice-ID literals outside `lib/voice/**` + this file. The provider regex
+     * registry inside the rule mirrors the providers covered here.
+     */
+    defaults: {
+      deepgram: {
+        get voiceId(): string {
+          return optional("VOICE_DEFAULT_DEEPGRAM_VOICE_ID", "aura-asteria-en");
+        },
+      },
+    },
   },
 
   // ---------------------------------------------------------------------------
