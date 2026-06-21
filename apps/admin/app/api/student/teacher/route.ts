@@ -12,16 +12,27 @@ export async function GET(request: NextRequest) {
   const auth = await requireStudentOrAdmin(request);
   if (isStudentAuthError(auth)) return auth.error;
 
-  // Query all cohort memberships (prefer join table, fallback to legacy FK)
+  // Query all cohort memberships (prefer join table, fallback to legacy FK).
+  // `requireStudentOrAdmin` already resolved the target caller (STUDENT → own
+  // LEARNER; OPERATOR+ → ?callerId=<id>) and populated cohortGroupIds with that
+  // caller's memberships. An empty array therefore means "this caller is not
+  // a member of any classroom" — a legitimate empty-state, not an error.
   const cohortIds = auth.cohortGroupIds.length > 0
     ? auth.cohortGroupIds
     : auth.cohortGroupId ? [auth.cohortGroupId] : [];
 
+  // No-classroom is a valid state — return ok:true with empty/null fields so
+  // the caller-detail "ai-call" tab on the admin side doesn't surface a JS
+  // error every time an operator views a caller who isn't classroom-assigned.
   if (cohortIds.length === 0) {
-    return NextResponse.json(
-      { ok: false, error: "No classroom found" },
-      { status: 404 }
-    );
+    return NextResponse.json({
+      ok: true,
+      teacher: null,
+      classroom: null,
+      classrooms: [],
+      domain: null,
+      institution: null,
+    });
   }
 
   const cohorts = await prisma.cohortGroup.findMany({
@@ -35,11 +46,17 @@ export async function GET(request: NextRequest) {
     },
   });
 
+  // Memberships referenced cohorts that no longer exist — same empty-state
+  // shape so the consumer can branch on `classroom === null`.
   if (cohorts.length === 0) {
-    return NextResponse.json(
-      { ok: false, error: "Classroom not found" },
-      { status: 404 }
-    );
+    return NextResponse.json({
+      ok: true,
+      teacher: null,
+      classroom: null,
+      classrooms: [],
+      domain: null,
+      institution: null,
+    });
   }
 
   // Primary cohort (first membership) for backwards compat
