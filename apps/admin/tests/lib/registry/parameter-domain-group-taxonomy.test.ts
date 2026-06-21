@@ -110,10 +110,13 @@ describe("#1948 — domainGroup canonical taxonomy", () => {
     ).toEqual([]);
   });
 
-  it("parameter count is 155 (registry sanity check)", () => {
+  it("parameter count is 163 (registry sanity check)", () => {
     // 2026-06-21 — #2151 added BEH-INTERNAL-LEAK (supervision) — SUPERVISE-alarm
     // signal for LEAK-SCAN-001 runtime gate. Bump 154 → 155.
-    expect(registry.parameters.length).toBe(155);
+    // 2026-06-21 — #2196 added 4 IELTS skill_* (learner-model) + 4 prosody_raw_*
+    // (voice-delivery) — closes the canonical-registry coverage gap surfaced by
+    // PR #2195 #2139. Bump 155 → 163.
+    expect(registry.parameters.length).toBe(163);
   });
 
   it("distribution matches docs/PARAMETER-TAXONOMY.md after migration", () => {
@@ -132,25 +135,49 @@ describe("#1948 — domainGroup canonical taxonomy", () => {
       "behavior-core": 6,
       reinforcement: 6,
       onboarding: 5,
-      // voice-delivery omitted — empty placeholder for #1952 / S5
+      // 2026-06-21 — #2196 unblocks two pedagogy-review placeholders that were
+      // empty at the #1948 v1.0 baseline. The 4 IELTS skill_* params measure
+      // learner-state language ability — they ARE the learner-model.
+      "learner-model": 4,
+      // 2026-06-21 — #2196. The 4 prosody_raw_* params are vendor-derived
+      // audio-feature signals (computedBy: prosody-vendor seed); their natural
+      // home is voice-delivery per the canonical 12-tuple in
+      // lib/registry/canonical-domain-group.ts.
+      "voice-delivery": 4,
     });
   });
 
-  it("`voice-delivery` is declared in canonical groups even though empty (S5 placeholder)", () => {
+  it("`voice-delivery` carries the 4 prosody_raw_* vendor signals (#2196)", () => {
     expect(CANONICAL_GROUPS).toContain("voice-delivery");
     const voiceDelivery = registry.parameters.filter(
       (p) => p.domainGroup === "voice-delivery",
     );
-    // Until #1952 / S5 ships, voice-delivery is intentionally empty.
-    expect(voiceDelivery).toEqual([]);
+    // #2196 — populated by the 4 prosody_raw_* (FC/P/LR/GRA) vendor-derived
+    // audio-feature signals; lib/pipeline/prosody-consumer.ts writes them at
+    // AGGREGATE when the prosody envelope mode is 'ielts'. Optionally
+    // consumed by IELTS-MEASURE-001 via tool-use (post-MVP).
+    expect(voiceDelivery.map((p) => p.parameterId).sort()).toEqual([
+      "prosody_raw_fc",
+      "prosody_raw_gra",
+      "prosody_raw_lr",
+      "prosody_raw_p",
+    ]);
   });
 
-  it("`learner-model` is declared per pedagogy review (placeholder, empty at v1.0)", () => {
+  it("`learner-model` carries the 4 IELTS skill_* per-criterion scores (#2196)", () => {
     expect(CANONICAL_GROUPS).toContain("learner-model");
     const learnerModel = registry.parameters.filter(
       (p) => p.domainGroup === "learner-model",
     );
-    expect(learnerModel).toEqual([]);
+    // #2196 — populated by the 4 IELTS skill_* (FC/LR/GRA/P) LLM-judged
+    // per-criterion band scores measured by IELTS-MEASURE-001 from transcript.
+    // SKILL-AGG-001 closes the M2 loop via sourceParameterPattern: "skill_*".
+    expect(learnerModel.map((p) => p.parameterId).sort()).toEqual([
+      "skill_fluency_and_coherence_fc",
+      "skill_grammatical_range_and_accuracy_gra",
+      "skill_lexical_resource_lr",
+      "skill_pronunciation_p",
+    ]);
   });
 
   it("`affect-motivation` is declared per pedagogy review (placeholder, empty at v1.0)", () => {
