@@ -184,3 +184,41 @@
   gap: 6px;
   color: var(--text-muted);
 }
+
+/* ── Mode-aware HOW-card variants (#2205) ────────────────────────── */
+/* The variant wrapper stacks the summary line + the mode-specific
+ * informational note (if any) above the JourneyField stack. The
+ * variant-flavour accent is set per-variant so the operator can tell
+ * at a glance which mode they're tuning. Tokens only. */
+.hf-how-card-variant {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-how-card-variant-summary {
+  margin: 0;
+}
+
+.hf-how-card-variant-note {
+  margin: 0;
+}
+
+/* Subtle per-variant tint on the summary text so the variant identity
+ * survives even when the informational banner is hidden. Picked from
+ * the canonical token set — accent-primary for tutor/mixed (default
+ * conversational), status-warning-text for examiner/mock-exam
+ * (assessment energy), accent-secondary for quiz. */
+.hf-how-card-variant-tutor .hf-how-card-variant-summary,
+.hf-how-card-variant-mixed .hf-how-card-variant-summary {
+  color: var(--text-primary);
+}
+
+.hf-how-card-variant-examiner .hf-how-card-variant-summary,
+.hf-how-card-variant-mock-exam .hf-how-card-variant-summary {
+  color: var(--text-primary);
+}
+
+.hf-how-card-variant-quiz .hf-how-card-variant-summary {
+  color: var(--text-primary);
+}
