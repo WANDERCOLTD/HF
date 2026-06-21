@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-21T15:09:48.989Z",
+  "generatedAt": "2026-06-21T12:43:45.850Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
   "fileCount": 1873,
-  "edgeCount": 4410,
+  "edgeCount": 4414,
   "skippedEdges": 1,
   "edges": [
     {
@@ -1670,6 +1670,10 @@
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
       "to": "lib/goals/track-progress.ts"
+    },
+    {
+      "from": "app/api/calls/[callId]/pipeline/route.ts",
+      "to": "lib/journey/module-settings-flag.ts"
     },
     {
       "from": "app/api/calls/[callId]/pipeline/route.ts",
@@ -12964,6 +12968,10 @@
       "to": "lib/types/json-fields.ts"
     },
     {
+      "from": "lib/curriculum/derive-focus-area.ts",
+      "to": "lib/curriculum/validate-ielts-completion.ts"
+    },
+    {
       "from": "lib/curriculum/diagnostic-from-mock.ts",
       "to": "lib/curriculum/compute-mastery.ts"
     },
@@ -14736,14 +14744,6 @@
       "to": "lib/prompt/composition/transforms/session-focus.ts"
     },
     {
-      "from": "lib/pipeline/runners/supervise/leak-scan.ts",
-      "to": "lib/logger.ts"
-    },
-    {
-      "from": "lib/pipeline/runners/supervise/leak-scan.ts",
-      "to": "lib/measurement/write-call-score.ts"
-    },
-    {
       "from": "lib/pipeline/scheduler-decision.ts",
       "to": "lib/prisma.ts"
     },
@@ -15361,11 +15361,11 @@
     },
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
-      "to": "lib/prompt/composition/transforms/personality.ts"
+      "to": "lib/prompt/composition/transforms/part3-focus.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
-      "to": "lib/prompt/composition/transforms/session-focus.ts"
+      "to": "lib/prompt/composition/transforms/personality.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/instructions.ts",
@@ -15498,6 +15498,22 @@
     {
       "from": "lib/prompt/composition/transforms/parametersAsDirectives.ts",
       "to": "lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/curriculum/derive-focus-area.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/journey/module-settings-flag.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/prompt/composition/types.ts"
+    },
+    {
+      "from": "lib/prompt/composition/transforms/part3-focus.ts",
+      "to": "lib/types/json-fields.ts"
     },
     {
       "from": "lib/prompt/composition/transforms/pedagogy-mode.ts",
@@ -16757,7 +16773,7 @@
     },
     {
       "from": "lib/voice/select-pinned-card.ts",
-      "to": "lib/prompt/composition/transforms/session-focus.ts"
+      "to": "lib/curriculum/derive-focus-area.ts"
     },
     {
       "from": "lib/voice/select-pinned-card.ts",
@@ -18217,7 +18233,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 59
+      "outDegree": 60
     },
     {
       "path": "app/api/calls/[callId]/post-call-redirect/route.ts",
@@ -23970,6 +23986,11 @@
       "outDegree": 1
     },
     {
+      "path": "lib/curriculum/derive-focus-area.ts",
+      "inDegree": 2,
+      "outDegree": 1
+    },
+    {
       "path": "lib/curriculum/diagnostic-from-mock.ts",
       "inDegree": 1,
       "outDegree": 2
@@ -24091,7 +24112,7 @@
     },
     {
       "path": "lib/curriculum/validate-ielts-completion.ts",
-      "inDegree": 1,
+      "inDegree": 2,
       "outDegree": 1
     },
     {
@@ -24691,7 +24712,7 @@
     },
     {
       "path": "lib/journey/module-settings-flag.ts",
-      "inDegree": 8,
+      "inDegree": 10,
       "outDegree": 0
     },
     {
@@ -24861,7 +24882,7 @@
     },
     {
       "path": "lib/logger.ts",
-      "inDegree": 40,
+      "inDegree": 39,
       "outDegree": 3
     },
     {
@@ -24891,7 +24912,7 @@
     },
     {
       "path": "lib/measurement/write-call-score.ts",
-      "inDegree": 4,
+      "inDegree": 3,
       "outDegree": 1
     },
     {
@@ -25127,11 +25148,6 @@
     {
       "path": "lib/pipeline/runners/session-focus-policy.ts",
       "inDegree": 1,
-      "outDegree": 2
-    },
-    {
-      "path": "lib/pipeline/runners/supervise/leak-scan.ts",
-      "inDegree": 0,
       "outDegree": 2
     },
     {
@@ -25425,6 +25441,11 @@
       "outDegree": 4
     },
     {
+      "path": "lib/prompt/composition/transforms/part3-focus.ts",
+      "inDegree": 1,
+      "outDegree": 4
+    },
+    {
       "path": "lib/prompt/composition/transforms/pedagogy-mode.ts",
       "inDegree": 1,
       "outDegree": 4
@@ -25471,7 +25492,7 @@
     },
     {
       "path": "lib/prompt/composition/transforms/session-focus.ts",
-      "inDegree": 3,
+      "inDegree": 1,
       "outDegree": 2
     },
     {
@@ -25516,7 +25537,7 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 47,
+      "inDegree": 48,
       "outDegree": 1
     },
     {
@@ -25856,7 +25877,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 137,
+      "inDegree": 138,
       "outDegree": 0
     },
     {
@@ -26352,11 +26373,6 @@
     {
       "path": "prisma/seed-from-specs.ts",
       "inDegree": 5,
-      "outDegree": 0
-    },
-    {
-      "path": "scripts/2150-null-criterion-focus-attributes.ts",
-      "inDegree": 0,
       "outDegree": 0
     },
     {
@@ -27028,7 +27044,7 @@
     },
     {
       "path": "lib/types/json-fields.ts",
-      "inDegree": 137,
+      "inDegree": 138,
       "outDegree": 0
     },
     {
@@ -27044,7 +27060,7 @@
     {
       "path": "app/api/calls/[callId]/pipeline/route.ts",
       "inDegree": 0,
-      "outDegree": 59
+      "outDegree": 60
     },
     {
       "path": "lib/learner-scope.ts",
@@ -27063,18 +27079,18 @@
     },
     {
       "path": "lib/prompt/composition/types.ts",
-      "inDegree": 47,
+      "inDegree": 48,
       "outDegree": 1
-    },
-    {
-      "path": "lib/logger.ts",
-      "inDegree": 40,
-      "outDegree": 3
     },
     {
       "path": "lib/prompt/composition/CompositionExecutor.ts",
       "inDegree": 1,
       "outDegree": 42
+    },
+    {
+      "path": "lib/logger.ts",
+      "inDegree": 39,
+      "outDegree": 3
     },
     {
       "path": "lib/metering/instrumented-ai.ts",

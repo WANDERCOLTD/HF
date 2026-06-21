@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-06-21T15:09:51.141Z",
+  "generatedAt": "2026-06-21T12:43:48.108Z",
   "generator": "scripts/capture/parameter-inventory.ts",
-  "parameterCount": 155,
-  "active": 140,
+  "parameterCount": 154,
+  "active": 139,
   "deprecated": 15,
   "gaps": 21,
   "entries": [
@@ -598,20 +598,6 @@
       "aliases": [],
       "consumerFiles": [
         "lib/prompt/composition/transforms/curriculum-adaptation.ts"
-      ],
-      "classification": "covered"
-    },
-    {
-      "parameterId": "BEH-INTERNAL-LEAK",
-      "name": "Internal-Label Leak Count",
-      "domainGroup": "supervision",
-      "deprecatedAt": null,
-      "hasInterpretationHigh": true,
-      "hasInterpretationLow": true,
-      "skipInterpretationLengthCheck": true,
-      "aliases": [],
-      "consumerFiles": [
-        "lib/pipeline/runners/supervise/leak-scan.ts"
       ],
       "classification": "covered"
     },
