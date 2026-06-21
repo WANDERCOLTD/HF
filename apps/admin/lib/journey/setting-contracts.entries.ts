@@ -2218,15 +2218,19 @@ const G8_MODULE_PROFILE_FIELDS_TO_CAPTURE: JourneySettingContract = {
   appliesTo: ["structured", "exam"],
 };
 
-// #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — Part-3 focus area pin.
-// Default ON for Part-3-shape modules. When true (the default), the
-// compose-time `resolveModuleFocusArea` reader emits a
-// `Focus on <Label>` directive AND the session-start
-// `select-pinned-card.ts` writer stamps a `kind: "topicFocus"` pinned
-// card. When false the operator has opted out — neither side fires.
+// #1955 / epic #2145 S4 — Part-3 focus area pin.
+// Default ON for Part-3-shape modules. When true (the default) AND the
+// session-focus-policy runner (`IELTS-P3-FOCUS-001` today) has written a
+// `CallerAttribute(key=session_focus:next_{moduleSlug})` row, the
+// compose-time `resolveSessionFocus` reader emits the `[SESSION FOCUS]`
+// directive AND the session-start `selectTopicFocusCard` writer stamps
+// a `kind: "topicFocus"` pinned card with the runner's projected
+// learner-safe label. When false the operator has opted out — neither
+// side fires.
 //
-// Consumer transform: `lib/prompt/composition/transforms/part3-focus.ts`
+// Consumer transform: `lib/prompt/composition/transforms/session-focus.ts`
 // Consumer writer:    `lib/voice/select-pinned-card.ts` (topicFocus path)
+// Upstream producer:  `lib/pipeline/runners/session-focus-policy.ts`
 const G8_MODULE_PIN_FOCUS_AREA: JourneySettingContract = {
   id: "modulePinFocusArea",
   menuGroupKey: "E_learner_visual",

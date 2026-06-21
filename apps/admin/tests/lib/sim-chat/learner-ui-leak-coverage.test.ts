@@ -86,7 +86,7 @@ interface InternalLabelSet {
 const INTERNAL_LABEL_REGISTRY: Record<string, InternalLabelSet> = {
   IELTS_CRITERIA: {
     description:
-      "IELTS scoring criteria — internal scoring axes. The learner sees the technique focus label (Part 3) or the overall band (Mock Results), never these criterion names directly during normal session UI. Source: lib/curriculum/derive-focus-area.ts::IELTS_SKILL_LABELS.",
+      "IELTS scoring criteria — internal scoring axes. The learner sees the technique focus label (Part 3 — see Part3TechniqueFocus union + IELTS-P3-FOCUS-001 spec, epic #2145 S4) or the overall band (Mock Results, BDD US-Mock-05), never these criterion names directly during normal session UI. The bespoke `derive-focus-area.ts::IELTS_SKILL_LABELS` source that previously leaked these into the Part-3 pin was retired by epic #2145 S4 (#2150).",
     labels: [
       "Fluency and Coherence",
       "Lexical Resource",

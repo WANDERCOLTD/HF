@@ -171,12 +171,16 @@ export async function createSession(
   //
   // #2056 — runtime gates (callCountPolicy + maxCallsPerDay) also live on
   // the Playbook config. Load the row once, reuse for both.
-  // #1955 — Part-3-shape modules also need CallerTarget rows so
-  // `selectTopicFocusCard` can pick the lowest-scoring IELTS criterion.
+  // #1955 / #2145 S4 — Part-3-shape modules also need the
+  // `session_focus:next_{moduleSlug}` CallerAttribute row (written by the
+  // session-focus-policy AnalysisSpec runner at the end of the prior
+  // call's ADAPT stage) so `selectTopicFocusCard` can project it onto a
+  // `kind: "topicFocus"` pin. Honest empty state: when no row exists,
+  // the selector returns null and no focus pin shows.
   let playbookConfig: PlaybookConfig | null = null;
-  let pinnedCardCallerTargets: Array<{
-    parameterId: string;
-    currentScore: number | null;
+  let pinnedCardCallerAttributes: Array<{
+    key: string;
+    stringValue: string | null;
   }> = [];
   if (playbookId) {
     const playbook = await prisma.playbook.findUnique({
@@ -185,9 +189,12 @@ export async function createSession(
     });
     playbookConfig = (playbook?.config ?? null) as PlaybookConfig | null;
     if (isIeltsModuleSettingsEnabled() && resolvedRequestedSlug) {
-      pinnedCardCallerTargets = await prisma.callerTarget.findMany({
-        where: { callerId: args.callerId },
-        select: { parameterId: true, currentScore: true },
+      pinnedCardCallerAttributes = await prisma.callerAttribute.findMany({
+        where: {
+          callerId: args.callerId,
+          key: { startsWith: "session_focus:next_" },
+        },
+        select: { key: true, stringValue: true },
       });
     }
   }
@@ -342,7 +349,7 @@ export async function createSession(
         pinnedCard = selectTopicFocusCard({
           config: pinnedCardConfig,
           moduleSlug: resolvedRequestedSlug,
-          callerTargets: pinnedCardCallerTargets,
+          callerAttributes: pinnedCardCallerAttributes,
         });
       } else if (pinnedCard.kind === "cueCard") {
         // Defensive log — a cueCard win means the Part 2 selector matched.

@@ -22,7 +22,7 @@ import type { AssembledContext, GoalData, SubjectSourcesData } from "../types";
 import type { AuthoredModule, PlaybookConfig, SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
-import { resolveModuleFocusArea } from "./part3-focus";
+import { resolveSessionFocus } from "./session-focus";
 import {
   resolveScoringConfig,
   buildAssessmentReadinessDirective,
@@ -503,20 +503,23 @@ registerTransform("computeInstructions", (
       sharedState,
     ),
 
-    // #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — Part-3-only focus
-    // directive. Reads `Playbook.config.modules[].settings.pinFocusArea`
-    // (G8 toggle, default ON for Part-3-shape modules) + the learner's
-    // CallerTarget rows for the 4 IELTS skill parameters. Picks the
-    // criterion with the lowest `currentScore` and emits a
-    // `Focus on <Label> this session` directive. Returns null and
-    // renders nothing when no scoring history exists yet — graceful
-    // first-call behaviour.
+    // #2145 Phase A + S4 — Generic SessionFocus 4th-layer substrate.
+    // Reads the `CallerAttribute(key="session_focus:next_{moduleSlug}")`
+    // row written by the `session-focus-policy` AnalysisSpec runner
+    // (`lib/pipeline/runners/session-focus-policy.ts`) at the end of the
+    // prior call's ADAPT stage. The stored value is the LEARNER-FACING
+    // label (e.g. "structuring an argument" for IELTS Part 3 — never
+    // the criterion name).
     //
-    // Sibling writer: `lib/voice/select-pinned-card.ts` writes the
-    // matching `Session.metadata.pinnedCard = {kind: "topicFocus", ...}`
-    // so the on-screen banner agrees byte-for-byte with the directive
-    // the model sees.
-    module_focus_area: resolveModuleFocusArea(
+    // Course-agnostic. Each course's selection policy lives in its own
+    // `outputType: CALLER_ATTRIBUTE_NEXT` spec.json (e.g. IELTS-P3-FOCUS-001
+    // for IELTS Part 3 sessions). Replaces the criterion-leaking
+    // `module_focus_area` path retired by epic #2145 S4.
+    //
+    // Honest empty-state: returns null when no CallerAttribute row
+    // exists (first-ever session, fresh course, scoring runner hasn't
+    // fired yet). NO hardcoded fallback.
+    session_focus: resolveSessionFocus(
       (loadedData.playbooks?.[0]?.config ?? {}) as PlaybookConfig,
       context,
     ),

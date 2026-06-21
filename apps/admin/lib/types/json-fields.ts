@@ -1359,15 +1359,21 @@ export interface AuthoredModuleSettings {
    */
   profileFieldsToCapture?: ProfileFieldToCapture[];
   /**
-   * #1955 (Boaz/Eldar pre-voice Unit 4.1 / 4.2) — G8 toggle gating the
-   * Part-3 focus-area pin. When true (default ON for Part-3-shaped
-   * modules), the composer emits the `Focus on <Label>` directive AND
-   * `select-pinned-card.ts` writes `Session.metadata.pinnedCard =
-   * {kind: "topicFocus", ...}` so the learner sees a banner naming the
-   * skill they're working on. When false, neither side fires.
+   * #1955 / epic #2145 S4 — G8 toggle gating the Part-3 focus-area pin.
+   * When true (default ON for Part-3-shaped modules) and the
+   * session-focus-policy runner (IELTS-P3-FOCUS-001) has written a
+   * `CallerAttribute(key=session_focus:next_{moduleSlug})` row for the
+   * learner, the composer emits a `[SESSION FOCUS]` directive AND
+   * `select-pinned-card.ts::selectTopicFocusCard` writes
+   * `Session.metadata.pinnedCard = {kind: "topicFocus", focusArea}` so
+   * the learner sees a banner naming the technique they're working on.
+   * When false, neither side fires.
    *
    * Has no effect on non-Part-3 modules — the consumer transform
-   * (`part3-focus.ts`) also gates on `isPart3ShapedModule(lockedModule)`.
+   * (`transforms/session-focus.ts`) is course-agnostic but only fires
+   * when a row for the locked module exists, and the
+   * `IELTS-P3-FOCUS-001.spec.json` writer's `moduleScope.slugPattern`
+   * restricts that to Part-3-shaped modules.
    */
   pinFocusArea?: boolean;
   /**
