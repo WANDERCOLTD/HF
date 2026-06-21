@@ -63,6 +63,14 @@ interface JourneyInspectorPanelProps {
    *  visible feedback (instead of the React-skips-effect-on-unchanged
    *  value behaviour). */
   interactionTick?: number;
+  /** #2243 — when true, drop `scope: "module"` contracts from the
+   *  rendered bucket. The Teaching tab passes this because it has no
+   *  `arraySelector` context — without a selected module the array-
+   *  keyed read path resolves to null and the array editor renders
+   *  "No entries yet" against the operator's eyes. Per-module authoring
+   *  is the Modules tab's job; Teaching is a tuner per the
+   *  `project_modules_tab_tuner_not_authoring` memory. */
+  excludeModuleScope?: boolean;
 }
 
 function SettingsStack({
@@ -250,6 +258,7 @@ export function JourneyInspectorPanel({
   focusedSettingId,
   onRowFocus,
   interactionTick,
+  excludeModuleScope,
 }: JourneyInspectorPanelProps) {
   // Slice 6 grey-out epic — LH bucket click glow. When bucketId changes,
   // accent-pulse the whole Inspector area for ~900ms so the operator
@@ -320,7 +329,34 @@ export function JourneyInspectorPanel({
   }
 
   const { course, module: moduleScope } = splitBucketByScope(selectedBucketId);
-  const hasMixedScope = course.length > 0 && moduleScope.length > 0;
+  // #2243 — when `excludeModuleScope` is true (Teaching tab), drop the
+  // module subgroup entirely. Module-scoped contracts use array-keyed
+  // storagePaths that need a `selectedModuleId` arraySelector; Teaching
+  // tab can't supply one, so the read path resolves to null and the
+  // array-editor primitive renders "No entries yet" (the observed bug).
+  // Per-module authoring lives in the Modules tab; Teaching is a tuner.
+  const visibleAll = excludeModuleScope ? course : all;
+  const hasMixedScope =
+    !excludeModuleScope && course.length > 0 && moduleScope.length > 0;
+
+  // The visible course-only subset may now be empty even when the bucket
+  // has settings — surface the same empty state we use for empty buckets
+  // so the operator sees the bucket label and a hint instead of a blank
+  // pane.
+  if (visibleAll.length === 0) {
+    return (
+      <div
+        className="hf-journey-inspector-empty"
+        data-testid={`hf-journey-inspector-module-only-${selectedBucketId}`}
+      >
+        <div className="hf-section-title">{bucket.label}</div>
+        <p>
+          Per-module settings for this bucket are edited in the Modules tab.
+          Select a module there to edit its settings.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -359,7 +395,7 @@ export function JourneyInspectorPanel({
         </>
       ) : (
         <SettingsStack
-          settings={all}
+          settings={visibleAll}
           focusedSettingId={focusedSettingId}
           onRowFocus={onRowFocus}
         />

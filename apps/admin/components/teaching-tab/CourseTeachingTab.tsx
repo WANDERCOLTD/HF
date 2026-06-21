@@ -150,7 +150,16 @@ export function CourseTeachingTab({
               onJump={jumpToOwningTab}
             />
           ) : (
-            <JourneyInspectorPanel selectedBucketId={selectedId} />
+            /* #2243 — Teaching tab is a tuning surface, not a per-module
+             * authoring surface (per project_modules_tab_tuner_not_authoring
+             * memory). Module-scoped contracts use array-keyed storagePaths
+             * that need a `selectedModuleId` arraySelector; Teaching tab
+             * can't supply one. Drop the module-scope subset; operators
+             * edit per-module settings in the Modules tab. */
+            <JourneyInspectorPanel
+              selectedBucketId={selectedId}
+              excludeModuleScope
+            />
           )
         }
       />
