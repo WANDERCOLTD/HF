@@ -68,11 +68,13 @@ function extractRuleFieldSet(): Set<string> {
 }
 
 /**
- * 2026-06-18 — the canonical set has 3 fields. If you add a 4th, bump
- * this sentinel + update both the constant AND the rule's hardcoded
- * mirror in the same PR.
+ * 2026-06-21 — the canonical set has 7 fields after the #2174 S5
+ * defensive extension added `tiers`, `tierScheme`, `defaultTarget`,
+ * `config` (originals: `definition`, `interpretationHigh`,
+ * `interpretationLow`). If you add an 8th, bump this sentinel + update
+ * both the constant AND the rule's hardcoded mirror in the same PR.
  */
-const EXPECTED_FIELD_COUNT = 3;
+const EXPECTED_FIELD_COUNT = 7;
 
 describe("Spec-readonly fields ↔ ESLint rule coverage (#1984 S2)", () => {
   const canonical = new Set<string>(PARAMETER_SPEC_READONLY_FIELDS);
