@@ -1,18 +1,40 @@
 /**
- * AGGREGATE consumer of VOICE_PROSODY_V1 envelopes (#1119).
+ * AGGREGATE consumer of VOICE_PROSODY_V1 envelopes (#1119, refactored #2138).
  *
  * Reads `Call.voiceProsody` (populated upstream by `prosody-runner.ts`)
  * and writes downstream rows:
  *
- *   mode === "ielts"        → 4 CallScore rows on the IELTS skill
- *                             parameters (normalised 0–9 → 0–1 for the
- *                             existing SKILL-AGG-001 EMA pipeline)
- *   mode === "general"      → CallScore deltas on `CONV_PACE` and
- *                             `pace_indicators` (the two confirmed
- *                             general-mode parameters). `confidenceProxy`
- *                             stays on the envelope but has no consumer
- *                             in this story.
+ *   mode === "ielts"        → up to 4 CallScore rows on `prosody_raw_*`
+ *                             parameters (audio-feature signal, distinct
+ *                             from the LLM-judged IELTS skill IDs owned
+ *                             by IELTS-MEASURE-001 via SCORE_AGENT).
+ *                             Normalised 0–9 → 0–1.
+ *   mode === "general"      → CallScore deltas on `prosody_pace_wpm` and
+ *                             `prosody_hesitation_rate` (the two
+ *                             confirmed general-mode parameters).
+ *                             `confidenceProxy` stays on the envelope
+ *                             but has no parameter consumer.
  *   mode === "unavailable"  → skip silently (no rows written)
+ *
+ * #2138 (epic #2135 S3) — IELTS-mode writer refactor:
+ *
+ *   Pre-#2138, the IELTS-mode writer targeted the 4 IELTS skill parameter
+ *   IDs (`skill_*`) directly. That was structurally wrong because (a) the
+ *   vendor cannot reliably score LR or GRA from audio features alone —
+ *   those need LLM judgment of transcript text content; and (b) the
+ *   bespoke prosody writer bypassed the canonical MEASURE-spec path.
+ *
+ *   #2155 (S2) introduced IELTS-MEASURE-001 — an LLM transcript-judgment
+ *   spec running via the canonical SCORE_AGENT path. It now writes the 4
+ *   IELTS skill CallScore rows. S2 flag-gated the prosody-consumer's
+ *   IELTS-skill writes to avoid a dual-writer race during transition.
+ *
+ *   S3 (this refactor) closes the transition by giving prosody its own
+ *   `prosody_raw_*` parameter IDs. The two writers now target disjoint
+ *   parameterId namespaces — no collision possible regardless of flag
+ *   state. The IELTS-MEASURE-001 spec MAY optionally consume the
+ *   prosody-raw rows via tool-use (post-MVP) to augment FC + P
+ *   confidence. LR + GRA stay LLM-only forever.
  *
  * Idempotent — uses `upsert` on the CallScore `(callId, parameterId,
  * moduleId)` unique index. A repeat call with the same envelope produces
@@ -30,7 +52,6 @@ import {
   writeCallScore,
   MEASUREMENT_SENTINEL_SPEC_IDS,
 } from "@/lib/measurement/write-call-score";
-import { ieltsLlmMeasureV1Enabled } from "@/lib/journey/module-settings-flag";
 
 import type {
   GeneralSignals,
@@ -39,15 +60,50 @@ import type {
   VoiceProsodyFeatures,
 } from "./prosody-types";
 
-/** Parameter IDs targeted by the IELTS mode write. These map onto the
- *  existing SKILL_MEASURE_V1 contract parameters that already flow into
- *  the SKILL-AGG-001 EMA pipeline. */
-const IELTS_PARAM_IDS = {
-  fluencyCoherence: "skill_fluency_and_coherence_fc",
-  pronunciation: "skill_pronunciation_p",
-  lexicalResource: "skill_lexical_resource_lr",
-  grammaticalRange: "skill_grammatical_range_and_accuracy_gra",
+/**
+ * #2138 (epic #2135 S3) — IELTS-mode prosody-raw parameter IDs.
+ *
+ * These are the SEPARATE namespace from the 4 IELTS skill parameter IDs
+ * (`skill_fluency_and_coherence_fc`, `skill_pronunciation_p`,
+ * `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`)
+ * which are owned by the IELTS-MEASURE-001 LLM spec via the canonical
+ * SCORE_AGENT path (#2155).
+ *
+ * Confidence per row:
+ *   - FC + P → 0.9 (audio fluency + phoneme features are vendor's strength)
+ *   - LR + GRA → 0.7 (vendor cannot reliably score vocab/grammar from
+ *                     audio — included for completeness; LR+GRA stay
+ *                     LLM-only forever)
+ *
+ * Optionally consumed by IELTS-MEASURE-001 via tool-use (post-MVP) to
+ * augment FC + P LLM judgment when vendor signal is present. LR + GRA
+ * remain LLM-only regardless.
+ */
+const PROSODY_RAW_PARAM_IDS = {
+  fluencyCoherence: "prosody_raw_fc",
+  pronunciation: "prosody_raw_p",
+  lexicalResource: "prosody_raw_lr",
+  grammaticalRange: "prosody_raw_gra",
 } as const;
+
+/**
+ * #2138 — Per-criterion confidence for the prosody-raw IELTS rows.
+ *
+ * FC + P are reasonably observable from vendor audio features. LR + GRA
+ * are audio-feature approximations of text-content phenomena — the
+ * vendor cannot score them reliably. The lower confidence flags this to
+ * any future tool-use consumer (e.g. IELTS-MEASURE-001 reading these
+ * rows to augment its LLM judgment).
+ */
+const PROSODY_RAW_CONFIDENCE: Record<
+  keyof typeof PROSODY_RAW_PARAM_IDS,
+  number
+> = {
+  fluencyCoherence: 0.9,
+  pronunciation: 0.9,
+  lexicalResource: 0.7,
+  grammaticalRange: 0.7,
+};
 
 /** Parameter IDs targeted by the general-mode write.
  *
@@ -118,7 +174,7 @@ export async function applyProsodyContractToAggregate(
     // row shape that AGGREGATE EMA + Snapshot read. Skip when top-level
     // is "unavailable" (every phase failed).
     if (envelope.mode === "ielts" && envelope.ieltsScores) {
-      written += await writeIeltsCallScores(
+      written += await writeProsodyRawCallScores(
         callId,
         callerId,
         envelope.ieltsScores,
@@ -134,7 +190,7 @@ export async function applyProsodyContractToAggregate(
   }
 
   if (envelope.mode === "ielts" && envelope.ieltsScores) {
-    const written = await writeIeltsCallScores(
+    const written = await writeProsodyRawCallScores(
       callId,
       callerId,
       envelope.ieltsScores,
@@ -171,34 +227,67 @@ async function writePhaseEnvelope(
 ): Promise<number> {
   if (phase.mode === "unavailable") return 0;
   if (phase.mode === "ielts") {
-    return writeIeltsCallScores(callId, callerId, phase.ieltsScores, phaseKey);
+    return writeProsodyRawCallScores(callId, callerId, phase.ieltsScores, phaseKey);
   }
   return writeGeneralCallScores(callId, callerId, phase.generalSignals, phaseKey);
 }
 
-async function writeIeltsCallScores(
+/**
+ * #2138 (epic #2135 S3) — Write vendor-derived IELTS audio-feature signal
+ * to the `prosody_raw_*` parameter slots.
+ *
+ * This used to target the 4 IELTS skill parameter IDs (`skill_*`) directly,
+ * but those are now owned by the IELTS-MEASURE-001 LLM spec via the
+ * canonical SCORE_AGENT path (#2155). Prosody writes its OWN namespace
+ * (`prosody_raw_fc` / `_p` / `_lr` / `_gra`) so the two writers never
+ * collide — no flag gating is needed because the parameterId namespaces
+ * are disjoint.
+ *
+ * Per criterion: FC + P land at confidence 0.9 (vendor's strong suit —
+ * audio fluency + phoneme features). LR + GRA land at confidence 0.7 —
+ * vendor cannot reliably score vocab / grammar from audio features, but
+ * the row is still recorded for forensics + completeness. The LLM is the
+ * authoritative scorer for LR + GRA via IELTS-MEASURE-001.
+ *
+ * Per OPERATOR RULE (epic #2135): null / non-finite bands → no write
+ * out. Never hardcode a score default to fill an empty row.
+ */
+async function writeProsodyRawCallScores(
   callId: string,
   callerId: string | null,
   ielts: IeltsScores,
   segmentKey?: string,
 ): Promise<number> {
-  // #2137 (epic #2135 S2) — when the LLM MEASURE path is on, the
-  // IELTS-MEASURE-001 spec owns the 4 IELTS skill CallScore rows.
-  // Prosody-consumer MUST skip the IELTS-skill write to avoid the
-  // dual-writer race documented in epic #2135 ("LLM spec writes first
-  // via canonical chokepoint; prosody-consumer ONLY writes if the LLM
-  // spec produced a row OR via different parameterIds"). The prosody-
-  // raw augmentation path (#2138 / S3) introduces separate parameter
-  // ids (`prosody_raw_*`) that the LLM spec reads via tool-use.
-  if (ieltsLlmMeasureV1Enabled()) {
-    return 0;
-  }
-
-  const rows: Array<{ parameterId: string; band: number }> = [
-    { parameterId: IELTS_PARAM_IDS.fluencyCoherence, band: ielts.fluencyCoherence },
-    { parameterId: IELTS_PARAM_IDS.pronunciation, band: ielts.pronunciation },
-    { parameterId: IELTS_PARAM_IDS.lexicalResource, band: ielts.lexicalResource },
-    { parameterId: IELTS_PARAM_IDS.grammaticalRange, band: ielts.grammaticalRange },
+  const rows: Array<{
+    parameterId: string;
+    band: number;
+    confidence: number;
+    criterion: keyof typeof PROSODY_RAW_PARAM_IDS;
+  }> = [
+    {
+      parameterId: PROSODY_RAW_PARAM_IDS.fluencyCoherence,
+      band: ielts.fluencyCoherence,
+      confidence: PROSODY_RAW_CONFIDENCE.fluencyCoherence,
+      criterion: "fluencyCoherence",
+    },
+    {
+      parameterId: PROSODY_RAW_PARAM_IDS.pronunciation,
+      band: ielts.pronunciation,
+      confidence: PROSODY_RAW_CONFIDENCE.pronunciation,
+      criterion: "pronunciation",
+    },
+    {
+      parameterId: PROSODY_RAW_PARAM_IDS.lexicalResource,
+      band: ielts.lexicalResource,
+      confidence: PROSODY_RAW_CONFIDENCE.lexicalResource,
+      criterion: "lexicalResource",
+    },
+    {
+      parameterId: PROSODY_RAW_PARAM_IDS.grammaticalRange,
+      band: ielts.grammaticalRange,
+      confidence: PROSODY_RAW_CONFIDENCE.grammaticalRange,
+      criterion: "grammaticalRange",
+    },
   ];
 
   let written = 0;
@@ -220,9 +309,12 @@ async function writeIeltsCallScores(
       moduleId: null,
       segmentKey: segmentKey ?? null,
       score: normalisedScore,
-      confidence: 0.9,
-      evidence: [`prosody/ielts:band=${row.band.toFixed(1)}`],
-      reasoning: "PROSODY stage IELTS sub-band (0-9 normalised to 0-1)",
+      confidence: row.confidence,
+      evidence: [`prosody/ielts:${row.criterion}:band=${row.band.toFixed(1)}`],
+      reasoning:
+        "PROSODY stage IELTS audio-feature signal (0-9 normalised to 0-1); " +
+        "raw vendor signal, distinct from the LLM-judged skill_* IDs " +
+        "owned by IELTS-MEASURE-001.",
       scoredBy: "prosody_v1",
     });
     written++;

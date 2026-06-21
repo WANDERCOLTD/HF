@@ -32,15 +32,32 @@ export function isIeltsModuleSettingsEnabled(): boolean {
  * Feature flag for epic #2135 — IELTS-MEASURE-001 LLM transcript scoring.
  *
  * **Default OFF.** When enabled (`HF_IELTS_LLM_MEASURE_V1=true`), the
- * `IELTS-MEASURE-001` AnalysisSpec runs via the EXTRACT stage and writes
- * `CallScore` rows for the 4 IELTS skill parameters. The legacy
- * prosody-consumer's `writeIeltsCallScores` then skips IELTS-skill writes
- * (LLM spec owns those rows).
+ * `IELTS-MEASURE-001` AnalysisSpec runs via the EXTRACT / SCORE_AGENT
+ * stage and writes `CallScore` rows for the 4 IELTS skill parameter IDs
+ * (`skill_fluency_and_coherence_fc`, `skill_pronunciation_p`,
+ * `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`).
  *
- * When disabled, the legacy path is unchanged — prosody-consumer
- * continues to be the sole writer for the 4 IELTS skill params (which
- * means callers without prosody-vendor signal continue to get NO IELTS
- * skill scores at all, the very gap epic #2135 closes).
+ * **Post-#2138 (S3) flag scope:**
+ *
+ * The flag now controls ONLY the LLM-judged path's enablement. It no
+ * longer gates the prosody-consumer at all — #2138 refactored the
+ * prosody IELTS-mode writer to target separate `prosody_raw_*`
+ * parameter IDs (`prosody_raw_fc` / `_p` / `_lr` / `_gra`). The two
+ * writers now target disjoint parameterId namespaces, so no dual-writer
+ * race is possible regardless of flag state. Prosody-raw rows always
+ * land when the vendor envelope is present.
+ *
+ * Lifecycle:
+ *   - Flag OFF (today's default) → no LLM-judged IELTS skill scores.
+ *     Prosody-raw rows still land (audio-feature signal preserved).
+ *     Note: the 4 IELTS skill IDs receive ZERO CallScore rows in this
+ *     state — that is the gap epic #2135 exists to close. Flip ON.
+ *   - Flag ON → LLM-judged IELTS skill scores land via SCORE_AGENT.
+ *     Prosody-raw rows continue to land independently. Tool-use
+ *     augmentation (LLM consuming prosody-raw to boost FC + P
+ *     confidence) is a post-MVP enhancement, not gated by this flag.
+ *   - Post-S6 verification → consider promoting to always-on and
+ *     retiring the flag in a follow-on chore.
  *
  * **OPERATOR RULE (verbatim, from epic #2135):**
  * NEVER land hardcoded or AI-guessed score defaults to "fill" empty

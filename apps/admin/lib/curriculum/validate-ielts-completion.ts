@@ -36,7 +36,11 @@
 
 import { prisma } from "@/lib/prisma";
 
-/** IELTS 4-criteria parameter ids — must mirror prosody-consumer.ts::IELTS_PARAM_IDS. */
+/** IELTS 4-criteria parameter ids. Post-#2138 (epic #2135 S3) these are
+ *  written by the IELTS-MEASURE-001 LLM spec via the canonical SCORE_AGENT
+ *  path (#2155); prosody-consumer writes its own `prosody_raw_*` namespace
+ *  instead. The IDs here are the LLM-judged scores the completion gate
+ *  reads to decide whether all 4 criteria have a non-zero score. */
 export const IELTS_COMPLETION_PARAM_IDS = {
   fluencyCoherence: "skill_fluency_and_coherence_fc",
   pronunciation: "skill_pronunciation_p",
@@ -57,9 +61,10 @@ export interface ValidateIeltsCompletionResult {
 
 /**
  * Check whether the call's aggregate IELTS scores satisfy the 4-criteria
- * gate. Reads the aggregate (`segmentKey IS NULL`) rows written by
- * `prosody-consumer.ts::writeIeltsCallScores` — per-phase rows are
- * intentionally NOT consulted because the gate runs at call-level.
+ * gate. Reads the aggregate (`segmentKey IS NULL`) rows written by the
+ * IELTS-MEASURE-001 LLM spec via the canonical SCORE_AGENT path (post-#2138).
+ * Per-phase rows are intentionally NOT consulted because the gate runs
+ * at call-level.
  *
  * Score must be `> 0` (the writer skips non-finite bands but a zero
  * band would still produce a `score = 0` row; that's an incomplete
