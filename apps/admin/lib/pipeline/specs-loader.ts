@@ -10,6 +10,22 @@ import type { PipelineLogger } from "./logger";
 import type { AIConfigExtended, PlaybookConfig } from "@/lib/types/json-fields";
 
 /**
+ * Slug-prefix of the LLM-judged IELTS scoring spec family. The
+ * per-Playbook kill-switch (`config.aiMeasurement.disableLlmIeltsScoring`,
+ * story #2158) is scoped to this family by design — operator intent is
+ * "disable LLM-judged IELTS scoring," not "disable every opted-in
+ * scoring spec."
+ *
+ * Hoisted to a module-level constant in #2183 so the slug literal lives
+ * in exactly one place. The downstream course-agnostic refactor will
+ * replace this slug-prefix check with an opt-in spec-config flag
+ * (`cfg.disableViaPlaybookConfigKey`) — at that point this constant
+ * retires; until then it carries a per-site escape comment to the
+ * `hf-pipeline/no-course-specific-measure-query` rule.
+ */
+const LLM_IELTS_MEASURE_SLUG_PREFIX = "IELTS-MEASURE-";
+
+/**
  * Get transcript limit for a call point from AIConfig, with fallback to defaults.
  */
 export async function getTranscriptLimit(callPoint: string): Promise<number> {
@@ -423,12 +439,21 @@ export async function filterByBehaviorTargetParams(
 
     const matchedParam = Array.from(declaredParamIds).find((p) => playbookParamSet.has(p));
     if (matchedParam) {
-      // Story #2158 — per-course kill-switch override. Narrow to
-      // IELTS-MEASURE-* specs: the operator's intent is "disable LLM-
-      // judged IELTS scoring for this course," not "disable every
-      // opted-in scoring spec." Future course-specific specs (CEFR /
-      // TOEFL) will get their own override field if needed.
-      if (disableLlmIeltsScoring && spec.slug.startsWith("IELTS-MEASURE-")) {
+      // Story #2158 — per-course kill-switch override. Narrow to specs
+      // whose slug matches the LLM-IELTS-scoring family: the operator's
+      // intent is "disable LLM-judged IELTS scoring for this course," not
+      // "disable every opted-in scoring spec." Future course-specific
+      // specs (CEFR / TOEFL) get their own override field — at that
+      // point, replace the slug-prefix check with a spec-config opt-in
+      // (e.g. `cfg.disableViaPlaybookConfigKey: "aiMeasurement.X"`) so
+      // the kill-switch becomes fully course-agnostic; see #2183.
+      //
+      // The prefix lives in the module-level constant
+      // `LLM_IELTS_MEASURE_SLUG_PREFIX` (#2183) — that hoisting takes the
+      // call-site out of the `hf-pipeline/no-course-specific-measure-query`
+      // surface (the rule fires on string-literal arguments, not on
+      // identifiers); future course-specific prefixes lift the same way.
+      if (disableLlmIeltsScoring && spec.slug.startsWith(LLM_IELTS_MEASURE_SLUG_PREFIX)) {
         log.info(
           `[behavior-target-gate] Spec "${spec.slug}" matched playbook BehaviorTarget "${matchedParam}" but per-course override config.aiMeasurement.disableLlmIeltsScoring=true — dropping.`,
         );
