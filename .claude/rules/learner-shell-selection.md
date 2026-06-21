@@ -179,6 +179,7 @@ itself flip the gaps to `covered`. S3 closes both gaps when
 |---|---|---|
 | `lib/voice/resolve-learner-shell.ts` (this PR) | Pure function + declarative tables | Scattered selection logic; per-course shell-mount drift |
 | `tests/lib/voice/resolve-learner-shell.test.ts` (this PR) | Cartesian completeness + capability assertions | Resolver regressions; override-table drift |
+| `components/sim/SimChat.tsx` (PR #2218) | Canonical consumer — calls `resolveLearnerShell({session, module})` once, dispatches via `switch(shellKind)` to ChatFeedShell / ExamModeShell / MCQRoundsShell. Falls back to ChatFeedShell + `learner_shell.fallback_unwired` AppLog for unwired kinds (results-readout / intake-wizard until W6/W7 land). | Scattered per-mode branching reaching SimChat. Silent fallback when a shellKind has no concrete component. |
 | `tests/lib/sim-chat/mode-ui-coverage.test.ts` (#2144) | 3-axis mode → UI consumer ratchet | Producer-only mode literals (today: `quiz` + `mock-exam` learner UI gaps; closes when S3 wires the consumers) |
 | `tests/lib/types/learner-shell-types.test.ts` (PR #2173) | Per-shell capability completeness | Missing capability fields in SHELL_DEFAULTS |
 | `.claude/rules/mode-spec-selection-coverage.md` | Runtime spec-selection sibling | Mode-vs-spec-selection drift on the pipeline runtime side |
