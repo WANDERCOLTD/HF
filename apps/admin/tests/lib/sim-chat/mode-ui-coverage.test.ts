@@ -342,7 +342,7 @@ describe("AuthoredModuleMode UI/teaching coverage (Lattice Coverage)", () => {
 
   it("no exempt entry is contradicted by an actual consumer match", () => {
     const contradicted: string[] = [];
-    for (const [k, _] of Object.entries(MODE_AXIS_EXEMPT)) {
+    for (const k of Object.keys(MODE_AXIS_EXEMPT)) {
       const [mode, axis] = k.split(".") as [AuthoredModuleMode, ModeAxis];
       if (modeIsConsumed(mode, AXIS_SOURCE[axis])) {
         contradicted.push(k);
