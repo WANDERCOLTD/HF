@@ -57,7 +57,27 @@ function displayValue(v: unknown): string {
 
 function StaticChain({ contract }: CascadeTraceBreadcrumbProps) {
   const sources = contract.cascadeSources;
-  if (!sources.length) return null;
+  if (!sources.length) {
+    // A3 of epic #2225 — intrinsically course-only contract (no
+    // Domain/System ancestor declared, no resolvable cascade family).
+    // Pre-A3 this branch silently rendered nothing — 73 contracts in
+    // the Inspector left operators wondering why the cascade chip was
+    // missing. Now we name the absence explicitly.
+    return (
+      <div
+        className="hf-cascade-trace"
+        data-testid={`hf-cascade-trace-${contract.id}-course-only`}
+      >
+        <span className="hf-category-label">Cascade:</span>{" "}
+        <span
+          className="hf-badge hf-badge-muted"
+          title="This setting is configured per course — no Domain or System default applies"
+        >
+          Course-only
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
