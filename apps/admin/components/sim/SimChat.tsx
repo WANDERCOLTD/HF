@@ -15,6 +15,10 @@ import { MediaLibraryPanel } from './MediaLibraryPanel';
 import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
 import { ExamModeShell } from './ExamModeShell';
+import { ChatFeedShell } from './ChatFeedShell';
+import { MCQRoundsShell } from './MCQRoundsShell';
+import { resolveLearnerShell } from '@/lib/voice/resolve-learner-shell';
+import type { AuthoredModuleMode } from '@/lib/types/json-fields';
 import { useProviderCall } from './useProviderCall';
 import { labelForEndSource } from '@/lib/voice/end-source';
 import { useOutboundDial } from './useOutboundDial';
@@ -274,10 +278,21 @@ export function SimChat({
   // (CurriculumModule.coversModules.length > 0) mount the ExamModeShell
   // overlay during an active call. Sibling fetch to module-stall-pool
   // above; same lifecycle.
+  //
+  // #2206 (W1+W2+W3 of epic #2163) — also resolves the AuthoredModule.mode
+  // + sessionTerminal shape from /api/callers/[id]/exam-mode-check so the
+  // canonical `resolveLearnerShell(session, module)` dispatcher (PR #2199
+  // / story #2197) can pick between ChatFeedShell / ExamModeShell /
+  // MCQRoundsShell at mount time. `examMode` is retained for the existing
+  // overlay code path; the new state drives the dispatch.
   const [examMode, setExamMode] = useState(false);
+  const [authoredModuleMode, setAuthoredModuleMode] = useState<AuthoredModuleMode | null>(null);
+  const [authoredSessionTerminal, setAuthoredSessionTerminal] = useState(false);
   useEffect(() => {
     if (!requestedModuleId) {
       setExamMode(false);
+      setAuthoredModuleMode(null);
+      setAuthoredSessionTerminal(false);
       return;
     }
     const controller = new AbortController();
@@ -286,13 +301,16 @@ export function SimChat({
       { signal: controller.signal, credentials: 'same-origin' },
     )
       .then((r) => (r.ok ? r.json() : null))
-      .then((body: { ok?: boolean; examMode?: boolean } | null) => {
+      .then((body: { ok?: boolean; examMode?: boolean; mode?: AuthoredModuleMode | null; sessionTerminal?: boolean } | null) => {
         if (!body?.ok) return;
         setExamMode(Boolean(body.examMode));
+        setAuthoredModuleMode(body.mode ?? null);
+        setAuthoredSessionTerminal(Boolean(body.sessionTerminal));
       })
       .catch((err) => {
         if ((err as Error)?.name === 'AbortError') return;
-        // Best-effort — fallback is examMode=false (no shell mounted).
+        // Best-effort — fallback is examMode=false (no shell mounted) +
+        // null mode (resolver defaults to chat-feed).
       });
     return () => controller.abort();
   }, [callerId, requestedModuleId]);
@@ -1271,6 +1289,62 @@ export function SimChat({
   // bound module is Mock-style (resolved server-side via
   // /api/callers/[id]/exam-mode-check) AND the call is currently active.
   const showExamShell = examMode && callPhase === 'active';
+
+  // #2206 (W1+W2+W3 of epic #2163) — canonical shell dispatch.
+  //
+  // Selection is NOT done here — it lives in the pure function
+  // `resolveLearnerShell(session, module)` (PR #2199 / story #2197) so
+  // every shell-mount surface (admin sim, FOH, embedded views) reads the
+  // SAME declarative rule table. SimChat consumes the result and switches
+  // on `shellKind` to mount the appropriate shell. The selection IS the
+  // resolver's job — no per-mode `.mode === "X"` branching scattered
+  // across this component.
+  //
+  // Per `.claude/rules/learner-shell-selection.md`:
+  //   - This component DOES branch on the *returned* `shellKind`. That is
+  //     consumption, not selection.
+  //   - Per-course shell-mount drift is prevented because every code path
+  //     that needs a shell goes through `resolveLearnerShell`.
+  const learnerShellResult = useMemo(() => {
+    return resolveLearnerShell({
+      // Admin sim is the SIM_CALL kind. ENROLLMENT sessions ride above
+      // SimChat (via the intake-wizard flow, not SimChat). The resolver
+      // checks `kind === "ENROLLMENT"` first; passing SIM_CALL keeps the
+      // intake-wizard rule from firing here.
+      session: {
+        kind: 'SIM_CALL',
+        sessionTerminal: authoredSessionTerminal,
+      },
+      module: authoredModuleMode ? { mode: authoredModuleMode } : null,
+    });
+  }, [authoredModuleMode, authoredSessionTerminal]);
+  const { shellKind: resolvedShellKind, capabilities: resolvedCapabilities, matchedRuleId } = learnerShellResult;
+
+  // Defensive fallback path. When the resolver returns a kind we don't
+  // have a consumer for yet (e.g. `results-readout`, `intake-wizard` —
+  // epic #2163 S4-S7), fall back to ChatFeedShell AND fire an
+  // operator-visible signal so the silent-degrade trap doesn't catch us
+  // (per `.claude/rules/data-presence-coverage.md` "NO SILENT FALLBACKS").
+  // `ENROLLMENT` is structurally impossible here (SimChat is SIM_CALL),
+  // but the fallback exists so any future kind addition is observable.
+  useEffect(() => {
+    if (
+      resolvedShellKind !== 'chat-feed' &&
+      resolvedShellKind !== 'exam' &&
+      resolvedShellKind !== 'mcq-rounds'
+    ) {
+      // Structured payload — surfaces in the browser console (operator-
+      // visible during dev / staging) AND any client-error reporter the
+      // surface plugs into.
+      console.warn('[learner_shell.fallback_unwired]', {
+        subject: 'learner_shell.fallback_unwired',
+        shellKind: resolvedShellKind,
+        matchedRuleId,
+        callerId,
+        moduleSlug: requestedModuleId ?? null,
+      });
+    }
+  }, [resolvedShellKind, matchedRuleId, callerId, requestedModuleId]);
   const examSpeakerRole: 'examiner' | 'learner' | 'idle' =
     voiceMode.state === 'ai-speaking'
       ? 'examiner'
@@ -2219,18 +2293,36 @@ export function SimChat({
     </>
   );
 
-  // #1745 closeout — wrap the standalone surface in the ExamModeShell
-  // overlay when active on a Mock-style module. The shell is a
-  // position-fixed full-screen layer that visually replaces the chat UI
-  // beneath; the underlying SimChat keeps running so transcript +
-  // pipeline + voiceMode lifecycle continue uninterrupted. Embedded
-  // mode skips the shell — operator views need the chat feed.
-  const examShell = showExamShell && !isEmbedded ? (
+  // #2206 (W1+W2+W3 of epic #2163) — shell dispatch on `resolvedShellKind`.
+  //
+  // Decision tree (resolver-driven, NOT branching on `.mode` here):
+  //   - resolvedShellKind === "exam"        → mount ExamModeShell overlay
+  //                                            (preserves #1745 behaviour
+  //                                            for examiner-terminal +
+  //                                            mock-exam-terminal modules)
+  //   - resolvedShellKind === "mcq-rounds"  → mount MCQRoundsShell wrapper
+  //                                            (closes quiz.learnerUI gap
+  //                                            #2159 at the SimChat host)
+  //   - resolvedShellKind === "chat-feed"   → wrap content in ChatFeedShell
+  //                                            (default — typed wrapper
+  //                                            around the chat feed)
+  //   - other (results-readout / intake-wizard / future)
+  //                                          → fall back to ChatFeedShell
+  //                                            + fire AppLog (see effect
+  //                                            above) — NO SILENT FALLBACKS.
+  //
+  // Embedded mode (operator-facing chat-feed inside the admin shell) skips
+  // shell variants intentionally — the operator needs the bare chat feed.
+  // The legacy `showExamShell` overlay only fires when a CALL is active;
+  // shell switching at the page level happens regardless of call phase.
+  const showExamShellOverlay = showExamShell && !isEmbedded;
+  const examShellOverlay = showExamShellOverlay ? (
     <ExamModeShell
       examinerLevel={examExaminerLevel}
       learnerLevel={voiceMode.waveformLevel}
       speakerRole={examSpeakerRole}
       banner="Mock exam — speak naturally"
+      capabilities={resolvedCapabilities}
     />
   ) : null;
 
@@ -2238,11 +2330,48 @@ export function SimChat({
     return <div className="sim-embedded">{content}</div>;
   }
 
-  // Standalone: rendered inside sim layout (which provides the container)
-  return (
-    <>
-      {content}
-      {examShell}
-    </>
-  );
+  // Standalone: dispatch on the resolver's shellKind. The resolver IS the
+  // policy — when a new shell variant lands, extend SHELL_SELECTION_RULES
+  // in `lib/voice/resolve-learner-shell.ts`, not this switch.
+  switch (resolvedShellKind) {
+    case 'exam':
+      // Exam shell is rendered as a position-fixed overlay on top of the
+      // chat-feed content (the chat is still beneath, so transcript +
+      // pipeline + voiceMode lifecycle continue uninterrupted). Existing
+      // #1745 overlay behaviour is preserved via `examShellOverlay`.
+      return (
+        <ChatFeedShell capabilities={resolvedCapabilities}>
+          {content}
+          {examShellOverlay}
+        </ChatFeedShell>
+      );
+    case 'mcq-rounds':
+      // Quiz-mode shell. MCQ data feed is stubbed at the shell level
+      // pending #2180 sampling engine; today the shell wraps the chat
+      // feed underneath so existing call lifecycle still works.
+      return (
+        <MCQRoundsShell capabilities={resolvedCapabilities}>
+          {content}
+          {examShellOverlay}
+        </MCQRoundsShell>
+      );
+    case 'chat-feed':
+      // Default — wrap content in the typed ChatFeedShell. Behaviour is
+      // byte-identical to the pre-#2206 default render path.
+      return (
+        <ChatFeedShell capabilities={resolvedCapabilities}>
+          {content}
+          {examShellOverlay}
+        </ChatFeedShell>
+      );
+    default:
+      // Unwired kind (results-readout / intake-wizard / future) — fall back
+      // to ChatFeedShell. The AppLog was already fired by the effect above.
+      return (
+        <ChatFeedShell capabilities={resolvedCapabilities}>
+          {content}
+          {examShellOverlay}
+        </ChatFeedShell>
+      );
+  }
 }

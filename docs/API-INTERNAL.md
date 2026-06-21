@@ -2794,7 +2794,7 @@ Returns whether the supplied module slug should mount the
 
 **Response** `200`
 ```json
-{ ok: true, examMode: boolean }
+{ ok: true, examMode: boolean, mode: AuthoredModuleMode | null, sessionTerminal: boolean }
 ```
 
 **Response** `403`

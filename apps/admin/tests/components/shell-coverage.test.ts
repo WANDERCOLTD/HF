@@ -133,21 +133,21 @@ const EXPECTED_EXEMPT_COUNT = 0;
  *     to later slices of epic #2163 (S4-S7).
  *
  * RED first-run baseline against `main` (this PR's incumbent) → 5 gaps:
- *   - `chat-feed`        (PR #2202 will close)
- *   - `exam`             (PR #2202 refactors `capabilities` prop in)
- *   - `mcq-rounds`       (PR #2202 will close)
+ *   - `chat-feed`        (PR #2202 closed — `ChatFeedShell.tsx` shipped)
+ *   - `exam`             (PR #2202 closed — `ExamModeShell.tsx` refactored)
+ *   - `mcq-rounds`       (PR #2202 closed — `MCQRoundsShell.tsx` shipped)
  *   - `results-readout`  (S4-S7 of epic #2163)
  *   - `intake-wizard`    (S4-S7 of epic #2163)
  *
- * When PR #2202 merges, drop `EXPECTED_GAP_COUNT` to 2 in the same
- * commit that confirms the 3 shell files exist + accept the
- * `capabilities` prop. The exact-match ratchet test below forces the
- * drop to be conscious.
+ * PR #2202 landed the first 3 shells; this PR (#2206 / W1+W2+W3) drops
+ * the ratchet from 5 → 2 in the same commit that wires SimChat to
+ * dispatch via `resolveLearnerShell`. The remaining 2 gaps
+ * (results-readout + intake-wizard) close in S4-S7 of epic #2163.
  *
  * When `ResultsReadoutShell.tsx` ships, drop to 1.
  * When `IntakeWizardShell.tsx` ships, drop to 0.
  */
-const EXPECTED_GAP_COUNT = 5;
+const EXPECTED_GAP_COUNT = 2;
 
 // ────────────────────────────────────────────────────────────
 // Classification
