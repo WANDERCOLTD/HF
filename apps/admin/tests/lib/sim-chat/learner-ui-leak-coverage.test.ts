@@ -110,6 +110,55 @@ const INTERNAL_LABEL_REGISTRY: Record<string, InternalLabelSet> = {
 };
 
 // ────────────────────────────────────────────────────────────
+// Learner-safe label registry — #2145 Phase A Generic SessionFocus
+// substrate (`Part3TechniqueFocus` first instance).
+//
+// These are the LEARNER-FACING values that the session-focus-policy
+// runner projects internal weakness signals onto. They MAY appear in
+// learner-UI source (e.g. as a TypeScript union member, a default-pin
+// fallback, or a Storybook fixture). The leak gate above scans for
+// INTERNAL-only labels — this whitelist documents that these strings
+// are explicitly the projection target, NOT a leak.
+//
+// Per `lib/types/json-fields.ts::Part3TechniqueFocus` JSDoc, each
+// course declares its own typed union here. Adding a new course →
+// add an entry to LEARNER_SAFE_REGISTRY documenting (a) the union
+// name, (b) the spec slug that projects to it, (c) the BDD reference.
+//
+// This registry is DOCUMENTATION + future-proofing — it isn't read by
+// the leak test today (the leak test only scans INTERNAL_LABEL_REGISTRY
+// for forbidden strings). When a future course's selection policy is
+// authored, this registry is the canonical "where is the union
+// declared" map.
+// ────────────────────────────────────────────────────────────
+
+interface LearnerSafeLabelSet {
+  /** Why these labels are learner-safe + where the typed union lives. */
+  description: string;
+  /** The labels (as they appear in source — exact case + spacing). */
+  labels: readonly string[];
+  /** The TypeScript union type name in lib/types/json-fields.ts. */
+  unionName: string;
+  /** The session-focus-policy AnalysisSpec slug that projects to this set. */
+  projectingSpecSlug: string;
+}
+
+export const LEARNER_SAFE_REGISTRY: Record<string, LearnerSafeLabelSet> = {
+  IELTS_PART3_TECHNIQUE: {
+    description:
+      "IELTS Part 3 technique focus labels — the 4 BDD-mandated learner-facing values for the 'Today's focus' pin on Part 3 sessions. Per BDD US-P3-01 + HF-IELTS-Pre-Voice-Testing-Checklist.md Unit 4. Projected from weakest IELTS Skill criterion (FC/LR/GRA/P) by IELTS-P3-FOCUS-001 (epic #2145 S4 — pending #2137 wired scores).",
+    labels: [
+      "giving reasons",
+      "structuring an argument",
+      "handling a challenge",
+      "expanding an answer",
+    ],
+    unionName: "Part3TechniqueFocus",
+    projectingSpecSlug: "IELTS-P3-FOCUS-001",
+  },
+};
+
+// ────────────────────────────────────────────────────────────
 // Learner-UI dirs — where leaks become user-visible.
 // ────────────────────────────────────────────────────────────
 
@@ -339,6 +388,52 @@ describe("Learner-UI leak coverage (Lattice Coverage)", () => {
       if (!set || !set.labels.includes(label)) stale.push(k);
     }
     expect(stale, `Stale exempt entries: ${stale.join(", ")}`).toEqual([]);
+  });
+
+  // ──────────────────────────────────────────────────────────
+  // LEARNER_SAFE_REGISTRY tests — #2145 Phase A SessionFocus
+  // ──────────────────────────────────────────────────────────
+
+  it("LEARNER_SAFE_REGISTRY has at least one entry with substantive metadata", () => {
+    const entries = Object.entries(LEARNER_SAFE_REGISTRY);
+    expect(entries.length).toBeGreaterThan(0);
+    for (const [k, v] of entries) {
+      expect(
+        v.description.trim().length,
+        `${k}: description too short — write why these labels are learner-safe + cite the BDD reference`,
+      ).toBeGreaterThan(40);
+      expect(
+        v.labels.length,
+        `${k}: no labels declared`,
+      ).toBeGreaterThan(0);
+      expect(
+        v.unionName.length,
+        `${k}: unionName empty — name the TypeScript union type in lib/types/json-fields.ts`,
+      ).toBeGreaterThan(0);
+      expect(
+        v.projectingSpecSlug.length,
+        `${k}: projectingSpecSlug empty — name the AnalysisSpec slug that writes these values`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("LEARNER_SAFE_REGISTRY labels do not overlap with INTERNAL_LABEL_REGISTRY (no double-classification)", () => {
+    const internalLabels = new Set<string>();
+    for (const set of Object.values(INTERNAL_LABEL_REGISTRY)) {
+      for (const label of set.labels) internalLabels.add(label);
+    }
+    const overlaps: string[] = [];
+    for (const [setKey, set] of Object.entries(LEARNER_SAFE_REGISTRY)) {
+      for (const label of set.labels) {
+        if (internalLabels.has(label)) {
+          overlaps.push(`${setKey}:${label}`);
+        }
+      }
+    }
+    expect(
+      overlaps,
+      `Labels appear in BOTH internal and learner-safe registries: ${overlaps.join(", ")}. A label must be classified one way or the other.`,
+    ).toEqual([]);
   });
 
   it("classification distribution sanity (operator-facing log)", () => {

@@ -196,6 +196,12 @@ interface LLMPrompt {
     module_quiz_directive?: { directive: string } | null;
     /** #2013 (epic #2009 S4) — mock-exam mode directive (board-chair frame). */
     module_mock_exam_directive?: { directive: string } | null;
+    /** #2145 Phase A — Generic SessionFocus 4th-layer substrate. */
+    session_focus?: {
+      label: string;
+      directive: string;
+      moduleSlug: string;
+    } | null;
   };
   /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close).
    *  #2054 — extended with certificateMention (operator toggle for completion-certificate copy). */
@@ -590,10 +596,26 @@ export function renderProviderPrompt(
   // selection policy as `select-pinned-card.ts` so the on-screen banner
   // and the prompt directive agree byte-for-byte. Null until the learner
   // has at least one demonstrated `currentScore` on one of the 4 criteria.
+  //
+  // NOTE: scheduled for retirement in epic #2145 S4 — the generic
+  // session_focus block (below) replaces it once the
+  // IELTS-P3-FOCUS-001 spec is authored and #2137 wires real scores.
   const focusArea = llmPrompt.instructions?.module_focus_area;
   if (focusArea?.directive) {
     parts.push("");
     parts.push(focusArea.directive);
+  }
+  // #2145 Phase A — Generic SessionFocus 4th-layer substrate.
+  // Reads `CallerAttribute(key = "session_focus:next_{moduleSlug}")`
+  // written by the `session-focus-policy` AnalysisSpec runner. The
+  // value is the projected LEARNER-FACING label (e.g. "giving reasons"
+  // for IELTS Part 3 — never the criterion). Honest empty state when
+  // the projection runner hasn't fired yet — no hardcoded fallback.
+  const sessionFocus = llmPrompt.instructions?.session_focus;
+  if (sessionFocus?.directive) {
+    parts.push("");
+    parts.push("[SESSION FOCUS]");
+    parts.push(sessionFocus.directive);
   }
   // #2051 (epic #2049 sub-epic B) — baseline-assessment depth.
   // Renders ONLY when `Playbook.config.firstCallMode === "baseline_assessment"`

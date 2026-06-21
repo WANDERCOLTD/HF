@@ -173,6 +173,19 @@ const PAIRS: Array<{
     consumerNeedle: "llmPrompt.instructions?.module_mock_exam_directive",
     since: "#2013"
   },
+  {
+    // #2145 Phase A — Generic SessionFocus 4th-layer substrate.
+    // The transform reads `CallerAttribute(key = "session_focus:next_*")`
+    // (written by the session-focus-policy AnalysisSpec runner) and
+    // projects to a tutor directive + PinnedCardContent. Course-agnostic
+    // — the runner picks the learner-facing label, this transform only
+    // renders.
+    key: "session_focus",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/session-focus.ts",
+    producerNeedle: "SessionFocusOutput",
+    consumerNeedle: "llmPrompt.instructions?.session_focus",
+    since: "#2145",
+  },
 ];
 
 const RENDERER_PATH = "apps/admin/lib/prompt/composition/renderPromptSummary.ts";
