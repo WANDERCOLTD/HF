@@ -337,3 +337,61 @@ describe("runSessionFocusPolicy (end-to-end, mocked prisma)", () => {
     expect(arg.where.parameterId.in).toEqual([FC, LR, GRA, P]);
   });
 });
+
+/**
+ * #2154 dispatch integration — the pipeline route at
+ * `app/api/calls/[callId]/pipeline/route.ts::stageExecutors.ADAPT`
+ * fans CALLER_ATTRIBUTE_NEXT-typed AnalysisSpecs to this runner.
+ * The full integration lives in route.ts (with a live prisma context);
+ * we pin the dispatch *shape contract* here: any object that satisfies
+ * `isSessionFocusPolicyConfig` and is paired with a non-null lockedModule
+ * MUST be runnable end-to-end without additional validation hoops.
+ *
+ * The contract this test pins: a spec.config retrieved from
+ * `prisma.analysisSpec.findMany({where: {outputType: "CALLER_ATTRIBUTE_NEXT"}})`
+ * — whose `config` is `JsonValue` — can be passed to `runSessionFocusPolicy`
+ * after a single `isSessionFocusPolicyConfig` type-guard.
+ */
+describe("CALLER_ATTRIBUTE_NEXT dispatch contract (#2154)", () => {
+  it("a JsonValue spec.config passing isSessionFocusPolicyConfig runs end-to-end", async () => {
+    // Simulate what `getSpecsByOutputType("CALLER_ATTRIBUTE_NEXT")` →
+    // `prisma.analysisSpec.findMany({select: {config: true}})` returns —
+    // a Prisma JsonValue payload that needs the type guard to narrow.
+    const jsonConfig: unknown = {
+      category: "session-focus-policy",
+      inputSkills: [FC, LR, GRA, P],
+      outputUnion: "Part3TechniqueFocus",
+      selectionRules: [
+        { whenWeakest: FC, thenLabel: "structuring an argument" },
+        { whenWeakest: LR, thenLabel: "expanding an answer" },
+        { whenWeakest: GRA, thenLabel: "giving reasons" },
+        { whenWeakest: P, thenLabel: "handling a challenge" },
+      ],
+      writeKey: "session_focus:next_part3",
+      moduleScope: { slugPattern: "part3" },
+    };
+
+    // Type guard narrows JsonValue → SessionFocusPolicyConfig.
+    expect(isSessionFocusPolicyConfig(jsonConfig)).toBe(true);
+
+    if (!isSessionFocusPolicyConfig(jsonConfig)) {
+      throw new Error("unreachable — guard passed above");
+    }
+
+    mockCallerTargetFindMany.mockResolvedValue([
+      { parameterId: LR, currentScore: 0.25 },
+    ]);
+
+    const result = await runSessionFocusPolicy({
+      callerId: "caller-dispatch",
+      specSlug: "IELTS-P3-FOCUS-001",
+      config: jsonConfig,
+      lockedModule: { slug: "ielts-part3-discussion", id: "mod-id" },
+    });
+
+    expect(result.status).toBe("wrote");
+    expect(result.writtenLabel).toBe("expanding an answer");
+    expect(result.writeKey).toBe("session_focus:next_ielts-part3-discussion");
+    expect(mockCallerAttributeUpsert).toHaveBeenCalledTimes(1);
+  });
+});

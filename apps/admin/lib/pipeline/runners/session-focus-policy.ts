@@ -24,18 +24,18 @@
  *   omitted. NO HARDCODED DEFAULT — per
  *   `~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_no_hardcoded_score_backfill.md`.
  *
- * - **outputType caveat (#2145 Phase A)**: the epic body declares a
- *   new outputType `CALLER_ATTRIBUTE_NEXT`. That value is NOT in the
- *   `AnalysisOutputType` enum at this time. Adding it requires a Prisma
- *   migration which is out of scope for THIS PR (would block parallel
- *   work with #2135 #2136/#2137). For v1 this runner is invoked from
- *   the ADAPT-stage dispatcher (ADAPT is the closest existing
- *   outputType — both write cascade-readable state via
- *   `CallerAttribute` / `CallerTarget`). A follow-on PR should add the
- *   `CALLER_ATTRIBUTE_NEXT` enum value + migrate session-focus-policy
- *   specs to use it. Until then, session-focus-policy specs ship with
- *   `outputType: "ADAPT"` and are discriminated by `category: "session-focus-policy"`
- *   in `spec.config`.
+ * - **outputType (#2154)**: session-focus-policy specs declare
+ *   `outputType: "CALLER_ATTRIBUTE_NEXT"` — added to the
+ *   `AnalysisOutputType` enum by #2154 (sibling of #2145 Phase A).
+ *   The pipeline dispatch at `route.ts::stageExecutors.ADAPT` calls
+ *   `runSessionFocusPolicySpecs()` to fan these specs to this runner.
+ *   Distinct from ADAPT, which writes CallTarget / CallerTarget —
+ *   CALLER_ATTRIBUTE_NEXT writes transient per-session emphasis labels
+ *   via CallerAttribute (scope = spec slug). The earlier transient
+ *   `config.category: "session-focus-policy"` discriminator from PR
+ *   #2153 has been retired now that the outputType gates cleanly.
+ *   The `isSessionFocusPolicyConfig` type-guard remains as a
+ *   defence-in-depth validator on spec.config shape.
  *
  * - **No bare write helper today**: HF currently has no central
  *   CallerAttribute writer chokepoint (the aggregate-runner +
@@ -59,9 +59,9 @@ import { SESSION_FOCUS_KEY_PREFIX } from "@/lib/prompt/composition/transforms/se
  */
 export interface SessionFocusPolicyConfig {
   /**
-   * Discriminator — distinguishes session-focus-policy specs from
-   * other ADAPT specs (until the dedicated `CALLER_ATTRIBUTE_NEXT`
-   * outputType lands). Required.
+   * Discriminator — kept as a defence-in-depth config-shape sentinel
+   * (the `outputType: "CALLER_ATTRIBUTE_NEXT"` enum value added by
+   * #2154 is now the structural dispatch gate). Required.
    */
   category: "session-focus-policy";
   /**
