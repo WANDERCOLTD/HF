@@ -47,6 +47,16 @@ const SPEC_READONLY_FIELDS = new Set([
   "definition",
   "interpretationHigh",
   "interpretationLow",
+  // #2174 S5 — defensive extension. Grading-rubric fields classified
+  // HF-canonical by the #2174 epic audit (docs/SCORING-EDITABILITY.md).
+  // Mirror of PARAMETER_SPEC_READONLY_FIELDS in
+  // lib/cascade/spec-readonly-fields.ts. The coverage gate at
+  // tests/lib/cascade/spec-readonly-fields-coverage.test.ts pins this
+  // mirror against the canonical constant.
+  "tiers",
+  "tierScheme",
+  "defaultTarget",
+  "config",
 ]);
 
 const ALLOWED_PATH_SUFFIXES = [
@@ -185,13 +195,13 @@ const rule = {
     type: "problem",
     docs: {
       description:
-        "Disallow writing spec-readonly Parameter fields (definition / interpretationHigh / interpretationLow) from customer-driven code paths. Spec fields are HF-canonical IP — only seeds, the registry generator, and migrations may write them.",
+        "Disallow writing spec-readonly Parameter fields (definition / interpretationHigh / interpretationLow / tiers / tierScheme / defaultTarget / config) from customer-driven code paths. Spec fields are HF-canonical IP — only seeds, the registry generator, and migrations may write them.",
       url: "https://github.com/WANDERCOLTD/HF/blob/main/docs/kb/guard-registry.md#guard-no-customer-write-to-canonical-interpretation",
     },
     schema: [],
     messages: {
       customerWriteToSpecField:
-        "Customer-driven write to spec-readonly Parameter.{{field}} via prisma.parameter.{{method}}. Spec fields (definition / interpretationHigh / interpretationLow) are HF-canonical IP and must not flow from wizard / admin UI / sync routes — they appear verbatim in the composed prompt's behavior_targets_semantics block (#1951 S4). If this is a canonical authoring path (seed / generator / migration), add it to the allow-list in eslint-rules/no-customer-write-to-canonical-interpretation.mjs. Otherwise drop the field from the payload; the canonical seed assigns it.",
+        "Customer-driven write to spec-readonly Parameter.{{field}} via prisma.parameter.{{method}}. Spec fields (definition / interpretationHigh / interpretationLow / tiers / tierScheme / defaultTarget / config) are HF-canonical IP and must not flow from wizard / admin UI / sync routes — definition / interpretation* appear verbatim in the composed prompt's behavior_targets_semantics block (#1951 S4); tiers / tierScheme / defaultTarget / config carry the grading rubric the LLM judges against (#2174 epic). If this is a canonical authoring path (seed / generator / migration), add it to the allow-list in eslint-rules/no-customer-write-to-canonical-interpretation.mjs. Otherwise drop the field from the payload; the canonical seed assigns it. Customer tuning happens via the sibling BehaviorTarget.targetValue cascade.",
     },
   },
   create(context) {
