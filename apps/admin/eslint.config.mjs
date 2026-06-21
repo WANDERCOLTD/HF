@@ -32,6 +32,7 @@ import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
 import requireAiScopeInCascadeZone from "./eslint-rules/require-ai-scope-in-cascade-zone.mjs";
 import noCustomerWriteToCanonicalInterpretation from "./eslint-rules/no-customer-write-to-canonical-interpretation.mjs";
 import noUntypedEnumWriteInWizard from "./eslint-rules/no-untyped-enum-write-in-wizard.mjs";
+import noHardcodedVoiceId from "./eslint-rules/no-hardcoded-voice-id.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -165,6 +166,11 @@ const eslintConfig = defineConfig([
         rules: {
           "no-vapi-column-ref": noVapiColumnRef,
           "no-vapi-tool-definitions-const": noVapiToolDefinitionsConst,
+          // #2184 — block bare provider-catalogue voice-ID literals
+          // (Deepgram Aura, Cartesia Sonic, …) in lib/ + app/ runtime
+          // code. Catalogue lives in `config.voice.defaults.<provider>.voiceId`.
+          // See `.claude/rules/no-hardcoded-voice-id.md`.
+          "no-hardcoded-voice-id": noHardcodedVoiceId,
         },
       },
       // #1078 — V6 wizard Phase 1 spike. Catches `has('typo')` against
@@ -487,6 +493,15 @@ const eslintConfig = defineConfig([
       // routed through 4 new config.specs.* getters (aggComprehension/Discussion/
       // Coaching/goalProgress). See docs/kb/guard-registry.md#guard-no-hardcoded-spec-slug.
       "hf-config/no-hardcoded-spec-slug": "error",
+
+      // #2184 — block bare provider-catalogue voice-ID literals in lib/ + app/
+      // runtime code. Lands at `warn` (single repaired site at land time —
+      // `lib/chat/admin-tool-handlers.ts:2861` → `config.voice.defaults.deepgram.voiceId`).
+      // Promotion to `error` in a follow-on PR once the codebase is verified clean.
+      // Sibling pattern: `lib/voice/default-provider.ts::DEFAULT_VOICE_PROVIDER_SLUG`
+      // (provider slug) — this rule extends to voice IDs WITHIN a catalogue.
+      // See `.claude/rules/no-hardcoded-voice-id.md`.
+      "hf-voice/no-hardcoded-voice-id": "warn",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

@@ -80,6 +80,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`fixture-type-coverage`](#guard-fixture-type-coverage) | Bidirectional Coverage between `AuthoredModuleSettings` type members and `course-reference-ielts-v*.md` fixture YAML keys: a fixture key with no type member (or a type member with no fixture exercise) fails CI. Closes the drift class surfaced by the 2026-06-18 audit — 5 fixture keys silently dropped by the wizard parser. | #1910 | **a** |
 | [`arraykey-writer-coverage`](#guard-arraykey-writer-coverage) | Bidirectional Coverage between `JOURNEY_SETTINGS` / `VOICE_SETTINGS` contracts whose `storagePath` declares `arrayKey` and writer routes accepting `arraySelector` in their body Zod schema. 14 arrayKey contracts at land time (5 fixed-selector + 9 runtime-selector for G8 module-scoped settings). Pairs with #1888 P3c — closes the drift class where a route refactor dropping `arraySelector` would silently break every per-instance write. | #1912 | **b** |
 | [`courses-template-version-coverage`](#guard-courses-template-version-coverage) | Bidirectional Coverage between production course-ref filesystem (`docs/courses/**/*.course-ref.md` + `docs/external/**/Upload Docs/*.course-ref.md`) and the `hf-template-version: "X.Y"` YAML front-matter marker. A production course-ref without the marker fails CI — the wizard parser can't disambiguate the template revision the doc was authored against. Ratchet at 0 exempt at land time; 6 production course-refs all on v5.1. | #1991 | **a** |
+| [`hf-voice/no-hardcoded-voice-id`](#guard-no-hardcoded-voice-id) | Hardcoded provider-catalogue voice-ID literals (`aura-asteria-en`, `sonic-amelia-en-female`, …) in `lib/` + `app/` runtime code; read from `config.voice.defaults.<provider>.voiceId` instead. Extensible regex registry per provider catalogue. Lands at `warn` after single offender repaired (`lib/chat/admin-tool-handlers.ts:2861`); promotion to `error` in a follow-on PR. Allow-list: `lib/voice/**`, `lib/config.ts`, `prisma/`, `scripts/`, `tests/`, `app/api/voice-providers/**`. Sibling to `lib/voice/default-provider.ts::DEFAULT_VOICE_PROVIDER_SLUG` (provider slug). | #2184 | **b** |
 
 ### Guard detail
 
@@ -629,6 +630,32 @@ this guard prevents the next instance of the class.
 **Survives hardening:** the doc-drift pattern is methodology-independent
 (any project with operator-runbook docs benefits). The watched-paths map
 will evolve as the infra surface shifts; the rule + script pair stays.
+
+<a id="guard-no-hardcoded-voice-id"></a>
+**`hf-voice/no-hardcoded-voice-id`** · class **(b) scaffold** · born 2026-06-20 (#2184) ·
+[rule source](../../apps/admin/eslint-rules/no-hardcoded-voice-id.mjs) ·
+rule → [.claude/rules/no-hardcoded-voice-id.md](../../.claude/rules/no-hardcoded-voice-id.md)
+
+Blocks bare provider-catalogue voice-ID literals (`aura-asteria-en`,
+`sonic-amelia-en-female`, …) in `lib/` + `app/` runtime code. The
+canonical source is `config.voice.defaults.<provider>.voiceId` in
+`lib/config.ts`. Voice IDs are provider-catalogue-specific — if Deepgram
+retires `aura-asteria-en`, a bare literal silently breaks voice
+synthesis without surfacing a config-side decision.
+
+Extensible regex registry per provider catalogue:
+
+- Deepgram Aura: `aura-[a-z]+-[a-z]{2}` (e.g. `aura-asteria-en`)
+- Cartesia Sonic: `sonic-[a-z]+-[a-z]{2}-[a-z]+` (e.g. `sonic-amelia-en-female`)
+- ElevenLabs UUIDs: deferred (opaque shape — needs separate detection)
+
+Lands at `warn`. The one offender (`lib/chat/admin-tool-handlers.ts:2861`)
+is repaired in the same PR. Promotion to `error` in a follow-on PR once
+the codebase is verified clean by sweep.
+
+Sibling pattern: `lib/voice/default-provider.ts::DEFAULT_VOICE_PROVIDER_SLUG`
+covers PROVIDER selection ("vapi" / "deepgram"); this rule extends the
+principle one level deeper to voice IDs WITHIN a provider's catalogue.
 
 ## Drain guards (class c — terminal state, delete when zero)
 
