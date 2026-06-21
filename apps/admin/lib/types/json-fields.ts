@@ -1462,6 +1462,46 @@ export interface PinnedCardContent {
 }
 
 /**
+ * #2145 Phase A — first instance of the SessionFocus 4th-layer substrate.
+ *
+ * SessionFocus is a generic, per-course typed-union pattern that names the
+ * LEARNER-FACING label set for a session's adaptive emphasis. The session
+ * selection policy (a `session-focus-policy` AnalysisSpec) reads internal
+ * weakness signals (CallerTarget.currentScore on Skill parameters, LO
+ * mastery rollups, etc.) and writes ONE of these values to
+ * `CallerAttribute(key = "session_focus:next_{moduleSlug}")`.
+ *
+ * **Architectural notes:**
+ * - **Per-course union pattern**: every course that wants this surface
+ *   declares its own typed union — e.g. `Part3TechniqueFocus` (IELTS
+ *   Speaking Part 3), `CioCtoEmphasis` (TBD), `Ks2RevisionTechnique` (TBD).
+ *   Branded types are optional; literal unions are sufficient for v1.
+ * - **Values are LEARNER-FACING**: every value in the union is a string
+ *   the learner can read on a "Today's focus" pin AND the tutor can
+ *   reference verbatim in the prompt. Criterion names (e.g. "Lexical
+ *   Resource"), parameter slugs (e.g. `skill_lexical_resource_lr`), and
+ *   internal scoring axes are NEVER members of these unions — they live
+ *   in INTERNAL_LABEL_REGISTRY (apps/admin/tests/lib/sim-chat/learner-ui-leak-coverage.test.ts)
+ *   and are blocked from learner-UI dirs by that Coverage gate. The
+ *   sibling `LEARNER_SAFE_REGISTRY` in the same test file whitelists
+ *   these values so the leak gate doesn't trip on them.
+ * - **BDD-anchored**: the 4 Part 3 technique values come from the IELTS
+ *   BDD spec (`HF IELTS — BDD Stories US-P3-01` +
+ *   `HF-IELTS-Pre-Voice-Testing-Checklist.md` Unit 4) — they are not
+ *   pedagogy invented in code.
+ *
+ * Replaces the criterion-label shape PR #2134 / #1955 shipped. See epic
+ * #2145 (Generic SessionFocus substrate) for the full architecture and
+ * #2135 for the upstream MEASURE-spec chain that populates the input
+ * scores.
+ */
+export type Part3TechniqueFocus =
+  | "giving reasons"
+  | "structuring an argument"
+  | "handling a challenge"
+  | "expanding an answer";
+
+/**
  * Human-readable label for a CallScore.segmentKey value. Course-agnostic —
  * IELTS uses ("p1", "Part 1") / ("p2", "Part 2") / ("p3", "Part 3");
  * other courses define their own (Theme 6, story #1702).
