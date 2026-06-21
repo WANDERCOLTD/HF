@@ -935,22 +935,28 @@ const G4_SCORING_MODE: JourneySettingContract = {
 // prompt; it changes the next call's scoring lineage. The Preview lens
 // is correct to stay silent here.
 //
-// NOT registered in `lib/cascade/effective-value.ts::FAMILIES` — the
-// override is intentionally course-level only (Domain-level override
-// would silently flip scoring for every course in the domain). Snapshot
-// read is correct per `.claude/rules/cascade-reuse.md` — the
-// `<CascadeValue>` envelope returns `unresolvable: true` and the
-// Inspector falls back to the snapshot read with no cascade chip.
+// #2206 S2 (2026-06-21) — promoted to Domain → Course cascade per the
+// "ALL settings → UI" framing (handoff_lattice_all_settings_to_ui_2026_06_21).
+// The cascade chip surfaces provenance (`<CascadeValue>` + `<LayerBadge>`)
+// so a Domain-level override is auditable rather than silent. Resolver
+// at `lib/cascade/resolvers/ai-measurement.ts`; FAMILIES row in
+// `lib/cascade/effective-value.ts`.
 const G4_AI_MEASUREMENT_DISABLE_LLM_IELTS: JourneySettingContract = {
   id: "aiMeasurementDisableLlmIeltsScoring",
   menuGroupKey: "I_scoring",
   group: "G4",
   educatorLabel: "Disable LLM IELTS scoring for this course",
   helpText:
-    "When enabled (default for IELTS-shaped courses), the LLM judges Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, and Pronunciation from the transcript on each call. Tick this to disable LLM IELTS scoring — only rubric-based scoring will run.",
+    "When enabled (default for IELTS-shaped courses), the LLM judges Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, and Pronunciation from the transcript on each call. Tick this to disable LLM IELTS scoring — only rubric-based scoring will run. Inherits from the Domain layer when not set on this course.",
   storagePath: "config.aiMeasurement.disableLlmIeltsScoring",
+  cascadeKnobKey: "aiMeasurement.disableLlmIeltsScoring",
   control: "toggle",
-  cascadeSources: [],
+  cascadeSources: [
+    {
+      level: "domain",
+      storagePath: "domain.config.aiMeasurement.disableLlmIeltsScoring",
+    },
+  ],
   composeImpact: {
     sections: [],
     kinds: ["scoring-weight"],

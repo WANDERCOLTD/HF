@@ -29,6 +29,7 @@ import { resolveWelcomeMessage } from "./resolvers/welcome-message";
 import { resolveVoiceConfigKnob } from "./resolvers/voice-config";
 import { resolveIdentitySpec } from "./resolvers/identity-spec";
 import { resolveMasteryPolicyKnob } from "./resolvers/mastery-policy";
+import { resolveAiMeasurementKnob } from "./resolvers/ai-measurement";
 
 /**
  * Scope IDs the cascade can resolve against. SYSTEM is implicit (no id);
@@ -144,6 +145,17 @@ const FAMILIES: readonly KnobFamily[] = [
     name: "progress-signals",
     match: (k) => k === "progressSignals",
     resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  // #2206 S2 (2026-06-21) — per-course IELTS LLM-judged scoring
+  // kill-switch promoted to Domain → Course cascade per the
+  // "ALL settings → UI" framing. Cascade chip surfaces provenance so an
+  // institution-wide override is auditable rather than silent.
+  // Storage path is NESTED — `Playbook.config.aiMeasurement.<knob>` —
+  // matching the design route's partial-merge contract (PR #2158).
+  {
+    name: "ai-measurement",
+    match: (k) => k === "aiMeasurement.disableLlmIeltsScoring",
+    resolve: (scope, knobKey) => resolveAiMeasurementKnob(scope, knobKey),
   },
 ];
 
