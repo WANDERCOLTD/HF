@@ -105,6 +105,7 @@ const APPLIES_TO_ALL: readonly string[] = [
   "maxMasteryTier",
   "useFreshMastery",
   "scoringMode",
+  "aiMeasurementDisableLlmIeltsScoring",
   "progressNarrativeEnabled",
   "progressNarrativeCadence",
   "progressNarrativeThreshold",

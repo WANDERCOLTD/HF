@@ -78,7 +78,6 @@ import { loadGuardrails, type GuardrailsConfig } from "@/lib/pipeline/guardrails
 import { shouldRunCallerAnalysis } from "@/lib/pipeline/event-gate";
 import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
 import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile, filterByBehaviorTargetParams } from "@/lib/pipeline/specs-loader";
-import { ieltsLlmMeasureV1Enabled } from "@/lib/journey/module-settings-flag";
 import { writeCallScore, MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
 import { withTextNamespace } from "@/lib/pipeline/segment-key-namespace";
 import { normalizeScoreAgentEvidence } from "@/lib/pipeline/normalize-score-agent-evidence";
@@ -903,26 +902,13 @@ async function runBatchedCallerAnalysis(
   // are dropped when the playbook has none of the spec's declared
   // parameters on its BehaviorTarget rows. Generic — applies to any
   // future course-specific scoring spec (CEFR / TOEFL / Spanish DELE).
+  //
+  // Story #2158 (epic #2135 follow-on) — the env-flag gate that used to
+  // sit here (`!ieltsLlmMeasureV1Enabled() && drop IELTS-MEASURE-*`) was
+  // retired. The kill-switch now lives inside `filterByBehaviorTargetParams`
+  // as the per-Playbook override `config.aiMeasurement.disableLlmIeltsScoring`
+  // — see `.claude/rules/cascade-reuse.md` for the cascade-aware pattern.
   measureSpecIds = await filterByBehaviorTargetParams(measureSpecIds, playbookId, log);
-
-  // #2137 (epic #2135 S2) — feature flag for the new IELTS LLM scoring
-  // path. Default OFF; when off, drop the IELTS-MEASURE-001 spec entirely
-  // so the legacy prosody-consumer path remains the sole IELTS-skill
-  // writer (no double-writes during the staged rollout). Slug-based
-  // check is deliberate — `seed-from-specs.ts` keys on slug, not id.
-  if (!ieltsLlmMeasureV1Enabled() && measureSpecIds.length > 0) {
-    const ieltsSpecs = await prisma.analysisSpec.findMany({
-      where: { id: { in: measureSpecIds }, slug: { startsWith: "IELTS-MEASURE-" } },
-      select: { id: true, slug: true },
-    });
-    if (ieltsSpecs.length > 0) {
-      const ieltsIds = new Set(ieltsSpecs.map((s) => s.id));
-      measureSpecIds = measureSpecIds.filter((id) => !ieltsIds.has(id));
-      log.info(
-        `[ielts-llm-measure-flag] HF_IELTS_LLM_MEASURE_V1=off — dropped ${ieltsSpecs.length} IELTS MEASURE spec(s): ${ieltsSpecs.map((s) => s.slug).join(", ")}`,
-      );
-    }
-  }
 
   // Load full MEASURE specs with triggers/actions
   const measureSpecs = measureSpecIds.length > 0

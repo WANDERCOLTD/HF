@@ -264,6 +264,14 @@ export default function CourseDetailPage() {
   // the state + callback prevents the dead-code lint warning.
 
   // #418 — which curriculum source is in effect (authored vs derived).
+  // Story #2158 — header pill for the per-course IELTS LLM scoring
+  // method. Hidden on non-IELTS-shaped courses. Loaded once from the
+  // skills-rubric-calibration endpoint (which already computes
+  // isIeltsShaped + the override).
+  const [aiMeasurement, setAiMeasurement] = useState<{
+    isIeltsShaped: boolean;
+    disableLlmIeltsScoring: boolean;
+  } | null>(null);
   // Loaded once from setup-status so the header chip and the curriculum
   // tab can resolve `activeMode` without a render flash. Null until first
   // fetch resolves.
@@ -358,6 +366,31 @@ export default function CourseDetailPage() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
+  }, [courseId]);
+
+  // Story #2158 — fetch the AI Measurement state once for the header
+  // pill. Uses the existing skills-rubric-calibration endpoint which
+  // already computes `isIeltsShaped` + the override (`disableLlmIeltsScoring`).
+  // Errors are swallowed — the pill is a status indicator, not
+  // load-bearing, so a fetch fail simply hides it.
+  useEffect(() => {
+    if (!courseId) return;
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/skills-rubric-calibration`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.aiMeasurement) return;
+        setAiMeasurement({
+          isIeltsShaped: Boolean(data.aiMeasurement.isIeltsShaped),
+          disableLlmIeltsScoring: Boolean(
+            data.aiMeasurement.disableLlmIeltsScoring,
+          ),
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [courseId]);
 
   // ── Derived Data ─────────────────────────────────────
@@ -1280,6 +1313,15 @@ export default function CourseDetailPage() {
             config={detail.config as Record<string, unknown> | null | undefined}
             courseId={detail.id}
             router={router}
+          />
+          {/* Story #2158 — AI scoring pill. Hidden on non-IELTS-shaped
+              courses (the auto-detect is N/A there — the IELTS-MEASURE-*
+              spec is dropped before any kill-switch is consulted). */}
+          <AiScoringMethodPill
+            aiMeasurement={aiMeasurement}
+            onClick={() =>
+              router.push(`/x/courses/${detail.id}?tab=skills&lens=rubric`)
+            }
           />
           <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
           {(detail as any).group && (
@@ -2279,6 +2321,51 @@ function CurriculumSourcePill({
     <button
       type="button"
       className={`cd-progression-pill cd-progression-pill--${mode === "authored" ? "learner" : "ai"}`}
+      onClick={onClick}
+      title={title}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ── AI scoring pill (story #2158) ───────────────────────────────────
+//
+// Surfaces the resolved IELTS LLM scoring method next to the other
+// header pills. Two states:
+//
+//   - LLM-judged (default for IELTS-shaped courses): course has IELTS
+//     skill BehaviorTargets AND no per-course override; the
+//     IELTS-MEASURE-001 spec runs at SCORE_AGENT.
+//   - Default: course has the per-course
+//     `config.aiMeasurement.disableLlmIeltsScoring=true` override; spec
+//     is filtered out; only rubric-based scoring runs.
+//
+// Hidden on non-IELTS-shaped courses (the kill-switch is a no-op there).
+// Click navigates to Skills tab → Rubric Calibration lens where the
+// "AI Measurement Method" card lives. Rendering nothing during the
+// initial fetch (aiMeasurement === null) keeps the header stable.
+function AiScoringMethodPill({
+  aiMeasurement,
+  onClick,
+}: {
+  aiMeasurement: {
+    isIeltsShaped: boolean;
+    disableLlmIeltsScoring: boolean;
+  } | null;
+  onClick: () => void;
+}) {
+  if (aiMeasurement === null) return null;
+  if (!aiMeasurement.isIeltsShaped) return null;
+  const llmActive = !aiMeasurement.disableLlmIeltsScoring;
+  const label = llmActive ? "AI scoring: LLM-judged (IELTS)" : "AI scoring: Default";
+  const title = llmActive
+    ? "IELTS-MEASURE-001 LLM spec scores FC + LR + GRA + P from the transcript on each call. Click to manage."
+    : "LLM IELTS scoring disabled for this course — only rubric-based scoring runs. Click to manage.";
+  return (
+    <button
+      type="button"
+      className={`cd-progression-pill cd-progression-pill--${llmActive ? "learner" : "ai"}`}
       onClick={onClick}
       title={title}
     >

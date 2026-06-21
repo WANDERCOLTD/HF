@@ -922,6 +922,43 @@ const G4_SCORING_MODE: JourneySettingContract = {
   ],
 };
 
+// Story #2158 (epic #2135 follow-on) — per-course kill-switch for the
+// LLM-judged IELTS MEASURE path. Replaces the retired
+// `HF_IELTS_LLM_MEASURE_V1` env flag. Read by
+// `lib/pipeline/specs-loader.ts::filterByBehaviorTargetParams` after the
+// BehaviorTarget-presence check; when true → IELTS-MEASURE-* specs are
+// dropped for this course.
+//
+// `composeImpact.sections: []` is deliberate — this knob doesn't change
+// what the COMPOSE step emits in the prompt. It changes WHICH MEASURE
+// spec runs at pipeline time, so a flip doesn't dirty the composed
+// prompt; it changes the next call's scoring lineage. The Preview lens
+// is correct to stay silent here.
+//
+// NOT registered in `lib/cascade/effective-value.ts::FAMILIES` — the
+// override is intentionally course-level only (Domain-level override
+// would silently flip scoring for every course in the domain). Snapshot
+// read is correct per `.claude/rules/cascade-reuse.md` — the
+// `<CascadeValue>` envelope returns `unresolvable: true` and the
+// Inspector falls back to the snapshot read with no cascade chip.
+const G4_AI_MEASUREMENT_DISABLE_LLM_IELTS: JourneySettingContract = {
+  id: "aiMeasurementDisableLlmIeltsScoring",
+  menuGroupKey: "I_scoring",
+  group: "G4",
+  educatorLabel: "Disable LLM IELTS scoring for this course",
+  helpText:
+    "When enabled (default for IELTS-shaped courses), the LLM judges Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, and Pronunciation from the transcript on each call. Tick this to disable LLM IELTS scoring — only rubric-based scoring will run.",
+  storagePath: "config.aiMeasurement.disableLlmIeltsScoring",
+  control: "toggle",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["scoring-weight"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 // Lane 3 PR7 — J_feedback contracts (catch-up from #1780).
 
 const G4_PROGRESS_NARRATIVE_ENABLED: JourneySettingContract = {
@@ -2281,7 +2318,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G3_MODULE_SEQUENCE_POLICY,
   G3_FIRST_CALL_CURRICULUM_FOCUS,
   G3_OPENING_RECAP_ENABLED,
-  // G4 (17)
+  // G4 (18)
   G4_MODE_POLICY,
   G4_SHARE_MATERIALS,
   G4_TOLERANCE_ACCURACY,
@@ -2296,6 +2333,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G4_MAX_MASTERY_TIER,
   G4_USE_FRESH_MASTERY,
   G4_SCORING_MODE,
+  G4_AI_MEASUREMENT_DISABLE_LLM_IELTS,
   G4_PROGRESS_NARRATIVE_ENABLED,
   G4_PROGRESS_NARRATIVE_CADENCE,
   G4_PROGRESS_NARRATIVE_THRESHOLD,
