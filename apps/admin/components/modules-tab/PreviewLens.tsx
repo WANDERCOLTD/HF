@@ -40,9 +40,30 @@
 import { useMemo, useState } from "react";
 import { Eye, Sparkles } from "lucide-react";
 
-import { type LearnerShellKind } from "@/lib/types/json-fields";
+import {
+  type AuthoredModuleMode,
+  type LearnerShellKind,
+} from "@/lib/types/json-fields";
+import { resolveLearnerShell } from "@/lib/voice/resolve-learner-shell";
 import type { ModuleEditorRow } from "./ModuleEditor";
 import "./preview-lens.css";
+
+const AUTHORED_MODULE_MODES: ReadonlyArray<AuthoredModuleMode> = [
+  "examiner",
+  "tutor",
+  "mixed",
+  "quiz",
+  "mock-exam",
+];
+
+function asAuthoredModuleMode(
+  value: string | undefined,
+): AuthoredModuleMode | null {
+  return value !== undefined &&
+    (AUTHORED_MODULE_MODES as ReadonlyArray<string>).includes(value)
+    ? (value as AuthoredModuleMode)
+    : null;
+}
 
 // ── PreviewLens-local capability shape (NOT the canonical one from
 // PR #2173). This stub's `LearnerShellCapabilities` describes the
@@ -116,32 +137,44 @@ const SHELL_DEFAULTS: Record<LearnerShellKind, LearnerShellCapabilities> = {
   },
 };
 
-/** TODO(2206-stub): replace with the real resolver from #2199. */
-function resolveLearnerShell(args: {
+/**
+ * Selection wrapper that delegates `shellKind` to the canonical resolver
+ * at `lib/voice/resolve-learner-shell.ts::resolveLearnerShell` (PR #2199 /
+ * story #2197). Eliminates the local sibling-writer drift that would
+ * silently fork the moment a new mode → shell rule lands in the canonical
+ * SHELL_SELECTION_RULES table.
+ *
+ * The Modules-tab Preview has no live session context; we synthesise a
+ * `VOICE_CALL` session with the module's own `sessionTerminal` so that
+ * the examiner / mock-exam terminal-shell rules fire correctly.
+ *
+ * The `capabilities` here is the LOCAL preview-affordance shape
+ * (mic / text / cueCard / waveform / scoreboard), NOT the canonical
+ * runtime capability frame. Those are different concerns — the comment
+ * at the top of this file explains the split, and PR #2202 collapses
+ * the local capability stub when real shell components ship.
+ */
+function resolvePreviewShell(args: {
   module: Pick<ModuleEditorRow, "mode" | "sessionTerminal"> | null;
 }): ResolvedLearnerShell {
-  const mode = args.module?.mode;
-  let shellKind: LearnerShellKind;
-  switch (mode) {
-    case "examiner":
-    case "mock-exam":
-      shellKind = "exam";
-      break;
-    case "quiz":
-      shellKind = "mcq-rounds";
-      break;
-    case "tutor":
-    case "mixed":
-    default:
-      shellKind = "chat-feed";
-      break;
+  const mode = asAuthoredModuleMode(args.module?.mode);
+  if (!args.module || mode === null) {
+    return {
+      shellKind: "chat-feed",
+      capabilities: SHELL_DEFAULTS["chat-feed"],
+    };
   }
-  // Stub: no capability overrides. The real resolver walks the cascade
-  // and may flip e.g. `micEnabled` for a per-module override.
+  const { shellKind } = resolveLearnerShell({
+    session: {
+      kind: "VOICE_CALL",
+      sessionTerminal: args.module.sessionTerminal ?? false,
+    },
+    module: { mode },
+  });
   return { shellKind, capabilities: SHELL_DEFAULTS[shellKind] };
 }
 
-// ── End stub block ─────────────────────────────────────────────────
+// ── End preview-shell wrapper ─────────────────────────────────────
 
 type LensVariant = "shell-preview" | "none";
 
@@ -216,7 +249,7 @@ export function ModulesPreviewLens({
 function ShellPreviewBody({ module }: { module: ModuleEditorRow | null }) {
   const resolved = useMemo<ResolvedLearnerShell | null>(() => {
     if (!module) return null;
-    return resolveLearnerShell({ module });
+    return resolvePreviewShell({ module });
   }, [module]);
 
   if (!module || !resolved) {
