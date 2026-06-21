@@ -1975,6 +1975,42 @@ html.light {
   outline: none;
 }
 
+/* #2227 (U8 of #2185) — collapsed-state restore chip. Sits in the same
+   slot region as the expanded card so the affordance never disappears
+   from the learner's field of view. Click to re-expand; reuses the
+   in-memory pinned-card content (no refetch). */
+.hf-pinned-card-restore {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  transition: all 0.15s ease;
+}
+.hf-pinned-card-restore:hover,
+.hf-pinned-card-restore:focus-visible {
+  border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  color: var(--text-primary);
+  outline: none;
+}
+.hf-pinned-card-restore-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+.hf-pinned-card-restore-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
 /* #1743 — stall-detector chip. Subtle fade-in cue above the chat surface
    when the learner has gone quiet during a monologue / discussion module.
    Voice never triggers from this; it is a visual nudge only. */
