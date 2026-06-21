@@ -1,18 +1,31 @@
 "use client";
 
 /**
- * ExamModeShell — Mock exam stripped UI (#1745, epic #1700 Theme 4).
+ * ExamModeShell — capability-driven Mock exam stripped UI
+ * (#1745, epic #1700 Theme 4 → refactored S3 of epic #2163, #2198).
  *
- * Renders a full-screen dark layout with the `DualWaveform` pair instead
- * of the chat feed. Activated when the bound `AuthoredModule.mode` is
- * `"examiner"` AND the session is terminal (the discriminator from the
- * story body).
+ * Renders a full-screen layout with the `DualWaveform` pair instead of
+ * the chat feed. Activated when the bound `AuthoredModule.mode` is
+ * `"examiner"` OR `"mock-exam"` (closes #2161) AND the session is
+ * terminal. Per epic #2163 — capabilities drive every affordance
+ * (colour theme, mode pill, dismiss behaviour, timer presence).
+ * Shell components consume the capability map at render time instead
+ * of branching on the shell kind directly:
  *
- * Aesthetic — strict dark theme; no labels (handled by waveform), no
- * timers, no chat shell. Wraps a stop-prop region so the host page's
- * chat-feed mount can stay rendered but layered beneath an opaque
- * overlay; the host decides whether to actually hide it or keep it
- * present (we just paint over).
+ *   GOOD (declarative):  {capabilities.showTimer === "visible" ? <Timer /> : null}
+ *   BAD  (procedural):   {shellKind === "exam" ? null : <Timer />}
+ *
+ * **IELTS Mock byte-identical regression** — the existing
+ * `shouldMountExamModeShell(module, sessionTerminal)` callers + the
+ * existing `<ExamModeShell examinerLevel={…} learnerLevel={…} …/>`
+ * call sites still work: `capabilities` defaults to `SHELL_DEFAULTS.exam`
+ * when not supplied. The byte-identical assertion lives in
+ * `tests/components/sim/learner-shells.test.tsx`.
+ *
+ * Aesthetic — colour theme + mode pill copy are read from
+ * `capabilities.colourTheme` + `capabilities.modePillKey`. Default
+ * `exam` capabilities resolve to dark theme + mock-exam pill, matching
+ * pre-refactor behaviour byte-for-byte.
  *
  * The amplitude values come from the host hook — typically the existing
  * `useVoiceMode` for the learner mic plus a sibling
@@ -25,6 +38,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { DualWaveform } from "./DualWaveform";
+import { SHELL_DEFAULTS, type LearnerShellCapabilities } from "@/lib/types/json-fields";
 import "./exam-mode-shell.css";
 
 import type { AuthoredModule } from "@/lib/types/json-fields";
@@ -39,6 +53,10 @@ interface ExamModeShellProps {
   speakerRole?: "learner" | "examiner" | "idle";
   /** Optional banner text — e.g. "Part 2 — You'll speak for 2 minutes". */
   banner?: string;
+  /** Capability frame driving affordances. Defaults to
+   *  `SHELL_DEFAULTS.exam` so existing call sites stay byte-identical
+   *  pre/post-refactor. */
+  capabilities?: LearnerShellCapabilities;
   /** Child controls (e.g. an end-call button) rendered beneath the
    *  waveform. */
   children?: React.ReactNode;
@@ -48,7 +66,9 @@ interface ExamModeShellProps {
  * Pure discriminator: should the Mock exam shell mount for this module?
  *
  * Returns true when:
- *  - the bound AuthoredModule.mode === "examiner", AND
+ *  - the bound AuthoredModule.mode is `"examiner"` OR `"mock-exam"`
+ *    (PR #2198 closes #2161 — the mock-exam mode missed the gate
+ *     pre-refactor), AND
  *  - the module is terminal (typically Mock Exam, where bands are
  *    spoken aloud and the session ends with the final part).
  *
@@ -59,7 +79,18 @@ export function shouldMountExamModeShell(
   sessionTerminal: boolean,
 ): boolean {
   if (!module) return false;
-  return module.mode === "examiner" && sessionTerminal === true;
+  if (sessionTerminal !== true) return false;
+  return module.mode === "examiner" || module.mode === "mock-exam";
+}
+
+/**
+ * Resolve the `data-colour-theme` attribute used by the CSS to swap
+ * background + text variables. The CSS-variable approach keeps every
+ * theme switch declarative — no inline `style={{}}` for static
+ * properties (per `.claude/rules/ui-design-system.md`).
+ */
+function colourThemeAttr(theme: LearnerShellCapabilities["colourTheme"]): string {
+  return theme;
 }
 
 export function ExamModeShell({
@@ -67,22 +98,44 @@ export function ExamModeShell({
   learnerLevel,
   speakerRole = "idle",
   banner,
+  capabilities = SHELL_DEFAULTS.exam,
   children,
 }: ExamModeShellProps) {
   return (
-    <section className="hf-exam-shell" role="region" aria-label="Mock exam">
+    <section
+      className="hf-exam-shell"
+      role="region"
+      aria-label="Mock exam"
+      data-colour-theme={colourThemeAttr(capabilities.colourTheme)}
+      data-mode-pill={capabilities.modePillKey ?? ""}
+      data-dismiss-on-end={capabilities.dismissOnEnd}
+    >
       <div className="hf-exam-shell-bg" aria-hidden />
       <div className="hf-exam-shell-content">
+        {capabilities.modePillKey ? (
+          <div
+            className="hf-shell-mode-pill"
+            data-testid="hf-shell-mode-pill"
+            data-mode-pill-key={capabilities.modePillKey}
+          >
+            {capabilities.modePillKey}
+          </div>
+        ) : null}
         {banner ? (
           <div className="hf-exam-shell-banner" data-testid="hf-exam-shell-banner">
             {banner}
           </div>
         ) : null}
-        <DualWaveform
-          examinerLevel={examinerLevel}
-          learnerLevel={learnerLevel}
-          speakerRole={speakerRole}
-        />
+        {capabilities.showTimer === "visible" ? (
+          <div className="hf-shell-timer" data-testid="hf-shell-timer" />
+        ) : null}
+        {capabilities.chatFeedVisibility === "none" ? (
+          <DualWaveform
+            examinerLevel={examinerLevel}
+            learnerLevel={learnerLevel}
+            speakerRole={speakerRole}
+          />
+        ) : null}
         {children ? <div className="hf-exam-shell-controls">{children}</div> : null}
       </div>
     </section>
@@ -171,7 +224,7 @@ export function useRemoteAudioLevel(audio: HTMLAudioElement | null): {
         // and on some audio MIME types — switch to proxy mode.
         setFallbackMode(true);
         setLevel(proxyRef.current);
-         
+
         console.warn("[useRemoteAudioLevel] AnalyserNode unavailable — proxy mode", err);
       }
     }

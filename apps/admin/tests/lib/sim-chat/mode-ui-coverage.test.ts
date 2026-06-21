@@ -165,11 +165,13 @@ const MODE_AXIS_EXEMPT: Partial<Record<CellKey, ExemptEntry>> = {
 const EXPECTED_EXEMPT_COUNT = 6;
 
 /** Ratchet — UI consumer gaps frozen at incumbent count. Drops as
- *  gaps close. Today's incumbents: quiz.learnerUI + mock-exam.learnerUI
- *  — both flagged in the 2026-06-21 audit. Operators see distinct
- *  badges in the admin Modules tab; learners experience an identical
- *  chat session regardless of mode. */
-const EXPECTED_GAP_COUNT = 2;
+ *  gaps close. Both incumbents closed by PR #2198 (S3 of epic #2163):
+ *  `mock-exam.learnerUI` closed by extending `shouldMountExamModeShell`
+ *  to accept both `examiner` and `mock-exam` (#2161). `quiz.learnerUI`
+ *  closed at the SHELL level by `MCQRoundsShell` consuming the
+ *  capability frame for `mode === "quiz"` modules (#2159). Data feed
+ *  remains stubbed pending epic #2176 S2 (#2180 sampling engine). */
+const EXPECTED_GAP_COUNT = 0;
 
 // ────────────────────────────────────────────────────────────
 // Source-walk + classification
