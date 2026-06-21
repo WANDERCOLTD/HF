@@ -30,6 +30,7 @@ import { resolveVoiceConfigKnob } from "./resolvers/voice-config";
 import { resolveIdentitySpec } from "./resolvers/identity-spec";
 import { resolveMasteryPolicyKnob } from "./resolvers/mastery-policy";
 import { resolveAiMeasurementKnob } from "./resolvers/ai-measurement";
+import { resolveTeachingStyle } from "./resolvers/teaching-style";
 
 /**
  * Scope IDs the cascade can resolve against. SYSTEM is implicit (no id);
@@ -156,6 +157,17 @@ const FAMILIES: readonly KnobFamily[] = [
     name: "ai-measurement",
     match: (k) => k === "aiMeasurement.disableLlmIeltsScoring",
     resolve: (scope, knobKey) => resolveAiMeasurementKnob(scope, knobKey),
+  },
+  // #2228 A1b (2026-06-21) — `teachingStyle` is the sole CASCADE-Domain+
+  // Course knob still missing a FAMILIES entry. Asymmetric blob keys
+  // (`Domain.config.teachingStyleDefault` → `Playbook.config.teachingStyle`)
+  // mean it can't reuse `resolveMasteryPolicyKnob` — slim sibling resolver
+  // ships at `lib/cascade/resolvers/teaching-style.ts`, same shape as
+  // `welcome-message.ts`.
+  {
+    name: "teaching-style",
+    match: (k) => k === "teachingStyle",
+    resolve: (scope) => resolveTeachingStyle(scope),
   },
 ];
 

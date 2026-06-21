@@ -728,7 +728,13 @@ const G4_TIER_PRESET_ID: JourneySettingContract = {
     "When set to `ielts-speaking`, PROSODY calls the speech-assessment provider in IELTS mode and 4 sub-bands flow into the CallScore rows. Otherwise PROSODY scores in generic mode.",
   storagePath: "config.tierPresetId",
   control: "select",
-  cascadeSources: [],
+  // #2228 A1b — align cascadeSources with the FAMILIES `tier-preset`
+  // entry shipped by #2174 S3. Runtime resolver reads
+  // `Domain.config.tierPresetId` directly; `cascadeSources` is the
+  // documentation/Inspector-isInherited declaration.
+  cascadeSources: [
+    { level: "domain", storagePath: "domain.config.tierPresetId" },
+  ],
   composeImpact: {
     sections: ["moduleMastery", "loMastery"],
     kinds: ["scoring-weight"],
@@ -850,7 +856,17 @@ const G4_SKILL_SCORING_EMA_HALF_LIFE: JourneySettingContract = {
   helpText: "Days for the per-skill EMA to decay to half-weight.",
   storagePath: "config.skillScoringEmaHalfLifeDays",
   control: "number",
-  cascadeSources: [],
+  // #2228 A1b — align cascadeSources with the FAMILIES
+  // `mastery-policy` entry. The contract id (`skillScoringEmaHalfLife`)
+  // and the FAMILIES key (`skillScoringEmaHalfLifeDays`) differ by the
+  // `Days` suffix — `cascadeKnobKey` bridges the dispatch.
+  cascadeSources: [
+    {
+      level: "domain",
+      storagePath: "domain.config.skillScoringEmaHalfLifeDays",
+    },
+  ],
+  cascadeKnobKey: "skillScoringEmaHalfLifeDays",
   composeImpact: {
     sections: [],
     kinds: ["scoring-weight"],
