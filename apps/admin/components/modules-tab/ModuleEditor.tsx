@@ -40,6 +40,7 @@ import type {
 } from "@/lib/types/json-fields";
 
 import { ModuleInspectorPanel } from "./ModuleInspectorPanel";
+import { SourceRefStatusChip } from "./SourceRefStatusChip";
 
 export interface ModuleEditorRow {
   id: string;
@@ -132,6 +133,12 @@ function ModuleHeaderCard({ module: m }: { module: ModuleEditorRow }) {
         {typeof m.position === "number" ? (
           <Chip label="Position" value={`#${m.position + 1}`} />
         ) : null}
+        {/* S12 of #2185 (`memory/handoff_lattice_all_settings_to_ui_2026_06_21.md`)
+         * — at-a-glance source-ref resolution status per module. Returns
+         * null when the module declares no resolvable source-bearing
+         * settings keys; warn chip lists unresolved fields in tooltip.
+         * See `.claude/rules/source-ref-coverage.md`. */}
+        <SourceRefStatusChip settings={m.settings} moduleId={m.id} />
       </div>
     </section>
   );
