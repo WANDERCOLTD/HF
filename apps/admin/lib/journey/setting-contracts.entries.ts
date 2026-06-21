@@ -2070,8 +2070,9 @@ const G8_MODULE_CUE_CARD_POOL: JourneySettingContract = {
 // pre-authored questions one at a time. Source-ref form lives in the
 // course-ref doc (`topicPool: source:<id>`); the resolver inlines
 // `Array<{ topic, questions[] }>` at projection time.
-// Phase 1 ships as `json-fallback` — the Theme 1b JourneyArrayEditor
-// primitive is deferred per epic #1700 decision 5.
+// #2225 A2 — migrated `json-fallback` → `array-editor`. Data shape is
+// `Array<{topic, questions[]}>`; the array-of-objects editor now has a
+// `moduleTopicPool` row schema in `JourneyArrayEditor.tsx::ROW_SCHEMAS`.
 const G8_MODULE_TOPIC_POOL: JourneySettingContract = {
   id: "moduleTopicPool",
   menuGroupKey: "E_learner_visual",
@@ -2084,7 +2085,7 @@ const G8_MODULE_TOPIC_POOL: JourneySettingContract = {
     path: "config.modules[].settings.topicPool",
     arrayKey: "id",
   },
-  control: "json-fallback",
+  control: "array-editor",
   cascadeSources: [],
   composeImpact: {
     sections: ["instructions"],
@@ -2238,6 +2239,11 @@ const G8_MODULE_SILENT_MODE: JourneySettingContract = {
   appliesTo: ["exam"],
 };
 
+// #2225 A2 — migrated `json-fallback` → `array-editor`. Data shape is
+// `ProfileFieldToCapture[]` = `{key, prompt, type}[]`; the
+// `moduleProfileFieldsToCapture` row schema already exists in
+// `JourneyArrayEditor.tsx::ROW_SCHEMAS` (was wired in Theme 1b but the
+// contract never adopted the primitive).
 const G8_MODULE_PROFILE_FIELDS_TO_CAPTURE: JourneySettingContract = {
   id: "moduleProfileFieldsToCapture",
   menuGroupKey: "A_intake",
@@ -2250,7 +2256,7 @@ const G8_MODULE_PROFILE_FIELDS_TO_CAPTURE: JourneySettingContract = {
     path: "config.modules[].settings.profileFieldsToCapture",
     arrayKey: "id",
   },
-  control: "json-fallback",
+  control: "array-editor",
   cascadeSources: [],
   composeImpact: {
     sections: ["instructions"],

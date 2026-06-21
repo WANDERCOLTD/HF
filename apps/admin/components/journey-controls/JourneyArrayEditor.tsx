@@ -20,6 +20,10 @@ import type { JourneyFieldProps } from "./JourneyField";
  *     newline-separated string in the UI).
  *   - `moduleScheduledCues` → `{ at: number, text: string }` (one entry
  *     per scheduled cue; `at` is seconds-from-session-start).
+ *   - `moduleTopicPool` → `{ topic: string, questions: string[] }` (one
+ *     entry per topic frame; questions are authored as a newline-separated
+ *     string in the UI — same shape pattern as cueCardPool's bullets).
+ *     Added #2225 A2.
  *   - `moduleProfileFieldsToCapture` → `{ key: string, prompt: string,
  *     type: "text" | "number" | "band" }` (one entry per profile field
  *     the EXTRACT routine should capture; see Theme 10 / #1704).
@@ -84,6 +88,25 @@ const ROW_SCHEMAS: Record<string, RowSchema> = {
         type: "string",
         default: "",
         hint: 'e.g. "15 seconds left"',
+      },
+    ],
+  },
+  moduleTopicPool: {
+    itemTitle: (i) => `Topic ${i + 1}`,
+    fields: [
+      {
+        key: "topic",
+        label: "Topic",
+        type: "string",
+        default: "",
+        hint: 'e.g. "Work or studies", "Hometown"',
+      },
+      {
+        key: "questions",
+        label: "Questions",
+        type: "string-multiline",
+        default: "",
+        hint: "One question per line. Tutor asks them one at a time.",
       },
     ],
   },
