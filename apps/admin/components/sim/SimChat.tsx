@@ -21,6 +21,8 @@ import {
   ResultsReadoutShell,
   type ResultsReadoutPayload,
 } from './ResultsReadoutShell';
+import { ModuleSwitchLockBanner } from './ModuleSwitchLockBanner';
+import { PostCallCTA } from './PostCallCTA';
 import { resolveLearnerShell } from '@/lib/voice/resolve-learner-shell';
 import type { AuthoredModuleMode } from '@/lib/types/json-fields';
 import { useProviderCall } from './useProviderCall';
@@ -1484,6 +1486,16 @@ export function SimChat({
         liveBubblesMode={liveBubblesMode}
       />
 
+      {/* UX-B B1 — module-switch lock banner. Capability-driven: reads
+          `allowModuleSwitch` + `modePillKey` from the resolved frame.
+          NO `.mode === "X"` branching here — every per-variant copy
+          difference is keyed off the typed capability map. Silent when
+          `allowModuleSwitch: true`. */}
+      <ModuleSwitchLockBanner
+        capabilities={resolvedCapabilities}
+        shellKind={resolvedShellKind}
+      />
+
       {/* Messages */}
       <div
         ref={scrollContainerRef}
@@ -2082,6 +2094,20 @@ export function SimChat({
               </button>
             )}
           </div>
+        )}
+
+        {/* UX-B B2 — exit/navigate CTA. Capability-driven: button text +
+            destination come from `capabilities.dismissOnEnd`. NULL when
+            `dismissOnEnd === "results-screen"` (ResultsReadoutShell owns
+            the post-call CTA in that case). Sits below "Up next" so the
+            iteration loop (same-module restart) stays the lead action;
+            this surfaces the exit / next-module path. */}
+        {callPhase === 'ended' && (
+          <PostCallCTA
+            capabilities={resolvedCapabilities}
+            callerId={callerId}
+            courseId={playbookId}
+          />
         )}
 
         {/* #1098 Slice C — Qualification readiness recap after the call settles.
