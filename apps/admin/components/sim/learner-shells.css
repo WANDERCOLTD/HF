@@ -84,6 +84,13 @@
 }
 
 .hf-mcq-options li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hf-mcq-option-btn {
+  width: 100%;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -91,6 +98,24 @@
   border-radius: 10px;
   background: var(--surface-secondary);
   border: 1px solid var(--border-default);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.hf-mcq-option-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-secondary));
+  border-color: var(--accent-primary);
+}
+
+.hf-mcq-options li[data-selected="true"] .hf-mcq-option-btn {
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-secondary));
+  border-color: var(--accent-primary);
+}
+
+.hf-mcq-option-btn:disabled {
+  cursor: default;
+  opacity: 0.85;
 }
 
 .hf-mcq-option-label {
@@ -101,6 +126,30 @@
 
 .hf-mcq-option-text {
   color: var(--text-primary);
+}
+
+.hf-mcq-empty {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  border: 1px dashed var(--border-default);
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.hf-mcq-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hf-mcq-empty-detail {
+  font-size: 14px;
+  color: var(--text-muted);
 }
 
 .hf-mcq-feedback {

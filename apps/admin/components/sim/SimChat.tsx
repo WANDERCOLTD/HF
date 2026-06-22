@@ -16,7 +16,8 @@ import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
 import { ExamModeShell } from './ExamModeShell';
 import { ChatFeedShell } from './ChatFeedShell';
-import { MCQRoundsShell } from './MCQRoundsShell';
+import { MCQRoundsShell, type MCQRoundsEmptyReason } from './MCQRoundsShell';
+import { useAssessmentMomentMCQs } from './use-assessment-moment-mcqs';
 import {
   ResultsReadoutShell,
   type ResultsReadoutPayload,
@@ -1349,6 +1350,114 @@ export function SimChat({
     }
   }, [resolvedShellKind, matchedRuleId, callerId, requestedModuleId]);
 
+  // W4 of memory/handoff_lattice_all_settings_to_ui_2026_06_21.md
+  // (epic #2163 closeout) — MCQ data feed for the quiz-mode shell.
+  //
+  // Reads the caller's active Playbook → assessmentPlan → finds the
+  // AssessmentMoment whose moduleSlug matches the current module → calls
+  // the canonical sampling engine via the route. The hook returns an
+  // empty list + typed `reason` when no moment / empty pool / unsatisfied
+  // policy — the shell consumes this and renders the empty-state. NEVER
+  // fake MCQs (per `feedback_no_hardcoded_score_backfill.md`).
+  //
+  // Mount gate: only fetch when the resolver picked the mcq-rounds shell
+  // for this session AND we have a moduleSlug. Other shells never see
+  // this state.
+  const mcqFeedEnabled = resolvedShellKind === 'mcq-rounds';
+  const mcqFeed = useAssessmentMomentMCQs({
+    callerId,
+    moduleSlug: requestedModuleId ?? null,
+    enabled: mcqFeedEnabled,
+  });
+
+  // Per-round local state. Track the current 1-based round + the selected
+  // option label + the local feedback node for that round. Resets when
+  // the MCQ list changes (new fetch / new moment).
+  const [mcqRoundIndex, setMcqRoundIndex] = useState(1);
+  const [mcqSelectedOption, setMcqSelectedOption] = useState<string | null>(
+    null,
+  );
+  const [mcqFeedbackNode, setMcqFeedbackNode] = useState<React.ReactNode>(null);
+  const [mcqCompleted, setMcqCompleted] = useState(false);
+  useEffect(() => {
+    setMcqRoundIndex(1);
+    setMcqSelectedOption(null);
+    setMcqFeedbackNode(null);
+    setMcqCompleted(false);
+  }, [mcqFeed.mcqs]);
+
+  const handleMcqAnswer = useCallback(
+    (mcqId: string, optionLabel: string) => {
+      // Pin selection (disables the option buttons via the shell's
+      // disabled gate) and surface immediate-mode feedback. Per
+      // ai-to-db-guard.md, the real CallScore write goes through the
+      // canonical writer at `lib/measurement/write-call-score.ts` from
+      // the pipeline — until W4 wires that path, emit an AppLog beacon
+      // so the answer flow is observable end-to-end.
+      setMcqSelectedOption(optionLabel);
+
+      const subject = 'assessment.answer.submitted';
+      const beacon = {
+        subject,
+        callerId,
+        moduleSlug: requestedModuleId ?? null,
+        sessionId: callId ?? null,
+        mcqId,
+        optionLabel,
+        momentKind: mcqFeed.momentKind ?? null,
+      };
+      // Console-only beacon for now — the SUPERVISE pipeline owns the
+      // real score-write. Visible in dev via `/x/logs` once a server
+      // endpoint relays. AppLog server-side write is a follow-on PR
+      // (`POST /api/log/assessment-answer` keyed on sessionId).
+      console.info(`[${subject}]`, beacon);
+
+      if (mcqFeed.feedbackMode === 'immediate') {
+        setMcqFeedbackNode(
+          <span data-testid="hf-mcq-feedback-immediate">
+            Answer recorded. Moving on…
+          </span>,
+        );
+      }
+
+      // Advance to the next round after a short pause so the learner
+      // sees their selection + feedback.
+      const advance = () => {
+        if (mcqRoundIndex >= mcqFeed.mcqs.length) {
+          setMcqCompleted(true);
+          setMcqFeedbackNode(null);
+          return;
+        }
+        setMcqRoundIndex((prev) => prev + 1);
+        setMcqSelectedOption(null);
+        setMcqFeedbackNode(null);
+      };
+      window.setTimeout(advance, 700);
+    },
+    [
+      callerId,
+      requestedModuleId,
+      callId,
+      mcqFeed.momentKind,
+      mcqFeed.feedbackMode,
+      mcqFeed.mcqs.length,
+      mcqRoundIndex,
+    ],
+  );
+
+  // Resolve the shell's `emptyReason` prop based on the feed state.
+  // `loading` while the fetch is in flight; `error` on network fail;
+  // otherwise the engine's typed reason (no-moment / empty-pool / etc.).
+  const mcqEmptyReason: MCQRoundsEmptyReason | null = mcqFeedEnabled
+    ? mcqFeed.loading
+      ? 'loading'
+      : mcqFeed.error
+        ? 'error'
+        : mcqFeed.mcqs.length === 0
+          ? mcqFeed.reason ?? 'no-moment'
+          : null
+    : null;
+
   // W6 of memory/handoff_lattice_all_settings_to_ui_2026_06_21.md
   // (story #2185 U11) — ResultsReadoutShell overlay state. Per BDD
   // US-Mock-05 this is the ONE sanctioned learner surface that displays
@@ -2418,7 +2527,17 @@ export function SimChat({
       );
     case 'mcq-rounds':
       return (
-        <MCQRoundsShell capabilities={resolvedCapabilities}>
+        <MCQRoundsShell
+          capabilities={resolvedCapabilities}
+          mcqs={mcqFeed.mcqs}
+          roundIndex={mcqRoundIndex}
+          roundTotal={mcqFeed.mcqs.length || undefined}
+          ended={mcqCompleted}
+          feedback={mcqFeedbackNode}
+          selectedOption={mcqSelectedOption}
+          onAnswer={handleMcqAnswer}
+          emptyReason={mcqEmptyReason}
+        >
           {content}
           {examShellOverlay}
           {resultsShell}

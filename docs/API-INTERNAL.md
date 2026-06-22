@@ -2503,6 +2503,38 @@ List conversation artifacts for a caller. Optionally filter by callId or status.
 
 ---
 
+### `GET` /api/callers/:callerId/assessment-moment-mcqs?moduleSlug=…
+
+W4 of `memory/handoff_lattice_all_settings_to_ui_2026_06_21.md` —
+
+**Auth**: session (VIEWER+ — STUDENT scoped to own caller) · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller.id |
+
+**Response** `200`
+```json
+{ok: true, result: AssessmentMomentMCQsPayload | null, reason?: string}
+```
+
+**Response** `400`
+```json
+{ok: false, error: string}
+```
+
+**Response** `403`
+```json
+{ok: false, error: string}
+```
+
+**Response** `500`
+```json
+{ok: false, error: string}
+```
+
+---
+
 ### `GET` /api/callers/:callerId/available-media
 
 Get all media assets available for sharing with a caller, based on their domain's linked subjects.
@@ -16419,8 +16451,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 544 |
-| Files with annotations | 530 |
+| Route files found | 545 |
+| Files with annotations | 531 |
 | Files missing annotations | 14 |
 | Coverage | 97.4% |
 

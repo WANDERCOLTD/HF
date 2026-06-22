@@ -16,8 +16,8 @@
  * these tests without coupling to internal styling decisions.
  */
 
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 import {
   ExamModeShell,
@@ -331,6 +331,126 @@ describe("MCQRoundsShell — capability-driven quiz shell (closes #2159 at shell
     expect(shell.getAttribute("data-dismiss-on-end")).toBe("next-module");
     expect(shell.getAttribute("data-mode-pill")).toBe("");
     expect(screen.queryByTestId("hf-shell-mode-pill")).toBeNull();
+  });
+
+  // ──────────────────────────────────────────────────────────
+  // W4 — answer-flow + empty-state (PR for handoff W4)
+  // ──────────────────────────────────────────────────────────
+
+  it("W4 — renders the empty-state when no MCQs and not ended (cue-card-only)", () => {
+    render(<MCQRoundsShell emptyReason="no-moment" />);
+    const empty = screen.getByTestId("hf-mcq-empty");
+    expect(empty.getAttribute("data-empty-reason")).toBe("no-moment");
+    expect(empty).toHaveTextContent("No quiz available");
+    expect(screen.queryByTestId("hf-mcq-cue-card")).toBeNull();
+  });
+
+  it("W4 — empty-state copy varies per emptyReason", () => {
+    const cases: Array<["loading" | "empty-pool" | "policy-unsatisfied" | "missing-content" | "error", string]> = [
+      ["loading", "Loading"],
+      ["empty-pool", "empty"],
+      ["policy-unsatisfied", "sampling rules"],
+      ["missing-content", "different kind of content"],
+      ["error", "Couldn't load"],
+    ];
+    for (const [reason, snippet] of cases) {
+      cleanup();
+      render(<MCQRoundsShell emptyReason={reason} />);
+      const empty = screen.getByTestId("hf-mcq-empty");
+      expect(empty.getAttribute("data-empty-reason")).toBe(reason);
+      expect(empty.textContent ?? "").toMatch(new RegExp(snippet, "i"));
+    }
+  });
+
+  it("W4 — does not render empty-state when an MCQ is present", () => {
+    const mcq = { id: "q", questionText: "What?", options: [{ label: "A", text: "yes" }] };
+    render(<MCQRoundsShell mcqs={[mcq]} roundIndex={1} roundTotal={1} />);
+    expect(screen.queryByTestId("hf-mcq-empty")).toBeNull();
+    expect(screen.getByTestId("hf-mcq-cue-card")).toBeTruthy();
+  });
+
+  it("W4 — does not render empty-state when ended (close screen takes over)", () => {
+    render(<MCQRoundsShell ended emptyReason="no-moment" />);
+    expect(screen.queryByTestId("hf-mcq-empty")).toBeNull();
+    expect(screen.getByTestId("hf-mcq-close-screen")).toBeTruthy();
+  });
+
+  it("W4 — option buttons invoke onAnswer with (mcqId, optionLabel)", () => {
+    const onAnswer = vi.fn();
+    const mcq = {
+      id: "mcq-42",
+      questionText: "Pick one",
+      options: [
+        { label: "A", text: "First" },
+        { label: "B", text: "Second" },
+      ],
+    };
+    render(
+      <MCQRoundsShell
+        mcqs={[mcq]}
+        roundIndex={1}
+        roundTotal={1}
+        onAnswer={onAnswer}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("hf-mcq-option-B"));
+    expect(onAnswer).toHaveBeenCalledWith("mcq-42", "B");
+  });
+
+  it("W4 — selected option is reflected on the <li> + button disables further clicks", () => {
+    const onAnswer = vi.fn();
+    const mcq = {
+      id: "q1",
+      questionText: "Pick",
+      options: [
+        { label: "A", text: "x" },
+        { label: "B", text: "y" },
+      ],
+    };
+    render(
+      <MCQRoundsShell
+        mcqs={[mcq]}
+        roundIndex={1}
+        roundTotal={1}
+        selectedOption="A"
+        onAnswer={onAnswer}
+      />,
+    );
+    const options = screen.getByTestId("hf-mcq-options");
+    const aLi = options.querySelector('[data-mcq-option-label="A"]');
+    const bLi = options.querySelector('[data-mcq-option-label="B"]');
+    expect(aLi?.getAttribute("data-selected")).toBe("true");
+    expect(bLi?.getAttribute("data-selected")).toBe("false");
+    // Both buttons are disabled once a selection landed (no double-click).
+    expect((screen.getByTestId("hf-mcq-option-A") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("hf-mcq-option-B") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("W4 — option buttons are disabled when no onAnswer handler is supplied", () => {
+    const mcq = {
+      id: "q",
+      questionText: "Pick",
+      options: [{ label: "A", text: "x" }],
+    };
+    render(<MCQRoundsShell mcqs={[mcq]} roundIndex={1} roundTotal={1} />);
+    expect((screen.getByTestId("hf-mcq-option-A") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("W4 — round counter reflects progression through the round", () => {
+    const mcqs = [
+      { id: "q1", questionText: "Q1", options: [{ label: "A", text: "x" }] },
+      { id: "q2", questionText: "Q2", options: [{ label: "A", text: "x" }] },
+      { id: "q3", questionText: "Q3", options: [{ label: "A", text: "x" }] },
+    ];
+    const { rerender } = render(
+      <MCQRoundsShell mcqs={mcqs} roundIndex={1} roundTotal={3} />,
+    );
+    expect(screen.getByTestId("hf-mcq-counter")).toHaveTextContent("Round 1 of 3");
+    expect(screen.getByTestId("hf-mcq-cue-card").getAttribute("data-mcq-id")).toBe("q1");
+
+    rerender(<MCQRoundsShell mcqs={mcqs} roundIndex={2} roundTotal={3} />);
+    expect(screen.getByTestId("hf-mcq-counter")).toHaveTextContent("Round 2 of 3");
+    expect(screen.getByTestId("hf-mcq-cue-card").getAttribute("data-mcq-id")).toBe("q2");
   });
 });
 
