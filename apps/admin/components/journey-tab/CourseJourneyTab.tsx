@@ -217,17 +217,29 @@ export function CourseJourneyTab({
   // Voice settings (registered under N_voice via Slice C follow-on) are
   // found in VOICE_SETTINGS_BY_ID — the same bucket select navigates to
   // them within the Journey tab; their Settings-tab home is preserved.
+  //
+  // Cross-tab guard: when the picked setting's owning bucket lives on a
+  // sibling tab (Teaching / Scoring / Voice), route through
+  // `onTabSwitch` so the destination tab seeds its Inspector with the
+  // bucket — instead of silently writing an out-of-scope `j_bucket=`
+  // that leaves the Journey LH with an unreachable selection.
   const handlePaletteSelect = useCallback(
     (settingId: string) => {
       const owner =
         JOURNEY_SETTINGS_BY_ID[settingId] ?? VOICE_SETTINGS_BY_ID[settingId];
-      if (owner?.menuGroupKey) {
-        selection.setBucketId(owner.menuGroupKey);
+      if (!owner?.menuGroupKey) return;
+      const owningTab = bucketToTab(owner.menuGroupKey);
+      if (owningTab && owningTab !== "journey") {
+        onTabSwitch?.(owningTab, { selectedBucket: owner.menuGroupKey });
         setPickStripSection(null);
         setCrossTabHint(null);
+        return;
       }
+      selection.setBucketId(owner.menuGroupKey);
+      setPickStripSection(null);
+      setCrossTabHint(null);
     },
-    [selection],
+    [selection, onTabSwitch],
   );
 
   // LH bucket click — clear pick-strip + hint in the same step.
