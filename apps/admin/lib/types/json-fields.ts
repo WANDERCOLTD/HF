@@ -1664,6 +1664,66 @@ export const ASSESSMENT_KIND_VALUES = [
 ] as const satisfies readonly AssessmentKind[];
 
 /**
+ * #2176 S1 — Sampling scope across the curriculum.
+ *
+ * - `"per-unit"` — sample questions only from a single module (per-
+ *   Unit Pop Quiz instance).
+ * - `"cross-curriculum"` — sample across all modules in the
+ *   curriculum (Mock Exam, Baseline diagnostic).
+ * - `"weakest-skill-anchored"` — sample with preference for
+ *   questions tagged with the caller's weakest skill (read from
+ *   `CallerTarget.currentScore`).
+ * - `"weakest-lo-anchored"` — sample with preference for the
+ *   caller's weakest LO (read from `CallerAttribute(key =
+ *   "lo_mastery:*")`).
+ */
+export type AssessmentSamplingScope =
+  | "per-unit"
+  | "cross-curriculum"
+  | "weakest-skill-anchored"
+  | "weakest-lo-anchored";
+
+/**
+ * Sibling const array for runtime enumeration of
+ * `AssessmentSamplingScope`. Consumed by the AssessmentPlanEditor UI
+ * (#2176 S1 build slice 5) and any sibling Coverage gate that needs
+ * to walk every scope value.
+ */
+export const ASSESSMENT_SAMPLING_SCOPE_VALUES = [
+  "per-unit",
+  "cross-curriculum",
+  "weakest-skill-anchored",
+  "weakest-lo-anchored",
+] as const satisfies readonly AssessmentSamplingScope[];
+
+/**
+ * #2176 S1 — Which content surface the sampler reads.
+ *
+ * - `"mcq"` — `ContentQuestion` rows (MCQ pool, per #2167 + #2009)
+ * - `"cue-card"` — cue-card pool per `lib/wizard/resolve-module-source-refs.ts`
+ * - `"topic-prompt"` — topic-pool per same
+ * - `"scenario-probe"` — scenario-probe pool (CIO/CTO board-chair
+ *   variant, per #2009 + #2015)
+ */
+export type AssessmentContentKind =
+  | "mcq"
+  | "cue-card"
+  | "topic-prompt"
+  | "scenario-probe";
+
+/**
+ * Sibling const array for runtime enumeration of
+ * `AssessmentContentKind`. Consumed by the AssessmentMomentEditor UI
+ * (#2176 S1 build slice 4) and the sampling engine.
+ */
+export const ASSESSMENT_CONTENT_KIND_VALUES = [
+  "mcq",
+  "cue-card",
+  "topic-prompt",
+  "scenario-probe",
+] as const satisfies readonly AssessmentContentKind[];
+
+/**
  * #2176 S1 — declarative sampling policy applied at assessment time.
  *
  * Carries WHAT to sample (`scope` + `contentKind`), HOW MANY items
@@ -1678,20 +1738,8 @@ export const ASSESSMENT_KIND_VALUES = [
  * imperative per-course code.
  */
 export interface AssessmentSamplingPolicy {
-  /**
-   * Sampling scope across the curriculum:
-   * - `"per-unit"` — sample questions only from a single module (per-
-   *   Unit Pop Quiz instance).
-   * - `"cross-curriculum"` — sample across all modules in the
-   *   curriculum (Mock Exam, Baseline diagnostic).
-   * - `"weakest-skill-anchored"` — sample with preference for
-   *   questions tagged with the caller's weakest skill (read from
-   *   `CallerTarget.currentScore`).
-   * - `"weakest-lo-anchored"` — sample with preference for the
-   *   caller's weakest LO (read from `CallerAttribute(key =
-   *   "lo_mastery:*")`).
-   */
-  scope: "per-unit" | "cross-curriculum" | "weakest-skill-anchored" | "weakest-lo-anchored";
+  /** Sampling scope across the curriculum. See `AssessmentSamplingScope`. */
+  scope: AssessmentSamplingScope;
 
   /**
    * Count band: engine MUST return between `min` and `max` items
@@ -1703,15 +1751,8 @@ export interface AssessmentSamplingPolicy {
    */
   count: { min: number; target: number; max: number };
 
-  /**
-   * Which content surface the sampler reads:
-   * - `"mcq"` — `ContentQuestion` rows (MCQ pool, per #2167 + #2009)
-   * - `"cue-card"` — cue-card pool per `lib/wizard/resolve-module-source-refs.ts`
-   * - `"topic-prompt"` — topic-pool per same
-   * - `"scenario-probe"` — scenario-probe pool (CIO/CTO board-chair
-   *   variant, per #2009 + #2015)
-   */
-  contentKind: "mcq" | "cue-card" | "topic-prompt" | "scenario-probe";
+  /** Which content surface the sampler reads. See `AssessmentContentKind`. */
+  contentKind: AssessmentContentKind;
 
   /**
    * Optional stratification rules ensuring sampling distribution.

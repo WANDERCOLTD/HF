@@ -281,6 +281,12 @@ function SourceAuthorityPanel({
     (newSA: any) => {
       try {
         const cfg = JSON.parse(configText);
+        // TODO(no-bare-spec-identifier): pre-existing literal predating the
+        // hf-config/no-bare-spec-identifier rule (#2182). Should route through
+        // `config.specs.contentTrustV1` once that getter lands in
+        // `lib/config.ts`; tracked in the broader NO HARDCODINGS sweep.
+        // Surfaced + documented via #2176 S1 lint pass (this PR).
+        // eslint-disable-next-line hf-config/no-bare-spec-identifier
         cfg.sourceAuthority = { ...newSA, contract: "CONTENT_TRUST_V1" };
         onConfigChange(JSON.stringify(cfg, null, 2));
       } catch {

@@ -97,7 +97,9 @@ type DataShape =
   | "tier-mapping"
   | "stop-config"
   | "voice-credential"
-  | "opaque-object";
+  | "opaque-object"
+  // #2176 S1 — CourseAssessmentPlan compound shape (upfront/midpoints/end/noAssessmentPlan).
+  | "assessment-plan";
 
 // ────────────────────────────────────────────────────────────
 // Control ↔ DataShape compatibility matrix.
@@ -143,6 +145,9 @@ const CONTROL_DATA_SHAPE_COMPATIBILITY: Record<
   stop: ["stop-config"],
   "min-target": ["min-target-pair"],
   "array-editor": ["array-of-objects"],
+  // #2176 S1 — the CourseAssessmentPlan compound editor renders ONLY the
+  // typed plan shape; never used as a generic escape hatch.
+  "assessment-plan-editor": ["assessment-plan"],
 };
 
 // ────────────────────────────────────────────────────────────
@@ -296,6 +301,9 @@ const DECLARED_DATA_SHAPE: Record<string, DataShape> = {
   maxCallDuration: "duration",
   phoneNumber: "string",
   vapiAssistantId: "string",
+
+  // ── I_scoring — #2176 S1 CourseAssessmentPlan editor lens ──────
+  assessmentPlan: "assessment-plan",
 };
 
 // ────────────────────────────────────────────────────────────
@@ -325,17 +333,15 @@ interface ExemptEntry {
  * trace WHICH PR closes the gap.
  */
 const CONTROL_SHAPE_EXEMPT: Record<string, ExemptEntry> = {
-  moduleTopicPool: {
-    reason:
-      "pending #2225 A2 (feat/2225-a2-control-type-array-editor-migration) — migrate json-fallback to array-editor; ROW_SCHEMAS gains a topicPool row mirroring cueCardPool's {topic, questions}",
-  },
+  // moduleTopicPool + moduleProfileFieldsToCapture — closed by #2225 A2
+  // (PR #2234, commit d0a3dc97 on main). Contract.control was flipped
+  // from json-fallback → array-editor; the (array-editor, array-of-objects)
+  // pairing is now valid. Exempt entries removed during #2176 S1
+  // (the AssessmentPlan editor lens PR) as Lattice hygiene — the gate
+  // had been red on main since A2 merged.
   moduleScaffoldPool: {
     reason:
       "pending #2225 A2b (fix/2225-a2b-modulescaffoldpool-schema) — scaffoldPool storage is string[]; needs string-bullet ROW_SCHEMAS path OR control rename. A2 commit body flagged this as separately-tracked",
-  },
-  moduleProfileFieldsToCapture: {
-    reason:
-      "pending #2225 A2 (feat/2225-a2-control-type-array-editor-migration) — migrate json-fallback to array-editor; ROW_SCHEMAS entry already shipped via Theme 1b #1815, only contract.control flip remains",
   },
 };
 
@@ -346,8 +352,13 @@ const CONTROL_SHAPE_EXEMPT: Record<string, ExemptEntry> = {
  *
  *  Land value: 3 (the A2 + A2b incumbent surface). Drops to 0 as the
  *  sibling-fix PRs merge — operator drops the ratchet by 1 per fix in
- *  the same commit that removes the matching exempt entry. */
-const EXPECTED_EXEMPT_COUNT = 3;
+ *  the same commit that removes the matching exempt entry.
+ *
+ *  Drop log:
+ *  - 3 → 1 in #2176 S1 (this PR) when A2 (#2234, d0a3dc97) closed
+ *    moduleTopicPool + moduleProfileFieldsToCapture's mismatches.
+ *  - 1 → 0 pending A2b for moduleScaffoldPool. */
+const EXPECTED_EXEMPT_COUNT = 1;
 
 // ────────────────────────────────────────────────────────────
 // Classification

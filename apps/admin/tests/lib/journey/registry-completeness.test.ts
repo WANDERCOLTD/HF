@@ -99,7 +99,8 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
     // #1871 — voiceProsodyMode added (I_scoring / G4). 27 -> 28.
     // #2158 — aiMeasurementDisableLlmIeltsScoring added (I_scoring / G4). 28 -> 29.
-    expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(29);
+    // #2176 S1 — assessmentPlan added (I_scoring / G4). 29 -> 30.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(30);
     // midJourneyStopTrigger removed in fix/journey-stops-structured-paths
     // (storagePath was unrepresentable in the applier — trigger is now
     // edited only via the midJourneyStop compound editor). G5 6 → 5.
@@ -117,12 +118,13 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(12);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 94", () => {
+  it("(8) JOURNEY_SETTINGS.length === 95", () => {
     // 84 + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
     //   + 1 (moduleTopicPool #1932) + 2 (Slice 13 intake editors) + 1 (#2105 lessonPlanMode)
     //   + 1 (modulePinFocusArea #1955) + 1 (silentMode #1956) + 1 (generateLessonPlan #1954)
-    //   + 1 (aiMeasurementDisableLlmIeltsScoring #2158) = 94
-    expect(JOURNEY_SETTINGS.length).toBe(94);
+    //   + 1 (aiMeasurementDisableLlmIeltsScoring #2158)
+    //   + 1 (assessmentPlan #2176) = 95
+    expect(JOURNEY_SETTINGS.length).toBe(95);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

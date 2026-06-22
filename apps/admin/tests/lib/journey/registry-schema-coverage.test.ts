@@ -105,6 +105,10 @@ const APPLIES_TO_ALL: readonly string[] = [
   "maxMasteryTier",
   "useFreshMastery",
   "scoringMode",
+  // #2176 S1 — CourseAssessmentPlan editor lens (operator decision 3:
+  // applies to every course shape — assessable moments are valid for
+  // continuous + structured + exam alike).
+  "assessmentPlan",
   "aiMeasurementDisableLlmIeltsScoring",
   "progressNarrativeEnabled",
   "progressNarrativeCadence",

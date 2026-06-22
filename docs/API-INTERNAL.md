@@ -28,6 +28,7 @@
   - [AI](#ai)
   - [Analysis Specs](#analysis-specs)
   - [Analytics](#analytics)
+  - [Assessment](#assessment)
   - [Auth](#auth)
   - [Caller](#caller)
   - [Callers](#callers)
@@ -2059,6 +2060,21 @@ Returns aggregated analytics data for the dashboard including learner progress,
 **Response** `500`
 ```json
 { ok: false, error: "..." }
+```
+
+---
+
+## Assessment
+
+### `GET` /api/system/spec-slugs
+
+Returns `{slug, outputType, specRole, scope}` rows for
+
+**Auth**: session (OPERATOR+) · **Scope**: `system:read`
+
+**Response** `200`
+```json
+{ ok: true, specs: Array<{slug, outputType, specRole, scope}> }
 ```
 
 ---
@@ -16419,8 +16435,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 544 |
-| Files with annotations | 530 |
+| Route files found | 545 |
+| Files with annotations | 531 |
 | Files missing annotations | 14 |
 | Coverage | 97.4% |
 

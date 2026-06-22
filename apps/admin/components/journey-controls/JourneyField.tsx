@@ -34,6 +34,11 @@ import { JourneyVoicePicker } from "./JourneyVoicePicker";
 import { JourneyStop } from "./JourneyStop";
 import { JourneyMinTarget } from "./JourneyMinTarget";
 import { JourneyArrayEditor } from "./JourneyArrayEditor";
+// #2176 S1 — CourseAssessmentPlan editor lens. Lives in scoring-tab/
+// because it's domain-specific to the Scoring tab's I_scoring bucket,
+// but registered here so any future bucket that picks
+// `control: "assessment-plan-editor"` reaches the same primitive.
+import { AssessmentPlanEditor } from "@/components/scoring-tab/AssessmentPlanEditor";
 
 export interface JourneyFieldProps {
   contract: JourneySettingContract;
@@ -72,6 +77,7 @@ const PRIMITIVES = {
   stop: JourneyStop,
   "min-target": JourneyMinTarget,
   "array-editor": JourneyArrayEditor,
+  "assessment-plan-editor": AssessmentPlanEditor,
 } as const;
 
 export function JourneyField(props: JourneyFieldProps): ReactNode {

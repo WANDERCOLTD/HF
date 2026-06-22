@@ -938,6 +938,39 @@ const G4_SCORING_MODE: JourneySettingContract = {
   ],
 };
 
+// Story #2176 — CourseAssessmentPlan editor lens (S1 of epic #2176).
+// Declarative per-course assessment plan composing the 4 fragmenting
+// enums (AssessmentKind / AuthoredModuleMode / JourneyStopKind /
+// FirstCallMode) into one operator-authored typed structure. The
+// runtime sampling engine at `lib/assessment/sample-questions.ts` (S2)
+// reads `Playbook.config.assessmentPlan` to drive every AssessmentMoment.
+//
+// `composeImpact.sections: []` is deliberate (operator decision 4) —
+// the plan affects runtime sampling, not prompt text. Preview lens
+// stays silent; the editor is its own structural surface.
+//
+// Course-only cascade (no upstream layer) — `cascadeSources: []` and
+// `cascadeKnobKey` absent. The cascade chip renders the "Course-only"
+// pill via `CascadeTraceBreadcrumb` (#2225 A3) — operator sees the
+// intent explicitly rather than a silent-null bug.
+const G4_ASSESSMENT_PLAN: JourneySettingContract = {
+  id: "assessmentPlan",
+  menuGroupKey: "I_scoring",
+  group: "G4",
+  educatorLabel: "Assessment plan",
+  helpText:
+    "Declarative per-course plan for assessable moments (upfront baseline / midpoints / end-of-curriculum). Drives the runtime sampling engine and the SessionKind=ASSESSMENT branch. Coaching-led or continuous courses tick the 'No formal assessment plan' opt-out instead.",
+  storagePath: "config.assessmentPlan",
+  control: "assessment-plan-editor",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["sequence-policy"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+};
+
 // Story #2158 (epic #2135 follow-on) — per-course kill-switch for the
 // LLM-judged IELTS MEASURE path. Replaces the retired
 // `HF_IELTS_LLM_MEASURE_V1` env flag. Read by
@@ -2365,6 +2398,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G4_MAX_MASTERY_TIER,
   G4_USE_FRESH_MASTERY,
   G4_SCORING_MODE,
+  G4_ASSESSMENT_PLAN,
   G4_AI_MEASUREMENT_DISABLE_LLM_IELTS,
   G4_PROGRESS_NARRATIVE_ENABLED,
   G4_PROGRESS_NARRATIVE_CADENCE,
