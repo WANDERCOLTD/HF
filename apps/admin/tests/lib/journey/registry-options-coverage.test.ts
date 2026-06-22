@@ -48,6 +48,7 @@ import {
 import { VOICE_SETTINGS } from "@/lib/settings/voice-setting-contracts";
 import { TIER_PRESETS } from "@/lib/banding/presets";
 import { PROSODY_MODE_VALUES } from "@/lib/pipeline/prosody-types";
+import { SCORE_READOUT_MODE_VALUES } from "@/lib/types/json-fields";
 
 /** Marker for options that derive from a canonical source. The test
  *  verifies the derived array matches the canonical's current keys. */
@@ -184,6 +185,17 @@ const EXPECTED_OPTION_VALUES: Record<string, OptionPin> = {
     canonical:
       "lib/types/json-fields.ts::PlaybookConfig.offboardingSummary.cadence (#780)",
   },
+
+  // ── G8 module-scoped ────────────────────────────────────────────
+  // S8 (this PR) — moduleScoreReadoutMode derives its dropdown options
+  // from the canonical `SCORE_READOUT_MODE_VALUES` const so the gate
+  // catches drift between the union source-of-truth and the contract's
+  // options[].value array.
+  moduleScoreReadoutMode: {
+    values: DERIVED,
+    canonical:
+      "lib/types/json-fields.ts::SCORE_READOUT_MODE_VALUES (single source of truth shared with the ScoreReadoutMode union)",
+  },
 };
 
 function resolveExpected(id: string): readonly string[] | null {
@@ -196,6 +208,9 @@ function resolveExpected(id: string): readonly string[] | null {
     }
     if (id === "voiceProsodyMode") {
       return [...PROSODY_MODE_VALUES];
+    }
+    if (id === "moduleScoreReadoutMode") {
+      return [...SCORE_READOUT_MODE_VALUES];
     }
     return null;
   }

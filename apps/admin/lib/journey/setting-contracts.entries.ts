@@ -29,6 +29,10 @@ import {
   PROSODY_MODE_VALUES,
   PROSODY_MODE_LABELS,
 } from "@/lib/pipeline/prosody-types";
+// S8 — canonical score readout mode values used by
+// G8_MODULE_SCORE_READOUT_MODE select-options. Importing from the
+// type source-of-truth keeps the dropdown in lockstep with the union.
+import { SCORE_READOUT_MODE_VALUES } from "@/lib/types/json-fields";
 
 // =============================================================
 // G1 — Sign-up & Intake (5)
@@ -2352,6 +2356,116 @@ const G8_MODULE_PIN_FOCUS_AREA: JourneySettingContract = {
   appliesTo: ["exam"],
 };
 
+// S8 — Per-module score readout policy. Drives when and how scores
+// reach the learner at end-of-module (course-ref v2.3 + HF-IELTS-Pre-
+// Voice-Testing-Checklist Unit 5). The select-options are derived from
+// the canonical `SCORE_READOUT_MODE_VALUES` const so this row does not
+// hardcode the union — adding a value to the union auto-extends the
+// dropdown. Runtime consumers (Results panel + tutor close transform)
+// are the follow-on PR. Lives on G8 because the storage path is
+// per-module under `Playbook.config.modules[].settings`.
+
+const G8_MODULE_SCORE_READOUT_MODE: JourneySettingContract = {
+  id: "moduleScoreReadoutMode",
+  menuGroupKey: "I_scoring",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Score readout mode",
+  helpText:
+    "When and how end-of-module bands reach the learner. on-screen = shown but not spoken. end-of-module-on-screen = revealed only at end. aloud-with-indicative-qualifier = tutor states bands aloud with an 'indicative' qualifier (Mock Exam pattern).",
+  storagePath: {
+    path: "config.modules[].settings.scoreReadoutMode",
+    arrayKey: "id",
+  },
+  control: "select",
+  options: SCORE_READOUT_MODE_VALUES.map((value) => ({
+    value,
+    label: value,
+  })),
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "score readout" }],
+  appliesTo: ["exam"],
+};
+
+// S7 — Per-StallType scaffold map. Sibling to `moduleScaffoldPool` (flat
+// `string[]`). Stored as `Partial<Record<StallType, string[]>>` so
+// authors only declare the StallTypes they care about for the module.
+// Runtime consumer (typed pool selection from `use-stall-detector`) is
+// the follow-on PR — current flat `scaffoldPool` keeps acting as the
+// fallback when this map is empty.
+//
+// Control: `json-fallback`. The typed shape is `opaque-object` from the
+// control-data-shape Coverage gate's perspective. A future PR may ship
+// a typed primitive once the runtime consumer lands and an authoring
+// pattern emerges.
+const G8_MODULE_SCAFFOLDS_BY_STALL_TYPE: JourneySettingContract = {
+  id: "moduleScaffoldsByStallType",
+  menuGroupKey: "F_stall_recovery",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Per-stall-type scaffolds",
+  helpText:
+    'Optional typed map: each key is a StallType ("i-dont-know" / "opinion-gap" / "abstraction-freeze" / "vocabulary-search" / "blank-out"), each value is an array of scaffold strings the client-side detector picks from when the matching stall is detected. Falls back to the flat scaffoldPool when a key is unset.',
+  storagePath: {
+    path: "config.modules[].settings.scaffoldsByStallType",
+    arrayKey: "id",
+  },
+  control: "json-fallback",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["stop-timing"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+  appliesTo: ["structured", "exam"],
+};
+
+// S3 — Per-module LearnerShellCapabilities override. Per epic #2163
+// locked decision 8: overrides may ONLY DISABLE a capability that
+// defaults ON; they may NOT ENABLE an affordance that defaults OFF.
+// The UI surface enforces this client-side (filtered helpText). Server
+// enforcement is the follow-on PR.
+//
+// Stored at `Playbook.config.modules[].settings.learnerShell` as a
+// `Partial<LearnerShellCapabilities>` — partial shape because authors
+// only set the fields they want to override. The resolved shell is
+// `SHELL_DEFAULTS[resolvedShellKind]` merged with this partial (per
+// `LearnerShell` cascade plan in epic #2163).
+//
+// Control: `json-fallback`. Same rationale as the StallType map — the
+// shape is `opaque-object` per the Coverage matrix. A future PR may
+// ship a typed primitive that lists each capability default with a
+// toggle-to-disable affordance.
+const G8_MODULE_LEARNER_SHELL_OVERRIDE: JourneySettingContract = {
+  id: "moduleLearnerShellOverride",
+  menuGroupKey: "E_learner_visual",
+  scope: "module",
+  group: "G8",
+  educatorLabel: "Learner shell override",
+  helpText:
+    'DISABLE-only patch over the default LearnerShellCapabilities for this module. Example: { "allowModuleSwitch": false } prevents mid-session module switching even on a chat-feed shell. Per epic #2163: cannot ENABLE an affordance defaulted OFF (e.g. cannot set allowBackToHome=true on an exam shell).',
+  storagePath: {
+    path: "config.modules[].settings.learnerShell",
+    arrayKey: "id",
+  },
+  control: "json-fallback",
+  cascadeSources: [],
+  composeImpact: {
+    sections: [],
+    kinds: ["persona-style"],
+    requiresReprompt: false,
+  },
+  previewLocators: [],
+  // Course-only override (per epic #2163 locked decision 8 — no
+  // upstream Domain/System layer). Applies to every course shape.
+};
+
 // =============================================================
 // Registry
 // =============================================================
@@ -2463,6 +2577,12 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G8_MODULE_SILENT_MODE,
   // G8 #1954 — post-Assessment lesson-plan trigger (Boaz/Eldar Unit 1.1)
   G8_MODULE_GENERATE_LESSON_PLAN,
+  // G8 S8 — Per-module score readout mode (course-ref v2.3 + checklist Unit 5)
+  G8_MODULE_SCORE_READOUT_MODE,
+  // G8 S7 — Per-StallType scaffold map (sibling to flat scaffoldPool)
+  G8_MODULE_SCAFFOLDS_BY_STALL_TYPE,
+  // G8 S3 — Per-module LearnerShellCapabilities override (epic #2163 LD8)
+  G8_MODULE_LEARNER_SHELL_OVERRIDE,
 ];
 
 export const JOURNEY_SETTINGS_BY_ID: Readonly<

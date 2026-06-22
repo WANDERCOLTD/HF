@@ -17,7 +17,12 @@ import type { JourneySettingContract } from "@/lib/journey/setting-contracts";
 
 import type { HowCardVariantProps } from "./types";
 
-/** Examiner-variant G8 contract ids, in render order. */
+/** Examiner-variant G8 contract ids, in render order.
+ *
+ *  S8 + S3 (this PR) — `moduleScoreReadoutMode` is editable inline so
+ *  authors can pick between the three readout modes (most examiner
+ *  modules favour `end-of-module-on-screen`); `moduleLearnerShellOverride`
+ *  surfaces the learner-shell DISABLE-only patch. */
 export const EXAMINER_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleQuestionTarget",
   "moduleMinSpeakingSec",
@@ -28,6 +33,8 @@ export const EXAMINER_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleSilentMode",
   "moduleGenerateLessonPlan",
   "modulePinFocusArea",
+  "moduleScoreReadoutMode",
+  "moduleLearnerShellOverride",
 ];
 
 export function HowCardExaminer({ renderRow }: HowCardVariantProps) {

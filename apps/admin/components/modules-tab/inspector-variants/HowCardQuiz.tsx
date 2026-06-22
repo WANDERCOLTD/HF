@@ -16,12 +16,19 @@ import type { JourneySettingContract } from "@/lib/journey/setting-contracts";
 
 import type { HowCardVariantProps } from "./types";
 
-/** Quiz-variant G8 contract ids, in render order. */
+/** Quiz-variant G8 contract ids, in render order.
+ *
+ *  S8 (this PR) — `moduleScoreReadoutMode` is now editable inline; pre-S8
+ *  it was an informational note. Operators can pick between the three
+ *  canonical readout modes (on-screen / end-of-module-on-screen /
+ *  aloud-with-indicative-qualifier) without leaving the Inspector. */
 export const QUIZ_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleQuestionTarget",
   "moduleTopicPool",
+  "moduleScoreReadoutMode",
   "moduleClosingLine",
   "moduleFirstTimeOrientationLine",
+  "moduleLearnerShellOverride",
 ];
 
 export function HowCardQuiz({ renderRow }: HowCardVariantProps) {
@@ -35,18 +42,9 @@ export function HowCardQuiz({ renderRow }: HowCardVariantProps) {
       <p className="hf-section-desc hf-how-card-variant-summary">
         Quiz mode is MCQ-driven. The tutor poses pre-authored
         multiple-choice items from the topic pool and reads the score
-        at the end.
+        at the end. Tune the question target (typically 8-12), topic
+        pool, and how scores reach the learner below.
       </p>
-      <div
-        className="hf-banner hf-banner-info hf-how-card-variant-note"
-        data-testid="hf-how-card-quiz-mcq-note"
-        role="note"
-      >
-        MCQ-pool source-ref, score-readout mode, and the forward-pointer
-        LO are tracked by epic #2009 — today they fall back to the
-        course-level defaults. Tune the question target (typically 8-12)
-        and topic pool below.
-      </div>
       <div className="hf-journey-inspector-stack">
         {rows.map((contract) => renderRow(contract))}
       </div>

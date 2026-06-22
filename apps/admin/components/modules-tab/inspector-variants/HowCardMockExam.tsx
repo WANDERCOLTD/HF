@@ -18,7 +18,12 @@ import type { JourneySettingContract } from "@/lib/journey/setting-contracts";
 
 import type { HowCardVariantProps } from "./types";
 
-/** Mock-exam-variant G8 contract ids, in render order. */
+/** Mock-exam-variant G8 contract ids, in render order.
+ *
+ *  S8 + S3 (this PR) — `moduleScoreReadoutMode` is editable inline (Mock
+ *  defaults to `aloud-with-indicative-qualifier` per course-ref v2.3);
+ *  `moduleLearnerShellOverride` surfaces the learner-shell DISABLE-only
+ *  patch. */
 export const MOCK_EXAM_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleQuestionTarget",
   "moduleMinSpeakingSec",
@@ -28,6 +33,8 @@ export const MOCK_EXAM_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleFirstTimeOrientationLine",
   "moduleSilentMode",
   "moduleGenerateLessonPlan",
+  "moduleScoreReadoutMode",
+  "moduleLearnerShellOverride",
 ];
 
 export function HowCardMockExam({ renderRow }: HowCardVariantProps) {
