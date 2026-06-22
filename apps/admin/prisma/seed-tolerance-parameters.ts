@@ -14,6 +14,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { resolveCanonicalDomainGroup } from "../lib/registry/canonical-domain-group";
 
 interface ToleranceParameterSeed {
   parameterId: string;
@@ -54,12 +55,23 @@ export async function seedToleranceParameters(prisma: PrismaClient): Promise<{
       where: { parameterId: param.parameterId },
     });
 
+    // #2031 follow-on — route every Parameter.domainGroup write
+    // through the canonical resolver. The hardcoded `"tolerance"` value
+    // is OFF-canonical; per Group C in
+    // docs/decisions/2026-06-19-parameter-domain-group-mapping.md
+    // tolerance rows map to `curriculum-adaptation` (mastery threshold
+    // is curriculum-sequencing config). The resolver provides
+    // structural defence; canonical fallback matches the mapping.
+    const canonicalDomainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: param.domainGroup }) ??
+      "curriculum-adaptation";
+
     const data = {
       parameterId: param.parameterId,
       name: param.name,
       definition: param.definition,
       sectionId: param.sectionId,
-      domainGroup: param.domainGroup,
+      domainGroup: canonicalDomainGroup,
       scaleType: param.scaleType,
       directionality: param.directionality,
       computedBy: param.computedBy,

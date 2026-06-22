@@ -27,6 +27,7 @@
 import { PrismaClient } from "@prisma/client";
 
 import { StrategyKey } from "@/lib/goals/strategies/types";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 const prisma = new PrismaClient();
 
@@ -116,13 +117,21 @@ async function upsertSkillParameters() {
       skipped++;
       continue;
     }
+    // #2031 follow-on — replace hardcoded `domainGroup: "skill"`
+    // (off-canonical) with the canonical `learner-model` per Group D
+    // in docs/decisions/2026-06-19-parameter-domain-group-mapping.md.
+    // CIO/CTO skills are CallerTarget-tracked learner abilities, not
+    // tutor-behavior knobs. The resolver provides structural defence.
+    const canonicalDomainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: "learner-model" }) ??
+      "learner-model";
     const created_ = await prisma.parameter.create({
       data: {
         parameterId: skill.paramId,
         name: skill.name,
         definition: skill.definition,
         sectionId: "skill",
-        domainGroup: "skill",
+        domainGroup: canonicalDomainGroup,
         parameterType: "BEHAVIOR",         // canonical pattern for learner-skill BehaviorTargets
         scaleType: "ordinal_0_1",          // 4-tier maturity ladder: Foundation 0.25, Developing 0.5, Practitioner 0.75, Distinction 1.0
         directionality: "higher_better",
