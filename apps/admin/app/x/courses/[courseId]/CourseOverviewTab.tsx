@@ -1,6 +1,7 @@
 'use client';
 
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
+import { AssessmentPlanBadge } from '@/components/overview-tab/AssessmentPlanBadge';
 import { CourseSummaryCard } from './CourseSummaryCard';
 import { archetypeLabel } from '@/lib/course/group-specs';
 import { INTERACTION_PATTERN_LABELS, type InteractionPattern } from '@/lib/content-trust/resolve-config';
@@ -102,6 +103,8 @@ export function CourseOverviewTab({
         sessions={sessions}
         onSimCall={onSimCall}
       />
+
+      <AssessmentPlanBadge config={config} />
 
       <CourseSummaryCard
         interactionPattern={patternLabel}
