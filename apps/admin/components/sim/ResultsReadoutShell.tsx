@@ -102,6 +102,15 @@ interface ResultsReadoutShellProps {
   onDismiss?: () => void;
   /** Optional next-module handler (rendered as a child control). */
   onNext?: () => void;
+  /**
+   * UX-C / Finding 8 — optional "Review transcript" handler. When
+   * supplied, renders a secondary text-style button alongside the
+   * dismiss / next CTAs so the learner can return to the chat-feed
+   * history without dismissing the score. The SimChat host wires this
+   * to a scroll-to-history or shell-switch behaviour; the shell only
+   * surfaces the affordance.
+   */
+  onReviewTranscript?: () => void;
   /** Child controls slot for fully custom CTAs (overrides default
    *  buttons when supplied). */
   children?: React.ReactNode;
@@ -123,6 +132,7 @@ export function ResultsReadoutShell({
   error = null,
   onDismiss,
   onNext,
+  onReviewTranscript,
   children,
 }: ResultsReadoutShellProps) {
   const hasResult = result !== null && result.criteria.length > 0;
@@ -249,8 +259,18 @@ export function ResultsReadoutShell({
 
       {children ? (
         <div className="hf-results-readout-controls">{children}</div>
-      ) : onDismiss || onNext ? (
+      ) : onDismiss || onNext || onReviewTranscript ? (
         <div className="hf-results-readout-controls">
+          {onReviewTranscript ? (
+            <button
+              type="button"
+              className="hf-button-tertiary"
+              data-testid="hf-results-readout-review-transcript"
+              onClick={onReviewTranscript}
+            >
+              Review transcript
+            </button>
+          ) : null}
           {onDismiss ? (
             <button
               type="button"

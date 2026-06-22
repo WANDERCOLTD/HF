@@ -1475,6 +1475,17 @@ export function SimChat({
   );
   const [resultsLoading, setResultsLoading] = useState(false);
   const [resultsError, setResultsError] = useState<string | null>(null);
+  // UX-C / Finding 8 — when the learner clicks "Review transcript" we
+  // temporarily suppress the ResultsReadoutShell overlay so the
+  // underlying chat feed is visible again. The Results screen is the
+  // sanctioned per-criterion surface, but the learner needs a way back
+  // to the transcript without dismissing the score outright.
+  const [reviewingTranscript, setReviewingTranscript] = useState(false);
+  // Any new "ended" cycle (or new call) resets the review-transcript
+  // suppression so the score re-surfaces by default.
+  useEffect(() => {
+    if (callPhase !== 'ended') setReviewingTranscript(false);
+  }, [callPhase, callId]);
   useEffect(() => {
     if (!showResultsShell || !callId) {
       setResultsResult(null);
@@ -2097,6 +2108,7 @@ export function SimChat({
         <PinnedCardSlot
           callId={callId}
           phaseEnded={callPhase === 'ended' || callPhase === 'wrapping'}
+          showErrorFallback
         />
 
         {/* #1241 Slice 5 — 30s silence watchdog banner. Surfaces when no
@@ -2522,12 +2534,42 @@ export function SimChat({
   // W6 — ResultsReadoutShell mounts as a full-screen overlay once the
   // Mock-style call has ended. Embedded mode (operator-side views)
   // skips the overlay so the chat feed remains inspectable.
-  const resultsShell = showResultsShell && !isEmbedded ? (
+  //
+  // UX-C / Finding 8 — onDismiss wires to `onBack` when the capability
+  // map's `allowBackToHome` is true. onReviewTranscript flips local
+  // state to temporarily suppress the overlay so the learner can see
+  // the chat history (a "Done" button re-renders the score via
+  // re-mount on next render).
+  const resultsShell = showResultsShell && !isEmbedded && !reviewingTranscript ? (
     <ResultsReadoutShell
       result={resultsResult}
       loading={resultsLoading}
       error={resultsError}
+      onDismiss={
+        resolvedCapabilities.allowBackToHome && onBack ? onBack : undefined
+      }
+      onReviewTranscript={() => setReviewingTranscript(true)}
     />
+  ) : null;
+  // While reviewing transcript, surface a small "Show results" button
+  // overlay so the learner can return to the score. Rendered inside
+  // every shell branch alongside `resultsShell`.
+  const reviewTranscriptReturn = showResultsShell && !isEmbedded && reviewingTranscript ? (
+    <div
+      className="hf-results-review-return"
+      role="region"
+      aria-label="Return to results"
+      data-testid="hf-results-review-return"
+    >
+      <button
+        type="button"
+        className="hf-button-secondary"
+        data-testid="hf-results-review-return-btn"
+        onClick={() => setReviewingTranscript(false)}
+      >
+        Show results
+      </button>
+    </div>
   ) : null;
 
   if (isEmbedded) {
@@ -2549,6 +2591,7 @@ export function SimChat({
           {content}
           {examShellOverlay}
           {resultsShell}
+          {reviewTranscriptReturn}
         </ChatFeedShell>
       );
     case 'mcq-rounds':
@@ -2567,6 +2610,7 @@ export function SimChat({
           {content}
           {examShellOverlay}
           {resultsShell}
+          {reviewTranscriptReturn}
         </MCQRoundsShell>
       );
     case 'chat-feed':
@@ -2575,6 +2619,7 @@ export function SimChat({
           {content}
           {examShellOverlay}
           {resultsShell}
+          {reviewTranscriptReturn}
         </ChatFeedShell>
       );
     default:
@@ -2585,6 +2630,7 @@ export function SimChat({
           {content}
           {examShellOverlay}
           {resultsShell}
+          {reviewTranscriptReturn}
         </ChatFeedShell>
       );
   }

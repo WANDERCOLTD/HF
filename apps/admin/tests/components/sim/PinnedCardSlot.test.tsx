@@ -1,6 +1,8 @@
 /**
  * #1744 (epic #1700 Theme 3) — PinnedCardSlot render contract.
  * #2227 (U8 of #2185) — collapse / restore round-trip.
+ * UX-C polish (Findings 3 / 6 / 10) — sessionStorage persistence, fetch
+ *   failure telemetry + fallback, phase-scope visibility.
  *
  * Pinned acceptance:
  *   1. cueCard variant renders topic + bullets + secondaryNote
@@ -13,6 +15,12 @@
  *   6. (#2227) topicFocus collapse → chip → click to expand round-trip,
  *      no refetch
  *   7. (#2227) Esc toggles — second Esc on a collapsed card re-expands
+ *   8. (UX-C/3) collapse state persists across remount with same callId
+ *   9. (UX-C/3) fresh callId restores expanded state by default
+ *  10. (UX-C/6) fetch failure logs `[pinned_card.fetch_failed]` console.warn
+ *  11. (UX-C/6) showErrorFallback=true renders subtle fallback line on miss
+ *  12. (UX-C/10) phaseScope set + current phase OUT of scope → null
+ *  13. (UX-C/10) phaseScope unset → visible regardless of phase
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -27,12 +35,23 @@ function mockFetch(body: unknown, ok = true) {
   } as unknown as Response);
 }
 
+function mockFetchReject(message = "Network down") {
+  return vi.fn().mockRejectedValue(new Error(message));
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
+  // sessionStorage isolation per test — JSDOM persists across tests.
+  if (typeof window !== "undefined") {
+    window.sessionStorage.clear();
+  }
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  if (typeof window !== "undefined") {
+    window.sessionStorage.clear();
+  }
 });
 
 describe("PinnedCardSlot", () => {
@@ -227,5 +246,165 @@ describe("PinnedCardSlot", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.getByTestId("pinned-card-slot")).toBeInTheDocument();
     expect(screen.queryByTestId("pinned-card-restore-chip")).toBeNull();
+  });
+
+  // UX-C / Finding 3 — sessionStorage-backed collapse persistence.
+
+  it("(8) UX-C/3 collapse state persists across remount with same callId", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        ok: true,
+        card: { kind: "cueCard", topic: "Persisted", bullets: ["x"] },
+      }),
+    );
+    const { unmount } = render(
+      <PinnedCardSlot callId="call-persist" phaseEnded={false} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("pinned-card-slot")).toBeInTheDocument(),
+    );
+    // Collapse via ✕.
+    fireEvent.click(screen.getByLabelText("Collapse pinned card"));
+    expect(screen.getByTestId("pinned-card-restore-chip")).toBeInTheDocument();
+    unmount();
+
+    // Remount with same callId — sessionStorage should restore collapsed.
+    render(<PinnedCardSlot callId="call-persist" phaseEnded={false} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("pinned-card-restore-chip")).toBeInTheDocument(),
+    );
+    // Full card is NOT rendered immediately on remount.
+    expect(screen.queryByTestId("pinned-card-slot")).toBeNull();
+  });
+
+  it("(9) UX-C/3 fresh callId defaults to expanded (no stored entry)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        ok: true,
+        card: { kind: "cueCard", topic: "Fresh", bullets: ["y"] },
+      }),
+    );
+    // Pre-write a stale entry for a DIFFERENT callId.
+    window.sessionStorage.setItem(
+      "hf:sim:pin-collapsed:call-other",
+      "true",
+    );
+    render(<PinnedCardSlot callId="call-fresh" phaseEnded={false} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("pinned-card-slot")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("pinned-card-restore-chip")).toBeNull();
+  });
+
+  // UX-C / Finding 6 — fetch failure telemetry + optional fallback.
+
+  it("(10) UX-C/6 fetch failure logs [pinned_card.fetch_failed]", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", mockFetchReject("HTTP 500"));
+    render(<PinnedCardSlot callId="call-fail" phaseEnded={false} />);
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalled();
+    });
+    // Verify the structured shape.
+    const call = warnSpy.mock.calls.find(
+      (args) => args[0] === "[pinned_card.fetch_failed]",
+    );
+    expect(call).toBeDefined();
+    expect(call?.[1]).toMatchObject({ callId: "call-fail" });
+  });
+
+  it("(11) UX-C/6 showErrorFallback renders subtle fallback on miss", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", mockFetchReject("net::ERR_FAILED"));
+    render(
+      <PinnedCardSlot
+        callId="call-fallback"
+        phaseEnded={false}
+        showErrorFallback
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("pinned-card-fetch-fallback"),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText("Card temporarily unavailable"),
+    ).toBeInTheDocument();
+    // Default (non-error) testids are not present.
+    expect(screen.queryByTestId("pinned-card-slot")).toBeNull();
+    expect(screen.queryByTestId("pinned-card-restore-chip")).toBeNull();
+  });
+
+  it("(11b) UX-C/6 fetch failure WITHOUT showErrorFallback renders null", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", mockFetchReject("HTTP 500"));
+    const { container } = render(
+      <PinnedCardSlot callId="call-silent-fail" phaseEnded={false} />,
+    );
+    await waitFor(() => {
+      // Catch the console.warn so we know the fetch resolved.
+      expect(warnSpy.mock.calls.length).toBeGreaterThan(0);
+    });
+    // Nothing user-visible rendered.
+    expect(container.firstChild).toBeNull();
+  });
+
+  // UX-C / Finding 10 — phase-scope.
+
+  it("(12) UX-C/10 phaseScope set + current phase OUT of scope → null", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        ok: true,
+        card: { kind: "cueCard", topic: "Scoped", bullets: ["z"] },
+      }),
+    );
+    const { rerender } = render(
+      <PinnedCardSlot
+        callId="call-scope-1"
+        phaseEnded={false}
+        currentPhase="p2_prep"
+        phaseScope={["p2_prep", "p2_monologue"]}
+      />,
+    );
+    // In-scope phase → card renders.
+    await waitFor(() =>
+      expect(screen.getByTestId("pinned-card-slot")).toBeInTheDocument(),
+    );
+    // Flip to out-of-scope phase ("p3").
+    rerender(
+      <PinnedCardSlot
+        callId="call-scope-1"
+        phaseEnded={false}
+        currentPhase="p3"
+        phaseScope={["p2_prep", "p2_monologue"]}
+      />,
+    );
+    expect(screen.queryByTestId("pinned-card-slot")).toBeNull();
+    expect(screen.queryByTestId("pinned-card-restore-chip")).toBeNull();
+  });
+
+  it("(13) UX-C/10 phaseScope unset → visible regardless of phase", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        ok: true,
+        card: { kind: "cueCard", topic: "Unscoped", bullets: ["a"] },
+      }),
+    );
+    render(
+      <PinnedCardSlot
+        callId="call-no-scope"
+        phaseEnded={false}
+        currentPhase="p3"
+        // phaseScope intentionally undefined.
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("pinned-card-slot")).toBeInTheDocument(),
+    );
   });
 });
