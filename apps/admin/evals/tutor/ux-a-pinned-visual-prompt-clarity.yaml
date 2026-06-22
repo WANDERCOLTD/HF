@@ -1,0 +1,130 @@
+description: "UX-A — pinned-visual prompt clarity (cue card + session focus visible on learner's screen)"
+
+# Run with: npx promptfoo eval -c evals/tutor/ux-a-pinned-visual-prompt-clarity.yaml --no-cache
+#
+# Closes findings 1 + 2 of the 2026-06-22 Learner SIM UX audit. Two prompt
+# directives now tell the AI that the learner can see the pinned content
+# on their screen:
+#
+#   1. CUE CARD directive (resolveModuleCueCard in
+#      lib/prompt/composition/transforms/instructions.ts) prefixed with
+#      "CUE CARD — visible on the learner's screen right now."
+#   2. SESSION FOCUS directive (resolveSessionFocus in
+#      lib/prompt/composition/transforms/session-focus.ts) prefixed with
+#      "Today's session focus (pinned on the learner's screen): ..."
+#
+# These evals pin behavioural intent against the upgraded prompts:
+#   - Cue card: AI references the card as a SHARED visual ("looking at
+#     your card…"), DOES NOT read the topic + bullets verbatim like a
+#     game-show host.
+#   - Session focus: AI references the pinned focus as a shared anchor
+#     ("the technique we're focusing on today"), DOES NOT re-explain that
+#     a focus exists.
+#
+# Source files:
+#   - apps/admin/lib/prompt/composition/transforms/instructions.ts
+#   - apps/admin/lib/prompt/composition/transforms/session-focus.ts
+# Companion vitests:
+#   - tests/lib/prompt/composition/transforms/instructions.test.ts (UX-A)
+#   - tests/lib/prompt/composition/transforms/session-focus.test.ts (UX-A)
+
+prompts:
+  - id: ux-a-pinned-visual-prompt
+    label: "Tutor opening — pinned cue card + session focus on screen"
+    raw: |
+      You are an IELTS Speaking tutor running a 1-to-1 voice session. The
+      learner has their screen in front of them showing pinned content.
+
+      ## How you communicate
+      - Warm, brief, conversational. 1-2 sentences for the opening.
+      - The learner can SEE pinned content on their screen — reference it
+        as a shared visual, do NOT narrate it back verbatim.
+      - NEVER expose internal field names. NEVER read lists verbatim.
+
+      ## Composed directives
+
+      {{cueCardDirective}}
+
+      {{sessionFocusDirective}}
+
+      ---
+      The learner has just joined. Speak first — your opening line plus
+      your first question to them.
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 400
+
+defaultTest:
+  vars: {}
+
+tests:
+
+  # ── CUE CARD — Findings 1 ──
+
+  - description: "UX-A.1 — Cue card: AI references it as a shared visual, does not narrate it back"
+    vars:
+      cueCardDirective: |
+        CUE CARD — visible on the learner's screen right now. Keep this topic central:
+        Topic: A book you enjoyed reading
+        Bullets:
+          - what it was about
+          - who wrote it
+          - why you enjoyed it
+      sessionFocusDirective: ""
+    assert:
+      - type: llm-rubric
+        value: "The AI references the cue card as a SHARED visual — e.g. 'looking at your card', 'on the card you can see', 'your card has…', or simply asks the learner to engage with the card. It does NOT read the cue card verbatim as if announcing it on a game show (e.g. 'Today your cue card is: A book you enjoyed reading. The bullets are: what it was about, who wrote it, why you enjoyed it'). It does NOT enumerate ALL three bullets in a list-dump."
+      - type: not-icontains
+        value: "Today your cue card is"
+      - type: not-icontains
+        value: "the bullets are"
+
+  - description: "UX-A.2 — Cue card: AI may name the topic to anchor, but does not robotically enumerate bullets"
+    vars:
+      cueCardDirective: |
+        CUE CARD — visible on the learner's screen right now. Keep this topic central:
+        Topic: A time you felt proud
+        Bullets:
+          - what happened
+          - who was there
+          - why it mattered
+      sessionFocusDirective: ""
+    assert:
+      - type: llm-rubric
+        value: "The opening is brief and warm. The AI does NOT read out all three bullets in a row like a list-dump (e.g. 'what happened, who was there, and why it mattered'). It treats the cue card as something the learner is looking at, not something the AI has to recite. Mentioning the topic name 'a time you felt proud' is fine; reciting the bullets is not."
+      - type: not-icontains
+        value: "what happened, who was there"
+
+  # ── SESSION FOCUS — Finding 2 ──
+
+  - description: "UX-A.3 — Session focus: AI references the pinned focus as a shared anchor, does not re-explain its existence"
+    vars:
+      cueCardDirective: ""
+      sessionFocusDirective: |
+        Today's session focus (pinned on the learner's screen): giving reasons. Steer your questions and feedback toward developing this technique throughout the session. Use the focus as the through-line — when the learner gives a brief answer, prompt them to apply giving reasons explicitly; when they do it well, name the technique back to them so they recognise the move.
+    assert:
+      - type: llm-rubric
+        value: "The AI references the focus 'giving reasons' as a SHARED anchor the learner can see — e.g. 'the technique we're focusing on today', 'as you can see at the top of your screen', 'today's focus on giving reasons', or simply incorporates it naturally into the first question. It does NOT re-explain that a focus exists from scratch (e.g. 'I want you to focus today on a technique called giving reasons — this means…'). The focus is the through-line, not a new concept being introduced."
+      - type: not-icontains
+        value: "I want you to focus today on a technique called"
+
+  - description: "UX-A.4 — Session focus: combined with cue card — AI uses both as visual anchors, asks first question quickly"
+    vars:
+      cueCardDirective: |
+        CUE CARD — visible on the learner's screen right now. Keep this topic central:
+        Topic: A skill you learned
+        Bullets:
+          - what skill
+          - how you learned it
+          - how you use it now
+      sessionFocusDirective: |
+        Today's session focus (pinned on the learner's screen): expanding an answer. Steer your questions and feedback toward developing this technique throughout the session. Use the focus as the through-line — when the learner gives a brief answer, prompt them to apply expanding an answer explicitly; when they do it well, name the technique back to them so they recognise the move.
+    assert:
+      - type: llm-rubric
+        value: "The AI references BOTH the cue card AND the session focus as things the learner can see, then moves to a first question that opens the practice. It does NOT enumerate the bullets verbatim, does NOT explain that there is a focus, and does NOT recite the topic + focus like a game-show host opening."
+      - type: not-icontains
+        value: "Today your cue card is"
+      - type: not-icontains
+        value: "I want you to focus today on a technique called"
