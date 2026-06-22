@@ -204,6 +204,14 @@ export async function POST(req: Request) {
 
       try {
         // Create the parameter
+        // NOTE on `sectionId` free-form fallback (audit #2031 S5, see PR for evidence):
+        //   `Parameter.sectionId` is INTENTIONALLY free-form. Unlike `domainGroup`
+        //   (canonical 12-value taxonomy v1.0 — see resolveCanonicalDomainGroup
+        //   above), sectionId carries heterogeneous values: engine-grouping labels
+        //   ("behavior", "personality", "state", "prosody"), course-section labels
+        //   ("spag", "creative-comprehension"), and import fallbacks ("imported").
+        //   All consumers (slugs/route.ts:474, display-config, taxonomy-graph)
+        //   accept any non-empty string. Do NOT add a canonical helper here.
         await prisma.parameter.create({
           data: {
             parameterId: missingId,

@@ -249,6 +249,12 @@ export async function POST(
           continue;
         }
 
+        // NOTE on `sectionId` free-form fallback (audit #2031 S5, see PR for evidence):
+        //   `Parameter.sectionId` is INTENTIONALLY free-form (29 distinct values
+        //   across seeds/writers — engine groupings + course sections + import
+        //   fallbacks). Unlike `domainGroup` (canonical 12-value taxonomy v1.0)
+        //   there is no canonical set. All consumers tolerate any non-empty
+        //   string. Do NOT add a canonical helper here. Precedent: PR #2032.
         const paramData = {
           parameterId,
           name: param.name || parameterId,
