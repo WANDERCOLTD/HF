@@ -20,6 +20,7 @@ import {
   isAudience,
   isPlanEmphasis,
   isLessonPlanModel,
+  isLessonPlanMode,
   isProgressionMode,
 } from "@/lib/content-trust/resolve-config";
 
@@ -140,8 +141,35 @@ export function buildReuseConfigUpdate(
     cadenceMinutesPerCall?: number | null;
     suggestedSessionCount?: number | null;
   } | undefined;
-  if (pedagogy?.lessonPlanMode) {
+  if (pedagogy?.lessonPlanMode && isLessonPlanMode(pedagogy.lessonPlanMode)) {
     configUpdate.lessonPlanMode = pedagogy.lessonPlanMode;
+  } else if (pedagogy?.lessonPlanMode) {
+    logSkipInvalidEnum(
+      "lessonPlanMode",
+      pedagogy.lessonPlanMode,
+      "structured|continuous",
+    );
+  } else if (configUpdate.lessonPlanMode === undefined) {
+    // Reuse-path inference: when modules are already authored on the
+    // existing playbook (the canonical signal that the course IS
+    // structured), default to `"structured"`. Prevents the admin
+    // Modules tab from hiding authored modules under a default-deny
+    // `lessonPlanMode === undefined → "continuous"` fall-through.
+    // The pipeline runtime contract (`lib/pipeline/course-style.ts`
+    // strict `=== "structured"` default-deny) is unaffected; this is
+    // wizard authoring inference at write time.
+    const existingModules = Array.isArray(existingConfig.modules)
+      ? existingConfig.modules
+      : null;
+    if (existingModules && existingModules.length > 0) {
+      configUpdate.lessonPlanMode = "structured";
+    } else if (pedagogy !== undefined) {
+      // Course-ref upload but no explicit pedagogy.lessonPlanMode and
+      // no modules yet on the playbook — still default to "structured"
+      // for the same reason as the new-path: course-ref upload is the
+      // operator's canonical declaration of course shape.
+      configUpdate.lessonPlanMode = "structured";
+    }
   }
   if (pedagogy?.cadenceMinutesPerCall && !durationMins) {
     configUpdate.durationMins = pedagogy.cadenceMinutesPerCall;

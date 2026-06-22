@@ -1382,6 +1382,23 @@ export type FirstCallMode =
   | "teach_immediately"
   | "baseline_assessment";
 export type ProgressionMode = "learner-picks" | "ai-led";
+/**
+ * Lesson plan MODE — pacing shape. NOT to be confused with
+ * `LessonPlanModel` (pedagogical model: direct_instruction / socratic / …).
+ *
+ * `structured` — the course has authored modules + a fixed shape. The
+ *   admin Modules tab is visible; `getCourseStyle` returns `"structured"`;
+ *   `CallerModuleProgress` rows are instantiated on enrollment.
+ * `continuous` — the scheduler decides per call; no per-module progress.
+ *
+ * Wizard inference (see `_new-config-merge.ts` / `_reuse-config-merge.ts`):
+ * when authored modules are present (the canonical signal that the course
+ * IS structured) but `pedagogy.lessonPlanMode` is unset in the course-ref,
+ * the wizard defaults to `"structured"`. Prevents the IELTS-on-staging
+ * bug fingerprint where 5 authored modules shipped + lessonPlanMode unset
+ * → admin Modules tab hid them.
+ */
+export type LessonPlanMode = "structured" | "continuous";
 
 import type { AudienceId } from "@/lib/prompt/composition/transforms/audience";
 import { AUDIENCE_OPTIONS } from "@/lib/prompt/composition/transforms/audience";
@@ -1411,6 +1428,10 @@ const PROGRESSION_MODE_SET: ReadonlySet<string> = new Set([
   "learner-picks",
   "ai-led",
 ]);
+const LESSON_PLAN_MODE_SET: ReadonlySet<string> = new Set([
+  "structured",
+  "continuous",
+]);
 
 /** Runtime type guard for `AudienceId` (#1995). */
 export function isAudience(value: unknown): value is AudienceId {
@@ -1439,6 +1460,21 @@ export function isProgressionMode(
   value: unknown,
 ): value is ProgressionMode {
   return typeof value === "string" && PROGRESSION_MODE_SET.has(value);
+}
+
+/**
+ * Runtime type guard for `LessonPlanMode` — pacing shape
+ * (`structured` / `continuous`). Sibling of `isLessonPlanModel`
+ * (the pedagogical model). The wizard merge paths use this before
+ * writing `Playbook.config.lessonPlanMode` so a stale or hallucinated
+ * value cannot reach the DB. The pipeline reads
+ * `lessonPlanMode === "structured"` as the structural signal that
+ * `CallerModuleProgress` rows + the admin Modules tab apply.
+ */
+export function isLessonPlanMode(
+  value: unknown,
+): value is LessonPlanMode {
+  return typeof value === "string" && LESSON_PLAN_MODE_SET.has(value);
 }
 
 // ── Subject Discipline Preambles ─────────────────────────────────────────────
