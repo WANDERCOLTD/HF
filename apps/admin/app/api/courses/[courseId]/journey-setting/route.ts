@@ -69,6 +69,7 @@ import {
 } from "@/lib/journey/storage-path-applier";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { log } from "@/lib/logger";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import { bumpSectionHash } from "@/lib/compose/section-staleness";
@@ -133,6 +134,38 @@ export async function PATCH(
     );
   }
   const { settingId, value, arraySelector } = parsed.data;
+
+  // #2176 S1 — CourseAssessmentPlan contradiction observability.
+  // When the operator saves a plan with both `noAssessmentPlan: true`
+  // AND declared moments (upfront / midpoints / end), the Coverage
+  // gate treats the flag as STALE and prefers the moments. The
+  // editor surfaces a non-blocking warning chip; this server-side
+  // AppLog write makes the dual state operator-visible in logs.
+  // Best-effort, non-blocking — the write proceeds regardless.
+  if (
+    settingId === "assessmentPlan" &&
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    const plan = value as {
+      noAssessmentPlan?: unknown;
+      upfront?: unknown;
+      midpoints?: unknown;
+      end?: unknown;
+    };
+    const hasAny =
+      Boolean(plan.upfront) ||
+      (Array.isArray(plan.midpoints) && plan.midpoints.length > 0) ||
+      Boolean(plan.end);
+    if (plan.noAssessmentPlan === true && hasAny) {
+      log("system", "assessment.plan.contradiction", {
+        courseId,
+        message:
+          "AssessmentPlan saved with noAssessmentPlan:true AND declared moments — runtime prefers the moments; the flag is treated as STALE.",
+      });
+    }
+  }
 
   // Lookup contract
   const contract: JourneySettingContract | undefined =
