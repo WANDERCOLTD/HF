@@ -732,6 +732,38 @@ List conversation artifacts for a caller. Optionally filter by callId or status.
 
 ---
 
+### `GET` /api/v1/callers/:callerId/assessment-moment-mcqs?moduleSlug=…
+
+W4 of `memory/handoff_lattice_all_settings_to_ui_2026_06_21.md` —
+
+**Auth**: session (VIEWER+ — STUDENT scoped to own caller) · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller.id |
+
+**Response** `200`
+```json
+{ok: true, result: AssessmentMomentMCQsPayload | null, reason?: string}
+```
+
+**Response** `400`
+```json
+{ok: false, error: string}
+```
+
+**Response** `403`
+```json
+{ok: false, error: string}
+```
+
+**Response** `500`
+```json
+{ok: false, error: string}
+```
+
+---
+
 ### `POST` /api/v1/callers/:callerId/calls
 
 Create a new call record for a caller. Auto-determines call sequence number if not provided. Links to previous call for chain tracking.

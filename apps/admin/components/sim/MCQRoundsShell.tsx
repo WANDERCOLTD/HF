@@ -26,9 +26,14 @@
  *  - `allowModuleSwitch: false` / `allowBackToHome: false` — in-flight
  *    quiz must finish
  *
- * **MCQ data feed is stubbed** — `mcqs` is accepted as a prop today.
- * The full per-question feedback flow + answer submission lifecycle
- * lands in #2180 (sampling engine + question-presentation lifecycle).
+ * **W4 (epic #2163 closeout) — MCQ data feed live.** The shell now
+ * renders selectable options + an empty-state when no MCQs resolve.
+ * Data flows from the canonical sampling engine
+ * (`lib/assessment/sample-questions.ts`) via the
+ * `useAssessmentMomentMCQs` hook in the host (`SimChat`). Per
+ * `feedback_no_hardcoded_score_backfill.md` we NEVER synthesise MCQs
+ * — empty pool / missing plan renders the typed empty-state with the
+ * `emptyReason` prop driving copy.
  *
  * Closes #2159 quiz.learnerUI at the shell level. Coverage assertion
  * at `tests/components/sim/learner-shells.test.tsx`.
@@ -53,17 +58,25 @@ export interface MCQShellQuestion {
   options?: Array<{ label: string; text: string }> | null;
 }
 
+/** Typed reason an MCQRoundsShell renders the empty-state instead of
+ *  a cue card. Mirrors `AssessmentMomentNullReason` from the route. */
+export type MCQRoundsEmptyReason =
+  | "no-moment"
+  | "empty-pool"
+  | "missing-content"
+  | "policy-unsatisfied"
+  | "loading"
+  | "error";
+
 interface MCQRoundsShellProps {
   /** Capability frame. Defaults to `SHELL_DEFAULTS["mcq-rounds"]` so
    *  the shell renders the canonical quiz frame out of the box. */
   capabilities?: LearnerShellCapabilities;
-  /** Sampled MCQs to present this round. Stubbed today — once #2180
-   *  ships the sampling engine, the host page resolves this from the
-   *  AssessmentMoment + samplingPolicy. */
-  mcqs?: MCQShellQuestion[];
-  /** Current 1-based round index (e.g. 3 of 8). Stubbed today. */
+  /** Sampled MCQs to present this round. Empty array → empty-state. */
+  mcqs?: ReadonlyArray<MCQShellQuestion>;
+  /** Current 1-based round index (e.g. 3 of 8). */
   roundIndex?: number;
-  /** Total rounds. Stubbed today. */
+  /** Total rounds. */
   roundTotal?: number;
   /** Whether the close screen scaffold should render
    *  (`endedAt !== null` from the host). */
@@ -71,9 +84,53 @@ interface MCQRoundsShellProps {
   /** Per-Q feedback area — text or node rendered after the learner
    *  submits an answer. Stubbed today. */
   feedback?: React.ReactNode;
+  /** The option label the learner has selected (e.g. "A"). When set,
+   *  the matching `<li>` carries `data-selected="true"` and an
+   *  `aria-pressed="true"` attribute. */
+  selectedOption?: string | null;
+  /** Invoked when the learner picks an option. Receives `(mcqId,
+   *  optionLabel)`. The host (SimChat) advances the round and writes
+   *  the result via the canonical writer (or stub). */
+  onAnswer?: (mcqId: string, optionLabel: string) => void;
+  /** When `mcqs.length === 0` the shell renders the empty-state. This
+   *  prop drives the empty-state copy. `"loading"` / `"error"` are
+   *  transient host states; the other values mirror the typed reasons
+   *  from the canonical engine (see `lib/assessment/sample-questions.ts`). */
+  emptyReason?: MCQRoundsEmptyReason | null;
   /** Child controls (e.g. answer-submit, dismiss, etc.). */
   children?: React.ReactNode;
 }
+
+const EMPTY_REASON_COPY: Record<MCQRoundsEmptyReason, { title: string; detail: string }> = {
+  loading: {
+    title: "Loading questions…",
+    detail: "Pulling your next round from the question pool.",
+  },
+  "no-moment": {
+    title: "No quiz available for this module",
+    detail:
+      "This course doesn't declare a quiz round for the current module. Ask your educator to add an assessment plan.",
+  },
+  "empty-pool": {
+    title: "No questions available yet",
+    detail:
+      "The question pool for this module is empty. Your educator will add content soon.",
+  },
+  "missing-content": {
+    title: "Question pool not configured",
+    detail:
+      "This quiz needs a different kind of content. Ask your educator to review the assessment plan.",
+  },
+  "policy-unsatisfied": {
+    title: "Not enough questions for this round",
+    detail:
+      "The current pool can't satisfy this round's sampling rules. Your educator will adjust the content.",
+  },
+  error: {
+    title: "Couldn't load questions",
+    detail: "There was a problem reaching the question pool. Please try again shortly.",
+  },
+};
 
 export function MCQRoundsShell({
   capabilities = SHELL_DEFAULTS["mcq-rounds"],
@@ -82,9 +139,19 @@ export function MCQRoundsShell({
   roundTotal,
   ended = false,
   feedback,
+  selectedOption,
+  onAnswer,
+  emptyReason,
   children,
 }: MCQRoundsShellProps) {
   const currentMcq = mcqs[(roundIndex ?? 1) - 1] ?? null;
+  const showEmptyState =
+    capabilities.chatFeedVisibility === "cue-card-only" &&
+    !currentMcq &&
+    !ended;
+  const resolvedEmptyReason: MCQRoundsEmptyReason =
+    emptyReason ?? (mcqs.length === 0 ? "no-moment" : "no-moment");
+  const emptyCopy = EMPTY_REASON_COPY[resolvedEmptyReason];
   return (
     <section
       className="hf-mcq-rounds-shell"
@@ -128,15 +195,49 @@ export function MCQRoundsShell({
         >
           <div className="hf-mcq-question">{currentMcq.questionText}</div>
           {currentMcq.options ? (
-            <ul className="hf-mcq-options" data-testid="hf-mcq-options">
-              {currentMcq.options.map((opt) => (
-                <li key={opt.label} data-mcq-option-label={opt.label}>
-                  <span className="hf-mcq-option-label">{opt.label}</span>
-                  <span className="hf-mcq-option-text">{opt.text}</span>
-                </li>
-              ))}
+            <ul
+              className="hf-mcq-options"
+              data-testid="hf-mcq-options"
+              role="radiogroup"
+              aria-label="Choose an answer"
+            >
+              {currentMcq.options.map((opt) => {
+                const isSelected = selectedOption === opt.label;
+                return (
+                  <li
+                    key={opt.label}
+                    data-mcq-option-label={opt.label}
+                    data-selected={isSelected ? "true" : "false"}
+                  >
+                    <button
+                      type="button"
+                      className="hf-btn hf-mcq-option-btn"
+                      data-testid={`hf-mcq-option-${opt.label}`}
+                      role="radio"
+                      aria-checked={isSelected}
+                      disabled={!onAnswer || selectedOption != null}
+                      onClick={() => onAnswer?.(currentMcq.id, opt.label)}
+                    >
+                      <span className="hf-mcq-option-label">{opt.label}</span>
+                      <span className="hf-mcq-option-text">{opt.text}</span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           ) : null}
+        </div>
+      ) : null}
+      {showEmptyState ? (
+        <div
+          className="hf-mcq-empty hf-empty"
+          data-testid="hf-mcq-empty"
+          data-empty-reason={resolvedEmptyReason}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="hf-mcq-empty-title">{emptyCopy.title}</div>
+          <div className="hf-mcq-empty-detail">{emptyCopy.detail}</div>
         </div>
       ) : null}
       {feedback ? (
