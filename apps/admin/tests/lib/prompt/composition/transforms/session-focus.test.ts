@@ -215,6 +215,28 @@ describe("resolveSessionFocus", () => {
       expect(out).toBeNull();
     });
 
+    it("UX-A: directive declares the focus is pinned on the learner's screen", () => {
+      // Finding 2 of the 2026-06-22 Learner UX audit: the AI must know the
+      // focus label is visible to the learner so it can reference it as a
+      // shared anchor ("the technique we're focusing on today") rather than
+      // re-explaining its existence. Pinning the literal phrase prevents a
+      // future refactor from silently dropping the visibility signal.
+      const out = resolveSessionFocus(
+        EMPTY_CONFIG,
+        buildContext({
+          lockedModule: { id: "part3", slug: "part3" },
+          callerAttributes: [
+            {
+              key: "session_focus:next_part3",
+              stringValue: "giving reasons",
+            },
+          ],
+        }),
+      );
+      expect(out).not.toBeNull();
+      expect(out!.directive).toContain("pinned on the learner's screen");
+    });
+
     it("prefers slug over id for the key suffix", () => {
       const out = resolveSessionFocus(
         EMPTY_CONFIG,

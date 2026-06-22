@@ -621,7 +621,7 @@ function resolveModuleQuestionTarget(
  * pick to `Session.metadata.pinnedCard` so the UI shows the same card
  * the prompt was composed with.
  */
-function resolveModuleCueCard(
+export function resolveModuleCueCard(
   config: PlaybookConfig,
   sharedState: AssembledContext["sharedState"],
 ): {
@@ -656,7 +656,12 @@ function resolveModuleCueCard(
   if (bullets.length === 0) return null;
 
   const bulletsList = bullets.map((b) => `  - ${b}`).join("\n");
-  const directive = `CUE CARD for this module — keep this topic central:\nTopic: ${picked.topic}\nBullets:\n${bulletsList}`;
+  // UX-A (Learner UX audit Finding 1): the learner can see this cue card
+  // on their screen right now — treat it as a SHARED reference, do not
+  // read it back verbatim. Wording aligned with `session-materials.ts`
+  // ("what the student can see on their screen") — the canonical voice
+  // for screen-shared content in composed prompts.
+  const directive = `CUE CARD — visible on the learner's screen right now. Keep this topic central:\nTopic: ${picked.topic}\nBullets:\n${bulletsList}`;
   return {
     kind: "cueCard",
     topic: picked.topic,

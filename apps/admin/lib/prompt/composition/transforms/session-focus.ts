@@ -110,7 +110,12 @@ export function resolveSessionFocus(
   const label = row.stringValue?.trim();
   if (!label) return null;
 
-  const directive = `Today's session focus: ${label}. Steer your questions and feedback toward developing this technique throughout the session. Use the focus as the through-line — when the learner gives a brief answer, prompt them to apply ${label} explicitly; when they do it well, name the technique back to them so they recognise the move.`;
+  // UX-A (Learner UX audit Finding 2): the focus label is pinned visibly
+  // at the top of the learner's screen — reference it as a shared anchor,
+  // do not re-explain its existence. Wording aligned with the canonical
+  // "visible on the learner's screen" voice used by `session-materials.ts`
+  // and the sibling cue-card directive in `transforms/instructions.ts`.
+  const directive = `Today's session focus (pinned on the learner's screen): ${label}. Steer your questions and feedback toward developing this technique throughout the session. Use the focus as the through-line — when the learner gives a brief answer, prompt them to apply ${label} explicitly; when they do it well, name the technique back to them so they recognise the move.`;
 
   const pinnedCard: PinnedCardContent = {
     kind: "topicFocus",
