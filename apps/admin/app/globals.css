@@ -1360,6 +1360,20 @@ html.light {
   color: var(--text-muted);
 }
 
+/* When an empty state contains a section title + description (the
+   widely-used title-over-desc pattern), stack the children vertically
+   and centre-align the text. Without this scoped rule, the base
+   .hf-empty flex-row collapses the vertical margins on
+   .hf-section-title / .hf-section-desc and the title visually
+   mashes into the description. Scoped via `:has(...)` so single-text
+   empty states (`<div class="hf-empty">No items.</div>`) keep the
+   original centred-row behaviour. */
+.hf-empty:has(.hf-section-title) {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
 /* List rows (icon + label + value pattern) */
 .hf-list-row {
   display: flex;

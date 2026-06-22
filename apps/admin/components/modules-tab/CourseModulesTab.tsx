@@ -40,13 +40,21 @@ type ModuleRow = ModuleEditorRow;
 
 interface CourseModulesTabProps {
   courseId: string;
-  /** From `PlaybookConfig.lessonPlanMode`. `"continuous"` (or missing) →
-   *  modules don't apply; we show the empty state instead of the picker. */
+  /** From `PlaybookConfig.lessonPlanMode`. The continuous-course empty
+   *  state fires ONLY when BOTH `courseStyle === "continuous"` AND
+   *  `playbookConfig.modules.length === 0`. A course can have
+   *  `lessonPlanMode` unset (parent-fork casts to `"continuous"`) AND
+   *  still carry authored modules in `Playbook.config.modules` —
+   *  e.g. IELTS Speaking Practice ships 5 modules with no
+   *  `lessonPlanMode` flag. In that case modules-present overrides
+   *  the empty state; the operator sees their authored modules. */
   courseStyle?: string;
   /** Full PlaybookConfig — threaded through to ModuleInspectorPanel so
-   *  it can derive the editor-facing CourseShape (P3d, #1850). Optional;
-   *  legacy callers without it fall back to the binary courseStyle and
-   *  exam-only G8 entries render as `out-of-shape`. */
+   *  it can derive the editor-facing CourseShape (P3d, #1850). Also
+   *  read here to count `config.modules.length` for the empty-state
+   *  gate (see `courseStyle` above). Optional; legacy callers without
+   *  it fall back to the binary courseStyle and exam-only G8 entries
+   *  render as `out-of-shape`. */
   playbookConfig?: Record<string, unknown> | null;
 }
 
@@ -58,15 +66,43 @@ export function CourseModulesTab({
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [modules, setModules] = useState<ModuleRow[]>([]);
 
+  // P3d (#1850) — cast once at the boundary; ModuleInspectorPanel
+  // consumes the typed shape and falls back to "continuous" when null.
+  // Hoisted above the continuous-course early return to keep hook order
+  // stable across renders (react-hooks/rules-of-hooks). Also drives the
+  // `authoredModuleCount` gate that overrides the continuous empty
+  // state when the playbook still carries authored modules.
+  const typedPlaybookConfig = useMemo<PlaybookConfig | null>(
+    () =>
+      playbookConfig === null || playbookConfig === undefined
+        ? null
+        : (playbookConfig as unknown as PlaybookConfig),
+    [playbookConfig],
+  );
+
+  // When `lessonPlanMode` is unset, the parent-fork casts `courseStyle`
+  // to `"continuous"` — but the playbook may still carry authored
+  // modules (e.g. IELTS Speaking Practice ships 5 modules with no
+  // `lessonPlanMode`). The empty-state should only render when BOTH
+  // gates hold: continuous courseStyle AND no authored modules. When
+  // modules are present, we still fetch and show them so the operator
+  // can tune what they authored.
+  const authoredModuleCount = typedPlaybookConfig?.modules?.length ?? 0;
+  const showContinuousEmpty =
+    courseStyle === "continuous" && authoredModuleCount === 0;
+
   // Mirror the LH picker fetch so the Inspector can read each module's
   // `settings` sub-object without a second round-trip. The LH picker
   // owns its own fetch (it renders without waiting on the parent), and
   // this one feeds the Inspector — both target the same dedicated
   // /modules route so the cache will collapse them. `reloadKey` bumps
-  // after each save so the Inspector reflects persisted state.
+  // after each save so the Inspector reflects persisted state. Skip
+  // the fetch only when the empty-state is about to fire (continuous
+  // AND zero authored modules) — otherwise authored modules need to
+  // hydrate the Inspector regardless of `lessonPlanMode`.
   const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
-    if (!courseId || courseStyle === "continuous") {
+    if (!courseId || showContinuousEmpty) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset list on course/style change, matches sibling ModulesLhPicker pattern
       setModules([]);
       return;
@@ -88,25 +124,13 @@ export function CourseModulesTab({
     return () => {
       cancelled = true;
     };
-  }, [courseId, courseStyle, reloadKey]);
+  }, [courseId, showContinuousEmpty, reloadKey]);
 
   const handleSaved = useCallback(() => {
     setReloadKey((k) => k + 1);
   }, []);
 
-  // P3d (#1850) — cast once at the boundary; ModuleInspectorPanel
-  // consumes the typed shape and falls back to "continuous" when null.
-  // Hoisted above the continuous-course early return to keep hook order
-  // stable across renders (react-hooks/rules-of-hooks).
-  const typedPlaybookConfig = useMemo<PlaybookConfig | null>(
-    () =>
-      playbookConfig === null || playbookConfig === undefined
-        ? null
-        : (playbookConfig as unknown as PlaybookConfig),
-    [playbookConfig],
-  );
-
-  if (courseStyle === "continuous") {
+  if (showContinuousEmpty) {
     return (
       <div className="hf-empty">
         <h2 className="hf-section-title">No modules</h2>
