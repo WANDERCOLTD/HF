@@ -222,9 +222,9 @@ export function AssessmentMomentEditor({
             role="alert"
             data-testid={tid("mode-mismatch")}
           >
-            ⚠ Mode mismatch — "{selectedModule?.slug}" has mode "
-            {selectedModule?.mode}"; "{value.kind}" expects a module in mode{" "}
-            [{allowedModes.join(", ")}].
+            ⚠ Mode mismatch — &ldquo;{selectedModule?.slug}&rdquo; has mode
+            &ldquo;{selectedModule?.mode}&rdquo;; &ldquo;{value.kind}&rdquo;
+            expects a module in mode [{allowedModes.join(", ")}].
           </div>
         ) : null}
       </div>

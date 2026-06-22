@@ -217,8 +217,14 @@ export function AssessmentPlanEditor({
     if (on) {
       patch({ ...plan, noAssessmentPlan: true });
     } else {
-      const { noAssessmentPlan: _drop, ...rest } = plan;
-      patch(rest);
+      // Drop the `noAssessmentPlan` key from the plan entirely (rather
+      // than setting it to false) so the operator sees a clean "absent"
+      // state and the JSON column doesn't carry redundant
+      // `noAssessmentPlan: false` rows. Build a fresh object excluding
+      // the key — avoids the `_drop`-unused-variable lint warning.
+      const next: typeof plan = { ...plan };
+      delete next.noAssessmentPlan;
+      patch(next);
     }
   };
 

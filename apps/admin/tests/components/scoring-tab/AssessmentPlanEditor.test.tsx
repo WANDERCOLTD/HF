@@ -363,7 +363,7 @@ describe("AssessmentPlanEditor (#2176 S1)", () => {
     expect(onSave).toHaveBeenCalled();
     // First arg of the last call should be a CourseAssessmentPlan with
     // an upfront moment shape.
-    const lastCall = onSave.mock.calls.at(-1);
+    const lastCall = onSave.mock.calls.at(-1) as unknown[] | undefined;
     expect(lastCall).toBeDefined();
     const plan = lastCall?.[0] as CourseAssessmentPlan | undefined;
     expect(plan?.upfront).toBeDefined();
