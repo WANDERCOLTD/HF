@@ -19,6 +19,7 @@ import {
   isAudience,
   isPlanEmphasis,
   isLessonPlanModel,
+  isLessonPlanMode,
   isProgressionMode,
 } from "@/lib/content-trust/resolve-config";
 
@@ -173,7 +174,35 @@ export async function buildNewConfigUpdate(
     cadenceMinutesPerCall?: number | null;
     suggestedSessionCount?: number | null;
   } | undefined;
-  if (newPedagogy?.lessonPlanMode) configUpdate.lessonPlanMode = newPedagogy.lessonPlanMode;
+  // Explicit pedagogy declaration in the course-ref wins. The detector
+  // only ever emits `"continuous"` or `null` (it scans for continuous
+  // phrases) — so a `"structured"` value here only ever arrives from
+  // an operator-authored `pedagogy.lessonPlanMode: structured` block
+  // in the course-ref doc OR a sibling explicit override.
+  if (newPedagogy?.lessonPlanMode && isLessonPlanMode(newPedagogy.lessonPlanMode)) {
+    configUpdate.lessonPlanMode = newPedagogy.lessonPlanMode;
+  } else if (newPedagogy?.lessonPlanMode) {
+    logSkipInvalidEnum(
+      "lessonPlanMode",
+      newPedagogy.lessonPlanMode,
+      "structured|continuous",
+    );
+  } else if (
+    configUpdate.lessonPlanMode === undefined &&
+    newPedagogy !== undefined
+  ) {
+    // Course-ref uploaded (operator went through the doc-driven flow)
+    // AND no explicit lessonPlanMode in pedagogy → default to
+    // "structured". The course-ref upload IS the canonical signal that
+    // the operator declared a course shape; absent an explicit
+    // `continuous` phrase, the safe default is structured so the admin
+    // Modules tab surfaces authored modules. The pipeline's runtime
+    // default-deny convention (`lib/pipeline/course-style.ts`) is
+    // unaffected — this is wizard authoring inference, not a runtime
+    // default. See IELTS-on-staging fingerprint: 5 authored modules,
+    // lessonPlanMode unset → admin Modules tab hid them.
+    configUpdate.lessonPlanMode = "structured";
+  }
   if (newPedagogy?.cadenceMinutesPerCall && !newDurationMins) {
     configUpdate.durationMins = newPedagogy.cadenceMinutesPerCall;
   }

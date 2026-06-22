@@ -160,6 +160,18 @@ export async function main(prisma: PrismaClient): Promise<void> {
         sessionCount: 12,
         durationMins: 20,
         planEmphasis: "exam preparation — spoken performance with correction",
+        // IELTS Speaking Practice is a structured course with 5 authored
+        // modules (Baseline, Part 1, Part 2, Part 3, Mock Exam). The
+        // pipeline reads `lessonPlanMode === "structured"` to keep
+        // `CallerModuleProgress` writes active and the admin Modules
+        // tab populated. Without this stamp the admin UI's default-deny
+        // (`lessonPlanMode === undefined` → "continuous") hides the
+        // 5 authored modules from operators. Detector at
+        // `lib/wizard/detect-pedagogy.ts` only emits "continuous" or
+        // null — never "structured" — so this stamp must live in the
+        // seed payload (and in the wizard authoring inference; see
+        // `lib/chat/wizard-tool-executor/tools/create_course/_*-config-merge.ts`).
+        lessonPlanMode: "structured",
         welcome: {
           goals: { enabled: true },
           aboutYou: { enabled: true },

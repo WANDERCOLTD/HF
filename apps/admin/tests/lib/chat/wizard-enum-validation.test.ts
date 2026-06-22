@@ -36,12 +36,14 @@ import {
   VALID_AUDIENCE_IDS,
   VALID_PLAN_EMPHASIS,
   VALID_LESSON_PLAN_MODELS,
+  VALID_LESSON_PLAN_MODES,
   VALID_FIRST_CALL_MODES,
   VALID_PROGRESSION_MODES,
   INTERACTION_PATTERN_ORDER,
   TEACHING_MODE_ORDER,
   PLAN_EMPHASIS_ORDER,
   LESSON_PLAN_MODEL_ORDER,
+  LESSON_PLAN_MODE_ORDER,
   FIRST_CALL_MODE_ORDER,
   PROGRESSION_MODE_ORDER,
 } from "../../../lib/wizard/enum-sets";
@@ -55,6 +57,7 @@ import {
   isAudience,
   isPlanEmphasis,
   isLessonPlanModel,
+  isLessonPlanMode,
   isFirstCallMode,
   isProgressionMode,
   INTERACTION_PATTERN_ORDER as RESOLVE_INTERACTION_PATTERN_ORDER,
@@ -144,6 +147,19 @@ const FIELDS: readonly EnumField[] = [
     wrongUnionSamples: ["directive", "recall", "primary"],
     // progressionMode is captured via show_options (not update_setup)
     // per the v5 system prompt — it's not in the create_course schema.
+    inCreateCourseSchema: false,
+  },
+  {
+    fieldName: "lessonPlanMode",
+    canonicalValues: LESSON_PLAN_MODE_ORDER,
+    set: VALID_LESSON_PLAN_MODES,
+    guard: isLessonPlanMode,
+    wrongUnionSamples: ["directive", "recall", "primary", "5e", "breadth"],
+    // lessonPlanMode is sourced from `setupData.coursePedagogy.lessonPlanMode`
+    // (course-ref doc parser) — not surfaced as a direct AI input. The
+    // wizard merge inference defaults it to "structured" when a
+    // course-ref is uploaded / authored modules are present; otherwise
+    // it stays unset. Not in the create_course schema.
     inCreateCourseSchema: false,
   },
 ];

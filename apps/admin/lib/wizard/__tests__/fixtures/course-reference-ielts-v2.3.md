@@ -21,6 +21,7 @@ hf-template-version: "5.1"
   
 - **courseStyle:** structured  
 - **examShape:** exam     <!-- enables exam-style settings: cueCardPool, scheduledCues, examMode -->  
+- **lessonPlanMode:** structured     <!-- 5 authored modules — admin Modules tab + CallerModuleProgress active. Operator-authoritative declaration so the wizard does not need to infer. -->  
   
 **Rationale.** IELTS Speaking is fundamentally an exam-prep course with a fixed five-module structure (Baseline, Part 1, Part 2, Part 3, Mock Exam), per-module session-terminal rules, scheduled cues (Part 2 prep + monologue countdown), and a cue-card pool whose semantics are exam-specific. Declaring `courseStyle: structured` keeps `CallerModuleProgress` writes active and the picker honouring the per-module catalogue. Declaring `examShape: exam` (a sub-shape of structured) enables the exam-only settings the projector needs to emit — `moduleCueCardPool`, `moduleScheduledCues`, and the examiner-mode silence rules during the Part 2 long turn.  
   

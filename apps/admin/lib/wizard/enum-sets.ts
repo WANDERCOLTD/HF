@@ -43,6 +43,7 @@ import type {
   TeachingMode,
   PlanEmphasis as ResolveConfigPlanEmphasis,
   LessonPlanModel as ResolveConfigLessonPlanModel,
+  LessonPlanMode as ResolveConfigLessonPlanMode,
   FirstCallMode as ResolveConfigFirstCallMode,
   ProgressionMode as ResolveConfigProgressionMode,
 } from "@/lib/content-trust/resolve-config";
@@ -146,6 +147,28 @@ export const PROGRESSION_MODE_ORDER: readonly ProgressionMode[] = [
 ] as const;
 export const VALID_PROGRESSION_MODES: ReadonlySet<string> = new Set<string>(
   PROGRESSION_MODE_ORDER,
+);
+
+/**
+ * Lesson plan MODE — pacing shape (`structured` / `continuous`).
+ * Sibling of `LessonPlanModel` (the pedagogical model — direct_instruction,
+ * socratic, …). Persisted as `Playbook.config.lessonPlanMode`. The
+ * pipeline reads `=== "structured"` as the canonical signal that
+ * authored modules / `CallerModuleProgress` apply.
+ *
+ * The wizard's `coursePedagogy` block sources this from the course-ref
+ * doc; absent an explicit declaration, the merge inference at
+ * `_new-config-merge.ts` / `_reuse-config-merge.ts` defaults to
+ * `"structured"` when authored modules or a course-ref upload are
+ * detected.
+ */
+export type LessonPlanMode = ResolveConfigLessonPlanMode;
+export const LESSON_PLAN_MODE_ORDER: readonly LessonPlanMode[] = [
+  "structured",
+  "continuous",
+] as const;
+export const VALID_LESSON_PLAN_MODES: ReadonlySet<string> = new Set<string>(
+  LESSON_PLAN_MODE_ORDER,
 );
 
 // ── Type guards ───────────────────────────────────────────────
