@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 /**
  * @api GET /api/parameters/:id
@@ -106,11 +107,19 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
+    // #2031 follow-on — operator-supplied domainGroup MUST pass through
+    // the canonical resolver. Off-canonical input falls back to
+    // `behavior-core` (the catch-all canonical default per Group A in
+    // docs/decisions/2026-06-19-parameter-domain-group-mapping.md);
+    // schema requires this column non-null.
+    const canonicalDomainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: body.domainGroup }) ??
+      "behavior-core";
     const parameter = await prisma.parameter.update({
       where: { id },
       data: {
         name: body.name || null,
-        domainGroup: body.domainGroup || null,
+        domainGroup: canonicalDomainGroup,
         sectionId: body.sectionId || null,
         scaleType: body.scaleType || null,
         directionality: body.directionality || null,

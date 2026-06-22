@@ -25,6 +25,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { resolveCanonicalDomainGroup } from "../lib/registry/canonical-domain-group";
 
 let prisma: PrismaClient;
 
@@ -997,11 +998,21 @@ async function createParameters(): Promise<void> {
   const allParams = [...CC_PARAMETERS, ...SPAG_PARAMETERS];
 
   for (const p of allParams) {
+    // #2031 follow-on — route every Parameter.domainGroup write
+    // through the canonical resolver. The hardcoded `"comprehension"`
+    // and `"language"` values are OFF-canonical; per Group D in
+    // docs/decisions/2026-06-19-parameter-domain-group-mapping.md
+    // learner-side comprehension + SPAG skill clusters map to
+    // `learner-model`. The resolver provides structural defence; the
+    // canonical fallback matches the mapping.
+    const canonicalDomainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: p.domainGroup }) ??
+      "learner-model";
     await prisma.parameter.create({
       data: {
         parameterId: p.parameterId,
         sectionId: p.sectionId,
-        domainGroup: p.domainGroup,
+        domainGroup: canonicalDomainGroup,
         name: p.name,
         definition: p.definition,
         interpretationHigh: p.interpretationHigh,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { randomUUID } from "crypto";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 export const runtime = "nodejs";
 
@@ -126,7 +127,16 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
   const patch: any = {};
   if (isString(body.name)) patch.name = body.name;
   if (isString(body.sectionId)) patch.sectionId = body.sectionId;
-  if (isString(body.domainGroup)) patch.domainGroup = body.domainGroup;
+  if (isString(body.domainGroup)) {
+    // #2031 follow-on — route operator-supplied domainGroup through
+    // the canonical resolver. Off-canonical input falls back to
+    // `behavior-core` (catch-all canonical default per Group A in
+    // docs/decisions/2026-06-19-parameter-domain-group-mapping.md);
+    // schema requires non-null.
+    patch.domainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: body.domainGroup }) ??
+      "behavior-core";
+  }
   if (isStringOrNull(body.definition)) patch.definition = coerceNullableString(body.definition);
   if (isString(body.scaleType)) patch.scaleType = body.scaleType;
   if (isString(body.directionality)) patch.directionality = body.directionality;

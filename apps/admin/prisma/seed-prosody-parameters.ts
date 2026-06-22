@@ -86,6 +86,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { resolveCanonicalDomainGroup } from "../lib/registry/canonical-domain-group";
 
 interface ProsodyParameterSeed {
   parameterId: string;
@@ -229,12 +230,23 @@ export async function seedProsodyParameters(prisma: PrismaClient): Promise<{
       where: { parameterId: param.parameterId },
     });
 
+    // #2031 follow-on — route every Parameter.domainGroup write
+    // through the canonical resolver. The hardcoded `"voice"` values
+    // in PROSODY_PARAMETERS are OFF-canonical; per Group B in
+    // docs/decisions/2026-06-19-parameter-domain-group-mapping.md
+    // they map to `voice-delivery`. The resolver provides
+    // structural defence; the canonical fallback below is the same
+    // mapping so the data lands cleanly.
+    const canonicalDomainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: param.domainGroup }) ??
+      "voice-delivery";
+
     const data = {
       parameterId: param.parameterId,
       name: param.name,
       definition: param.definition,
       sectionId: param.sectionId,
-      domainGroup: param.domainGroup,
+      domainGroup: canonicalDomainGroup,
       scaleType: param.scaleType,
       directionality: param.directionality,
       computedBy: param.computedBy,
