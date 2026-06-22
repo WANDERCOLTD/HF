@@ -124,13 +124,25 @@ const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
 // conscious bump in the same PR.
 // ────────────────────────────────────────────────────────────
 
-const EXPECTED_CASCADE_RESOLVABLE_COUNT = 8;
+// Drift log:
+// - 8 → 10 cascade-resolvable in #2176 S1 (this PR) — pre-existing
+//   drift truth-up; `loMasteryThreshold` + `assessmentReadinessThreshold`
+//   were wired into FAMILIES in a prior PR without updating this
+//   ratchet. Same Lattice-hygiene drop pattern as the control-data-shape
+//   stale-exempts cleanup in Slice 3.
+// - 11 → 10 static-chain — same prior PR promoted one previously-
+//   static contract into FAMILIES.
+// - 105 → 106 total — this PR adds the `assessmentPlan` course-only
+//   contract.
+// - 77 → 77 course-only — net zero (76 pre-existing course-only +
+//   `assessmentPlan` lands here = 77).
+const EXPECTED_CASCADE_RESOLVABLE_COUNT = 10;
 const EXPECTED_COURSE_ONLY_COUNT = 77;
 const EXPECTED_PRODUCER_ONLY_COUNT = 9;
-const EXPECTED_STATIC_CHAIN_COUNT = 11;
+const EXPECTED_STATIC_CHAIN_COUNT = 10;
 const EXPECTED_GAP_COUNT = 0;
 
-const EXPECTED_TOTAL_COUNT = 105;
+const EXPECTED_TOTAL_COUNT = 106;
 
 // ────────────────────────────────────────────────────────────
 // Classification

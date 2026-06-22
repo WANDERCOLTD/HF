@@ -303,11 +303,7 @@ const DECLARED_DATA_SHAPE: Record<string, DataShape> = {
   vapiAssistantId: "string",
 
   // ── I_scoring — #2176 S1 CourseAssessmentPlan editor lens ──────
-  // `assessmentPlan` row deferred to Slice 6 when the contract lands
-  // in `setting-contracts.entries.ts`. Declaring it earlier produces a
-  // "stale" failure (DECLARED row with no contract). The DataShape +
-  // compatibility-matrix rows above are wired now so the type system
-  // is ready for the Slice 6 contract.
+  assessmentPlan: "assessment-plan",
 };
 
 // ────────────────────────────────────────────────────────────
