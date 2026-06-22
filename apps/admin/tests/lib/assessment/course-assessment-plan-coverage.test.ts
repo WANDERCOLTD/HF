@@ -73,11 +73,11 @@ import { join, resolve } from "node:path";
 import {
   ASSESSMENT_KIND_VALUES,
   LEARNER_SHELL_KIND_VALUES,
-  type AssessmentKind,
   type AssessmentMoment,
   type CourseAssessmentPlan,
   type AuthoredModuleMode,
 } from "@/lib/types/json-fields";
+import { KIND_MODE_COMPATIBILITY } from "@/lib/assessment/kind-mode-compatibility";
 
 // ────────────────────────────────────────────────────────────────────
 // Repo / spec corpus discovery
@@ -98,21 +98,8 @@ function discoverSpecSlugs(): Set<string> {
 const KNOWN_SPEC_SLUGS = discoverSpecSlugs();
 
 // ────────────────────────────────────────────────────────────────────
-// Compatibility matrix — AssessmentKind ↔ AuthoredModuleMode
-// ────────────────────────────────────────────────────────────────────
-
-/**
- * Which AuthoredModuleModes can host each AssessmentKind. Locked
- * decision 7 (epic #2176): cross-check the 4 fragmented enums.
- */
-const KIND_MODE_COMPATIBILITY: Record<AssessmentKind, ReadonlyArray<AuthoredModuleMode>> = {
-  "upfront-baseline": ["examiner", "mock-exam"],
-  "midpoint-check": ["quiz", "examiner"],
-  "end-mock": ["examiner", "mock-exam"],
-  popquiz: ["quiz"],
-  "rubric-board-chair": ["mock-exam", "examiner"],
-};
-
+// Compatibility matrix is now in `lib/assessment/kind-mode-compatibility.ts`
+// (single source of truth shared with the UI editor — #2176 S1).
 // ────────────────────────────────────────────────────────────────────
 // Curated manifest — every course HF currently ships in published state
 //
