@@ -283,6 +283,9 @@ Same PR or follow-on within the same epic:
 | Sibling [`source-ref-coverage.md`](./source-ref-coverage.md) | Pins that the assessment module's content sources resolve to `ContentSource` rows | The `samplingPolicy.contentKind` referencing a content kind that doesn't exist in DB |
 | Sibling [`sessionkind-reader-coverage.md`](./sessionkind-reader-coverage.md) | Pins the SessionKind writer/reader pairing | The `ASSESSMENT` ghost staying unresolved (this rule's plan declaration is the structural surface that drives the decision) |
 | Sibling [`data-presence-coverage.md`](./data-presence-coverage.md) | Parent sub-pillar discipline | Generic absence-of-row failure modes |
+| `components/scoring-tab/AssessmentPlanEditor.tsx` + `components/scoring-tab/AssessmentMomentEditor.tsx` (this PR — #2176 S1 lens build) | Operator UI for declarative plan authoring + `noAssessmentPlan` opt-out | Operators authoring / iterating / opting-out of plans without editing JSON in DB; drives Coverage gate gap-count toward 0. Inline mode-mismatch warnings (kind ↔ moduleSlug.mode) + count-invalid warnings + contradiction warning (noAssessmentPlan + moments) all surface at edit time. |
+| `app/api/courses/[courseId]/journey-setting/route.ts` (Slice 9 of #2176 S1) | Server-side AppLog `assessment.plan.contradiction` on save | Silent operator save of `noAssessmentPlan:true` AND moments — the route writes a fire-and-forget AppLog so the dual state is operator-visible in logs without blocking the write (operator decision 1 + 8 ratified). |
+| `app/api/system/spec-slugs/route.ts` (Slice 8 of #2176 S1) | OPERATOR-only typeahead endpoint feeding the scoringSpec dropdown | Operators authoring a plan against a non-existent or wrong-shape spec slug; the route filters by `outputType` (e.g. `MEASURE`) so the dropdown only surfaces canonical scoring specs. |
 
 ## When the gate legitimately stays orange
 
