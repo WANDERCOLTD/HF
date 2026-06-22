@@ -19,21 +19,16 @@
  * modules — they pull from a topic pool. We render an explanation
  * rather than an empty picker.
  *
- * P3b (#1850 cross-tab hints): the Modules tab has zero entries in
- * `BUCKETS_BY_TAB.modules` — every Preview bubble click resolves to a
- * bucket owned by another tab. The Inspector renders a
- * `<CrossTabHintCard>` in place of the per-module panel whenever the
- * hint state is set; clearing the hint (jumping or selecting a module)
- * restores the per-module Inspector.
+ * No cross-tab hint surface: `BUCKETS_BY_TAB.modules = []`, so no
+ * Preview bubble can ever resolve to a Modules-owned bucket. The
+ * Modules tab no longer mounts a PreviewLens (PR #2120/#2121 replaced
+ * the canvas Preview with the SIM-shell `ModulesPreviewLens`), so the
+ * `useCrossTabHint` branch never fired and has been removed.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell";
-import type { CourseDetailTabId } from "@/lib/journey/buckets-by-tab";
-import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
-import { useCrossTabHint } from "@/lib/journey/use-cross-tab-hint";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 import { ModuleEditor, type ModuleEditorRow } from "./ModuleEditor";
@@ -48,11 +43,6 @@ interface CourseModulesTabProps {
   /** From `PlaybookConfig.lessonPlanMode`. `"continuous"` (or missing) →
    *  modules don't apply; we show the empty state instead of the picker. */
   courseStyle?: string;
-  /** Parent-provided tab switcher. Phase P3b. */
-  onTabSwitch?: (
-    tabId: CourseDetailTabId,
-    options: { selectedBucket: JourneyMenuBucketId },
-  ) => void;
   /** Full PlaybookConfig — threaded through to ModuleInspectorPanel so
    *  it can derive the editor-facing CourseShape (P3d, #1850). Optional;
    *  legacy callers without it fall back to the binary courseStyle and
@@ -63,17 +53,10 @@ interface CourseModulesTabProps {
 export function CourseModulesTab({
   courseId,
   courseStyle,
-  onTabSwitch,
   playbookConfig,
 }: CourseModulesTabProps) {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [modules, setModules] = useState<ModuleRow[]>([]);
-  const { crossTabHint, jumpToOwningTab } =
-    useCrossTabHint({
-      currentTab: "modules",
-      selectedBucketParam: null, // modules tab doesn't seed from URL
-      onTabSwitch: onTabSwitch ?? (() => {}),
-    });
 
   // Mirror the LH picker fetch so the Inspector can read each module's
   // `settings` sub-object without a second round-trip. The LH picker
@@ -148,11 +131,9 @@ export function CourseModulesTab({
   // Bi-pane shape: LH module picker + canvas as the editor. The Inspector
   // column from the prior tri-pane is folded into the canvas as the HOW
   // card so the operator works in one wide column rather than squeezing
-  // G8 fields into a 360px sticky panel. The Preview pane is removed
-  // because the Modules tab tunes per-module behaviour — the course-wide
-  // Preview never reflected the LH selection. Cross-tab hints retain the
-  // RH Inspector slot when a Preview-lens bubble click in a sibling tab
-  // surfaces here.
+  // G8 fields into a 360px sticky panel. The RH pane mounts the
+  // ModulesPreviewLens (SIM-shell preview, #2206 U5 of #2185) so the
+  // operator can validate per-module behaviour against the learner view.
   return (
     <DesignerShell
       nav={
@@ -180,22 +161,10 @@ export function CourseModulesTab({
         />
       }
       inspector={
-        crossTabHint ? (
-          <CrossTabHintCard
-            bucketLabel={crossTabHint.bucketLabel}
-            owningTabLabel={crossTabHint.owningTabLabel}
-            onJump={jumpToOwningTab}
-          />
-        ) : (
-          // #2206 U5 of #2185 — SIM-shell preview on RHS pane.
-          // Mounts the LearnerShell stub matching the selected module's
-          // resolved shellKind so the operator can validate the per-
-          // module behaviour against what the learner sees.
-          <ModulesPreviewLens
-            courseId={courseId}
-            selectedModule={selectedModule}
-          />
-        )
+        <ModulesPreviewLens
+          courseId={courseId}
+          selectedModule={selectedModule}
+        />
       }
     />
   );
