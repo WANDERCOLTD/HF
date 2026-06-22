@@ -12,6 +12,7 @@
 
 import { useMemo, useState } from "react";
 
+import { CueCardRowEditor } from "./CueCardRowEditor";
 import {
   CONTENT_KINDS,
   type ContentKind,
@@ -30,6 +31,18 @@ interface ContentDetailPanelProps {
   groups: TypedContentGroups;
   modules: ModuleProvenance[];
   sources: SourceProvenance[];
+  /**
+   * The course (Playbook) id. Required for the cue-card row editor's PATCH
+   * dispatch. Optional today so the read-only browse surface keeps working;
+   * passed in by `CourseContentTab` when wiring the editor.
+   */
+  courseId?: string;
+  /**
+   * Called after a successful row save so the parent can reload typed-content
+   * and re-render with the persisted change. The editor is otherwise a black
+   * box w.r.t. fetch / cache layers.
+   */
+  onContentChanged?: () => void;
 }
 
 type ModuleFilter = string | null; // moduleId | null = all
@@ -40,6 +53,8 @@ export function ContentDetailPanel({
   groups,
   modules,
   sources,
+  courseId,
+  onContentChanged,
 }: ContentDetailPanelProps) {
   const [moduleFilter, setModuleFilter] = useState<ModuleFilter>(null);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>(null);
@@ -227,9 +242,26 @@ export function ContentDetailPanel({
               <McqRow key={m.id} item={m} />
             ))}
           {selectedKind === "cueCards" &&
-            filteredCueCards.map((c) => (
-              <CueCardRow key={c.id} item={c} />
-            ))}
+            filteredCueCards.map((c) => {
+              const poolForModule = groups.cueCards.filter(
+                (other) => other.module.moduleId === c.module.moduleId,
+              );
+              // Read-only fallback when the parent didn't wire courseId yet —
+              // safety net for embeds (e.g. snapshot views) that surface the
+              // typed-content list outside the Course Detail page.
+              if (!courseId) {
+                return <CueCardRow key={c.id} item={c} />;
+              }
+              return (
+                <CueCardRowEditor
+                  key={c.id}
+                  courseId={courseId}
+                  item={c}
+                  poolForModule={poolForModule}
+                  onSaved={() => onContentChanged?.()}
+                />
+              );
+            })}
           {selectedKind === "topicPrompts" &&
             filteredTopicPrompts.map((t) => (
               <TopicPromptRow key={t.id} item={t} />
