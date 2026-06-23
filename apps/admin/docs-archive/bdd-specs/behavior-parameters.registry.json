@@ -1101,13 +1101,20 @@
       "definition": "How long the AI's typical responses are in a conversational exchange.",
       "domainGroup": "personality-adaptation",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Keep your responses short — one point at a time. The learner needs space to speak; do not deliver paragraphs.",
+        "templateHigh": "Deliver fuller responses with multiple points per exchange. The learner expects substantive guidance, not single sentences.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Longer Turns: Extended responses with more content per exchange",
       "interpretationLow": "Short Turns: Brief responses that encourage quick back-and-forth dialogue",
       "usage": {
-        "compose": "transform-direct",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor response length; tutor-emit directive expressed via prompt composition. Not learner-derivable from transcript."
+          "reason": "Sets tutor response length; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
@@ -1233,13 +1240,20 @@
       "definition": "How much content the AI delivers in each conversational turn.",
       "domainGroup": "engagement",
       "defaultTarget": 0.5,
+      "promptInjection": {
+        "section": "STYLE",
+        "condition": "when-non-default",
+        "templateLow": "Aim for short turns — under 15 seconds when possible. Hand the floor back to the learner quickly.",
+        "templateHigh": "Allow yourself longer turns when explaining or expanding a concept — up to 30 seconds is fine.",
+        "threshold": 0.5
+      },
       "interpretationHigh": "Extended: Longer, more content-rich turns with multiple points per exchange",
       "interpretationLow": "Brief: Short, punchy turns that keep the conversation fast-paced",
       "usage": {
-        "compose": "transform-direct",
+        "compose": "prompt-injection",
         "measurement": {
           "kind": "operator-only",
-          "reason": "Sets tutor turn length / content density per turn; tutor-emit directive. Not learner-state derivable."
+          "reason": "Sets tutor turn length / content density per turn; tutor-emit directive expressed via prompt composition (param drives BEHAVIOR_TARGETS section via parametersAsDirectives). Not learner-derivable from transcript — SUPERVISE-stage compliance check (did the AI follow the directive?) is a separate concern from learner-state measurement."
         }
       }
     },
