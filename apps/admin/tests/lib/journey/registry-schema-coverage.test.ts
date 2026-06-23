@@ -71,6 +71,7 @@ const APPLIES_TO_ALL: readonly string[] = [
   "intakeAiIntroCall",
   "intakeKnowledgeCheckMode",
   "intakeSkipIfReturning",
+  "onboardingClosingLine",
 
   // ── B_call1_opening (9 of 10 — firstCallModuleVisibility is structured-only)
   "firstCallMode",

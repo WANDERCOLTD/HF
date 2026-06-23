@@ -249,6 +249,24 @@ const G1_INTAKE_SKIP_IF_RETURNING: JourneySettingContract = {
   previewLocators: [],
 };
 
+const G1_ONBOARDING_CLOSING_LINE: JourneySettingContract = {
+  id: "onboardingClosingLine",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Onboarding closing line",
+  helpText:
+    "Last line of the FOH onboarding sequence, shown just above the \"Continue ▶\" button. Pre-cascade this was a hardcoded \"We'll adapt as we go. Let's get started!\" — leave blank to use that default; set per-course to tune the close.",
+  storagePath: "config.onboardingClosingLine",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["onboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "onboarding", hint: "closing CTA tail" }],
+};
+
 // =============================================================
 // G2 — Call 1 — opening & assessment (6)
 // =============================================================
@@ -310,7 +328,8 @@ const G2_WELCOME_MESSAGE: JourneySettingContract = {
   menuGroupKey: "B_call1_opening",
   group: "G2",
   educatorLabel: "Opening line",
-  helpText: "First line the learner hears on Call 1.",
+  helpText:
+    "First line the learner reads/hears: shown as the welcome bubble in the FOH onboarding sequence AND spoken by the AI tutor at the start of Call 1.",
   // Slice 14 grey-out epic fix — was `sessionFlow.welcomeMessage` but
   // `SessionFlowConfig` doesn't carry a top-level welcomeMessage; the
   // resolver reads `playbook.config.welcomeMessage` and the PATCH was
@@ -2481,6 +2500,7 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G1_INTAKE_AI_INTRO_CALL,
   G1_INTAKE_KNOWLEDGE_CHECK_MODE,
   G1_INTAKE_SKIP_IF_RETURNING,
+  G1_ONBOARDING_CLOSING_LINE,
   // G2 (6)
   G2_FIRST_CALL_MODE,
   G2_WELCOME_MESSAGE,

@@ -361,9 +361,16 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
       const teacher = progressData.teacherName;
       const goals = progressData.goals ?? [];
 
-      const greeting = inst
-        ? `Welcome to ${inst}! ${teacher ? `${teacher} set this up for you. ` : ''}I'm your AI study partner — ready to help you learn through conversation.`
-        : `Welcome! ${teacher ? `${teacher} set this up for you. ` : ''}I'm your AI study partner — ready to help you learn through conversation.`;
+      // Cascade-resolved welcome message (Playbook.config.welcomeMessage →
+      // Domain.onboardingWelcome → Institution.welcomeMessage, resolved
+      // server-side in /api/student/progress). Falls back to the legacy
+      // institution-name template when the cascade returns null.
+      const cascadedWelcome: string | null = progressData.welcomeMessage ?? null;
+      const greeting = cascadedWelcome
+        ? cascadedWelcome
+        : inst
+          ? `Welcome to ${inst}! ${teacher ? `${teacher} set this up for you. ` : ''}I'm your AI study partner — ready to help you learn through conversation.`
+          : `Welcome! ${teacher ? `${teacher} set this up for you. ` : ''}I'm your AI study partner — ready to help you learn through conversation.`;
 
       pushItems(
         dividerItem('Welcome'),
@@ -380,7 +387,11 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
         pushItems(textItem('assistant', `Here's what we'll work on:\n${goalList}${tail}`));
       }
 
-      pushItems(textItem('assistant', "We'll adapt as we go. Let's get started!"));
+      // Course-scoped closing CTA — Playbook.config.onboardingClosingLine.
+      // Falls back to the original hardcoded literal when null.
+      const closingLine: string =
+        progressData.onboardingClosingLine ?? "We'll adapt as we go. Let's get started!";
+      pushItems(textItem('assistant', closingLine));
 
       const hasMorePhases = welcomeQueueRef.current.length > 0;
 

@@ -160,6 +160,12 @@ export async function main(prisma: PrismaClient): Promise<void> {
         sessionCount: 12,
         durationMins: 20,
         planEmphasis: "exam preparation — spoken performance with correction",
+        // FOH onboarding greeting + closing CTA — surfaced via the
+        // welcomeMessage cascade and the onboardingClosingLine course-only
+        // knob (see hooks/useJourneyChat.ts::loadOnboardingPhase). Operator-
+        // tunable via the Course Pane Inspector.
+        welcomeMessage: "Welcome to your I E L T S coaching session",
+        onboardingClosingLine: "Click start when you are ready",
         // IELTS Speaking Practice is a structured course with 5 authored
         // modules (Baseline, Part 1, Part 2, Part 3, Mock Exam). The
         // pipeline reads `lessonPlanMode === "structured"` to keep

@@ -8,12 +8,12 @@ Auto-generated from `apps/admin/docs-archive/bdd-specs/behavior-parameters.regis
 
 | Class | Count |
 |---|---:|
-| Active parameters | 140 |
+| Active parameters | 148 |
 | Deprecated | 15 |
-| Covered by consumer file | 105 |
+| Covered by consumer file | 113 |
 | Covered by promptInjection dispatcher | 14 |
 | **Producer-only (gap)** | **21** |
-| **Total** | **155** |
+| **Total** | **163** |
 
 Producer-only entries are parameters with neither a code-level consumer nor a registry-driven `promptInjection` dispatcher — the operator can tune the cascade but nothing reads the value. See [`tests/lib/measurement/parameter-coverage.test.ts`](../../apps/admin/tests/lib/measurement/parameter-coverage.test.ts) for the ratchet pinning this count downward.
 
@@ -104,6 +104,15 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 | `BEH-WARMTH` | covered | H/L | BEH-CONVERSATIONAL-TONE, warmth_actual | `app/api/cascade/resolve/route.ts`, `app/api/chat/factual-grounding-intercept.ts`, `app/api/x/seed-domains/route.ts`, +7 more |
 | `check-for-understanding` | covered | H/L | — | `lib/pipeline/engagement-targets-manifest.ts` |
 | `CONV_PACE` | deprecated | H/L | — | `lib/chat/admin-tools.ts`, `lib/pipeline/prosody-consumer.ts`, `lib/pipeline/prosody-types.ts` |
+
+## `learner-model` (4)
+
+| Parameter | Classification | Interpretations | Aliases | Consumer files |
+|---|---|---|---|---|
+| `skill_fluency_and_coherence_fc` | covered | H/L | fluency_and_coherence, skill_fc | `app/api/callers/[callerId]/mock-results/route.ts`, `app/api/calls/[callId]/pipeline/route.ts`, `app/api/courses/[courseId]/skills-rubric-calibration/route.ts`, +3 more |
+| `skill_grammatical_range_and_accuracy_gra` | covered | H/L | grammatical_range_and_accuracy, skill_gra | `app/api/callers/[callerId]/mock-results/route.ts`, `app/api/courses/[courseId]/skills-rubric-calibration/route.ts`, `lib/pipeline/prosody-consumer.ts` |
+| `skill_lexical_resource_lr` | covered | H/L | lexical_resource, skill_lr | `app/api/callers/[callerId]/mock-results/route.ts`, `app/api/courses/[courseId]/skills-rubric-calibration/route.ts`, `lib/pipeline/prosody-consumer.ts`, +4 more |
+| `skill_pronunciation_p` | covered | H/L | pronunciation, skill_p | `app/api/callers/[callerId]/mock-results/route.ts`, `app/api/calls/[callId]/pipeline/route.ts`, `app/api/content-sources/[sourceId]/vocabulary/[vocabId]/route.ts`, +4 more |
 
 ## `learning-adaptation` (49)
 
@@ -216,4 +225,13 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 | `BEH-TUTOR-INTRO-SCORE` | covered | H/L | tutor_intro_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
 | `BEH-TUTOR-SEQUENCE-SCORE` | covered | H/L | tutor_sequence_score | `lib/measurement/supv-rew-consumer-manifest.ts` |
 | `response_empathy_score` | deprecated | H/L | — | `lib/measurement/supv-rew-consumer-manifest.ts` |
+
+## `voice-delivery` (4)
+
+| Parameter | Classification | Interpretations | Aliases | Consumer files |
+|---|---|---|---|---|
+| `prosody_raw_fc` | covered | H/L | — | `lib/pipeline/prosody-consumer.ts` |
+| `prosody_raw_gra` | covered | H/L | — | `lib/pipeline/prosody-consumer.ts` |
+| `prosody_raw_lr` | covered | H/L | — | `lib/pipeline/prosody-consumer.ts` |
+| `prosody_raw_p` | covered | H/L | — | `lib/pipeline/prosody-consumer.ts` |
 
