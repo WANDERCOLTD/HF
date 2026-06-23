@@ -143,28 +143,22 @@ const MODE_SPEC_SELECTION_EXEMPT: Partial<
     reason:
       "mixed = tutor baseline + assessment-spec scoringGate firing; spec selection has no mode-literal branching distinct from tutor",
   },
-  // Examiner mode is wired through the spec runner at
-  // lib/curriculum/build-per-segment-measure-prompt.ts via a string
-  // template (the examiner-scoring prompt), keyed off the spec slug
-  // rather than via a literal `.mode === "examiner"` comparator in
-  // the selection layer. The selection dispatch is invariant; the
-  // examiner-specific behaviour lives in the template body. Mirror
-  // of `examiner.teaching` in mode-ui-coverage.
-  examiner: {
-    reason:
-      "examiner is wired via spec-slug template (build-per-segment-measure-prompt), not via literal .mode comparator in spec-selection dirs",
-  },
+  // examiner graduated out of exempt 2026-06-23 — lib/voice/resolve-learner-shell.ts
+  // ships a literal `module?.mode === "examiner"` branch at line 116 (the
+  // ExamModeShell mount gate). That counts as a real spec-selection
+  // consumer in the SELECTION_DIRS sweep — examiner is `covered` now.
 };
 
 /**
  * Ratchet — only goes DOWN as modes graduate out of exempt-default
- * into real `covered` spec selection. Today's incumbent: 3 of 5 modes
- * (tutor / mixed / examiner) sit on the default-fallback baseline.
+ * into real `covered` spec selection. Today's incumbent: 2 of 5 modes
+ * (tutor / mixed) sit on the default-fallback baseline. examiner
+ * graduated 2026-06-23 (resolve-learner-shell.ts ExamModeShell gate).
  * `quiz` and `mock-exam` are `covered` via the COMPOSE-side
  * teaching directives (instructions.ts::resolveModuleQuizDirective +
  * resolveModuleMockExamDirective) that gate on `matched.mode === "..."`.
  */
-const EXPECTED_EXEMPT_COUNT = 3;
+const EXPECTED_EXEMPT_COUNT = 2;
 
 /**
  * Ratchet — spec-selection gaps frozen at incumbent count.

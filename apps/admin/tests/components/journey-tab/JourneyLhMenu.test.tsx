@@ -78,9 +78,9 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
         onToggleFilter={vi.fn()}
       />,
     );
-    // A_intake count: 8 base + Slice 13 added 2 (question text editors) = 10.
+    // A_intake count: 8 base + Slice 13 added 2 (question text editors) + PR #2265 added onboardingClosingLine = 11.
     const row = screen.getByTestId("hf-journey-bucket-row-A_intake");
-    expect(row.textContent).toMatch(/10/);
+    expect(row.textContent).toMatch(/11/);
   });
 });
 

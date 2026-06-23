@@ -164,10 +164,20 @@ function resolvePreviewShell(args: {
       capabilities: SHELL_DEFAULTS["chat-feed"],
     };
   }
+  // Preview context — operator is browsing what learners SEE for this
+  // module's mode, not the actual runtime session-terminal state. For
+  // exam-shape modes (examiner / mock-exam) the terminal-gate would
+  // otherwise hide the exam shell behind a tutor-shell fallback. Force
+  // sessionTerminal: true in this preview-only path so the resolver
+  // returns the shell the operator actually means to inspect.
+  const previewSessionTerminal =
+    mode === "examiner" || mode === "mock-exam"
+      ? true
+      : args.module.sessionTerminal ?? false;
   const { shellKind } = resolveLearnerShell({
     session: {
       kind: "VOICE_CALL",
-      sessionTerminal: args.module.sessionTerminal ?? false,
+      sessionTerminal: previewSessionTerminal,
     },
     module: { mode },
   });

@@ -117,6 +117,13 @@ function makeRubricResponse(opts: { withTrigger?: boolean } = {}) {
       maxMasteryTier: null,
       scoringMode: null,
     },
+    // #2158 — route now surfaces aiMeasurement.isIeltsShaped + the
+    // LLM-IELTS scoring kill-switch state. Stub as null isIeltsShaped
+    // + switch off so the component renders the "not IELTS" branch.
+    aiMeasurement: {
+      isIeltsShaped: false,
+      disableLlmIeltsScoring: false,
+    },
   };
 }
 

@@ -11,7 +11,7 @@
  * Reports whether deriveFocusArea() will have data to act on.
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, PlaybookCurriculumRole } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -36,7 +36,7 @@ async function main() {
   console.log(`[ok] Playbook: ${playbook.name}`);
 
   const link = await prisma.playbookCurriculum.findFirst({
-    where: { playbookId: IELTS_PLAYBOOK_ID, role: "primary" },
+    where: { playbookId: IELTS_PLAYBOOK_ID, role: PlaybookCurriculumRole.primary },
     select: { curriculumId: true },
   });
   if (!link) {

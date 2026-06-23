@@ -102,6 +102,12 @@ const KNOWN_FIELDS: ReadonlySet<keyof AuthoredModuleSettings> = new Set([
   "scheduledCues",
   // #2162 — typed in lib/types/json-fields.ts as ScoreReadoutMode.
   "scoreReadoutMode",
+  // #1955 — Part-3 pin focus (boolean).
+  "pinFocusArea",
+  // #1956 — silent baseline-assessment variant (boolean).
+  "silentMode",
+  // #1954 — generate SessionLessonPlan on exam-module AGGREGATE (boolean).
+  "generateLessonPlan",
   // Below: present in schema but YAML uses source-reference strings in v2.3,
   // not the resolved shape. Parser skips them with a warning so the resolver
   // stage (not yet wired) can pick them up from the raw markdown if needed.
@@ -654,6 +660,23 @@ export function detectModuleSettings(
             break;
           }
           out.scoreReadoutMode = value as ScoreReadoutMode;
+          break;
+        }
+        case "pinFocusArea":
+        case "silentMode":
+        case "generateLessonPlan": {
+          // Three booleans added on main (#1954 / #1955 / #1956). Same
+          // shape — validate, assign to the same key.
+          if (typeof value !== "boolean") {
+            result.validationWarnings.push({
+              code: "MODULE_SETTINGS_TYPE_MISMATCH",
+              message: `Field "${rawKey}" in moduleId="${moduleId}" expects boolean, got ${JSON.stringify(value)}.`,
+              severity: "warning",
+              path: `modules.${moduleId}.settings.${rawKey}`,
+            });
+            break;
+          }
+          (out as Record<string, unknown>)[rawKey] = value;
           break;
         }
         default: {

@@ -74,12 +74,14 @@ describe("SimChat canonical shell dispatch (story #2206)", () => {
     ).toMatch(
       /import\s*\{\s*ExamModeShell\s*\}\s*from\s*['"]\.\/ExamModeShell['"]/,
     );
-    // MCQRoundsShell — the quiz consumer.
+    // MCQRoundsShell — the quiz consumer. Loosened to allow the type
+    // co-import (`{ MCQRoundsShell, type MCQRoundsEmptyReason }`) added on
+    // main without dropping the structural pin on the import path.
     expect(
       SIMCHAT_SOURCE,
       "SimChat must import MCQRoundsShell — the quiz consumer.",
     ).toMatch(
-      /import\s*\{\s*MCQRoundsShell\s*\}\s*from\s*['"]\.\/MCQRoundsShell['"]/,
+      /import\s*\{[^}]*\bMCQRoundsShell\b[^}]*\}\s*from\s*['"]\.\/MCQRoundsShell['"]/,
     );
   });
 

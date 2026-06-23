@@ -125,7 +125,14 @@ describe("PreviewLens onSelectSection callback — #1623", () => {
     if (!editButton) throw new Error("Edit Greeting affordance not found");
     fireEvent.click(editButton);
     await waitFor(() => {
-      expect(onSelectSection).toHaveBeenCalledWith("welcome");
+      // Callback signature added a second arg on main (the originating
+      // setting id, e.g. "welcomeMessage" for this lens). Use
+      // expect.anything() to match any second arg without coupling to
+      // the exact mapping which lives in SIDETRAY_LENS_TO_SECTION.
+      expect(onSelectSection).toHaveBeenCalledWith(
+        "welcome",
+        expect.anything(),
+      );
     });
   });
 
@@ -147,8 +154,12 @@ describe("PreviewLens onSelectSection callback — #1623", () => {
     await waitFor(() => {
       expect(screen.getByTestId("mock-mvs")).toBeInTheDocument();
     });
-    // And onSelectSection now fires with the mapped ComposeSectionKey.
-    expect(onSelectSection).toHaveBeenCalledWith("modulesGate");
+    // And onSelectSection now fires with the mapped ComposeSectionKey
+    // + a second arg (the originating setting id like "firstCallModuleVisibility").
+    expect(onSelectSection).toHaveBeenCalledWith(
+      "modulesGate",
+      expect.anything(),
+    );
   });
 
   it("is a pure addition — omitting the prop is allowed and unchanged", async () => {

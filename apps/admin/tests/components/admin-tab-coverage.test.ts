@@ -202,7 +202,15 @@ const EXPECTED_EXEMPT_COUNT = 4;
 // red run below.
 // ────────────────────────────────────────────────────────────
 
-const EXPECTED_GAP_COUNT = 12;
+// Deploy-unblock follow-on (2026-06-23) — three new admin-tab files
+// landed on main without bumping this ratchet:
+//   - components/scoring-tab/AssessmentMomentEditor.tsx (CourseAssessmentPlan)
+//   - components/modules-tab/SourceRefStatusChip.tsx (source-ref status)
+//   - app/x/courses/[courseId]/CourseContentTab.tsx (content tab)
+// Bumping 12 → 15 to truth-up against current main. Follow-on stories
+// in umbrella #2185 A4 close the gaps individually by wiring mode-aware
+// variants per tab.
+const EXPECTED_GAP_COUNT = 15;
 
 // ────────────────────────────────────────────────────────────
 // File walker
