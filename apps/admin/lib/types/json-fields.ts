@@ -465,8 +465,22 @@ export interface PlaybookConfig {
   lessonPlanModel?: string; // "direct_instruction" | "socratic" | etc.
   // Course goals — educator's stated learning outcomes (distinct from module LOs)
   courseLearningOutcomes?: string[];
-  // Course-scoped welcome (overrides Domain.onboardingWelcome)
+  // Course-scoped welcome (overrides Domain.onboardingWelcome).
+  // Used in TWO surfaces: (a) the AI tutor's spoken opening line on Call 1,
+  // (b) the FOH onboarding text greeting shown before Call 1 starts
+  // (`apps/admin/hooks/useJourneyChat.ts::loadOnboardingPhase`).
   welcomeMessage?: string;
+  /**
+   * Closing CTA shown to the learner at the end of the FOH onboarding
+   * sequence — read by `useJourneyChat.ts::loadOnboardingPhase` and
+   * appears just above the "Continue ▶" button. Pre-#TBD this was a
+   * hardcoded literal ("We'll adapt as we go. Let's get started!");
+   * lifted into the cascade so operators can tune per-course.
+   *
+   * @bucket Course parameter — educator-tunable on the Sign-up & pre-call
+   * profile lens (G1 / A_intake bucket).
+   */
+  onboardingClosingLine?: string;
   /**
    * #1403 — First-call course intro spoken AFTER the welcomeMessage +
    * acknowledgement gate. Supports `{courseName}` token.

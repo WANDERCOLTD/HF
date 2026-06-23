@@ -175,6 +175,7 @@ const DECLARED_DATA_SHAPE: Record<string, DataShape> = {
   intakeAiIntroCall: "boolean",
   intakeKnowledgeCheckMode: "enum-string",
   intakeSkipIfReturning: "boolean",
+  onboardingClosingLine: "string",
 
   // ── G2 — Call 1 opening ────────────────────────────────────────
   firstCallMode: "enum-string",

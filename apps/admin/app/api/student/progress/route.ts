@@ -12,6 +12,7 @@ import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook } from "@/lib/curriculum/resolve-module";
 import { isCourseComplete } from "@/lib/curriculum/is-course-complete";
+import { resolveOnboardingWelcomeForCaller } from "@/lib/learner/resolve-onboarding-welcome";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 const SURVEY_ATTR_SCOPES = [
@@ -171,6 +172,16 @@ export async function GET(request: NextRequest) {
   // routes because both write `CurriculumModule` + `CallerModuleProgress` rows.
   const courseComplete = await resolveCourseComplete(callerId);
 
+  // Welcome cascade. Helper at `lib/learner/resolve-onboarding-welcome.ts`
+  // is the canonical reader for `Playbook.config.welcomeMessage` (cascade-
+  // resolved via Domain.onboardingWelcome) + `Playbook.config.onboardingClosingLine`
+  // (course-only) — same reader used by any future surface that wants the
+  // FOH onboarding bundle.
+  const welcome = await resolveOnboardingWelcomeForCaller(
+    callerId,
+    primaryCohort?.institution?.welcomeMessage ?? null,
+  );
+
   return NextResponse.json({
     ok: true,
     profile: profile
@@ -192,7 +203,8 @@ export async function GET(request: NextRequest) {
     teacherName: primaryCohort?.owner?.name ?? null,
     institutionName: primaryCohort?.institution?.name ?? null,
     institutionLogo: primaryCohort?.institution?.logoUrl ?? null,
-    welcomeMessage: primaryCohort?.institution?.welcomeMessage ?? null,
+    welcomeMessage: welcome.welcomeMessage,
+    onboardingClosingLine: welcome.onboardingClosingLine,
     topTopics: (memorySummary?.topTopics as Array<{ topic: string; lastMentioned: string }>) ?? [],
     topicCount: memorySummary?.topicCount ?? 0,
     keyFactCount,

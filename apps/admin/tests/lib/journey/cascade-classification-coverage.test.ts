@@ -146,7 +146,10 @@ const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
 // - 77 → 77 course-only — net zero (76 pre-existing course-only +
 //   `assessmentPlan` lands here = 77).
 const EXPECTED_CASCADE_RESOLVABLE_COUNT = 10;
-const EXPECTED_COURSE_ONLY_COUNT = 77;
+// fix/onboarding-greeting-cascade — `onboardingClosingLine` lands as
+// course-only (Playbook layer only, no upstream Domain column today).
+// 77 → 78 course-only.
+const EXPECTED_COURSE_ONLY_COUNT = 78;
 // S8 + S7 + S3 (this PR) — 9 → 12 producer-only contracts; the three new
 // G8 module-scoped knobs follow the existing IELTS-cohort pattern (no
 // upstream Domain/System cascade by design — module-scoped storage path).
@@ -155,7 +158,8 @@ const EXPECTED_STATIC_CHAIN_COUNT = 10;
 const EXPECTED_GAP_COUNT = 0;
 
 // S8 + S7 + S3 — 106 → 109 total contracts.
-const EXPECTED_TOTAL_COUNT = 109;
+// fix/onboarding-greeting-cascade — 109 → 110 (onboardingClosingLine).
+const EXPECTED_TOTAL_COUNT = 110;
 
 // ────────────────────────────────────────────────────────────
 // Classification

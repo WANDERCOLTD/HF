@@ -131,6 +131,11 @@ const CONSUMER_DIRS = [
   "lib/tolerance",
   "lib/intake",
   "lib/banding",
+  // Learner-facing copy + survey helpers — `lib/learner/resolve-onboarding-welcome.ts`
+  // is the lib reader for the FOH onboarding `welcomeMessage` cascade +
+  // `onboardingClosingLine` course-only knob, consumed by
+  // `app/api/student/progress/route.ts` and rendered by `hooks/useJourneyChat.ts`.
+  "lib/learner",
 ];
 
 function walkTs(dir: string): string[] {
