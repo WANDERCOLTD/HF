@@ -154,7 +154,17 @@ export async function main(prisma: PrismaClient): Promise<void> {
       parameterCount: 0,
       config: {
         interactionPattern: "tutor",
-        teachingMode: "directive",
+        // "directive" is not in VALID_TEACHING_MODES — the read-side guard
+        // at preamble.ts:189-190 silently maps invalid values to the
+        // recall-mode preamble, so the LLM heard recall rules on every
+        // first call. "practice" is the correct mode for IELTS exam-prep
+        // (WHAT to emphasise = practice, with the directive POSTURE
+        // carried by the project's pedagogy assertions, not this enum).
+        teachingMode: "practice",
+        // First call is a diagnostic baseline — pairs with
+        // assessmentPlan.upfront.kind === "upfront-baseline" below
+        // (chain-contract per json-fields.ts:1879).
+        firstCallMode: "baseline_assessment",
         subjectDiscipline: "IELTS Speaking",
         audience: "Adult learners with B1+ general English preparing for IELTS",
         sessionCount: 12,
@@ -436,6 +446,132 @@ export async function main(prisma: PrismaClient): Promise<void> {
         console.log(`  ${slug} segmentCues populated (${cuesSet.count} row)`);
       }
     }
+  }
+
+  // ── 4c. Baseline module — 4 upfront IELTS intake questions ──
+  // Pure DATA. Lives in
+  // `Playbook.config.modules[baseline].settings.{firstTimeOrientationLine,topicPool}`.
+  // The existing `module_topic_pool_directive` transform (instructions.ts
+  // :resolveModuleTopicPool, ~line 870) renders the topicPool to the AI as:
+  //
+  //   "TOPIC LIBRARY for this module — anchor on this topic and ask
+  //    these questions: Topic: IELTS Goals & Baseline. Practice
+  //    questions: <4 questions>"
+  //
+  // Pairs with `firstCallMode: "baseline_assessment"` + the
+  // `assessmentPlan.upfront` moment already declared on the playbook
+  // config above (chain-contract per json-fields.ts:1879).
+  //
+  // **Runtime gate:** the directive is wrapped by
+  // `isIeltsModuleSettingsEnabled()` — operator MUST set the env var
+  // `HF_FLAG_IELTS_MODULE_SETTINGS=true` on hf-dev VM and Cloud Run
+  // for the directive to fire (per epic #1700 decision 5). Without
+  // the flag, the topicPool is present in DB but the AI never sees
+  // it and improvises an opener.
+  //
+  // Operator edits the 4 questions via the Modules Inspector
+  // (G8 settings panel). `persistAuthoredModules.preserveManualEdits`
+  // ensures re-projection of the course-ref doc never clobbers them.
+  //
+  // Per-call answer extraction is the responsibility of the
+  // IELTS-MEASURE-001 AnalysisSpec (epic #2135, in flight). Until it
+  // ships, the standard MEASURE pipeline still scores the transcript
+  // and answers are inspectable in the Call transcript view.
+  const baselineCfgRead = await prisma.playbook.findUnique({
+    where: { id: playbook.id },
+    select: { config: true },
+  });
+  const baselineCfg = baselineCfgRead?.config as Record<string, any> | undefined;
+  const baselineMod = Array.isArray(baselineCfg?.modules)
+    ? (baselineCfg!.modules as Array<Record<string, any>>).find(
+        (m) => m.id === "baseline",
+      )
+    : undefined;
+  if (baselineCfg && baselineMod) {
+    baselineMod.settings = {
+      ...(baselineMod.settings ?? {}),
+      // BDD `HF-IELTS-Pre-Voice-Testing-Checklist.md` §Unit 1 Scenario
+      // "Part A — Context collection":
+      //   "the tutor introduces itself warmly
+      //    AND says once: 'If you're ever unsure about anything —
+      //    just ask me.'"
+      // and Scenario "Part B feels like a natural conversation":
+      //   "the tutor does not announce it is assessing the learner
+      //    AND the transition from Part A to Part B is seamless"
+      // So the orientation MUST NOT announce "4 questions" / "an
+      // assessment" — it's a warm hello + the one-time "just ask me"
+      // line. Identity directive composes the tutor name separately.
+      firstTimeOrientationLine:
+        "If you're ever unsure about anything — just ask me. Let's just have a relaxed chat and I'll get to know you a bit.",
+      // BDD §Unit 1 Scenario "Part A — Context collection":
+      //   "collects through natural conversation:
+      //      | Reason for IELTS        |
+      //      | Target band             |
+      //      | Exam timeline           |
+      //      | Learner self-assessment |"
+      // Framed as topics-to-collect, not as scripted questions, so
+      // the AI weaves them conversationally per BDD. The topic
+      // string itself instructs the AI on the framing.
+      topicPool: [
+        {
+          topic:
+            "Learner context — weave these into a natural opening chat. Do NOT list them as a numbered questionnaire. Do NOT announce that this is an assessment. Each item is a fact to capture; not a script.",
+          questions: [
+            "Reason for taking the IELTS test",
+            "Target IELTS speaking band",
+            "Exam timeline (planned IELTS test date)",
+            "Current self-assessed IELTS speaking band",
+          ],
+        },
+      ],
+      // BDD §Unit 1 Scenario "Session close and output":
+      //   the tutor says: "That gives me a good picture of where you
+      //   are. Give me a moment, and we'll get you started."
+      // Overrides the course-ref v2.3 line ("That's the end of your
+      // Baseline. I'll share your focus area on screen.") per the
+      // checklist-vs-course-ref discrepancy noted in #2269 US-A-07
+      // — operator confirmed checklist is authoritative.
+      closingLine:
+        "That gives me a good picture of where you are. Give me a moment, and we'll get you started.",
+      // Projection bug workaround — `applyProjection` writes some YAML
+      // settings (firstTimeOrientationLine, closingLine) to
+      // config.modules[].settings but NOT cueCardPool / scoringCriteria
+      // / scaffoldPool / scoreReadoutMode. Until projection is fixed,
+      // we set these directly here so the runtime directives fire.
+      //
+      // cueCardPool: course-ref v2.3 YAML says `cue-card-bank-baseline-v1`
+      // (Source 4); per PR #2241 D2 the BDD-sanctioned reuse path is to
+      // repoint to `cue-card-bank-v1` (Source 2 — the canonical Part 2
+      // cue-card bank, EXPERT_CURATED). Unblocks `module_cue_card_directive`
+      // → AI gets real cue-card content for the Part B speaking sample.
+      cueCardPool: "source:cue-card-bank-v1",
+      // BDD §"Part B": tutor asks questions in Part 1 style. The
+      // baseline session uses Part 1 stall scaffolds for short stalls
+      // (Part 1 reuse Part 3 scaffold shape per course-ref YAML).
+      scaffoldPool: "source:stall-scaffolds-monologue",
+      // BDD §"Assessment produces a complete learner profile": all 4
+      // IELTS criteria must have non-null scores. end-session.ts reads
+      // scoringCriteria to gate `validateIeltsCompletion`. Until
+      // epic #2135 (LLM MEASURE) ships, these may still come back null
+      // — but the field needs to be set for the pipeline to attempt.
+      scoringCriteria: ["FC", "LR", "GRA", "Pron"],
+      // BDD §"no scores are shown to the learner" — bands appear
+      // on-screen post-session but are NOT spoken aloud during the
+      // call. Matches course-ref v2.3 YAML.
+      scoreReadoutMode: "on-screen",
+      // BDD §"Part A — Context collection" / "And all collected
+      // information is persisted to the learner profile" — the
+      // profile-fields source defines the typed schema (key + prompt
+      // + type) the MEASURE spec extracts from the transcript.
+      profileFieldsToCapture: "source:ielts-speaking-profile-fields",
+    };
+    await prisma.playbook.update({
+      where: { id: playbook.id },
+      data: { config: baselineCfg as any },
+    });
+    console.log(
+      "  Baseline module: BDD-aligned orientation + topicPool (4 context fields) + closingLine",
+    );
   }
 
   // ── 5. CONTENT-role spec for trust-weighted certification progress (#457) ──
