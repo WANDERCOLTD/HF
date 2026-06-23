@@ -1352,8 +1352,15 @@ export interface AuthoredModuleSettings {
    * when unset.
    */
   minSpeakingSec?: number;
-  /** Pool for Part 2 monologue. Session-start picks one → `Session.metadata.pinnedCard`. */
-  cueCardPool?: Array<{ topic: string; bullets: string[] }>;
+  /**
+   * Pool for Part 2 monologue. Session-start picks one → `Session.metadata.pinnedCard`.
+   *
+   * `type` (#2162 CueCardType — S6 of #2185) is optional + backward-compatible.
+   * Drives Part 2 prep-phase prompt scaffold: "personal" (anchor on
+   * lived experience) vs "abstract" (anchor on conceptual framing).
+   * Internal-only label; learner sees the cue card text, not the type tag.
+   */
+  cueCardPool?: Array<{ topic: string; bullets: string[]; type?: CueCardType }>;
   /** Verbatim closing line (e.g. Assessment's "That gives me a good picture…"). */
   closingLine?: string;
   /** One-shot per-module orientation, gated by `orientationShown` on `CallerModuleProgress`. */

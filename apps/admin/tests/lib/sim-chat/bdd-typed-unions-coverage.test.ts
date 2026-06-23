@@ -104,7 +104,15 @@ const AXIS_DIRS: Record<Axis, string[]> = {
     "lib/curriculum",
     "lib/voice",
   ],
-  adminUI: ["app/x", "components/modules-tab", "components/journey-tab"],
+  adminUI: [
+    "app/x",
+    "components/modules-tab",
+    "components/journey-tab",
+    // #2185 S6 — Content tab CueCardRowEditor lives here and is the
+    // CueCardType.adminUI consumer (branches `=== "personal"` /
+    // `=== "abstract"` in helperForType).
+    "components/content-tab",
+  ],
   learnerUI: [
     "components/sim",
     "app/x/student",
@@ -142,10 +150,11 @@ const UNION_AXIS_EXEMPT: Partial<Record<CellKey, ExemptEntry>> = {
     reason:
       "BDD-declared union (US-P2-01) — Part 2 prep-phase prompt scaffold consumer is the follow-on PR; cueCardPool entries currently carry no type discriminator.",
   },
-  "CueCardType.personal.adminUI": {
-    reason:
-      "no per-card type display in admin Modules tab today — adds when cueCardPool entries gain the type discriminator (follow-on PR).",
-  },
+  // CueCardType.personal.adminUI — wired by S6 of #2185
+  // (components/content-tab/CueCardRowEditor.tsx): the row editor's
+  // `<select>` option set + `=== "personal"` change handler ARE the
+  // admin-UI consumer; this exempt entry was dropped to flip the cell
+  // from `exempt` to `covered`.
   "CueCardType.personal.learnerUI": {
     reason:
       "the cue card TEXT is learner-facing; the TYPE LABEL is internal — no learner UI branch needed by design.",
@@ -154,10 +163,9 @@ const UNION_AXIS_EXEMPT: Partial<Record<CellKey, ExemptEntry>> = {
     reason:
       "BDD-declared union (US-P2-01) — Part 2 prep-phase prompt scaffold consumer is the follow-on PR; cueCardPool entries currently carry no type discriminator.",
   },
-  "CueCardType.abstract.adminUI": {
-    reason:
-      "no per-card type display in admin Modules tab today — adds when cueCardPool entries gain the type discriminator (follow-on PR).",
-  },
+  // CueCardType.abstract.adminUI — wired by S6 of #2185
+  // (components/content-tab/CueCardRowEditor.tsx): same `<select>` option
+  // set + `=== "abstract"` change handler.
   "CueCardType.abstract.learnerUI": {
     reason:
       "the cue card TEXT is learner-facing; the TYPE LABEL is internal — no learner UI branch needed by design.",
@@ -276,11 +284,12 @@ const UNION_AXIS_EXEMPT: Partial<Record<CellKey, ExemptEntry>> = {
 
 /** Ratchet — every cell defaults to exempt at land time. As consumers ship
  *  in follow-on PRs, drop EXPECTED_EXEMPT_COUNT one at a time. Total cells:
- *    CueCardType (2) × axes (3) = 6
+ *    CueCardType (2) × axes (3) = 6 — adminUI axis wired by S6 of #2185
+ *      via components/content-tab/CueCardRowEditor.tsx, so 2 exempts dropped.
  *    StallType (5) × axes (3) = 15
  *    ScoreReadoutMode (3) × axes (3) = 9
- *    Total = 30 */
-const EXPECTED_EXEMPT_COUNT = 30;
+ *    Total = 30 − 2 = 28 */
+const EXPECTED_EXEMPT_COUNT = 28;
 
 /** Ratchet — zero gaps at land time. New values added to any union without
  *  a corresponding exempt or wired consumer fail this. */

@@ -47,6 +47,8 @@ export function CourseContentTab({ courseId }: CourseContentTabProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedKind, setSelectedKind] = useState<ContentKind>(FIRST_KIND);
+  // Bumped after a successful row save (S6 of #2185) to retrigger the fetch.
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!courseId) return;
@@ -80,7 +82,11 @@ export function CourseContentTab({ courseId }: CourseContentTabProps) {
     return () => {
       cancelled = true;
     };
-  }, [courseId]);
+  }, [courseId, reloadToken]);
+
+  const handleContentChanged = useCallback(() => {
+    setReloadToken((n) => n + 1);
+  }, []);
 
   const handleSelect = useCallback((kind: ContentKind) => {
     setSelectedKind(kind);
@@ -142,9 +148,11 @@ export function CourseContentTab({ courseId }: CourseContentTabProps) {
         groups={payload.groups}
         modules={payload.modules}
         sources={payload.sources}
+        courseId={courseId}
+        onContentChanged={handleContentChanged}
       />
     );
-  }, [loading, error, payload, selectedKind]);
+  }, [loading, error, payload, selectedKind, courseId, handleContentChanged]);
 
   return (
     <div data-testid="hf-course-content-tab">

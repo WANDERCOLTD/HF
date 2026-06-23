@@ -204,3 +204,57 @@
 .hf-content-prov-value {
   font-weight: 500;
 }
+
+/* CueCardRowEditor — S6 of #2185.
+ * Inline expand-to-edit surface that swaps the read-only row for a
+ * type / topic / bullets editor in-place. Stays inside the same
+ * `.hf-content-row` card so the rhythm of the list isn't broken. */
+.hf-content-row-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hf-content-row-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.hf-content-row-editing {
+  border-color: color-mix(in srgb, var(--accent-primary) 36%, var(--border-default));
+  background: color-mix(in srgb, var(--accent-primary) 3%, var(--surface-primary));
+}
+
+.hf-content-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.hf-content-edit-hint {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.hf-content-bullets-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hf-content-bullet-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.hf-content-bullet-row .hf-input {
+  min-width: 0;
+}
+

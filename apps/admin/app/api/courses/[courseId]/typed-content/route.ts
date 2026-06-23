@@ -28,7 +28,11 @@ import { NextResponse } from "next/server";
 
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import type { AuthoredModule, PlaybookConfig } from "@/lib/types/json-fields";
+import type {
+  AuthoredModule,
+  CueCardType,
+  PlaybookConfig,
+} from "@/lib/types/json-fields";
 
 export const runtime = "nodejs";
 
@@ -53,8 +57,15 @@ export interface McqItem {
 export interface CueCardItem {
   /** Synthetic id — `${moduleId}:cue:${index}` so the UI can key the row. */
   id: string;
+  /** Stable row index inside `module.settings.cueCardPool` — drives row-editor PATCH. */
+  index: number;
   topic: string;
   bullets: string[];
+  /**
+   * Optional cue card type (#2162) — drives Part 2 prep-phase scaffold.
+   * `null` for legacy rows authored before the type field landed (S6 of #2185).
+   */
+  type: CueCardType | null;
   module: ModuleProvenance;
 }
 
@@ -155,8 +166,13 @@ export async function GET(
       pool.forEach((card, idx) => {
         cueCards.push({
           id: `${mod.id}:cue:${idx}`,
+          index: idx,
           topic: card.topic,
           bullets: Array.isArray(card.bullets) ? card.bullets : [],
+          type:
+            card.type === "personal" || card.type === "abstract"
+              ? card.type
+              : null,
           module: { moduleId: mod.id, moduleLabel: mod.label ?? mod.id },
         });
       });

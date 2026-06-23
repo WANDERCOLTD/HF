@@ -7,6 +7,8 @@
  * (server-only).
  */
 
+import type { CueCardType } from "@/lib/types/json-fields";
+
 export type ContentKind =
   | "mcqs"
   | "cueCards"
@@ -34,8 +36,12 @@ export interface McqItem {
 
 export interface CueCardItem {
   id: string;
+  /** Stable row index inside the module's cueCardPool — used by the row editor. */
+  index: number;
   topic: string;
   bullets: string[];
+  /** Optional CueCardType (#2162). `null` for legacy rows without a type. */
+  type: CueCardType | null;
   module: ModuleProvenance;
 }
 
