@@ -14,7 +14,16 @@ import type { JourneySettingContract } from "@/lib/journey/setting-contracts";
 
 import type { HowCardVariantProps } from "./types";
 
-/** G8 contract ids the tutor variant prioritises, in render order. */
+/** G8 contract ids the tutor variant prioritises, in render order.
+ *
+ *  S7 (this PR) — `moduleScaffoldsByStallType` surfaces alongside the
+ *  flat `moduleScaffoldPool` as a typed per-StallType map. Part 3-style
+ *  modules (BDD US-P3-02b) use the map so each stall shape has its own
+ *  scaffold; other modules continue to rely on the flat pool.
+ *
+ *  S3 (this PR) — `moduleLearnerShellOverride` is the last row since
+ *  it's the rarest edit (per-module DISABLE-only patch on the runtime-
+ *  resolved shell capabilities). */
 export const TUTOR_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleQuestionTarget",
   "moduleMinSpeakingSec",
@@ -23,6 +32,8 @@ export const TUTOR_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleClosingLine",
   "moduleFirstTimeOrientationLine",
   "moduleScaffoldPool",
+  "moduleScaffoldsByStallType",
+  "moduleLearnerShellOverride",
 ];
 
 export function HowCardTutor({ renderRow }: HowCardVariantProps) {

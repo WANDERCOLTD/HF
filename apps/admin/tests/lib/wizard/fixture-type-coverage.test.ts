@@ -74,6 +74,23 @@ const FIXTURE_KEY_EXEMPT: Record<string, string> = {
 const TYPE_MEMBER_EXEMPT: Record<string, string> = {
   pinnedCardPhaseScope:
     "UX-C polish — optional phase-scope for pinned-card visibility. Consumer wired in PinnedCardSlot; fixture exercise deferred until per-course module catalogue picks defaults.",
+  // S7 (PR #2260) — per-StallType scaffold map landed as a new typed
+  // field on AuthoredModuleSettings paired with the
+  // `moduleScaffoldsByStallType` G8 contract. No course-ref fixture
+  // exercises it yet (the IELTS v2.3 fixture still uses the flat
+  // scaffoldPool). Add a fixture example when the runtime stall-detector
+  // consumer ships so the wizard projection carries the typed pool
+  // through.
+  scaffoldsByStallType:
+    "S7 follow-on — typed stall-pool fixture example lands with the runtime detector PR",
+  // S3 (PR #2260) — per-module LearnerShellCapabilities DISABLE-only
+  // override landed as a new typed field on AuthoredModuleSettings
+  // paired with the `moduleLearnerShellOverride` G8 contract. No
+  // course-ref fixture exercises it because operators set the patch
+  // via the Inspector when they need it (defaults cover every
+  // published course today).
+  learnerShell:
+    "S3 follow-on — operator-set per-module DISABLE-only patch; no canonical fixture exercises it because defaults cover every published course",
 };
 
 /** Pin current state; new additions fail CI until consciously bumped. */
@@ -85,7 +102,10 @@ const TYPE_MEMBER_EXEMPT: Record<string, string> = {
 const EXPECTED_FIXTURE_KEY_EXEMPT_COUNT = 3;
 // UX-C polish: bumped 0 → 1 — `pinnedCardPhaseScope` added to type;
 // fixture exercise deferred.
-const EXPECTED_TYPE_MEMBER_EXEMPT_COUNT = 1;
+// S7 + S3 (PR #2260): bumped 1 → 3 — `scaffoldsByStallType` +
+// `learnerShell` added to type without a matching fixture exercise.
+// Reasons documented above.
+const EXPECTED_TYPE_MEMBER_EXEMPT_COUNT = 3;
 
 // ────────────────────────────────────────────────────────────────────
 // Parsers

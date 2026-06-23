@@ -289,6 +289,22 @@ const DECLARED_DATA_SHAPE: Record<string, DataShape> = {
   // to array-editor (ROW_SCHEMAS entry already present from Theme 1b).
   moduleProfileFieldsToCapture: "array-of-objects",
   modulePinFocusArea: "boolean",
+  // S8 — module-scoped score readout policy. Storage is the canonical
+  // `ScoreReadoutMode` union; control is `select` with options derived
+  // from `SCORE_READOUT_MODE_VALUES`. (select × enum-string) is a valid
+  // matrix pairing.
+  moduleScoreReadoutMode: "enum-string",
+  // S7 — per-StallType scaffold map. Storage is
+  // `Partial<Record<StallType, string[]>>`; control is `json-fallback`.
+  // (json-fallback × opaque-object) is a valid pairing — a future PR
+  // may ship a typed primitive once the runtime consumer lands.
+  moduleScaffoldsByStallType: "opaque-object",
+  // S3 — per-module LearnerShellCapabilities DISABLE-only override.
+  // Storage is `Partial<LearnerShellCapabilities>`; control is
+  // `json-fallback`. (json-fallback × opaque-object) is a valid pairing
+  // — a future PR may ship a typed primitive with toggle-to-disable
+  // affordances per capability default.
+  moduleLearnerShellOverride: "opaque-object",
 
   // ── VOICE_SETTINGS (Settings tab) ──────────────────────────────
   voiceProvider: "enum-string",

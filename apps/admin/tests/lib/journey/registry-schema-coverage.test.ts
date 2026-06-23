@@ -166,6 +166,14 @@ const APPLIES_TO_ALL: readonly string[] = [
   // ── G8 — module-scoped IELTS settings are ALL deliberately tagged
   //   (`appliesTo: ["structured", "exam"]` or `["exam"]`) so none of
   //   them belong on this allow-list. Their absence is intentional.
+  //
+  // S3 (this PR) — `moduleLearnerShellOverride` is the lone G8 entry
+  // that applies to EVERY course shape: shell selection happens at the
+  // runtime layer and is course-agnostic per epic #2163 locked decision
+  // 8. Sits here instead of declaring `appliesTo: ["continuous",
+  // "structured", "exam"]` per the rule preamble's "When in doubt,
+  // prefer APPLIES_TO_ALL".
+  "moduleLearnerShellOverride",
 
   // ── N_voice (Settings tab voice subset — 11 entries; all global)
   "voiceProvider",

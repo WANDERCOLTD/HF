@@ -115,16 +115,20 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     //        + #1743 moduleScaffoldPool (1) + #1932 moduleTopicPool (1)
     //        + #1955 modulePinFocusArea (1) + #1956 modulesilentMode (1)
     //        + #1954 moduleGenerateLessonPlan (1) = 12
-    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(12);
+    //        + S8 moduleScoreReadoutMode (1) + S7 moduleScaffoldsByStallType (1)
+    //        + S3 moduleLearnerShellOverride (1) = 15
+    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(15);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 95", () => {
+  it("(8) JOURNEY_SETTINGS.length === 98", () => {
     // 84 + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
     //   + 1 (moduleTopicPool #1932) + 2 (Slice 13 intake editors) + 1 (#2105 lessonPlanMode)
     //   + 1 (modulePinFocusArea #1955) + 1 (silentMode #1956) + 1 (generateLessonPlan #1954)
     //   + 1 (aiMeasurementDisableLlmIeltsScoring #2158)
     //   + 1 (assessmentPlan #2176) = 95
-    expect(JOURNEY_SETTINGS.length).toBe(95);
+    //   + 1 (S8 moduleScoreReadoutMode) + 1 (S7 moduleScaffoldsByStallType)
+    //   + 1 (S3 moduleLearnerShellOverride) = 98
+    expect(JOURNEY_SETTINGS.length).toBe(98);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

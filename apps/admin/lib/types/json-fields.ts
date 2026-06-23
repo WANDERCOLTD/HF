@@ -1501,6 +1501,47 @@ export interface AuthoredModuleSettings {
    * @bucket teaching
    */
   pinnedCardPhaseScope?: string[];
+  /**
+   * S7 — per-StallType scaffold map.
+   *
+   * Sibling to {@link AuthoredModuleSettings.scaffoldPool} (which is a
+   * flat `string[]`). The map shape carries per-`StallType` lines so the
+   * client-side stall detector can pick a scaffold appropriate to the
+   * detected stall shape (`opinion-gap` learner gets "What do you mean
+   * by…" style scaffolds; `vocabulary-search` learner gets "Take your
+   * time finding the word…" style scaffolds).
+   *
+   * Operator-facing today via the Module Inspector (HowCardTutor on
+   * Part 3-style modules). Runtime consumer wiring (detector pool
+   * selection branched on detected `StallType`) is the follow-on PR —
+   * for now the existing flat `scaffoldPool` keeps acting as the
+   * fallback so live behaviour does not change when the new field is
+   * empty.
+   *
+   * Stored at `Playbook.config.modules[].settings.scaffoldsByStallType`
+   * — partial map so authors may set only the StallTypes they care
+   * about for the module.
+   */
+  scaffoldsByStallType?: Partial<Record<StallType, string[]>>;
+  /**
+   * S3 — per-module LearnerShellCapabilities override.
+   *
+   * Per epic #2163 locked decision 8: overrides may ONLY DISABLE a
+   * capability defaulted ON; they may NOT ENABLE an affordance defaulted
+   * OFF. The Inspector enforces this rule client-side by only
+   * surfacing toggles whose default value is `true`. Server-side
+   * enforcement is a follow-on PR — the operator surface is added now
+   * so authors can DISABLE defaults today, the runtime apply will pick
+   * up the override once the resolver merge lands.
+   *
+   * Stored at `Playbook.config.modules[].settings.learnerShell`. Partial
+   * shape — every field is optional; only fields the operator wants to
+   * override appear in the JSON.
+   *
+   * See {@link LearnerShellCapabilities} for the full default map and
+   * {@link SHELL_DEFAULTS} for the per-shell-kind canonical defaults.
+   */
+  learnerShell?: Partial<LearnerShellCapabilities>;
 }
 
 export interface ModuleDefaults {

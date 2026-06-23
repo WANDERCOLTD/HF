@@ -148,7 +148,7 @@ describe("inspector-variants — variant rendering via ModuleInspectorPanel", ()
     ).toBeInTheDocument();
   });
 
-  it("renders HowCardQuiz when mode is 'quiz' AND surfaces the MCQ-deferred note", () => {
+  it("renders HowCardQuiz when mode is 'quiz' AND surfaces the editable score-readout row (S8)", () => {
     render(
       <ModuleInspectorPanel
         courseId="course-1"
@@ -159,8 +159,11 @@ describe("inspector-variants — variant rendering via ModuleInspectorPanel", ()
       />,
     );
     expect(screen.getByTestId("hf-how-card-quiz")).toBeInTheDocument();
+    // S8 (this PR) — the pre-S8 informational MCQ note was replaced by the
+    // editable `moduleScoreReadoutMode` row so operators can pick the
+    // readout policy inline instead of reading a "deferred" hint.
     expect(
-      screen.getByTestId("hf-how-card-quiz-mcq-note"),
+      screen.getByTestId("hf-module-inspector-row-moduleScoreReadoutMode"),
     ).toBeInTheDocument();
     // Quiz surfaces the question target + topic pool (MCQ pool source-ref proxy).
     expect(
@@ -168,6 +171,13 @@ describe("inspector-variants — variant rendering via ModuleInspectorPanel", ()
     ).toBeInTheDocument();
     expect(
       screen.getByTestId("hf-module-inspector-row-moduleTopicPool"),
+    ).toBeInTheDocument();
+    // S3 (this PR) — every variant surfaces the learner-shell DISABLE-only
+    // override row.
+    expect(
+      screen.getByTestId(
+        "hf-module-inspector-row-moduleLearnerShellOverride",
+      ),
     ).toBeInTheDocument();
   });
 

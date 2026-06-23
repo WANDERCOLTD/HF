@@ -113,6 +113,15 @@ const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
   moduleProfileFieldsToCapture: {
     reason: "G8 IELTS module-scoped — HF_FLAG_IELTS_MODULE_SETTINGS Phase 2 wiring (epic #1700 decision 5).",
   },
+  moduleScoreReadoutMode: {
+    reason: "S8 G8 module-scoped — per-module score readout policy (course-ref v2.3); course-only override, no upstream Domain/System cascade by design.",
+  },
+  moduleScaffoldsByStallType: {
+    reason: "S7 G8 module-scoped — per-StallType scaffold map (BDD US-P3-02b); runtime consumer (typed pool selection) is the follow-on PR.",
+  },
+  moduleLearnerShellOverride: {
+    reason: "S3 G8 module-scoped — per-module LearnerShellCapabilities DISABLE-only patch (epic #2163 LD8 — capabilities are HF-canonical, not customer-tunable upstream).",
+  },
 };
 
 // ────────────────────────────────────────────────────────────
@@ -138,11 +147,15 @@ const PRODUCER_ONLY_CONTRACTS: Record<string, ProducerOnlyEntry> = {
 //   `assessmentPlan` lands here = 77).
 const EXPECTED_CASCADE_RESOLVABLE_COUNT = 10;
 const EXPECTED_COURSE_ONLY_COUNT = 77;
-const EXPECTED_PRODUCER_ONLY_COUNT = 9;
+// S8 + S7 + S3 (this PR) — 9 → 12 producer-only contracts; the three new
+// G8 module-scoped knobs follow the existing IELTS-cohort pattern (no
+// upstream Domain/System cascade by design — module-scoped storage path).
+const EXPECTED_PRODUCER_ONLY_COUNT = 12;
 const EXPECTED_STATIC_CHAIN_COUNT = 10;
 const EXPECTED_GAP_COUNT = 0;
 
-const EXPECTED_TOTAL_COUNT = 106;
+// S8 + S7 + S3 — 106 → 109 total contracts.
+const EXPECTED_TOTAL_COUNT = 109;
 
 // ────────────────────────────────────────────────────────────
 // Classification

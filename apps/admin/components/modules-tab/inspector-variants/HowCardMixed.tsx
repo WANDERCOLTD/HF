@@ -18,7 +18,8 @@ import type { HowCardVariantProps } from "./types";
 
 /** G8 contract ids the mixed variant surfaces — tutor baseline +
  *  generateLessonPlan (mixed modules occasionally fire end-of-session
- *  lesson-plan summaries). */
+ *  lesson-plan summaries). S7 + S3 (this PR) add the StallType scaffold
+ *  map + learner-shell override. */
 export const MIXED_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleQuestionTarget",
   "moduleMinSpeakingSec",
@@ -27,7 +28,9 @@ export const MIXED_VARIANT_CONTRACT_IDS: readonly string[] = [
   "moduleClosingLine",
   "moduleFirstTimeOrientationLine",
   "moduleScaffoldPool",
+  "moduleScaffoldsByStallType",
   "moduleGenerateLessonPlan",
+  "moduleLearnerShellOverride",
 ];
 
 export function HowCardMixed({ renderRow }: HowCardVariantProps) {
