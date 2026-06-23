@@ -1,16 +1,16 @@
 {
   "$schema": "route-inventory/v1",
-  "generatedAt": "2026-06-21T15:50:38.701Z",
+  "generatedAt": "2026-06-23T10:47:43.343Z",
   "generator": "scripts/capture/route-inventory.ts",
   "note": "Tier-2 generated KB. tenantSignals are HEURISTIC hints, not a tenant-safety verdict. `possiblyUnscoped` = accepts a callerId param with no scope helper → review first in Phase 2. Do not hand-edit — re-run the generator.",
   "summary": {
-    "routeCount": 542,
+    "routeCount": 546,
     "byAuthLevel": {
-      "VIEWER": 127,
+      "VIEWER": 129,
       "ADMIN": 81,
       "SUPERADMIN": 9,
       "VIEWER+ADMIN": 5,
-      "OPERATOR": 145,
+      "OPERATOR": 147,
       "OPERATOR+VIEWER": 8,
       "VIEWER+OPERATOR": 66,
       "auth-gate(non-role)": 53,
@@ -1331,6 +1331,26 @@
       "reviewed": false
     },
     {
+      "route": "/api/callers/[callerId]/assessment-moment-mcqs",
+      "file": "apps/admin/app/api/callers/[callerId]/assessment-moment-mcqs/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
       "route": "/api/callers/[callerId]/attainment",
       "file": "apps/admin/app/api/callers/[callerId]/attainment/route.ts",
       "methods": [
@@ -1763,6 +1783,26 @@
     {
       "route": "/api/callers/[callerId]/memories",
       "file": "apps/admin/app/api/callers/[callerId]/memories/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "VIEWER"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": true,
+        "usesScopeHelper": true,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/callers/[callerId]/mock-results",
+      "file": "apps/admin/app/api/callers/[callerId]/mock-results/route.ts",
       "methods": [
         "GET"
       ],
@@ -4652,6 +4692,26 @@
         "handlesInternalSecret": false,
         "rawPrisma": true,
         "possiblyUnscoped": true,
+        "noAuthGate": false
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/courses/[courseId]/typed-content",
+      "file": "apps/admin/app/api/courses/[courseId]/typed-content/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
         "noAuthGate": false
       },
       "reviewed": false
@@ -9707,6 +9767,26 @@
         "rawPrisma": true,
         "possiblyUnscoped": true,
         "noAuthGate": true
+      },
+      "reviewed": false
+    },
+    {
+      "route": "/api/system/spec-slugs",
+      "file": "apps/admin/app/api/system/spec-slugs/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "authLevels": [
+        "OPERATOR"
+      ],
+      "hasAuthGate": true,
+      "tenantSignals": {
+        "acceptsCallerIdParam": false,
+        "usesScopeHelper": false,
+        "handlesInternalSecret": false,
+        "rawPrisma": true,
+        "possiblyUnscoped": false,
+        "noAuthGate": false
       },
       "reviewed": false
     },

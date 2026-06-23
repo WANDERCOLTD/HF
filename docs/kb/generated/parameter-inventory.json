@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-06-21T15:50:44.145Z",
+  "generatedAt": "2026-06-23T10:47:46.260Z",
   "generator": "scripts/capture/parameter-inventory.ts",
-  "parameterCount": 155,
-  "active": 140,
+  "parameterCount": 163,
+  "active": 148,
   "deprecated": 15,
   "gaps": 21,
   "entries": [
@@ -2324,6 +2324,149 @@
       ],
       "consumerFiles": [
         "app/api/onboarding/route.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "skill_fluency_and_coherence_fc",
+      "name": "IELTS — Fluency & Coherence",
+      "domainGroup": "learner-model",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "fluency_and_coherence",
+        "skill_fc"
+      ],
+      "consumerFiles": [
+        "app/api/callers/[callerId]/mock-results/route.ts",
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/courses/[courseId]/skills-rubric-calibration/route.ts",
+        "lib/pipeline/aggregate-runner.ts",
+        "lib/pipeline/prosody-consumer.ts",
+        "lib/pipeline/runners/session-focus-policy.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "skill_lexical_resource_lr",
+      "name": "IELTS — Lexical Resource",
+      "domainGroup": "learner-model",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "lexical_resource",
+        "skill_lr"
+      ],
+      "consumerFiles": [
+        "app/api/callers/[callerId]/mock-results/route.ts",
+        "app/api/courses/[courseId]/skills-rubric-calibration/route.ts",
+        "lib/pipeline/prosody-consumer.ts",
+        "lib/pipeline/prosody-runner.ts",
+        "lib/pipeline/prosody-types.ts",
+        "lib/pipeline/runners/session-focus-policy.ts",
+        "lib/pipeline/runners/supervise/leak-scan.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "skill_grammatical_range_and_accuracy_gra",
+      "name": "IELTS — Grammatical Range & Accuracy",
+      "domainGroup": "learner-model",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "grammatical_range_and_accuracy",
+        "skill_gra"
+      ],
+      "consumerFiles": [
+        "app/api/callers/[callerId]/mock-results/route.ts",
+        "app/api/courses/[courseId]/skills-rubric-calibration/route.ts",
+        "lib/pipeline/prosody-consumer.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "skill_pronunciation_p",
+      "name": "IELTS — Pronunciation",
+      "domainGroup": "learner-model",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [
+        "pronunciation",
+        "skill_p"
+      ],
+      "consumerFiles": [
+        "app/api/callers/[callerId]/mock-results/route.ts",
+        "app/api/calls/[callId]/pipeline/route.ts",
+        "app/api/content-sources/[sourceId]/vocabulary/[vocabId]/route.ts",
+        "app/api/courses/[courseId]/skills-rubric-calibration/route.ts",
+        "lib/pipeline/prosody-consumer.ts",
+        "lib/pipeline/prosody-runner.ts",
+        "lib/pipeline/prosody-types.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "prosody_raw_fc",
+      "name": "Prosody — Fluency & Coherence raw signal",
+      "domainGroup": "voice-delivery",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/pipeline/prosody-consumer.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "prosody_raw_p",
+      "name": "Prosody — Pronunciation raw signal",
+      "domainGroup": "voice-delivery",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/pipeline/prosody-consumer.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "prosody_raw_lr",
+      "name": "Prosody — Lexical Resource raw signal",
+      "domainGroup": "voice-delivery",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/pipeline/prosody-consumer.ts"
+      ],
+      "classification": "covered"
+    },
+    {
+      "parameterId": "prosody_raw_gra",
+      "name": "Prosody — Grammatical Range & Accuracy raw signal",
+      "domainGroup": "voice-delivery",
+      "deprecatedAt": null,
+      "hasInterpretationHigh": true,
+      "hasInterpretationLow": true,
+      "skipInterpretationLengthCheck": false,
+      "aliases": [],
+      "consumerFiles": [
+        "lib/pipeline/prosody-consumer.ts"
       ],
       "classification": "covered"
     }
