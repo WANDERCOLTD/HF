@@ -179,6 +179,7 @@ Three structural patterns, in order of preference:
 
 | Rule file | Enforcement | Status |
 |---|---|---|
+| `data-first-entry.md` | PR-body gate in `gh-pr-create.sh` (`## Verified by` Data-path/Engine-path declaration) — pre-entry sibling to the registry-coverage gates | ✅ PROTECTED via PR-body gate |
 | `ai-to-db-guard.md` | 14 guards + ESLint + tests | ✅ PROTECTED (4 Known Gaps documented) |
 | `ai-read-grounding.md` | `factual-grounding-intercept.ts` + system-prompt contracts | ⚠️ PARTIAL (streaming + pipeline gaps) |
 | `cascade-reuse.md` | Convention only (rule explicitly states no ESLint) | ⚠️ CONVENTION-ONLY |
