@@ -176,6 +176,11 @@ const DECLARED_DATA_SHAPE: Record<string, DataShape> = {
   intakeKnowledgeCheckMode: "enum-string",
   intakeSkipIfReturning: "boolean",
   onboardingClosingLine: "string",
+  // PR #2266 S1 — 4 G1 FOH copy strings.
+  goalsPreamble: "string",
+  aboutYouIntro: "string",
+  preTestIntro: "string",
+  preTestClosing: "string",
 
   // ── G2 — Call 1 opening ────────────────────────────────────────
   firstCallMode: "enum-string",
@@ -234,6 +239,11 @@ const DECLARED_DATA_SHAPE: Record<string, DataShape> = {
   npsStop: "stop-config",
 
   // ── G6 — End of course / offboarding ───────────────────────────
+  // PR #2266 S1 — 4 G6 FOH copy strings.
+  postTestIntro: "string",
+  postTestClosing: "string",
+  journeyExitIntro: "string",
+  journeyExitClosing: "string",
   offboardingFlowPhases: "phases-list",
   offboardingSummaryEnabled: "boolean",
   offboardingSummaryCadence: "enum-string",

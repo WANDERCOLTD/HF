@@ -267,6 +267,78 @@ const G1_ONBOARDING_CLOSING_LINE: JourneySettingContract = {
   previewLocators: [{ section: "onboarding", hint: "closing CTA tail" }],
 };
 
+const G1_GOALS_PREAMBLE: JourneySettingContract = {
+  id: "goalsPreamble",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Goals preamble",
+  helpText:
+    "One-liner shown above the goals bullet list during the FOH onboarding sequence. Default: \"Here's what we'll work on:\".",
+  storagePath: "config.goalsPreamble",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["onboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "onboarding", hint: "goals preamble" }],
+};
+
+const G1_ABOUT_YOU_INTRO: JourneySettingContract = {
+  id: "aboutYouIntro",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: '"About you" intro line',
+  helpText:
+    "Greeting at the start of the personality / About-You survey on Call 1. Supports {subject} + {teacherName} tokens. Default: \"Hey! I'm your AI study partner for {subject}…\".",
+  storagePath: "config.aboutYouIntro",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "about-you intro" }],
+};
+
+const G1_PRE_TEST_INTRO: JourneySettingContract = {
+  id: "preTestIntro",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Pre-test intro line",
+  helpText:
+    "Intro shown above the pre-test knowledge check. Supports {subject} + {questionCount} tokens. Default: \"Now let's do a quick knowledge check on {subject}…\".",
+  storagePath: "config.preTestIntro",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "pre-test intro" }],
+};
+
+const G1_PRE_TEST_CLOSING: JourneySettingContract = {
+  id: "preTestClosing",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Pre-test closing line",
+  helpText:
+    "Closing line shown after the pre-test knowledge check before the first session. Default: \"Brilliant! I've got everything I need. Let's start your first practice session — you're going to do great.\".",
+  storagePath: "config.preTestClosing",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "pre-test closing" }],
+};
+
 // =============================================================
 // G2 — Call 1 — opening & assessment (6)
 // =============================================================
@@ -1460,6 +1532,78 @@ const G5_NPS_STOP: JourneySettingContract = {
 // G6 — End of course / offboarding (4)
 // =============================================================
 
+const G6_POST_TEST_INTRO: JourneySettingContract = {
+  id: "postTestIntro",
+  menuGroupKey: "H_closing",
+  group: "G6",
+  educatorLabel: "Post-test intro line",
+  helpText:
+    "Intro shown above the post-test knowledge check at journey end. Supports {subject} + {questionCount} tokens. Default: \"One last thing — let's see how much your {subject} comprehension has grown…\".",
+  storagePath: "config.postTestIntro",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "post-test intro" }],
+};
+
+const G6_POST_TEST_CLOSING: JourneySettingContract = {
+  id: "postTestClosing",
+  menuGroupKey: "H_closing",
+  group: "G6",
+  educatorLabel: "Post-test closing line",
+  helpText:
+    "Closing line after the post-test, before the journey-exit feedback survey. Default: \"Brilliant! Let's wrap up with some quick feedback.\".",
+  storagePath: "config.postTestClosing",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "post-test closing" }],
+};
+
+const G6_JOURNEY_EXIT_INTRO: JourneySettingContract = {
+  id: "journeyExitIntro",
+  menuGroupKey: "H_closing",
+  group: "G6",
+  educatorLabel: "Journey-exit intro line",
+  helpText:
+    "Intro shown at the very end of the journey, before the final feedback survey. Default: \"You've finished all your sessions — amazing work! Before you go, I'd love to hear how it went.\".",
+  storagePath: "config.journeyExitIntro",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "exit intro" }],
+};
+
+const G6_JOURNEY_EXIT_CLOSING: JourneySettingContract = {
+  id: "journeyExitClosing",
+  menuGroupKey: "H_closing",
+  group: "G6",
+  educatorLabel: "Journey-exit closing line",
+  helpText:
+    "Final thank-you line at the end of the journey. Last learner-facing touchpoint. Default: \"Thanks so much for your feedback! You've been brilliant. Good luck with everything!\".",
+  storagePath: "config.journeyExitClosing",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["offboarding"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "offboarding", hint: "exit closing" }],
+};
+
 const G6_OFFBOARDING_FLOW_PHASES: JourneySettingContract = {
   id: "offboardingFlowPhases",
   menuGroupKey: "H_closing",
@@ -2501,6 +2645,10 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G1_INTAKE_KNOWLEDGE_CHECK_MODE,
   G1_INTAKE_SKIP_IF_RETURNING,
   G1_ONBOARDING_CLOSING_LINE,
+  G1_GOALS_PREAMBLE,
+  G1_ABOUT_YOU_INTRO,
+  G1_PRE_TEST_INTRO,
+  G1_PRE_TEST_CLOSING,
   // G2 (6)
   G2_FIRST_CALL_MODE,
   G2_WELCOME_MESSAGE,
@@ -2555,6 +2703,10 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G5_NPS_THRESHOLD,
   G5_NPS_STOP,
   // G6 (4)
+  G6_POST_TEST_INTRO,
+  G6_POST_TEST_CLOSING,
+  G6_JOURNEY_EXIT_INTRO,
+  G6_JOURNEY_EXIT_CLOSING,
   G6_OFFBOARDING_FLOW_PHASES,
   G6_OFFBOARDING_SUMMARY_ENABLED,
   G6_OFFBOARDING_SUMMARY_CADENCE,

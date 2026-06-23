@@ -482,6 +482,73 @@ export interface PlaybookConfig {
    */
   onboardingClosingLine?: string;
   /**
+   * Preamble shown above the goals bullet list in the FOH onboarding
+   * sequence — read by `useJourneyChat.ts::loadOnboardingPhase`. Default
+   * literal: "Here's what we'll work on:".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  goalsPreamble?: string;
+  /**
+   * Intro line for the "About you" personality survey — read by both
+   * `useJourneyChat.ts::buildPersonalitySteps` and `WelcomeSurveyFlow.tsx`.
+   * Supports `{subject}` and `{teacherName}` tokens. Default literal:
+   * "Hey! I'm your AI study partner for {subject}. ...".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  aboutYouIntro?: string;
+  /**
+   * Intro line for the pre-test knowledge check — read by both
+   * `useJourneyChat.ts::buildPreTestSteps` and `WelcomeSurveyFlow.tsx`.
+   * Supports `{subject}` and `{questionCount}` tokens.
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  preTestIntro?: string;
+  /**
+   * Closing line after the pre-test — read by both `useJourneyChat.ts`
+   * and `WelcomeSurveyFlow.tsx`. Default literal:
+   * "Brilliant! I've got everything I need. Let's start your first
+   * practice session — you're going to do great.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  preTestClosing?: string;
+  /**
+   * Intro line for the post-test knowledge check — read by
+   * `useJourneyChat.ts::buildPostTestSteps`. Supports `{subject}` and
+   * `{questionCount}` tokens.
+   *
+   * @bucket Course parameter — Wrap-up & offboarding (G6 / F_offboarding).
+   */
+  postTestIntro?: string;
+  /**
+   * Closing line after the post-test — read by `useJourneyChat.ts`.
+   * Default literal: "Brilliant! Let's wrap up with some quick feedback.".
+   *
+   * @bucket Course parameter — Wrap-up & offboarding (G6 / F_offboarding).
+   */
+  postTestClosing?: string;
+  /**
+   * Intro line for the journey-exit feedback survey — read by
+   * `useJourneyChat.ts::buildPostSteps`. Default literal:
+   * "You've finished all your sessions — amazing work! Before you go,
+   * I'd love to hear how it went.".
+   *
+   * @bucket Course parameter — Wrap-up & offboarding (G6 / F_offboarding).
+   */
+  journeyExitIntro?: string;
+  /**
+   * Final thank-you line at the end of the journey — read by
+   * `useJourneyChat.ts::buildPostSteps`. Last learner-facing touchpoint.
+   * Default literal: "Thanks so much for your feedback! You've been
+   * brilliant. Good luck with everything!".
+   *
+   * @bucket Course parameter — Wrap-up & offboarding (G6 / F_offboarding).
+   */
+  journeyExitClosing?: string;
+  /**
    * #1403 — First-call course intro spoken AFTER the welcomeMessage +
    * acknowledgement gate. Supports `{courseName}` token.
    *

@@ -1,9 +1,9 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-23T10:47:44.048Z",
+  "generatedAt": "2026-06-23T22:25:19.761Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1897,
+  "fileCount": 1898,
   "edgeCount": 4485,
   "skippedEdges": 1,
   "edges": [
@@ -25178,6 +25178,11 @@
       "path": "lib/learner-scope.ts",
       "inDegree": 58,
       "outDegree": 1
+    },
+    {
+      "path": "lib/learner/onboarding-copy-defaults.ts",
+      "inDegree": 0,
+      "outDegree": 0
     },
     {
       "path": "lib/learner/profile.ts",

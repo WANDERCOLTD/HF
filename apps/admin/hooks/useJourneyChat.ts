@@ -104,35 +104,79 @@ function dividerItem(label: string): DividerItem {
   return { id: nextId(), kind: 'divider', label, timestamp: new Date() };
 }
 
+// Default literals for the 6 build*Steps helpers. The cascade overrides
+// (`progressData.aboutYouIntro` etc.) fall through to these when null.
+// These are also the canonical defaults shared with `WelcomeSurveyFlow.tsx`
+// (kept in sync via lib/learner/onboarding-copy-defaults.ts).
+import {
+  ONBOARDING_COPY_DEFAULTS,
+  applyCopyTokens,
+} from '@/lib/learner/onboarding-copy-defaults';
+
 // Build personality survey steps with greeting
-function buildPersonalitySteps(configs: SurveyStepConfig[], subject: string, teacherName: string): SurveyStep[] {
+function buildPersonalitySteps(
+  configs: SurveyStepConfig[],
+  subject: string,
+  teacherName: string,
+  aboutYouIntroOverride?: string | null,
+): SurveyStep[] {
+  const prompt = applyCopyTokens(
+    aboutYouIntroOverride ?? ONBOARDING_COPY_DEFAULTS.aboutYouIntro,
+    { subject, teacherName },
+  );
   return [
-    { id: '_greeting', type: 'message', prompt: `Hey! I'm your AI study partner for ${subject}. ${teacherName ? `${teacherName} set this up for you.` : ''} Before we dive in, I'd love to learn a bit about you.` },
+    { id: '_greeting', type: 'message', prompt },
     ...configs.map((c) => ({ ...c, prompt: c.prompt.replace(/\{subject\}/g, subject) })),
   ];
 }
 
-function buildPreTestSteps(configs: SurveyStepConfig[], subject: string): SurveyStep[] {
+function buildPreTestSteps(
+  configs: SurveyStepConfig[],
+  subject: string,
+  preTestIntroOverride?: string | null,
+  preTestClosingOverride?: string | null,
+): SurveyStep[] {
+  const introPrompt = applyCopyTokens(
+    preTestIntroOverride ?? ONBOARDING_COPY_DEFAULTS.preTestIntro,
+    { subject, questionCount: configs.length },
+  );
+  const closingPrompt = preTestClosingOverride ?? ONBOARDING_COPY_DEFAULTS.preTestClosing;
   return [
-    { id: '_pretest_intro', type: 'message' as const, prompt: `Now let's do a quick knowledge check on ${subject} — just ${configs.length} questions. Don't worry about getting them right, this just helps me understand where you're starting from.` },
+    { id: '_pretest_intro', type: 'message' as const, prompt: introPrompt },
     ...configs.map((c) => ({ ...c, prompt: c.prompt.replace(/\{subject\}/g, subject) })),
-    { id: '_pretest_done', type: 'message' as const, prompt: "Brilliant! I've got everything I need. Let's start your first practice session — you're going to do great." },
+    { id: '_pretest_done', type: 'message' as const, prompt: closingPrompt },
   ];
 }
 
-function buildPostTestSteps(configs: SurveyStepConfig[], subject: string): SurveyStep[] {
+function buildPostTestSteps(
+  configs: SurveyStepConfig[],
+  subject: string,
+  postTestIntroOverride?: string | null,
+  postTestClosingOverride?: string | null,
+): SurveyStep[] {
+  const introPrompt = applyCopyTokens(
+    postTestIntroOverride ?? ONBOARDING_COPY_DEFAULTS.postTestIntro,
+    { subject, questionCount: configs.length },
+  );
+  const closingPrompt = postTestClosingOverride ?? ONBOARDING_COPY_DEFAULTS.postTestClosing;
   return [
-    { id: '_posttest_intro', type: 'message' as const, prompt: `One last thing — let's see how much your ${subject} comprehension has grown. ${configs.length} questions, same skills we've been working on.` },
+    { id: '_posttest_intro', type: 'message' as const, prompt: introPrompt },
     ...configs.map((c) => ({ ...c, prompt: c.prompt.replace(/\{subject\}/g, subject) })),
-    { id: '_posttest_done', type: 'message' as const, prompt: "Brilliant! Let's wrap up with some quick feedback." },
+    { id: '_posttest_done', type: 'message' as const, prompt: closingPrompt },
   ];
 }
 
-function buildPostSteps(configs: SurveyStepConfig[]): SurveyStep[] {
+function buildPostSteps(
+  configs: SurveyStepConfig[],
+  journeyExitIntroOverride?: string | null,
+  journeyExitClosingOverride?: string | null,
+): SurveyStep[] {
+  const intro = journeyExitIntroOverride ?? ONBOARDING_COPY_DEFAULTS.journeyExitIntro;
+  const closing = journeyExitClosingOverride ?? ONBOARDING_COPY_DEFAULTS.journeyExitClosing;
   return [
-    { id: '_post_greeting', type: 'message' as const, prompt: "You've finished all your sessions — amazing work! Before you go, I'd love to hear how it went." },
+    { id: '_post_greeting', type: 'message' as const, prompt: intro },
     ...configs,
-    { id: '_post_thanks', type: 'message' as const, prompt: "Thanks so much for your feedback! You've been brilliant. Good luck with everything!" },
+    { id: '_post_thanks', type: 'message' as const, prompt: closing },
   ];
 }
 
@@ -315,13 +359,15 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
     try {
       pushItems(dividerItem('Course Feedback'));
 
-      const [surveyRes, configRes, postTestRes] = await Promise.all([
+      const [surveyRes, configRes, postTestRes, progressRes] = await Promise.all([
         fetch(url('/api/student/survey', callerId, { scope: SURVEY_SCOPES.POST })),
         fetch(url('/api/student/survey-config', callerId)),
         fetch(url('/api/student/assessment-questions', callerId, { type: 'post_test' })),
+        // PR #2266 S1 — post-test + journey-exit overrides.
+        fetch(url('/api/student/progress', callerId)),
       ]);
-      const [surveyData, configData, postTestData] = await Promise.all([
-        surveyRes.json(), configRes.json(), postTestRes.json(),
+      const [surveyData, configData, postTestData, progressData] = await Promise.all([
+        surveyRes.json(), configRes.json(), postTestRes.json(), progressRes.json(),
       ]);
 
       // Already done?
@@ -334,7 +380,16 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
       const postTestEnabled = configData?.ok && configData.assessment?.postTest?.enabled;
       if (postTestEnabled && postTestData?.ok && !postTestData.skipped && postTestData.questions?.length > 0) {
         const subject = configData.subject || subjectRef.current;
-        startSurveyPhase('post_test', buildPostTestSteps(postTestData.questions, subject), postTestData.questionIds);
+        startSurveyPhase(
+          'post_test',
+          buildPostTestSteps(
+            postTestData.questions,
+            subject,
+            progressData?.postTestIntro ?? null,
+            progressData?.postTestClosing ?? null,
+          ),
+          postTestData.questionIds,
+        );
         return;
       }
 
@@ -344,7 +399,14 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
         postConfigs = configData.postSurvey.surveySteps;
       }
 
-      startSurveyPhase('post', buildPostSteps(postConfigs));
+      startSurveyPhase(
+        'post',
+        buildPostSteps(
+          postConfigs,
+          progressData?.journeyExitIntro ?? null,
+          progressData?.journeyExitClosing ?? null,
+        ),
+      );
     } catch (err) {
       console.error('[journey] post-survey load failed:', err);
       setState('teaching');
@@ -384,13 +446,15 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
         const overflow = goals.length - visibleGoals.length;
         const goalList = visibleGoals.map((g: { name: string }) => `• ${g.name}`).join('\n');
         const tail = overflow > 0 ? `\n• …and ${overflow} more` : '';
-        pushItems(textItem('assistant', `Here's what we'll work on:\n${goalList}${tail}`));
+        const goalsPreamble =
+          progressData.goalsPreamble ?? ONBOARDING_COPY_DEFAULTS.goalsPreamble;
+        pushItems(textItem('assistant', `${goalsPreamble}\n${goalList}${tail}`));
       }
 
       // Course-scoped closing CTA — Playbook.config.onboardingClosingLine.
-      // Falls back to the original hardcoded literal when null.
+      // Falls back to the canonical default literal when null.
       const closingLine: string =
-        progressData.onboardingClosingLine ?? "We'll adapt as we go. Let's get started!";
+        progressData.onboardingClosingLine ?? ONBOARDING_COPY_DEFAULTS.onboardingClosingLine;
       pushItems(textItem('assistant', closingLine));
 
       const hasMorePhases = welcomeQueueRef.current.length > 0;
@@ -434,14 +498,20 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
   // ── Load a single pre-survey phase (aboutYou = personality, knowledgeCheck = pre-test) ──
   const loadPreSurveyPhase = useCallback(async (phase: 'aboutYou' | 'knowledgeCheck') => {
     try {
-      const [teacherRes, configRes, personalityRes, preTestRes] = await Promise.all([
+      const [teacherRes, configRes, personalityRes, preTestRes, progressRes] = await Promise.all([
         fetch(url('/api/student/teacher', callerId)),
         fetch(url('/api/student/survey-config', callerId)),
         fetch(url(`/api/student/survey`, callerId, { scope: SURVEY_SCOPES.PERSONALITY })),
         fetch(url('/api/student/assessment-questions', callerId, { type: 'pre_test' })),
+        // PR #2266 S1 — progress endpoint surfaces the onboarding-copy
+        // cascade bundle (aboutYouIntro / preTestIntro / preTestClosing
+        // resolved server-side). Phase loader passes the overrides into
+        // the build* helpers; they fall through to the canonical
+        // defaults in lib/learner/onboarding-copy-defaults.ts when null.
+        fetch(url('/api/student/progress', callerId)),
       ]);
-      const [teacherData, configData, personalityData, preTestData] = await Promise.all([
-        teacherRes.json(), configRes.json(), personalityRes.json(), preTestRes.json(),
+      const [teacherData, configData, personalityData, preTestData, progressData] = await Promise.all([
+        teacherRes.json(), configRes.json(), personalityRes.json(), preTestRes.json(), progressRes.json(),
       ]);
 
       let subject = 'this subject';
@@ -465,7 +535,15 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
         const personalityDone = personalityData.ok && personalityData.answers?.submitted_at;
         if (!personalityDone) {
           pushItems(dividerItem('About You'));
-          startSurveyPhase('personality', buildPersonalitySteps(personalityConfigs, subject, teacherName));
+          startSurveyPhase(
+            'personality',
+            buildPersonalitySteps(
+              personalityConfigs,
+              subject,
+              teacherName,
+              progressData?.aboutYouIntro ?? null,
+            ),
+          );
           return;
         }
         // Already done — advance to next phase
@@ -473,7 +551,16 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
       } else if (phase === 'knowledgeCheck') {
         if (preTestData.ok && !preTestData.skipped && preTestData.questions?.length > 0) {
           pushItems(dividerItem('Knowledge Check'));
-          startSurveyPhase('pre_test', buildPreTestSteps(preTestData.questions, subject), preTestData.questionIds);
+          startSurveyPhase(
+            'pre_test',
+            buildPreTestSteps(
+              preTestData.questions,
+              subject,
+              progressData?.preTestIntro ?? null,
+              progressData?.preTestClosing ?? null,
+            ),
+            preTestData.questionIds,
+          );
           return;
         }
         // No pre-test available — advance
@@ -611,13 +698,26 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
           // After post-test MCQs → transition to post satisfaction survey
           if (completedPhase === 'post_test') {
             try {
-              const configRes = await fetch(url('/api/student/survey-config', callerId));
-              const configData = await configRes.json();
+              const [configRes, progressRes] = await Promise.all([
+                fetch(url('/api/student/survey-config', callerId)),
+                fetch(url('/api/student/progress', callerId)),
+              ]);
+              const [configData, progressData] = await Promise.all([
+                configRes.json(),
+                progressRes.json(),
+              ]);
               let postConfigs: SurveyStepConfig[] = DEFAULT_OFFBOARDING_SURVEY;
               if (configData?.ok && configData.offboarding?.surveySteps?.length > 0) {
                 postConfigs = configData.offboarding.surveySteps;
               }
-              startSurveyPhase('post', buildPostSteps(postConfigs));
+              startSurveyPhase(
+                'post',
+                buildPostSteps(
+                  postConfigs,
+                  progressData?.journeyExitIntro ?? null,
+                  progressData?.journeyExitClosing ?? null,
+                ),
+              );
               return;
             } catch {}
           }

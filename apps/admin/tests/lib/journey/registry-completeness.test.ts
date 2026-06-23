@@ -95,9 +95,10 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // intakeGoalsQuestion text contracts so educators can edit the
     // intake prompts. G1 7 → 9.
     // onboardingClosingLine added in fix/onboarding-greeting-cascade —
-    // course-only knob for the FOH onboarding closing CTA, paired with
-    // the existing welcomeMessage cascade reuse. G1 9 → 10.
-    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(10);
+    // course-only knob for the FOH onboarding closing CTA. PR #2266 S1
+    // added 4 more G1 course-only knobs (goalsPreamble + aboutYouIntro
+    // + preTestIntro + preTestClosing). G1 9 → 10 → 14.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(14);
     expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
     // #1871 — voiceProsodyMode added (I_scoring / G4). 27 -> 28.
@@ -108,7 +109,9 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // (storagePath was unrepresentable in the applier — trigger is now
     // edited only via the midJourneyStop compound editor). G5 6 → 5.
     expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(5);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(10);
+    // PR #2266 S1 — 4 G6 course-only knobs (postTestIntro + postTestClosing
+    // + journeyExitIntro + journeyExitClosing). G6 10 → 14.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(14);
     // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7; Lane 3 catch-up bumped further.
     // Story #2105 — lessonPlanMode surfaced as a contract so the
     // Continuous + Strict-Prerequisites conflict can be declared
@@ -132,7 +135,8 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     //   + 1 (S8 moduleScoreReadoutMode) + 1 (S7 moduleScaffoldsByStallType)
     //   + 1 (S3 moduleLearnerShellOverride) = 98
     //   + 1 (G1 onboardingClosingLine — FOH onboarding closing CTA) = 99
-    expect(JOURNEY_SETTINGS.length).toBe(99);
+    //   + 8 (PR #2266 S1 — 4 G1 + 4 G6 FOH copy knobs) = 107
+    expect(JOURNEY_SETTINGS.length).toBe(107);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

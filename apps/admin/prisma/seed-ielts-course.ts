@@ -166,6 +166,24 @@ export async function main(prisma: PrismaClient): Promise<void> {
         // tunable via the Course Pane Inspector.
         welcomeMessage: "Welcome to your I E L T S coaching session",
         onboardingClosingLine: "Click start when you are ready",
+        // PR #2266 S1 — 8 more FOH copy knobs lifted from useJourneyChat
+        // + WelcomeSurveyFlow. Each falls back to canonical defaults in
+        // lib/learner/onboarding-copy-defaults.ts when left blank; IELTS
+        // seeds reasonable course-specific copy.
+        goalsPreamble: "Here's what we'll work on together:",
+        aboutYouIntro:
+          "Hello! I'm your I E L T S study partner. {teacherName} Before we dive in, I'd love to learn a bit about you.",
+        preTestIntro:
+          "Now let's do a quick knowledge check on I E L T S Speaking — just {questionCount} questions. Don't worry about getting them right; this just helps me calibrate to where you're starting from.",
+        preTestClosing:
+          "Brilliant! I've got what I need. Let's begin your first I E L T S Speaking practice — you'll do great.",
+        postTestIntro:
+          "One last thing — let's see how much your I E L T S Speaking confidence has grown. {questionCount} questions, same skills we've been working on.",
+        postTestClosing: "Brilliant! Let's wrap up with some quick feedback.",
+        journeyExitIntro:
+          "You've finished your I E L T S Speaking sessions — amazing work! Before you go, I'd love to hear how it went.",
+        journeyExitClosing:
+          "Thanks so much for your feedback! You've been brilliant. Good luck with your I E L T S Speaking test!",
         // IELTS Speaking Practice is a structured course with 5 authored
         // modules (Baseline, Part 1, Part 2, Part 3, Mock Exam). The
         // pipeline reads `lessonPlanMode === "structured"` to keep
