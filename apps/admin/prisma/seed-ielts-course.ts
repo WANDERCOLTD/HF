@@ -448,6 +448,71 @@ export async function main(prisma: PrismaClient): Promise<void> {
     }
   }
 
+  // ── 4c. Baseline module — 4 upfront IELTS intake questions ──
+  // Pure DATA. Lives in
+  // `Playbook.config.modules[baseline].settings.{firstTimeOrientationLine,topicPool}`.
+  // The existing `module_topic_pool_directive` transform (instructions.ts
+  // :resolveModuleTopicPool, ~line 870) renders the topicPool to the AI as:
+  //
+  //   "TOPIC LIBRARY for this module — anchor on this topic and ask
+  //    these questions: Topic: IELTS Goals & Baseline. Practice
+  //    questions: <4 questions>"
+  //
+  // Pairs with `firstCallMode: "baseline_assessment"` + the
+  // `assessmentPlan.upfront` moment already declared on the playbook
+  // config above (chain-contract per json-fields.ts:1879).
+  //
+  // **Runtime gate:** the directive is wrapped by
+  // `isIeltsModuleSettingsEnabled()` — operator MUST set the env var
+  // `HF_FLAG_IELTS_MODULE_SETTINGS=true` on hf-dev VM and Cloud Run
+  // for the directive to fire (per epic #1700 decision 5). Without
+  // the flag, the topicPool is present in DB but the AI never sees
+  // it and improvises an opener.
+  //
+  // Operator edits the 4 questions via the Modules Inspector
+  // (G8 settings panel). `persistAuthoredModules.preserveManualEdits`
+  // ensures re-projection of the course-ref doc never clobbers them.
+  //
+  // Per-call answer extraction is the responsibility of the
+  // IELTS-MEASURE-001 AnalysisSpec (epic #2135, in flight). Until it
+  // ships, the standard MEASURE pipeline still scores the transcript
+  // and answers are inspectable in the Call transcript view.
+  const baselineCfgRead = await prisma.playbook.findUnique({
+    where: { id: playbook.id },
+    select: { config: true },
+  });
+  const baselineCfg = baselineCfgRead?.config as Record<string, any> | undefined;
+  const baselineMod = Array.isArray(baselineCfg?.modules)
+    ? (baselineCfg!.modules as Array<Record<string, any>>).find(
+        (m) => m.id === "baseline",
+      )
+    : undefined;
+  if (baselineCfg && baselineMod) {
+    baselineMod.settings = {
+      ...(baselineMod.settings ?? {}),
+      firstTimeOrientationLine:
+        "Welcome to your IELTS Speaking practice. Before we begin, I'll ask 4 quick questions to baseline your goals — then we'll move into practice.",
+      topicPool: [
+        {
+          topic: "IELTS Goals & Baseline",
+          questions: [
+            "What is your reason for taking the IELTS test?",
+            "What is your current IELTS speaking band?",
+            "When is your IELTS exam date?",
+            "What is your target IELTS speaking band?",
+          ],
+        },
+      ],
+    };
+    await prisma.playbook.update({
+      where: { id: playbook.id },
+      data: { config: baselineCfg as any },
+    });
+    console.log(
+      "  Baseline module: +firstTimeOrientationLine, +topicPool (4 intake Qs)",
+    );
+  }
+
   // ── 5. CONTENT-role spec for trust-weighted certification progress (#457) ──
   // `computeTrustWeightedProgress` reads module trust levels off a CONTENT
   // spec's `config.modules[].sourceRefs[].trustLevel`. The trust-progress
