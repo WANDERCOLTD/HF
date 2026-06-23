@@ -270,5 +270,49 @@ describe("ResultsReadoutShell — dismiss + next CTAs", () => {
     render(<ResultsReadoutShell />);
     expect(screen.queryByTestId("hf-results-readout-dismiss")).toBeNull();
     expect(screen.queryByTestId("hf-results-readout-next")).toBeNull();
+    expect(
+      screen.queryByTestId("hf-results-readout-review-transcript"),
+    ).toBeNull();
+  });
+
+  // UX-C / Finding 8 — "Review transcript" affordance.
+  it("renders the review-transcript button when onReviewTranscript supplied", () => {
+    const onReviewTranscript = vi.fn();
+    render(<ResultsReadoutShell onReviewTranscript={onReviewTranscript} />);
+    const btn = screen.getByTestId("hf-results-readout-review-transcript");
+    expect(btn).toHaveTextContent("Review transcript");
+    fireEvent.click(btn);
+    expect(onReviewTranscript).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders dismiss + review-transcript side by side when both supplied", () => {
+    render(
+      <ResultsReadoutShell
+        onDismiss={() => {}}
+        onReviewTranscript={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("hf-results-readout-dismiss")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("hf-results-readout-review-transcript"),
+    ).toBeInTheDocument();
+  });
+
+  it("children slot still overrides ALL default CTAs (incl. review-transcript)", () => {
+    render(
+      <ResultsReadoutShell
+        onDismiss={() => {}}
+        onNext={() => {}}
+        onReviewTranscript={() => {}}
+      >
+        <button type="button" data-testid="custom-cta">Custom</button>
+      </ResultsReadoutShell>,
+    );
+    expect(screen.getByTestId("custom-cta")).toBeInTheDocument();
+    expect(screen.queryByTestId("hf-results-readout-dismiss")).toBeNull();
+    expect(screen.queryByTestId("hf-results-readout-next")).toBeNull();
+    expect(
+      screen.queryByTestId("hf-results-readout-review-transcript"),
+    ).toBeNull();
   });
 });

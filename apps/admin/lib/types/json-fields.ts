@@ -1479,6 +1479,21 @@ export interface AuthoredModuleSettings {
    * @bucket exam
    */
   scoreReadoutMode?: ScoreReadoutMode;
+  /**
+   * UX-C / Finding 10 — phases during which the pinned card should remain
+   * visible. When set (e.g. `["prep", "monologue"]`) the pin auto-hides
+   * during phases NOT in the list (e.g. `discussion`). When unset (default)
+   * the pin stays visible for the entire session up to `phaseEnded`.
+   *
+   * Phase strings are course-agnostic (IELTS Mock examples:
+   * `"p1"`, `"p2_prep"`, `"p2_monologue"`, `"p3"`). Read by
+   * `components/sim/PinnedCardSlot.tsx` against the current phase
+   * supplied by the SimChat host. Producer-only at land time; the
+   * IELTS catalogue picks a sensible default per module shape.
+   *
+   * @bucket teaching
+   */
+  pinnedCardPhaseScope?: string[];
 }
 
 export interface ModuleDefaults {

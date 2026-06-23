@@ -70,8 +70,11 @@ const FIXTURE_KEY_EXEMPT: Record<string, string> = {
 };
 
 /** `AuthoredModuleSettings` type members deliberately not exercised by any
- *  fixture file. Empty at land time — every member is exercised by v2.3. */
-const TYPE_MEMBER_EXEMPT: Record<string, string> = {};
+ *  fixture file. */
+const TYPE_MEMBER_EXEMPT: Record<string, string> = {
+  pinnedCardPhaseScope:
+    "UX-C polish — optional phase-scope for pinned-card visibility. Consumer wired in PinnedCardSlot; fixture exercise deferred until per-course module catalogue picks defaults.",
+};
 
 /** Pin current state; new additions fail CI until consciously bumped. */
 // #1932 (epic #1931 S0): dropped from 5 → 4 — `topicPool` joined
@@ -80,7 +83,9 @@ const TYPE_MEMBER_EXEMPT: Record<string, string> = {};
 // #2162: dropped from 4 → 3 — `scoreReadoutMode` joined
 // `AuthoredModuleSettings` with the typed `ScoreReadoutMode` union.
 const EXPECTED_FIXTURE_KEY_EXEMPT_COUNT = 3;
-const EXPECTED_TYPE_MEMBER_EXEMPT_COUNT = 0;
+// UX-C polish: bumped 0 → 1 — `pinnedCardPhaseScope` added to type;
+// fixture exercise deferred.
+const EXPECTED_TYPE_MEMBER_EXEMPT_COUNT = 1;
 
 // ────────────────────────────────────────────────────────────────────
 // Parsers

@@ -22,33 +22,124 @@
  * between the two states. The pre-#2227 "hard dismiss" is gone — the
  * card can no longer become unrecoverable during a session.
  *
+ * Collapse persistence (UX-C / Finding 3): the collapsed state is
+ * persisted to `sessionStorage` keyed by `callId`. Reloads or
+ * intra-session navigation within the same tab restore the learner's
+ * last-chosen state instead of snapping back to expanded. A fresh
+ * `callId` clears any stored state for the previous call (the per-key
+ * design makes this implicit — the new key has no entry).
+ *
+ * Fetch-failure surfacing (UX-C / Finding 6): the fetch's catch block
+ * emits a `[pinned_card.fetch_failed]` console warning so operators see
+ * a signal even though the learner's UI stays subtle. When
+ * `showErrorFallback` is enabled the slot renders a tiny "Card
+ * temporarily unavailable" line instead of silently rendering null —
+ * still subtle, but no longer invisible.
+ *
+ * Phase-scope (UX-C / Finding 10): when `phaseScope` is supplied (e.g.
+ * `["p2_prep", "p2_monologue"]`), the slot auto-hides during phases NOT
+ * in the list. When unset, the pin is visible until `phaseEnded` flips
+ * true. Phase strings are course-agnostic — the SimChat host derives
+ * them from `Session.metadata.phaseBoundaries` and the current cue
+ * scheduler position.
+ *
  * Auto-clear: when `phaseEnded` flips true (callPhase === "ended" /
  * "wrapping" at the consumer), neither the card nor the chip renders.
  */
 
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { PinnedCardContent } from "@/lib/types/json-fields";
+
+const STORAGE_KEY_BASE = "hf:sim:pin-collapsed";
 
 interface PinnedCardSlotProps {
   callId: string | null;
   /** When true, the slot renders null regardless of fetched state. */
   phaseEnded: boolean;
+  /**
+   * Current session phase (e.g. `"p2_prep"`, `"p2_monologue"`,
+   * `"p3"`). Optional — when unset the slot ignores phase scoping and
+   * relies solely on `phaseEnded`.
+   */
+  currentPhase?: string | null;
+  /**
+   * Optional list of phases during which the pin should be visible.
+   * Unset → all phases (legacy default). Set + currentPhase NOT in
+   * list → slot hides. Read from `AuthoredModuleSettings.pinnedCardPhaseScope`
+   * by the SimChat host.
+   */
+  phaseScope?: string[];
+  /**
+   * UX-C / Finding 6 — when true, render a subtle "Card temporarily
+   * unavailable" line on fetch failure instead of returning null. The
+   * console warning fires regardless; this prop only controls the
+   * learner-visible surface. Defaults to false to preserve pre-UX-C
+   * silent-on-failure behaviour for callers that haven't opted in.
+   */
+  showErrorFallback?: boolean;
+}
+
+/**
+ * Resolve the sessionStorage key for a given callId. Returns null when
+ * no callId or sessionStorage is unavailable (SSR / sandboxed runtime).
+ */
+function readStoredCollapsed(callId: string | null): boolean | null {
+  if (!callId) return null;
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = window.sessionStorage.getItem(
+      `${STORAGE_KEY_BASE}:${callId}`,
+    );
+    if (stored === null) return null;
+    return stored === "true";
+  } catch {
+    // sessionStorage may be disabled (Safari private browsing pre-15,
+    // strict cookie blockers). Fall back to ephemeral state.
+    return null;
+  }
+}
+
+function writeStoredCollapsed(callId: string | null, value: boolean): void {
+  if (!callId) return;
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      `${STORAGE_KEY_BASE}:${callId}`,
+      String(value),
+    );
+  } catch {
+    // Silent — sessionStorage write failures are non-fatal.
+  }
 }
 
 export function PinnedCardSlot({
   callId,
   phaseEnded,
+  currentPhase = null,
+  phaseScope,
+  showErrorFallback = false,
 }: PinnedCardSlotProps): React.ReactElement | null {
   const [card, setCard] = useState<PinnedCardContent | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() =>
+    readStoredCollapsed(callId) ?? false,
+  );
+  const [fetchFailed, setFetchFailed] = useState(false);
 
-  // Reset collapse when callId changes — a new call earns a fresh card.
+  // On callId change, hydrate from sessionStorage (or default to
+  // expanded). Reset card + failure state — a new call earns a fresh
+  // fetch + a fresh card.
   useEffect(() => {
-    setCollapsed(false);
     setCard(null);
+    setFetchFailed(false);
+    setCollapsed(readStoredCollapsed(callId) ?? false);
   }, [callId]);
+
+  // Persist collapse state across navigation within the same call.
+  useEffect(() => {
+    writeStoredCollapsed(callId, collapsed);
+  }, [callId, collapsed]);
 
   useEffect(() => {
     if (!callId) return;
@@ -57,14 +148,22 @@ export function PinnedCardSlot({
       signal: controller.signal,
       credentials: "same-origin",
     })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((body: { card?: PinnedCardContent | null } | null) => {
         if (!body) return;
         setCard(body.card ?? null);
+        setFetchFailed(false);
       })
       .catch((err) => {
         if ((err as Error)?.name === "AbortError") return;
-        // Best-effort — silent on failure (the slot simply renders null).
+        // UX-C / Finding 6 — surface to operator telemetry. Console
+        // warning is best-effort; if a future AppLog client wrapper
+        // exists for the learner-UI tier, route through that instead.
+        console.warn("[pinned_card.fetch_failed]", {
+          callId,
+          err: (err as Error)?.message ?? String(err),
+        });
+        setFetchFailed(true);
       });
     return () => controller.abort();
   }, [callId]);
@@ -80,7 +179,33 @@ export function PinnedCardSlot({
     return () => window.removeEventListener("keydown", onKey);
   }, [card, phaseEnded, handleToggle]);
 
-  if (!card || phaseEnded) return null;
+  // UX-C / Finding 10 — phase-scope gate. When scope is set and the
+  // current phase isn't in it, hide the slot. Out-of-scope is treated
+  // as `phaseEnded` for purposes of rendering; we don't drop the
+  // stored card so re-entering an in-scope phase restores naturally.
+  const outOfPhaseScope = useMemo(() => {
+    if (!phaseScope || phaseScope.length === 0) return false;
+    if (!currentPhase) return false;
+    return !phaseScope.includes(currentPhase);
+  }, [phaseScope, currentPhase]);
+
+  if (phaseEnded || outOfPhaseScope) return null;
+
+  // Honest error surface — render only when explicitly opted in.
+  if (fetchFailed && !card) {
+    if (!showErrorFallback) return null;
+    return (
+      <div
+        className="hf-pinned-card-fallback"
+        role="status"
+        data-testid="pinned-card-fetch-fallback"
+      >
+        Card temporarily unavailable
+      </div>
+    );
+  }
+
+  if (!card) return null;
 
   if (collapsed) {
     const restoreLabel =
