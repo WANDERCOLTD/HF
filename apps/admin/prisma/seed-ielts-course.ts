@@ -192,6 +192,40 @@ export async function main(prisma: PrismaClient): Promise<void> {
         },
         tierPresetId: "ielts-speaking",
         skillScoringEmaHalfLifeDays: 14,
+        // ── CourseAssessmentPlan (epic #2176 / PR #2254 S1) ──
+        // BDD-shaped: upfront baseline + end mock. Speaking is examiner-
+        // mode, conversational — contentKind:"topic-prompt" (not mcq).
+        // Stratification.perCriterion=1 ensures one task per IELTS
+        // criterion (FC / LR / GRA / Pron) per moment.
+        // shellKind:"exam" mounts ExamModeShell (board-chair frame).
+        // Per Part modules (Part 1 / 2 / 3) are practice sessions,
+        // not formal moments — no midpoints declared.
+        assessmentPlan: {
+          upfront: {
+            kind: "upfront-baseline",
+            moduleSlug: "baseline",
+            samplingPolicy: {
+              scope: "cross-curriculum",
+              count: { min: 4, target: 4, max: 4 },
+              contentKind: "topic-prompt",
+              stratification: { perCriterion: 1 },
+            },
+            shellKind: "exam",
+            scoringSpec: "spec-ielts-measure-001",
+          },
+          end: {
+            kind: "end-mock",
+            moduleSlug: "mock",
+            samplingPolicy: {
+              scope: "cross-curriculum",
+              count: { min: 4, target: 4, max: 4 },
+              contentKind: "topic-prompt",
+              stratification: { perCriterion: 1 },
+            },
+            shellKind: "exam",
+            scoringSpec: "spec-ielts-measure-001",
+          },
+        },
       },
     },
   });
