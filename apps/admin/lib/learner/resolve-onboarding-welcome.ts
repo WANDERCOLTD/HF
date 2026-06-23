@@ -42,6 +42,13 @@ export interface OnboardingWelcomeBundle {
   postTestClosing: string | null;
   journeyExitIntro: string | null;
   journeyExitClosing: string | null;
+  // PR #2266 S2 — HTML onboarding wizard strings.
+  studentOnboardingStep1Body: string | null;
+  studentOnboardingGoalsHintWithItems: string | null;
+  studentOnboardingGoalsHintEmpty: string | null;
+  studentOnboardingHowItWorksIntro: string | null;
+  studentOnboardingReadyBody: string | null;
+  studentOnboardingReadyCta: string | null;
 }
 
 function emptyBundle(welcomeMessage: string | null): OnboardingWelcomeBundle {
@@ -56,6 +63,12 @@ function emptyBundle(welcomeMessage: string | null): OnboardingWelcomeBundle {
     postTestClosing: null,
     journeyExitIntro: null,
     journeyExitClosing: null,
+    studentOnboardingStep1Body: null,
+    studentOnboardingGoalsHintWithItems: null,
+    studentOnboardingGoalsHintEmpty: null,
+    studentOnboardingHowItWorksIntro: null,
+    studentOnboardingReadyBody: null,
+    studentOnboardingReadyCta: null,
   };
 }
 
@@ -91,6 +104,12 @@ export async function resolveOnboardingWelcomeForCaller(
       postTestClosing: cfg.postTestClosing ?? null,
       journeyExitIntro: cfg.journeyExitIntro ?? null,
       journeyExitClosing: cfg.journeyExitClosing ?? null,
+      studentOnboardingStep1Body: cfg.studentOnboardingStep1Body ?? null,
+      studentOnboardingGoalsHintWithItems: cfg.studentOnboardingGoalsHintWithItems ?? null,
+      studentOnboardingGoalsHintEmpty: cfg.studentOnboardingGoalsHintEmpty ?? null,
+      studentOnboardingHowItWorksIntro: cfg.studentOnboardingHowItWorksIntro ?? null,
+      studentOnboardingReadyBody: cfg.studentOnboardingReadyBody ?? null,
+      studentOnboardingReadyCta: cfg.studentOnboardingReadyCta ?? null,
     };
   } catch (err) {
     console.warn(

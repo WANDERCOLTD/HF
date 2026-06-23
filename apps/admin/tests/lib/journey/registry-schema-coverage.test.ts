@@ -81,6 +81,13 @@ const APPLIES_TO_ALL: readonly string[] = [
   "postTestClosing",
   "journeyExitIntro",
   "journeyExitClosing",
+  // PR #2266 S2 — 6 G1 HTML onboarding wizard knobs.
+  "studentOnboardingStep1Body",
+  "studentOnboardingGoalsHintWithItems",
+  "studentOnboardingGoalsHintEmpty",
+  "studentOnboardingHowItWorksIntro",
+  "studentOnboardingReadyBody",
+  "studentOnboardingReadyCta",
 
   // ── B_call1_opening (9 of 10 — firstCallModuleVisibility is structured-only)
   "firstCallMode",

@@ -53,6 +53,13 @@ interface ProgressData {
   institutionName: string | null;
   institutionLogo: string | null;
   welcomeMessage: string | null;
+  // PR #2266 S2 — HTML onboarding wizard cascade copy.
+  studentOnboardingStep1Body?: string | null;
+  studentOnboardingGoalsHintWithItems?: string | null;
+  studentOnboardingGoalsHintEmpty?: string | null;
+  studentOnboardingHowItWorksIntro?: string | null;
+  studentOnboardingReadyBody?: string | null;
+  studentOnboardingReadyCta?: string | null;
   topTopics: TopicEntry[];
   topicCount: number;
   keyFactCount: number;
@@ -178,6 +185,13 @@ function StudentProgressContent() {
         institutionLogo={data.institutionLogo}
         welcomeMessage={data.welcomeMessage}
         domain={data.domain}
+        // PR #2266 S2 — cascade-resolved wizard copy from /api/student/progress.
+        studentOnboardingStep1Body={data.studentOnboardingStep1Body}
+        studentOnboardingGoalsHintWithItems={data.studentOnboardingGoalsHintWithItems}
+        studentOnboardingGoalsHintEmpty={data.studentOnboardingGoalsHintEmpty}
+        studentOnboardingHowItWorksIntro={data.studentOnboardingHowItWorksIntro}
+        studentOnboardingReadyBody={data.studentOnboardingReadyBody}
+        studentOnboardingReadyCta={data.studentOnboardingReadyCta}
         onComplete={() => setShowOnboarding(false)}
       />
     );

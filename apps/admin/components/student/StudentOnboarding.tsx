@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import { Sparkles, Target, MessageCircle, Rocket } from "lucide-react";
 import "./student-onboarding.css";
+// PR #2266 S2 — shared cascade defaults for the 6 wizard strings lifted
+// out of this component. Each prop below falls through to the matching
+// ONBOARDING_COPY_DEFAULTS entry when null.
+import { ONBOARDING_COPY_DEFAULTS } from "@/lib/learner/onboarding-copy-defaults";
 
 interface GoalData {
   id: string;
@@ -23,6 +27,14 @@ interface StudentOnboardingProps {
   /** Optional caller ID for admin-in-sim context */
   callerId?: string | null;
   onComplete: () => void;
+  // PR #2266 S2 — cascade-resolved wizard copy. All optional; nulls
+  // fall through to the canonical defaults in onboarding-copy-defaults.ts.
+  studentOnboardingStep1Body?: string | null;
+  studentOnboardingGoalsHintWithItems?: string | null;
+  studentOnboardingGoalsHintEmpty?: string | null;
+  studentOnboardingHowItWorksIntro?: string | null;
+  studentOnboardingReadyBody?: string | null;
+  studentOnboardingReadyCta?: string | null;
 }
 
 export default function StudentOnboarding({
@@ -34,6 +46,12 @@ export default function StudentOnboarding({
   domain,
   callerId,
   onComplete,
+  studentOnboardingStep1Body,
+  studentOnboardingGoalsHintWithItems,
+  studentOnboardingGoalsHintEmpty,
+  studentOnboardingHowItWorksIntro,
+  studentOnboardingReadyBody,
+  studentOnboardingReadyCta,
 }: StudentOnboardingProps) {
   const { lower } = useTerminology();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -113,7 +131,8 @@ export default function StudentOnboarding({
           )}
           <p className="so-welcome-body">
             {welcomeMessage ??
-              "You're about to start a personalised learning journey. Let's get you set up in just a few steps."}
+              studentOnboardingStep1Body ??
+              ONBOARDING_COPY_DEFAULTS.studentOnboardingStep1Body}
           </p>
           <button
             onClick={() => setStep(2)}
@@ -137,7 +156,8 @@ export default function StudentOnboarding({
           {goals.length > 0 ? (
             <>
               <p className="so-hint-text">
-                These goals have been set for your learning journey. You can confirm or adjust them.
+                {studentOnboardingGoalsHintWithItems ??
+                  ONBOARDING_COPY_DEFAULTS.studentOnboardingGoalsHintWithItems}
               </p>
               <div className="so-goals-list">
                 {goals.map((goal) => {
@@ -185,7 +205,8 @@ export default function StudentOnboarding({
             </>
           ) : (
             <p className="so-hint-text">
-              What would you like to learn or achieve? Add a goal below.
+              {studentOnboardingGoalsHintEmpty ??
+                ONBOARDING_COPY_DEFAULTS.studentOnboardingGoalsHintEmpty}
             </p>
           )}
 
@@ -236,7 +257,8 @@ export default function StudentOnboarding({
           </div>
 
           <p className="so-how-intro">
-            You'll have voice conversations with an AI tutor that adapts to you.
+            {studentOnboardingHowItWorksIntro ??
+              ONBOARDING_COPY_DEFAULTS.studentOnboardingHowItWorksIntro}
           </p>
 
           <div className="so-features-list">
@@ -300,14 +322,16 @@ export default function StudentOnboarding({
             You're All Set!
           </h2>
           <p className="so-ready-desc">
-            Start your first conversation and your AI tutor will take it from there.
+            {studentOnboardingReadyBody ??
+              ONBOARDING_COPY_DEFAULTS.studentOnboardingReadyBody}
           </p>
 
           <button
             onClick={handleFinish}
             className="so-btn-start"
           >
-            Start Your First Conversation
+            {studentOnboardingReadyCta ??
+              ONBOARDING_COPY_DEFAULTS.studentOnboardingReadyCta}
           </button>
           <button
             onClick={async () => {

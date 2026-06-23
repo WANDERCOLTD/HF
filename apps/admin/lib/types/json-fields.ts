@@ -549,6 +549,51 @@ export interface PlaybookConfig {
    */
   journeyExitClosing?: string;
   /**
+   * #2266 S2 — HTML onboarding wizard step 1 body. Read by
+   * `components/student/StudentOnboarding.tsx`. Default literal:
+   * "You're about to start a personalised learning journey. Let's get
+   * you set up in just a few steps.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingStep1Body?: string;
+  /**
+   * #2266 S2 — Goals-step hint shown when the course already has goals
+   * staged for the learner. Default: "These goals have been set for
+   * your learning journey. You can confirm or adjust them.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingGoalsHintWithItems?: string;
+  /**
+   * #2266 S2 — Goals-step hint shown when the course has no pre-staged
+   * goals. Default: "What would you like to learn or achieve? Add a goal below.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingGoalsHintEmpty?: string;
+  /**
+   * #2266 S2 — How-it-works intro on onboarding step 3. Default:
+   * "You'll have voice conversations with an AI tutor that adapts to you.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingHowItWorksIntro?: string;
+  /**
+   * #2266 S2 — "You're All Set!" step 4 body. Default: "Start your
+   * first conversation and your AI tutor will take it from there.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingReadyBody?: string;
+  /**
+   * #2266 S2 — Step 4 CTA button label. Default: "Start Your First
+   * Conversation".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingReadyCta?: string;
+  /**
    * #1403 — First-call course intro spoken AFTER the welcomeMessage +
    * acknowledgement gate. Supports `{courseName}` token.
    *

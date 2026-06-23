@@ -184,6 +184,18 @@ export async function main(prisma: PrismaClient): Promise<void> {
           "You've finished your I E L T S Speaking sessions — amazing work! Before you go, I'd love to hear how it went.",
         journeyExitClosing:
           "Thanks so much for your feedback! You've been brilliant. Good luck with your I E L T S Speaking test!",
+        // PR #2266 S2 — HTML onboarding wizard copy (StudentOnboarding.tsx).
+        studentOnboardingStep1Body:
+          "You're about to start your personalised I E L T S Speaking practice journey. Let's get you set up in just a few steps.",
+        studentOnboardingGoalsHintWithItems:
+          "These I E L T S Speaking targets have been set for your journey. You can confirm or adjust them.",
+        studentOnboardingGoalsHintEmpty:
+          "What would you most like to work on for I E L T S Speaking? Add a goal below.",
+        studentOnboardingHowItWorksIntro:
+          "You'll have voice conversations with an I E L T S study partner that adapts to you.",
+        studentOnboardingReadyBody:
+          "Start your first I E L T S Speaking practice and your study partner will take it from there.",
+        studentOnboardingReadyCta: "Start Your First Practice Session",
         // IELTS Speaking Practice is a structured course with 5 authored
         // modules (Baseline, Part 1, Part 2, Part 3, Mock Exam). The
         // pipeline reads `lessonPlanMode === "structured"` to keep

@@ -339,6 +339,116 @@ const G1_PRE_TEST_CLOSING: JourneySettingContract = {
   previewLocators: [{ section: "intake", hint: "pre-test closing" }],
 };
 
+// PR #2266 S2 — HTML onboarding wizard strings (StudentOnboarding.tsx).
+
+const G1_STUDENT_ONBOARDING_STEP1_BODY: JourneySettingContract = {
+  id: "studentOnboardingStep1Body",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Onboarding wizard — step 1 body",
+  helpText:
+    "Introductory paragraph on step 1 of the HTML onboarding wizard, shown under the institution / domain title. Default: \"You're about to start a personalised learning journey. Let's get you set up in just a few steps.\".",
+  storagePath: "config.studentOnboardingStep1Body",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "wizard step 1" }],
+};
+
+const G1_STUDENT_ONBOARDING_GOALS_HINT_WITH_ITEMS: JourneySettingContract = {
+  id: "studentOnboardingGoalsHintWithItems",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Onboarding wizard — goals hint (with items)",
+  helpText:
+    "Hint shown on the goals step of the HTML wizard when the course already has goals staged. Default: \"These goals have been set for your learning journey. You can confirm or adjust them.\".",
+  storagePath: "config.studentOnboardingGoalsHintWithItems",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "wizard goals (populated)" }],
+};
+
+const G1_STUDENT_ONBOARDING_GOALS_HINT_EMPTY: JourneySettingContract = {
+  id: "studentOnboardingGoalsHintEmpty",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Onboarding wizard — goals hint (empty)",
+  helpText:
+    "Hint shown on the goals step when no goals are pre-staged. Default: \"What would you like to learn or achieve? Add a goal below.\".",
+  storagePath: "config.studentOnboardingGoalsHintEmpty",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "wizard goals (empty)" }],
+};
+
+const G1_STUDENT_ONBOARDING_HOW_IT_WORKS_INTRO: JourneySettingContract = {
+  id: "studentOnboardingHowItWorksIntro",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Onboarding wizard — how-it-works intro",
+  helpText:
+    "Intro line on step 3 of the wizard, above the feature cards. Default: \"You'll have voice conversations with an AI tutor that adapts to you.\".",
+  storagePath: "config.studentOnboardingHowItWorksIntro",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "wizard step 3" }],
+};
+
+const G1_STUDENT_ONBOARDING_READY_BODY: JourneySettingContract = {
+  id: "studentOnboardingReadyBody",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Onboarding wizard — \"You're all set!\" body",
+  helpText:
+    "Subtext on step 4 of the wizard, above the start CTA. Default: \"Start your first conversation and your AI tutor will take it from there.\".",
+  storagePath: "config.studentOnboardingReadyBody",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "wizard step 4" }],
+};
+
+const G1_STUDENT_ONBOARDING_READY_CTA: JourneySettingContract = {
+  id: "studentOnboardingReadyCta",
+  menuGroupKey: "A_intake",
+  group: "G1",
+  educatorLabel: "Onboarding wizard — start CTA label",
+  helpText:
+    "Button label on step 4 of the wizard. Default: \"Start Your First Conversation\".",
+  storagePath: "config.studentOnboardingReadyCta",
+  control: "text",
+  cascadeSources: [],
+  composeImpact: {
+    sections: ["intake"],
+    kinds: ["section-content"],
+    requiresReprompt: false,
+  },
+  previewLocators: [{ section: "intake", hint: "wizard step 4 CTA" }],
+};
+
 // =============================================================
 // G2 — Call 1 — opening & assessment (6)
 // =============================================================
@@ -2649,6 +2759,12 @@ export const JOURNEY_SETTINGS: readonly JourneySettingContract[] = [
   G1_ABOUT_YOU_INTRO,
   G1_PRE_TEST_INTRO,
   G1_PRE_TEST_CLOSING,
+  G1_STUDENT_ONBOARDING_STEP1_BODY,
+  G1_STUDENT_ONBOARDING_GOALS_HINT_WITH_ITEMS,
+  G1_STUDENT_ONBOARDING_GOALS_HINT_EMPTY,
+  G1_STUDENT_ONBOARDING_HOW_IT_WORKS_INTRO,
+  G1_STUDENT_ONBOARDING_READY_BODY,
+  G1_STUDENT_ONBOARDING_READY_CTA,
   // G2 (6)
   G2_FIRST_CALL_MODE,
   G2_WELCOME_MESSAGE,
