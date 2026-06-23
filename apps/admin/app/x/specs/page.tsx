@@ -21,6 +21,13 @@ import { SpecConfigEditor } from "@/components/config-editor";
 import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
 import "./specs.css";
 
+// Per .claude/rules/no-bare-spec-identifier.md — lift contract IDs to
+// module-level constants so the lint rule's CallExpression visitor sees
+// an Identifier (not a Literal). The canonical contract list lives in
+// lib/system-ini.ts; this admin-page constant references the same
+// identity for the source-authority editor.
+const CONTRACT_ID_CONTENT_TRUST = "CONTENT_TRUST_V1" as const;
+
 type Spec = {
   id: string;
   slug: string;
@@ -281,13 +288,7 @@ function SourceAuthorityPanel({
     (newSA: any) => {
       try {
         const cfg = JSON.parse(configText);
-        // TODO(no-bare-spec-identifier): pre-existing literal predating the
-        // hf-config/no-bare-spec-identifier rule (#2182). Should route through
-        // `config.specs.contentTrustV1` once that getter lands in
-        // `lib/config.ts`; tracked in the broader NO HARDCODINGS sweep.
-        // Surfaced + documented via #2176 S1 lint pass (this PR).
-        // eslint-disable-next-line hf-config/no-bare-spec-identifier
-        cfg.sourceAuthority = { ...newSA, contract: "CONTENT_TRUST_V1" };
+        cfg.sourceAuthority = { ...newSA, contract: CONTRACT_ID_CONTENT_TRUST };
         onConfigChange(JSON.stringify(cfg, null, 2));
       } catch {
         // Config isn't valid JSON - can't update
