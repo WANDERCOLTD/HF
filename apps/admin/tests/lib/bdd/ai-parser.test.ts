@@ -472,6 +472,32 @@ describe("convertJsonSpecToHybrid", () => {
     expect(result.storyData!.failureConditions).toEqual([]);
     expect(result.parameterData!.parameters[0].submetrics).toEqual([]);
   });
+
+  it("forwards parameters[].isAdjustable from JSON to ParsedParameter (#2271 follow-on)", () => {
+    // Regression pin: convertJsonSpecToHybrid used to silently drop
+    // `isAdjustable` because the explicit-field return shape did not
+    // include it. Result: seed-from-specs.ts:375 read `param.isAdjustable`
+    // as undefined → wrote `isAdjustable: false` on every Parameter row
+    // regardless of what the spec JSON declared. The IELTS-MEASURE-001
+    // gate was the live fingerprint (PR #2273).
+    const spec: JsonFeatureSpec = {
+      id: "ADJ-FORWARD-001",
+      title: "Adjustability forwarding",
+      version: "1.0",
+      story: { asA: "a", iWant: "b", soThat: "c" },
+      parameters: [
+        { id: "P-ADJ", name: "p_adj", description: "d", isAdjustable: true },
+        { id: "P-NO", name: "p_no", description: "d", isAdjustable: false },
+        { id: "P-OMIT", name: "p_omit", description: "d" },
+      ],
+    };
+
+    const result = convertJsonSpecToHybrid(spec);
+    const params = result.parameterData!.parameters;
+    expect(params[0].isAdjustable).toBe(true);
+    expect(params[1].isAdjustable).toBe(false);
+    expect(params[2].isAdjustable).toBeUndefined();
+  });
 });
 
 // =====================================================
