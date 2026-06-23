@@ -149,7 +149,8 @@ const EXPECTED_CASCADE_RESOLVABLE_COUNT = 10;
 // fix/onboarding-greeting-cascade — `onboardingClosingLine` lands as
 // course-only (Playbook layer only, no upstream Domain column today).
 // 77 → 78 course-only.
-const EXPECTED_COURSE_ONLY_COUNT = 78;
+// PR #2266 S1 — 8 FOH copy knobs added as course-only. 78 → 86.
+const EXPECTED_COURSE_ONLY_COUNT = 86;
 // S8 + S7 + S3 (this PR) — 9 → 12 producer-only contracts; the three new
 // G8 module-scoped knobs follow the existing IELTS-cohort pattern (no
 // upstream Domain/System cascade by design — module-scoped storage path).
@@ -159,7 +160,8 @@ const EXPECTED_GAP_COUNT = 0;
 
 // S8 + S7 + S3 — 106 → 109 total contracts.
 // fix/onboarding-greeting-cascade — 109 → 110 (onboardingClosingLine).
-const EXPECTED_TOTAL_COUNT = 110;
+// PR #2266 S1 — 110 → 118 (8 FOH copy knobs).
+const EXPECTED_TOTAL_COUNT = 118;
 
 // ────────────────────────────────────────────────────────────
 // Classification

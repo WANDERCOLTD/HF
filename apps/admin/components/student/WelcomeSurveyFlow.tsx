@@ -19,6 +19,14 @@ import {
   type SurveyEndAction,
 } from "@/lib/learner/survey-config";
 import { DEFAULT_PERSONALITY_QUESTIONS } from "@/lib/assessment/personality-defaults";
+// PR #2266 S1 — shared canonical defaults + token applier. Same source
+// of truth used by `hooks/useJourneyChat.ts`; this component's
+// `buildPersonalitySteps` + `buildPreTestSteps` were verbatim duplicates
+// of the hook's pre-cascade literals.
+import {
+  ONBOARDING_COPY_DEFAULTS,
+  applyCopyTokens,
+} from "@/lib/learner/onboarding-copy-defaults";
 import { isSummaryAction } from "@/lib/learner/survey-end-action";
 import { StopSummaryCard } from "@/components/student/StopSummaryCard";
 import "@/app/x/student/welcome/welcome.css";
@@ -58,40 +66,44 @@ function buildPersonalitySteps(
   configs: SurveyStepConfig[],
   subject: string,
   teacherName: string,
+  aboutYouIntroOverride?: string | null,
 ): SurveyStep[] {
   const steps: SurveyStep[] = configs.map((c) => ({
     ...c,
     prompt: c.prompt.replace(/\{subject\}/g, subject),
   }));
 
+  const prompt = applyCopyTokens(
+    aboutYouIntroOverride ?? ONBOARDING_COPY_DEFAULTS.aboutYouIntro,
+    { subject, teacherName },
+  );
   return [
-    {
-      id: "_greeting",
-      type: "message",
-      prompt: `Hey! I'm your AI study partner for ${subject}. ${teacherName ? `${teacherName} set this up for you.` : ""} Before we dive in, I'd love to learn a bit about you.`,
-    },
+    { id: "_greeting", type: "message", prompt },
     ...steps,
   ];
 }
 
-function buildPreTestSteps(configs: SurveyStepConfig[], subject: string): SurveyStep[] {
+function buildPreTestSteps(
+  configs: SurveyStepConfig[],
+  subject: string,
+  preTestIntroOverride?: string | null,
+  preTestClosingOverride?: string | null,
+): SurveyStep[] {
   const steps: SurveyStep[] = configs.map((c) => ({
     ...c,
     prompt: c.prompt.replace(/\{subject\}/g, subject),
   }));
 
+  const introPrompt = applyCopyTokens(
+    preTestIntroOverride ?? ONBOARDING_COPY_DEFAULTS.preTestIntro,
+    { subject, questionCount: configs.length },
+  );
+  const closingPrompt =
+    preTestClosingOverride ?? ONBOARDING_COPY_DEFAULTS.preTestClosing;
   return [
-    {
-      id: "_pretest_intro",
-      type: "message",
-      prompt: `Now let's do a quick knowledge check on ${subject} — just ${configs.length} questions. Don't worry about getting them right, this just helps me understand where you're starting from.`,
-    },
+    { id: "_pretest_intro", type: "message", prompt: introPrompt },
     ...steps,
-    {
-      id: "_pretest_done",
-      type: "message",
-      prompt: "Brilliant! I've got everything I need. Let's start your first practice session — you're going to do great.",
-    },
+    { id: "_pretest_done", type: "message", prompt: closingPrompt },
   ];
 }
 
@@ -118,26 +130,42 @@ export function WelcomeSurveyFlow({ callerId, onComplete, onAlreadyDone }: Welco
   // Persona tone
   const [tone, setTone] = useState("default");
 
+  // PR #2266 S1 — cascade-resolved learner copy from /api/student/progress.
+  // Falls through to canonical defaults in onboarding-copy-defaults.ts.
+  const [aboutYouIntro, setAboutYouIntro] = useState<string | null>(null);
+  const [preTestIntro, setPreTestIntro] = useState<string | null>(null);
+  const [preTestClosing, setPreTestClosing] = useState<string | null>(null);
+
   const url = useCallback((base: string, extra?: Record<string, string>) => buildUrl(base, callerId, extra), [callerId]);
 
   // Init: check completion + load config + assessment questions
   useEffect(() => {
     async function init(): Promise<void> {
       try {
-        const [surveyRes, teacherRes, configRes, personalityRes, preTestRes] = await Promise.all([
+        const [surveyRes, teacherRes, configRes, personalityRes, preTestRes, progressRes] = await Promise.all([
           fetch(url(`/api/student/survey`, { scope: SURVEY_SCOPES.PRE })),
           fetch(url("/api/student/teacher")),
           fetch(url("/api/student/survey-config")),
           fetch(url(`/api/student/survey`, { scope: SURVEY_SCOPES.PERSONALITY })),
           fetch(url("/api/student/assessment-questions", { type: "pre_test" })),
+          // PR #2266 S1 — cascade-resolved aboutYouIntro / preTestIntro /
+          // preTestClosing from /api/student/progress.
+          fetch(url("/api/student/progress")),
         ]);
-        const [surveyData, teacherData, configData, personalityData, preTestData] = await Promise.all([
+        const [surveyData, teacherData, configData, personalityData, preTestData, progressData] = await Promise.all([
           surveyRes.json(),
           teacherRes.json(),
           configRes.json(),
           personalityRes.json(),
           preTestRes.json(),
+          progressRes.json(),
         ]);
+
+        // Stash cascade overrides — read by buildPersonalitySteps +
+        // buildPreTestSteps at render time.
+        if (progressData?.aboutYouIntro) setAboutYouIntro(progressData.aboutYouIntro);
+        if (progressData?.preTestIntro) setPreTestIntro(progressData.preTestIntro);
+        if (progressData?.preTestClosing) setPreTestClosing(progressData.preTestClosing);
 
         if (teacherData.ok) {
           setSubject(teacherData.domain || "this subject");
@@ -350,7 +378,7 @@ export function WelcomeSurveyFlow({ callerId, onComplete, onAlreadyDone }: Welco
           {phaseIndicator}
         </div>
         <ChatSurvey
-          steps={buildPersonalitySteps(personalityConfigs, subject, teacherName)}
+          steps={buildPersonalitySteps(personalityConfigs, subject, teacherName, aboutYouIntro)}
           tutorName="AI Tutor"
           onComplete={handlePersonalityComplete}
           submitting={submitting}
@@ -368,7 +396,7 @@ export function WelcomeSurveyFlow({ callerId, onComplete, onAlreadyDone }: Welco
           {phaseIndicator}
         </div>
         <ChatSurvey
-          steps={buildPreTestSteps(preTestConfigs, subject)}
+          steps={buildPreTestSteps(preTestConfigs, subject, preTestIntro, preTestClosing)}
           tutorName="AI Tutor"
           onComplete={handlePreTestComplete}
           submitting={submitting}

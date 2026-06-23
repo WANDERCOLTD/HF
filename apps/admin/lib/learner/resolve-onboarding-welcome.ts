@@ -1,27 +1,29 @@
 /**
- * Resolves the learner-facing onboarding welcome bundle for the FOH journey.
+ * Resolves the learner-facing onboarding + journey copy bundle for the
+ * FOH journey.
  *
- * Two values, two layers:
+ * Originally introduced by PR #2265 covering 2 fields (welcomeMessage +
+ * onboardingClosingLine). Extended by PR #2266 S1 with 8 more fields
+ * lifted out of `useJourneyChat.ts` + `WelcomeSurveyFlow.tsx` as part
+ * of the "ALL settings → UI" drive.
  *
- *   - `welcomeMessage` — cascade-resolved (`Playbook.config.welcomeMessage`
- *     wins, then `Domain.onboardingWelcome`, then the supplied
- *     `institutionFallback`, then `null`). Reuses the canonical
- *     `resolveWelcomeMessage` resolver to avoid divergence with the
- *     Inspector's cascade chip rendering of the same knob.
- *   - `onboardingClosingLine` — course-only (`Playbook.config.onboardingClosingLine`).
- *     No upstream layer today; cascade-classification-coverage classifies
- *     this contract as `course-only`.
+ * Cascade resolution:
+ *
+ *   - `welcomeMessage` — cascade-resolved via `resolveWelcomeMessage`
+ *     (`Playbook.config.welcomeMessage` → `Domain.onboardingWelcome` →
+ *     `institutionFallback` → `null`).
+ *   - Every other field — course-only (`Playbook.config.<field>`). No
+ *     upstream layer today. Cascade-classification-coverage classifies
+ *     each as `course-only`.
+ *
+ * Failures (Prisma blip, missing playbook) are swallowed and logged —
+ * the onboarding screens MUST render. Consumers fall back to the
+ * hardcoded literal kept in `useJourneyChat` / `WelcomeSurveyFlow`.
  *
  * Producer ↔ consumer pairing (see `.claude/rules/registry-consumer-coverage.md`):
- * this helper is the LIB-level reader for both `welcomeMessage` and
- * `onboardingClosingLine`. The route at `app/api/student/progress/route.ts`
- * imports it and forwards the values into the progress response;
- * `hooks/useJourneyChat.ts::loadOnboardingPhase` reads them from the response
- * and renders the FOH onboarding bubbles.
- *
- * Failures (Prisma blips, missing playbook) are swallowed and logged —
- * the onboarding screen MUST render, falling back to the institution-level
- * welcome and then to the hardcoded literal in `useJourneyChat`.
+ * this helper is the LIB-level reader for ALL course-only learner-copy
+ * knobs that flow through `/api/student/progress`. The hook + the HTML
+ * onboarding wizard both consume the values from the route response.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -32,6 +34,29 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 export interface OnboardingWelcomeBundle {
   welcomeMessage: string | null;
   onboardingClosingLine: string | null;
+  goalsPreamble: string | null;
+  aboutYouIntro: string | null;
+  preTestIntro: string | null;
+  preTestClosing: string | null;
+  postTestIntro: string | null;
+  postTestClosing: string | null;
+  journeyExitIntro: string | null;
+  journeyExitClosing: string | null;
+}
+
+function emptyBundle(welcomeMessage: string | null): OnboardingWelcomeBundle {
+  return {
+    welcomeMessage,
+    onboardingClosingLine: null,
+    goalsPreamble: null,
+    aboutYouIntro: null,
+    preTestIntro: null,
+    preTestClosing: null,
+    postTestIntro: null,
+    postTestClosing: null,
+    journeyExitIntro: null,
+    journeyExitClosing: null,
+  };
 }
 
 export async function resolveOnboardingWelcomeForCaller(
@@ -41,7 +66,7 @@ export async function resolveOnboardingWelcomeForCaller(
   try {
     const playbookId = await resolvePlaybookId(callerId);
     if (!playbookId) {
-      return { welcomeMessage: institutionFallback, onboardingClosingLine: null };
+      return emptyBundle(institutionFallback);
     }
 
     const [effective, playbook] = await Promise.all([
@@ -54,14 +79,24 @@ export async function resolveOnboardingWelcomeForCaller(
 
     const cfg = (playbook?.config ?? {}) as PlaybookConfig;
     const welcomeMessage = effective.value ?? institutionFallback;
-    const onboardingClosingLine = cfg.onboardingClosingLine ?? null;
 
-    return { welcomeMessage, onboardingClosingLine };
+    return {
+      welcomeMessage,
+      onboardingClosingLine: cfg.onboardingClosingLine ?? null,
+      goalsPreamble: cfg.goalsPreamble ?? null,
+      aboutYouIntro: cfg.aboutYouIntro ?? null,
+      preTestIntro: cfg.preTestIntro ?? null,
+      preTestClosing: cfg.preTestClosing ?? null,
+      postTestIntro: cfg.postTestIntro ?? null,
+      postTestClosing: cfg.postTestClosing ?? null,
+      journeyExitIntro: cfg.journeyExitIntro ?? null,
+      journeyExitClosing: cfg.journeyExitClosing ?? null,
+    };
   } catch (err) {
     console.warn(
       "[resolve-onboarding-welcome] resolution failed:",
       (err as Error).message,
     );
-    return { welcomeMessage: institutionFallback, onboardingClosingLine: null };
+    return emptyBundle(institutionFallback);
   }
 }

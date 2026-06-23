@@ -72,6 +72,15 @@ const APPLIES_TO_ALL: readonly string[] = [
   "intakeKnowledgeCheckMode",
   "intakeSkipIfReturning",
   "onboardingClosingLine",
+  // PR #2266 S1 — 4 G1 + 4 G6 FOH onboarding copy knobs.
+  "goalsPreamble",
+  "aboutYouIntro",
+  "preTestIntro",
+  "preTestClosing",
+  "postTestIntro",
+  "postTestClosing",
+  "journeyExitIntro",
+  "journeyExitClosing",
 
   // ── B_call1_opening (9 of 10 — firstCallModuleVisibility is structured-only)
   "firstCallMode",
