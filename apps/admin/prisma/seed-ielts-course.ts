@@ -490,26 +490,56 @@ export async function main(prisma: PrismaClient): Promise<void> {
   if (baselineCfg && baselineMod) {
     baselineMod.settings = {
       ...(baselineMod.settings ?? {}),
+      // BDD `HF-IELTS-Pre-Voice-Testing-Checklist.md` §Unit 1 Scenario
+      // "Part A — Context collection":
+      //   "the tutor introduces itself warmly
+      //    AND says once: 'If you're ever unsure about anything —
+      //    just ask me.'"
+      // and Scenario "Part B feels like a natural conversation":
+      //   "the tutor does not announce it is assessing the learner
+      //    AND the transition from Part A to Part B is seamless"
+      // So the orientation MUST NOT announce "4 questions" / "an
+      // assessment" — it's a warm hello + the one-time "just ask me"
+      // line. Identity directive composes the tutor name separately.
       firstTimeOrientationLine:
-        "Welcome to your IELTS Speaking practice. Before we begin, I'll ask 4 quick questions to baseline your goals — then we'll move into practice.",
+        "If you're ever unsure about anything — just ask me. Let's just have a relaxed chat and I'll get to know you a bit.",
+      // BDD §Unit 1 Scenario "Part A — Context collection":
+      //   "collects through natural conversation:
+      //      | Reason for IELTS        |
+      //      | Target band             |
+      //      | Exam timeline           |
+      //      | Learner self-assessment |"
+      // Framed as topics-to-collect, not as scripted questions, so
+      // the AI weaves them conversationally per BDD. The topic
+      // string itself instructs the AI on the framing.
       topicPool: [
         {
-          topic: "IELTS Goals & Baseline",
+          topic:
+            "Learner context — weave these into a natural opening chat. Do NOT list them as a numbered questionnaire. Do NOT announce that this is an assessment. Each item is a fact to capture; not a script.",
           questions: [
-            "What is your reason for taking the IELTS test?",
-            "What is your current IELTS speaking band?",
-            "When is your IELTS exam date?",
-            "What is your target IELTS speaking band?",
+            "Reason for taking the IELTS test",
+            "Target IELTS speaking band",
+            "Exam timeline (planned IELTS test date)",
+            "Current self-assessed IELTS speaking band",
           ],
         },
       ],
+      // BDD §Unit 1 Scenario "Session close and output":
+      //   the tutor says: "That gives me a good picture of where you
+      //   are. Give me a moment, and we'll get you started."
+      // Overrides the course-ref v2.3 line ("That's the end of your
+      // Baseline. I'll share your focus area on screen.") per the
+      // checklist-vs-course-ref discrepancy noted in #2269 US-A-07
+      // — operator confirmed checklist is authoritative.
+      closingLine:
+        "That gives me a good picture of where you are. Give me a moment, and we'll get you started.",
     };
     await prisma.playbook.update({
       where: { id: playbook.id },
       data: { config: baselineCfg as any },
     });
     console.log(
-      "  Baseline module: +firstTimeOrientationLine, +topicPool (4 intake Qs)",
+      "  Baseline module: BDD-aligned orientation + topicPool (4 context fields) + closingLine",
     );
   }
 
