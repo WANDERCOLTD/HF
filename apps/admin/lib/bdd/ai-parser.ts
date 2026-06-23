@@ -236,6 +236,7 @@ export interface ParsedParameter {
   workedExample?: WorkedExample;
   scoringAnchors?: ScoringAnchor[];
   promptGuidance?: PromptGuidanceItem[];
+  isAdjustable?: boolean;
 }
 
 export interface Submetric {
@@ -839,6 +840,7 @@ export function convertJsonSpecToHybrid(spec: JsonFeatureSpec): ParsedHybridResu
       interpretationScale: p.interpretationScale,
       scoringAnchors: p.scoringAnchors,
       promptGuidance,
+      isAdjustable: p.isAdjustable,
       // Preserve config for IDENTITY and CONTENT specs
       config: p.config,
     };
