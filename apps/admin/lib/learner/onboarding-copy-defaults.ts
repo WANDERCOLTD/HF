@@ -42,6 +42,24 @@ export const ONBOARDING_COPY_DEFAULTS = {
   /** Journey-exit thank-you. Last learner-facing touchpoint. */
   journeyExitClosing:
     "Thanks so much for your feedback! You've been brilliant. Good luck with everything!",
+  // PR #2266 S2 — HTML onboarding wizard strings (StudentOnboarding.tsx).
+  /** Step 1 welcome body — the introductory paragraph under the institution / domain title. */
+  studentOnboardingStep1Body:
+    "You're about to start a personalised learning journey. Let's get you set up in just a few steps.",
+  /** Goals-step hint shown when goals are pre-staged for the learner. */
+  studentOnboardingGoalsHintWithItems:
+    "These goals have been set for your learning journey. You can confirm or adjust them.",
+  /** Goals-step hint shown when no goals are pre-staged. */
+  studentOnboardingGoalsHintEmpty:
+    "What would you like to learn or achieve? Add a goal below.",
+  /** How-it-works step 3 intro line above the feature cards. */
+  studentOnboardingHowItWorksIntro:
+    "You'll have voice conversations with an AI tutor that adapts to you.",
+  /** Step 4 "You're All Set!" body subtext. */
+  studentOnboardingReadyBody:
+    "Start your first conversation and your AI tutor will take it from there.",
+  /** Step 4 CTA button label. */
+  studentOnboardingReadyCta: "Start Your First Conversation",
 } as const;
 
 export interface CopyTokens {

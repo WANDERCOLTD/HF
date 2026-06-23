@@ -205,6 +205,24 @@ export async function GET(request: NextRequest) {
     institutionLogo: primaryCohort?.institution?.logoUrl ?? null,
     welcomeMessage: welcome.welcomeMessage,
     onboardingClosingLine: welcome.onboardingClosingLine,
+    // PR #2266 S1 — 8 FOH copy fields (consumed by useJourneyChat +
+    // WelcomeSurveyFlow). Forwarded directly from the lib bundle.
+    goalsPreamble: welcome.goalsPreamble,
+    aboutYouIntro: welcome.aboutYouIntro,
+    preTestIntro: welcome.preTestIntro,
+    preTestClosing: welcome.preTestClosing,
+    postTestIntro: welcome.postTestIntro,
+    postTestClosing: welcome.postTestClosing,
+    journeyExitIntro: welcome.journeyExitIntro,
+    journeyExitClosing: welcome.journeyExitClosing,
+    // PR #2266 S2 — 6 HTML onboarding wizard copy fields (consumed by
+    // StudentOnboarding).
+    studentOnboardingStep1Body: welcome.studentOnboardingStep1Body,
+    studentOnboardingGoalsHintWithItems: welcome.studentOnboardingGoalsHintWithItems,
+    studentOnboardingGoalsHintEmpty: welcome.studentOnboardingGoalsHintEmpty,
+    studentOnboardingHowItWorksIntro: welcome.studentOnboardingHowItWorksIntro,
+    studentOnboardingReadyBody: welcome.studentOnboardingReadyBody,
+    studentOnboardingReadyCta: welcome.studentOnboardingReadyCta,
     topTopics: (memorySummary?.topTopics as Array<{ topic: string; lastMentioned: string }>) ?? [],
     topicCount: memorySummary?.topicCount ?? 0,
     keyFactCount,

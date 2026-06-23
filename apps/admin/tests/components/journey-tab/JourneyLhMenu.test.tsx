@@ -81,9 +81,10 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
     // A_intake count: 8 base + Slice 13 added 2 (question text editors)
     // + PR #2265 added onboardingClosingLine = 11. PR #2266 S1 added
     // 4 more G1 FOH copy knobs (goalsPreamble + aboutYouIntro +
-    // preTestIntro + preTestClosing) = 15.
+    // preTestIntro + preTestClosing) = 15. PR #2266 S2 added 6 more
+    // G1 HTML onboarding wizard knobs = 21.
     const row = screen.getByTestId("hf-journey-bucket-row-A_intake");
-    expect(row.textContent).toMatch(/15/);
+    expect(row.textContent).toMatch(/21/);
   });
 });
 

@@ -181,6 +181,13 @@ const DECLARED_DATA_SHAPE: Record<string, DataShape> = {
   aboutYouIntro: "string",
   preTestIntro: "string",
   preTestClosing: "string",
+  // PR #2266 S2 — 6 HTML onboarding wizard strings.
+  studentOnboardingStep1Body: "string",
+  studentOnboardingGoalsHintWithItems: "string",
+  studentOnboardingGoalsHintEmpty: "string",
+  studentOnboardingHowItWorksIntro: "string",
+  studentOnboardingReadyBody: "string",
+  studentOnboardingReadyCta: "string",
 
   // ── G2 — Call 1 opening ────────────────────────────────────────
   firstCallMode: "enum-string",
