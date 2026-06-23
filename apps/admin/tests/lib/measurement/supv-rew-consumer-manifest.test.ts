@@ -183,6 +183,17 @@ describe("SUPV-001 + REW-001 consumer manifest (#2084 S6)", () => {
       const measurement = p.usage?.measurement;
       if (measurement === "deprecated") continue;
       if (typeof measurement === "string" && measurement.startsWith("deferred")) continue;
+      // Operator-only measurement variants (e.g. SUPERVISE-alarm signals
+      // like BEH-INTERNAL-LEAK consumed by humans via AppLog, not folded
+      // into the AGGREGATE/ADAPT/REWARD cascade) are NOT manifest-wired.
+      if (
+        measurement &&
+        typeof measurement === "object" &&
+        "kind" in measurement &&
+        measurement.kind === "operator-only"
+      ) {
+        continue;
+      }
       // BEH-COMPOSITE-REWARD already has a runtime mention via the
       // categorisation route — not a manifest responsibility.
       if (p.parameterId === "BEH-COMPOSITE-REWARD") continue;

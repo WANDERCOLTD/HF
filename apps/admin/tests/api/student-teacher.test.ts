@@ -79,14 +79,21 @@ describe("GET /api/student/teacher", () => {
     expect(body.teacher.name).toBe("Mr Jones");
   });
 
-  it("returns 404 when cohort not found", async () => {
+  it("returns graceful empty-state (200) when cohort references are stale", async () => {
+    // Route was refactored to graceful empty-state (200 with nulls) instead
+    // of 404, so the caller-detail "ai-call" tab doesn't surface a JS error
+    // every time an operator views an unclassroomed caller. The consumer
+    // branches on `classroom === null`.
     mockPrisma.cohortGroup.findMany.mockResolvedValue([]);
 
     const req = new NextRequest("http://localhost/api/student/teacher");
     const res = await GET(req);
     const body = await res.json();
 
-    expect(res.status).toBe(404);
-    expect(body.error).toBe("Classroom not found");
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.teacher).toBeNull();
+    expect(body.classroom).toBeNull();
+    expect(body.institution).toBeNull();
   });
 });

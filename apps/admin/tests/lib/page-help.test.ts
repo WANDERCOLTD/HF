@@ -36,7 +36,9 @@ describe("page-help registry", () => {
         "Teaching",
         "Scoring",
         "Modules",
-        "Content",
+        // #2204 (U2 of #2185): "Content" renamed to "Teaching Content"; new "Sources" tab added.
+        "Teaching Content",
+        "Sources",
         "Curriculum",
         "Learners",
         "Proof Points",
