@@ -21,12 +21,16 @@ export const test = base.extend<AuthFixture>({
       await page.goto('/login', { timeout: isCloud ? 60000 : 30000 });
       await page.waitForLoadState('networkidle', { timeout: isCloud ? 30000 : 15000 });
 
+      // Toggle to password mode (login defaults to magic-link).
+      await page.getByRole('button', { name: 'Use a password instead' }).click();
+
       // Fill credentials
-      await page.locator('#email').fill(email);
+      await page.locator('#contact').fill(email);
+      await page.locator('#password').waitFor({ state: 'visible', timeout: 5000 });
       await page.locator('#password').fill(password);
 
       // Submit form
-      await page.locator('button[type="submit"]').click();
+      await page.locator('button.login-btn[type="submit"]').click();
 
       // Wait for redirect to /x (domcontentloaded — dashboard has long-lived connections that block 'load')
       await page.waitForURL(/\/x/, { timeout: isCloud ? 60000 : 15000, waitUntil: 'domcontentloaded' });
@@ -52,9 +56,11 @@ export const test = base.extend<AuthFixture>({
       await page.goto('/login');
       await page.waitForLoadState('domcontentloaded');
 
-      await page.locator('#email').fill(email);
+      await page.getByRole('button', { name: 'Use a password instead' }).click();
+      await page.locator('#contact').fill(email);
+      await page.locator('#password').waitFor({ state: 'visible', timeout: 5000 });
       await page.locator('#password').fill(password);
-      await page.locator('button[type="submit"]').click();
+      await page.locator('button.login-btn[type="submit"]').click();
 
       await page.waitForURL(/\/x/, { timeout: 10000 });
       await page.close();
