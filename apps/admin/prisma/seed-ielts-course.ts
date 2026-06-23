@@ -154,7 +154,17 @@ export async function main(prisma: PrismaClient): Promise<void> {
       parameterCount: 0,
       config: {
         interactionPattern: "tutor",
-        teachingMode: "directive",
+        // "directive" is not in VALID_TEACHING_MODES — the read-side guard
+        // at preamble.ts:189-190 silently maps invalid values to the
+        // recall-mode preamble, so the LLM heard recall rules on every
+        // first call. "practice" is the correct mode for IELTS exam-prep
+        // (WHAT to emphasise = practice, with the directive POSTURE
+        // carried by the project's pedagogy assertions, not this enum).
+        teachingMode: "practice",
+        // First call is a diagnostic baseline — pairs with
+        // assessmentPlan.upfront.kind === "upfront-baseline" below
+        // (chain-contract per json-fields.ts:1879).
+        firstCallMode: "baseline_assessment",
         subjectDiscipline: "IELTS Speaking",
         audience: "Adult learners with B1+ general English preparing for IELTS",
         sessionCount: 12,
