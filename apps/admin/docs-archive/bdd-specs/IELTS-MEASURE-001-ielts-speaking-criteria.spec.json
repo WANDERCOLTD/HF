@@ -103,6 +103,7 @@
       "description": "IELTS Fluency & Coherence — sustained speaking without breakdown, connected discourse with logical organisation.",
       "section": "IELTS Speaking Criteria",
       "type": "STATE",
+      "isAdjustable": true,
       "targetRange": { "min": 0.0, "max": 1.0 },
       "framework": {
         "ielts": { "criterion": "FC", "name": "Fluency & Coherence", "bandRange": "1-9" }
@@ -177,6 +178,7 @@
       "description": "IELTS Lexical Resource — vocabulary range, precision of word choice, paraphrase flexibility, idiomatic appropriacy. TRANSCRIPT-ONLY — vendor audio cannot judge.",
       "section": "IELTS Speaking Criteria",
       "type": "STATE",
+      "isAdjustable": true,
       "targetRange": { "min": 0.0, "max": 1.0 },
       "framework": {
         "ielts": { "criterion": "LR", "name": "Lexical Resource", "bandRange": "1-9" }
@@ -261,6 +263,7 @@
       "description": "IELTS Grammatical Range & Accuracy — variety of sentence structures, complexity (subordination, conditionals, modals), and error frequency/gravity. TRANSCRIPT-ONLY — vendor audio cannot judge grammar.",
       "section": "IELTS Speaking Criteria",
       "type": "STATE",
+      "isAdjustable": true,
       "targetRange": { "min": 0.0, "max": 1.0 },
       "framework": {
         "ielts": { "criterion": "GRA", "name": "Grammatical Range & Accuracy", "bandRange": "1-9" }
@@ -345,6 +348,7 @@
       "description": "IELTS Pronunciation — dual-confidence scoring. Scored from transcript cues (self-corrections, tutor pronunciation feedback, repair patterns, hesitations, length variance, long-turn cleanliness) whenever there is any speech evidence; confidence is capped at 'medium' from transcript alone. When prosody vendor is wired (epic #2135 S3), the prosody-raw consumer augments this slot and raises confidence to 'high'.",
       "section": "IELTS Speaking Criteria",
       "type": "STATE",
+      "isAdjustable": true,
       "targetRange": { "min": 0.0, "max": 1.0 },
       "framework": {
         "ielts": { "criterion": "P", "name": "Pronunciation", "bandRange": "1-9" }
