@@ -1898,6 +1898,14 @@ html.light {
   margin-left: 12px;
 }
 
+/* Vertically-stacked banner content (multi-line messages with detail lists).
+   Used by AssessmentPlanBadge `partial` state and any future banner that
+   needs to wrap a headline + body + bullet list. */
+.hf-banner-column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 /* Clickable banner (acts as a CTA) — used on the sim page module-picker invite */
 .hf-banner-clickable {
   width: 100%;

@@ -72,12 +72,11 @@ import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   ASSESSMENT_KIND_VALUES,
-  LEARNER_SHELL_KIND_VALUES,
-  type AssessmentMoment,
   type CourseAssessmentPlan,
   type AuthoredModuleMode,
 } from "@/lib/types/json-fields";
 import { KIND_MODE_COMPATIBILITY } from "@/lib/assessment/kind-mode-compatibility";
+import { classifyPlanResolution } from "@/lib/assessment/classify-plan-resolution";
 
 // ────────────────────────────────────────────────────────────────────
 // Repo / spec corpus discovery
@@ -219,7 +218,12 @@ const EXPECTED_EXEMPT_COUNT = 0;
 const EXPECTED_GAP_COUNT = 7; // every course in the manifest is currently a gap (calibrated 2026-06-21)
 
 // ────────────────────────────────────────────────────────────────────
-// Classification
+// Classification — delegates to the shared classifier at
+// `lib/assessment/classify-plan-resolution.ts` (single source of
+// truth shared with the Course Overview badge, per S13). The
+// Coverage gate adds a `exempt-courseLevel` bucket on top because
+// courses can be exempted at the manifest level here (a concern
+// the runtime badge doesn't share).
 // ────────────────────────────────────────────────────────────────────
 
 type Classification =
@@ -228,118 +232,37 @@ type Classification =
   | { kind: "exempt-courseLevel"; courseId: string; reason: string }
   | { kind: "gap"; courseId: string; reasons: string[] };
 
-function classifyMoment(
-  moment: AssessmentMoment,
-  course: CourseUnderCoverage,
-): string[] {
-  const errors: string[] = [];
-
-  // (a) moduleSlug exists
-  const module = course.modules.find((m) => m.slug === moment.moduleSlug);
-  if (!module) {
-    errors.push(
-      `moment.moduleSlug "${moment.moduleSlug}" not found in course modules[]`,
-    );
-  } else {
-    // (b) mode compatibility
-    const allowed = KIND_MODE_COMPATIBILITY[moment.kind];
-    if (!allowed.includes(module.mode)) {
-      errors.push(
-        `moment.kind "${moment.kind}" requires module mode in [${allowed.join(", ")}] but module "${module.slug}" has mode "${module.mode}"`,
-      );
-    }
-  }
-
-  // (d) scoringSpec exists in corpus
-  if (!KNOWN_SPEC_SLUGS.has(moment.scoringSpec)) {
-    errors.push(`scoringSpec "${moment.scoringSpec}" not found in spec corpus`);
-  }
-
-  // (e) shellKind is a valid LearnerShellKind
-  if (!LEARNER_SHELL_KIND_VALUES.includes(moment.shellKind as never)) {
-    errors.push(`shellKind "${moment.shellKind}" not a valid LearnerShellKind`);
-  }
-
-  return errors;
-}
-
 function classifyCourse(course: CourseUnderCoverage): Classification {
-  // exempt at course-level
+  // exempt at course-level — handled here, not in the shared classifier
   const exempt = COURSE_EXEMPT[course.id];
   if (exempt) {
     return { kind: "exempt-courseLevel", courseId: course.id, reason: exempt.reason };
   }
 
-  // no plan declared at all
-  if (!course.plan) {
-    return {
-      kind: "gap",
-      courseId: course.id,
-      reasons: ["no assessmentPlan declared (operator must declare a plan OR set noAssessmentPlan:true)"],
-    };
-  }
+  // Delegate to the shared classifier. The Coverage gate passes the
+  // full spec corpus so missing spec slugs flip the result to
+  // `partial`. The badge runtime omits this — see classifier docs.
+  const status = classifyPlanResolution({
+    plan: course.plan,
+    modules: course.modules,
+    firstCallMode: course.firstCallMode,
+    knownSpecSlugs: KNOWN_SPEC_SLUGS,
+  });
 
-  const plan = course.plan;
-
-  // explicit opt-out
-  if (plan.noAssessmentPlan === true) {
-    // contradiction: opt-out + declared moments
-    if (plan.upfront || (plan.midpoints && plan.midpoints.length > 0) || plan.end) {
+  switch (status.kind) {
+    case "missing":
       return {
         kind: "gap",
         courseId: course.id,
-        reasons: ["noAssessmentPlan:true declared alongside concrete moments (contradiction)"],
+        reasons: ["no assessmentPlan declared (operator must declare a plan OR set noAssessmentPlan:true)"],
       };
-    }
-    return { kind: "exempt-no-plan", courseId: course.id };
+    case "no-plan":
+      return { kind: "exempt-no-plan", courseId: course.id };
+    case "partial":
+      return { kind: "gap", courseId: course.id, reasons: status.reasons };
+    case "resolved":
+      return { kind: "covered", courseId: course.id };
   }
-
-  const errors: string[] = [];
-
-  // (c) firstCallMode ↔ plan.upfront consistency
-  const hasUpfrontBaseline = plan.upfront?.kind === "upfront-baseline";
-  if (course.firstCallMode === "baseline_assessment" && !hasUpfrontBaseline) {
-    errors.push(
-      'firstCallMode is "baseline_assessment" but plan.upfront is missing or not kind "upfront-baseline"',
-    );
-  }
-  if (hasUpfrontBaseline && course.firstCallMode !== "baseline_assessment") {
-    errors.push(
-      `plan.upfront.kind is "upfront-baseline" but firstCallMode is "${course.firstCallMode ?? "(unset)"}"`,
-    );
-  }
-
-  // Walk every moment
-  if (plan.upfront) {
-    const momentErrors = classifyMoment(plan.upfront, course);
-    for (const e of momentErrors) errors.push(`upfront: ${e}`);
-  }
-  for (let i = 0; i < (plan.midpoints?.length ?? 0); i++) {
-    const moment = plan.midpoints![i]!;
-    const momentErrors = classifyMoment(moment, course);
-    for (const e of momentErrors) errors.push(`midpoints[${i}]: ${e}`);
-  }
-  if (plan.end) {
-    const momentErrors = classifyMoment(plan.end, course);
-    for (const e of momentErrors) errors.push(`end: ${e}`);
-  }
-
-  // If there's any error → gap
-  if (errors.length > 0) {
-    return { kind: "gap", courseId: course.id, reasons: errors };
-  }
-
-  // Must have at least one declared moment OR noAssessmentPlan to count as `covered`
-  const hasAny = plan.upfront || (plan.midpoints && plan.midpoints.length > 0) || plan.end;
-  if (!hasAny) {
-    return {
-      kind: "gap",
-      courseId: course.id,
-      reasons: ["plan declared but no upfront / midpoints / end specified (use noAssessmentPlan:true to opt out)"],
-    };
-  }
-
-  return { kind: "covered", courseId: course.id };
 }
 
 // ────────────────────────────────────────────────────────────────────
