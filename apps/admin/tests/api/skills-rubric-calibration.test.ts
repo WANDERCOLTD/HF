@@ -26,6 +26,9 @@ const mockPrisma = {
   playbook: { findUnique: vi.fn() },
   parameter: { findMany: vi.fn() },
   analysisSpec: { findUnique: vi.fn() },
+  // Added by deploy-unblock 2026-06-23. Route now queries
+  // BehaviorTarget(PLAYBOOK scope) to detect IELTS shape (#2158).
+  behaviorTarget: { findMany: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
@@ -59,6 +62,7 @@ describe("GET /api/courses/[id]/skills-rubric-calibration", () => {
     });
     mockPrisma.parameter.findMany.mockResolvedValue([]);
     mockPrisma.analysisSpec.findUnique.mockResolvedValue(null);
+    mockPrisma.behaviorTarget.findMany.mockResolvedValue([]);
 
     const skillMod = await import("@/lib/curriculum/resolve-skill");
     mockResolveAllSkills = skillMod.resolveAllSkillsForPlaybook as ReturnType<typeof vi.fn>;

@@ -274,7 +274,7 @@
             "session_focus:next_"
           ],
           "kind": "callerAttribute-write",
-          "runner": "apps/admin/app/api/calls/[callId]/pipeline/route.ts (runSessionFocusPolicySpecs — ADAPT sub-op 9, #2154)",
+          "runner": "apps/admin/app/api/calls/[callId]/pipeline/route.ts",
           "outputNotes": "Dispatched from ADAPT executor via outputType: \"CALLER_ATTRIBUTE_NEXT\" (added to enum by #2154). Pre-#2154 the runner was unreachable from the executor; PR #2153 shipped the runner standalone behind config.category: \"session-focus-policy\" discriminator on outputType=ADAPT specs. First instance of the substrate: IELTS-P3-FOCUS-001 spec (PR #2150 / epic #2145 S4) — projects CallerTarget.currentScore on the 4 IELTS skill params to one of 4 Part3TechniqueFocus labels. The written value is the LEARNER-facing label from spec.selectionRules (e.g. \"giving reasons\"), NEVER an internal parameter id. Generic runner — input skill ids are spec-config driven (per-course); consumesKey is scope-based to skip per-sample overlap check (samples are field names present in runner source)."
         },
         {
