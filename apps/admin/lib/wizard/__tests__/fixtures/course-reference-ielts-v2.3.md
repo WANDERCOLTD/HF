@@ -276,8 +276,8 @@ settings:
     You'll get one minute to prepare. Cover all the bullets and try to
     use a range of tenses — past, present, future — in one turn.
   scheduledCues:
-    - { at: 45, text: "15 seconds left" }          # end of 1-min prep phase
-    - { at: 60, text: "Your two minutes start now" }   # monologue begin
+    - { at: 45, text: "15 seconds left" }                                   # end of 1-min prep phase (still p2_prep)
+    - { at: 60, text: "Your two minutes start now", phase: "p2_monologue" } # prep → monologue boundary (#1762 Story C — Session.metadata.phaseBoundaries)
   scaffoldPool: source:stall-scaffolds-monologue   # Source 6
   profileFieldsToCapture: []
   prepSilenceSec: 60            # examiner silence during prep
@@ -367,8 +367,8 @@ settings:
     follow-up questions. About twenty minutes total. I'll share your
     indicative bands at the end.
   scheduledCues:
-    - { at: 45, text: "15 seconds left" }          # Part 2 prep phase end
-    - { at: 60, text: "Your two minutes start now" }   # Part 2 monologue begin
+    - { at: 45, text: "15 seconds left" }                                   # Part 2 prep phase end (still p2_prep)
+    - { at: 60, text: "Your two minutes start now", phase: "p2_monologue" } # Part 2 monologue begin (#1762 Story C — Session.metadata.phaseBoundaries)
   scaffoldPool: source:stall-scaffolds-monologue   # examiner mode throughout; Part 2 long-turn stalls only
   profileFieldsToCapture: []
   prepSilenceSec: 60            # Part 2 prep phase inside Mock

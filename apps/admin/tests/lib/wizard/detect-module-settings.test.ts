@@ -58,7 +58,7 @@ describe("detectModuleSettings — IELTS v2.3 happy path", () => {
     );
     expect(part2!.scheduledCues).toEqual([
       { at: 45, text: "15 seconds left" },
-      { at: 60, text: "Your two minutes start now" },
+      { at: 60, text: "Your two minutes start now", phase: "p2_monologue" },
     ]);
     // The closingLine should NOT be emitted as `moduleClosingLine`
     // (the parser strips the `module` prefix when present, but the v2.3
