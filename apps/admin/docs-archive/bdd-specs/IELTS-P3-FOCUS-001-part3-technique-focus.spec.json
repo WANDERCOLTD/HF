@@ -10,6 +10,7 @@
   "specRole": "SYNTHESISE",
   "outputType": "CALLER_ATTRIBUTE_NEXT",
   "profileCondition": ["ielts-speaking"],
+  "parameters": [],
   "config": {
     "category": "session-focus-policy",
     "profileCondition": ["ielts-speaking"],
