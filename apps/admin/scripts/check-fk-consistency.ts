@@ -711,6 +711,91 @@ async function runChecks(): Promise<CheckResult[]> {
     warnOnly: true,
   });
 
+  // Query 15 — #2305 — stale `CallerTarget.currentScore` for IELTS skill
+  // parameters where ZERO `CallScore` rows back the score for the same
+  // (callerId, parameterId).
+  //
+  // Per epic #2135's rule "NEVER land hardcoded or AI-guessed score
+  // defaults": every non-null `currentScore` MUST be derivable from at
+  // least one CallScore row written through the canonical
+  // `aggregate-runner.ts::accumulateSkillScores` path. Pre-#2138
+  // `lib/pipeline/prosody-consumer.ts` wrote `currentScore` directly under
+  // IELTS skill IDs without writing a paired CallScore — that path is
+  // retired but the stale rows remain. Same failure mode as Query 11
+  // (`AnalysisSpec.config.parameters[].id` dangling-FK) but on the
+  // measurement-output surface instead of the spec-config surface.
+  //
+  // Live evidence (2026-06-23 hf_sandbox): 39 of 149 IELTS skill
+  // CallerTarget rows carry non-null `currentScore` with zero matching
+  // CallScore rows — fabricated signal that corrupts EMA going forward
+  // until drained via `scripts/drain-stale-ielts-skill-callertargets.ts`.
+  //
+  // WARN-only initially while the drain is in flight. Promote to error
+  // severity once the incumbent debt is cleared on every hosted DB.
+  //
+  // CI's ephemeral DB has no CallerTarget seed → returns 0 by
+  // construction. Load-bearing run is via `npm run check:fk` against
+  // hosted DBs (DATABASE_URL_SANDBOX / DATABASE_URL_STAGING).
+  type StaleIeltsCallerTargetRow = {
+    caller_target_id: string;
+    caller_id: string;
+    caller_name: string | null;
+    parameter_id: string;
+    current_score: number | null;
+    last_scored_at: Date | null;
+  };
+  let staleIeltsCallerTargets: StaleIeltsCallerTargetRow[] = [];
+  try {
+    staleIeltsCallerTargets = await prisma.$queryRaw<StaleIeltsCallerTargetRow[]>`
+      SELECT
+        ct."id" AS caller_target_id,
+        ct."callerId" AS caller_id,
+        c."name" AS caller_name,
+        ct."parameterId" AS parameter_id,
+        ct."currentScore" AS current_score,
+        ct."lastScoredAt" AS last_scored_at
+      FROM "CallerTarget" ct
+      JOIN "Caller" c ON c."id" = ct."callerId"
+      WHERE ct."parameterId" IN (
+        'skill_fluency_and_coherence_fc',
+        'skill_lexical_resource_lr',
+        'skill_grammatical_range_and_accuracy_gra',
+        'skill_pronunciation_p'
+      )
+        AND ct."currentScore" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "CallScore" cs
+          WHERE cs."callerId" = ct."callerId"
+            AND cs."parameterId" = ct."parameterId"
+        )
+      ORDER BY ct."callerId", ct."parameterId";
+    `;
+  } catch (err) {
+    // Same defensive shape as Query 11 / Query 14 — tolerate failure with
+    // a warn so unrelated CI doesn't block.
+    console.warn(
+      `[fk-check] CallerTarget non-null without CallScore scan errored: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  results.push({
+    name: "callertarget-non-null-without-callscore",
+    description:
+      "#2305 — CallerTarget.currentScore is non-null for an IELTS skill parameterId but ZERO CallScore rows back the (callerId, parameterId). Pre-#2138 prosody-consumer wrote currentScore directly under IELTS skill IDs without a paired CallScore — that path was retired but the stale rows remain. Drain via `scripts/drain-stale-ielts-skill-callertargets.ts --apply`. WARN-only until the incumbent debt is cleared on every hosted DB; promote to error severity then.",
+    rows: staleIeltsCallerTargets.map((r) => ({
+      id: r.caller_target_id,
+      detail: {
+        callerId: r.caller_id,
+        callerName: r.caller_name ?? undefined,
+        parameterId: r.parameter_id,
+        currentScore: r.current_score ?? undefined,
+        lastScoredAt: r.last_scored_at?.toISOString() ?? undefined,
+      },
+    })),
+    warnOnly: true,
+  });
+
   return results;
 }
 
