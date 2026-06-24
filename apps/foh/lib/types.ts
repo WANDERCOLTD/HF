@@ -35,4 +35,14 @@ export interface ScoresResponse {
   ok: boolean;
   sessions: SessionScore[];
   count: number;
+  /** True when sourced from a live HF backend proxy; false when the
+   *  proxy fell back to representative SAMPLE data (e.g. no creds,
+   *  network failure, auth error). Mirrors the `live` field on
+   *  `CallersResponse` — same fallback shape as `apps/foh/app/api/callers`. */
+  live?: boolean;
+  /** Live source URL when `live === true`, or "sample" for the fallback. */
+  source?: string;
+  /** Human-readable note explaining the fallback (only set when
+   *  `live === false`). */
+  note?: string;
 }
