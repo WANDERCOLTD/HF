@@ -53,17 +53,20 @@ const SAMPLE: FohStudentProgressResponse = {
     { slug: "part3", title: "Part 3 — Discussion", status: "NOT_STARTED" },
   ],
   lessonPlan: {
-    // LEARNER-SAFE values only — internal criterion slugs (skill_*) and
-    // criterion labels ("Fluency and Coherence" etc.) MUST NOT appear in
-    // FOH source per `.claude/rules/learner-ui-leak-coverage.md`. The
-    // real backend's `/api/admin/student/progress` proxy is responsible
-    // for redacting `Session.metadata.lessonPlan.focusCriterion` to a
-    // learner-safe technique label per IELTS-P3-FOCUS-001 (D5, PR #2306)
-    // before the payload crosses the FOH boundary. Until that proxy is
-    // wired (epic #2277), the sample reflects what the redacted payload
-    // looks like: a Part3TechniqueFocus label (one of "giving reasons" /
-    // "structuring an argument" / "handling a challenge" / "expanding an
-    // answer"), not the criterion that drove the selection.
+    // LEARNER-SAFE values only — internal IELTS criterion slugs and
+    // criterion labels MUST NOT appear in FOH source per the rule at
+    // `.claude/rules/learner-ui-leak-coverage.md`. The real backend's
+    // `/api/admin/student/progress` proxy is responsible for redacting
+    // the internal criterion to a learner-safe technique label per
+    // IELTS-P3-FOCUS-001 (D5, PR #2306) before the payload crosses the
+    // FOH boundary. Until that proxy is wired (epic #2277), the sample
+    // reflects what the redacted payload looks like: a
+    // Part3TechniqueFocus member (giving reasons / structuring an
+    // argument / handling a challenge / expanding an answer), not the
+    // criterion that drove the selection.
+    // NOTE: the learner-ui-leak gate scans this file for quoted
+    // internal-label literals INCLUDING inside comments — that's why
+    // the forbidden examples appear unquoted above.
     focusCriterion: "part3-technique-focus",
     focusLabel: "expanding an answer",
     focusScore: 0.55,
