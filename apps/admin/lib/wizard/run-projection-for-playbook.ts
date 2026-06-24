@@ -109,6 +109,13 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
         select: {
           id: true,
           name: true,
+          // #2266 follow-on — textSample fallback for sources created
+          // without a MediaAsset (seed-driven sources, JSON POST course-ref
+          // uploads). When mediaAssets[0] is absent, the projection reads
+          // from textSample instead of bailing with no-media-asset. The
+          // POST /course-reference route already populates textSample with
+          // the full markdown (no truncation) — see route.ts:176.
+          textSample: true,
           mediaAssets: {
             select: { storageKey: true, fileName: true },
             take: 1,
@@ -148,32 +155,45 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
   for (const link of links) {
     const source = link.source;
     const media = source.mediaAssets[0];
-    if (!media) {
+
+    let text = "";
+    if (media) {
+      try {
+        const buffer = await storage.download(media.storageKey);
+        const extracted = await extractTextFromBuffer(buffer, media.fileName);
+        text = extracted.text ?? "";
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[projection] skipping source=${source.id} (${source.name}) — failed to load text: ${msg}`,
+        );
+        skippedSources.push({
+          sourceContentId: source.id,
+          sourceName: source.name,
+          reason: `load-failed: ${msg}`,
+        });
+        continue;
+      }
+    } else if (source.textSample && source.textSample.trim().length > 0) {
+      // #2266 follow-on — fallback to ContentSource.textSample when no
+      // MediaAsset is attached. Closes the "DIRECT CREATE / SEED path"
+      // convergence gap: seeded ContentSources don't have a MediaAsset
+      // (the seed writes the doc text into textSample instead, per the
+      // same convention as POST /api/courses/[courseId]/course-reference
+      // at route.ts:176). The textSample column is @db.Text — unlimited
+      // length — so the full course-ref doc fits.
+      text = source.textSample;
+      console.log(
+        `[projection] source=${source.id} (${source.name}) — using textSample fallback (no MediaAsset)`,
+      );
+    } else {
       console.warn(
-        `[projection] skipping source=${source.id} (${source.name}) — no MediaAsset (race with extraction or URL-type source)`,
+        `[projection] skipping source=${source.id} (${source.name}) — no MediaAsset and no textSample (race with extraction or URL-type source)`,
       );
       skippedSources.push({
         sourceContentId: source.id,
         sourceName: source.name,
         reason: "no-media-asset",
-      });
-      continue;
-    }
-
-    let text = "";
-    try {
-      const buffer = await storage.download(media.storageKey);
-      const extracted = await extractTextFromBuffer(buffer, media.fileName);
-      text = extracted.text ?? "";
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(
-        `[projection] skipping source=${source.id} (${source.name}) — failed to load text: ${msg}`,
-      );
-      skippedSources.push({
-        sourceContentId: source.id,
-        sourceName: source.name,
-        reason: `load-failed: ${msg}`,
       });
       continue;
     }
