@@ -676,6 +676,94 @@ export async function main(prisma: PrismaClient): Promise<void> {
     );
   }
 
+  // ── 6. Canonical Source 1–5 ContentSource rows (#2266 follow-on) ──
+  //
+  // The course-ref doc declares 5 named source pools that the playbook
+  // module config references by their canonical names — the
+  // module-summary table at line 133-137 lists each module's source as
+  // "Source 1 — Part 1 topic library", "Source 4 — Baseline topic pool",
+  // etc. The `applyProjection` step above creates ContentSource rows
+  // for the 3 inline-defined banks (`part1-topic-library-v1`,
+  // `cue-card-bank-v1`, `part3-theme-library-v1`) but names them with
+  // the doc's H3 heading ("IELTS Speaking — Part 1 topic set library")
+  // — NOT the shorter canonical name the module config references.
+  //
+  // Without this step, `resolveModuleSourceRefs` returns null for those
+  // 5 refs, the AI tutor has no structured content to draw from in
+  // Parts 1/2/3 and Baseline/Mock, and the FOH session improvises
+  // topics on the fly. Confirmed live on hf_sandbox 2026-06-24.
+  //
+  // Fix is data-first: alias the 3 existing sources to their canonical
+  // names (no schema change), create new ContentSource rows for the 2
+  // sources the projection doesn't materialise (Baseline + Mock pools
+  // per course-ref doc lines 1093/1101). Idempotent — re-seed updates
+  // names in place; create-on-miss for the 2 new rows.
+  //
+  // Long-term, `applyProjection` should align source names to the
+  // module-table-column convention (story TBD); this seed-side step
+  // keeps the IELTS market test unblocked in the meantime.
+  type SourceAlias = {
+    bySlug?: string;
+    canonicalName: string;
+    description?: string;
+    documentType?: "QUESTION_BANK" | "REFERENCE";
+  };
+  const CANONICAL_SOURCES: SourceAlias[] = [
+    { bySlug: "part1-topic-library-v1", canonicalName: "Source 1 — Part 1 topic library" },
+    { bySlug: "cue-card-bank-v1", canonicalName: "Source 2 — Cue card bank" },
+    { bySlug: "part3-theme-library-v1", canonicalName: "Source 3 — Part 3 theme library" },
+    {
+      canonicalName: "Source 4 — Baseline topic pool",
+      description:
+        "Separate pool of Part 1 topics, Part 2 cue cards, and Part 3 themes used ONLY in Baseline Assessment. Kept separate so Baseline content isn't practised before the student takes their Baseline.",
+      documentType: "QUESTION_BANK",
+    },
+    {
+      canonicalName: "Source 5 — Mock Exam topic pool",
+      description:
+        "Separate pool of full three-part Mock Exam scenarios. Each scenario is a Part 1 topic set, a Part 2 cue card, and a thematically connected Part 3 theme, designed to function together as a coherent test simulation.",
+      documentType: "QUESTION_BANK",
+    },
+  ];
+  let aliased = 0;
+  let created = 0;
+  for (const entry of CANONICAL_SOURCES) {
+    if (entry.bySlug) {
+      const existing = await prisma.contentSource.findFirst({
+        where: { slug: entry.bySlug },
+        select: { id: true, name: true },
+      });
+      if (existing && existing.name !== entry.canonicalName) {
+        await prisma.contentSource.update({
+          where: { id: existing.id },
+          data: { name: entry.canonicalName },
+        });
+        aliased += 1;
+      }
+    } else {
+      const existing = await prisma.contentSource.findFirst({
+        where: { name: entry.canonicalName },
+      });
+      if (!existing) {
+        await prisma.contentSource.create({
+          data: {
+            slug: entry.canonicalName
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-|-$/g, ""),
+            name: entry.canonicalName,
+            description: entry.description ?? "",
+            documentType: entry.documentType ?? "QUESTION_BANK",
+          },
+        });
+        created += 1;
+      }
+    }
+  }
+  if (aliased > 0 || created > 0) {
+    console.log(`  Canonical Source 1-5 names: aliased ${aliased}, created ${created}`);
+  }
+
   console.log("✓ IELTS Speaking Practice seeded");
 }
 
