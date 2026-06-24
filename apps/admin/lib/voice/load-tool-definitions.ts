@@ -47,15 +47,13 @@ export async function loadToolDefinitions(
 ): Promise<ProviderToolDefinition[]> {
   const slug = config.specs.voiceTools;
   try {
-    // seed-from-specs.ts:608 lowercases + prefixes "spec-" when writing the
-    // slug column. Use a case-insensitive contains match (mirrors the pattern
-    // in lib/pipeline/config.ts:51 for PIPELINE-001) so a config default of
-    // "TOOLS-001" still resolves the stored "spec-tools-001" row.
+    // seed-from-specs.ts:608 stores slugs as `spec-${id.toLowerCase()}`.
+    // Use the deterministic shape directly — a contains-match would also
+    // hit sibling specs whose slug contains "tools-001" (e.g.
+    // spec-prompt-cref-tools-001).
+    const storedSlug = `spec-${slug.toLowerCase()}`;
     const spec = await prisma.analysisSpec.findFirst({
-      where: {
-        slug: { contains: slug.toLowerCase(), mode: "insensitive" },
-        isActive: true,
-      },
+      where: { slug: storedSlug, isActive: true },
       select: { config: true },
     });
     if (!spec) {
