@@ -47,9 +47,14 @@ describe("loadToolDefinitions (#1019)", () => {
     const result = await loadToolDefinitions();
     expect(result).toEqual(tools);
 
-    // Confirm the lookup used the configured slug
+    // Confirm the lookup used the configured slug via case-insensitive
+    // contains match (seeder lowercases + "spec-" prefixes, so equality
+    // would never match — mirrors lib/pipeline/config.ts:51 pattern).
     const args = (prisma.analysisSpec.findFirst as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(args.where.slug).toBe(config.specs.voiceTools);
+    expect(args.where.slug).toEqual({
+      contains: config.specs.voiceTools.toLowerCase(),
+      mode: "insensitive",
+    });
     expect(args.where.isActive).toBe(true);
   });
 
