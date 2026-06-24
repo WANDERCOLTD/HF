@@ -28,22 +28,22 @@
       {
         "whenWeakest": "skill_fluency_and_coherence_fc",
         "thenLabel": "structuring an argument",
-        "rationale": "DRAFT — Fluency & Coherence weakness surfaces as halting / disorganised long turns. Practising 'structuring an argument' (signposting, premise → support → conclusion) gives the learner an explicit through-line to follow, which is the most reliable transcript-observable lift on FC bands. PEDAGOGY REVIEW PENDING."
+        "rationale": "FC weakness surfaces as halting / disorganised long turns. The IELTS Speaking band descriptors directly grade 'range of connectives and discourse markers' — Band 4 'links basic sentences with repetitious simple connectives' through Band 7 'uses a range of connectives and discourse markers with some flexibility'. 'Structuring an argument' (signposting, premise → support → conclusion) trains the discourse-marker discipline the descriptor rewards. Sources: British Council 'Signposting Language — Speaking Part 3' (takeielts.britishcouncil.org); IDP 'Mastering IELTS Speaking — Fluency and Coherence'. See docs/decisions/2026-06-24-ielts-p3-selectionrules-pedagogy.md."
       },
       {
         "whenWeakest": "skill_lexical_resource_lr",
         "thenLabel": "expanding an answer",
-        "rationale": "DRAFT — Lexical Resource weakness shows as short, lexically thin answers that don't push into less-common vocabulary or paraphrase. 'Expanding an answer' creates the surface area for the learner to attempt richer lexical choices and to circumlocute when stuck. PEDAGOGY REVIEW PENDING."
+        "rationale": "LR weakness shows as short, lexically thin answers that don't push into topic-specific or less-common vocabulary. Extended Part 3 answers structurally force paraphrase, topic-specific terminology, and complex features (relative clauses, comparison language, passive voice). 'Expanding an answer' creates the surface area for richer lexical choices and circumlocution. Sources: Magoosh 'IELTS Speaking — Lexical Resource'; British Council 'IELTS Speaking — Lexical Resource' PDF; SimplyIELTS 'Part 3 Extended Answers'. See docs/decisions/2026-06-24-ielts-p3-selectionrules-pedagogy.md."
       },
       {
         "whenWeakest": "skill_grammatical_range_and_accuracy_gra",
         "thenLabel": "giving reasons",
-        "rationale": "DRAFT — Grammatical Range & Accuracy weakness rarely emerges in simple-clause answers; it surfaces when the learner attempts subordination, conditional, modal-hedged constructions. 'Giving reasons' explicitly invites because/although/if-clauses, exercising the structures GRA grades. PEDAGOGY REVIEW PENDING."
+        "rationale": "GRA weakness rarely emerges in simple-clause answers; it surfaces only when the learner attempts subordination, conditional constructions, modal-hedged speculation. 'Giving reasons' explicitly invites because/although/if-clauses and modals (might, could, would probably, is likely to) — exactly the structures the GRA descriptor grades. Sources: Keith Speaking Academy 'Complex Sentences for IELTS Speaking'; multiple Part 3 guides converge on 'speculate / give reasons / use conditionals' as the canonical GRA lift in Part 3. See docs/decisions/2026-06-24-ielts-p3-selectionrules-pedagogy.md."
       },
       {
         "whenWeakest": "skill_pronunciation_p",
-        "thenLabel": "handling a challenge",
-        "rationale": "DRAFT — Pronunciation is the loosest fit of the 4 mappings. 'Handling a challenge' (e.g. tutor pushing back, asking learner to elaborate or defend) demands sustained turns under interactive pressure — the kind of speech where pronunciation cleanliness is most observable in transcript cues (tutor confirmations, self-corrections, repair patterns per IELTS-MEASURE-001 P sub-metrics). PEDAGOGY REVIEW PENDING — Pronunciation is structurally not a Part 3 discussion technique; operator may prefer to rotate this slot or use only the 3 FC/LR/GRA rules."
+        "thenLabel": "expanding an answer",
+        "rationale": "Pronunciation is improved through chunking, sentence/word stress, intonation, and shadowing — NONE of which is a Part 3 discussion technique. Of the 4 learner-facing technique labels available in this union, 'expanding an answer' is the only one that materially helps P: it maximises learner speech-chunks → maximises the surface area for the tutor to model native-like prosody, for the learner to self-correct, and for repair patterns to surface in the transcript. Same label as LR is correct — the union is on labels (what the learner sees), not criterion↔label uniqueness; the tutor's behaviour + runtime prosody modelling is what differs. Sources: British Council 'How to improve English pronunciation for IELTS Speaking' (chunking + shadowing recommended); IDP 'Pronunciation skills' (stress/intonation drilled through extended utterance practice). Prior draft mapping to 'handling a challenge' was retired — interactive-pressure turns don't develop pronunciation features; that label is retained in the Part3TechniqueFocus union for a future per-course rollup (e.g. confidence-under-pushback). See docs/decisions/2026-06-24-ielts-p3-selectionrules-pedagogy.md."
       }
     ],
     "operatorRule": "NEVER backfill `CallerAttribute(key=session_focus:next_*)` rows with hardcoded / AI-guessed defaults. Honest empty state (no row) is the right answer when no input skill has a scored CallerTarget.currentScore yet. (Epic #2135 rule applied to projected emphasis labels as well.)"

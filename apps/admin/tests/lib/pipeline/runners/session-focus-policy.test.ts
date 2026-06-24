@@ -43,6 +43,11 @@ const LR = "skill_lexical_resource_lr";
 const GRA = "skill_grammatical_range_and_accuracy_gra";
 const P = "skill_pronunciation_p";
 
+// Pedagogy-approved mapping per docs/decisions/2026-06-24-ielts-p3-selectionrules-pedagogy.md.
+// Pronunciation-weak learners share the "expanding an answer" label with
+// Lexical-Resource-weak learners — the union allows duplicate labels because
+// it's keyed on what the learner SEES, not on criterion uniqueness. The tutor's
+// runtime modelling (chunking, stress, intonation) is what differs for P.
 const IELTS_P3_CONFIG: SessionFocusPolicyConfig = {
   category: "session-focus-policy",
   inputSkills: [FC, LR, GRA, P],
@@ -51,7 +56,7 @@ const IELTS_P3_CONFIG: SessionFocusPolicyConfig = {
     { whenWeakest: FC, thenLabel: "structuring an argument" },
     { whenWeakest: LR, thenLabel: "expanding an answer" },
     { whenWeakest: GRA, thenLabel: "giving reasons" },
-    { whenWeakest: P, thenLabel: "handling a challenge" },
+    { whenWeakest: P, thenLabel: "expanding an answer" },
   ],
   writeKey: "session_focus:next_part3",
   moduleScope: { slugPattern: "part3" },
@@ -365,7 +370,7 @@ describe("CALLER_ATTRIBUTE_NEXT dispatch contract (#2154)", () => {
         { whenWeakest: FC, thenLabel: "structuring an argument" },
         { whenWeakest: LR, thenLabel: "expanding an answer" },
         { whenWeakest: GRA, thenLabel: "giving reasons" },
-        { whenWeakest: P, thenLabel: "handling a challenge" },
+        { whenWeakest: P, thenLabel: "expanding an answer" },
       ],
       writeKey: "session_focus:next_part3",
       moduleScope: { slugPattern: "part3" },
