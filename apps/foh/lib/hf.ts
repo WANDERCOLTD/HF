@@ -223,13 +223,20 @@ const CRITERION_ORDER: CriterionKey[] = [
  * Shape of one row from the admin GET /api/calls/scores response —
  * `CallScore` with `call.source` + `parameter.{name, parameterId}` joined.
  * Loose typing because we cross a process boundary; the mapper validates.
+ *
+ * `callerId` lives at the TOP LEVEL on CallScore (denormalized per
+ * `prisma/schema.prisma::CallScore.callerId`) — NOT under `call.*`. The
+ * admin `/api/calls/scores` endpoint only selects `{ source, transcript }`
+ * from the `call` relation, so `row.call.callerId` is always undefined.
+ * (Caught in PR #2288 review.)
  */
 export interface AdminCallScoreRow {
   callId: string;
+  callerId?: string | null;
   parameterId: string;
   score: number;
   createdAt: string;
-  call?: { source?: string | null; callerId?: string | null } | null;
+  call?: { source?: string | null } | null;
   parameter?: { name?: string | null; parameterId?: string | null } | null;
 }
 
@@ -285,10 +292,7 @@ export function reshapeScores(
   for (const row of rows) {
     const key = IELTS_PARAM_TO_KEY[row.parameterId];
     if (!key) continue; // not an IELTS criterion row
-    if (
-      scopedCallerId !== null &&
-      row.call?.callerId !== scopedCallerId
-    ) {
+    if (scopedCallerId !== null && row.callerId !== scopedCallerId) {
       continue;
     }
     const label = row.parameter?.name ?? row.parameterId; // canonical name

@@ -3,8 +3,11 @@ import { reshapeScores, type AdminCallScoreRow } from "@/lib/hf";
 
 // Representative payload shape captured from
 // apps/admin/app/api/calls/scores/route.ts — admin returns raw CallScore
-// rows with `call.{source, callerId}` + `parameter.{name, parameterId}`
-// joined.
+// rows with `call.{source}` + `parameter.{name, parameterId}` joined,
+// PLUS `callerId` at the TOP LEVEL (denormalized per
+// `prisma/schema.prisma::CallScore.callerId`). The admin route's `call`
+// select does NOT include callerId — `row.call.callerId` is always
+// undefined. (Bug caught in PR #2288 review.)
 function row(
   callId: string,
   parameterId: string,
@@ -18,12 +21,12 @@ function row(
 ): AdminCallScoreRow {
   return {
     callId,
+    callerId: opts.callerId ?? "caller-1",
     parameterId,
     score,
     createdAt: opts.createdAt ?? "2026-06-22T10:00:00Z",
     call: {
       source: opts.source ?? "vapi-pstn",
-      callerId: opts.callerId ?? "caller-1",
     },
     parameter: { name: opts.label ?? parameterId, parameterId },
   };
@@ -125,6 +128,32 @@ describe("reshapeScores", () => {
     const sessions = reshapeScores(rows, { callerId: "caller-1" });
     expect(sessions).toHaveLength(1);
     expect(sessions[0].id).toBe("call-A");
+  });
+
+  it("returns [] when scoped callerId matches no rows (no cross-caller leak)", () => {
+    // Pre-fix bug (PR #2288 review): reshapeScores read `row.call.callerId`
+    // which was always undefined (admin /api/calls/scores selects only
+    // `{ source, transcript }` from the `call` relation). With ?callerId=
+    // filter, every row was dropped → [] regardless of scope; without it,
+    // every caller's rows were returned. Real callerId lives at TOP LEVEL
+    // on CallScore (denormalized per prisma schema).
+    //
+    // This test pins both halves: scope filter MUST hit the top-level
+    // field, and a non-matching scope MUST return []. A STUDENT requesting
+    // another caller's scores via the FOH proxy receives [] — the upstream
+    // session-cookie auth (admin route requireAuth) plus this client-side
+    // scope filter together block the leak.
+    const rows: AdminCallScoreRow[] = [
+      row("call-A", "skill_fluency_and_coherence_fc", 6, {
+        callerId: "caller-1",
+      }),
+      row("call-A", "skill_lexical_resource_lr", 7, { callerId: "caller-1" }),
+      row("call-B", "skill_fluency_and_coherence_fc", 7, {
+        callerId: "caller-2",
+      }),
+    ];
+    const sessions = reshapeScores(rows, { callerId: "caller-3" });
+    expect(sessions).toEqual([]);
   });
 
   it("returns all callers' sessions when no callerId scope is supplied", () => {
