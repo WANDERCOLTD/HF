@@ -116,6 +116,16 @@ export async function main(prisma: PrismaClient): Promise<void> {
   });
 
   // ── 2. ContentSource (COURSE_REFERENCE) ──
+  //
+  // #2266 follow-on — populate `textSample` with the full course-ref
+  // markdown (NOT truncated to 1000 chars). The textSample column is
+  // @db.Text — unlimited length — and this gives the wizard route's
+  // `runProjectionForPlaybook` a fallback path when no MediaAsset is
+  // attached. Without textSample, the wizard skips seeded sources
+  // (the `no-media-asset` skip) and the DIRECT CREATE path can't
+  // converge with SEED. Pattern mirrors POST /api/courses/[courseId]/
+  // course-reference (route.ts:176) which writes the full markdown.
+  const courseRefText = fs.readFileSync(FIXTURE_PATH, "utf-8");
   let source = await prisma.contentSource.findFirst({ where: { slug: CONTENT_SOURCE_SLUG } });
   if (!source) {
     source = await prisma.contentSource.create({
@@ -124,7 +134,15 @@ export async function main(prisma: PrismaClient): Promise<void> {
         name: "IELTS Speaking Practice — Course Reference",
         description: "Canonical course reference driving the IELTS playbook seed. Defines 4 IELTS skills, 8 outcomes, and 4 modules.",
         documentType: "COURSE_REFERENCE",
+        textSample: courseRefText,
       },
+    });
+  } else if (!source.textSample || source.textSample.length < 10000) {
+    // Existing row from a prior seed that ran before the textSample
+    // backfill — populate now. Re-run-safe: subsequent runs are no-op.
+    source = await prisma.contentSource.update({
+      where: { id: source.id },
+      data: { textSample: courseRefText },
     });
   }
 
@@ -303,7 +321,8 @@ export async function main(prisma: PrismaClient): Promise<void> {
   // storage adapter download) because the fixture is on local disk and we
   // can read it directly. The parser + applier are pure DB operations with
   // no AI dependency.
-  const bodyText = fs.readFileSync(FIXTURE_PATH, "utf-8");
+  // courseRefText already read above for textSample backfill — reuse.
+  const bodyText = courseRefText;
   const projection = projectCourseReference(bodyText, { sourceContentId: source.id });
 
   // ── 4a. Resolve `source:<id>` refs into inlined arrays (#2266 follow-on) ──
