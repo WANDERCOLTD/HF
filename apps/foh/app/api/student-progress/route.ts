@@ -53,11 +53,22 @@ const SAMPLE: FohStudentProgressResponse = {
     { slug: "part3", title: "Part 3 — Discussion", status: "NOT_STARTED" },
   ],
   lessonPlan: {
-    focusCriterion: "skill_fluency_and_coherence_fc",
-    focusLabel: "Fluency and Coherence",
+    // LEARNER-SAFE values only — internal criterion slugs (skill_*) and
+    // criterion labels ("Fluency and Coherence" etc.) MUST NOT appear in
+    // FOH source per `.claude/rules/learner-ui-leak-coverage.md`. The
+    // real backend's `/api/admin/student/progress` proxy is responsible
+    // for redacting `Session.metadata.lessonPlan.focusCriterion` to a
+    // learner-safe technique label per IELTS-P3-FOCUS-001 (D5, PR #2306)
+    // before the payload crosses the FOH boundary. Until that proxy is
+    // wired (epic #2277), the sample reflects what the redacted payload
+    // looks like: a Part3TechniqueFocus label (one of "giving reasons" /
+    // "structuring an argument" / "handling a challenge" / "expanding an
+    // answer"), not the criterion that drove the selection.
+    focusCriterion: "part3-technique-focus",
+    focusLabel: "expanding an answer",
     focusScore: 0.55,
     reason:
-      "Fluency and Coherence scored lowest on this session — strengthening it will lift your overall band fastest.",
+      "Your next session focuses on expanding an answer — practising fuller, more detailed responses lifts your overall band fastest.",
     nextRecommendedModuleSlug: "part1",
     emittedAt: "2026-06-22T10:00:00Z",
   },
