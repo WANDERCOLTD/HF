@@ -1092,19 +1092,27 @@ A bank of Part 3 themes, each with 4 to 6 abstract follow-up questions across th
   
 ### Source 4 — Baseline Assessment topic pool  
   
-A small, separate pool of Part 1 topics, Part 2 cue cards, and Part 3 themes used only in Baseline Assessment. Keeping this pool separate prevents Baseline content from being practised before the student takes their Baseline.  
+A small, separate pool of Part 2 cue cards used only in Baseline Assessment. Keeping this pool separate prevents Baseline content from being practised before the student takes their Baseline. (Part 1 topics and Part 3 themes for Baseline are sampled at runtime from across the standard Sources 1 + 3 with a Baseline-tag filter; only Part 2 cards live in a dedicated pool.)  
   
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-baseline-cue-cards.md`  
+- *format:* structured-md  
+- *moduleRef:* baseline  
+- *settingRef:* moduleCueCardPool  
 - *Outcomes served:* none directly — Baseline samples across all outcomes.  
 - *Ordering:* one randomised draw per Baseline.  
 - *Notes:* The pool is sized to support a meaningful number of student onboardings without repeating Baseline content within a cohort.  
   
 ### Source 5 — Mock Exam topic pool  
   
-A larger, separate pool of full three-part Mock Exam scenarios. Each Mock Exam scenario is a Part 1 topic set, a Part 2 cue card, and a thematically connected Part 3 theme, designed to function together as a coherent test simulation.  
+A larger, separate pool of Part 2 cue cards used only in Mock Exam. Each cue card is the Part 2 spine of a full three-part Mock Exam scenario — Part 1 questions and Part 3 themes flow naturally from the cue card's frame at runtime. Mock content is kept separate so that simulated tests are not practised in advance.  
   
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-mock-cue-cards.md`  
+- *format:* structured-md  
+- *moduleRef:* mock  
+- *settingRef:* moduleCueCardPool  
 - *Outcomes served:* OUT-25, OUT-26, OUT-27.  
 - *Ordering:* the tutor avoids repeating a Mock Exam scenario for the same student within a fixed window.  
-- *Notes:* Mock Exam scenarios are constructed to be representative of real test difficulty and are reviewed against the Topic Packaging Standards.  
+- *Notes:* Mock Exam cue cards are constructed to be representative of real test difficulty and are reviewed against the Topic Packaging Standards.  
   
 ### Source 6 — Part 2 stall scaffolds (monologue)  
   

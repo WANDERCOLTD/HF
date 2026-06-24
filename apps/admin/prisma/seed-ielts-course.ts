@@ -54,6 +54,14 @@ import * as crypto from "crypto";
 
 import { projectCourseReference } from "../lib/wizard/project-course-reference";
 import { applyProjection } from "../lib/wizard/apply-projection";
+// #2266 follow-on — same source-ref resolver the wizard route uses, so
+// SEED + WIZARD paths produce identical module-settings inline content.
+// Prior to this, the seed's `applyProjection` left `cueCardPool` /
+// `topicPool` etc. as `source:<slug>` STRING refs in the playbook config
+// — only the wizard route inlined them. Hoisting the resolver into the
+// seed closes the convergence gap.
+import { resolveModuleSourceRefs } from "../lib/wizard/resolve-module-source-refs";
+import type { AuthoredModuleSettings } from "../lib/types/json-fields";
 import { findOrCreateSeedPlaybook } from "../lib/seed/find-or-create-seed-playbook";
 import { saveAssertions } from "../lib/content-trust/save-assertions";
 import type { ExtractedAssertion } from "../lib/content-trust/extract-assertions";
@@ -297,6 +305,44 @@ export async function main(prisma: PrismaClient): Promise<void> {
   // no AI dependency.
   const bodyText = fs.readFileSync(FIXTURE_PATH, "utf-8");
   const projection = projectCourseReference(bodyText, { sourceContentId: source.id });
+
+  // ── 4a. Resolve `source:<id>` refs into inlined arrays (#2266 follow-on) ──
+  //
+  // The wizard route at `lib/wizard/run-projection-for-playbook.ts:203-226`
+  // does this same step — it hoists the resolver call between projection
+  // and applyProjection so the playbook config's module settings carry
+  // the FULL inlined content (parsed cue cards, topic pools, scaffolds,
+  // profile fields) rather than just the `source:<slug>` ref string.
+  //
+  // Without this step the seed leaves the source-ref strings in place
+  // and the AI tutor has no structured content to draw from at runtime.
+  // Hoisting the resolver here makes SEED + WIZARD paths produce the
+  // SAME module settings shape — convergence per "ALL paths work".
+  if (projection.configPatch?.modules && projection.configPatch.modules.length > 0) {
+    const byModuleId = new Map<string, Partial<AuthoredModuleSettings>>();
+    for (const m of projection.configPatch.modules) {
+      if (m.settings) byModuleId.set(m.id, { ...m.settings });
+      else byModuleId.set(m.id, {});
+    }
+    const repoRoot = path.resolve(__dirname, "..", "..", "..");
+    const resolution = resolveModuleSourceRefs(byModuleId, bodyText, { repoRoot });
+    projection.configPatch.modules = projection.configPatch.modules.map((m) => {
+      const resolved = resolution.byModuleId.get(m.id);
+      if (!resolved || Object.keys(resolved).length === 0) return m;
+      return { ...m, settings: { ...(m.settings ?? {}), ...resolved } };
+    });
+    for (const w of resolution.validationWarnings) {
+      projection.validationWarnings.push(w);
+    }
+    const resolvedCount = resolution.resolutions.filter((r) => r.status === "resolved").length;
+    const skippedCount = resolution.resolutions.filter((r) => r.status === "skipped").length;
+    if (resolvedCount > 0 || skippedCount > 0) {
+      console.log(
+        `  Source-ref resolution: ${resolvedCount} inlined, ${skippedCount} skipped`,
+      );
+    }
+  }
+
   const result = await applyProjection(projection, {
     playbookId: playbook.id,
     sourceContentId: source.id,
