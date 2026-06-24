@@ -610,37 +610,29 @@ export async function main(prisma: PrismaClient): Promise<void> {
       // — operator confirmed checklist is authoritative.
       closingLine:
         "That gives me a good picture of where you are. Give me a moment, and we'll get you started.",
-      // Projection bug workaround — `applyProjection` writes some YAML
-      // settings (firstTimeOrientationLine, closingLine) to
-      // config.modules[].settings but NOT cueCardPool / scoringCriteria
-      // / scaffoldPool / scoreReadoutMode. Until projection is fixed,
-      // we set these directly here so the runtime directives fire.
-      //
-      // cueCardPool: course-ref v2.3 YAML says `cue-card-bank-baseline-v1`
-      // (Source 4); per PR #2241 D2 the BDD-sanctioned reuse path is to
-      // repoint to `cue-card-bank-v1` (Source 2 — the canonical Part 2
-      // cue-card bank, EXPERT_CURATED). Unblocks `module_cue_card_directive`
-      // → AI gets real cue-card content for the Part B speaking sample.
-      cueCardPool: "source:cue-card-bank-v1",
-      // BDD §"Part B": tutor asks questions in Part 1 style. The
-      // baseline session uses Part 1 stall scaffolds for short stalls
-      // (Part 1 reuse Part 3 scaffold shape per course-ref YAML).
-      scaffoldPool: "source:stall-scaffolds-monologue",
       // BDD §"Assessment produces a complete learner profile": all 4
       // IELTS criteria must have non-null scores. end-session.ts reads
       // scoringCriteria to gate `validateIeltsCompletion`. Until
       // epic #2135 (LLM MEASURE) ships, these may still come back null
       // — but the field needs to be set for the pipeline to attempt.
+      // Not a resolver-handled field — kept here as the canonical
+      // seed-time writer.
       scoringCriteria: ["FC", "LR", "GRA", "Pron"],
       // BDD §"no scores are shown to the learner" — bands appear
       // on-screen post-session but are NOT spoken aloud during the
-      // call. Matches course-ref v2.3 YAML.
+      // call. Matches course-ref v2.3 YAML. Not a resolver-handled
+      // field — kept here as the canonical seed-time writer.
       scoreReadoutMode: "on-screen",
-      // BDD §"Part A — Context collection" / "And all collected
-      // information is persisted to the learner profile" — the
-      // profile-fields source defines the typed schema (key + prompt
-      // + type) the MEASURE spec extracts from the transcript.
-      profileFieldsToCapture: "source:ielts-speaking-profile-fields",
+      // NOTE: cueCardPool / scaffoldPool / profileFieldsToCapture
+      // overrides REMOVED in #2266 follow-on (post-#2294/#2295/#2298).
+      // The resolver hoist (#2294) + textSample fallback (#2295) +
+      // Source 4 content (#2294 + header fix #2298) means
+      // `applyProjection` now correctly inlines these source-ref
+      // fields from course-ref. The previous PR #2241 D2 workaround
+      // ("repoint baseline cueCardPool to source:cue-card-bank-v1
+      // because Source 4 was empty") is no longer needed — baseline
+      // now uses its dedicated Source 4 pool (6 baseline-only cards)
+      // per the course-ref doc's separation spec at line 1093-1100.
     };
     await prisma.playbook.update({
       where: { id: playbook.id },
