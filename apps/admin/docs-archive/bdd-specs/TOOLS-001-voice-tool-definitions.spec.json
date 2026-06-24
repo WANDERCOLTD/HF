@@ -13,6 +13,7 @@
     "iWant": "voice tool definitions stored as a seeded spec",
     "soThat": "tool descriptions can be updated without a code deploy and the tools are provider-agnostic by construction"
   },
+  "parameters": [],
   "context": {
     "applies": "Every voice call that has tool enablement turned on in VoiceCallSettings. The VapiProvider adapter (lib/voice/providers/vapi) reads this spec at call-start via loadToolDefinitions() and embeds the active tools in the assistant config.",
     "dependsOn": [

@@ -47,9 +47,10 @@ describe("loadToolDefinitions (#1019)", () => {
     const result = await loadToolDefinitions();
     expect(result).toEqual(tools);
 
-    // Confirm the lookup used the configured slug
+    // Confirm the lookup used the seeder-deterministic stored slug shape:
+    // `spec-${id.toLowerCase()}` (per seed-from-specs.ts:608).
     const args = (prisma.analysisSpec.findFirst as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(args.where.slug).toBe(config.specs.voiceTools);
+    expect(args.where.slug).toBe(`spec-${config.specs.voiceTools.toLowerCase()}`);
     expect(args.where.isActive).toBe(true);
   });
 

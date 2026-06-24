@@ -672,6 +672,12 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
       config.archetypes = rawSpecData.archetypes;
       console.log(`      Copied ${Object.keys(rawSpecData.archetypes).length} archetype configs from rawSpec`);
     }
+    // Copy tools from rawSpec.config if present (TOOLS-001 — voice tool definitions
+    // stored under spec.config.tools; runtime reader at lib/voice/load-tool-definitions.ts).
+    if (rawSpecData?.config && typeof rawSpecData.config === "object" && Array.isArray((rawSpecData.config as any).tools)) {
+      config.tools = (rawSpecData.config as any).tools;
+      console.log(`      Copied ${(rawSpecData.config as any).tools.length} tool definitions from rawSpec.config`);
+    }
   }
   // For IDENTITY and CONTENT specs: preserve parameters array AND flatten for backward compat
   else if (specRole === SpecRole.IDENTITY || specRole === SpecRole.CONTENT) {
