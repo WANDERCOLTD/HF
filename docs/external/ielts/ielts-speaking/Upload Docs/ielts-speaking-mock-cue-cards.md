@@ -25,7 +25,7 @@ The "and explain ..." bullet is the substantive one — examiners look for it to
 
 ## Person frame
 
-### Card M1 — A leader you have read about or learnt about
+### Card 1 — A leader you have read about or learnt about
 
 > Describe a leader you have read about or learnt about.
 > You should say:
@@ -42,7 +42,7 @@ _(source: HFF-authored, Mock pool — separate from Source 2 training cards.)_
 
 ## Place frame
 
-### Card M2 — A public building in your city that you find impressive
+### Card 2 — A public building in your city that you find impressive
 
 > Describe a public building in your city that you find impressive.
 > You should say:
@@ -59,7 +59,7 @@ _(source: HFF-authored, Mock pool.)_
 
 ## Object frame
 
-### Card M3 — A gift you received that meant a great deal to you
+### Card 3 — A gift you received that meant a great deal to you
 
 > Describe a gift you received that meant a great deal to you.
 > You should say:
@@ -76,7 +76,7 @@ _(source: HFF-authored, Mock pool.)_
 
 ## Event frame
 
-### Card M4 — A piece of news you remember being widely discussed
+### Card 4 — A piece of news you remember being widely discussed
 
 > Describe a piece of news you remember being widely discussed.
 > You should say:
@@ -93,7 +93,7 @@ _(source: HFF-authored, Mock pool.)_
 
 ## Experience frame
 
-### Card M5 — A time you learnt something useful by making a mistake
+### Card 5 — A time you learnt something useful by making a mistake
 
 > Describe a time you learnt something useful by making a mistake.
 > You should say:
@@ -106,7 +106,7 @@ _Rounding-off: Are people in your culture comfortable talking about their mistak
 
 _(source: HFF-authored, Mock pool.)_
 
-### Card M6 — A long journey that was memorable for you
+### Card 6 — A long journey that was memorable for you
 
 > Describe a long journey that was memorable for you.
 > You should say:
@@ -123,7 +123,7 @@ _(source: HFF-authored, Mock pool.)_
 
 ## Activity frame
 
-### Card M7 — An activity you do that helps you concentrate
+### Card 7 — An activity you do that helps you concentrate
 
 > Describe an activity you do that helps you concentrate.
 > You should say:
@@ -136,7 +136,7 @@ _Rounding-off: Why do some people find it harder than others to concentrate toda
 
 _(source: HFF-authored, Mock pool.)_
 
-### Card M8 — A skill that takes a long time to learn
+### Card 8 — A skill that takes a long time to learn
 
 > Describe a skill that takes a long time to learn.
 > You should say:

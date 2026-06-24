@@ -25,7 +25,7 @@ After the candidate's monologue, the examiner may ask one or two short rounding-
 
 ## Person frame
 
-### Card B1 — A teacher who influenced your study choices
+### Card 1 — A teacher who influenced your study choices
 
 > Describe a teacher who influenced your study choices.
 > You should say:
@@ -42,7 +42,7 @@ _(source: HFF-authored, Baseline pool — separate from Source 2 training cards.
 
 ## Place frame
 
-### Card B2 — A neighbourhood you would recommend to a visitor
+### Card 2 — A neighbourhood you would recommend to a visitor
 
 > Describe a neighbourhood you would recommend to a visitor.
 > You should say:
@@ -59,7 +59,7 @@ _(source: HFF-authored, Baseline pool.)_
 
 ## Object frame
 
-### Card B3 — A piece of equipment you use frequently at work or in your studies
+### Card 3 — A piece of equipment you use frequently at work or in your studies
 
 > Describe a piece of equipment you use frequently at work or in your studies.
 > You should say:
@@ -76,7 +76,7 @@ _(source: HFF-authored, Baseline pool.)_
 
 ## Event frame
 
-### Card B4 — A local festival or celebration you have attended
+### Card 4 — A local festival or celebration you have attended
 
 > Describe a local festival or celebration you have attended.
 > You should say:
@@ -93,7 +93,7 @@ _(source: HFF-authored, Baseline pool.)_
 
 ## Experience frame
 
-### Card B5 — A time you had to make a difficult decision quickly
+### Card 5 — A time you had to make a difficult decision quickly
 
 > Describe a time you had to make a difficult decision quickly.
 > You should say:
@@ -110,7 +110,7 @@ _(source: HFF-authored, Baseline pool.)_
 
 ## Activity frame
 
-### Card B6 — A hobby you have continued for a long time
+### Card 6 — A hobby you have continued for a long time
 
 > Describe a hobby you have continued for a long time.
 > You should say:
