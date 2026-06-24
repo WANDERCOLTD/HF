@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-23T22:25:19.761Z",
+  "generatedAt": "2026-06-24T13:05:44.692Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1898,
-  "edgeCount": 4485,
+  "fileCount": 1900,
+  "edgeCount": 4487,
   "skippedEdges": 1,
   "edges": [
     {
@@ -17680,12 +17680,20 @@
       "to": "lib/prisma.ts"
     },
     {
+      "from": "scripts/drain-stale-ielts-skill-callertargets.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
       "from": "scripts/fix-cio-cto-playbooks.ts",
       "to": "lib/goals/strategies/types.ts"
     },
     {
       "from": "scripts/fix-cio-cto-playbooks.ts",
       "to": "lib/registry/canonical-domain-group.ts"
+    },
+    {
+      "from": "scripts/forensic-probe-stale-ielts-callertargets.ts",
+      "to": "lib/prisma.ts"
     },
     {
       "from": "scripts/generate-ai-capabilities.ts",
@@ -25601,7 +25609,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 688,
+      "inDegree": 690,
       "outDegree": 0
     },
     {
@@ -27115,6 +27123,11 @@
       "outDegree": 0
     },
     {
+      "path": "scripts/drain-stale-ielts-skill-callertargets.ts",
+      "inDegree": 0,
+      "outDegree": 1
+    },
+    {
       "path": "scripts/enrich-beh-parameters.ts",
       "inDegree": 0,
       "outDegree": 0
@@ -27133,6 +27146,11 @@
       "path": "scripts/fix-orphaned-calls.ts",
       "inDegree": 0,
       "outDegree": 0
+    },
+    {
+      "path": "scripts/forensic-probe-stale-ielts-callertargets.ts",
+      "inDegree": 0,
+      "outDegree": 1
     },
     {
       "path": "scripts/generate-ai-capabilities.ts",
@@ -27443,7 +27461,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 688,
+      "inDegree": 690,
       "outDegree": 0
     },
     {

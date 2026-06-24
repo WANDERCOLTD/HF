@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-23T22:25:22.075Z",
+  "generatedAt": "2026-06-24T13:05:47.024Z",
   "generator": "scripts/capture/parameter-inventory.ts",
   "parameterCount": 163,
   "active": 148,
@@ -909,7 +909,7 @@
         "lib/measurement/neutral-target.ts",
         "lib/prompt/composition/transforms/quickstart.ts"
       ],
-      "classification": "covered"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-RHYTHM-ATTENTION",
@@ -1002,7 +1002,7 @@
         "lib/chat/unified-assistant-prompt.ts",
         "lib/prompt/composition/transforms/quickstart.ts"
       ],
-      "classification": "covered"
+      "classification": "promptInjection-dispatcher"
     },
     {
       "parameterId": "BEH-VERBAL-ELABORATION",

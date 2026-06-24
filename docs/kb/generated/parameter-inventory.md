@@ -10,8 +10,8 @@ Auto-generated from `apps/admin/docs-archive/bdd-specs/behavior-parameters.regis
 |---|---:|
 | Active parameters | 148 |
 | Deprecated | 15 |
-| Covered by consumer file | 113 |
-| Covered by promptInjection dispatcher | 14 |
+| Covered by consumer file | 111 |
+| Covered by promptInjection dispatcher | 16 |
 | **Producer-only (gap)** | **21** |
 | **Total** | **163** |
 
@@ -100,7 +100,7 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 | `BEH-LEARNING-VELOCITY-ADAPTATION` | covered | H/L | learning_velocity_adaptation | `lib/pipeline/engagement-targets-manifest.ts` |
 | `BEH-PAUSE-FOR-QUESTIONS` | covered | H/L | pause-for-questions | `lib/pipeline/engagement-targets-manifest.ts` |
 | `BEH-TONE-ASSERT` | covered | H/L | TONE_ASSERT | `lib/pipeline/engagement-targets-manifest.ts` |
-| `BEH-TURN-LENGTH` | covered | H/L | — | `lib/chat/unified-assistant-prompt.ts`, `lib/prompt/composition/transforms/quickstart.ts` |
+| `BEH-TURN-LENGTH` | promptInjection-dispatcher | H/L | — | `lib/chat/unified-assistant-prompt.ts`, `lib/prompt/composition/transforms/quickstart.ts` |
 | `BEH-WARMTH` | covered | H/L | BEH-CONVERSATIONAL-TONE, warmth_actual | `app/api/cascade/resolve/route.ts`, `app/api/chat/factual-grounding-intercept.ts`, `app/api/x/seed-domains/route.ts`, +7 more |
 | `check-for-understanding` | covered | H/L | — | `lib/pipeline/engagement-targets-manifest.ts` |
 | `CONV_PACE` | deprecated | H/L | — | `lib/chat/admin-tools.ts`, `lib/pipeline/prosody-consumer.ts`, `lib/pipeline/prosody-types.ts` |
@@ -195,7 +195,7 @@ Producer-only entries are parameters with neither a code-level consumer nor a re
 | `BEH-NEUROTICISM-ADAPTATION` | covered | H/L | neuroticism_adaptation | `lib/prompt/composition/transforms/instructions.ts`, `lib/prompt/composition/transforms/personality.ts` |
 | `BEH-OPENNESS-ADAPTATION` | covered | H/L | openness_adaptation | `lib/prompt/composition/transforms/instructions.ts`, `lib/prompt/composition/transforms/personality.ts` |
 | `BEH-PAUSE-TOLERANCE` | covered | H/L | — | `lib/chat/unified-assistant-prompt.ts`, `lib/measurement/neutral-target.ts`, `lib/prompt/composition/transforms/quickstart.ts` |
-| `BEH-RESPONSE-LEN` | covered | H/L | — | `app/api/chat/route.ts`, `lib/chat/admin-tool-handlers.ts`, `lib/chat/admin-tools.ts`, +4 more |
+| `BEH-RESPONSE-LEN` | promptInjection-dispatcher | H/L | — | `app/api/chat/route.ts`, `lib/chat/admin-tool-handlers.ts`, `lib/chat/admin-tools.ts`, +4 more |
 
 ## `reinforcement` (6)
 
