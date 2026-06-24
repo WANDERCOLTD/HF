@@ -275,9 +275,16 @@ settings:
     In Part 2 you'll speak for two minutes on a single cue card.
     You'll get one minute to prepare. Cover all the bullets and try to
     use a range of tenses — past, present, future — in one turn.
+  # MT #2277 — Part 2 carries 5 scheduledCues: PPF prep intro + warns +
+  # monologue boundary + re-speak offer + re-speak close. Cue-scheduler
+  # is voice-only per PR #2286; BDD-acceptable since real IELTS examiners
+  # speak prep instructions verbally.
   scheduledCues:
-    - { at: 45, text: "15 seconds left" }                                   # end of 1-min prep phase (still p2_prep)
-    - { at: 60, text: "Your two minutes start now", phase: "p2_monologue" } # prep → monologue boundary (#1762 Story C — Session.metadata.phaseBoundaries)
+    - { at: 0, text: "You'll have one minute to prepare. Think of a specific memory or moment. Consider past, present, and future. Write three bullet points — one word or phrase per line.", phase: "p2_prep_start" }
+    - { at: 45, text: "Fifteen seconds left." }
+    - { at: 60, text: "Your time starts now — go ahead.", phase: "p2_monologue" }
+    - { at: 181, text: "Your structure was clear — let's try once more. Same topic. Start when you're ready.", phase: "p2_respeak" }
+    - { at: 241, text: "Good — that's your minute. Well done.", phase: "p2_respeak_close" }
   scaffoldPool: source:stall-scaffolds-monologue   # Source 6
   profileFieldsToCapture: []
   prepSilenceSec: 60            # examiner silence during prep
@@ -366,9 +373,13 @@ settings:
     card with one minute to prepare and two minutes to speak, then Part 3
     follow-up questions. About twenty minutes total. I'll share your
     indicative bands at the end.
+  # MT #2277 — Mock Part 2 segment carries prep-intro + warns ONLY; no
+  # re-speak loop per BDD U5 (Mock is exam-mode end-to-end; re-speak is
+  # a Part 2 practice affordance, not exam-mode behaviour).
   scheduledCues:
-    - { at: 45, text: "15 seconds left" }                                   # Part 2 prep phase end (still p2_prep)
-    - { at: 60, text: "Your two minutes start now", phase: "p2_monologue" } # Part 2 monologue begin (#1762 Story C — Session.metadata.phaseBoundaries)
+    - { at: 0, text: "You'll have one minute to prepare. Think of a specific memory or moment. Consider past, present, and future. Write three bullet points — one word or phrase per line.", phase: "p2_prep_start" }
+    - { at: 45, text: "Fifteen seconds left." }
+    - { at: 60, text: "Your two minutes start now.", phase: "p2_monologue" }
   scaffoldPool: source:stall-scaffolds-monologue   # examiner mode throughout; Part 2 long-turn stalls only
   profileFieldsToCapture: []
   prepSilenceSec: 60            # Part 2 prep phase inside Mock

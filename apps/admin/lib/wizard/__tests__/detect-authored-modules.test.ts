@@ -135,12 +135,35 @@ describe("detectAuthoredModules — IELTS v2.3 per-module settings", () => {
 
   it("carries the part2 cue-card cue schedule end-to-end", () => {
     const part2 = result.modules.find((m) => m.id === "part2")!;
+    // #2277 — Part 2 now carries 5 cues: PPF prep intro + 45s warn +
+    // monologue boundary + re-speak offer + re-speak close. Cue-scheduler
+    // is voice-only per PR #2286; BDD-acceptable since real IELTS
+    // examiners speak prep instructions verbally.
     expect(part2.settings!.scheduledCues).toEqual([
-      { at: 45, text: "15 seconds left" },
+      {
+        at: 0,
+        text: "You'll have one minute to prepare. Think of a specific memory or moment. Consider past, present, and future. Write three bullet points — one word or phrase per line.",
+        phase: "p2_prep_start",
+      },
+      { at: 45, text: "Fifteen seconds left." },
       // #1762 Story C — 60s cue carries phase:"p2_monologue" so the
       // Session.metadata.phaseBoundaries write surface knows the
       // prep→monologue boundary is at this cue (not just a text label).
-      { at: 60, text: "Your two minutes start now", phase: "p2_monologue" },
+      {
+        at: 60,
+        text: "Your time starts now — go ahead.",
+        phase: "p2_monologue",
+      },
+      {
+        at: 181,
+        text: "Your structure was clear — let's try once more. Same topic. Start when you're ready.",
+        phase: "p2_respeak",
+      },
+      {
+        at: 241,
+        text: "Good — that's your minute. Well done.",
+        phase: "p2_respeak_close",
+      },
     ]);
     expect(part2.settings!.minSpeakingSec).toBe(120);
   });
