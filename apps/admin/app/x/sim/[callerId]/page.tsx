@@ -7,6 +7,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { WhatsAppHeader } from '@/components/sim/WhatsAppHeader';
 import { CallerVoiceSurface } from '@/components/callers/CallerVoiceSurface';
 import { FirstCallPinGate } from '@/components/identity/FirstCallPinGate';
+import { useEmbeddedMode } from '@/hooks/useEmbeddedMode';
 import { deriveParameterMap } from '@/lib/agent-tuner/derive';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
 
@@ -58,6 +59,13 @@ export default function SimConversationPage() {
   const { data: session, status: sessionStatus } = useSession();
   const { isDesktop } = useResponsive();
   const isStudent = session?.user?.role === 'STUDENT';
+  // #2277 — MT-embedded mode: when the operator-supervised URL carries
+  // `?embedded=1`, the root layout already strips sidebar/topnav. We
+  // ALSO flip `<CallerVoiceSurface layout="embedded">` so SimChat
+  // renders its clean `sim-embedded` shell (no exam-shell overlay, no
+  // results overlay, no transcript-review return) — prospects see a
+  // pure chat surface.
+  const isMtEmbedded = useEmbeddedMode();
   // Admin "preview as learner" — `?as=learner` flips the PIN gate on
   // for an OPERATOR+ session so the auth surface can be demo'd without
   // signing out.
@@ -178,11 +186,11 @@ export default function SimConversationPage() {
   return (
     <CallerVoiceSurface
       callerId={callerId}
-      layout="standalone"
+      layout={isMtEmbedded ? 'embedded' : 'standalone'}
       sessionGoal={sessionGoal}
       targetOverrides={targetOverrides}
       forceFirstCall={forceFirstCall}
-      onBack={isDesktop ? undefined : () => router.push('/x/sim')}
+      onBack={isDesktop || isMtEmbedded ? undefined : () => router.push('/x/sim')}
       onCallEnd={
         isStudent
           ? (info) => {
