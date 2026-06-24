@@ -137,7 +137,10 @@ describe("detectAuthoredModules — IELTS v2.3 per-module settings", () => {
     const part2 = result.modules.find((m) => m.id === "part2")!;
     expect(part2.settings!.scheduledCues).toEqual([
       { at: 45, text: "15 seconds left" },
-      { at: 60, text: "Your two minutes start now" },
+      // #1762 Story C — 60s cue carries phase:"p2_monologue" so the
+      // Session.metadata.phaseBoundaries write surface knows the
+      // prep→monologue boundary is at this cue (not just a text label).
+      { at: 60, text: "Your two minutes start now", phase: "p2_monologue" },
     ]);
     expect(part2.settings!.minSpeakingSec).toBe(120);
   });
