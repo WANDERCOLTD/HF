@@ -445,6 +445,31 @@ A page that mounts without a resolved `playbookId` either renders a learner-read
 
 ---
 
+### Link L10 — Module-unlock prerequisites (`AuthoredModule.prerequisites`)
+
+**A STUDENT-tier learner must not enter a module whose declared prerequisites are unmet.** Prerequisites are authored on `Playbook.config.modules[i].prerequisites` (two shapes: bare-string legacy = "needs ≥ 1 COMPLETED attempt"; `{moduleId, minCompletions}` count-based). OPERATOR+ always bypasses (testers iterating on Mock must not be locked out — pinned by `isModuleUnlocked`'s role-bypass).
+
+⚠️ **CONSUMER DEFERRED** — server-side enforcement, ESLint chokepoint, and Coverage gate land in follow-on #2320. This row documents the producer-only debt explicitly + time-bounds it.
+
+| Field | Value |
+|---|---|
+| **Producer** | `prisma/seed-ielts-course.ts` (post-projection `updatePlaybookConfig` write of `Playbook.config.modules[i].prerequisites` per #2318); future authored playbooks via wizard projection (`lib/wizard/detect-authored-modules.ts:418-425` already parses the catalogue column when present). |
+| **Consumer (today, MT-essential)** | `apps/foh/app/page.tsx::computeUnlockState` — client-side render. Reads `prerequisites` + `completedCount` from the FOH SEAM (`apps/foh/app/api/student-progress/route.ts`) and renders 🔒 + tooltip on locked module cards. Pure-function parity with the canonical resolver, pinned by `apps/foh/__tests__/home.test.tsx`. |
+| **Consumer (deferred, #2320)** | `lib/curriculum/check-module-unlock.ts::isModuleUnlocked` wired into `app/api/callers/[callerId]/calls/route.ts` POST and `app/api/student/progress/route.ts` GET (batched per-module check). ESLint chokepoint requires `isModuleUnlocked` invocation alongside `createSession({kind: VOICE_CALL|SIM_CALL,...})` outside the bypass allow-list. Coverage gate vitest walks both directions (every prereq-declaring module has a consumer; every `createSession` site has a gate or `// hf-bypass-unlock: <reason>` comment). |
+| **Data shape** | `Array<string \| {moduleId: string; minCompletions: number}>` on each `AuthoredModule`. Mixed forms accepted within the same array. See `lib/types/json-fields.ts:1247` + `check-module-unlock.ts::normalisePrerequisite`. |
+| **DataContract slug** | None — the contract is the shape of the declared prereq + the resolver's behaviour, not the shape of a DB row. |
+| **Enforcement (today)** | Operator-supervised demo + pre-Mock-URL SQL verification (`docs/runbooks/RB-IELTS-MT-OPERATOR-PLAYBOOK.md`). URL-hack bypass risk is acknowledged + mitigated for the ~20–100 supervised MT prospect window. |
+| **Enforcement (deferred)** | Three layers per #2320: (1) `lib/curriculum/check-module-unlock.ts:208-220` resolver counts only `CallerModuleProgress.status === "COMPLETED"` rows (sub-slice 0 — fixes the `callCount` over-count semantic). (2) Server-side gate at `app/api/callers/[callerId]/calls/route.ts` returns 403 `{ok:false, reason, missingRequirements}` with AppLog `module.unlock.student_blocked` / `module.unlock.operator_bypass`. (3) `eslint-rules/no-bare-call-create.mjs` extended to require `isModuleUnlocked` invocation alongside `createSession`. |
+| **Test (today)** | `apps/foh/__tests__/home.test.tsx` (pure-function parity + DOM render of 🔒 + tooltip); `apps/admin/tests/lib/curriculum/ielts-module-prerequisites-data.test.ts` (source-walk pin of the IELTS prereq data shape per BDD Unit 5). |
+| **Test (deferred)** | Server enforcement vitest at `tests/api/callers-calls-unlock.test.ts`; resolver completion-count fix vitest at `tests/lib/curriculum/check-module-unlock.test.ts`; bidirectional Coverage gate at `tests/lib/curriculum/module-unlock-coverage.test.ts`. |
+| **Memory doc** | This row · `.claude/rules/module-unlock-gate.md` · `docs/runbooks/RB-IELTS-MT-OPERATOR-PLAYBOOK.md` (operator pre-Mock SQL check). |
+| **Audit counter (deferred)** | TBD — propose `studentSessionStartedWithUnmetPrereqs` (target 0) once #2320 wires the AppLog. |
+| **Producer-only debt** | Time-bounded by follow-on #2320. The MT-essential client-side check defends against accidental URL access by supervised prospects; non-supervised production usage REQUIRES the deferred consumer to ship before broader release. |
+| **Related** | #2318 (this row + the FOH render) · #2320 (deferred server enforcement + Lattice cluster) · #1746 (the resolver itself) · #1700 Theme 5 (the originating epic). |
+| **Reinforced by** | #2318 — this PR. |
+
+---
+
 ## 3d. Course Variant product line (#1034)
 
 The Variant product line lets one Curriculum back N sibling Playbooks (Pop Quiz, Revision Aid, Exam Assessment) — same content authority, different teaching profile. CallerModuleProgress and `lo_mastery:*` flow naturally across siblings for the same Caller; the funnel (Pop Quiz finds gap → Revision Aid teaches → Exam Assessment certifies) is a runtime emergent of the shared CurriculumModule UUIDs.

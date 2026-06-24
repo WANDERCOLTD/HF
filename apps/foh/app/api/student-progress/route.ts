@@ -17,6 +17,29 @@ export interface FohModuleCard {
   slug: string;
   title: string;
   status: "MASTERED" | "IN_PROGRESS" | "NOT_STARTED";
+  /**
+   * #2318 MT-essential — sibling-module prerequisites declared on the
+   * Playbook's authored modules. Forwarded verbatim from the admin
+   * `Playbook.config.modules[i].prerequisites` (two shapes accepted:
+   * bare-string legacy = "needs ≥ 1 COMPLETED attempt" and
+   * `{moduleId, minCompletions}` count-based; see
+   * `lib/curriculum/check-module-unlock.ts::normalisePrerequisite`).
+   *
+   * Client-side lock computation lives in `apps/foh/app/page.tsx` —
+   * server-side enforcement is deferred to #2320.
+   */
+  prerequisites?: Array<string | { moduleId: string; minCompletions: number }>;
+  /**
+   * #2318 MT-essential — total COMPLETED attempts for this slug on the
+   * current caller. The client compares `completedCount` against each
+   * prereq's `minCompletions` requirement (the same logic the resolver
+   * applies at `check-module-unlock.ts:208-220`).
+   *
+   * Source-of-truth on admin side: `prisma.callerModuleProgress.findMany`
+   * filtered to `status: "COMPLETED"`. The FOH proxy is responsible for
+   * surfacing this count; the home page never queries the DB directly.
+   */
+  completedCount?: number;
 }
 
 export interface FohNextRecommended {
@@ -46,11 +69,52 @@ export interface FohStudentProgressResponse {
 const SAMPLE: FohStudentProgressResponse = {
   ok: true,
   modules: [
-    { slug: "intro", title: "Welcome & Setup", status: "MASTERED" },
-    { slug: "baseline", title: "Baseline Assessment", status: "MASTERED" },
-    { slug: "part1", title: "Part 1 — Familiar Topics", status: "IN_PROGRESS" },
-    { slug: "part2", title: "Part 2 — Long Turn", status: "NOT_STARTED" },
-    { slug: "part3", title: "Part 3 — Discussion", status: "NOT_STARTED" },
+    {
+      slug: "intro",
+      title: "Welcome & Setup",
+      status: "MASTERED",
+      prerequisites: [],
+      completedCount: 1,
+    },
+    {
+      slug: "baseline",
+      title: "Baseline Assessment",
+      status: "MASTERED",
+      prerequisites: [],
+      completedCount: 1,
+    },
+    {
+      slug: "part1",
+      title: "Part 1 — Familiar Topics",
+      status: "IN_PROGRESS",
+      prerequisites: ["baseline"],
+      completedCount: 1,
+    },
+    {
+      slug: "part2",
+      title: "Part 2 — Long Turn",
+      status: "NOT_STARTED",
+      prerequisites: ["baseline"],
+      completedCount: 0,
+    },
+    {
+      slug: "part3",
+      title: "Part 3 — Discussion",
+      status: "NOT_STARTED",
+      prerequisites: ["baseline"],
+      completedCount: 0,
+    },
+    {
+      slug: "mock",
+      title: "Full Mock Exam",
+      status: "NOT_STARTED",
+      prerequisites: [
+        { moduleId: "baseline", minCompletions: 1 },
+        { moduleId: "part1", minCompletions: 2 },
+        { moduleId: "part3", minCompletions: 2 },
+      ],
+      completedCount: 0,
+    },
   ],
   lessonPlan: {
     // LEARNER-SAFE values only — internal IELTS criterion slugs and

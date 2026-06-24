@@ -63,8 +63,9 @@ import { applyProjection } from "../lib/wizard/apply-projection";
 // — only the wizard route inlined them. Hoisting the resolver into the
 // seed closes the convergence gap.
 import { resolveModuleSourceRefs } from "../lib/wizard/resolve-module-source-refs";
-import type { AuthoredModuleSettings } from "../lib/types/json-fields";
+import type { AuthoredModule, AuthoredModuleSettings } from "../lib/types/json-fields";
 import { findOrCreateSeedPlaybook } from "../lib/seed/find-or-create-seed-playbook";
+import { updatePlaybookConfig } from "../lib/playbook/update-playbook-config";
 import { saveAssertions } from "../lib/content-trust/save-assertions";
 import type { ExtractedAssertion } from "../lib/content-trust/extract-assertions";
 import { categoryToTeachMethod } from "../lib/content-trust/resolve-config";
@@ -384,6 +385,51 @@ export async function main(prisma: PrismaClient): Promise<void> {
       console.warn(`  ⚠ ${w.severity}: [${w.code}] ${w.message}`);
     }
   }
+
+  // ── 4a-prereqs. Post-projection prerequisites for IELTS modules (#2318) ──
+  //
+  // The course-ref fixture catalogue table does not surface a `prerequisites`
+  // column, so the wizard parser leaves `Playbook.config.modules[i].prerequisites`
+  // empty after `applyProjection`. Declare them here as an idempotent
+  // post-projection step — same convention as `coversModules` + `segmentCues`
+  // below (#550, #1785).
+  //
+  // Module-unlock invariant (#2318 MT-essential):
+  //   • baseline   → no prereqs (entry gate)
+  //   • part1/2/3  → requires 1× COMPLETED baseline
+  //   • mock       → requires 1× baseline + 2× part1 + 2× part3 COMPLETED
+  //                  (per BDD HF-IELTS-Pre-Voice-Testing-Checklist Unit 5)
+  //
+  // Consumer status: FOH home renders 🔒 client-side (this story).
+  // Server-side enforcement at `/api/callers/[id]/calls` POST + Lattice
+  // cluster (ESLint guard / Coverage gate) deferred to follow-on #2320.
+  // OPERATOR+ always bypasses via `isModuleUnlocked` role-bypass —
+  // testers can iterate on Mock without seeding prereqs.
+  await updatePlaybookConfig(
+    playbook.id,
+    (config) => {
+      if (!Array.isArray(config.modules)) return config;
+      const PREREQS: Record<string, AuthoredModule["prerequisites"]> = {
+        baseline: [],
+        part1: ["baseline"],
+        part2: ["baseline"],
+        part3: ["baseline"],
+        mock: [
+          { moduleId: "baseline", minCompletions: 1 },
+          { moduleId: "part1", minCompletions: 2 },
+          { moduleId: "part3", minCompletions: 2 },
+        ],
+      };
+      config.modules = config.modules.map((m) =>
+        m.id in PREREQS ? { ...m, prerequisites: PREREQS[m.id] } : m,
+      );
+      return config;
+    },
+    { reason: "#2318 IELTS module-unlock prerequisites" },
+  );
+  console.log(
+    "  Module prerequisites: baseline=[], part1/2/3=[baseline], mock=[1×baseline+2×part1+2×part3]",
+  );
 
   // ── 4a. Derived ContentAssertion rows (#2125 PR2) ──
   // Without these the Content tab on /x/courses/<id> shows "No categories
