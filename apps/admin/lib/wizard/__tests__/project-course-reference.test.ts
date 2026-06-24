@@ -283,11 +283,22 @@ This is not a skill — it's a heading in another section.
 // ── skillNameToParameterName ───────────────────────────────────────────────
 
 describe("skillNameToParameterName", () => {
-  it("slugifies common IELTS skill names deterministically", () => {
-    expect(skillNameToParameterName("Fluency & Coherence")).toBe("skill_fluency_and_coherence");
-    expect(skillNameToParameterName("Lexical Resource")).toBe("skill_lexical_resource");
-    expect(skillNameToParameterName("Grammatical Range & Accuracy")).toBe("skill_grammatical_range_and_accuracy");
-    expect(skillNameToParameterName("Pronunciation")).toBe("skill_pronunciation");
+  // #2304 — canonical IELTS skill display names route through the alias
+  // map and return the SUFFIXED canonical ids (per #2138 rename). Plain
+  // slugifier ("skill_pronunciation") was the source of the duplicate
+  // BehaviorTarget cohort on the IELTS Speaking Practice playbook.
+  it("maps canonical IELTS skill names to suffixed parameter ids", () => {
+    expect(skillNameToParameterName("Fluency and Coherence")).toBe("skill_fluency_and_coherence_fc");
+    expect(skillNameToParameterName("Fluency & Coherence")).toBe("skill_fluency_and_coherence_fc");
+    expect(skillNameToParameterName("Lexical Resource")).toBe("skill_lexical_resource_lr");
+    expect(skillNameToParameterName("Grammatical Range and Accuracy")).toBe("skill_grammatical_range_and_accuracy_gra");
+    expect(skillNameToParameterName("Grammatical Range & Accuracy")).toBe("skill_grammatical_range_and_accuracy_gra");
+    expect(skillNameToParameterName("Pronunciation")).toBe("skill_pronunciation_p");
+  });
+
+  it("falls through to generic slugifier for non-IELTS skill names", () => {
+    expect(skillNameToParameterName("Some Other Skill")).toBe("skill_some_other_skill");
+    expect(skillNameToParameterName("Argument Quality")).toBe("skill_argument_quality");
   });
 
   it("collapses multiple non-alphanumeric runs to a single underscore", () => {
@@ -349,13 +360,17 @@ A short description.
     expect(achieve[0].name).toBe("Reach Secure on Test Skill");
   });
 
+  // #2304 — the wizard's skill→parameter map writes the suffixed
+  // canonical ids (`_fc/_lr/_gra/_p`) so it matches the rest of the
+  // adaptive stack post-#2138. Pre-#2304 the same skill names slugified
+  // to un-suffixed shapes and produced duplicate BehaviorTargets.
   it("requests 4 Parameter upserts — one per skill, all type BEHAVIOR", () => {
     expect(result.parameters).toHaveLength(4);
     expect(result.parameters.every((p) => p.type === "BEHAVIOR")).toBe(true);
-    expect(result.parameters.map((p) => p.name)).toContain("skill_fluency_and_coherence");
-    expect(result.parameters.map((p) => p.name)).toContain("skill_lexical_resource");
-    expect(result.parameters.map((p) => p.name)).toContain("skill_grammatical_range_and_accuracy");
-    expect(result.parameters.map((p) => p.name)).toContain("skill_pronunciation");
+    expect(result.parameters.map((p) => p.name)).toContain("skill_fluency_and_coherence_fc");
+    expect(result.parameters.map((p) => p.name)).toContain("skill_lexical_resource_lr");
+    expect(result.parameters.map((p) => p.name)).toContain("skill_grammatical_range_and_accuracy_gra");
+    expect(result.parameters.map((p) => p.name)).toContain("skill_pronunciation_p");
   });
 
   it("derives LEARN goals for every OUT-NN line in the doc", () => {

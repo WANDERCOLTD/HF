@@ -22,8 +22,10 @@
  *   - Subject "IELTS Speaking" + SubjectDomain link
  *   - ContentSource (COURSE_REFERENCE) + SubjectSource + PlaybookSource links
  *   - Playbook "IELTS Speaking Practice" (status: PUBLISHED)
- *   - 4 Parameters (`skill_fluency_and_coherence`, `skill_lexical_resource`,
- *     `skill_grammatical_range_and_accuracy`, `skill_pronunciation`)
+ *   - 4 Parameters (`skill_fluency_and_coherence_fc`,
+ *     `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`,
+ *     `skill_pronunciation_p`) — suffixed canonical ids per #2138 rename
+ *     (#2304 closed the wizard-side regression that wrote un-suffixed shapes).
  *   - 4 PLAYBOOK-scope BehaviorTargets (skillRef SKILL-01..SKILL-04,
  *     targetValue 1.0)
  *   - 1 per-playbook MEASURE spec (`skill-measure-<playbookId-prefix>`)
