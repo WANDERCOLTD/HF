@@ -138,7 +138,7 @@ function ModuleHeaderCard({
         return;
       }
       router.push(
-        `/x/sim/${encodeURIComponent(data.callerId)}?embedded=1&module=${encodeURIComponent(m.id)}`,
+        `/x/sim/${encodeURIComponent(data.callerId)}?embedded=1&requestedModuleId=${encodeURIComponent(m.id)}`,
       );
     } catch (err) {
       setLaunchError(err instanceof Error ? err.message : "Network error");
