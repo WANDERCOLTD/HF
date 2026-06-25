@@ -190,12 +190,13 @@ settings:
   questionTarget: { min: 0, target: 0 }   # examiner-driven; questions per Part are scripted, not a learner-target
   cueCardPool: source:cue-card-bank-baseline-v1   # Source 4 — Baseline Assessment topic pool (Part 2 sub-pool)
   closingLine: |
-    That's the end of your Baseline. I'll share your focus area on screen.
+    That gives me a good picture of where you are. Give me a moment, and we'll get you started.
   firstTimeOrientationLine: |
     This is a relaxed first call, not a test, so I can hear you speak English
     and give you an honest starting point. We'll do all three Parts at exam
     pace — Part 1, then a cue card with one minute to prepare, then a few
-    follow-up questions. About twenty minutes total.
+    follow-up questions. About twenty minutes total. If you're ever unsure
+    about anything — just ask me.
   scheduledCues: []             # Baseline uses the warmer framing — no aloud cue countdown
   scaffoldPool: source:stall-scaffolds-monologue   # examiner-mode silence rules; Part 2 long-turn nudges only
   profileFieldsToCapture: source:ielts-speaking-profile-fields   # Source 14 — per-key {prompt, type} metadata
