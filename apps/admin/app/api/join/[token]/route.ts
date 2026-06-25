@@ -12,6 +12,7 @@ import { writeIntakeQAProjections } from "@/lib/intake/project-intake-qa";
 import { isSessionModelV2Enabled } from "@/lib/voice/session-flag";
 import { createSession } from "@/lib/voice/create-session";
 import { autoComposeForCaller } from "@/lib/enrollment/auto-compose";
+import { pinFirstModuleForCaller } from "@/lib/enrollment/pin-first-module";
 
 function missingSecretResponse(): NextResponse {
   return NextResponse.json(
@@ -94,6 +95,43 @@ async function fireBootstrapComposeForActiveEnrollments(callerId: string): Promi
     // the reconciler backstop will pick this caller up within 60s.
     console.error(
       `[intake-join] post-tx enrollment lookup failed for caller=${callerId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/**
+ * Pin `Caller.lastSelectedModuleId` to the playbook's first module for every
+ * ACTIVE enrolment the caller has — the magic-link counterpart of the same
+ * call in `lib/enrollment/create-test-learner.ts`. Required so a real
+ * magic-link learner's first call doesn't hit the racy
+ * `resolveDefaultModuleForCaller` step-1 path (tied `updatedAt` timestamps
+ * on bulk-created `CallerModuleProgress` rows → non-deterministic slug pick
+ * → `Call.curriculumModuleId = NULL` ~80% of the time).
+ *
+ * Best-effort — failures here MUST NOT roll back the just-committed
+ * Caller. Per-playbook errors are logged + skipped (one bad playbook
+ * doesn't poison the rest). The `pinFirstModuleForCaller` helper is
+ * idempotent + null-guarded, so re-entry for a returning caller is safe.
+ */
+async function pinFirstModuleForActiveEnrollments(callerId: string): Promise<void> {
+  try {
+    const enrollments = await prisma.callerPlaybook.findMany({
+      where: { callerId, status: "ACTIVE" },
+      select: { playbookId: true },
+    });
+    for (const { playbookId } of enrollments) {
+      await pinFirstModuleForCaller(callerId, playbookId).catch((err) => {
+        console.error(
+          `[intake-join] pinFirstModule failed for caller=${callerId.slice(0, 8)} ` +
+            `playbook=${playbookId.slice(0, 8)}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      });
+    }
+  } catch (err) {
+    console.error(
+      `[intake-join] pinFirstModule enrollment lookup failed for caller=${callerId.slice(0, 8)}:`,
       err instanceof Error ? err.message : String(err),
     );
   }
@@ -365,6 +403,12 @@ export async function POST(
       // commit. Flag-gated; no-op when V2 is off.
       await maybeWriteEnrollmentSession(returningCallerId, intentId);
 
+      // Backfill `lastSelectedModuleId` for any returning caller who
+      // never made a successful call (the pin helper is null-guarded —
+      // it's a no-op if the column is already set, so returning callers
+      // with normal module continuity keep their pick).
+      await pinFirstModuleForActiveEnrollments(returningCallerId);
+
       // Returning learner — sign them in and redirect to their journey
       const returningResponse = NextResponse.json({
         ok: true,
@@ -437,6 +481,11 @@ export async function POST(
         await enrollCallerInCohortPlaybooks(newCaller.id, cohort.id, cohort.domainId, "join");
       }
     }
+
+    // Pin first module for every fresh enrolment — sibling-of the
+    // post-tx call below. See `pinFirstModuleForActiveEnrollments`
+    // header for the rationale.
+    await pinFirstModuleForActiveEnrollments(newCaller.id);
 
     // Skip onboarding if requested
     if (skipOnboarding && cohort.domainId) {
@@ -538,6 +587,15 @@ export async function POST(
 
     return { newUser, newCallerId: newCaller.id };
   });
+
+  // Pin `Caller.lastSelectedModuleId` for every fresh ACTIVE enrolment.
+  // Closes the racy `resolveDefaultModuleForCaller` step-1 path that
+  // produced `Call.curriculumModuleId = NULL` ~80% of the time for
+  // magic-link learners. Runs awaited (cheap — one indexed UPDATE per
+  // playbook) so the pin lands before any "call now" click can race the
+  // resolver. Sibling of the same call in
+  // `lib/enrollment/create-test-learner.ts`.
+  await pinFirstModuleForActiveEnrollments(result.newCallerId);
 
   // #1420 — fire the bootstrap compose BEFORE writing the ENROLLMENT
   // Session row. `enrollCaller(..., tx)` inside the just-committed tx
