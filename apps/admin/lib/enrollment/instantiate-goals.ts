@@ -122,6 +122,11 @@ async function instantiateForPlaybook(
   if (existing > 0) return [];
 
   const cfg = playbookConfig || {};
+  // 2026-06-25 — distinguish "goals key absent" (use fallback) from
+  // "goals key explicitly empty array" (no fallback, no goals). Operators
+  // who clear the Goals editor want a zero-goal caller, not an
+  // auto-derived "Master <Module>" list.
+  const goalsKeyExplicit = Array.isArray((cfg as { goals?: unknown }).goals);
   let goalConfigs: GoalConfigEntry[] = (cfg.goals as GoalConfigEntry[] | undefined) || [];
 
   // #1252 follow-up (Bug B / G10 defense-in-depth) — re-validate every goal
@@ -158,7 +163,11 @@ async function instantiateForPlaybook(
 
   // Fallback: if no explicit goals were captured (wizard miss), derive from
   // curriculum modules so the caller gets some reward signal.
-  if (goalConfigs.length === 0) {
+  //
+  // 2026-06-25 — only fall back when the `goals` key is ABSENT on the
+  // config. An explicit empty array (`config.goals = []`) means the
+  // operator chose zero goals; respect that and skip materialisation.
+  if (goalConfigs.length === 0 && !goalsKeyExplicit) {
     const derived = await deriveGoalsFromCurriculum(playbookId);
     if (derived.length === 0) {
       console.warn(`[instantiate-goals] No goals in config and no curriculum modules for playbook ${playbookId} — caller ${callerId} will have 0 goals on this playbook`);
@@ -166,6 +175,9 @@ async function instantiateForPlaybook(
     }
     console.log(`[instantiate-goals] Derived ${derived.length} fallback goal(s) from curriculum modules for playbook ${playbookId}`);
     goalConfigs = derived;
+  } else if (goalConfigs.length === 0 && goalsKeyExplicit) {
+    console.log(`[instantiate-goals] Explicit empty goals array — skipping fallback for playbook ${playbookId}`);
+    return [];
   }
 
   const created: string[] = [];
