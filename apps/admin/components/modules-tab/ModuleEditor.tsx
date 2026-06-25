@@ -32,7 +32,9 @@
  * instead of squeezing G8 fields into a 360px sticky panel.
  */
 
-import { Lock } from "lucide-react";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Lock, PlayCircle } from "lucide-react";
 
 import type {
   AuthoredModuleSettings,
@@ -78,7 +80,7 @@ export function ModuleEditor({
       className="hf-module-editor"
       data-testid={`hf-module-editor-${selectedModuleId}`}
     >
-      <ModuleHeaderCard module={selectedModule} />
+      <ModuleHeaderCard courseId={courseId} module={selectedModule} />
       <ModuleHowCard
         courseId={courseId}
         selectedModuleId={selectedModuleId}
@@ -109,7 +111,42 @@ function ModuleEditorEmpty() {
 
 /* ── Header card: identity + at-a-glance ─────────────────────────── */
 
-function ModuleHeaderCard({ module: m }: { module: ModuleEditorRow }) {
+function ModuleHeaderCard({
+  courseId,
+  module: m,
+}: {
+  courseId: string;
+  module: ModuleEditorRow;
+}) {
+  const router = useRouter();
+  const [launching, setLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+
+  const handleTestAsStudent = useCallback(async () => {
+    if (launching) return;
+    setLaunching(true);
+    setLaunchError(null);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/test-learner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok || !data.callerId) {
+        setLaunchError(data?.error || "Failed to mint test learner");
+        return;
+      }
+      router.push(
+        `/x/sim/${encodeURIComponent(data.callerId)}?embedded=1&module=${encodeURIComponent(m.id)}`,
+      );
+    } catch (err) {
+      setLaunchError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setLaunching(false);
+    }
+  }, [courseId, m.id, router, launching]);
+
   return (
     <section
       className="hf-card hf-module-editor-header"
@@ -139,6 +176,17 @@ function ModuleHeaderCard({ module: m }: { module: ModuleEditorRow }) {
          * settings keys; warn chip lists unresolved fields in tooltip.
          * See `.claude/rules/source-ref-coverage.md`. */}
         <SourceRefStatusChip settings={m.settings} moduleId={m.id} />
+        <button
+          type="button"
+          className="hf-btn hf-btn-primary hf-btn-sm"
+          onClick={handleTestAsStudent}
+          disabled={launching}
+          title={launchError ?? `Mint a fresh test learner and open ${m.label} in embedded sim`}
+          aria-label={`Test ${m.label} as a fresh student`}
+        >
+          <PlayCircle size={14} aria-hidden="true" />
+          {launching ? "Launching…" : "Test as student"}
+        </button>
       </div>
     </section>
   );
