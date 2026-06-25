@@ -33,7 +33,6 @@
  */
 
 import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Lock, PlayCircle } from "lucide-react";
 
 import type {
@@ -118,7 +117,6 @@ function ModuleHeaderCard({
   courseId: string;
   module: ModuleEditorRow;
 }) {
-  const router = useRouter();
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
@@ -137,15 +135,14 @@ function ModuleHeaderCard({
         setLaunchError(data?.error || "Failed to mint test learner");
         return;
       }
-      router.push(
-        `/x/sim/${encodeURIComponent(data.callerId)}?embedded=1&requestedModuleId=${encodeURIComponent(m.id)}`,
-      );
+      const url = `/x/sim/${encodeURIComponent(data.callerId)}?embedded=1&requestedModuleId=${encodeURIComponent(m.id)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
       setLaunchError(err instanceof Error ? err.message : "Network error");
     } finally {
       setLaunching(false);
     }
-  }, [courseId, m.id, router, launching]);
+  }, [courseId, m.id, launching]);
 
   return (
     <section

@@ -14,7 +14,6 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   Layers,
   ListChecks,
@@ -338,7 +337,6 @@ function CatalogueRow({
   /** #281 Slice 3b: number of ContentQuestion rows whose learningOutcomeRef ∈ this module's outcomesPrimary. 0 = render the "no learner-facing content" banner inside ModuleDetail. */
   mcqCount: number;
 }) {
-  const router = useRouter();
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
@@ -359,16 +357,15 @@ function CatalogueRow({
           setLaunchError(data?.error || "Failed to mint test learner");
           return;
         }
-        router.push(
-          `/x/sim/${encodeURIComponent(data.callerId)}?embedded=1&requestedModuleId=${encodeURIComponent(m.id)}`,
-        );
+        const url = `/x/sim/${encodeURIComponent(data.callerId)}?embedded=1&requestedModuleId=${encodeURIComponent(m.id)}`;
+        window.open(url, "_blank", "noopener,noreferrer");
       } catch (err) {
         setLaunchError(err instanceof Error ? err.message : "Network error");
       } finally {
         setLaunching(false);
       }
     },
-    [courseId, m.id, router, launching],
+    [courseId, m.id, launching],
   );
   return (
     <>
