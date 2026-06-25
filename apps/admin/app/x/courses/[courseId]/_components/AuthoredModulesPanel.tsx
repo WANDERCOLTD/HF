@@ -30,6 +30,7 @@ import {
   AlertOctagon,
   Target,
   Link as LinkIcon,
+  PlayCircle,
 } from "lucide-react";
 import type {
   AuthoredModule,
@@ -185,6 +186,7 @@ export function AuthoredModulesPanel({
       {state.modules.length > 0 && (
         <>
           <CatalogueTable
+            courseId={courseId}
             modules={state.modules}
             outcomes={state.outcomes}
             mcqCountsByModule={state.mcqCountsByModule}
@@ -262,11 +264,13 @@ function EmptyState({
 // ── Catalogue table (expandable rows) ──────────────────────────────
 
 function CatalogueTable({
+  courseId,
   modules,
   outcomes,
   mcqCountsByModule,
   loAudienceByRef,
 }: {
+  courseId: string;
   modules: AuthoredModule[];
   outcomes: Record<string, string>;
   mcqCountsByModule: Record<string, number>;
@@ -289,6 +293,7 @@ function CatalogueTable({
             <th>Frequency</th>
             <th>Terminal</th>
             <th>Picker</th>
+            <th aria-label="Test as student" />
           </tr>
         </thead>
         <tbody>
@@ -298,6 +303,7 @@ function CatalogueTable({
             return (
               <CatalogueRow
                 key={m.id}
+                courseId={courseId}
                 module={m}
                 outcomes={outcomes}
                 isExpanded={isExpanded}
@@ -314,6 +320,7 @@ function CatalogueTable({
 }
 
 function CatalogueRow({
+  courseId,
   module: m,
   outcomes,
   isExpanded,
@@ -321,6 +328,7 @@ function CatalogueRow({
   mcqCount,
   loAudienceByRef,
 }: {
+  courseId: string;
   module: AuthoredModule;
   outcomes: Record<string, string>;
   isExpanded: boolean;
@@ -329,6 +337,36 @@ function CatalogueRow({
   /** #281 Slice 3b: number of ContentQuestion rows whose learningOutcomeRef ∈ this module's outcomesPrimary. 0 = render the "no learner-facing content" banner inside ModuleDetail. */
   mcqCount: number;
 }) {
+  const [launching, setLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+
+  const handleTestAsStudent = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (launching) return;
+      setLaunching(true);
+      setLaunchError(null);
+      try {
+        const res = await fetch(`/api/courses/${courseId}/test-learner`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.ok || !data.callerId) {
+          setLaunchError(data?.error || "Failed to mint test learner");
+          return;
+        }
+        const url = `/x/sim/${encodeURIComponent(data.callerId)}?embedded=1&requestedModuleId=${encodeURIComponent(m.id)}`;
+        window.open(url, "_blank", "noopener,noreferrer");
+      } catch (err) {
+        setLaunchError(err instanceof Error ? err.message : "Network error");
+      } finally {
+        setLaunching(false);
+      }
+    },
+    [courseId, m.id, launching],
+  );
   return (
     <>
       <tr
@@ -368,10 +406,23 @@ function CatalogueRow({
             <span className="hf-badge hf-badge-xs hf-badge-muted">Hidden</span>
           )}
         </td>
+        <td className="authored-modules-table__center">
+          <button
+            type="button"
+            className="hf-btn hf-btn-primary hf-btn-xs"
+            onClick={handleTestAsStudent}
+            disabled={launching}
+            title={launchError ?? `Mint a fresh test learner and open ${m.label} in embedded sim`}
+            aria-label={`Test ${m.label} as a fresh student`}
+          >
+            <PlayCircle size={14} aria-hidden="true" />
+            {launching ? "Launching…" : "Test"}
+          </button>
+        </td>
       </tr>
       {isExpanded && (
         <tr className="authored-modules-table__detail-row">
-          <td colSpan={8} className="authored-modules-table__detail-cell">
+          <td colSpan={9} className="authored-modules-table__detail-cell">
             <ModuleDetail module={m} outcomes={outcomes} mcqCount={mcqCount} loAudienceByRef={loAudienceByRef} />
           </td>
         </tr>
