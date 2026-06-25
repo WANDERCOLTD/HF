@@ -738,19 +738,13 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
   }
 
   if (sf.onboarding.phases.length > 0) {
-    const firstPhase = sf.onboarding.phases[0];
-    items.push({
-      kind: "bubble", side: "bot", lens: "onboarding", lensLabel: "Edit Onboarding",
-      caption: `Phase 1 of ${sf.onboarding.phases.length} — ${firstPhase.phase}`,
-      text: firstPhase.goals?.[0] || `(first onboarding phase: ${firstPhase.phase})`,
-    });
-    if (sf.onboarding.phases.length > 1) {
+    sf.onboarding.phases.forEach((phase, i) => {
       items.push({
         kind: "bubble", side: "bot", lens: "onboarding", lensLabel: "Edit Onboarding",
-        caption: `Then phases: ${sf.onboarding.phases.slice(1).map(p => p.phase).join(" → ")}`,
-        text: "(walks through the remaining phases before the first teaching segment)",
+        caption: `Phase ${i + 1} of ${sf.onboarding.phases.length} — ${phase.phase}`,
+        text: phase.goals?.[0] || `(onboarding phase: ${phase.phase})`,
       });
-    }
+    });
   } else {
     // #1418 — distinguish "explicitly disabled" from "never configured".
     // Pre-fix both states landed here with the same INIT-001 fallback
