@@ -201,6 +201,22 @@ export async function createSession(
   const pinnedCardConfig: PlaybookConfig | null =
     isIeltsModuleSettingsEnabled() && resolvedRequestedSlug ? playbookConfig : null;
 
+  // 2026-06-25 — baseline-first-call pin override precompute. Mirrors
+  // `pedagogy.ts:170` `isBaselineFirstCall = isFirstCallAny && firstCallMode === "baseline_assessment"`.
+  // Counted across both learner-shaped kinds (VOICE_CALL + SIM_CALL) so
+  // a learner who first sim-tested then dial-in still gets the
+  // diagnostic-only pin treatment on the first dial.
+  const isBaselineFirstCallPin =
+    pinnedCardConfig?.firstCallMode === "baseline_assessment";
+  const priorLearnerKindSessionCount = isBaselineFirstCallPin
+    ? await prisma.session.count({
+        where: {
+          callerId: args.callerId,
+          kind: { in: ["VOICE_CALL", "SIM_CALL"] },
+        },
+      })
+    : 0;
+
   // (3c) #2056 (sub-epic G of #2049) — per-day rate limit. Evaluated
   // BEFORE the transaction so the counter increment never fires on a
   // refused session. Skipped for ENROLLMENT / ASSESSMENT kinds (operator
@@ -331,8 +347,19 @@ export async function createSession(
     // `learnerFacingNumber` when it exists (sim drops do not advance
     // the count, so consecutive learner sessions rotate cards), falls
     // back to `assignedSeq` otherwise.
+    //
+    // 2026-06-25 — align pin with composer's baseline-first-call override.
+    // When `firstCallMode === "baseline_assessment"` AND this is the
+    // caller's first VOICE_CALL/SIM_CALL session, `preamble.ts` +
+    // `pedagogy.ts` swap in a diagnostic-only flow that ignores the
+    // locked/requested module. The pin must follow — otherwise the
+    // learner sees a Mock/Part-2 cue card while the AI is doing a
+    // baseline warm-up. Mirrors `isBaselineFirstCall` from
+    // `pedagogy.ts:170`.
     let pinnedCard: PinnedCardContent | null = null;
-    if (pinnedCardConfig) {
+    const isBaselineFirstCallOverride =
+      isBaselineFirstCallPin && priorLearnerKindSessionCount === 0;
+    if (pinnedCardConfig && !isBaselineFirstCallOverride) {
       pinnedCard = selectPinnedCardForModule({
         config: pinnedCardConfig,
         moduleSlug: resolvedRequestedSlug,
