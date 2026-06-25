@@ -203,8 +203,15 @@ export async function main(prisma: PrismaClient): Promise<void> {
         // welcomeMessage cascade and the onboardingClosingLine course-only
         // knob (see hooks/useJourneyChat.ts::loadOnboardingPhase). Operator-
         // tunable via the Course Pane Inspector.
-        welcomeMessage: "Welcome to your I E L T S coaching session",
-        onboardingClosingLine: "Click start when you are ready",
+        // 2026-06-25 — operator-tuned via the Course Pane.
+        // welcomeMessage matches the strict-script Turn 1 in
+        // COMP-001.criticalRules.baselineAssessment so Quick Start's
+        // `Opening` field and the AI's first utterance speak the same
+        // line. onboardingClosingLine empty because the journey-tab
+        // intake survey is fully OFF below — there is no Continue
+        // chip to caption.
+        welcomeMessage: "Hi — let us start learning IELTS together.",
+        onboardingClosingLine: "",
         // PR #2266 S1 — 8 more FOH copy knobs lifted from useJourneyChat
         // + WelcomeSurveyFlow. Each falls back to canonical defaults in
         // lib/learner/onboarding-copy-defaults.ts when left blank; IELTS
@@ -247,11 +254,26 @@ export async function main(prisma: PrismaClient): Promise<void> {
         // seed payload (and in the wizard authoring inference; see
         // `lib/chat/wizard-tool-executor/tools/create_course/_*-config-merge.ts`).
         lessonPlanMode: "structured",
+        // 2026-06-25 — all pre-call survey toggles OFF. The strict
+        // 7-turn baseline script in COMP-001.criticalRules.baselineAssessment
+        // is the entire first-session experience; the pre-call survey
+        // would duplicate the conversational warm-up. The journey-tab
+        // queue-builder at `useJourneyChat.ts::loadOnboardingPhase`
+        // skips straight to teaching when all three are false.
         welcome: {
-          goals: { enabled: true },
-          aboutYou: { enabled: true },
+          goals: { enabled: false },
+          aboutYou: { enabled: false },
           knowledgeCheck: { enabled: false },
           aiIntroCall: { enabled: false },
+        },
+        // Canonical mirror (preferred over `welcome.*` per
+        // `lib/learner/survey-config.ts::isPreSurveyEnabled`).
+        sessionFlow: {
+          intake: {
+            goals: { enabled: false },
+            aboutYou: { enabled: false },
+            knowledgeCheck: { enabled: false },
+          },
         },
         // No nps / surveys configured here — projection's goalTemplates carry
         // the learning + skill goals; the wizard adds engagement goals later.
