@@ -58,7 +58,16 @@ export async function resolveDefaultModuleForCaller(
       module: { select: { id: true, slug: true } },
       updatedAt: true,
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [
+      { updatedAt: "desc" },
+      // Deterministic tie-breaker — `instantiatePlaybookModuleProgress` bulk-
+      // creates every row with `createMany` so all `updatedAt` timestamps tie
+      // for fresh callers. Without this, `findFirst` resolved non-
+      // deterministically (driven by physical row order) and ~80% of the time
+      // picked the wrong module slug, producing `Call.curriculumModuleId =
+      // NULL` downstream. See fix/module-binding-null-on-fresh-callers.
+      { moduleId: "asc" },
+    ],
   });
   if (latestProgress?.module?.slug) {
     return {

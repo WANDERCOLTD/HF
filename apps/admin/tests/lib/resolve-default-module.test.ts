@@ -108,6 +108,29 @@ describe("resolveDefaultModuleForCaller", () => {
     });
   });
 
+  it("Step 1 query includes a deterministic moduleId tie-breaker after updatedAt", async () => {
+    // fix/module-binding-null-on-fresh-callers — `instantiatePlaybookModuleProgress`
+    // bulk-creates every CallerModuleProgress row via `createMany` so all
+    // rows tie on `updatedAt` for a fresh caller. Without the secondary
+    // sort key the result is non-deterministic and produces the wrong
+    // module slug ~80% of the time → `Call.curriculumModuleId = NULL`.
+    mockResolveCurriculumIdForPlaybook.mockResolvedValueOnce("curr1");
+    mockFindFirstCMP.mockResolvedValueOnce({
+      module: { id: "mod-baseline", slug: "baseline" },
+    });
+    const { resolveDefaultModuleForCaller } = await import(
+      "@/lib/curriculum/resolve-default-module"
+    );
+    await resolveDefaultModuleForCaller("c1", "pb1");
+
+    expect(mockFindFirstCMP).toHaveBeenCalledTimes(1);
+    const callArgs = mockFindFirstCMP.mock.calls[0][0];
+    expect(callArgs.orderBy).toEqual([
+      { updatedAt: "desc" },
+      { moduleId: "asc" },
+    ]);
+  });
+
   it("returns null when curriculum has no modules at all", async () => {
     mockResolveCurriculumIdForPlaybook.mockResolvedValueOnce("curr1");
     mockFindFirstCMP.mockResolvedValueOnce(null);

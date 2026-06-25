@@ -1,10 +1,10 @@
 {
   "$schema": "coupling-graph/v1",
-  "generatedAt": "2026-06-24T13:05:44.692Z",
+  "generatedAt": "2026-06-25T13:06:02.475Z",
   "generator": "scripts/capture/coupling-graph.ts",
   "note": "Tier-2 generated KB. Per-file import edges across apps/admin/{lib,app,scripts}. External modules stripped. Do not hand-edit — re-run the generator.",
-  "fileCount": 1900,
-  "edgeCount": 4487,
+  "fileCount": 1903,
+  "edgeCount": 4492,
   "skippedEdges": 1,
   "edges": [
     {
@@ -5073,6 +5073,10 @@
     },
     {
       "from": "app/api/join/[token]/route.ts",
+      "to": "lib/enrollment/pin-first-module.ts"
+    },
+    {
+      "from": "app/api/join/[token]/route.ts",
       "to": "lib/enrollment/skip-onboarding.ts"
     },
     {
@@ -7810,6 +7814,10 @@
     {
       "from": "app/layout.tsx",
       "to": "hooks/use-pending-changes-tray.tsx"
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "hooks/useEmbeddedMode.ts"
     },
     {
       "from": "app/layout.tsx",
@@ -10805,6 +10813,10 @@
     },
     {
       "from": "app/x/sim/[callerId]/page.tsx",
+      "to": "hooks/useEmbeddedMode.ts"
+    },
+    {
+      "from": "app/x/sim/[callerId]/page.tsx",
       "to": "hooks/useResponsive.ts"
     },
     {
@@ -13757,6 +13769,10 @@
     },
     {
       "from": "lib/enrollment/create-test-learner.ts",
+      "to": "lib/enrollment/pin-first-module.ts"
+    },
+    {
+      "from": "lib/enrollment/create-test-learner.ts",
       "to": "lib/fake-names.ts"
     },
     {
@@ -13797,6 +13813,10 @@
     },
     {
       "from": "lib/enrollment/instantiate-targets.ts",
+      "to": "lib/prisma.ts"
+    },
+    {
+      "from": "lib/enrollment/pin-first-module.ts",
       "to": "lib/prisma.ts"
     },
     {
@@ -19655,7 +19675,7 @@
     {
       "path": "app/api/join/[token]/route.ts",
       "inDegree": 0,
-      "outDegree": 13
+      "outDegree": 14
     },
     {
       "path": "app/api/lab/features/[id]/activate/route.ts",
@@ -20780,7 +20800,7 @@
     {
       "path": "app/layout.tsx",
       "inDegree": 0,
-      "outDegree": 24
+      "outDegree": 25
     },
     {
       "path": "app/login/error/page.tsx",
@@ -22110,7 +22130,7 @@
     {
       "path": "app/x/sim/[callerId]/page.tsx",
       "inDegree": 0,
-      "outDegree": 6
+      "outDegree": 7
     },
     {
       "path": "app/x/sim/feedback/page.tsx",
@@ -23240,6 +23260,11 @@
     {
       "path": "hooks/useCourseSetupStatus.ts",
       "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "path": "hooks/useEmbeddedMode.ts",
+      "inDegree": 2,
       "outDegree": 0
     },
     {
@@ -24690,7 +24715,7 @@
     {
       "path": "lib/enrollment/create-test-learner.ts",
       "inDegree": 2,
-      "outDegree": 6
+      "outDegree": 7
     },
     {
       "path": "lib/enrollment/index.ts",
@@ -24710,6 +24735,11 @@
     {
       "path": "lib/enrollment/instantiate-targets.ts",
       "inDegree": 4,
+      "outDegree": 1
+    },
+    {
+      "path": "lib/enrollment/pin-first-module.ts",
+      "inDegree": 2,
       "outDegree": 1
     },
     {
@@ -25609,7 +25639,7 @@
     },
     {
       "path": "lib/prisma.ts",
-      "inDegree": 690,
+      "inDegree": 691,
       "outDegree": 0
     },
     {
@@ -27358,6 +27388,11 @@
       "outDegree": 0
     },
     {
+      "path": "scripts/sort-stale-ielts-skills.ts",
+      "inDegree": 0,
+      "outDegree": 0
+    },
+    {
       "path": "scripts/sync-prompt-specs.ts",
       "inDegree": 0,
       "outDegree": 1
@@ -27461,7 +27496,7 @@
   "highCoupling": [
     {
       "path": "lib/prisma.ts",
-      "inDegree": 690,
+      "inDegree": 691,
       "outDegree": 0
     },
     {
