@@ -560,6 +560,28 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
     || sf.intake.aboutYou.enabled
     || (sf.intake.knowledgeCheck.enabled && (sf.intake.knowledgeCheck.deliveryMode ?? "mcq") === "mcq");
 
+  // Status banner: pre-call survey ON vs OFF — operator can see at a glance
+  // whether the learner skips the survey entirely.
+  if (!anyIntake) {
+    items.push({
+      kind: "divider",
+      label: "🔕 Pre-call survey: OFF — learner skips intake + goes straight to Call 1",
+      lens: "intake",
+      lensLabel: "Turn intake survey on/off",
+    });
+  } else {
+    const enabledCount =
+      (sf.intake.goals.enabled ? 1 : 0)
+      + (sf.intake.aboutYou.enabled ? 1 : 0)
+      + (sf.intake.knowledgeCheck.enabled ? 1 : 0);
+    items.push({
+      kind: "divider",
+      label: `🔔 Pre-call survey: ${enabledCount} question${enabledCount === 1 ? "" : "s"} enabled`,
+      lens: "intake",
+      lensLabel: "Toggle intake questions",
+    });
+  }
+
   if (anyIntake) {
     items.push({
       kind: "divider",
@@ -738,10 +760,22 @@ function buildTranscript(flow: SessionFlowResp | null): PreviewItem[] {
   }
 
   if (sf.onboarding.phases.length > 0) {
+    items.push({
+      kind: "divider",
+      label: `▶ Call 1 onboarding — ${sf.onboarding.phases.length} phase${sf.onboarding.phases.length === 1 ? "" : "s"} (greet → rapport → goals → …)`,
+      lens: "onboarding",
+      lensLabel: "Edit onboarding phases",
+    });
     sf.onboarding.phases.forEach((phase, i) => {
+      // Each phase carries a `.phase` discriminator (e.g. "greeting",
+      // "rapport", "goals", "rest_of_call"). Surface it as a coloured
+      // pill via the caption so the operator immediately sees which
+      // sub-phase this bubble represents — vs reading the `.phase`
+      // value out of the body text.
+      const phaseTag = (phase.phase || "phase").toUpperCase();
       items.push({
         kind: "bubble", side: "bot", lens: "onboarding", lensLabel: "Edit Onboarding",
-        caption: `Phase ${i + 1} of ${sf.onboarding.phases.length} — ${phase.phase}`,
+        caption: `[${phaseTag}] · Phase ${i + 1} of ${sf.onboarding.phases.length}`,
         text: phase.goals?.[0] || `(onboarding phase: ${phase.phase})`,
       });
     });
