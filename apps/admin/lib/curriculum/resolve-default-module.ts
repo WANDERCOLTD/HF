@@ -44,15 +44,22 @@ export async function resolveDefaultModuleForCaller(
   const curriculumId = await resolveCurriculumIdForPlaybook(playbookId);
   if (!curriculumId) return null;
 
-  // Step 1: most-recently-touched module for this caller in this curriculum.
+  // Step 1: most-recently-ATTEMPTED module for this caller in this curriculum.
   // Note: CallerModuleProgress is keyed by (callerId, moduleId) per CC-E —
   // mastery is intentionally cross-Playbook for sibling Curricula. Filtering
   // by curriculumId on the module side gives us per-curriculum continuation
   // without breaking the variant funnel's shared-mastery property.
+  //
+  // 2026-06-25 — only consider rows with a real call attempt (`lastCallId`
+  // not null). Brand-new test learners get all 5 modules pre-seeded
+  // NOT_STARTED at the same timestamp; without this filter, Prisma's
+  // arbitrary ordering of equal-timestamp rows leaked Mock as the "default"
+  // when baseline is the canonical entry point (Step 2 sortOrder=0).
   const latestProgress = await prisma.callerModuleProgress.findFirst({
     where: {
       callerId,
       module: { curriculumId },
+      lastCallId: { not: null },
     },
     select: {
       module: { select: { id: true, slug: true } },
