@@ -240,22 +240,50 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
   }));
 
   // --- Adaptation evidence ---
-
-  // System default target is 0.5 — deviations show personalisation
+  //
+  // System default is 0.5 — deviations reflect engine adaptation OR engine-
+  // derived scoring. Two shapes of CallerTarget row need different reads:
+  //
+  //   - skill_* params — SKILL-AGG-001 (`aggregate-runner.ts:277`) upserts
+  //     `targetValue: 1.0` as the aggregate ceiling on the FIRST scored call,
+  //     so `ct.targetValue` for skill_* is a default artefact NOT an
+  //     adaptation. The meaningful read is `ct.currentScore` (EMA of
+  //     `CallScore.score` observations). Rows with `currentScore=null` have
+  //     no scored evidence yet and are skipped entirely.
+  //
+  //   - non-skill_* params (BEH-*, etc.) — ADAPT-stage writes real
+  //     `targetValue` changes; `currentScore` isn't populated for these.
+  //     Original read of `ct.targetValue - 0.5` remains correct.
+  //
+  // Pre-fix the section reported `delta = +0.5` for every scored skill_*
+  // param — false-positive "learner adapted +50 pts" that was actually the
+  // SKILL-AGG ceiling. See fix/adaptations-tab-caller-target-visible.
   const SYSTEM_DEFAULT = 0.5;
   const adaptationEvidence = callerTargets
-    .map((ct) => ({
-      parameterName: ct.parameter.name,
-      parameterType: ct.parameter.parameterType ?? null,
-      sectionId: ct.parameter.sectionId ?? null,
-      definition: ct.parameter.definition ?? null,
-      defaultValue: SYSTEM_DEFAULT,
-      currentValue: ct.targetValue,
-      delta: Math.round((ct.targetValue - SYSTEM_DEFAULT) * 1000) / 1000,
-      callsUsed: ct.callsUsed,
-      confidence: ct.confidence,
-    }))
-    .filter((a) => Math.abs(a.delta) > 0.01) // Only show meaningful adaptations
+    .map((ct) => {
+      const isSkill = ct.parameterId.startsWith("skill_");
+      const currentValue = isSkill ? ct.currentScore : ct.targetValue;
+      return {
+        parameterName: ct.parameter.name,
+        parameterType: ct.parameter.parameterType ?? null,
+        sectionId: ct.parameter.sectionId ?? null,
+        definition: ct.parameter.definition ?? null,
+        defaultValue: SYSTEM_DEFAULT,
+        currentValue,
+        delta:
+          currentValue == null
+            ? null
+            : Math.round((currentValue - SYSTEM_DEFAULT) * 1000) / 1000,
+        callsUsed: ct.callsUsed,
+        confidence: ct.confidence,
+      };
+    })
+    .filter(
+      (a): a is typeof a & { currentValue: number; delta: number } =>
+        a.currentValue !== null &&
+        a.delta !== null &&
+        Math.abs(a.delta) > 0.01,
+    ) // Only show meaningful adaptations (or scored evidence for skill_*)
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 
   // --- Engagement ---
