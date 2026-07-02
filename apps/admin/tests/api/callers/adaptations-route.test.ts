@@ -250,6 +250,123 @@ describe("GET /api/callers/[callerId]/adaptations — SP5-A shell at full tier",
     expect(body.whatWasAdapted).toHaveLength(1);
     expect(body.whatWasAdapted[0].parameterId).toBe("p1");
   });
+
+  it("SP5-B ext: engine-scored CallerTarget (no CALLER-scope BT) surfaces as CALLER with currentScore", async () => {
+    // Judy-shaped scenario: cascade returns SYSTEM-only (PLAYBOOK 0.5 is
+    // treated as "unchanged baseline" — filtered) but a CallerTarget with
+    // callsUsed > 0 + currentScore exists. Pre-fix the row hid.
+    // Post-fix the row surfaces as CALLER-scope with overrideValue=score
+    // and defaultValue=playbookValue.
+    mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Judy" });
+    mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
+      playbookId: "pb1",
+      playbook: { id: "pb1", name: "IELTS Speaking" },
+    });
+    const { getEffectiveBehaviorTargetsForCaller } = await import(
+      "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller"
+    );
+    // PLAYBOOK-scope entry with target 0.5 (what the engine aims for),
+    // but NO CALLER-scope BehaviorTarget row for this learner.
+    vi.mocked(getEffectiveBehaviorTargetsForCaller).mockResolvedValueOnce([
+      {
+        parameterId: "skill_fluency_and_coherence_fc",
+        effectiveValue: 0.5,
+        sourceScope: "PLAYBOOK" as const,
+        systemValue: null,
+        playbookValue: 0.5,
+        callerValue: null,
+      },
+    ] as never);
+    // Two parameter lookups: (1) for the cascade block's PLAYBOOK entry;
+    // (2) for the CT-driven append. Each uses its own `mockResolvedValueOnce`.
+    mockPrisma.parameter.findMany.mockResolvedValueOnce([
+      { parameterId: "skill_fluency_and_coherence_fc", name: "Fluency & Coherence" },
+    ]);
+    // BehaviorTarget PLAYBOOK-scope updatedAt lookup for the cascade block.
+    mockPrisma.behaviorTarget.findMany.mockResolvedValueOnce([
+      {
+        parameterId: "skill_fluency_and_coherence_fc",
+        updatedAt: new Date("2026-07-01T10:00:00Z"),
+      },
+    ]);
+    // Scored CallerTarget — first-time hit that the cascade missed.
+    mockPrisma.callerTarget.findMany.mockResolvedValueOnce([
+      {
+        parameterId: "skill_fluency_and_coherence_fc",
+        currentScore: 0.42,
+        callsUsed: 2,
+        confidence: 0.55,
+        updatedAt: new Date("2026-07-02T21:05:33Z"),
+      },
+    ]);
+    // Parameter name resolution for the CT-driven append.
+    mockPrisma.parameter.findMany.mockResolvedValueOnce([
+      { parameterId: "skill_fluency_and_coherence_fc", name: "Fluency & Coherence" },
+    ]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    // The cascade produced one PLAYBOOK entry; the CT-append should
+    // REPLACE-via-append (different scope) — we now have 2 entries for
+    // the same param. The CALLER-scope one carries the engine score.
+    const callerScopeRow = body.whatWasAdapted.find(
+      (o: { sourceScope: string }) => o.sourceScope === "CALLER",
+    );
+    expect(callerScopeRow).toBeDefined();
+    expect(callerScopeRow.parameterId).toBe("skill_fluency_and_coherence_fc");
+    expect(callerScopeRow.overrideValue).toBe(0.42); // engine's current read
+    expect(callerScopeRow.defaultValue).toBe(0.5); // playbook target
+    expect(callerScopeRow.callsApplied).toBe(2);
+    expect(callerScopeRow.confidence).toBe(0.55);
+  });
+
+  it("SP5-B ext: CT rows are skipped when a CALLER-scope BT already surfaces the parameter (operator-set target wins)", async () => {
+    mockPrisma.caller.findUnique.mockResolvedValue({ id: "c1", name: "Alex" });
+    mockPrisma.callerPlaybook.findFirst.mockResolvedValue({
+      playbookId: "pb1",
+      playbook: { id: "pb1", name: "Sample" },
+    });
+    const { getEffectiveBehaviorTargetsForCaller } = await import(
+      "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller"
+    );
+    vi.mocked(getEffectiveBehaviorTargetsForCaller).mockResolvedValueOnce([
+      {
+        parameterId: "p1",
+        effectiveValue: 0.7, // operator-set CALLER-scope override
+        sourceScope: "CALLER" as const,
+        systemValue: 0.5,
+      },
+    ] as never);
+    mockPrisma.parameter.findMany.mockResolvedValueOnce([
+      { parameterId: "p1", name: "Clarity" },
+    ]);
+    mockPrisma.callerTarget.findMany.mockResolvedValueOnce([
+      {
+        parameterId: "p1",
+        confidence: 0.9,
+        callsUsed: 3,
+        updatedAt: new Date("2026-06-12T10:00:00Z"),
+      },
+    ]);
+    // Second CT lookup — the scored-CT append. Also returns a CT for p1.
+    mockPrisma.callerTarget.findMany.mockResolvedValueOnce([
+      {
+        parameterId: "p1",
+        currentScore: 0.42,
+        callsUsed: 3,
+        confidence: 0.9,
+        updatedAt: new Date("2026-06-12T10:00:00Z"),
+      },
+    ]);
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    // Exactly one entry: the operator's CALLER-scope BT wins over the
+    // engine-derived CT. No duplicate.
+    expect(body.whatWasAdapted).toHaveLength(1);
+    expect(body.whatWasAdapted[0].parameterId).toBe("p1");
+    expect(body.whatWasAdapted[0].overrideValue).toBe(0.7); // BT value, not CT
+  });
 });
 
 describe("GET /api/callers/[callerId]/adaptations — redacted shape", () => {
