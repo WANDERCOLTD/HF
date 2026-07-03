@@ -288,7 +288,16 @@ export async function main(prisma: PrismaClient): Promise<void> {
           maxDurationSeconds: 1800,
         },
         tierPresetId: "ielts-speaking",
-        skillScoringEmaHalfLifeDays: 14,
+        // Skill EMA calibration — the AGGREGATE-runner cascade reads these
+        // (aggregate-runner.ts:200-212). `minCallsToFull:1` removes the
+        // per-call cap that clamps call #1's CallerTarget to `callsUsed / N`
+        // (with N=4 default, first call was stuck at 0.25 regardless of the
+        // actual CallScore). Trusts call-1's scored value directly; the
+        // subsequent EMA smooths it. `halfLifeDays:3` keeps day-over-day
+        // real-user data smooth while letting per-week practice cadences
+        // visibly move the score (α ≈ 0.79 at 7-day gap).
+        skillScoringEmaHalfLifeDays: 3,
+        skillMinCallsToFull: 1,
         // ── CourseAssessmentPlan (epic #2176 / PR #2254 S1) ──
         // BDD-shaped: upfront baseline + end mock. Speaking is examiner-
         // mode, conversational — contentKind:"topic-prompt" (not mcq).
