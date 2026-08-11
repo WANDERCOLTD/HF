@@ -45,6 +45,38 @@ export default function ThanksPage() {
           </ol>
         </div>
 
+        <div className="mt-8 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-secondary)] p-8 text-left">
+          <h2 className="text-base font-semibold">
+            So you can plan for it
+          </h2>
+          <ul className="mt-4 space-y-3 text-[var(--text-secondary)]">
+            <li>
+              <span className="font-medium text-[var(--text-primary)]">
+                15-25 minutes of your time.
+              </span>{" "}
+              Depending on which course. Do it in one sitting.
+            </li>
+            <li>
+              <span className="font-medium text-[var(--text-primary)]">
+                Headphones + quiet room.
+              </span>{" "}
+              You&rsquo;ll be speaking out loud. Others in the room = awkward.
+            </li>
+            <li>
+              <span className="font-medium text-[var(--text-primary)]">
+                A browser with mic access.
+              </span>{" "}
+              Chrome, Safari, Firefox — all fine. Desktop or phone.
+            </li>
+            <li>
+              <span className="font-medium text-[var(--text-primary)]">
+                Feedback on the spot.
+              </span>{" "}
+              You&rsquo;ll see your scores the moment the session ends.
+            </li>
+          </ul>
+        </div>
+
         <p className="mt-10 text-sm text-[var(--text-tertiary)]">
           Change of heart, question, or a friend you&rsquo;d like to refer?{" "}
           <a
