@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HumanFirst — Front of House",
-  description: "The learner-facing front-of-house experience for HumanFirst.",
+  title: {
+    default: "HumanFirst — Learn out loud",
+    template: "%s | HumanFirst",
+  },
+  description:
+    "AI tutors that listen back. IELTS speaking practice and CIO/CTO scenario rehearsal — coached, then tested.",
 };
 
 // Prevent a flash of the wrong theme before hydration.
