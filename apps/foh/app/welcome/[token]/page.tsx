@@ -32,7 +32,11 @@ export default async function WelcomePage({
 
   const adminBase =
     process.env.NEXT_PUBLIC_ADMIN_URL ?? "https://dev.humanfirstfoundation.com";
-  const joinUrl = `${adminBase}/api/join/${encodeURIComponent(token)}`;
+  // Points at the v2 intake page (auth-first, email/phone → PIN → profile).
+  // Sibling `/intake/enrollment-crawcus/${token}` is the v1 crawcus flow;
+  // pick one per pilot cohort. Both create a Caller and redirect to
+  // /x/sim/${callerId}?embedded=1 on completion.
+  const joinUrl = `${adminBase}/intake/v2/${encodeURIComponent(token)}`;
 
   const isCioCto = course === "cio-cto";
   const isIelts = course === "ielts" || !isCioCto;
