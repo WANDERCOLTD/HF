@@ -25,8 +25,12 @@ export default function IeltsPage() {
       </header>
 
       <article className="mx-auto max-w-3xl px-6 py-16">
-        <div className="text-sm font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
-          For IELTS test-takers
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--surface-secondary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--band-high)]" />
+          Cohort 001 · Invite-only pilot
+        </div>
+        <div className="mt-4 text-sm font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+          For university applicants + visa candidates targeting band 6.5–7.5
         </div>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
           The IELTS tutor that teaches you,<br />
@@ -34,7 +38,9 @@ export default function IeltsPage() {
         </h1>
         <p className="mt-6 text-xl text-[var(--text-secondary)]">
           Every other IELTS app scores you and moves on. This one coaches you
-          through what to fix, then tests whether you fixed it.
+          through what to fix, then tests whether you fixed it. Real examiner
+          voice, honest bands, adapts to your weakest of Fluency, Lexical,
+          Grammar, Pronunciation.
         </p>
 
         <section className="mt-14">

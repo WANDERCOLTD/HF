@@ -18,7 +18,11 @@ export default function ThanksPage() {
       </header>
 
       <section className="mx-auto max-w-2xl px-6 py-24 text-center">
-        <h1 className="text-4xl font-semibold tracking-tight">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--surface-secondary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--band-high)]" />
+          Cohort 001 · Invite-only pilot
+        </div>
+        <h1 className="mt-6 text-4xl font-semibold tracking-tight">
           You&rsquo;re in the queue.
         </h1>
         <p className="mt-6 text-lg text-[var(--text-secondary)]">

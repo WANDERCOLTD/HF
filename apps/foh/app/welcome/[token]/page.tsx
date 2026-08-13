@@ -56,8 +56,9 @@ export default async function WelcomePage({
       </header>
 
       <article className="mx-auto max-w-2xl px-6 py-16">
-        <div className="text-sm font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
-          {courseLabel} · Pilot cohort
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--surface-secondary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--band-high)]" />
+          Cohort 001 · {courseLabel}
         </div>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
           {name ? `Welcome, ${name}.` : "You're in."}

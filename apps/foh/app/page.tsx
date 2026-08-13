@@ -27,7 +27,11 @@ export default function HomePage() {
       </header>
 
       <section className="mx-auto max-w-3xl px-6 py-24 text-center">
-        <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--surface-secondary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--band-high)]" />
+          Cohort 001 · Invite-only pilot
+        </div>
+        <h1 className="mt-6 text-5xl font-semibold tracking-tight sm:text-6xl">
           Learn out loud.
         </h1>
         <p className="mt-6 text-xl text-[var(--text-secondary)]">
@@ -35,7 +39,7 @@ export default function HomePage() {
           No scripted drills. No inflated scores.
         </p>
         <p className="mt-4 text-base text-[var(--text-tertiary)]">
-          Two pilot courses open. Invite-only for now.
+          IELTS Speaking pilot open now. CIO/CTO Standard waitlist for October.
         </p>
       </section>
 
@@ -62,16 +66,22 @@ export default function HomePage() {
             href="/cio-cto"
             className="group rounded-2xl border border-[var(--border-default)] p-8 transition hover:border-[var(--text-secondary)] hover:bg-[var(--hover-bg)]"
           >
-            <div className="text-sm font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
-              For IT leaders
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+                For IT leaders
+              </div>
+              <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-xs text-[var(--text-tertiary)]">
+                Waitlist
+              </span>
             </div>
             <h2 className="mt-3 text-2xl font-semibold">CIO / CTO Standard</h2>
             <p className="mt-3 text-[var(--text-secondary)]">
               Rehearse the conversations before you have them. Case-study
               scenarios from the SIAS Standard, probed by an AI board chair.
+              Cohort 002 opens October.
             </p>
             <div className="mt-6 text-sm font-medium group-hover:underline">
-              Try it →
+              Join the waitlist →
             </div>
           </Link>
         </div>
