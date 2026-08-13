@@ -26,8 +26,8 @@ export default function CioCtoPage() {
 
       <article className="mx-auto max-w-3xl px-6 py-16">
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--surface-secondary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--band-mid)]" />
-          Cohort 002 waitlist · opens October 2026
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--band-high)]" />
+          Cohort 001 · Invite-only pilot
         </div>
         <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
           Rehearse the CIO conversations<br />
@@ -36,15 +36,9 @@ export default function CioCtoPage() {
         <p className="mt-6 text-xl text-[var(--text-secondary)]">
           A Gartner conference gets you the frameworks. This gets you the
           rehearsal. Case studies from the SIAS CIO/CTO Standard, coached in
-          the moment, probed like a board.
+          the moment, probed like a board. 250 authored MCQs, 26 rubric-scored
+          LOs, 5 case studies across the five leverage-heavy Units.
         </p>
-        <div className="mt-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-secondary)] p-5 text-sm text-[var(--text-secondary)]">
-          <strong className="text-[var(--text-primary)]">Cohort 001 is
-          IELTS-only.</strong> The CIO/CTO Standard course opens for pilot
-          learners in October 2026 once we&rsquo;ve completed a domain-expert
-          content review. Join the waitlist below and I&rsquo;ll email you
-          personally when Cohort 002 opens (about 6 weeks). No spam, one email.
-        </div>
 
         <section className="mt-14">
           <h2 className="text-lg font-semibold">Three modes, one Standard</h2>
@@ -136,11 +130,10 @@ export default function CioCtoPage() {
         </section>
 
         <section className="mt-14">
-          <h2 className="text-lg font-semibold">Join the Cohort 002 waitlist</h2>
+          <h2 className="text-lg font-semibold">Try it — request an invite</h2>
           <p className="mt-3 text-[var(--text-secondary)]">
-            8 pilot slots at open, October 2026. Serious inbounds only — this
-            is rehearsal, not a demo. I&rsquo;ll email you personally when it
-            opens.
+            8 pilot slots. Serious inbounds only — this is rehearsal, not a
+            demo. I&rsquo;ll email you a personal invite within 24 hours.
           </p>
 
           <form
@@ -232,7 +225,7 @@ export default function CioCtoPage() {
                 type="submit"
                 className="rounded-lg bg-[var(--text-primary)] px-5 py-2.5 text-sm font-medium text-[var(--surface-primary)] transition hover:opacity-90"
               >
-                Join the waitlist
+                Request an invite
               </button>
               <p className="text-xs text-[var(--text-tertiary)]">
                 By submitting you agree to our{" "}

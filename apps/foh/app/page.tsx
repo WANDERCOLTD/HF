@@ -39,7 +39,7 @@ export default function HomePage() {
           No scripted drills. No inflated scores.
         </p>
         <p className="mt-4 text-base text-[var(--text-tertiary)]">
-          IELTS Speaking pilot open now. CIO/CTO Standard waitlist for October.
+          Two courses. Invite-only. Cohort 001 open now.
         </p>
       </section>
 
@@ -66,22 +66,17 @@ export default function HomePage() {
             href="/cio-cto"
             className="group rounded-2xl border border-[var(--border-default)] p-8 transition hover:border-[var(--text-secondary)] hover:bg-[var(--hover-bg)]"
           >
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
-                For IT leaders
-              </div>
-              <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-xs text-[var(--text-tertiary)]">
-                Waitlist
-              </span>
+            <div className="text-sm font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+              For IT leaders
             </div>
             <h2 className="mt-3 text-2xl font-semibold">CIO / CTO Standard</h2>
             <p className="mt-3 text-[var(--text-secondary)]">
               Rehearse the conversations before you have them. Case-study
               scenarios from the SIAS Standard, probed by an AI board chair.
-              Cohort 002 opens October.
+              250 MCQs, 5 case studies, 5 leverage-heavy Units.
             </p>
             <div className="mt-6 text-sm font-medium group-hover:underline">
-              Join the waitlist →
+              Try it →
             </div>
           </Link>
         </div>
