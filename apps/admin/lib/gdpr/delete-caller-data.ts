@@ -34,6 +34,10 @@ export interface DeletionCounts {
   inboundMessages: number;
   onboardingSessions: number;
   calls: number;
+  sessions: number;
+  sequenceCounters: number;
+  ownedCohortGroups: number;
+  ownedCohortInvites: number;
 }
 
 /**
@@ -71,6 +75,10 @@ export async function deleteCallerData(
     inboundMessages: 0,
     onboardingSessions: 0,
     calls: 0,
+    sessions: 0,
+    sequenceCounters: 0,
+    ownedCohortGroups: 0,
+    ownedCohortInvites: 0,
   };
 
   const run = async (client: Prisma.TransactionClient) => {
@@ -119,6 +127,31 @@ export async function deleteCallerData(
 
     // Delete calls
     counts.calls = (await client.call.deleteMany({ where: { callerId } })).count;
+
+    // Sessions (epic #1338). `Session.callerId` is onDelete: Restrict, so
+    // these MUST go before caller.delete() or Postgres rejects the erasure
+    // with P2003. FailureLog cascades from Session. Calls are already gone
+    // above, so the Call.sessionId SetNull pass is a no-op.
+    counts.sessions = (await client.session.deleteMany({ where: { callerId } })).count;
+    counts.sequenceCounters = (
+      await client.callerSequenceCounter.deleteMany({ where: { callerId } })
+    ).count;
+
+    // Cohorts this caller OWNS. `CohortGroup.ownerId` is Restrict-by-default,
+    // so an owner cannot be erased while their cohorts exist. Invite also
+    // holds a Restrict FK to CohortGroup and must be cleared first;
+    // CohortPlaybook and CallerCohortMembership cascade.
+    const ownedCohortIds = (
+      await client.cohortGroup.findMany({ where: { ownerId: callerId }, select: { id: true } })
+    ).map((c) => c.id);
+    if (ownedCohortIds.length > 0) {
+      counts.ownedCohortInvites = (
+        await client.invite.deleteMany({ where: { cohortGroupId: { in: ownedCohortIds } } })
+      ).count;
+    }
+    counts.ownedCohortGroups = (
+      await client.cohortGroup.deleteMany({ where: { ownerId: callerId } })
+    ).count;
 
     // Finally delete the caller
     await client.caller.delete({ where: { id: callerId } });
