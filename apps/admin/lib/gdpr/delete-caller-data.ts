@@ -38,6 +38,8 @@ export interface DeletionCounts {
   sequenceCounters: number;
   ownedCohortGroups: number;
   ownedCohortInvites: number;
+  legacyCohortRefsCleared: number;
+  identityBehaviorTargets: number;
 }
 
 /**
@@ -79,6 +81,8 @@ export async function deleteCallerData(
     sequenceCounters: 0,
     ownedCohortGroups: 0,
     ownedCohortInvites: 0,
+    legacyCohortRefsCleared: 0,
+    identityBehaviorTargets: 0,
   };
 
   const run = async (client: Prisma.TransactionClient) => {
@@ -122,7 +126,20 @@ export async function deleteCallerData(
     counts.callerPlaybooks = (await client.callerPlaybook.deleteMany({ where: { callerId } })).count;
     counts.callerCohortMemberships = (await client.callerCohortMembership.deleteMany({ where: { callerId } })).count;
 
-    // Delete caller identities
+    // Delete caller identities. `BehaviorTarget.callerIdentityId` is a
+    // Restrict FK into CallerIdentity, so CALLER-scope behaviour tuning must
+    // go first or the identity delete throws. These rows are per-caller
+    // tuning derived from that caller's sessions — caller data, so erased.
+    const identityIds = (
+      await client.callerIdentity.findMany({ where: { callerId }, select: { id: true } })
+    ).map((i) => i.id);
+    if (identityIds.length > 0) {
+      counts.identityBehaviorTargets = (
+        await client.behaviorTarget.deleteMany({
+          where: { callerIdentityId: { in: identityIds } },
+        })
+      ).count;
+    }
     counts.callerIdentities = (await client.callerIdentity.deleteMany({ where: { callerId } })).count;
 
     // Delete calls
@@ -147,6 +164,18 @@ export async function deleteCallerData(
     if (ownedCohortIds.length > 0) {
       counts.ownedCohortInvites = (
         await client.invite.deleteMany({ where: { cohortGroupId: { in: ownedCohortIds } } })
+      ).count;
+    }
+    if (ownedCohortIds.length > 0) {
+      // `Caller.cohortGroupId` is the DEPRECATED single-membership scalar and
+      // is Restrict-by-default, so a cohort cannot be deleted while ANY caller
+      // still points at it — including callers other than the one being erased.
+      // Sever those references rather than deleting the other callers' rows.
+      counts.legacyCohortRefsCleared = (
+        await client.caller.updateMany({
+          where: { cohortGroupId: { in: ownedCohortIds } },
+          data: { cohortGroupId: null },
+        })
       ).count;
     }
     counts.ownedCohortGroups = (

@@ -102,6 +102,31 @@ schema refactor breaks the regex, the enumeration would silently return
 nothing and every assertion would pass vacuously. The floor turns that
 into a failure.
 
+## Second-order edges
+
+Clearing everything that points at `Caller` is not sufficient. The helper
+also deletes OTHER rows — owned `CohortGroup`s, `CallerIdentity` rows —
+and those have their own inbound FKs. A `Restrict` FK into one of them
+blocks erasure just as hard, and a scan that only walks edges into
+`Caller` structurally cannot see it.
+
+Two real gaps of this shape were found the day the gate shipped, both
+after the first-order scan already read 0 gaps:
+
+| Edge | Why it blocks |
+|---|---|
+| `Caller.cohortGroupId → CohortGroup` | The deprecated single-membership scalar. Erasing a cohort owner threw P2003 on behalf of *other* callers still pointing at that cohort — 20 such callers existed on both hf_sandbox and hf_staging. |
+| `BehaviorTarget.callerIdentityId → CallerIdentity` | CALLER-scope behaviour tuning pinned the identity rows the helper was trying to delete. |
+
+The second-order block walks every model the helper deletes (inferred
+from `.<accessor>.delete` in its source), enumerates blocking inbound
+FKs, and requires each to be either deleted outright or **severed** —
+`updateMany({ data: { <fkField>: null } })`.
+
+Severing is the right move when the referencing rows belong to someone
+else. Deleting another caller's row to erase this one would be a
+different bug.
+
 ## Ratchets
 
 | Constant | Value at birth | Meaning |

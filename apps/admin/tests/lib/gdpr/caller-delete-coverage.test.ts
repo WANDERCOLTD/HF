@@ -96,6 +96,32 @@ interface CallerRelation {
   blocking: boolean;
 }
 
+/** Every `model X { ... }` block in the schema, as [name, body]. */
+function modelBlocks(schema: string): Array<[string, string]> {
+  return [...schema.matchAll(/^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm)].map(
+    (m) => [m[1], m[2]] as [string, string],
+  );
+}
+
+/** Relations pointing INTO `target`, from every other model. */
+function parseRelationsInto(schema: string, target: string): CallerRelation[] {
+  const rel = new RegExp(`^\\s*\\w+\\s+${target}\\??\\s+@relation\\(([^)]*)\\)`, "gm");
+  const out: CallerRelation[] = [];
+  for (const [model, body] of modelBlocks(schema)) {
+    if (model === target) continue;
+    for (const [, args] of body.matchAll(rel)) {
+      const onDelete = /onDelete:\s*(\w+)/.exec(args)?.[1] ?? "UNSPECIFIED";
+      out.push({
+        model,
+        fkField: /fields:\s*\[(\w+)\]/.exec(args)?.[1] ?? "?",
+        onDelete,
+        blocking: !NON_BLOCKING_ON_DELETE.has(onDelete),
+      });
+    }
+  }
+  return out;
+}
+
 function parseCallerRelations(schema: string): CallerRelation[] {
   const modelBlock = /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm;
   const callerRel = /^\s*\w+\s+Caller\??\s+@relation\(([^)]*)\)/gm;
@@ -217,5 +243,86 @@ describe("Caller erasure delete-chain coverage (Lattice Coverage)", () => {
         `${exempt.length} exempt, ${gaps.length} gap`,
     );
     expect(covered + exempt.length + gaps.length).toBe(results.length);
+  });
+});
+
+/**
+ * Second-order coverage.
+ *
+ * The block above proves the helper clears everything pointing at `Caller`.
+ * But the helper also deletes OTHER rows — owned `CohortGroup`s, for
+ * instance — and those have their own inbound FKs. A Restrict FK into one of
+ * them blocks erasure just as hard, and the first-order scan structurally
+ * cannot see it because it only walks edges into `Caller`.
+ *
+ * This is not hypothetical. `Caller.cohortGroupId` (the deprecated
+ * single-membership scalar, Restrict by default) points at `CohortGroup`.
+ * When the helper began deleting owned cohorts, erasing a cohort owner would
+ * throw P2003 on behalf of OTHER callers still referencing that cohort — 20
+ * such callers existed on both hf_sandbox and hf_staging. The first-order
+ * gate showed 0 gaps throughout.
+ *
+ * A blocking inbound FK is considered handled when the helper either deletes
+ * the referencing model outright, or severs the reference by setting the FK
+ * field to null.
+ */
+
+const MODEL_NAMES = modelBlocks(schemaSrc).map(([name]) => name);
+
+/** Models the helper deletes, inferred from `.<accessor>.delete` in its source. */
+const deletedModels = MODEL_NAMES.filter((m) =>
+  new RegExp(`\\.${toAccessor(m)}\\.delete`).test(helperSrc),
+);
+
+interface SecondOrderCell extends CallerRelation {
+  target: string;
+  classification: Classification;
+}
+
+const secondOrder: SecondOrderCell[] = deletedModels
+  // Edges into Caller are the first-order block's job.
+  .filter((target) => target !== "Caller")
+  .flatMap((target) =>
+    parseRelationsInto(schemaSrc, target)
+      .filter((r) => r.blocking)
+      .map((r) => {
+        const deletesReferrer = deletedModels.includes(r.model);
+        const seversRef = new RegExp(`${r.fkField}:\\s*null`).test(helperSrc);
+        return {
+          ...r,
+          target,
+          classification: (deletesReferrer || seversRef ? "covered" : "gap") as Classification,
+        };
+      }),
+  );
+
+const secondOrderGaps = secondOrder.filter((c) => c.classification === "gap");
+
+describe("Caller erasure — second-order FK coverage (Lattice Coverage)", () => {
+  it("the helper deletes more than just the Caller row", () => {
+    expect(deletedModels.length).toBeGreaterThan(5);
+    expect(deletedModels).toContain("Caller");
+  });
+
+  it("every blocking FK into a helper-deleted model is deleted or severed", () => {
+    const detail = secondOrderGaps
+      .map((g) => `  ${g.model}.${g.fkField} -> ${g.target} (onDelete: ${g.onDelete})`)
+      .join("\n");
+    expect(
+      secondOrderGaps.length,
+      `${secondOrderGaps.length} FK(s) block deletion of a row the erasure helper ` +
+        `itself removes. Postgres will reject that delete with P2003 — possibly on ` +
+        `behalf of a DIFFERENT caller who still references the row:\n${detail}\n\n` +
+        `Either delete the referencing rows, or sever the reference with ` +
+        `updateMany({ data: { <fkField>: null } }) before the delete.`,
+    ).toBe(0);
+  });
+
+  it("second-order scan sanity (operator-facing log)", () => {
+    console.log(
+      `[caller-delete-coverage] second-order — helper deletes ${deletedModels.length} models; ` +
+        `${secondOrder.length} blocking inbound FK(s) across them; ${secondOrderGaps.length} gap`,
+    );
+    expect(secondOrder.length).toBeGreaterThan(0);
   });
 });
