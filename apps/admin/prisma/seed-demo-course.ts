@@ -413,6 +413,17 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
         await prisma.behaviorMeasurement.deleteMany({ where: { callId: { in: existingCallIds } } });
       }
       await prisma.call.deleteMany({ where: { callerId: { in: callerIds } } });
+      // Session (epic #1338) — `Session.callerId` is onDelete: Restrict, so
+      // these must go before the Caller delete. FailureLog cascades from
+      // Session; Call.sessionId is SetNull and Calls are already gone above.
+      await prisma.session.deleteMany({ where: { callerId: { in: callerIds } } });
+      await prisma.callerSequenceCounter.deleteMany({ where: { callerId: { in: callerIds } } });
+      // Remaining Restrict-by-default Caller FKs — same blocking class as
+      // Session; deleted here so re-seeding never trips on them.
+      await prisma.callerIdentity.deleteMany({ where: { callerId: { in: callerIds } } });
+      await prisma.callerPersonality.deleteMany({ where: { callerId: { in: callerIds } } });
+      await prisma.personalityObservation.deleteMany({ where: { callerId: { in: callerIds } } });
+      await prisma.promptSlugSelection.deleteMany({ where: { callerId: { in: callerIds } } });
       await prisma.callerPlaybook.deleteMany({ where: { callerId: { in: callerIds } } });
       await prisma.callerCohortMembership.deleteMany({ where: { callerId: { in: callerIds } } });
       // Delete cohorts owned by demo callers (before deleting callers)
