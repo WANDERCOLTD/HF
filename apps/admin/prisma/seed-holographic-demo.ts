@@ -19,6 +19,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { deleteCallersData } from "../lib/gdpr/delete-caller-data";
 import bcrypt from "bcryptjs";
 
 let prisma: PrismaClient;
@@ -676,33 +677,19 @@ async function cleanup() {
     // FK-safe order (deepest leaves → roots)
     // Uses Prisma deleteMany to handle @@map table name remapping.
     // Complete list from ENTITY_DEPENDENCY_TREE + schema FK analysis.
-    const cw = { where: { caller: { domainId } } } as const;
-    const ccw = { where: { call: { caller: { domainId } } } } as const;
+    // 1-2. Callers in this domain, plus every FK the erasure chokepoint
+    // knows about (calls + their children, memories, identities, sessions,
+    // owned cohorts, ...).
+    const domainCallers = await prisma.caller.findMany({
+      where: { domainId },
+      select: { id: true },
+    });
+    await deleteCallersData(domainCallers.map((c) => c.id), prisma);
 
-    // 1. Call children
-    await prisma.callScore.deleteMany(cw);
-    await prisma.behaviorMeasurement.deleteMany(ccw);
-    await prisma.callMessage.deleteMany(ccw);
-    await prisma.rewardScore.deleteMany(ccw);
-    await prisma.conversationArtifact.deleteMany(ccw);
-    await prisma.call.deleteMany(cw);
-
-    // 2. Caller children (non-cascading FKs)
-    await prisma.composedPrompt.deleteMany(cw);
-    await prisma.callerIdentity.deleteMany(cw);
-    await prisma.callerMemory.deleteMany(cw);
-    await prisma.callerMemorySummary.deleteMany(cw);
-    await prisma.callerPersonalityProfile.deleteMany(cw);
-    await prisma.personalityObservation.deleteMany(cw);
-    await prisma.goal.deleteMany(cw);
-    await prisma.callerPlaybook.deleteMany(cw);
-    await prisma.callerCohortMembership.deleteMany(cw);
-    await prisma.onboardingSession.deleteMany(cw);
-
-    // 3. CohortGroup.ownerId → Caller, so delete cohorts BEFORE callers
+    // 3. Cohorts scoped to the domain but owned by a caller OUTSIDE it —
+    // the chokepoint only removes cohorts owned by the callers it deleted.
     await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { domainId } } });
     await prisma.cohortGroup.deleteMany({ where: { domainId } });
-    await prisma.caller.deleteMany({ where: { domainId } });
 
     // 4. Domain-level children
     await prisma.channelConfig.deleteMany({ where: { domainId } });

@@ -184,8 +184,8 @@ describe("Caller erasure delete-chain coverage (Lattice Coverage)", () => {
 
   it("the canonical helper still deletes the Caller row itself", () => {
     expect(
-      /\.caller\.delete\(/.test(helperSrc),
-      "delete-caller-data.ts no longer calls caller.delete() — either the " +
+      /\.caller\.delete(Many)?\(/.test(helperSrc),
+      "delete-caller-data.ts no longer deletes the Caller row — either the " +
         "chokepoint moved (update HELPER_PATH) or erasure silently stopped " +
         "deleting the Caller.",
     ).toBe(true);

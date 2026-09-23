@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { deleteCallersData } from "@/lib/gdpr/delete-caller-data";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 
 /**
@@ -451,11 +452,41 @@ export async function POST(req: Request) {
         });
       }
 
-      // === 4. DELETE SOURCE CALLERS ===
-      // Cascade delete will clean up any remaining references
-      await tx.caller.deleteMany({
-        where: { id: { in: sourceCallerIds } },
+      // === 3b. RE-PARENT SESSIONS ===
+      // `Session.callerId` is onDelete: Restrict, so the source callers cannot
+      // be deleted while their sessions exist. Sessions are real learner
+      // history and the Calls above have already moved to the target, so move
+      // the sessions too rather than dropping them.
+      //
+      // `@@unique([callerId, kind, sequenceNumber])` means the source numbers
+      // would collide with the target's, so each session is assigned a fresh
+      // sequence from the target's counter — the same atomic upsert
+      // `createSession` uses. `learnerFacingNumber` is deliberately left
+      // as-is: it is display-only and the merged history already tolerates
+      // gaps (see the note on call re-chaining above).
+      const sourceSessions = await tx.session.findMany({
+        where: { callerId: { in: sourceCallerIds } },
+        orderBy: { startedAt: "asc" },
+        select: { id: true, kind: true },
       });
+
+      for (const s of sourceSessions) {
+        const counter = await tx.callerSequenceCounter.upsert({
+          where: { callerId_kind: { callerId: targetCallerId, kind: s.kind } },
+          create: { callerId: targetCallerId, kind: s.kind, nextSeq: 2 },
+          update: { nextSeq: { increment: 1 } },
+          select: { nextSeq: true },
+        });
+        await tx.session.update({
+          where: { id: s.id },
+          data: { callerId: targetCallerId, sequenceNumber: counter.nextSeq - 1 },
+        });
+      }
+
+      // === 4. DELETE SOURCE CALLERS ===
+      // Everything worth keeping has been re-parented above; the chokepoint
+      // clears whatever is left plus every FK that would block the delete.
+      await deleteCallersData(sourceCallerIds, tx);
 
       return counts;
     });

@@ -21,6 +21,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { deleteCallersData } from "../lib/gdpr/delete-caller-data";
 
 const prisma = new PrismaClient();
 
@@ -207,12 +208,13 @@ async function main(): Promise<void> {
       if (count > 0) console.log(`  ✓ ${model}: ${count} deleted`);
     };
 
-    del("CallerPlaybook", (await prisma.callerPlaybook.deleteMany({ where: { callerId: { in: callerIds } } })).count);
-    del("CallerCohortMembership", (await prisma.callerCohortMembership.deleteMany({ where: { callerId: { in: callerIds } } })).count);
-    // Cohorts owned by seeded callers
+    // Cohorts owned by seeded callers are removed by the chokepoint, along
+    // with every other FK into Caller.
     del("CohortPlaybook", (await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { ownerId: { in: callerIds } } } })).count);
-    del("CohortGroup", (await prisma.cohortGroup.deleteMany({ where: { ownerId: { in: callerIds } } })).count);
-    del("Caller", (await prisma.caller.deleteMany({ where: { id: { in: callerIds } } })).count);
+    const erased = await deleteCallersData(callerIds, prisma);
+    del("Caller", callerIds.length);
+    del("Session", erased.sessions);
+    del("CohortGroup", erased.ownedCohortGroups);
   }
 
   // 6d. Playbook-linked tables

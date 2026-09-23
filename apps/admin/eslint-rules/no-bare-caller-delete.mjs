@@ -19,6 +19,12 @@
  * pins the CHOKEPOINT's completeness. It cannot see a NEW chain written
  * somewhere else — that is this rule's job.
  *
+ * The allow-list is the chokepoint and its tests, nothing else. Ten
+ * hand-rolled chains (six seed scripts, four live admin routes) were
+ * consolidated onto `deleteCallersData` rather than being grandfathered in;
+ * keep it that way. A site that genuinely cannot use the chokepoint needs a
+ * documented entry here AND a reason in this header.
+ *
  * @see lib/gdpr/delete-caller-data.ts
  * @see .claude/rules/caller-delete-coverage.md
  */
@@ -26,38 +32,6 @@
 /** The chokepoint itself, plus its own tests. */
 const ALLOWED_PATH_SUFFIXES = [
   "lib/gdpr/delete-caller-data.ts",
-];
-
-/**
- * Pre-existing duplicate chains — DEBT, not blessed patterns.
- *
- * Each of these hand-rolls its own FK-safe delete order and every one of them
- * omits `Session` (bar `seed-demo-course.ts`, repaired in the PR that added
- * this rule) — so they all carry the P2003 bug the chokepoint had. Four are
- * live admin API routes, not seeds. They are allow-listed so the rule can land
- * at `error` without a ten-file refactor riding along, NOT because the pattern
- * is acceptable.
- *
- * Consolidating them onto `deleteCallerData` removes every entry below. Do
- * not add to this list — a new seed that needs to delete callers should call
- * the chokepoint.
- */
-const ALLOWED_LEGACY_DUPLICATE_CHAINS = [
-  // Seed scripts.
-  "prisma/seed-demo-course.ts", // repaired 2026-09-23; still duplicates the chain
-  "prisma/seed-educator-demo.ts",
-  "prisma/seed-cleanup-auto.ts",
-  "prisma/seed-holographic-demo.ts",
-  "prisma/seed-golden.ts",
-  "scripts/seed-synthetic-cohort.ts",
-  // Live admin API routes. These are NOT seeds — they delete callers in
-  // production and every one of them omits `Session`, so they carry the same
-  // P2003 bug the chokepoint had. Tracked for consolidation; listed here only
-  // so the rule can land at `error` and block a tenth site appearing.
-  "app/api/admin/demo-reset-scoped/route.ts",
-  "app/api/callers/merge/route.ts",
-  "app/api/x/cleanup-callers/route.ts",
-  "app/api/x/seed-transcripts/route.ts",
 ];
 
 const ALLOWED_PATH_CONTAINS = [
@@ -74,7 +48,7 @@ const ALLOWED_PATH_CONTAINS = [
 function isAllowed(filename) {
   if (!filename) return false;
   const normalised = filename.replace(/\\/g, "/");
-  for (const suffix of [...ALLOWED_PATH_SUFFIXES, ...ALLOWED_LEGACY_DUPLICATE_CHAINS]) {
+  for (const suffix of ALLOWED_PATH_SUFFIXES) {
     if (normalised.endsWith(suffix)) return true;
   }
   for (const substr of ALLOWED_PATH_CONTAINS) {

@@ -24,6 +24,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { deleteCallersData } from "../lib/gdpr/delete-caller-data";
 import bcrypt from "bcryptjs";
 import { resolveCanonicalDomainGroup } from "../lib/registry/canonical-domain-group";
 
@@ -797,59 +798,22 @@ async function cleanupExistingData() {
 
   // 5. ComposedPrompts + ConversationArtifacts on demo callers (FK: callerId)
   if (demoCallerIds.length > 0) {
-    await prisma.composedPrompt.deleteMany({
-      where: { callerId: { in: demoCallerIds } },
-    });
-    await prisma.conversationArtifact.deleteMany({
-      where: { callerId: { in: demoCallerIds } },
-    });
-    await prisma.callerIdentity.deleteMany({
-      where: { callerId: { in: demoCallerIds } },
-    });
+    // Pupil callers + every FK the erasure chokepoint knows about.
+    await deleteCallersData(demoCallerIds, prisma);
   }
-
-  // 5b. CallerCohortMembership — must come before Callers and CohortGroups
-  if (demoCallerIds.length > 0) {
-    await prisma.callerCohortMembership.deleteMany({
-      where: { callerId: { in: demoCallerIds } },
-    });
-  }
-
-  // 6. Callers (pupils) — must come before CohortGroups (FK: caller.cohortGroupId)
-  await prisma.caller.deleteMany({
-    where: { externalId: { startsWith: "edu-demo-" } },
-  });
 
   // 7. CohortGroups — must come before teacher callers (FK: cohortGroup.ownerId)
   await prisma.cohortGroup.deleteMany({
     where: { domain: { slug: { in: schoolSlugs } } },
   });
 
-  // 8. Teacher callers — clean FKs first
+  // 8. Teacher callers. The chokepoint also removes cohort groups they own,
+  // which catches groups in domains outside schoolSlugs that step 7 misses.
   const teacherCallers = await prisma.caller.findMany({
     where: { externalId: { startsWith: "edu-teacher-" } },
     select: { id: true },
   });
-  const teacherCallerIds = teacherCallers.map((c) => c.id);
-  if (teacherCallerIds.length > 0) {
-    await prisma.composedPrompt.deleteMany({
-      where: { callerId: { in: teacherCallerIds } },
-    });
-    await prisma.conversationArtifact.deleteMany({
-      where: { callerId: { in: teacherCallerIds } },
-    });
-    await prisma.callerIdentity.deleteMany({
-      where: { callerId: { in: teacherCallerIds } },
-    });
-    // CohortGroup.ownerId → Caller FK: delete any cohort groups owned by teacher callers
-    // (catches groups in domains outside schoolSlugs not cleaned in step 7)
-    await prisma.cohortGroup.deleteMany({
-      where: { ownerId: { in: teacherCallerIds } },
-    });
-  }
-  await prisma.caller.deleteMany({
-    where: { externalId: { startsWith: "edu-teacher-" } },
-  });
+  await deleteCallersData(teacherCallers.map((c) => c.id), prisma);
 
   // 9. MediaAssets (CC worksheets) — SubjectMedia first, then MediaAsset (before Users due to FK: uploadedBy)
   const demoMedia = await prisma.mediaAsset.findMany({
