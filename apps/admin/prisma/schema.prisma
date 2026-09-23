@@ -2845,7 +2845,7 @@ model CurriculumModule {
   //   also count toward (e.g. IELTS Mock Exam covers part1/part2/part3).
   // Read via `lib/curriculum/course-completion.ts::readModuleFlags()`.
   terminal      Boolean  @default(false)
-  coversModules String[]
+  coversModules String[] @default([])
 
   // #1785 — Course-agnostic segmentation cues for the Mock transcript
   // segmenter (`lib/curriculum/segment-mock-transcript.ts`). Per-curriculum
@@ -2854,7 +2854,7 @@ model CurriculumModule {
   // `\bslug\b` regex (preserves IELTS behaviour during the migration
   // window). Authored in the curriculum spec (not the playbook variant);
   // sibling to `coversModules` above.
-  segmentCues String[]
+  segmentCues String[] @default([])
 
   // Lifecycle
   isActive  Boolean  @default(true)
