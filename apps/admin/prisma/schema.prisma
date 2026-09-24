@@ -272,7 +272,7 @@ model Parameter {
   enrichedHigh       String?   @db.Text // Expanded definition of high scores from KB
   enrichedLow        String?   @db.Text // Expanded definition of low scores from KB
   enrichedAt         DateTime? // When enrichment was last run
-  enrichmentChunkIds String[] // IDs of KB chunks used for enrichment
+  enrichmentChunkIds String[] @default([]) // IDs of KB chunks used for enrichment
 
   // Status such as Active or MVP is represented via tags, not boolean columns
   tags ParameterTag[]
@@ -625,7 +625,7 @@ model BehaviorMeasurement {
   confidence Float @default(0.7)
 
   // Evidence supporting this measurement
-  evidence String[] // Quotes from transcript showing this behavior
+  evidence String[] @default([]) // Quotes from transcript showing this behavior
 
   // Measurement metadata
   measuredAt DateTime @default(now())
@@ -942,7 +942,7 @@ model Session {
 
   // Pipeline stages to skip — derived at `createSession` time, read by
   // the router in Slice 3.
-  skipStages String[]
+  skipStages String[] @default([])
 
   // The prompt this Session ran with (I-CT2 cascade in Slice 3).
   usedPromptId String?
@@ -1940,7 +1940,7 @@ model CallScore {
   // Scoring result
   score      Float
   confidence Float    @default(0.5)
-  evidence   String[] // Array of evidence quotes
+  evidence String[] @default([]) // Array of evidence quotes
   reasoning  String?  @db.Text // LLM's reasoning for the score
 
   // #566 Step 1 — evidence-aware scoring (shadow fields).
@@ -2753,7 +2753,7 @@ model Curriculum {
   description String? @db.Text
 
   // Source metadata
-  authors     String[] // e.g., ["Daron Acemoglu", "James A. Robinson"]
+  authors String[] @default([]) // e.g., ["Daron Acemoglu", "James A. Robinson"]
   sourceTitle String? // e.g., "Why Nations Fail"
   sourceYear  Int?
 
@@ -2835,9 +2835,9 @@ model CurriculumModule {
   // Teaching metadata
   estimatedDurationMinutes Int?
   masteryThreshold         Float? // Override curriculum-level threshold (0-1)
-  prerequisites            String[] // Slugs of prerequisite modules
-  keyTerms                 String[]
-  assessmentCriteria       String[]
+  prerequisites            String[] @default([]) // Slugs of prerequisite modules
+  keyTerms                 String[] @default([])
+  assessmentCriteria       String[] @default([])
 
   // #494 E2 Slice 2.4 — module progression flags.
   // `terminal` = course-complete trigger when Playbook.config.completionMode === "terminal-only".
@@ -3453,8 +3453,8 @@ model ParameterScoringAnchor {
   rationale String? @db.Text // "This scores 0.9 because it demonstrates warmth AND memory"
 
   // Signal markers (what to look for)
-  positiveSignals String[] // ["references_previous", "warm_greeting", "uses_name"]
-  negativeSignals String[] // ["generic_greeting", "no_memory_reference"]
+  positiveSignals String[] @default([]) // ["references_previous", "warm_greeting", "uses_name"]
+  negativeSignals String[] @default([]) // ["generic_greeting", "no_memory_reference"]
 
   // Is this a canonical/gold-standard example?
   isGold Boolean @default(false)
@@ -4076,8 +4076,8 @@ model PipelineStep {
 
   // === COMPOSITION DETAILS ===
   // For COMPOSE steps: additional metadata about section processing
-  sectionsActivated String[] // Which sections were included
-  sectionsSkipped   String[] // Which sections were skipped (with reasons)
+  sectionsActivated String[] @default([]) // Which sections were included
+  sectionsSkipped String[] @default([]) // Which sections were skipped (with reasons)
   sectionTimings    Json? // { personality: 12, memories: 45, ... } in ms
 
   run PipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
@@ -4342,7 +4342,7 @@ model Ticket {
   category TicketCategory @default(OTHER)
 
   // Optional tags for flexible categorization
-  tags String[]
+  tags String[] @default([])
 
   // Feedback context (captured on submit)
   pageContext       String? // Auto-captured URL + breadcrumbs
@@ -4425,10 +4425,10 @@ model UserTask {
   // Progress tracking
   currentStep    Int      @default(1)
   totalSteps     Int
-  completedSteps String[] // Array of step IDs completed
+  completedSteps String[] @default([]) // Array of step IDs completed
 
   // Blockers preventing progress
-  blockers String[] // Array of blocker descriptions
+  blockers String[] @default([]) // Array of blocker descriptions
 
   // Additional context (user intent, entity IDs, etc.)
   context Json?
@@ -4484,7 +4484,7 @@ model ContentSource {
   accreditationRef String? // "CII/R04/2025" or qualification number
 
   // Bibliographic metadata
-  authors         String[]
+  authors         String[] @default([])
   isbn            String?
   doi             String?
   edition         String? // "37th Edition"
@@ -4496,7 +4496,7 @@ model ContentSource {
 
   // Qualification coverage
   qualificationRef String? // "CII R04", "Highfield L2 Food Safety"
-  moduleCoverage   String[] // ["R04-LO1", "R04-LO2"] or ["all"]
+  moduleCoverage   String[] @default([]) // ["R04-LO1", "R04-LO2"] or ["all"]
 
   // Verification
   verifiedBy        String? // User ID who verified trust level
@@ -4578,7 +4578,7 @@ model ContentAssertion {
 
   // Content classification
   category String // "fact", "definition", "threshold", "rule", "process", "example"
-  tags     String[] // ["tax", "isa", "allowance", "annual_limit"]
+  tags String[] @default([]) // ["tax", "isa", "allowance", "annual_limit"]
 
   // Validity (overrides source-level validity for time-bound facts)
   validFrom  DateTime?
@@ -4616,7 +4616,7 @@ model ContentAssertion {
   embedding Unsupported("vector(1536)")?
 
   // Figure references (e.g., ["Figure 1.2", "Diagram A"])
-  figureRefs String[]
+  figureRefs String[] @default([])
 
   // Linked questions, vocabulary, and media
   questions  ContentQuestion[]
@@ -4684,7 +4684,7 @@ model ContentQuestion {
   pageRef            String?
   chapter            String?
   section            String?
-  tags               String[]
+  tags               String[] @default([])
   sortOrder          Int                          @default(0)
   contentHash        String?
   bloomLevel         BloomLevel?
@@ -4744,7 +4744,7 @@ model ContentVocabulary {
   difficulty Int? // 1-5
   chapter    String?
   pageRef    String?
-  tags       String[]
+  tags       String[] @default([])
 
   // Linked teaching point
   assertionId String?
@@ -4949,7 +4949,7 @@ model ConversationArtifact {
   media   MediaAsset? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
 
   // Trust chain — links to ContentAssertion IDs for provenance
-  contentAssertionIds String[] // Array of ContentAssertion IDs
+  contentAssertionIds String[] @default([]) // Array of ContentAssertion IDs
   trustLevel          ArtifactTrustLevel @default(INFERRED)
 
   // Extraction metadata
@@ -5070,7 +5070,7 @@ model MediaAsset {
 
   title       String?
   description String?  @db.Text
-  tags        String[]
+  tags        String[] @default([])
 
   // Image extraction provenance
   pageNumber    Int? // Page extracted from (PDFs)
