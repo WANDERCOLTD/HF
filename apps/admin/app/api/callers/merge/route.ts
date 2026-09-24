@@ -461,9 +461,21 @@ export async function POST(req: Request) {
       // `@@unique([callerId, kind, sequenceNumber])` means the source numbers
       // would collide with the target's, so each session is assigned a fresh
       // sequence from the target's counter — the same atomic upsert
-      // `createSession` uses. `learnerFacingNumber` is deliberately left
-      // as-is: it is display-only and the merged history already tolerates
-      // gaps (see the note on call re-chaining above).
+      // `createSession` uses.
+      //
+      // `learnerFacingNumber` is deliberately NOT renumbered (#2334). It
+      // drives the COMPOSE header "(call #N)", so after a merge a learner may
+      // hear a duplicate or out-of-order number. Considered and accepted:
+      //   - it is display-only; nothing keys off it
+      //   - the route already takes this stance for call sequencing (see the
+      //     re-chaining note above — consumers read createdAt-ordered)
+      //   - renumbering means re-walking the target's whole session history
+      //     inside a merge transaction that is already long
+      //   - merges are a rare admin operation, usually on duplicate records
+      //     where one side has little history
+      // Revisit if merges start landing on callers with substantial history;
+      // the fix is a second pass over the target's sessions in startedAt
+      // order, rewriting the learner-facing counter.
       const sourceSessions = await tx.session.findMany({
         where: { callerId: { in: sourceCallerIds } },
         orderBy: { startedAt: "asc" },
