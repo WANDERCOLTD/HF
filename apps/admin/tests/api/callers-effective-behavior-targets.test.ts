@@ -16,10 +16,26 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const mockPrisma = {
-  behaviorTarget: { findMany: vi.fn() },
-};
+// #1950 — `vi.mock` is hoisted to the top of the file BEFORE the
+// `const mockPrisma = …` initializer runs. Referencing a top-level
+// `const` inside the mock factory triggers a TDZ ReferenceError at
+// module-load time (caught in #1974 CI). `vi.hoisted` lifts the
+// mock-prisma declaration alongside `vi.mock` so both run before any
+// import-time code touches the module.
+const { mockPrisma } = vi.hoisted(() => ({
+  mockPrisma: {
+    behaviorTarget: { findMany: vi.fn() },
+    // #1949 — the cascade reader now also reads Parameter for alias +
+    // deprecation resolution. Default to empty array so tests that
+    // don't populate it get clean canonical pass-through.
+    parameter: { findMany: vi.fn().mockResolvedValue([]) },
+  },
+}));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+
+// #1949 — clear the alias resolver's module-level cache between tests
+// so the empty-array mock above is re-read on each it() block.
+import { clearAliasCache } from "@/lib/registry/resolve";
 
 const mockResolveCallerIdentityIds = vi.fn();
 vi.mock("@/lib/agent-tuner/write-target", () => ({
@@ -54,6 +70,12 @@ describe("/api/callers/[callerId]/effective-behavior-targets — GET (#911)", ()
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    // #1949 — clear the alias resolver's module-level cache so the
+    // empty-array mock for prisma.parameter.findMany is re-read.
+    clearAliasCache();
+    // Reset the parameter.findMany mock to the empty-array default
+    // (vi.clearAllMocks above also clears the mockResolvedValue setup).
+    mockPrisma.parameter.findMany.mockResolvedValue([]);
 
     // Default: authenticated viewer.
     mockIsAuthError.mockReturnValue(false);

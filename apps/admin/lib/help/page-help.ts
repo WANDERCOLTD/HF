@@ -151,8 +151,20 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
           "When you want to retune a specific module's behaviour without affecting the rest of the course.",
       },
       {
+        // #2204 (U2 of #2185) — bi-pane browse of typed teaching content.
+        id: "content",
+        label: "Teaching Content",
+        about:
+          "Browse the typed teaching content the AI tutor uses — MCQ bank, cue cards, topic prompts, scenario probes, reflection prompts — grouped by intent kind.",
+        whenToUse:
+          "When you want to see exactly what items the AI has available to draw from, filtered by module or source.",
+      },
+      {
         id: "intelligence",
-        label: "Content",
+        // #2204 — relabelled from "Content" to "Sources" to make space for
+        // the Teaching Content tab. Same underlying surface (uploads +
+        // extracted assertions); the label clarifies its scope.
+        label: "Sources",
         about: "Source files and the extracted assertions that drive what the AI teaches.",
         whenToUse: "When you want to add new material or check what the AI has actually learned from your uploads.",
       },

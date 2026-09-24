@@ -1,0 +1,38 @@
+-- #2154 — Add CALLER_ATTRIBUTE_NEXT to the AnalysisOutputType enum
+--          (sibling of #2145 Phase A; closes the schema gap PR #2153 deferred).
+--
+-- The new outputType identifies AnalysisSpecs whose runtime handler is the
+-- generic SessionFocus 4th-layer substrate at
+-- `lib/pipeline/runners/session-focus-policy.ts`. These specs read a course's
+-- internal weakness signals (CallerTarget.currentScore for declared input
+-- skills), pick the weakest, map via spec-declared selectionRules to a
+-- LEARNER-facing label, and write the label to CallerAttribute keyed
+-- `session_focus:next_{moduleSlug}` so the compose-time transform
+-- (`transforms/session-focus.ts`) can read it on the NEXT call.
+--
+-- Distinct from ADAPT:
+--   - ADAPT writes CallTarget / CallerTarget — durable per-parameter band targets
+--   - CALLER_ATTRIBUTE_NEXT writes transient per-session emphasis labels via
+--     CallerAttribute (scope = spec slug, key prefix = session_focus:next_*)
+--
+-- Pre-#2154 the runner shipped behind a `config.category: "session-focus-policy"`
+-- discriminator on outputType=ADAPT specs (PR #2153). This migration is the
+-- structural enabler so the runner gates cleanly on outputType — the
+-- discriminator hack is dropped in the same PR.
+--
+-- POSTGRES CAVEAT: `ALTER TYPE ... ADD VALUE` cannot run inside a transaction
+-- block. Prisma's migrate dev emits the bare statement (no BEGIN/COMMIT wrapper)
+-- because it detects the enum-add and runs it outside the migration transaction.
+-- Re-running on a DB that already has the value is a no-op via IF NOT EXISTS.
+--
+-- Sibling-writer survey (Lattice mandatory):
+--   - Single source of truth for the enum is `prisma/schema.prisma` — no
+--     parallel definitions to keep in sync.
+--   - Existing consumers grep on the string literal (`getSpecsByOutputType("X")`)
+--     — adding a value is purely additive, no breaking change to any existing
+--     dispatch branch.
+--   - `db-registry-parity.md` rule explicitly covers Prisma-enum-protected
+--     columns: "Prisma's enum is itself Pillar 4, so the multi-pillar wiring is
+--     automatic." No separate taxonomy ratchet required.
+
+ALTER TYPE "AnalysisOutputType" ADD VALUE IF NOT EXISTS 'CALLER_ATTRIBUTE_NEXT';

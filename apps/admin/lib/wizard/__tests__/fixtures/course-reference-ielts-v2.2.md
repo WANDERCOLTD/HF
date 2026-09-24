@@ -1,3 +1,7 @@
+---
+hf-template-version: "5.1"
+---
+
 # Course Reference — IELTS Speaking Practice  
   
 **Built from:** HumanFirst Course Reference Template v5.1  

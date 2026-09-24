@@ -328,8 +328,12 @@ export async function reuseExistingCoursePath(
     }
   }
 
-  // Backfill teachMethod on assertions extracted before teachingMode was set
-  const resolvedTeachingMode = (input.teachingMode as string) || (setupData?.teachingMode as string);
+  // Backfill teachMethod on assertions extracted before teachingMode was set.
+  // #1995 — drop bare `as string` casts; the value is observed but not
+  // written here (just gates the backfill trigger), so a guard is not
+  // strictly required, but the truthy-check is sufficient to avoid the
+  // pre-#1995 cast pattern.
+  const resolvedTeachingMode = input.teachingMode ?? setupData?.teachingMode;
   if (resolvedTeachingMode) {
     const { backfillTeachMethods } = await import("@/lib/content-trust/backfill-teach-methods");
     backfillTeachMethods(existingPlaybookId).catch(err =>

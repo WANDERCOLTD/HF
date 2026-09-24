@@ -29,6 +29,8 @@ import { resolveWelcomeMessage } from "./resolvers/welcome-message";
 import { resolveVoiceConfigKnob } from "./resolvers/voice-config";
 import { resolveIdentitySpec } from "./resolvers/identity-spec";
 import { resolveMasteryPolicyKnob } from "./resolvers/mastery-policy";
+import { resolveAiMeasurementKnob } from "./resolvers/ai-measurement";
+import { resolveTeachingStyle } from "./resolvers/teaching-style";
 
 /**
  * Scope IDs the cascade can resolve against. SYSTEM is implicit (no id);
@@ -112,6 +114,60 @@ const FAMILIES: readonly KnobFamily[] = [
     name: "mastery-policy",
     match: (k) => k === "skillTierMapping" || k === "skillScoringEmaHalfLifeDays",
     resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  // ── #2174 S3 (2026-06-21) — 4 scoring knobs promoted to Domain → Course
+  // cascade per Q2 + Q3 in docs/SCORING-EDITABILITY.md. All four reuse the
+  // mastery-policy resolver (same `Domain.config[knobKey]` →
+  // `Playbook.config[knobKey]` shape). Each lands as its own FAMILIES
+  // entry so the diagnostic `name` is specific in error messages and the
+  // cascade-resolve route's cache stats. Resolver function unchanged —
+  // SUPPORTED_KEYS in mastery-policy.ts widened by 4 to accept them.
+  {
+    name: "tier-preset",
+    match: (k) => k === "tierPresetId",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  {
+    name: "lo-mastery-threshold",
+    match: (k) => k === "loMasteryThreshold",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  {
+    name: "assessment-readiness-threshold",
+    match: (k) => k === "assessmentReadinessThreshold",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  {
+    // Object-valued knob (`{lowWater?, highWater?}`). Resolver returns the
+    // winning layer's object untouched — NO per-field merging across
+    // layers (consistent with the existing object-valued `skillTierMapping`
+    // behaviour). Consumers cherry-pick `lowWater`/`highWater` from the
+    // resolved value.
+    name: "progress-signals",
+    match: (k) => k === "progressSignals",
+    resolve: (scope, knobKey) => resolveMasteryPolicyKnob(scope, knobKey),
+  },
+  // #2206 S2 (2026-06-21) — per-course IELTS LLM-judged scoring
+  // kill-switch promoted to Domain → Course cascade per the
+  // "ALL settings → UI" framing. Cascade chip surfaces provenance so an
+  // institution-wide override is auditable rather than silent.
+  // Storage path is NESTED — `Playbook.config.aiMeasurement.<knob>` —
+  // matching the design route's partial-merge contract (PR #2158).
+  {
+    name: "ai-measurement",
+    match: (k) => k === "aiMeasurement.disableLlmIeltsScoring",
+    resolve: (scope, knobKey) => resolveAiMeasurementKnob(scope, knobKey),
+  },
+  // #2228 A1b (2026-06-21) — `teachingStyle` is the sole CASCADE-Domain+
+  // Course knob still missing a FAMILIES entry. Asymmetric blob keys
+  // (`Domain.config.teachingStyleDefault` → `Playbook.config.teachingStyle`)
+  // mean it can't reuse `resolveMasteryPolicyKnob` — slim sibling resolver
+  // ships at `lib/cascade/resolvers/teaching-style.ts`, same shape as
+  // `welcome-message.ts`.
+  {
+    name: "teaching-style",
+    match: (k) => k === "teachingStyle",
+    resolve: (scope) => resolveTeachingStyle(scope),
   },
 ];
 

@@ -14,14 +14,18 @@
 
 import {
   type InteractionPattern,
-  INTERACTION_PATTERN_ORDER,
   type TeachingMode,
 } from "@/lib/content-trust/resolve-config";
 import {
   type AudienceId,
-  AUDIENCE_OPTIONS,
 } from "@/lib/prompt/composition/transforms/audience";
 import type { SchedulerPresetName } from "@/lib/pipeline/scheduler-presets";
+import {
+  VALID_INTERACTION_PATTERNS,
+  VALID_TEACHING_MODES,
+  VALID_AUDIENCE_IDS,
+  VALID_PLAN_EMPHASIS,
+} from "@/lib/wizard/enum-sets";
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -40,15 +44,11 @@ export interface DetectedCourseConfig {
 
 // ── Whitelists ─────────────────────────────────────────────
 
-const VALID_INTERACTION_PATTERNS = new Set<string>(INTERACTION_PATTERN_ORDER);
-
-const VALID_TEACHING_MODES = new Set<string>([
-  "recall", "comprehension", "practice", "syllabus",
-]);
-
-const VALID_AUDIENCE_IDS = new Set<string>(AUDIENCE_OPTIONS.map((a) => a.id));
-
-const VALID_PLAN_EMPHASIS = new Set<string>(["breadth", "balanced", "depth"]);
+// VALID_INTERACTION_PATTERNS / VALID_TEACHING_MODES / VALID_AUDIENCE_IDS /
+// VALID_PLAN_EMPHASIS now live at `lib/wizard/enum-sets.ts` so the chat
+// wizard's create_course / update_setup merge paths can reuse them
+// (#1995). Importing keeps this module's behaviour byte-identical while
+// sharing the single source of truth.
 
 // ── Checkbox label → enum value mappings ───────────────────
 

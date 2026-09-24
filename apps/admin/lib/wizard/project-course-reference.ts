@@ -593,13 +593,46 @@ function parseTableRow(line: string): string[] {
 // ── Mappers ────────────────────────────────────────────────────────────────
 
 /**
+ * Canonical IELTS skill display name → suffixed parameter id map.
+ *
+ * Per the #2138 rename, the canonical IELTS skill parameter ids carry
+ * a per-criterion suffix (`_fc` / `_lr` / `_gra` / `_p`) so they sort
+ * stably and are unambiguous across courses. The plain slugifier
+ * (legacy form) returned the un-suffixed shape — which left two
+ * BehaviorTarget cohorts on the IELTS Speaking Practice playbook
+ * (the canonical _fc/_lr/_gra/_p set + the stale un-suffixed set).
+ * This map maps every display-name variant (& vs and) the catalogue
+ * uses to the canonical suffixed id.
+ *
+ * Non-IELTS skill names continue to fall through to the generic
+ * slugifier below.
+ *
+ * Closes #2304.
+ */
+const IELTS_SKILL_ALIASES: Readonly<Record<string, string>> = {
+  "fluency and coherence": "skill_fluency_and_coherence_fc",
+  "fluency & coherence": "skill_fluency_and_coherence_fc",
+  "lexical resource": "skill_lexical_resource_lr",
+  "grammatical range and accuracy": "skill_grammatical_range_and_accuracy_gra",
+  "grammatical range & accuracy": "skill_grammatical_range_and_accuracy_gra",
+  pronunciation: "skill_pronunciation_p",
+};
+
+/**
  * Slugify a skill name to a stable parameter name.
- * "Fluency & Coherence" → "skill_fluency_and_coherence"
- * "Grammatical Range & Accuracy" → "skill_grammatical_range_and_accuracy"
+ *
+ * IELTS skill display names route through the canonical alias map
+ * (suffixed `_fc/_lr/_gra/_p` ids, per #2138). All other names fall
+ * through to the generic slugifier:
+ * "Some Other Skill" → "skill_some_other_skill"
+ *
+ * Closes #2304.
  */
 export function skillNameToParameterName(skillName: string): string {
-  const cleaned = skillName
-    .toLowerCase()
+  const normalised = skillName.trim().toLowerCase();
+  const canonical = IELTS_SKILL_ALIASES[normalised];
+  if (canonical) return canonical;
+  const cleaned = normalised
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");

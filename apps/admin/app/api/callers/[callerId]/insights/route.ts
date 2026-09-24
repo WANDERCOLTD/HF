@@ -1,5 +1,8 @@
 /**
  * @api GET /api/callers/[callerId]/insights
+ * @tieredVisibility — strips recommendation + reason from focus areas
+ *                     at the redacted tier. STUDENT sees module type +
+ *                     mastery only (#1922, epic #1915).
  *
  * Computed signals for the Snapshot v3 tab — Wave B of the legacy-tab
  * retirement plan. Lifts the server-side equivalent of
@@ -23,6 +26,8 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { visibilityTierForRole } from "@/lib/rbac/visibility";
+import { redactInsightsForTier } from "@/lib/rbac/policies/insights";
 import {
   studentAllowedToReadCaller,
   callerScopeMismatchResponse,
@@ -81,7 +86,7 @@ function masteryToStatus(mastery: number): ModuleStatus {
 export async function GET(
   _req: Request,
   context: { params: Promise<{ callerId: string }> },
-): Promise<NextResponse<CallerInsightsResponse | { ok: false; error: string }>> {
+) {
   const auth = await requireAuth("VIEWER");
   if (isAuthError(auth)) return auth.error;
 
@@ -89,6 +94,8 @@ export async function GET(
   if (!studentAllowedToReadCaller(auth.session, callerId)) {
     return callerScopeMismatchResponse();
   }
+
+  const viewerTier = visibilityTierForRole(auth.session.user.role);
 
   const caller = await prisma.caller.findUnique({
     where: { id: callerId },
@@ -218,7 +225,7 @@ export async function GET(
     });
   }
 
-  return NextResponse.json({
+  const response: CallerInsightsResponse = {
     ok: true,
     callerId,
     momentum,
@@ -227,5 +234,6 @@ export async function GET(
     totalCalls,
     focusAreas,
     achievements,
-  });
+  };
+  return NextResponse.json(redactInsightsForTier(response, viewerTier));
 }

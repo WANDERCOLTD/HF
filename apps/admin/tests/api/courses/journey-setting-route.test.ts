@@ -7,7 +7,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    playbook: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    playbook: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    domain: { findUnique: vi.fn(), update: vi.fn() },
   },
 }));
 
@@ -27,6 +28,17 @@ vi.mock("@/lib/playbook/update-playbook-config", () => ({
     timestampBumped: true,
     fanoutScope: "none",
   })),
+}));
+vi.mock("@/lib/domain/update-domain-config", () => ({
+  updateDomainConfig: vi.fn(async () => ({
+    domain: { id: "d1" },
+    composeAffectingChanged: true,
+    timestampBumped: true,
+    fanoutScope: "none",
+  })),
+}));
+vi.mock("@/lib/compose/bump-domain-staleness", () => ({
+  bumpDomainSectionStaleness: vi.fn(async () => []),
 }));
 vi.mock("@/lib/compose/section-staleness", () => ({
   bumpSectionHash: vi.fn(async () => ({ skipped: false })),
@@ -49,7 +61,8 @@ function makeReq(body: unknown, headers: Record<string, string> = {}) {
 describe("PATCH /api/courses/[courseId]/journey-setting — Phase 2 #1687", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPrisma.playbook.findFirst.mockResolvedValue({ id: "course-1" });
+    mockPrisma.playbook.findFirst.mockResolvedValue({ id: "course-1", domainId: "domain-1" });
+    mockPrisma.playbook.findMany.mockResolvedValue([{ id: "course-1" }]);
   });
 
   it("403s the auth gate when OPERATOR not granted", async () => {
@@ -143,15 +156,17 @@ describe("PATCH /api/courses/[courseId]/journey-setting — Phase 2 #1687", () =
     expect(body.code).toBe("OPERATOR_ONLY");
   });
 
-  it("501s when storage root is domain (not yet wired)", async () => {
+  // A4 of #2225 — domain-rooted writes are now supported via
+  // updateDomainConfig. The full happy-path test lives in
+  // `tests/api/journey-setting-domain-write.test.ts`. This case stays
+  // here as a smoke test that the 501 stub is gone.
+  it("does NOT 501 on domain-rooted intakeSpecId write (A4 #2225)", async () => {
     const { PATCH } = await loadRoute();
     const res = await PATCH(
       makeReq({ settingId: "intakeSpecId", value: "spec-x" }) as never,
       PARAMS as never,
     );
-    expect(res.status).toBe(501);
-    const body = await res.json();
-    expect(body.code).toBe("STORAGE_ROOT_NOT_SUPPORTED");
+    expect(res.status).not.toBe(501);
   });
 
   it("Phase 3 #1693: behaviorTargets returns 200 with compoundOwnedSave flag", async () => {

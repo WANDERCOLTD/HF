@@ -1,0 +1,171 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "IELTS-INTAKE-001",
+  "title": "IELTS Intake Profile Extraction",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-06-23",
+  "domain": "ielts-intake-profile",
+  "specType": "SYSTEM",
+  "specRole": "EXTRACT",
+  "outputType": "LEARN",
+  "profileCondition": ["ielts-speaking"],
+  "config": {
+    "profileCondition": ["ielts-speaking"],
+    "llmConfig": {
+      "maxTokens": 1024,
+      "temperature": 0.1,
+      "engine": "claude",
+      "systemPrompt": "You are an IELTS intake profile extraction specialist. Your ONLY job is to extract four specific learner-intent facts from baseline IELTS Speaking practice call transcripts. These four facts shape every subsequent session for this learner. STRICT GROUNDING CONTRACT: You MUST ONLY extract facts the LEARNER has EXPLICITLY STATED in this transcript. NEVER infer, NEVER guess, NEVER use plausible defaults. If a fact was not mentioned, OMIT it from your response (do not emit it with a null value, do not write a placeholder). Honest empty bands surface real intake gaps; fabricated values corrupt the learner's adaptive trajectory."
+    },
+    "confidenceThreshold": 0.7,
+    "defaultExtractConfidence": 0.9,
+    "transcriptTruncateLength": 12000,
+    "promptGuidance": "Extract ONLY these four IELTS intake profile facts when (and only when) the learner explicitly states them in the transcript. Each fact is a permanent intake-profile statement — once extracted, the value MUST not contain hedging, placeholders, or defaults.\n\nFACTS TO EXTRACT:\n\n1. ielts:target_band — The IELTS band the learner wants to achieve.\n   - Type: number-as-string (IELTS scale: 0 to 9, in 0.5 increments).\n   - Normalisation rules: 'I want a 7' → '7.0'. 'Band 6.5' → '6.5'. 'at least seven overall' → '7.0'. 'around an 8' → '8.0' (round to nearest 0.5). 'six and a half' → '6.5'.\n   - Reject: 'I'm not sure', 'as high as I can', vague aspirations → OMIT.\n\n2. ielts:self_assessment_band — Where the learner thinks they are right now.\n   - Type: number-as-string, same IELTS scale + normalisation as target_band.\n   - Common phrasings: 'I'm probably around a 6 right now', 'I scored a 5.5 last time', 'My last mock was 6.5'.\n   - Reject: 'I don't know', 'never been tested' → OMIT.\n\n3. ielts:exam_date_iso — When the learner intends to take the IELTS test.\n   - Type: ISO 8601 date string (YYYY-MM-DD). The current date is the LLM's reasoning anchor for relative phrasing.\n   - Normalisation rules: 'September 15th' → 'YYYY-09-15' (current or next September, whichever is upcoming). 'in 3 months' → today + 90 days, ISO format. 'next March' → next upcoming March 15 (mid-month default). 'end of October' → that year's '10-31'. 'mid-November' → '11-15'.\n   - If only a month is given (no day), default to the 15th of that month.\n   - Reject: 'haven't decided yet', 'sometime this year' (no month) → OMIT.\n\n4. ielts:reason — Why the learner is taking IELTS (free text + category tag).\n   - Type: string formatted as '<category>: <free text from learner>'.\n   - Categories (pick the best fit): university | work | visa | residency | professional-registration.\n   - Examples: 'university: I want to study a Master's in computer science in Canada', 'work: my employer needs Band 7 for promotion', 'visa: applying for a UK skilled-worker visa', 'residency: Australian permanent residency application', 'professional-registration: I'm a nurse moving to the UK and need to register with the NMC'.\n   - The free-text portion MUST come from the learner's own words (paraphrased lightly if needed for brevity).\n   - Reject: 'just want to improve my English' (no specific reason) → OMIT.\n\nOUTPUT SHAPE (each extracted fact = one memory object):\n  - 'category': always 'FACT' (these are permanent intake facts, not preferences/events/relationships).\n  - 'key': one of the four above ('ielts:target_band' / 'ielts:self_assessment_band' / 'ielts:exam_date_iso' / 'ielts:reason').\n  - 'value': the normalised value per the rules above.\n  - 'evidence': the direct quote from the transcript that supports the extraction (mandatory — proves grounding).\n  - 'confidence': 0.0-1.0 based on clarity of the statement (0.9+ for direct unambiguous statement, 0.7-0.9 for slight ambiguity, BELOW 0.7 means OMIT entirely).\n  - 'expiresInDays': null — these facts do not expire (a target band is fixed for the campaign; an exam date is fixed until the learner sits it).\n\nIf the transcript does NOT contain ANY of these facts (e.g. the learner only discussed practice topics without sharing intake context), return an EMPTY array [].\n\nDO NOT extract anything other than these four keys. Other memory categories (preferences, life events, relationships) are handled by sibling LEARN specs.",
+    "defaultCategory": "FACT"
+  },
+  "story": {
+    "asA": "IELTS preparation system",
+    "iWant": "to extract the learner's IELTS target band, self-assessment band, exam date, and reason from their baseline call transcript",
+    "soThat": "every subsequent IELTS session prompt is grounded in the learner's specific intake context (their goal, their starting estimate, their timeline, and their motivation) — instead of running generic IELTS prep that ignores the learner's actual stakes"
+  },
+  "context": {
+    "applies": "IELTS Speaking Practice playbooks — the spec's prompt template is strictly scoped to the four IELTS intake facts and returns an empty array when none are mentioned, so it is safe to run unconditionally. Production behaviour: extracts on the baseline call (and on any subsequent call where the learner restates an intake fact, which supersedes via the CallerMemory.normalizedKey unique-active index).",
+    "dependsOn": [
+      "MEM-001"
+    ],
+    "assumptions": [
+      "Learner has consented to information being stored (covered by Playbook consent gates).",
+      "STRICT GROUNDING CONTRACT — LLM extracts ONLY facts explicitly stated by the learner. Inference and 'plausible defaults' are forbidden. Operator rule per .claude/rules/verify-before-fix.md: NEVER fabricate; honest emptiness is correct.",
+      "All four facts are permanent for the learner's IELTS campaign — written with expiresAt: null + decayFactor: 1.0 (the LEARN runner sets these on every CallerMemory it creates).",
+      "Cross-environment portability — values must be expressed in environment-agnostic forms: IELTS bands as 0.5-increment numeric strings; exam dates as ISO 8601 (YYYY-MM-DD)."
+    ]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC-IELTS-INTAKE-001",
+      "title": "Target band extracted",
+      "given": "A baseline IELTS Speaking call transcript where the learner states a desired IELTS band",
+      "when": "The runner invokes this spec on the transcript",
+      "then": "A CallerMemory row is written with key='ielts:target_band', value=the normalised band as a string (e.g. '7.0', '6.5'), confidence >= 0.7, evidence containing the learner's direct quote, expiresAt=null, decayFactor=1.0",
+      "rationale": "The target band is the single most important intake fact — every adaptive pace decision, every band-anchored feedback line, and every progress-readout phrasing depends on knowing what 'success' means for this learner.",
+      "measuredBy": []
+    },
+    {
+      "id": "AC-IELTS-INTAKE-002",
+      "title": "Self-assessment band extracted",
+      "given": "A baseline IELTS Speaking call transcript where the learner states their current estimated band",
+      "when": "The runner invokes this spec on the transcript",
+      "then": "A CallerMemory row is written with key='ielts:self_assessment_band', value=the normalised band as a string, confidence >= 0.7, evidence containing the learner's direct quote, expiresAt=null, decayFactor=1.0",
+      "rationale": "The self-assessment gives the system a learner-supplied prior on starting level — useful for first-session calibration before enough CallScore evidence has accumulated to drive the EMA aggregator.",
+      "measuredBy": []
+    },
+    {
+      "id": "AC-IELTS-INTAKE-003",
+      "title": "Exam date extracted and ISO-normalised",
+      "given": "A baseline IELTS Speaking call transcript where the learner states their intended IELTS test date (specific date, relative phrasing, or month-only)",
+      "when": "The runner invokes this spec on the transcript",
+      "then": "A CallerMemory row is written with key='ielts:exam_date_iso', value=an ISO 8601 date string (YYYY-MM-DD), confidence >= 0.7, evidence containing the learner's direct quote, expiresAt=null, decayFactor=1.0",
+      "rationale": "The exam date drives time-aware pacing (how many sessions can we fit before the test, what cadence is realistic) and milestone framing in the prompt. ISO format makes downstream consumers locale-agnostic.",
+      "measuredBy": []
+    },
+    {
+      "id": "AC-IELTS-INTAKE-004",
+      "title": "Reason extracted with category tag",
+      "given": "A baseline IELTS Speaking call transcript where the learner explains why they are taking IELTS",
+      "when": "The runner invokes this spec on the transcript",
+      "then": "A CallerMemory row is written with key='ielts:reason', value formatted as '<category>: <free text>' where category is one of {university, work, visa, residency, professional-registration}, confidence >= 0.7, evidence containing the learner's direct quote, expiresAt=null, decayFactor=1.0",
+      "rationale": "The reason supplies stakes and emotional context — a learner sitting IELTS for a visa application has different urgency, fear, and rhetoric needs than one preparing for university admission. The category tag enables structured filtering downstream; the free-text portion preserves the learner's own framing for the prompt to echo back.",
+      "measuredBy": []
+    },
+    {
+      "id": "AC-IELTS-INTAKE-005",
+      "title": "Strict grounding — no fact is fabricated",
+      "given": "A baseline IELTS Speaking call transcript where the learner did NOT state one or more of the four facts",
+      "when": "The runner invokes this spec on the transcript",
+      "then": "NO CallerMemory row is written for the missing fact(s). The runner does NOT emit null placeholders, does NOT emit default bands ('6.0' as a guess), does NOT emit invented dates. The fact is simply absent from CallerMemory until a subsequent call captures it.",
+      "rationale": "Per .claude/rules/verify-before-fix.md and the 2026-06-21 operator rule against hardcoded score backfill — honest empty bands surface real intake gaps the educator must address (e.g. 'this learner never gave us a target band — first-call recap should explicitly ask'). Fabricated values silently corrupt the downstream adaptive cascade with values that contradict the learner's actual intent.",
+      "measuredBy": []
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-IELTS-INTAKE-001",
+      "type": "grounding",
+      "description": "Every extracted fact MUST have a non-empty `evidence` field containing the learner's direct quote (or close paraphrase) from the transcript. Memories without evidence are rejected by the runner's confidence-threshold gate (defaultExtractConfidence floor).",
+      "severity": "critical"
+    },
+    {
+      "id": "CON-IELTS-INTAKE-002",
+      "type": "no_fabrication",
+      "description": "The LLM MUST NOT emit a fact the learner did not state. No defaults. No plausible guesses. No 'best estimates'. Missing facts are OMITTED entirely — they will be captured on a later call if the learner mentions them then, OR the educator will see the gap in the caller profile and prompt the learner directly.",
+      "severity": "critical"
+    },
+    {
+      "id": "CON-IELTS-INTAKE-003",
+      "type": "value_normalisation",
+      "description": "Band values are emitted as strings in 0.5 increments matching the IELTS scale ('0.0' through '9.0'). Exam dates are emitted as ISO 8601 strings (YYYY-MM-DD), never locale-formatted text. Reason values are formatted as '<category>: <free text>' where the category is one of the five enumerated values. Drift here breaks downstream prompt consumers that depend on the canonical form.",
+      "severity": "critical"
+    },
+    {
+      "id": "CON-IELTS-INTAKE-004",
+      "type": "permanent_facts",
+      "description": "All four facts are permanent for the learner's IELTS campaign. The LEARN runner writes them via prisma.callerMemory.create with the default expiresAt logic (the spec emits expiresInDays: null on every extraction, so the runner sets expiresAt: null). They do NOT decay; they do NOT expire. They CAN be superseded by a later call (the learner restates a different target band) via the CallerMemory.supersededById chain — that is the runner's standard handling.",
+      "severity": "warning"
+    }
+  ],
+  "parameters": [
+    {
+      "id": "INTAKE_FACT_EXTRACTION",
+      "name": "IELTS Intake Profile Facts",
+      "description": "Extract the four IELTS intake profile facts (target_band, self_assessment_band, exam_date_iso, reason) from the following call transcript, applying the STRICT GROUNDING CONTRACT and value-normalisation rules from the system prompt and promptGuidance config. Emit ONLY facts the learner explicitly states — OMIT missing facts entirely.\n\nTranscript:\n{{transcript}}",
+      "section": "Extraction",
+      "targetRange": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "formula": "grounding_strength * value_normalisation_correctness",
+      "subMetrics": [
+        {
+          "id": "grounding_strength",
+          "name": "Grounding Strength",
+          "weight": 0.6,
+          "description": "How directly the extracted value is supported by the learner's transcript quote (the evidence field).",
+          "formula": "evidence_clarity * extraction_specificity",
+          "definitions": {
+            "high": "Learner stated the fact unambiguously: 'I want to get a 7' / 'My exam is on September 15th' / 'I'm applying for a UK skilled-worker visa'.",
+            "low": "Inference territory: 'I'd love to do well' (target_band omitted, not invented); 'sometime this year' (exam_date_iso omitted, not invented)."
+          }
+        },
+        {
+          "id": "value_normalisation_correctness",
+          "name": "Value Normalisation",
+          "weight": 0.4,
+          "description": "Whether the emitted value matches the canonical form documented in promptGuidance (band as 0.5-increment string, date as ISO 8601, reason as 'category: free text').",
+          "formula": "format_compliance",
+          "definitions": {
+            "high": "'7.0' / '2026-09-15' / 'university: Master's in computer science in Canada'.",
+            "low": "'seven' / 'September 15th' / 'I want to study abroad' — these are unnormalised and break downstream consumers."
+          }
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Extract the fact with high confidence (>= 0.85) and emit it. The fact will be written to CallerMemory and auto-loaded into the next call's composed prompt via lib/prompt/composition/loaders/memoryDeltas.ts.",
+        "whenLow": "DO NOT extract. Omit the fact entirely from your response array. A later call may capture it; in the meantime the educator sees the gap and can prompt the learner directly. Honest emptiness > fabricated value."
+      }
+    }
+  ],
+  "related": [
+    {
+      "id": "MEM-001",
+      "title": "Caller Memory Extraction",
+      "relationship": "siblingOf — IELTS-INTAKE-001 follows the MEM-001 LEARN-spec authoring pattern (extractWithSpec runner reads spec.config.llmConfig + spec.promptTemplate; writes CallerMemory rows via the canonical writer). MEM-001 handles general personal facts/preferences/relationships; IELTS-INTAKE-001 handles the four IELTS-specific intake profile facts."
+    },
+    {
+      "id": "IELTS-MEASURE-001",
+      "title": "IELTS Speaking Assessment — LLM Transcript Judgment",
+      "relationship": "siblingOf — both are IELTS Speaking-profile specs. IELTS-MEASURE-001 scores the four IELTS criteria from speech performance (FC/LR/GRA/P); IELTS-INTAKE-001 captures the learner's intake context (target_band, self_assessment_band, exam_date_iso, reason). The two specs feed disjoint downstream surfaces — IELTS-MEASURE-001 → CallScore → SKILL-AGG-001 EMA; IELTS-INTAKE-001 → CallerMemory → memoryDeltas loader → next-call composed prompt."
+    }
+  ],
+  "specRole": "EXTRACT"
+}

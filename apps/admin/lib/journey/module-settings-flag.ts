@@ -27,3 +27,37 @@ export function isIeltsModuleSettingsEnabled(): boolean {
   const raw = env?.[IELTS_MODULE_SETTINGS_ENV_VAR];
   return raw === "true";
 }
+
+/**
+ * Story #2158 (epic #2135 follow-on, 2026-06-21) — the
+ * `HF_IELTS_LLM_MEASURE_V1` env flag and `ieltsLlmMeasureV1Enabled()`
+ * helper were RETIRED here.
+ *
+ * The IELTS LLM-judged MEASURE path is now selected at the COURSE LEVEL
+ * via two layered mechanisms:
+ *
+ *   1. **Auto-detect** (default ON, runs whenever the playbook has IELTS
+ *      BehaviorTarget intent):
+ *      `lib/pipeline/specs-loader.ts::filterByBehaviorTargetParams` (#2155)
+ *      runs IELTS-MEASURE-001 whenever the playbook carries any of the 4
+ *      IELTS skill parameters on its PLAYBOOK-scope `BehaviorTarget` rows.
+ *      The operator's BehaviorTarget intent IS the signal — no separate
+ *      enablement flag is required.
+ *
+ *   2. **Per-course override** (kill-switch):
+ *      `PlaybookConfig.aiMeasurement.disableLlmIeltsScoring = true`
+ *      filters IELTS-MEASURE-001 OUT for that specific course even when
+ *      auto-detect would otherwise run it. Surfaced in the Course Skills
+ *      tab → Rubric Calibration lens → "AI Measurement Method" card and
+ *      protected by the `JourneySettingContract`
+ *      `aiMeasurementDisableLlmIeltsScoring` (G4 / I_scoring bucket).
+ *
+ * Prosody-consumer's IELTS-skill writes are namespace-disjoint from the
+ * LLM spec (PR #2157 / story #2138 — `prosody_raw_*` parameter IDs) so
+ * no env-flag check is required on the prosody side either.
+ *
+ * **OPERATOR RULE (verbatim, from epic #2135):**
+ * NEVER land hardcoded or AI-guessed score defaults to "fill" empty
+ * `CallerTarget` rows. Honest empty bands surface gaps; fake scores
+ * corrupt EMA.
+ */

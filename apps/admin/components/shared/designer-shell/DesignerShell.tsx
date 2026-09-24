@@ -39,6 +39,11 @@ interface DesignerShellProps {
   nav: ReactNode | null;
   /** Centre canvas slot — typically the existing console / preview content. */
   canvas: ReactNode;
+  /** Extra class names appended to `hf-designer-canvas`. Today: tri-pane
+   *  consumers pass `hf-designer-canvas-dim` when the LH selection has no
+   *  discrete Preview bubble (cross-cutting). Keeps the markup flat — no
+   *  inner wrapper div around the canvas content. */
+  canvasClassName?: string;
   /** RH inspector slot. `null` → column absent + canvas reclaims width. */
   inspector?: ReactNode | null;
   /** Optional banner rendered above the shell (e.g. "BETA — new designer"). */
@@ -54,6 +59,7 @@ const NARROW_VIEWPORT_PX = 1200;
 export function DesignerShell({
   nav,
   canvas,
+  canvasClassName,
   inspector = null,
   headerBanner,
   inspectorTitle = "Inspector",
@@ -109,7 +115,13 @@ export function DesignerShell({
           </aside>
         ) : null}
 
-        <main className="hf-designer-canvas">{canvas}</main>
+        <main
+          className={`hf-designer-canvas${
+            canvasClassName ? ` ${canvasClassName}` : ""
+          }`}
+        >
+          {canvas}
+        </main>
 
         {inspectorVisibleInline ? (
           <aside

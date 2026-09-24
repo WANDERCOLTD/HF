@@ -8,8 +8,8 @@
  *   4. Every composeImpact.kinds[] element is a valid ComposeImpactKind
  *   5. No duplicate ids within JOURNEY_SETTINGS
  *   6. Every group G1..G8 has entries
- *   7. Exact group counts: G1:8 G2:10 G3:4 G4:27 G5:6 G6:11 G7:15 G8:7
- *   8. JOURNEY_SETTINGS.length === 88 (45 base + Lane 3 + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704)
+ *   7. Exact group counts: G1:9 G2:10 G3:4 G4:28 G5:5 G6:10 G7:15 G8:9
+ *   8. JOURNEY_SETTINGS.length === 90 (45 base + Lane 3 + 1 G7 #1747 + 6 G8 #1701 + 1 G8 #1704 + 1 G7 #2105)
  *   9. VOICE_SETTINGS.length === 11
  *  10. Cross-registry `interruptSensitivity` shares storagePath
  *  11. writeGate === "operator-only" → composeImpact.requiresReprompt
@@ -91,26 +91,56 @@ describe("Journey setting registry — Phase 0 completeness (AC §6 issue #1676)
     // Lane 3 PR1 — A_intake (G1) gained 3 contracts: intakeGoals,
     // intakeAiIntroCall, intakeKnowledgeCheckMode (catch-up follow-on
     // from #1780 coverage audit).
-    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(7);
+    // Slice 13 grey-out epic — added intakeAboutYouQuestion +
+    // intakeGoalsQuestion text contracts so educators can edit the
+    // intake prompts. G1 7 → 9.
+    // onboardingClosingLine added in fix/onboarding-greeting-cascade —
+    // course-only knob for the FOH onboarding closing CTA. PR #2266 S1
+    // added 4 more G1 course-only knobs (goalsPreamble + aboutYouIntro
+    // + preTestIntro + preTestClosing). G1 9 → 10 → 14.
+    // PR #2266 S2 — 6 more G1 contracts (HTML onboarding wizard:
+    // step1Body + 2× goalsHint + howItWorksIntro + readyBody + readyCta).
+    // G1 14 → 20.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G1.length).toBe(20);
     expect(JOURNEY_SETTINGS_BY_GROUP.G2.length).toBe(10);
     expect(JOURNEY_SETTINGS_BY_GROUP.G3.length).toBe(4);
     // #1871 — voiceProsodyMode added (I_scoring / G4). 27 -> 28.
-    expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(28);
+    // #2158 — aiMeasurementDisableLlmIeltsScoring added (I_scoring / G4). 28 -> 29.
+    // #2176 S1 — assessmentPlan added (I_scoring / G4). 29 -> 30.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G4.length).toBe(30);
     // midJourneyStopTrigger removed in fix/journey-stops-structured-paths
     // (storagePath was unrepresentable in the applier — trigger is now
     // edited only via the midJourneyStop compound editor). G5 6 → 5.
     expect(JOURNEY_SETTINGS_BY_GROUP.G5.length).toBe(5);
-    expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(10);
+    // PR #2266 S1 — 4 G6 course-only knobs (postTestIntro + postTestClosing
+    // + journeyExitIntro + journeyExitClosing). G6 10 → 14.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G6.length).toBe(14);
     // #1747 — Theme 7 talkTimeBudgets bumped G7 6 → 7; Lane 3 catch-up bumped further.
-    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(14);
+    // Story #2105 — lessonPlanMode surfaced as a contract so the
+    // Continuous + Strict-Prerequisites conflict can be declared
+    // symmetrically. G7 14 → 15.
+    expect(JOURNEY_SETTINGS_BY_GROUP.G7.length).toBe(15);
     // #1701 — G8 module-scoped settings (6 IELTS keys) + #1704 profile capture (1)
-    //        + #1743 moduleScaffoldPool (1) for Theme 2b stall detector
-    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(8);
+    //        + #1743 moduleScaffoldPool (1) + #1932 moduleTopicPool (1)
+    //        + #1955 modulePinFocusArea (1) + #1956 modulesilentMode (1)
+    //        + #1954 moduleGenerateLessonPlan (1) = 12
+    //        + S8 moduleScoreReadoutMode (1) + S7 moduleScaffoldsByStallType (1)
+    //        + S3 moduleLearnerShellOverride (1) = 15
+    expect(JOURNEY_SETTINGS_BY_GROUP.G8.length).toBe(15);
   });
 
-  it("(8) JOURNEY_SETTINGS.length === 86", () => {
-    // 84 (post midJourneyStopTrigger removal) + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
-    expect(JOURNEY_SETTINGS.length).toBe(86);
+  it("(8) JOURNEY_SETTINGS.length === 98", () => {
+    // 84 + 1 (moduleScaffoldPool #1743) + 1 (voiceProsodyMode #1871)
+    //   + 1 (moduleTopicPool #1932) + 2 (Slice 13 intake editors) + 1 (#2105 lessonPlanMode)
+    //   + 1 (modulePinFocusArea #1955) + 1 (silentMode #1956) + 1 (generateLessonPlan #1954)
+    //   + 1 (aiMeasurementDisableLlmIeltsScoring #2158)
+    //   + 1 (assessmentPlan #2176) = 95
+    //   + 1 (S8 moduleScoreReadoutMode) + 1 (S7 moduleScaffoldsByStallType)
+    //   + 1 (S3 moduleLearnerShellOverride) = 98
+    //   + 1 (G1 onboardingClosingLine — FOH onboarding closing CTA) = 99
+    //   + 8 (PR #2266 S1 — 4 G1 + 4 G6 FOH copy knobs) = 107
+    //   + 6 (PR #2266 S2 — HTML onboarding wizard knobs) = 113
+    expect(JOURNEY_SETTINGS.length).toBe(113);
   });
 
   it("(9) VOICE_SETTINGS.length === 11", () => {

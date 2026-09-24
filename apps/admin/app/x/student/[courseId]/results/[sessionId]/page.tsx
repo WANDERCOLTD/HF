@@ -179,6 +179,23 @@ function ResultsView({ data }: { data: ResultsPayload }) {
         </section>
       )}
 
+      {/* #1954 (Boaz/Eldar Unit 1.1) — Post-Assessment next-steps panel. */}
+      {data.lessonPlan && (
+        <section className="hf-results-next-steps" aria-label="Your next steps">
+          <h2 className="hf-results-next-steps-title">Your next steps</h2>
+          <div className="hf-results-next-steps-focus">
+            <span className="hf-results-next-steps-focus-label">Focus</span>
+            <span className="hf-results-next-steps-focus-value">{data.lessonPlan.focusLabel}</span>
+          </div>
+          <p className="hf-results-next-steps-reason">{data.lessonPlan.reason}</p>
+          {data.lessonPlan.nextRecommendedModuleSlug && (
+            <p className="hf-results-next-steps-rec">
+              Recommended next module: <strong>{data.lessonPlan.nextRecommendedModuleSlug}</strong>
+            </p>
+          )}
+        </section>
+      )}
+
       <section className="hf-results-table-wrap" aria-label="Per-criterion band table">
         {hasScores ? (
           <table className="hf-results-table">

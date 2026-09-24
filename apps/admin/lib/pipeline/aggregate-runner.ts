@@ -16,6 +16,7 @@
 import { prisma } from "@/lib/prisma";
 import { updateLearnerProfile } from "@/lib/learner/profile";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import { config } from "@/lib/config";
 import { recordIAL3DefaultFallback } from "@/lib/pipeline/adaptive-loop-invariants";
 import type { SpecConfig } from "@/lib/types/json-fields";
 
@@ -181,7 +182,7 @@ export async function accumulateSkillScores(
     // tracking observability (halfLifeSource / minCallsSource) so
     // #1513's I-AL3 emit still distinguishes contract-driven from
     // default-driven cascades. See docs/audit/HF-A-evidence-skill-measure-v1.md.
-    const contract = await ContractRegistry.getContract("SKILL_MEASURE_V1");
+    const contract = await ContractRegistry.getContract(config.specs.skillMeasureV1);
     const cfg = (contract?.config ?? {}) as Record<string, unknown>;
     if (typeof cfg.emaHalfLifeDays === "number") {
       halfLifeDays = cfg.emaHalfLifeDays;

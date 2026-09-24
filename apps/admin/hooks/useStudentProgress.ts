@@ -56,6 +56,26 @@ export interface StudentCourseComplete {
   completedAt: string | null;
 }
 
+/**
+ * #2277 Item #7 (D6) — `Session.metadata.lessonPlan` from the latest
+ * COMPLETED Session, written by `pickNextRecommendedModule` at AGGREGATE.
+ * `nextRecommended.moduleSlug` is what the FOH home highlights. Null
+ * until a session whose module opted into `generateLessonPlan` completes.
+ */
+export interface StudentLessonPlan {
+  focusCriterion: string;
+  focusLabel: string;
+  focusScore: number;
+  reason: string;
+  nextRecommendedModuleSlug?: string;
+  emittedAt: string;
+}
+
+export interface StudentNextRecommended {
+  moduleSlug: string;
+  fromSessionId: string | null;
+}
+
 export interface StudentProgress {
   goals: StudentGoal[];
   totalCalls: number;
@@ -77,6 +97,9 @@ export interface StudentProgress {
   diagnosticFromMock: StudentDiagnosticFromMock | null;
   // #493 Slice 5.4 — null until E2 lands isCourseComplete()
   courseComplete: StudentCourseComplete | null;
+  // #2277 Item #7 (D6) — latest lesson plan + next-recommended module slug
+  lessonPlan: StudentLessonPlan | null;
+  nextRecommended: StudentNextRecommended | null;
 }
 
 interface UseStudentProgressResult {
@@ -120,6 +143,8 @@ export function useStudentProgress(callerId: string): UseStudentProgressResult {
         modules: json.modules ?? [],
         diagnosticFromMock: json.diagnosticFromMock ?? null,
         courseComplete: json.courseComplete ?? null,
+        lessonPlan: json.lessonPlan ?? null,
+        nextRecommended: json.nextRecommended ?? null,
       });
     } catch (err) {
       setError((err as Error).message);

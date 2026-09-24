@@ -90,10 +90,12 @@ describe("seed-cio-cto-beh-targets (G4 / #1145)", () => {
     expect(mockWriteBehaviorTargets).toHaveBeenCalledTimes(3);
   });
 
-  it("produces 21 target rows across 3 playbooks (7 per playbook)", async () => {
+  it("produces 18 target rows across 3 playbooks (6 per playbook)", async () => {
+    // #1949 — BEH-CONVERSATIONAL-TONE folded onto BEH-WARMTH (dedup
+    // cluster 1). Pre-#1949: 7 per playbook × 3 = 21. Post: 6 × 3 = 18.
     const result = await seedCioCtoBehTargets(mockPrisma as never);
     expect(result.playbooksProcessed).toBe(3);
-    expect(result.targetsWritten).toBe(21);
+    expect(result.targetsWritten).toBe(18);
     expect(result.playbooksSkipped).toBe(0);
   });
 

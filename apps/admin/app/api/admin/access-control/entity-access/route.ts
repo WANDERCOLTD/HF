@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, isAuthError, ROLE_LEVEL } from "@/lib/permissions";
 import { requireEntityAccess, isEntityAuthError, invalidateAccessCache } from "@/lib/access-control";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import { config } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 import { auditLog, AuditAction } from "@/lib/audit";
 import type { UserRole } from "@prisma/client";
@@ -18,7 +19,7 @@ export async function GET() {
   const authResult = await requireAuth("ADMIN");
   if (isAuthError(authResult)) return authResult.error;
 
-  const contract = await ContractRegistry.getContract("ENTITY_ACCESS_V1");
+  const contract = await ContractRegistry.getContract(config.specs.entityAccessV1);
 
   if (!contract) {
     return NextResponse.json(
@@ -118,7 +119,7 @@ export async function POST(req: Request) {
   }
 
   // Load existing contract, merge in updated matrix
-  const contract = await ContractRegistry.getContract("ENTITY_ACCESS_V1");
+  const contract = await ContractRegistry.getContract(config.specs.entityAccessV1);
   if (!contract) {
     return NextResponse.json(
       { ok: false, error: "ENTITY_ACCESS_V1 contract not found. Run npm run db:seed first." },

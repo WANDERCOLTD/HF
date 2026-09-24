@@ -49,6 +49,19 @@ export interface SchedulerState {
    * counter: increment on every call, reset on assess.
    */
   callsSinceLastAssess: number;
+  /**
+   * #2051 (epic #2049 sub-epic B / Contract 3) — caller-side mode override.
+   * When set, bypasses `pickMode()` and forces `decision.mode` to this
+   * value for this call only. Today's only producer is `transforms/modules.ts`
+   * for `Playbook.config.moduleSequencePolicy === "interleaved"` on the
+   * 4th-call cadence tick — the operator's interleaved-review pacing
+   * decision must always win over the scheduler's cadence-driven default,
+   * even when `callsSinceLastAssess < retrievalCadence`.
+   *
+   * Absent / undefined → `pickMode()` runs normally (byte-identical to the
+   * pre-#2051 contract).
+   */
+  modeOverride?: SchedulerMode;
 }
 
 /**
@@ -75,7 +88,7 @@ export function selectNextExchange(
   state: SchedulerState,
   policy: SchedulerPolicy,
 ): SchedulerRun {
-  const { workingSetInput, priorDecision, callsSinceLastAssess } = state;
+  const { workingSetInput, priorDecision, callsSinceLastAssess, modeOverride } = state;
 
   // Apply preset-level mastery threshold override if set. The LO-level
   // override (from lo.masteryThreshold ?? module.masteryThreshold) is applied
@@ -113,12 +126,23 @@ export function selectNextExchange(
   // *which outcome* to pick (not mode). This is the minimum viable policy
   // that delivers event-gated scoring and Track A cadence without requiring
   // real spaced-repetition due-date tracking (that's Slice 3).
-  const { mode, modeReason } = pickMode({
+  //
+  // #2051 (epic #2049 sub-epic B / Contract 3) — `modeOverride` wins when
+  // present. Producer is the `moduleSequencePolicy: "interleaved"` cadence
+  // tick in `transforms/modules.ts`. The override is per-call, never
+  // persisted; the scheduler still writes the resulting `mode` value to
+  // the SchedulerDecision row so downstream readers (event-gate, EXTRACT)
+  // see the canonical decision shape.
+  const picked_pickMode = pickMode({
     callsSinceLastAssess,
     cadence: policy.retrievalCadence,
     hasReviewable: ws.reviewIds.length > 0,
     priorMode: priorDecision?.mode ?? null,
   });
+  const mode: SchedulerMode = modeOverride ?? picked_pickMode.mode;
+  const modeReason: string = modeOverride
+    ? `caller-side mode override: ${modeOverride} (was ${picked_pickMode.mode} via ${picked_pickMode.modeReason})`
+    : picked_pickMode.modeReason;
 
   // ── Outcome selection ──
   //

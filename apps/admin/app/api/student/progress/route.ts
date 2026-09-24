@@ -12,7 +12,12 @@ import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook } from "@/lib/curriculum/resolve-module";
 import { isCourseComplete } from "@/lib/curriculum/is-course-complete";
-import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { resolveOnboardingWelcomeForCaller } from "@/lib/learner/resolve-onboarding-welcome";
+import type {
+  PlaybookConfig,
+  SessionMetadata,
+  SessionLessonPlan,
+} from "@/lib/types/json-fields";
 
 const SURVEY_ATTR_SCOPES = [
   SURVEY_SCOPES.PERSONALITY, SURVEY_SCOPES.PRE, SURVEY_SCOPES.POST,
@@ -30,7 +35,7 @@ export async function GET(request: NextRequest) {
   // we surface those for the panel to render coloured chips per module.
   // Module status is mapped at this boundary: DB "COMPLETED" → presentational
   // "MASTERED" (E5 vocabulary); other statuses pass through verbatim.
-  const [profile, goals, callCount, caller, memorySummary, keyFactCount, surveyAttrs, moduleProgress, diagnosticAttr] = await Promise.all([
+  const [profile, goals, callCount, caller, memorySummary, keyFactCount, surveyAttrs, moduleProgress, diagnosticAttr, latestSessionWithPlan] = await Promise.all([
     prisma.callerPersonalityProfile.findUnique({
       where: { callerId },
       select: { parameterValues: true, lastUpdatedAt: true, callsUsed: true },
@@ -116,6 +121,16 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: "desc" },
       select: { stringValue: true, updatedAt: true },
     }),
+    // #2277 Item #7 (D6) — latest COMPLETED Session carrying a
+    // `metadata.lessonPlan` written by `pickNextRecommendedModule` at
+    // AGGREGATE. The FOH home highlights the recommended module.
+    // Sibling pattern: `app/api/student/[courseId]/results/[sessionId]/route.ts`
+    // reads the same field for the post-session results screen.
+    prisma.session.findFirst({
+      where: { callerId, status: "COMPLETED" },
+      orderBy: { endedAt: "desc" },
+      select: { id: true, metadata: true, endedAt: true },
+    }),
   ]);
 
   // ── Build survey buckets ──
@@ -171,6 +186,26 @@ export async function GET(request: NextRequest) {
   // routes because both write `CurriculumModule` + `CallerModuleProgress` rows.
   const courseComplete = await resolveCourseComplete(callerId);
 
+  // #2277 Item #7 (D6) — pull the lesson plan off the latest COMPLETED
+  // Session's metadata. Null on a fresh learner (no completed session),
+  // or when the AGGREGATE plan-write didn't fire (module opted out, or
+  // no per-criterion scores yet).
+  const sessionMeta = (latestSessionWithPlan?.metadata ?? null) as SessionMetadata | null;
+  const lessonPlan: SessionLessonPlan | null = sessionMeta?.lessonPlan ?? null;
+  const nextRecommended = lessonPlan?.nextRecommendedModuleSlug
+    ? { moduleSlug: lessonPlan.nextRecommendedModuleSlug, fromSessionId: latestSessionWithPlan?.id ?? null }
+    : null;
+
+  // Welcome cascade. Helper at `lib/learner/resolve-onboarding-welcome.ts`
+  // is the canonical reader for `Playbook.config.welcomeMessage` (cascade-
+  // resolved via Domain.onboardingWelcome) + `Playbook.config.onboardingClosingLine`
+  // (course-only) — same reader used by any future surface that wants the
+  // FOH onboarding bundle.
+  const welcome = await resolveOnboardingWelcomeForCaller(
+    callerId,
+    primaryCohort?.institution?.welcomeMessage ?? null,
+  );
+
   return NextResponse.json({
     ok: true,
     profile: profile
@@ -192,7 +227,26 @@ export async function GET(request: NextRequest) {
     teacherName: primaryCohort?.owner?.name ?? null,
     institutionName: primaryCohort?.institution?.name ?? null,
     institutionLogo: primaryCohort?.institution?.logoUrl ?? null,
-    welcomeMessage: primaryCohort?.institution?.welcomeMessage ?? null,
+    welcomeMessage: welcome.welcomeMessage,
+    onboardingClosingLine: welcome.onboardingClosingLine,
+    // PR #2266 S1 — 8 FOH copy fields (consumed by useJourneyChat +
+    // WelcomeSurveyFlow). Forwarded directly from the lib bundle.
+    goalsPreamble: welcome.goalsPreamble,
+    aboutYouIntro: welcome.aboutYouIntro,
+    preTestIntro: welcome.preTestIntro,
+    preTestClosing: welcome.preTestClosing,
+    postTestIntro: welcome.postTestIntro,
+    postTestClosing: welcome.postTestClosing,
+    journeyExitIntro: welcome.journeyExitIntro,
+    journeyExitClosing: welcome.journeyExitClosing,
+    // PR #2266 S2 — 6 HTML onboarding wizard copy fields (consumed by
+    // StudentOnboarding).
+    studentOnboardingStep1Body: welcome.studentOnboardingStep1Body,
+    studentOnboardingGoalsHintWithItems: welcome.studentOnboardingGoalsHintWithItems,
+    studentOnboardingGoalsHintEmpty: welcome.studentOnboardingGoalsHintEmpty,
+    studentOnboardingHowItWorksIntro: welcome.studentOnboardingHowItWorksIntro,
+    studentOnboardingReadyBody: welcome.studentOnboardingReadyBody,
+    studentOnboardingReadyCta: welcome.studentOnboardingReadyCta,
     topTopics: (memorySummary?.topTopics as Array<{ topic: string; lastMentioned: string }>) ?? [],
     topicCount: memorySummary?.topicCount ?? 0,
     keyFactCount,
@@ -213,6 +267,11 @@ export async function GET(request: NextRequest) {
     diagnosticFromMock,
     // #493 Slice 5.4 — current course-complete verdict from isCourseComplete().
     courseComplete,
+    // #2277 Item #7 (D6) — post-Assessment lesson plan + next-recommended
+    // module slug for the FOH home highlight. Null until a Session whose
+    // module opted in via `generateLessonPlan` completes.
+    lessonPlan,
+    nextRecommended,
   });
 }
 

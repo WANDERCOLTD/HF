@@ -60,6 +60,10 @@ interface LLMPrompt {
     greeting_ack_gate?: string | null;
     /** #1403: course-intro turn spoken after the ack gate on isFirstCall. */
     greeting_course_intro?: string | null;
+    /** #2055 (sub-epic F of #2049): Call 1 framing recap derived from intake
+     *  answers. Emitted between [OPENING] and [GREETING FLOW] when
+     *  `config.openingRecapEnabled` is true AND it's Call 1. */
+    opening_recap?: string | null;
   };
   caller?: {
     id?: string;
@@ -140,6 +144,21 @@ interface LLMPrompt {
       target: string;
       meaning?: string;
     }>;
+    /**
+     * #1951 (epic #1946 S4) — full behaviour-target semantics. Replaces the
+     * pre-#1951 top-5 cap on `behavior_targets_summary` as the LLM's
+     * primary signal for HOW to behave. `null` when the producer's budget
+     * guard fires (`PROMPT_SEMANTICS_BUDGET_CHARS` in
+     * `transforms/instructions.ts`) — renderer then falls back to the
+     * top-5 summary block.
+     */
+    behavior_targets_semantics?: Array<{
+      parameterId: string;
+      what: string;
+      targetLevel: string;
+      targetValue: number;
+      meaning: string;
+    }> | null;
     teaching_content?: string | null;
     /** #1732 (epic #1730 G8 consumer A) — module-scoped question count directive. */
     module_question_target?: { min: number; target: number; directive: string } | null;
@@ -153,10 +172,34 @@ interface LLMPrompt {
     } | null;
     /** #1735 (epic #1730 G8 consumer D) — first-time orientation line. */
     module_orientation_line?: { line: string; directive: string } | null;
+    /** #1932 (epic #1931 Template Authority) — module-scoped topic pool. */
+    module_topic_pool?: {
+      kind: "topicPool";
+      topic: string;
+      questions: string[];
+      directive: string;
+    } | null;
+    /** #2051 (epic #2049 sub-epic B / Contract 1) — baseline-assessment depth. */
+    baseline_assessment_depth?: {
+      depth: "light" | "standard" | "deep";
+      directive: string;
+    } | null;
+    /** #2011 (epic #2009 S2) — quiz-mode directive. */
+    module_quiz_directive?: { directive: string } | null;
+    /** #2013 (epic #2009 S4) — mock-exam mode directive (board-chair frame). */
+    module_mock_exam_directive?: { directive: string } | null;
+    /** #2145 Phase A — Generic SessionFocus 4th-layer substrate. */
+    session_focus?: {
+      label: string;
+      directive: string;
+      moduleSlug: string;
+    } | null;
   };
-  /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close). */
+  /** #1734 (epic #1730 G8 consumer C) — offboarding transform output (module-scoped close).
+   *  #2054 — extended with certificateMention (operator toggle for completion-certificate copy). */
   offboarding?: {
     moduleClosingLine?: string | null;
+    certificateMention?: string | null;
   };
   /** #1749 (epic #1700 Theme 11) — score-delta narrator input. */
   priorCallFeedback?: {
@@ -167,6 +210,21 @@ interface LLMPrompt {
   callHistory?: {
     totalCalls?: number;
   };
+  /**
+   * #2085 (S5 of epic #2078) — companion-domain directives produced by
+   * `transforms/companion.ts`. Null when no companion-domain
+   * BehaviorTargets are set or every set target is neutral; the
+   * renderer omits the [COMPANION STYLE] block in those cases.
+   */
+  companionDirectives?: {
+    directives?: Array<{
+      parameterId: string;
+      targetLevel: "HIGH" | "LOW";
+      targetValue: number;
+      directive: string;
+    }>;
+    directiveCount?: number;
+  } | null;
 }
 
 /** Format a document type for display in prompts */
@@ -354,6 +412,23 @@ export function renderProviderPrompt(
     parts.push("");
   }
 
+  // --- COMPANION STYLE ---
+  // #2085 (S5 of epic #2078) — companion-domain directives. Reads from
+  // the `companionDirectives` section produced by
+  // `lib/prompt/composition/transforms/companion.ts`. The transform
+  // returns null when no companion-domain BehaviorTargets are set OR
+  // when every set target sits at the neutral midpoint — in those cases
+  // this block is omitted entirely so the prompt is byte-identical for
+  // callers without companion-style tuning.
+  const companionDirectives = llmPrompt.companionDirectives?.directives;
+  if (companionDirectives?.length) {
+    parts.push("[COMPANION STYLE]");
+    for (const d of companionDirectives) {
+      parts.push(`- ${d.directive}`);
+    }
+    parts.push("");
+  }
+
   // --- THIS CALLER ---
   parts.push("[THIS CALLER]");
   if (qs?.this_caller) parts.push(qs.this_caller);
@@ -422,6 +497,24 @@ export function renderProviderPrompt(
     if (curr.nextModule) parts.push(`Next module: ${curr.nextModule.name}`);
   }
   if (qs?.curriculum_progress) parts.push(qs.curriculum_progress);
+
+  // #2082 (S3 of epic #2078) — curriculum-adaptation directives derived
+  // from the 22 cascade-resolved curriculum-adaptation BehaviorTargets
+  // intersected with LEARN-ASSESS-001 per-module mastery state. The
+  // transform at `transforms/curriculum-adaptation.ts` produces a
+  // pre-rendered `body` string + per-parameter `directives[]`; the
+  // renderer emits the body verbatim so the tutor sees the directives
+  // alongside curriculum guidance. Section is omitted when no parameter
+  // diverges from neutral AND no mastery context is worth surfacing.
+  const curriculumAdaptation = (llmPrompt as any).curriculumAdaptation as
+    | { hasDirectives?: boolean; body?: string }
+    | null
+    | undefined;
+  if (curriculumAdaptation?.hasDirectives && curriculumAdaptation.body) {
+    parts.push("");
+    parts.push(curriculumAdaptation.body);
+  }
+
   // Post-coverage guidance — what to do when all TPs are covered
   if (pedagogy?.postCoverageGuidance) {
     parts.push("");
@@ -433,6 +526,15 @@ export function renderProviderPrompt(
     parts.push(qs.offboarding_guidance);
   }
 
+  // #2054 (epic #2049 sub-epic E) — certificate-mention line. Renders
+  // when the operator turned on `Playbook.config.offboardingCertificate`
+  // AND the offboarding transform fired (cadence gate satisfied). The
+  // transform owns the wording; the renderer owns the placement.
+  const certificateMention = llmPrompt.offboarding?.certificateMention;
+  if (typeof certificateMention === "string" && certificateMention.trim().length > 0) {
+    parts.push("");
+    parts.push(certificateMention);
+  }
   // #1734 (epic #1730 G8 consumer C) — module-scoped verbatim closing line.
   // Appended after the existing offboarding guidance so the model reads it
   // last when wrapping up. Operator-set value; only renders when the
@@ -470,6 +572,62 @@ export function renderProviderPrompt(
   if (cueCard?.directive) {
     parts.push("");
     parts.push(cueCard.directive);
+  }
+  // #1932 (epic #1931 Template Authority) — module-scoped topic pool.
+  // Deterministic per-call pick from topicPool. Parallel to cueCardPool
+  // but emits a TOPIC LIBRARY directive (questions, not bullets) for
+  // student-led practice modules (Part 1 frames, Part 3 themes).
+  const topicPool = llmPrompt.instructions?.module_topic_pool;
+  if (topicPool?.directive) {
+    parts.push("");
+    parts.push(topicPool.directive);
+  }
+  // #2145 Phase A + S4 — Generic SessionFocus 4th-layer substrate.
+  // Reads `CallerAttribute(key = "session_focus:next_{moduleSlug}")`
+  // written by the `session-focus-policy` AnalysisSpec runner. The
+  // value is the projected LEARNER-FACING label (e.g. "giving reasons"
+  // for IELTS Part 3 — never the criterion). Honest empty state when
+  // the projection runner hasn't fired yet — no hardcoded fallback.
+  const sessionFocus = llmPrompt.instructions?.session_focus;
+  if (sessionFocus?.directive) {
+    parts.push("");
+    parts.push("[SESSION FOCUS]");
+    parts.push(sessionFocus.directive);
+  }
+  // #2051 (epic #2049 sub-epic B) — baseline-assessment depth.
+  // Renders ONLY when `Playbook.config.firstCallMode === "baseline_assessment"`
+  // AND this is the learner's first session. Appended AFTER the
+  // BASELINE_ASSESSMENT_RULE critical rule (rendered separately via
+  // _preamble.criticalRules) so the LLM reads both the universal baseline
+  // contract and the per-depth calibration.
+  const baselineDepth = llmPrompt.instructions?.baseline_assessment_depth;
+  if (baselineDepth?.directive) {
+    parts.push("");
+    parts.push(baselineDepth.directive);
+  }
+  // #2011 (epic #2009 S2) — quiz-mode directive.
+  // Renders ONLY when the locked module's `mode === "quiz"`. Reframes
+  // the session as a timed MCQ drill drawn from the per-Unit
+  // ContentQuestion bank. The MCQ infrastructure (`generate-mcqs.ts` +
+  // VAPI tool at runtime) is unchanged; this directive tells the LLM
+  // to use it as the conversation SHAPE rather than as in-line
+  // retrieval prompts inside a teaching conversation.
+  const quizDirective = llmPrompt.instructions?.module_quiz_directive;
+  if (quizDirective?.directive) {
+    parts.push("");
+    parts.push(quizDirective.directive);
+  }
+  // #2013 (epic #2009 S4) — mock-exam mode directive.
+  // Renders ONLY when the locked module's `mode === "mock-exam"`.
+  // Reframes the session as a board-chair scenario exam (4–6 probes,
+  // no MCQs, no mid-session teaching, per-LO per-dimension close).
+  // Appends a "prior mastery doesn't count" line when the playbook's
+  // `useFreshMastery` flag is on, aligning AI narration with the
+  // data-layer isolation contract (see `readiness-rollups.ts:25`).
+  const mockExamDirective = llmPrompt.instructions?.module_mock_exam_directive;
+  if (mockExamDirective?.directive) {
+    parts.push("");
+    parts.push(mockExamDirective.directive);
   }
   // #1749 (epic #1700 Theme 11) — per-session score-delta narrator.
   // Surfaces the summary line + the per-criterion scoreboard from the
@@ -704,6 +862,17 @@ export function renderProviderPrompt(
   if (qs?.first_line) {
     parts.push("[OPENING]");
     parts.push(qs.first_line);
+    parts.push("");
+  }
+
+  // --- #2055 (sub-epic F) Opening recap (Call 1 framing) ---
+  // Emitted between [OPENING] and [GREETING FLOW] so the recap context
+  // is in front of the AI before it greets. Null-guarded inside
+  // `quickstart.ts` (Call 1 only, openingRecapEnabled === true, at least
+  // one intake answer present).
+  if (qs?.opening_recap) {
+    parts.push("[OPENING RECAP]");
+    parts.push(qs.opening_recap);
     parts.push("");
   }
 
@@ -955,13 +1124,19 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
 
     if (highTargets.length) {
       parts.push("**HIGH priority**:");
-      highTargets.slice(0, 5).forEach(t => {
+      // #1951 — lifted from `slice(0, 5)` to all HIGH targets. The producer
+      // (transforms/instructions.ts) budget-guards the structured SEMANTICS
+      // directive; this prose block sits within the same budget envelope
+      // because it shares the source array. The follow-on `## Behavior
+      // Targets Semantics` block below provides the canonical full-list
+      // path for the LLM.
+      highTargets.forEach(t => {
         const guidance = t.targetLevel === "HIGH" && t.when_high ? ` → ${t.when_high}` : "";
         parts.push(`- ${t.name}: ${t.targetLevel} (${pct(t.targetValue)})${guidance}`);
       });
     }
 
-    // Summary from instructions
+    // Summary from instructions — top-5 fallback shape from the producer.
     const summary = llmPrompt.instructions?.behavior_targets_summary;
     if (summary?.length) {
       parts.push("\n**Summary**:");
@@ -969,6 +1144,24 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
         parts.push(`- ${s.what}: ${s.target}${s.meaning ? ` - ${s.meaning}` : ""}`);
       });
     }
+    parts.push("");
+  }
+
+  // #1951 (epic #1946 S4) — BEHAVIOR TARGETS SEMANTICS. Full per-parameter
+  // semantics block, the canonical replacement for the pre-#1951 top-5 cap.
+  // Producer: `transforms/instructions.ts::behavior_targets_semantics` (null
+  // when budget guard fired — see `PROMPT_SEMANTICS_BUDGET_CHARS`). When
+  // semantics is null the renderer relies on the legacy "## Behavior Targets"
+  // block above (top-5 summary). Pairing pinned by
+  // `tests/lib/prompt/composition/coverage-producer-consumer.test.ts` PAIRS
+  // row `behavior_targets_semantics`.
+  const semantics = llmPrompt.instructions?.behavior_targets_semantics;
+  if (semantics && semantics.length > 0) {
+    parts.push("## Behavior Targets Semantics\n");
+    parts.push("Each parameter below carries an HF-canonical interpretation. Use the meaning to choose how to behave at the resolved target value:\n");
+    semantics.forEach(s => {
+      parts.push(`- **${s.what}** — ${s.targetLevel} (${pct(s.targetValue)}): ${s.meaning}`);
+    });
     parts.push("");
   }
 

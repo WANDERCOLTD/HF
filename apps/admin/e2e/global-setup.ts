@@ -43,13 +43,19 @@ async function globalSetup(config: FullConfig) {
     const isCloud = !!process.env.CLOUD_E2E;
     console.log(`[Global Setup] baseURL=${baseURL}, isCloud=${isCloud}`);
     await page.goto(`${baseURL}/login`, { timeout: isCloud ? 60000 : 30000 });
-    // Wait for email input to appear (Turbopack may be compiling on first hit)
-    await page.locator('#email').waitFor({ state: 'visible', timeout: isCloud ? 60000 : 15000 });
+    // Wait for the contact (email-or-phone) input — the new 2-step
+    // magic/password login defaults to magic-link mode; password field
+    // is hidden until we toggle.
+    await page.locator('#contact').waitFor({ state: 'visible', timeout: isCloud ? 60000 : 15000 });
     console.log(`[Global Setup] Login page loaded at ${page.url()}`);
+
+    // Toggle to password mode so the #password field renders.
+    await page.getByRole('button', { name: 'Use a password instead' }).click();
 
     // Fill in credentials (using default admin user)
     const password = process.env.SEED_ADMIN_PASSWORD || 'admin123';
-    await page.locator('#email').fill('admin@test.com');
+    await page.locator('#contact').fill('admin@test.com');
+    await page.locator('#password').waitFor({ state: 'visible', timeout: 5000 });
     await page.locator('#password').fill(password);
 
     // Submit login form — scope to the login form so a stray

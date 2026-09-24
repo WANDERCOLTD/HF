@@ -42,6 +42,7 @@ import {
   DEFAULT_AI_MODEL_CONFIGS,
 } from "../lib/fallback-settings";
 import { slimParameters, slimSummary } from "../lib/bdd/spec-slim";
+import { resolveCanonicalDomainGroup } from "../lib/registry/canonical-domain-group";
 
 let prisma = new PrismaClient();
 
@@ -345,12 +346,28 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
       if (lowRange) interpretationLow = `${lowRange.label}: ${lowRange.implication || ""}`;
     }
 
+    // #2031 follow-on — route every Parameter.domainGroup write through
+    // the canonical resolver. `scoringSpec?.domain` is spec-authored
+    // metadata (e.g. ADAPT-BEH-001 ships `"behavior-adaptation"`, which
+    // is OFF-canonical and corrupts the v1.0 taxonomy on every seed
+    // run). The resolver accepts the canonical 12-tuple values directly
+    // and rejects everything else; fall back to `"behavior-core"` (the
+    // catch-all canonical default per Group A `style → behavior-core`
+    // precedent in docs/decisions/2026-06-19-parameter-domain-group-mapping.md).
+    // Author MUST update the spec.json `domain` field to a canonical
+    // value to retain the original intent.
+    const canonicalDomainGroup =
+      resolveCanonicalDomainGroup({
+        domainGroup: param.domainGroup,
+        section: param.section ?? scoringSpec?.domain,
+      }) ?? "behavior-core";
+
     const paramData = {
       parameterId,
       name: param.name || parameterId,
       definition: param.description || param.definition || null,
       sectionId: param.section || scoringSpec?.domain || "imported",
-      domainGroup: scoringSpec?.domain || "general",
+      domainGroup: canonicalDomainGroup,
       scaleType: "0-1",
       directionality: "positive",
       computedBy: `spec:${featureSet.featureId}`,
@@ -551,8 +568,17 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(" ");
 
-        // Infer domainGroup from section or use default
-        const domainGroup = metadata?.section || scoringSpec?.domain || "teaching";
+        // #2031 follow-on — route every Parameter.domainGroup write
+        // through the canonical resolver. Bypass site identified by the
+        // 2026-06-22 audit: the prior `metadata?.section || scoringSpec?.domain || "teaching"`
+        // fallback persisted off-canonical values like `"behavior-adaptation"`
+        // (ADAPT-BEH-001) and `"teaching"` (itself off-canonical) verbatim.
+        // Fall back to `"behavior-core"` (the catch-all canonical default).
+        const domainGroup =
+          resolveCanonicalDomainGroup({
+            domainGroup: metadata?.section ?? scoringSpec?.domain,
+            section: metadata?.section,
+          }) ?? "behavior-core";
 
         // Create the parameter
         await prisma.parameter.create({
@@ -645,6 +671,12 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
     if (rawSpecData?.archetypes) {
       config.archetypes = rawSpecData.archetypes;
       console.log(`      Copied ${Object.keys(rawSpecData.archetypes).length} archetype configs from rawSpec`);
+    }
+    // Copy tools from rawSpec.config if present (TOOLS-001 — voice tool definitions
+    // stored under spec.config.tools; runtime reader at lib/voice/load-tool-definitions.ts).
+    if (rawSpecData?.config && typeof rawSpecData.config === "object" && Array.isArray((rawSpecData.config as any).tools)) {
+      config.tools = (rawSpecData.config as any).tools;
+      console.log(`      Copied ${(rawSpecData.config as any).tools.length} tool definitions from rawSpec.config`);
     }
   }
   // For IDENTITY and CONTENT specs: preserve parameters array AND flatten for backward compat

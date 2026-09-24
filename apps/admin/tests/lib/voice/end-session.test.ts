@@ -9,11 +9,16 @@
  *   - idempotent on already-ended Session (forward-only status transition)
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockPrisma = {
   session: { findUnique: vi.fn(), update: vi.fn() },
   call: { findFirst: vi.fn() },
+  // #1730 Story D — evaluateOrientationLatch upserts CallerModuleProgress
+  // when flag on + structured course + COMPLETED outcome + playbook FKs
+  // set. Default fixture has none of those, so the upsert is unreachable
+  // in baseline cases; the wire-in test below configures the fixture.
+  callerModuleProgress: { upsert: vi.fn() },
 };
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
@@ -258,5 +263,56 @@ describe("endSession", () => {
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // #1730 Story D (epic #1700 Theme 1 G8 consumer D) — orientation latch
+  // wire-in. Pins: COMPLETED outcome + structured course + flag on →
+  // evaluateOrientationLatch upserts CallerModuleProgress.orientationShown.
+  describe("orientation latch (#1730 Story D)", () => {
+    const ORIGINAL_FLAG = process.env.HF_FLAG_IELTS_MODULE_SETTINGS;
+
+    afterEach(() => {
+      if (ORIGINAL_FLAG === undefined) {
+        delete process.env.HF_FLAG_IELTS_MODULE_SETTINGS;
+      } else {
+        process.env.HF_FLAG_IELTS_MODULE_SETTINGS = ORIGINAL_FLAG;
+      }
+    });
+
+    it("VOICE_CALL + COMPLETED + structured course + flag on → upserts orientationShown=true for (caller, module)", async () => {
+      process.env.HF_FLAG_IELTS_MODULE_SETTINGS = "true";
+      mockPrisma.session.findUnique.mockResolvedValueOnce({
+        id: "session-1",
+        kind: "VOICE_CALL",
+        startedAt: new Date(Date.now() - 60_000),
+        endedAt: null,
+        status: "STARTED",
+        countsTowardLearnerNumber: true,
+        countsTowardPipelineNumber: true,
+        skipStages: [],
+        callerId: "caller-1",
+        playbookId: "playbook-1",
+        curriculumModuleId: "module-uuid-1",
+        curriculumModule: { slug: "part-2" },
+        playbook: { config: { lessonPlanMode: "structured" } },
+      });
+      mockPrisma.callerModuleProgress.upsert.mockResolvedValueOnce({
+        id: "progress-1",
+      });
+
+      const { endSession } = await import("@/lib/voice/end-session");
+      await endSession("session-1", {
+        outcome: "COMPLETED",
+        triggerPipelineAsync: false,
+      });
+
+      expect(mockPrisma.callerModuleProgress.upsert).toHaveBeenCalledTimes(1);
+      const upsertCall = mockPrisma.callerModuleProgress.upsert.mock.calls[0][0];
+      expect(upsertCall.where.callerId_moduleId).toEqual({
+        callerId: "caller-1",
+        moduleId: "module-uuid-1",
+      });
+      expect(upsertCall.update).toEqual({ orientationShown: true });
+    });
   });
 });

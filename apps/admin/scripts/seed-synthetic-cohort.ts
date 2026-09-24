@@ -32,6 +32,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { deleteCallersData } from "@/lib/gdpr/delete-caller-data";
 
 const DEFAULT_PLAYBOOK_ID = "5bbdbe7e-c32f-490e-8ff8-a938ddfc49a0"; // CTO Revision Aid on hf_sandbox
 
@@ -87,9 +88,7 @@ async function main() {
     console.log(`Cleanup: removing ${synthCallers.length} synthetic callers + their CallerTargets + CallerPlaybook rows`);
     if (synthCallers.length === 0) return;
     const ids = synthCallers.map((c) => c.id);
-    await prisma.callerTarget.deleteMany({ where: { callerId: { in: ids } } });
-    await prisma.callerPlaybook.deleteMany({ where: { callerId: { in: ids } } });
-    await prisma.caller.deleteMany({ where: { id: { in: ids } } });
+    await deleteCallersData(ids);
     console.log("Cleanup done.");
     return;
   }

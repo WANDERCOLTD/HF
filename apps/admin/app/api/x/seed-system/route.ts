@@ -5,6 +5,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { seedFromSpecs } from "../../../../prisma/seed-from-specs";
 import { clearAIConfigCache } from "@/lib/ai/config-loader";
 import { clearSystemSettingsCache } from "@/lib/system-settings";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -449,6 +450,15 @@ async function ensureBehaviorParameters(prisma: PrismaClient): Promise<number> {
       where: { parameterId: param.parameterId },
     });
 
+    // #2031 follow-on — route every Parameter.domainGroup write through
+    // the canonical resolver. The canonical registry JSON should already
+    // carry canonical values, but the resolver provides structural
+    // defence in depth against an edit that introduces an off-canonical
+    // value.
+    const canonicalDomainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: param.domainGroup }) ??
+      "behavior-core";
+
     if (existing) {
       await prisma.parameter.update({
         where: { parameterId: param.parameterId },
@@ -458,7 +468,7 @@ async function ensureBehaviorParameters(prisma: PrismaClient): Promise<number> {
           name: param.name,
           definition: param.definition,
           sectionId: "behavior",
-          domainGroup: param.domainGroup,
+          domainGroup: canonicalDomainGroup,
           interpretationHigh: param.interpretationHigh,
           interpretationLow: param.interpretationLow,
           scaleType: "0-1",
@@ -473,7 +483,7 @@ async function ensureBehaviorParameters(prisma: PrismaClient): Promise<number> {
           name: param.name,
           definition: param.definition,
           sectionId: "behavior",
-          domainGroup: param.domainGroup,
+          domainGroup: canonicalDomainGroup,
           interpretationHigh: param.interpretationHigh,
           interpretationLow: param.interpretationLow,
           scaleType: "0-1",

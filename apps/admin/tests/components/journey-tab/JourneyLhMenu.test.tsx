@@ -12,8 +12,8 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={vi.fn()}
-        filter="All"
-        onFilterChange={vi.fn()}
+        filters={[]}
+        onToggleFilter={vi.fn()}
       />,
     );
     // The 7 Journey buckets distribute across G1, G2, G3, G5, G6 —
@@ -31,8 +31,8 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={vi.fn()}
-        filter="End"
-        onFilterChange={vi.fn()}
+        filters={["End"]}
+        onToggleFilter={vi.fn()}
       />,
     );
     expect(screen.getByTestId("hf-journey-group-G6")).toBeInTheDocument();
@@ -46,8 +46,8 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={onSelect}
-        filter="All"
-        onFilterChange={vi.fn()}
+        filters={[]}
+        onToggleFilter={vi.fn()}
       />,
     );
     // G1 is open by default — pick the A_intake bucket
@@ -61,11 +61,11 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={vi.fn()}
-        filter="All"
-        onFilterChange={onFilter}
+        filters={[]}
+        onToggleFilter={onFilter}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Call 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Call 1" }));
     expect(onFilter).toHaveBeenCalledWith("Call 1");
   });
 
@@ -74,14 +74,17 @@ describe("JourneyLhMenu — Slice C (#1721) bucket-grained menu", () => {
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={vi.fn()}
-        filter="All"
-        onFilterChange={vi.fn()}
+        filters={[]}
+        onToggleFilter={vi.fn()}
       />,
     );
-    // A_intake has 8 settings (5 base + Lane 3 PR1 added 3 + #1704 profile
-    // capture, minus the dead intakeConsentFlow contract removed in followup).
+    // A_intake count: 8 base + Slice 13 added 2 (question text editors)
+    // + PR #2265 added onboardingClosingLine = 11. PR #2266 S1 added
+    // 4 more G1 FOH copy knobs (goalsPreamble + aboutYouIntro +
+    // preTestIntro + preTestClosing) = 15. PR #2266 S2 added 6 more
+    // G1 HTML onboarding wizard knobs = 21.
     const row = screen.getByTestId("hf-journey-bucket-row-A_intake");
-    expect(row.textContent).toMatch(/8/);
+    expect(row.textContent).toMatch(/21/);
   });
 });
 
@@ -91,8 +94,8 @@ describe("JourneyLhMenu — P4 (#1850) LH pruning to Journey-owned buckets", () 
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={vi.fn()}
-        filter="All"
-        onFilterChange={vi.fn()}
+        filters={[]}
+        onToggleFilter={vi.fn()}
       />,
     );
     // Open every collapsed group so all rows are in the DOM —
@@ -115,8 +118,8 @@ describe("JourneyLhMenu — P4 (#1850) LH pruning to Journey-owned buckets", () 
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={vi.fn()}
-        filter="All"
-        onFilterChange={vi.fn()}
+        filters={[]}
+        onToggleFilter={vi.fn()}
       />,
     );
     // Teaching tab owns C_teaching_style, E_learner_visual,
@@ -141,8 +144,8 @@ describe("JourneyLhMenu — P4 (#1850) LH pruning to Journey-owned buckets", () 
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={vi.fn()}
-        filter="All"
-        onFilterChange={vi.fn()}
+        filters={[]}
+        onToggleFilter={vi.fn()}
       />,
     );
     // Scoring tab owns I_scoring (G7) + K_between_calls (G7).
@@ -159,8 +162,8 @@ describe("JourneyLhMenu — P4 (#1850) LH pruning to Journey-owned buckets", () 
       <JourneyLhMenu
         selectedBucketId={null}
         onSelectBucket={vi.fn()}
-        filter="All"
-        onFilterChange={vi.fn()}
+        filters={[]}
+        onToggleFilter={vi.fn()}
       />,
     );
     // Voice tab owns N_voice (G4).

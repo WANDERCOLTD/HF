@@ -81,6 +81,24 @@ describe("DisclosureContentPort — production safety belt", () => {
     expect(entry.body).not.toMatch(/DO NOT SHIP/i);
   });
 
+  // #1918 (epic #1915 §6a I-PR2) — voice-call recording consent
+  // delivered at intake-v2 so the ack exists before `createSession`
+  // runs in the voice path.
+  it("loads the voice-call-recording consent", async () => {
+    const entry = await loadDisclosureCopy("voice-call-recording");
+    expect(entry.meta.requirementId).toBe("voice-call-recording");
+    expect(entry.meta.regulation).toBe("hf-internal");
+    expect(entry.meta.status).toBe("RC");
+    expect(entry.meta.controller).toBe("HumanFirst Foundation");
+    expect(entry.body).not.toMatch(/lorem ipsum/i);
+    expect(entry.body).not.toMatch(/DO NOT SHIP/i);
+    // Copy must mention recording + erasure right (informational
+    // pin — these are the two beats the I-PR2 contract is asserting
+    // about the learner's exposure).
+    expect(entry.body.toLowerCase()).toMatch(/record/);
+    expect(entry.body.toLowerCase()).toMatch(/delete/);
+  });
+
   // RC copy is delivered under every env value — the safety belt only
   // fires on status:DRAFT. After #1244 promoted the live files there
   // are no DRAFT files on disk to refuse; the mechanism itself remains

@@ -22,7 +22,15 @@ try {
   const { subjectDiscipline } = subjectResult;
 
   const courseName = input.courseName as string;
-  const interactionPattern = input.interactionPattern as string;
+  // #1995 — interactionPattern flows through the ctx as `string` for
+  // downstream readers; the merge helpers (_new-config-merge.ts /
+  // _reuse-config-merge.ts) call `isInteractionPattern(...)` before
+  // writing to `Playbook.config`. Cast to `string` here (NOT the bare
+  // `as string` form blocked by `hf-wizard/no-untyped-enum-write-in-wizard`
+  // — that rule fires on enum-bearing FIELD assignments, not on local
+  // var declarations from the typed input bag) so downstream string
+  // readers compile. The runtime safety is at the merge boundary.
+  const interactionPattern = String(input.interactionPattern ?? "");
   const packSubjectIds = (input.packSubjectIds as string[] | undefined)
     || (setupData?.packSubjectIds as string[] | undefined);
   // Phase 5: prefer sourceIds for direct PlaybookSource creation

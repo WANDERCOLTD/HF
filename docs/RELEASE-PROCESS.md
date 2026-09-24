@@ -10,7 +10,7 @@
 | Env | Cloud Run | Cloud SQL DB | Stability | Who writes |
 |---|---|---|---|---|
 | **SAND** | n/a (VM `hf-dev`) | `hf_sandbox` | Throwaway | Paul + Boaz (interactive) via `/vm-cp` / `/vm-cpp` |
-| **DEV** | `hf-admin-dev` (`dev.humanfirstfoundation.com`) | `hf_dev` | Semi-stable | CI only (auto-deploy on merge to `main`) |
+| **DEV** | `hf-admin-dev` (`dev.humanfirstfoundation.com`) | `hf_staging` (post-2026-06-18 pivot — pre-pivot was `hf_sandbox`) | Semi-stable | Manual `gh workflow run deploy-staging-quick.yml` (~5-7 min); auto-deploy on `main` push is a stub that fails every run (#1725 follow-on) |
 | **TEST** | `hf-admin-test` (`test.humanfirstfoundation.com`) | `hf_test` | Most stable | Release-tag promotion only |
 | **PROD** | `hf-admin` (`lab.humanfirstfoundation.com`) | `hf_prod` | Live | Release-tag promotion (post-TEST smoke) |
 
@@ -25,7 +25,7 @@ feature branch → PR → main → DEV (auto) → release/* branch → TEST → 
 ```
 
 - **Branches:** `feat/<#>-slug` / `fix/<#>-slug` / `chore/<slug>` — mandatory per CLAUDE.md.
-- **DEV is auto-deployed** from `main` on every merge (shipped in [#1725](https://github.com/WANDERCOLTD/HF/issues/1725)). `paths-ignore` skips docs-only commits.
+- **DEV is intended to auto-deploy** from `main` on every merge (target shipped in [#1725](https://github.com/WANDERCOLTD/HF/issues/1725)) — however the `deploy.yml` workflow is currently a non-functional stub (placeholder DB secret + placeholder URL; fails on every push to `main`). **Until repaired, ship to DEV via `gh workflow run deploy-staging-quick.yml`** (~5-7 min, lean runner-only image with GHA cache).
 - **TEST is promoted** by cutting a `release/<date>` branch. Same image source as DEV; rebuilt with `NEXT_PUBLIC_APP_ENV=TEST`.
 - **PROD is promoted** by merging the `release/*` branch + tagging. Same image SHA path; rebuilt with `NEXT_PUBLIC_APP_ENV=PROD`.
 
@@ -156,7 +156,7 @@ Alert channel: operator email on 2 consecutive uptime failures (Cloud Monitoring
 ## 11. Glossary
 
 - **SAND** — VM `hf-dev`, `hf_sandbox` DB. Operators iterate here.
-- **DEV** — Cloud Run `hf-admin-dev`, `hf_dev` DB. CI-only writes; auto-refreshes from `main`.
+- **DEV** — Cloud Run `hf-admin-dev` at `dev.humanfirstfoundation.com`, `hf_staging` DB (post-2026-06-18 pivot). Fast-fix path: `gh workflow run deploy-staging-quick.yml` (~5-7 min). Auto-deploy from `main` is a stub today (see §2).
 - **TEST** — Cloud Run `hf-admin-test`, `hf_test` DB. Release-promotion only.
 - **PROD** — Cloud Run `hf-admin`, `hf_prod` DB. Live.
 - **Promotion** — `release/<date>` branch cut from main + tag triggers TEST/PROD deploy of the same source SHA.

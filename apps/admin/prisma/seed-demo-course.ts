@@ -15,6 +15,7 @@
  */
 
 import { PrismaClient, type Prisma } from "@prisma/client";
+import { deleteCallersData } from "../lib/gdpr/delete-caller-data";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -390,35 +391,7 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
     const callerIds = existingCallers.map((c) => c.id);
 
     if (callerIds.length > 0) {
-      // Find call IDs for FK cleanup
-      const existingCalls = await prisma.call.findMany({
-        where: { callerId: { in: callerIds } },
-        select: { id: true },
-      });
-      const existingCallIds = existingCalls.map((c) => c.id);
-
-      // Delete in FK-safe order
-      await prisma.callerModuleProgress.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.composedPrompt.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.goal.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerMemory.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerMemorySummary.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerPersonalityProfile.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callScore.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.onboardingSession.deleteMany({ where: { callerId: { in: callerIds } } });
-      // Pipeline output tables (FK to call)
-      if (existingCallIds.length > 0) {
-        await prisma.rewardScore.deleteMany({ where: { callId: { in: existingCallIds } } });
-        await prisma.callTarget.deleteMany({ where: { callId: { in: existingCallIds } } });
-        await prisma.behaviorMeasurement.deleteMany({ where: { callId: { in: existingCallIds } } });
-      }
-      await prisma.call.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerPlaybook.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerCohortMembership.deleteMany({ where: { callerId: { in: callerIds } } });
-      // Delete cohorts owned by demo callers (before deleting callers)
-      await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { ownerId: { in: callerIds } } } });
-      await prisma.cohortGroup.deleteMany({ where: { ownerId: { in: callerIds } } });
-      await prisma.caller.deleteMany({ where: { id: { in: callerIds } } });
+      await deleteCallersData(callerIds, prisma);
       console.log(`  Cleaned up ${callerIds.length} previous demo callers`);
     }
 

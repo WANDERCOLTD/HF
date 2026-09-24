@@ -94,21 +94,11 @@ export default function CallerDetailPage() {
     artifacts: "overview-v2",
   };
   const rawTab = searchParams.get("tab");
-  // S5 of #1555 — `?v=3` opens the Snapshot v3 beta tab when the
-  // environment flag is on. Two layers of opt-in: (1) build-time env
-  // var `NEXT_PUBLIC_SNAPSHOT_V3_ENABLED=true`, (2) explicit `?v=3` on
-  // the URL. The flag without the URL param leaves the existing
-  // experience untouched ("no regression" acceptance); the URL param
-  // without the flag is also a no-op so a bookmarked beta link can't
-  // leak across deploys.
-  const snapshotV3FlagEnabled =
-    process.env.NEXT_PUBLIC_SNAPSHOT_V3_ENABLED === "true";
-  const snapshotV3Requested = searchParams.get("v") === "3";
-  const snapshotV3Active = snapshotV3FlagEnabled && snapshotV3Requested;
-  // Wave E — HF_TAB_LAYOUT FF drives visible-tab composition. `both`
-  // (default) shows v3 primary (Attainment + Adaptations) + legacy
-  // with amber Retiring pill. `retire` hides legacy from the bar and
-  // redirects URL hits via `retirementRedirect` below.
+  // Snapshot v3 promoted to primary tab 2026-06-19 — gating removed.
+  // HF_TAB_LAYOUT FF drives visible-tab composition. Default `retire`
+  // hides legacy tabs from the bar and redirects URL hits via
+  // `retirementRedirect`. Set NEXT_PUBLIC_HF_TAB_LAYOUT=both to surface
+  // the legacy tabs with the amber Retiring pill during a transition.
   const tabLayout = getTabLayout();
   const tabLayoutResult = computeVisibleTabs(tabLayout);
   // Tabs that may render but DO NOT appear in the tab bar (legacy / hidden).
@@ -116,13 +106,6 @@ export default function CallerDetailPage() {
   // tab bar itself is built from the VISIBLE_TABS subset below.
   const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow", "attainment", "adaptations", "snapshot-v3"];
   const VISIBLE_TABS = new Set<SectionId>(tabLayoutResult.visible);
-  // Snapshot v3 stays gated behind the `?v=3` URL param even when
-  // HF_TAB_LAYOUT=both — beta gate, until the dedicated promotion lands.
-  // Operators who want it visible flip `NEXT_PUBLIC_SNAPSHOT_V3_ENABLED=true`
-  // AND `?v=3`.
-  if (!snapshotV3Active) {
-    VISIBLE_TABS.delete("snapshot-v3");
-  }
   // Wave E — retire-mode redirect: if the raw tab is a retiring one and
   // the FF flipped to `retire`, route the user to the v3 replacement so
   // bookmarked URLs don't 404.
@@ -595,9 +578,21 @@ export default function CallerDetailPage() {
   // A call is "processing" if it's recent (< 5 min) and hasn't been analyzed yet.
   // When processing calls exist, poll every 5s to pick up pipeline results.
   const PROCESSING_WINDOW_MS = 5 * 60 * 1000;
+  // Keep `now` in a ref initialised pure (null) and refreshed by an interval
+  // (1s) after mount so the useMemo body stays pure — Date.now() during render
+  // trips react-hooks/purity. First render briefly treats all calls as not-
+  // processing (acceptable for the 5-min window). (#2017 react-hooks/purity)
+  const nowRef = React.useRef<number | null>(null);
+  useEffect(() => {
+    nowRef.current = Date.now();
+    const interval = setInterval(() => {
+      nowRef.current = Date.now();
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
   const processingCallIds = useMemo(() => {
-    if (!data?.calls) return new Set<string>();
-    const now = Date.now();
+    if (!data?.calls || nowRef.current === null) return new Set<string>();
+    const now = nowRef.current;
     return new Set(
       data.calls
         .filter((c) => {
@@ -734,12 +729,8 @@ export default function CallerDetailPage() {
   const allSections = useMemo<{ id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[]>(() => {
     if (!data) return [];
     return [
-      // S5 of #1555 — Snapshot v3 beta tab. Only visible when
-      // `?v=3` + `NEXT_PUBLIC_SNAPSHOT_V3_ENABLED=true`; otherwise the
-      // entry is in allSections (so the render branch is reachable for
-      // URL-typed access) but not in VISIBLE_TABS (so the tab bar stays
-      // unchanged).
-      { id: "snapshot-v3", label: "Snapshot (beta)", icon: <span aria-hidden>✨</span>, group: "shared" },
+      // Snapshot v3 — primary entry tab (promoted out of beta 2026-06-19).
+      { id: "snapshot-v3", label: "Snapshot", icon: <span aria-hidden>✨</span>, group: "shared" },
       { id: "overview-v2", label: <TabWithHelp tabId="overview-v2">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
       { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
       { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
@@ -1198,12 +1189,9 @@ export default function CallerDetailPage() {
       {/* Section Content */}
       <div className="cdp-body">
       <div className="cdp-content">
-      {/* S5 of #1555 + #1660 (Epic #1606 Group C foundation) — Snapshot v3
-          beta. Renders only when the flag + URL param align (see
-          snapshotV3Active above). The S5 "Coming soon" placeholder is
-          replaced by the SnapshotTabContent composer, which mounts 5
-          sections + 3 stub slots that sibling stories #1661 / #1662 /
-          #1663 / #1665 / #1666 will fill. */}
+      {/* Snapshot v3 — primary tab (promoted 2026-06-19). Renders the
+          SnapshotTabContent composer (5 sections + 3 stub slots filled
+          by sibling stories #1661 / #1662 / #1663 / #1665 / #1666). */}
       {activeSection === "snapshot-v3" && (
         <SnapshotTabContent
           callerId={data.caller.id}

@@ -49,7 +49,10 @@ const CIO_CTO_VARIANT_TARGETS: VariantTargetSet[] = [
       { parameterId: "BEH-CHALLENGE-LEVEL", targetValue: 0.35 },
       { parameterId: "BEH-PROBING-QUESTIONS", targetValue: 0.75 },
       { parameterId: "BEH-RESPONSE-LEN", targetValue: 0.40 },
-      { parameterId: "BEH-CONVERSATIONAL-TONE", targetValue: 0.65 },
+      // #1949 — `BEH-CONVERSATIONAL-TONE` deprecated; folded onto
+      // `BEH-WARMTH` as alias. The pre-#1949 seed wrote both at the same
+      // value (0.65), confirming operator treatment as the same concept.
+      // BEH-WARMTH above carries the canonical value.
       { parameterId: "BEH-DIRECTNESS", targetValue: 0.50 },
       // BEH-QUESTION-RATE was in the BA proposal but the live Parameter row
       // has parameterType: STATE / isAdjustable: false (it's an observed
@@ -68,7 +71,7 @@ const CIO_CTO_VARIANT_TARGETS: VariantTargetSet[] = [
       { parameterId: "BEH-CHALLENGE-LEVEL", targetValue: 0.60 },
       { parameterId: "BEH-PROBING-QUESTIONS", targetValue: 0.55 },
       { parameterId: "BEH-RESPONSE-LEN", targetValue: 0.55 },
-      { parameterId: "BEH-CONVERSATIONAL-TONE", targetValue: 0.55 },
+      // #1949 — see discover block. BEH-WARMTH carries the canonical value.
       { parameterId: "BEH-DIRECTNESS", targetValue: 0.55 },
       // BEH-QUESTION-RATE not adjustable — see note in discover block above.
     ],
@@ -82,7 +85,7 @@ const CIO_CTO_VARIANT_TARGETS: VariantTargetSet[] = [
       { parameterId: "BEH-CHALLENGE-LEVEL", targetValue: 0.80 },
       { parameterId: "BEH-PROBING-QUESTIONS", targetValue: 0.30 },
       { parameterId: "BEH-RESPONSE-LEN", targetValue: 0.35 },
-      { parameterId: "BEH-CONVERSATIONAL-TONE", targetValue: 0.35 },
+      // #1949 — see discover block. BEH-WARMTH carries the canonical value.
       { parameterId: "BEH-DIRECTNESS", targetValue: 0.75 },
       // BEH-QUESTION-RATE not adjustable — see note in discover block above.
     ],

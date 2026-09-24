@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   detectAuthoredModules,
+  extractOutcomeStatements,
   hasAuthoredModules,
   type DetectedAuthoredModules,
 } from "../detect-authored-modules";
@@ -74,9 +75,11 @@ describe("detectAuthoredModules — IELTS v2.2 fixture", () => {
   });
 
   it("enforces ID regex on every parsed module", () => {
+    // Pattern relaxed to include hyphens + length cap raised to 80
+    // (CIO/CTO unit-doc IDs). Updated 2026-06-20 for the trio-import fix.
     for (const m of result.modules) {
-      expect(m.id).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(m.id.length).toBeLessThanOrEqual(32);
+      expect(m.id).toMatch(/^[a-z][a-z0-9_-]*$/);
+      expect(m.id.length).toBeLessThanOrEqual(80);
     }
   });
 
@@ -132,9 +135,35 @@ describe("detectAuthoredModules — IELTS v2.3 per-module settings", () => {
 
   it("carries the part2 cue-card cue schedule end-to-end", () => {
     const part2 = result.modules.find((m) => m.id === "part2")!;
+    // #2277 — Part 2 now carries 5 cues: PPF prep intro + 45s warn +
+    // monologue boundary + re-speak offer + re-speak close. Cue-scheduler
+    // is voice-only per PR #2286; BDD-acceptable since real IELTS
+    // examiners speak prep instructions verbally.
     expect(part2.settings!.scheduledCues).toEqual([
-      { at: 45, text: "15 seconds left" },
-      { at: 60, text: "Your two minutes start now" },
+      {
+        at: 0,
+        text: "You'll have one minute to prepare. Think of a specific memory or moment. Consider past, present, and future. Write three bullet points — one word or phrase per line.",
+        phase: "p2_prep_start",
+      },
+      { at: 45, text: "Fifteen seconds left." },
+      // #1762 Story C — 60s cue carries phase:"p2_monologue" so the
+      // Session.metadata.phaseBoundaries write surface knows the
+      // prep→monologue boundary is at this cue (not just a text label).
+      {
+        at: 60,
+        text: "Your time starts now — go ahead.",
+        phase: "p2_monologue",
+      },
+      {
+        at: 181,
+        text: "Your structure was clear — let's try once more. Same topic. Start when you're ready.",
+        phase: "p2_respeak",
+      },
+      {
+        at: 241,
+        text: "Good — that's your minute. Well done.",
+        phase: "p2_respeak_close",
+      },
     ]);
     expect(part2.settings!.minSpeakingSec).toBe(120);
   });
@@ -240,6 +269,87 @@ describe("detectAuthoredModules — unknown prerequisite", () => {
   });
 });
 
+// ── Multi-segment OUT-NN-NN outcome IDs (#2000) ────────────────────────
+// CIO/CTO Course References use dotted sub-outcome IDs (`OUT-01-02`) to
+// partition sub-outcomes under each primary outcome. Pre-fix, both the
+// heading detector and the table-cell parser captured only the first
+// numeric segment, collapsing 26 outcomes into 5 per playbook.
+
+describe("extractOutcomeStatements — multi-segment OUT-NN-NN (#2000)", () => {
+  it("captures `**OUT-01-02: ...**` headings as the full multi-segment ID", () => {
+    const doc = [
+      "# CIO/CTO Pop Quiz",
+      "",
+      "**OUT-01-02: Identifies the primary risk vector in a phishing scenario.**",
+      "**OUT-01-03: Distinguishes social engineering from credential theft.**",
+      "**OUT-12-04: Explains rotation cadence for production secrets.**",
+    ].join("\n");
+    const outcomes = extractOutcomeStatements(doc);
+    expect(Object.keys(outcomes).sort()).toEqual(["OUT-01-02", "OUT-01-03", "OUT-12-04"]);
+    expect(outcomes["OUT-01-02"]).toBe("Identifies the primary risk vector in a phishing scenario");
+    expect(outcomes["OUT-12-04"]).toBe("Explains rotation cadence for production secrets");
+  });
+
+  it("keeps single-segment `**OUT-NN: ...**` headings (back-compat)", () => {
+    const doc = [
+      "# IELTS Course",
+      "",
+      "**OUT-01: Extends every answer past the minimum length.**",
+      "**OUT-27: Sustains performance across all four criteria.**",
+    ].join("\n");
+    const outcomes = extractOutcomeStatements(doc);
+    expect(Object.keys(outcomes).sort()).toEqual(["OUT-01", "OUT-27"]);
+  });
+});
+
+describe("detectAuthoredModules — parseOutcomesList multi-segment (#2000)", () => {
+  function buildCatalogue(outcomesCell: string): string {
+    return [
+      "# Course",
+      "",
+      "**Modules authored:** Yes",
+      "",
+      "## Modules",
+      "",
+      "### Module Catalogue",
+      "",
+      "| ID | Label | Mode | Duration | Scoring fired | Voice band readout | Session-terminal | Frequency | Outcomes (primary) |",
+      "|---|---|---|---|---|---|---|---|---|",
+      `| \`m1\` | Module One | tutor | 10 min | LR | No | No | repeatable | ${outcomesCell} |`,
+      "",
+    ].join("\n");
+  }
+
+  it("parses `OUT-01-02, OUT-01-03` into two distinct multi-segment IDs", () => {
+    const doc = buildCatalogue("OUT-01-02, OUT-01-03");
+    const result = detectAuthoredModules(doc);
+    expect(result.modules).toHaveLength(1);
+    expect(result.modules[0].outcomesPrimary.sort()).toEqual(["OUT-01-02", "OUT-01-03"]);
+  });
+
+  it("pads each segment so `OUT-1-2` normalises to `OUT-01-02`", () => {
+    const doc = buildCatalogue("OUT-1-2");
+    const result = detectAuthoredModules(doc);
+    expect(result.modules[0].outcomesPrimary).toEqual(["OUT-01-02"]);
+  });
+
+  it("preserves the single-segment short-form expansion (`OUT-01, 02, 05`)", () => {
+    const doc = buildCatalogue("OUT-01, 02, 05");
+    const result = detectAuthoredModules(doc);
+    expect(result.modules[0].outcomesPrimary.sort()).toEqual(["OUT-01", "OUT-02", "OUT-05"]);
+  });
+
+  it("handles a mix of single- and multi-segment IDs in the same cell", () => {
+    const doc = buildCatalogue("OUT-01, OUT-02-03, OUT-12-04");
+    const result = detectAuthoredModules(doc);
+    expect(result.modules[0].outcomesPrimary.sort()).toEqual([
+      "OUT-01",
+      "OUT-02-03",
+      "OUT-12-04",
+    ]);
+  });
+});
+
 // ── hasAuthoredModules predicate ───────────────────────────────────────
 
 describe("hasAuthoredModules", () => {
@@ -256,5 +366,67 @@ describe("hasAuthoredModules", () => {
   it("returns false when modulesAuthored is false", () => {
     const result = detectAuthoredModules(`**Modules authored:** No\n`);
     expect(hasAuthoredModules(result)).toBe(false);
+  });
+});
+
+// ── Mode normalisation — #2010 quiz + mock-exam (epic #2009) ───────────
+
+/**
+ * Build a minimal Module Catalogue with three rows, varying only the Mode
+ * column. The CIO/CTO trio (Pop Quiz / Standard / Exam) declares modes
+ * like "Quiz", "Mock-Exam", and "Mock Exam" (space variant); pre-#2010
+ * these all fell through `normaliseMode` to `null` and were silently
+ * dropped to the `defaults.mode ?? "tutor"` fallback at the call site.
+ */
+function buildMinimalModesFixture(modes: readonly string[]): string {
+  const rows = modes
+    .map(
+      (m, idx) =>
+        `| \`mod_${idx}\` | Module ${idx} | Yes | ${m} | 20 min | All four | No | No | Once | Source 1 | OUT-01 |`,
+    )
+    .join("\n");
+  return `# Course Reference
+
+## Modules
+
+**Modules authored:** Yes
+
+### Module Catalogue (machine-readable summary)
+
+| ID | Label | Learner-selectable | Mode | Duration | Scoring fired | Voice band readout | Session-terminal | Frequency | Content source | Outcomes (primary) |
+|---|---|---|---|---|---|---|---|---|---|---|
+${rows}
+
+**OUT-01: Sample outcome statement for module mode tests.**
+`;
+}
+
+describe("detectAuthoredModules — mode parsing #2010 (quiz, mock-exam)", () => {
+  it("parses Mode: Quiz to 'quiz' (not silently dropped to tutor)", () => {
+    const result = detectAuthoredModules(buildMinimalModesFixture(["Quiz"]));
+    expect(result.modulesAuthored).toBe(true);
+    expect(result.modules).toHaveLength(1);
+    expect(result.modules[0].mode).toBe("quiz");
+  });
+
+  it("parses Mode: Mock-Exam (hyphenated) to 'mock-exam'", () => {
+    const result = detectAuthoredModules(buildMinimalModesFixture(["Mock-Exam"]));
+    expect(result.modules[0].mode).toBe("mock-exam");
+  });
+
+  it("parses Mode: Mock exam (space variant) to 'mock-exam'", () => {
+    const result = detectAuthoredModules(buildMinimalModesFixture(["Mock exam"]));
+    expect(result.modules[0].mode).toBe("mock-exam");
+  });
+
+  it("regression — existing modes still parse correctly", () => {
+    const result = detectAuthoredModules(
+      buildMinimalModesFixture(["Tutor", "Mixed", "Examiner"]),
+    );
+    expect(result.modules.map((m) => m.mode)).toEqual([
+      "tutor",
+      "mixed",
+      "examiner",
+    ]);
   });
 });

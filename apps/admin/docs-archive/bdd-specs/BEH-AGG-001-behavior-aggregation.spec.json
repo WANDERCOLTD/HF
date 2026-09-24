@@ -1,0 +1,536 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "BEH-AGG-001",
+  "title": "Behavior Parameter Aggregation",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-06-19",
+  "domain": "behavior",
+  "specType": "SYSTEM",
+  "outputType": "AGGREGATE",
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "personalization system",
+    "iWant": "to roll up per-call BEH-* measurements into stable per-caller behavior_profile:* CallerAttributes covering companion, personality, engagement, curriculum, learning, reinforcement, supervision, onboarding, and core style signals",
+    "soThat": "the adaptive loop closes for every measured BEH-* parameter — the next call's COMPOSE stage reads the rolled-up profile and the tutor adapts consistently across sessions"
+  },
+  "context": {
+    "applies": "After MEASURE specs across the BEH-* family have written CallScore rows; runs as one AGGREGATE pass with 9 domain-grouped parameter sections — each section's aggregationRules consume that group's measurements and write to a distinct behavior_profile:* namespace",
+    "dependsOn": [
+      "STYLE-001-conversation-style",
+      "PERS-001-personality-measurement",
+      "ADAPT-PERS-001-personality-adaptation",
+      "ADAPT-LEARN-001-learner-profile-adaptation",
+      "ADAPT-VARK-001-modality-adaptation",
+      "ADAPT-ENG-001-engagement-adaptation",
+      "ADAPT-CURR-001-curriculum-adaptation",
+      "CURR-001-curriculum-tracker",
+      "CA-001-cognitive-activation",
+      "INIT-001-caller-onboarding",
+      "REW-001-reward-computation",
+      "SUPV-001-agent-supervision",
+      "COMP-CD-001-conversational-depth",
+      "COMP-IE-001-intellectual-engagement",
+      "COMP-GG-001-gentle-guidance",
+      "COMP-EW-001-emotional-wellbeing",
+      "COMP-INSIGHT-001-insight-cadence",
+      "COMP-MC-001-memory-continuity",
+      "COMP-PP-001-patience-pacing",
+      "COMP-IS-001-intellectual-stimulation",
+      "COMP-CG-001-cognitive-patterns",
+      "COMP-RE-001-respect-experience"
+    ],
+    "assumptions": [
+      "Most caller profiles stabilise after 3+ observations; B5 personality after 4+",
+      "Recent observations are weighted more heavily (recencyWeight=0.7) than older ones in the rolling window",
+      "ADAPT-stage outputs (BEH-*-ADAPTATION) are tutor-side targets; aggregating them tracks per-session fidelity (was the prescribed target honoured?)",
+      "SUPV-001 scores are agent-side compliance signals; aggregating tracks the agent's per-caller compliance pattern, not the learner's behaviour"
+    ]
+  },
+  "parameters": [
+    {
+      "id": "behavior_aggregate_companion",
+      "name": "Companion Profile Aggregation",
+      "description": "Rolls up companion-mode behavior dimensions into behavior_profile:companion:* keys",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.7,
+        "minimumObservations": 3,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-CONVERSATIONAL-DEPTH", "targetProfileKey": "behavior_profile:companion:depth_engagement", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.75, "value": "deep", "confidence": 0.85 },
+            { "min": 0.4, "max": 0.75, "value": "moderate", "confidence": 0.75 },
+            { "max": 0.4, "value": "surface", "confidence": 0.7 } ] },
+          { "sourceParameter": "BEH-DEPTH-PREFERENCE", "targetProfileKey": "behavior_profile:companion:depth_preference", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "intellectual", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "balanced", "confidence": 0.75 },
+            { "max": 0.4, "value": "surface_chat", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-EMPATHY-RATE", "targetProfileKey": "behavior_profile:companion:empathy_level", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+            { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+            { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+            { "max": 0.2, "value": "no_evidence", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-ENERGY", "targetProfileKey": "behavior_profile:companion:energy_level", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.75 },
+            { "min": 0.4, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.4, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-ENGAGEMENT", "targetProfileKey": "behavior_profile:companion:engagement_level", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.4, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-INSIGHT-FREQUENCY", "targetProfileKey": "behavior_profile:companion:insight_frequency", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "frequent", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "occasional", "confidence": 0.7 },
+            { "max": 0.3, "value": "rare", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-INSIGHT-QUALITY", "targetProfileKey": "behavior_profile:companion:insight_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+            { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+            { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+            { "max": 0.2, "value": "no_evidence", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-INTELLECTUAL-CHALLENGE", "targetProfileKey": "behavior_profile:companion:challenge_level", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.4, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-MEMORY-REFERENCE", "targetProfileKey": "behavior_profile:companion:memory_use", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "frequent", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "occasional", "confidence": 0.7 },
+            { "max": 0.3, "value": "rare", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-MOOD", "targetProfileKey": "behavior_profile:companion:mood_typical", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "positive", "confidence": 0.75 },
+            { "min": 0.4, "max": 0.7, "value": "neutral", "confidence": 0.7 },
+            { "max": 0.4, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-PATIENCE-LEVEL", "targetProfileKey": "behavior_profile:companion:patience_typical", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.4, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-PROACTIVE", "targetProfileKey": "behavior_profile:companion:proactivity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.4, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-QUESTION-RATE", "targetProfileKey": "behavior_profile:companion:question_rate", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "frequent", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "occasional", "confidence": 0.7 },
+            { "max": 0.3, "value": "rare", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-REMINISCENCE", "targetProfileKey": "behavior_profile:companion:reminiscence_disposition", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "open", "confidence": 0.75 },
+            { "min": 0.3, "max": 0.7, "value": "selective", "confidence": 0.7 },
+            { "max": 0.3, "value": "closed", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-RESPECT-EXPERIENCE", "targetProfileKey": "behavior_profile:companion:respect_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+            { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+            { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+            { "max": 0.2, "value": "no_evidence", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-STORY-INVITATION", "targetProfileKey": "behavior_profile:companion:story_invitation_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+            { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+            { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+            { "max": 0.2, "value": "no_evidence", "confidence": 0.8 } ] }
+        ]
+      }
+    },
+    {
+      "id": "behavior_aggregate_personality",
+      "name": "Personality Profile Aggregation",
+      "description": "Rolls up Big-Five personality + ADAPT-PERS-001 personality-adaptation targets into behavior_profile:personality:* keys",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 6,
+        "recencyWeight": 0.6,
+        "minimumObservations": 4,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-B5-A", "targetProfileKey": "behavior_profile:personality:agreeableness", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.3, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-B5-C", "targetProfileKey": "behavior_profile:personality:conscientiousness", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.3, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-B5-E", "targetProfileKey": "behavior_profile:personality:extraversion", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.3, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-B5-N", "targetProfileKey": "behavior_profile:personality:neuroticism", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.3, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-B5-O", "targetProfileKey": "behavior_profile:personality:openness", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.3, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-AGREEABLENESS-ADAPTATION", "targetProfileKey": "behavior_profile:personality:agreeableness_adapt_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-CONSCIENTIOUSNESS-ADAPTATION", "targetProfileKey": "behavior_profile:personality:conscientiousness_adapt_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-DIRECTNESS", "targetProfileKey": "behavior_profile:personality:directness_observed", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.3, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-EXTRAVERSION-ADAPTATION", "targetProfileKey": "behavior_profile:personality:extraversion_adapt_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-FORMALITY", "targetProfileKey": "behavior_profile:personality:formality_observed", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.3, "value": "low", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-NEUROTICISM-ADAPTATION", "targetProfileKey": "behavior_profile:personality:neuroticism_adapt_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-OPENNESS-ADAPTATION", "targetProfileKey": "behavior_profile:personality:openness_adapt_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] }
+        ]
+      }
+    },
+    {
+      "id": "behavior_aggregate_supervision",
+      "name": "Agent Supervision Aggregation",
+      "description": "Rolls up SUPV-001 agent-side compliance + safety scores into behavior_profile:supervision:* keys (per-caller agent-compliance fingerprint)",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.8,
+        "minimumObservations": 2,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-CRISIS-DETECTION-SCORE", "targetProfileKey": "behavior_profile:supervision:crisis_detection_reliability", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.9, "value": "reliable", "confidence": 0.9 },
+            { "min": 0.6, "max": 0.9, "value": "acceptable", "confidence": 0.75 },
+            { "max": 0.6, "value": "concern", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-ENGAGEMENT-TREND-SCORE", "targetProfileKey": "behavior_profile:supervision:engagement_trend", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "rising", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "stable", "confidence": 0.75 },
+            { "max": 0.4, "value": "declining", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-LEARNING-PROGRESS-SCORE", "targetProfileKey": "behavior_profile:supervision:learning_progress_trend", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "progressing", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "stable", "confidence": 0.75 },
+            { "max": 0.4, "value": "stagnant", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-RESPONSE-LENGTH-SCORE", "targetProfileKey": "behavior_profile:supervision:response_length_fit", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "appropriate", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "marginal", "confidence": 0.7 },
+            { "max": 0.4, "value": "poor", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-SAFETY-COMPLIANCE-SCORE", "targetProfileKey": "behavior_profile:supervision:safety_compliance", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.9, "value": "compliant", "confidence": 0.9 },
+            { "min": 0.6, "max": 0.9, "value": "marginal", "confidence": 0.75 },
+            { "max": 0.6, "value": "non_compliant", "confidence": 0.9 } ] },
+          { "sourceParameter": "BEH-STUDENT-APPLICATION-SCORE", "targetProfileKey": "behavior_profile:supervision:student_application", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+            { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+            { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+            { "max": 0.2, "value": "no_evidence", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-STYLE-CONSISTENCY-SCORE", "targetProfileKey": "behavior_profile:supervision:style_consistency", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "consistent", "confidence": 0.85 },
+            { "min": 0.5, "max": 0.8, "value": "variable", "confidence": 0.75 },
+            { "max": 0.5, "value": "inconsistent", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-TARGET-ALIGNMENT-SCORE", "targetProfileKey": "behavior_profile:supervision:target_alignment", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "aligned", "confidence": 0.85 },
+            { "min": 0.5, "max": 0.8, "value": "partial", "confidence": 0.75 },
+            { "max": 0.5, "value": "misaligned", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-TUTOR-FIDELITY-SCORE", "targetProfileKey": "behavior_profile:supervision:tutor_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.9, "value": "high", "confidence": 0.9 },
+            { "min": 0.6, "max": 0.9, "value": "moderate", "confidence": 0.75 },
+            { "max": 0.6, "value": "low", "confidence": 0.9 } ] },
+          { "sourceParameter": "BEH-TUTOR-INTRO-SCORE", "targetProfileKey": "behavior_profile:supervision:tutor_intro_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+            { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+            { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+            { "max": 0.2, "value": "no_evidence", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-TUTOR-SEQUENCE-SCORE", "targetProfileKey": "behavior_profile:supervision:tutor_sequence_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+            { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+            { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+            { "max": 0.2, "value": "no_evidence", "confidence": 0.8 } ] }
+        ]
+      }
+    },
+    {
+      "id": "behavior_aggregate_engagement",
+      "name": "Engagement Profile Aggregation",
+      "description": "Rolls up CA-001 cognitive-activation signals + ADAPT-ENG-001 engagement-adaptation targets into behavior_profile:engagement:* keys",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.7,
+        "minimumObservations": 3,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-CALL-FREQUENCY-ADAPTATION", "targetProfileKey": "behavior_profile:engagement:call_frequency_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-COGNITIVE-ACTIVATION", "targetProfileKey": "behavior_profile:engagement:cognitive_activation", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.4, "value": "low", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-COMMUNICATION-COMPLEXITY-ADAPTATION", "targetProfileKey": "behavior_profile:engagement:complexity_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-CONV-DOM", "targetProfileKey": "behavior_profile:engagement:conversational_dominance", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "caller_led", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "balanced", "confidence": 0.7 },
+            { "max": 0.3, "value": "agent_led", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-ENGAGEMENT-ADAPTATION", "targetProfileKey": "behavior_profile:engagement:engagement_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-LEARNING-VELOCITY-ADAPTATION", "targetProfileKey": "behavior_profile:engagement:velocity_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-TONE-ASSERT", "targetProfileKey": "behavior_profile:engagement:tone_assertiveness", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "assertive", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.4, "value": "tentative", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-WARMTH", "targetProfileKey": "behavior_profile:engagement:warmth_observed", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "high", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.4, "value": "low", "confidence": 0.75 } ] }
+        ]
+      }
+    },
+    {
+      "id": "behavior_aggregate_curriculum",
+      "name": "Curriculum Progress Aggregation",
+      "description": "Rolls up ADAPT-CURR-001 + CURR-001 curriculum-tracking signals into behavior_profile:curriculum:* keys",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.75,
+        "minimumObservations": 2,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-APPLICATION-ADAPTATION", "targetProfileKey": "behavior_profile:curriculum:application_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-COMPREHENSION-ADAPTATION", "targetProfileKey": "behavior_profile:curriculum:comprehension_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-CONCEPT-EXPOSURE", "targetProfileKey": "behavior_profile:curriculum:concept_exposure_depth", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "deep", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "moderate", "confidence": 0.7 },
+            { "max": 0.3, "value": "shallow", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-MASTERY-ADAPTATION", "targetProfileKey": "behavior_profile:curriculum:mastery_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-MODULE-INTRODUCTION", "targetProfileKey": "behavior_profile:curriculum:module_introduction_status", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "complete", "confidence": 0.85 },
+            { "min": 0.3, "max": 0.7, "value": "in_progress", "confidence": 0.75 },
+            { "max": 0.3, "value": "not_introduced", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-PREREQUISITE-ADAPTATION", "targetProfileKey": "behavior_profile:curriculum:prerequisite_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-REVIEW-ADAPTATION", "targetProfileKey": "behavior_profile:curriculum:review_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] }
+        ]
+      }
+    },
+    {
+      "id": "behavior_aggregate_learning",
+      "name": "Learning Profile Adaptation Aggregation",
+      "description": "Rolls up ADAPT-LEARN-001 / ADAPT-VARK-001 adaptation-target fidelity into behavior_profile:learning:* keys",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.7,
+        "minimumObservations": 3,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-ADAPT-TO-FEEDBACK-STYLE", "targetProfileKey": "behavior_profile:learning:feedback_style_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-ADAPT-TO-INTERACTION-STYLE", "targetProfileKey": "behavior_profile:learning:interaction_style_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-ADAPT-TO-QUESTION-FREQUENCY", "targetProfileKey": "behavior_profile:learning:question_frequency_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-MULTIMODAL-ADAPTATION", "targetProfileKey": "behavior_profile:learning:multimodal_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] },
+          { "sourceParameter": "BEH-READING-WRITING-ADAPTATION", "targetProfileKey": "behavior_profile:learning:reading_writing_fidelity", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "honoured", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "partial", "confidence": 0.7 },
+            { "max": 0.4, "value": "drift", "confidence": 0.75 } ] }
+        ]
+      }
+    },
+    {
+      "id": "behavior_aggregate_reinforcement",
+      "name": "Reinforcement Reward Aggregation",
+      "description": "Rolls up REW-001 reward signals into behavior_profile:reinforcement:* keys (per-caller reward trajectory)",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.7,
+        "minimumObservations": 2,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-COMPOSITE-REWARD", "targetProfileKey": "behavior_profile:reinforcement:composite_reward_trend", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "rising", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "stable", "confidence": 0.7 },
+            { "max": 0.4, "value": "declining", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-ENGAGEMENT-REWARD", "targetProfileKey": "behavior_profile:reinforcement:engagement_reward_trend", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "rising", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "stable", "confidence": 0.7 },
+            { "max": 0.4, "value": "declining", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-GOAL-PROGRESS-REWARD", "targetProfileKey": "behavior_profile:reinforcement:goal_progress_reward_trend", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "rising", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "stable", "confidence": 0.7 },
+            { "max": 0.4, "value": "declining", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-LEARNING-REWARD", "targetProfileKey": "behavior_profile:reinforcement:learning_reward_trend", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "rising", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "stable", "confidence": 0.7 },
+            { "max": 0.4, "value": "declining", "confidence": 0.8 } ] },
+          { "sourceParameter": "BEH-RAPPORT-REWARD", "targetProfileKey": "behavior_profile:reinforcement:rapport_reward_trend", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "rising", "confidence": 0.8 },
+            { "min": 0.4, "max": 0.7, "value": "stable", "confidence": 0.7 },
+            { "max": 0.4, "value": "declining", "confidence": 0.8 } ] }
+        ]
+      }
+    },
+    {
+      "id": "behavior_aggregate_onboarding",
+      "name": "Onboarding Quality Aggregation",
+      "description": "Rolls up INIT-001 first-call onboarding quality scores into behavior_profile:onboarding:* keys (one-shot snapshot used by subsequent calls to reason about start-state quality)",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 1,
+        "recencyWeight": 1.0,
+        "minimumObservations": 1,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-CONTEXT-SETTING-QUALITY", "targetProfileKey": "behavior_profile:onboarding:context_setting_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "strong", "confidence": 0.85 },
+            { "min": 0.4, "max": 0.7, "value": "adequate", "confidence": 0.75 },
+            { "max": 0.4, "value": "weak", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-DEFAULT-TARGETS-QUALITY", "targetProfileKey": "behavior_profile:onboarding:default_targets_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "strong", "confidence": 0.85 },
+            { "min": 0.4, "max": 0.7, "value": "adequate", "confidence": 0.75 },
+            { "max": 0.4, "value": "weak", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-GOAL-DISCOVERY-QUALITY", "targetProfileKey": "behavior_profile:onboarding:goal_discovery_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "strong", "confidence": 0.85 },
+            { "min": 0.4, "max": 0.7, "value": "adequate", "confidence": 0.75 },
+            { "max": 0.4, "value": "weak", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-PREFERENCE-ELICITATION-QUALITY", "targetProfileKey": "behavior_profile:onboarding:preference_elicitation_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "strong", "confidence": 0.85 },
+            { "min": 0.4, "max": 0.7, "value": "adequate", "confidence": 0.75 },
+            { "max": 0.4, "value": "weak", "confidence": 0.85 } ] },
+          { "sourceParameter": "BEH-WELCOME-QUALITY", "targetProfileKey": "behavior_profile:onboarding:welcome_quality", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "strong", "confidence": 0.85 },
+            { "min": 0.4, "max": 0.7, "value": "adequate", "confidence": 0.75 },
+            { "max": 0.4, "value": "weak", "confidence": 0.85 } ] }
+        ]
+      }
+    },
+    {
+      "id": "behavior_aggregate_core_style",
+      "name": "Core Style Aggregation",
+      "description": "Rolls up the behavior-core style observation (BEH-EXPLORATION-STRUCTURE) into behavior_profile:style:* keys",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.7,
+        "minimumObservations": 3,
+        "aggregationRules": [
+          { "sourceParameter": "BEH-EXPLORATION-STRUCTURE", "targetProfileKey": "behavior_profile:style:exploration_structure_balance", "method": "threshold_mapping", "thresholds": [
+            { "min": 0.7, "value": "exploratory", "confidence": 0.8 },
+            { "min": 0.3, "max": 0.7, "value": "balanced", "confidence": 0.75 },
+            { "max": 0.3, "value": "structured", "confidence": 0.8 } ] }
+        ]
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Update Behavior Profile — Companion",
+      "given": "Companion-mode MEASURE specs scored a session",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:companion:* keys",
+      "actions": [{ "description": "Run companion roll-up", "parameterId": "behavior_aggregate_companion", "weight": 1.0 }]
+    },
+    {
+      "name": "Update Behavior Profile — Personality",
+      "given": "Big-Five + ADAPT-PERS-001 ran",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:personality:* keys",
+      "actions": [{ "description": "Run personality roll-up", "parameterId": "behavior_aggregate_personality", "weight": 1.0 }]
+    },
+    {
+      "name": "Update Behavior Profile — Supervision",
+      "given": "SUPV-001 scored agent-side compliance",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:supervision:* keys",
+      "actions": [{ "description": "Run supervision roll-up", "parameterId": "behavior_aggregate_supervision", "weight": 1.0 }]
+    },
+    {
+      "name": "Update Behavior Profile — Engagement",
+      "given": "CA-001 + ADAPT-ENG-001 + STYLE-001 ran",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:engagement:* keys",
+      "actions": [{ "description": "Run engagement roll-up", "parameterId": "behavior_aggregate_engagement", "weight": 1.0 }]
+    },
+    {
+      "name": "Update Behavior Profile — Curriculum",
+      "given": "ADAPT-CURR-001 + CURR-001 ran (structured-course only)",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:curriculum:* keys",
+      "actions": [{ "description": "Run curriculum roll-up", "parameterId": "behavior_aggregate_curriculum", "weight": 1.0 }]
+    },
+    {
+      "name": "Update Behavior Profile — Learning",
+      "given": "ADAPT-LEARN-001 / ADAPT-VARK-001 ran",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:learning:* keys",
+      "actions": [{ "description": "Run learning-adaptation fidelity roll-up", "parameterId": "behavior_aggregate_learning", "weight": 1.0 }]
+    },
+    {
+      "name": "Update Behavior Profile — Reinforcement",
+      "given": "REW-001 computed reward signals",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:reinforcement:* keys",
+      "actions": [{ "description": "Run reward-trajectory roll-up", "parameterId": "behavior_aggregate_reinforcement", "weight": 1.0 }]
+    },
+    {
+      "name": "Update Behavior Profile — Onboarding",
+      "given": "INIT-001 ran (first call only)",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:onboarding:* keys with a single-pass snapshot",
+      "actions": [{ "description": "Run onboarding quality snapshot", "parameterId": "behavior_aggregate_onboarding", "weight": 1.0 }]
+    },
+    {
+      "name": "Update Behavior Profile — Core Style",
+      "given": "STYLE-001 / behaviour core dimension scored",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute behavior_profile:style:* keys",
+      "actions": [{ "description": "Run core-style roll-up", "parameterId": "behavior_aggregate_core_style", "weight": 1.0 }]
+    }
+  ],
+  "notes": [
+    "Born of epic #1967 M2 — single spec authored 2026-06-19 closing the link-8 cascade-feedback loop for the 70 measured BEH-* parameters that had no AGGREGATE/ADAPT consumer (companion 16 + personality-adaptation 12 + supervision 11 + engagement 8 + curriculum-adaptation 7 + learning-adaptation 5 + reinforcement 5 + onboarding 5 + behavior-core 1).",
+    "Single-spec / multi-section design chosen over 9-spec-per-domain because most groups are universal (no profileCondition gating); per-trigger fanout achieves the same activation semantics with one source of truth.",
+    "Threshold conventions: 5-tier (mastery/secure/developing/emerging/no_evidence) for quality / competency dimensions, 3-tier semantic (high/moderate/low or honoured/partial/drift or rising/stable/declining) for preference / fidelity / trend dimensions. Pedagogy review is free to retune any cut-point — these are reasonable defaults to close the structural loop.",
+    "ADAPT-stage adaptation targets (BEH-*-ADAPTATION) are tutor-side; aggregating them as 'fidelity' tracks per-session whether the prescribed target was honoured — orthogonal to the LEARNER signal being measured.",
+    "BEH-MOOD / BEH-ENERGY are session-state signals — aggregation tracks the TYPICAL level across the rolling window, not absolute current-call value.",
+    "SUPV-001 scores are agent-compliance signals; per-caller roll-up reveals whether the agent's behaviour with THIS caller drifts from the operator-set norms (different from the per-call alarm semantics of the raw SUPV scores)."
+  ]
+}

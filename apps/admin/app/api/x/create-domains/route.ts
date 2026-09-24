@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -434,13 +435,19 @@ async function ensureBehaviorParameters(prisma: PrismaClient): Promise<number> {
     });
 
     if (!existing) {
+      // #2031 follow-on — route every Parameter.domainGroup write
+      // through the canonical resolver. Defence in depth against
+      // registry-JSON edits introducing off-canonical values.
+      const canonicalDomainGroup =
+        resolveCanonicalDomainGroup({ domainGroup: param.domainGroup }) ??
+        "behavior-core";
       await prisma.parameter.create({
         data: {
           parameterId: param.parameterId,
           name: param.name,
           definition: param.definition,
           sectionId: "behavior",
-          domainGroup: param.domainGroup,
+          domainGroup: canonicalDomainGroup,
           interpretationHigh: param.interpretationHigh,
           interpretationLow: param.interpretationLow,
           scaleType: "0-1",

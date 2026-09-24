@@ -47,7 +47,7 @@ function makeSharedState(overrides: Partial<SharedComputedState> = {}): SharedCo
 
 function makeContext(opts: {
   firstCallMode?: PlaybookConfig["firstCallMode"];
-  teachingMode?: string;
+  teachingMode?: PlaybookConfig["teachingMode"];
   hasCurriculum?: boolean;
 } = {}): AssembledContext {
   const playbookConfig: PlaybookConfig = {};

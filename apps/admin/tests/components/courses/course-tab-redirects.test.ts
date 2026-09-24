@@ -37,9 +37,16 @@ describe('resolveInitialTab — P5 (#1850) Design tab retirement', () => {
     expect(resolveInitialTab('session-flow')).toBe('journey');
   });
 
-  it('legacy aliases genome / content land on Content (intelligence)', () => {
+  it('legacy alias genome lands on Sources (intelligence)', () => {
     expect(resolveInitialTab('genome')).toBe('intelligence');
-    expect(resolveInitialTab('content')).toBe('intelligence');
+  });
+
+  // #2204 (U2 of #2185) — 'content' is now a real tab id (Teaching
+  // Content skeleton). The legacy redirect ?tab=content → intelligence
+  // was removed; ?tab=content passes through to the new tab.
+  it("'content' is no longer a legacy alias — passes through to the Teaching Content tab", () => {
+    expect(LEGACY_TAB_REDIRECTS.content).toBeUndefined();
+    expect(resolveInitialTab('content')).toBe('content');
   });
 });
 

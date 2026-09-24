@@ -35,6 +35,7 @@ export async function POST() {
 
     let callersDeleted = 0;
     let auditLogsDeleted = 0;
+    let expiredCallsDeleted = 0;
 
     // --- Caller data cleanup ---
     if (callerRetentionDays > 0) {
@@ -76,6 +77,18 @@ export async function POST() {
       auditLogsDeleted = result.count;
     }
 
+    // --- Row-level Call expiry cleanup (#1917 / I-PR3) ---
+    // Distinct policy from caller-level cleanup above: this purges
+    // INDIVIDUAL Call rows whose `regulatoryExpiresAt` has elapsed,
+    // independent of caller activity. Stamped at create-time by
+    // `lib/privacy/stamp-regulatory-expiry.ts` (or NULL on legacy rows,
+    // which this query intentionally skips — legacy callers still flow
+    // through the caller-level cleanup above when they go dormant).
+    const expiredCalls = await prisma.call.deleteMany({
+      where: { regulatoryExpiresAt: { lte: new Date() } },
+    });
+    expiredCallsDeleted = expiredCalls.count;
+
     // Audit the cleanup itself
     auditLog({
       userId: authResult.session.user.id,
@@ -87,6 +100,7 @@ export async function POST() {
         auditRetentionDays,
         callersDeleted,
         auditLogsDeleted,
+        expiredCallsDeleted,
       },
     });
 
@@ -102,6 +116,11 @@ export async function POST() {
           enabled: auditRetentionDays > 0,
           retentionDays: auditRetentionDays,
           auditLogsDeleted,
+        },
+        regulatoryCallExpiry: {
+          // Always enabled — when nothing has a stamped expiry the query
+          // is a no-op (deletes 0 rows).
+          expiredCallsDeleted,
         },
       },
     });

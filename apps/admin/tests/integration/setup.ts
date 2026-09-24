@@ -37,17 +37,15 @@ export async function apiPost(path: string, body: unknown) {
 // Skipped for DB-only tests (journey/, sessions/) — they manage their own
 // DB connection.
 beforeAll(async () => {
-  // DB-only tests (e.g., journey/, sessions/) don't need a running server.
-  // sessions/ added 2026-06-08 by #1341 (Slice 0 Session schema proof).
+  // DB-only tests don't need a running server. Each self-skips when
+  // DATABASE_URL is absent or unreachable.
+  //   journey/  — original
+  //   sessions/ — 2026-06-08, #1341 (Slice 0 Session schema proof)
+  //   gdpr/     — 2026-09-24, #2333 (caller-erasure behavioural test)
+  const DB_ONLY_DIRS = ["/journey/", "/sessions/", "/gdpr/"];
   const testPath = expect.getState?.()?.testPath || "";
-  if (testPath.includes("/journey/") || testPath.includes("/sessions/")) {
+  if (DB_ONLY_DIRS.some((d) => testPath.includes(d))) {
     console.log("✓ DB-only test — skipping server health check");
-    return;
-  }
-  if (testPath.includes("/sessions/")) {
-    console.log(
-      "✓ Sessions test — self-skips on unreachable server; setup health check bypassed",
-    );
     return;
   }
 

@@ -23,11 +23,11 @@ PIPELINE-001 seed order, live executor symbols. **Citations use symbol form** �
 | Stage | Order | outputType (spec enum) | Executor | Parallel? | `requiresMode` |
 |-------|-------|------------------------|----------|-----------|----------------|
 | EXTRACT | 10 | `MEASURE`, `LEARN` | `app/api/calls/[callId]/pipeline/route.ts::stageExecutors.EXTRACT` | YES (with `SCORE_AGENT`) | — |
-| SCORE_AGENT | 20 | `MEASURE_AGENT` | `route.ts::stageExecutors.SCORE_AGENT` | YES (with `EXTRACT`) | — |
+| SCORE_AGENT | 20 | `MEASURE_AGENT` | `route.ts::stageExecutors.SCORE_AGENT` | YES (with `EXTRACT`) | — / IELTS-MEASURE-001 active under `HF_IELTS_LLM_MEASURE_V1` (#2143 / epic #2135 S2) |
 | PROSODY | 25 | `PROSODY` | `route.ts::stageExecutors.PROSODY` (`lib/pipeline/prosody-runner.ts::runProsodyStage`) | no | — |
 | AGGREGATE | 30 | `AGGREGATE` | `route.ts::stageExecutors.AGGREGATE` | no | — |
 | REWARD | 40 | `REWARD` | `route.ts::stageExecutors.REWARD` | no | — |
-| ADAPT | 50 | `ADAPT` | `route.ts::stageExecutors.ADAPT` (3 internal parallel + 4 sequential — §7) | no | — |
+| ADAPT | 50 | `ADAPT`, `CALLER_ATTRIBUTE_NEXT` | `route.ts::stageExecutors.ADAPT` (3 internal parallel + 5 sequential + §7 sub-op 9 — §7) | no | — |
 | SUPERVISE | 60 | `SUPERVISE` | `route.ts::stageExecutors.SUPERVISE` | no | — |
 | COMPOSE | 100 | `COMPOSE` | `route.ts::stageExecutors.COMPOSE` | no | `prompt` only |
 
@@ -39,7 +39,7 @@ The stage executor key is **not** the same string as the spec's `outputType`. Mo
 
 - **Stage name:** `SCORE_AGENT` (key in `route.ts::stageExecutors`, key in `PIPELINE-001.config.stages[].name`)
 - **outputType the stage processes:** `MEASURE_AGENT` (the value used on `AnalysisSpec.outputType` rows)
-- **`prisma/schema.prisma::enum AnalysisOutputType` has 8 values:** `MEASURE`, `LEARN`, `ADAPT`, `MEASURE_AGENT`, `AGGREGATE`, `COMPOSE`, `REWARD`, `SUPERVISE` — **`SCORE_AGENT` is NOT in the enum.**
+- **`prisma/schema.prisma::enum AnalysisOutputType` has 10 values:** `MEASURE`, `LEARN`, `ADAPT`, `MEASURE_AGENT`, `AGGREGATE`, `COMPOSE`, `REWARD`, `SUPERVISE`, `PROSODY`, `CALLER_ATTRIBUTE_NEXT` (#2154) — **`SCORE_AGENT` is NOT in the enum.**
 
 Developers grepping for `SCORE_AGENT` in `schema.prisma` will find nothing and assume the stage is dead. It is not. See §4.
 
@@ -55,10 +55,10 @@ Format per row: stage → reads → writes (and runner) → idempotency. All fai
 |-------|-------|-----------------|-------------|
 | EXTRACT | transcript, `AnalysisSpec(MEASURE\|LEARN)`, prior `SchedulerDecision` | `CallScore`, `CallerMemory` (caller analysis batched per call) | Skip if any `CallScore` row exists for the call; `force=true` overrides |
 | PROSODY | `Call.stereoRecordingUrl`, `Playbook.config.tierPresetId`, `SpeechAssessmentProvider` (resolved cascade), `VoiceSystemSettings.vendorTimeoutMs` | `Call.voiceProsody` (envelope JSON), emits `VOICE_PROSODY_V1` DataContract — runner `lib/pipeline/prosody-runner.ts::runProsodyStage` | Skip if `Call.voiceProsody` is already populated; `force=true` re-pays the vendor. `mode: "unavailable"` envelopes are written + returned but never throw |
-| SCORE_AGENT | transcript, `BehaviorTarget`, `AnalysisSpec(MEASURE_AGENT)` | `BehaviorMeasurement` | Per-spec inside the runner — no executor-level gate |
+| SCORE_AGENT | transcript, `BehaviorTarget`, `AnalysisSpec(MEASURE_AGENT)`, `AnalysisSpec(MEASURE)` for IELTS-MEASURE-001 (#2143 / epic #2135 S2 — LLM transcript judgment, IELTS Speaking; optionally reads `prosody_raw_*` CallScore rows via tool-use post-MVP) | `BehaviorMeasurement`; for IELTS-MEASURE-001: 4 `skill_*` CallScore rows (`skill_fluency_and_coherence_fc` / `_lexical_resource_lr` / `_grammatical_range_and_accuracy_gra` / `_pronunciation_p`) via the canonical chokepoint `lib/measurement/write-call-score.ts` (every write carries a real `analysisSpecId`; `hf-measurement/no-bare-call-score-write` blocks bypass). Disjoint from prosody-consumer (PROSODY stage, #2157 / S3) which writes `prosody_raw_*`. | Per-spec inside the runner — no executor-level gate |
 | AGGREGATE | `CallScore` (caller history) | `PersonalityObservation`, `CallerPersonality`, `CallerPersonalityProfile`, `LearnerProfile` — runner `lib/pipeline/aggregate-runner.ts::runAggregateSpecs` | No — pure recompute |
 | REWARD | `BehaviorMeasurement`, `BehaviorTarget`, `Playbook.config.rewardComponents` | `RewardScore` — runner `lib/ops/compute-reward.ts::computeReward` | No — overwrites |
-| ADAPT | `Call`, `CallerPersonalityProfile`, transcript, current `Goal` rows | `CallTarget`, `CallerTarget`, `Goal`, `GoalProgress` — see §7 for the seven sub-runners | Skip if any `CallTarget` exists for the call; `force=true` overrides |
+| ADAPT | `Call`, `CallerPersonalityProfile`, transcript, current `Goal` rows, `CallerTarget.currentScore` (CALLER_ATTRIBUTE_NEXT inputSkills) | `CallTarget`, `CallerTarget`, `Goal`, `GoalProgress`, `CallerAttribute(scope=specSlug, key=session_focus:next_{moduleSlug})` (CALLER_ATTRIBUTE_NEXT specs via `lib/pipeline/runners/session-focus-policy.ts`, #2154 sub-op 9) — see §7 for all sub-runners | Skip if any `CallTarget` exists for the call; `force=true` overrides. CALLER_ATTRIBUTE_NEXT writes are upsert-on-(callerId,key,scope) — idempotent per spec. |
 | SUPERVISE | `CallTarget`, `CallerTarget`, `Playbook.config.audience`, guardrails from `lib/pipeline/guardrails.ts::loadGuardrails` | clamped `CallTarget.value`, aggregated `CallerTarget` — functions `validateTargets()` and `aggregateCallerTargets()` (both inline in `route.ts` — see L4) | No |
 | COMPOSE | `CallerMemory`, `CallerPersonalityProfile`, `Goal`, `CallerTarget`, composition specs | `ComposedPrompt` — runner `lib/prompt/composition/CompositionExecutor.ts::executeComposition` | No — new row every run |
 
@@ -122,22 +122,46 @@ EXTRACT      writes: CallScore (MEASURE specs), CallerMemory (LEARN specs),
                      Call.curriculumModuleId, CallerModuleProgress (post-analysis branch, #409)
 PROSODY      reads:  Call.stereoRecordingUrl, Playbook.config.tierPresetId   ← #1119
              writes: Call.voiceProsody (envelope), emits VOICE_PROSODY_V1 DataContract
-SCORE_AGENT  writes: BehaviorMeasurement (MEASURE_AGENT specs)
-AGGREGATE    reads:  CallScore, VOICE_PROSODY_V1 envelope (#1119 consumer)
-             writes: PersonalityObservation, CallerPersonality,
-                     CallerPersonalityProfile, LearnerProfile,
-                     CallerTarget.currentScore + lastScoredAt (skill_* params, #417 SKILL-AGG-001),
+SCORE_AGENT  writes: BehaviorMeasurement (MEASURE_AGENT specs);
                      CallScore for skill_fluency_and_coherence_fc /
                        skill_pronunciation_p / skill_lexical_resource_lr /
-                       skill_grammatical_range_and_accuracy_gra (mode=ielts, #1119),
+                       skill_grammatical_range_and_accuracy_gra via
+                       IELTS-MEASURE-001 LLM transcript judgment
+                       (#2143 / epic #2135 S2; flagged HF_IELTS_LLM_MEASURE_V1) —
+                     writes routed through lib/measurement/write-call-score.ts
+                     canonical chokepoint (hf-measurement/no-bare-call-score-write
+                     blocks bypass)
+AGGREGATE    reads:  CallScore (skill_* per call, behavior_targets, prosody_raw_*),
+                     VOICE_PROSODY_V1 envelope (#1119 consumer)
+             writes: PersonalityObservation, CallerPersonality,
+                     CallerPersonalityProfile, LearnerProfile,
+                     CallerTarget.currentScore + lastScoredAt
+                       (skill_* params via SKILL-AGG-001 sourceParameterPattern
+                       "skill_*", #417 / closes IELTS LLM scoring loop per
+                       parameter-loop-closure.test.ts closed-pattern),
                      CallScore for CONV_PACE + pace_indicators (mode=general, #1119)
+PROSODY      writes: CallScore for prosody_raw_fc / _p / _lr / _gra
+                     (mode=ielts) + prosody_pace_wpm + prosody_hesitation_rate
+                     (mode=general) via lib/pipeline/prosody-consumer.ts.
+                     Disjoint namespace from IELTS-MEASURE-001's skill_*
+                     writes (#2157 / epic #2135 S3 closed the dual-writer race).
+                     IELTS-MEASURE-001 MAY consume prosody_raw_* via tool-use
+                     post-MVP to augment FC + P confidence.
 REWARD       reads:  BehaviorMeasurement, BehaviorTarget
              writes: RewardScore
 ADAPT        reads:  CallerPersonalityProfile, transcript, Goal,
                      FailureLog (sub-op 8, #1340 — pre-pipeline writes
                        from error branches in outbound-dial /
-                       poll-stale-calls; ADAPT does NOT write FailureLog)
-             writes: CallTarget, CallerTarget, Goal, GoalProgress
+                       poll-stale-calls; ADAPT does NOT write FailureLog),
+                     CallerTarget.currentScore for the inputSkills of every
+                       CALLER_ATTRIBUTE_NEXT spec (sub-op 9, #2154 — generic
+                       SessionFocus 4th-layer substrate)
+             writes: CallTarget, CallerTarget, Goal, GoalProgress,
+                     CallerAttribute(scope=specSlug, key=session_focus:next_{moduleSlug})
+                       for each CALLER_ATTRIBUTE_NEXT spec that finds a
+                       weakest-Skill match within its inputSkills + module-scope
+                       gate (#2154; honest empty-state — writes nothing when
+                       no scored CallerTarget rows exist)
 SUPERVISE    reads:  CallTarget, CallerTarget
              writes: clamped CallTarget, aggregated CallerTarget
 COMPOSE      reads:  CallerMemory, CallerPersonalityProfile, Goal, CallerTarget,
@@ -201,6 +225,7 @@ All stage-driving specs are dynamically loaded — no hardcoded slugs. Active EX
 | `PERS-001`, `VARK-001`, `MEM-001`, etc. | EXTRACT MEASURE/LEARN | per-spec slugs in `config.specs.*` |
 | `REW-001` | REWARD | `config.specs.reward` |
 | `ADAPT-*` | ADAPT | per-spec slugs in `config.specs.*` |
+| `*-FOCUS-*` (e.g. `IELTS-P3-FOCUS-001`) | ADAPT sub-op 9 (CALLER_ATTRIBUTE_NEXT, #2154) | per-spec slugs — runner reads `spec.config` (`SessionFocusPolicyConfig`); writes `CallerAttribute(scope=specSlug, key="session_focus:next_{moduleSlug}")` |
 
 See `lib/config.ts` for the full 16-slug surface. **Rule:** never hardcode a slug string — read it from `config.specs.*`.
 
@@ -208,7 +233,7 @@ See `lib/config.ts` for the full 16-slug surface. **Rule:** never hardcode a slu
 
 ## 7. ADAPT sub-operations
 
-The ADAPT executor runs 8 sub-operations: 3 in parallel, 5 sequential. Each is non-blocking individually.
+The ADAPT executor runs 9 sub-operations: 3 in parallel, 6 sequential. Each is non-blocking individually.
 
 **Parallel batch (`Promise.allSettled`):**
 
@@ -223,6 +248,7 @@ The ADAPT executor runs 8 sub-operations: 3 in parallel, 5 sequential. Each is n
 6. `extractGoalCompletionSignals()` — detects "I passed!" claims; surfaces as teacher alerts (NOT a SUPERVISE concern — see §8)
 7. `applyAssessmentAdaptation()` — `CallerTarget` adjustment based on proximity to assessment threshold
 8. `extractFailureAdaptation(failureLogs)` — derives a soft "previous attempt failed" signal from `FailureLog` rows attached to the parent Session. Returns null when the Session has no failures (normal path). The signal feeds the COMPOSE preamble (Slice 5 wires the read side; Slice 1 only emits + logs the signal). **Inputs:** `FailureLog` rows for the call's `Session.id`. **Outputs:** stage result includes `failureSignal: { kind, failureCount, signal } | null`. **Idempotent.** See `lib/pipeline/extract-failure-adaptation.ts` and epic #1338 Slice 1 / story #1340.
+9. `runSessionFocusPolicySpecs(call, callerId, log)` — generic dispatch for the SessionFocus 4th-layer substrate (#2154 / epic #2145). Loads every active `AnalysisSpec` with `outputType = "CALLER_ATTRIBUTE_NEXT"`, validates each `spec.config` against `SessionFocusPolicyConfig` (defence-in-depth `isSessionFocusPolicyConfig` type-guard), and routes to `lib/pipeline/runners/session-focus-policy.ts::runSessionFocusPolicy`. The runner reads `CallerTarget.currentScore` for the spec's declared `inputSkills`, picks the weakest, maps via spec-declared `selectionRules` to a LEARNER-facing label, and writes ONE `CallerAttribute(scope=specSlug, key="session_focus:next_{moduleSlug}")` per spec. **Honest empty-state**: writes nothing when no scored inputs exist OR when the locked module doesn't match the spec's optional `moduleScope.slugPattern` — the compose-time transform at `lib/prompt/composition/transforms/session-focus.ts` returns null and the `[SESSION FOCUS]` block is omitted. **Inputs:** `ctx.call.curriculumModuleId` (resolved to slug), `CallerTarget.currentScore`, every CALLER_ATTRIBUTE_NEXT spec's `config`. **Outputs:** stage result includes `sessionFocusWrote` / `sessionFocusSkipped` / `sessionFocusFailed` counters. **Idempotent** (per-spec upsert on `(callerId, key, scope)`). Non-blocking. See `lib/pipeline/runners/session-focus-policy.ts`.
 
 For internal logic of (3)/(4)/(6)/(7) see `memory/flow-goal-tracking.md`. That memory file is Claude-only; if you change goal mechanics, update both this section and that file.
 
@@ -303,3 +329,4 @@ Before merging a PR that adds, removes, or reorders a stage / runner / cross-sta
 | Date | Change |
 |------|--------|
 | 2026-05-11 | Initial canonical version. Fifth pillar of the architecture canon alongside WIZARD-DATA-BAG, CONTENT-PIPELINE, ENTITIES (in flight), and PROMPT-COMPOSITION (in flight, #327). Replaces `memory/flow-pipeline.md` (last verified 2026-03-27). Closes #330. |
+| 2026-06-20 | Added `CALLER_ATTRIBUTE_NEXT` outputType to the `AnalysisOutputType` enum (#2154; sibling of #2145 Phase A SessionFocus 4th-layer substrate). New ADAPT sub-op 9 dispatches CALLER_ATTRIBUTE_NEXT specs to `lib/pipeline/runners/session-focus-policy.ts::runSessionFocusPolicy`. Updates §1 (10 enum values), §2 (ADAPT write row), §4.2 (cross-stage data flow), §6 (per-spec slug), §7 (sub-op 9 added). |

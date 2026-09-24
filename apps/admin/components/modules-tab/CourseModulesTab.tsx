@@ -19,77 +19,90 @@
  * modules — they pull from a topic pool. We render an explanation
  * rather than an empty picker.
  *
- * P3b (#1850 cross-tab hints): the Modules tab has zero entries in
- * `BUCKETS_BY_TAB.modules` — every Preview bubble click resolves to a
- * bucket owned by another tab. The Inspector renders a
- * `<CrossTabHintCard>` in place of the per-module panel whenever the
- * hint state is set; clearing the hint (jumping or selecting a module)
- * restores the per-module Inspector.
+ * No cross-tab hint surface: `BUCKETS_BY_TAB.modules = []`, so no
+ * Preview bubble can ever resolve to a Modules-owned bucket. The
+ * Modules tab no longer mounts a PreviewLens (PR #2120/#2121 replaced
+ * the canvas Preview with the SIM-shell `ModulesPreviewLens`), so the
+ * `useCrossTabHint` branch never fired and has been removed.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
-import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell";
-import type { CourseDetailTabId } from "@/lib/journey/buckets-by-tab";
-import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
-import { useCrossTabHint } from "@/lib/journey/use-cross-tab-hint";
-import type {
-  AuthoredModuleSettings,
-  PlaybookConfig,
-} from "@/lib/types/json-fields";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
 
-import { ModuleInspectorPanel } from "./ModuleInspectorPanel";
+import { ModuleEditor, type ModuleEditorRow } from "./ModuleEditor";
 import { ModulesLhPicker } from "./ModulesLhPicker";
+import { ModulesPreviewLens } from "./PreviewLens";
+import "./modules-tab.css";
 
-interface ModuleRow {
-  id: string;
-  label: string;
-  settings?: Partial<AuthoredModuleSettings>;
-}
+type ModuleRow = ModuleEditorRow;
 
 interface CourseModulesTabProps {
   courseId: string;
-  /** From `PlaybookConfig.lessonPlanMode`. `"continuous"` (or missing) →
-   *  modules don't apply; we show the empty state instead of the picker. */
+  /** From `PlaybookConfig.lessonPlanMode`. The continuous-course empty
+   *  state fires ONLY when BOTH `courseStyle === "continuous"` AND
+   *  `playbookConfig.modules.length === 0`. A course can have
+   *  `lessonPlanMode` unset (parent-fork casts to `"continuous"`) AND
+   *  still carry authored modules in `Playbook.config.modules` —
+   *  e.g. IELTS Speaking Practice ships 5 modules with no
+   *  `lessonPlanMode` flag. In that case modules-present overrides
+   *  the empty state; the operator sees their authored modules. */
   courseStyle?: string;
-  /** Parent-provided tab switcher. Phase P3b. */
-  onTabSwitch?: (
-    tabId: CourseDetailTabId,
-    options: { selectedBucket: JourneyMenuBucketId },
-  ) => void;
   /** Full PlaybookConfig — threaded through to ModuleInspectorPanel so
-   *  it can derive the editor-facing CourseShape (P3d, #1850). Optional;
-   *  legacy callers without it fall back to the binary courseStyle and
-   *  exam-only G8 entries render as `out-of-shape`. */
+   *  it can derive the editor-facing CourseShape (P3d, #1850). Also
+   *  read here to count `config.modules.length` for the empty-state
+   *  gate (see `courseStyle` above). Optional; legacy callers without
+   *  it fall back to the binary courseStyle and exam-only G8 entries
+   *  render as `out-of-shape`. */
   playbookConfig?: Record<string, unknown> | null;
 }
 
 export function CourseModulesTab({
   courseId,
   courseStyle,
-  onTabSwitch,
   playbookConfig,
 }: CourseModulesTabProps) {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [modules, setModules] = useState<ModuleRow[]>([]);
-  const { crossTabHint, handlePreviewSelect, jumpToOwningTab } =
-    useCrossTabHint({
-      currentTab: "modules",
-      selectedBucketParam: null, // modules tab doesn't seed from URL
-      onTabSwitch: onTabSwitch ?? (() => {}),
-    });
+
+  // P3d (#1850) — cast once at the boundary; ModuleInspectorPanel
+  // consumes the typed shape and falls back to "continuous" when null.
+  // Hoisted above the continuous-course early return to keep hook order
+  // stable across renders (react-hooks/rules-of-hooks). Also drives the
+  // `authoredModuleCount` gate that overrides the continuous empty
+  // state when the playbook still carries authored modules.
+  const typedPlaybookConfig = useMemo<PlaybookConfig | null>(
+    () =>
+      playbookConfig === null || playbookConfig === undefined
+        ? null
+        : (playbookConfig as unknown as PlaybookConfig),
+    [playbookConfig],
+  );
+
+  // When `lessonPlanMode` is unset, the parent-fork casts `courseStyle`
+  // to `"continuous"` — but the playbook may still carry authored
+  // modules (e.g. IELTS Speaking Practice ships 5 modules with no
+  // `lessonPlanMode`). The empty-state should only render when BOTH
+  // gates hold: continuous courseStyle AND no authored modules. When
+  // modules are present, we still fetch and show them so the operator
+  // can tune what they authored.
+  const authoredModuleCount = typedPlaybookConfig?.modules?.length ?? 0;
+  const showContinuousEmpty =
+    courseStyle === "continuous" && authoredModuleCount === 0;
 
   // Mirror the LH picker fetch so the Inspector can read each module's
   // `settings` sub-object without a second round-trip. The LH picker
   // owns its own fetch (it renders without waiting on the parent), and
   // this one feeds the Inspector — both target the same dedicated
   // /modules route so the cache will collapse them. `reloadKey` bumps
-  // after each save so the Inspector reflects persisted state.
+  // after each save so the Inspector reflects persisted state. Skip
+  // the fetch only when the empty-state is about to fire (continuous
+  // AND zero authored modules) — otherwise authored modules need to
+  // hydrate the Inspector regardless of `lessonPlanMode`.
   const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
-    if (!courseId || courseStyle === "continuous") {
+    if (!courseId || showContinuousEmpty) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset list on course/style change, matches sibling ModulesLhPicker pattern
       setModules([]);
       return;
@@ -111,25 +124,13 @@ export function CourseModulesTab({
     return () => {
       cancelled = true;
     };
-  }, [courseId, courseStyle, reloadKey]);
+  }, [courseId, showContinuousEmpty, reloadKey]);
 
   const handleSaved = useCallback(() => {
     setReloadKey((k) => k + 1);
   }, []);
 
-  // P3d (#1850) — cast once at the boundary; ModuleInspectorPanel
-  // consumes the typed shape and falls back to "continuous" when null.
-  // Hoisted above the continuous-course early return to keep hook order
-  // stable across renders (react-hooks/rules-of-hooks).
-  const typedPlaybookConfig = useMemo<PlaybookConfig | null>(
-    () =>
-      playbookConfig === null || playbookConfig === undefined
-        ? null
-        : (playbookConfig as unknown as PlaybookConfig),
-    [playbookConfig],
-  );
-
-  if (courseStyle === "continuous") {
+  if (showContinuousEmpty) {
     return (
       <div className="hf-empty">
         <h2 className="hf-section-title">No modules</h2>
@@ -151,6 +152,12 @@ export function CourseModulesTab({
       ? (modules.find((m) => m.id === selectedModuleId) ?? null)
       : null;
 
+  // Bi-pane shape: LH module picker + canvas as the editor. The Inspector
+  // column from the prior tri-pane is folded into the canvas as the HOW
+  // card so the operator works in one wide column rather than squeezing
+  // G8 fields into a 360px sticky panel. The RH pane mounts the
+  // ModulesPreviewLens (SIM-shell preview, #2206 U5 of #2185) so the
+  // operator can validate per-module behaviour against the learner view.
   return (
     <DesignerShell
       nav={
@@ -160,41 +167,28 @@ export function CourseModulesTab({
           onSelect={setSelectedModuleId}
         />
       }
+      // When a module is selected, the LH selection has no impact on the
+      // Preview (which is course-wide until the module-scoped variant
+      // ships — see TODO below). Same rationale as the cross-cutting
+      // dim in the bucket-driven tabs: refocus the operator on the RHS
+      // ModuleInspectorPanel.
+      canvasClassName={
+        selectedModuleId !== null ? "hf-designer-canvas-dim" : undefined
+      }
       canvas={
-        <>
-          {/* TODO(preview-scope): extend PreviewLens to accept ?moduleId
-              scope so the canvas previews the module-scoped lesson when
-              one is selected. P3 ships the course-wide preview only. */}
-          {selectedModuleId ? (
-            <div className="hf-banner hf-banner-info" role="status">
-              Showing course-wide preview. Module-scoped preview lands in
-              a follow-on.
-            </div>
-          ) : null}
-          <PreviewLens
-            courseId={courseId}
-            onSelectSection={handlePreviewSelect}
-            suppressSidetray
-          />
-        </>
+        <ModuleEditor
+          courseId={courseId}
+          selectedModuleId={selectedModuleId}
+          selectedModule={selectedModule}
+          playbookConfig={typedPlaybookConfig}
+          onSaved={handleSaved}
+        />
       }
       inspector={
-        crossTabHint ? (
-          <CrossTabHintCard
-            bucketLabel={crossTabHint.bucketLabel}
-            owningTabLabel={crossTabHint.owningTabLabel}
-            onJump={jumpToOwningTab}
-          />
-        ) : (
-          <ModuleInspectorPanel
-            courseId={courseId}
-            selectedModuleId={selectedModuleId}
-            selectedModuleLabel={selectedModule?.label ?? null}
-            settings={selectedModule?.settings ?? null}
-            playbookConfig={typedPlaybookConfig}
-            onSaved={handleSaved}
-          />
-        )
+        <ModulesPreviewLens
+          courseId={courseId}
+          selectedModule={selectedModule}
+        />
       }
     />
   );

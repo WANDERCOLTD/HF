@@ -5,8 +5,8 @@
 
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext } from "../types";
-import type { SpecConfig, PlaybookConfig } from "@/lib/types/json-fields";
-import type { TeachingMode } from "@/lib/content-trust/resolve-config";
+import type { AuthoredModule, SpecConfig, PlaybookConfig } from "@/lib/types/json-fields";
+import { isTeachingMode, type TeachingMode } from "@/lib/content-trust/resolve-config";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
 // #610 — code-side defaults for criticalRules live in `defaults/` so the
@@ -17,6 +17,7 @@ import { config } from "@/lib/config";
 import {
   RETURNING_CALLER_BY_MODE,
   BASELINE_ASSESSMENT_RULE,
+  BASELINE_ASSESSMENT_RULE_SILENT,
 } from "../defaults/critical-rules";
 
 const PREAMBLE_FALLBACK = "You are receiving a structured context package for your next conversation. This data has been assembled specifically for this caller based on their history, personality, and learning progress. Use it to deliver a personalized, effective session.";
@@ -26,16 +27,26 @@ const PREAMBLE_FALLBACK = "You are receiving a structured context package for yo
  * pattern in `transforms/pedagogy-mode.ts:100-106` exactly — playbook
  * raw config wins over the first PlaybookItem spec's config; returns
  * undefined when neither is set (caller falls back to recall behaviour).
+ *
+ * Reads are runtime-guarded by `isTeachingMode` because the JSON column
+ * can hold any string. An invalid value (observed 2026-06-18: IELTS
+ * Speaking Practice playbook with `teachingMode: "directive"`, an
+ * `interactionPattern` value cross-wired into the wrong field) returns
+ * undefined here so the caller falls through to recall — same surface
+ * as the "not set at all" branch the comment above already promises.
+ * Without the guard, an unknown key indexes RETURNING_CALLER_BY_MODE to
+ * undefined and crashes ComposedPrompt.create on `criticalRules[3]`.
  */
 function readPlaybookTeachingMode(
   context: AssembledContext,
 ): TeachingMode | undefined {
   const playbooks = context.loadedData.playbooks;
   const pbConfig = playbooks?.[0]?.items?.[0]?.spec?.config as
-    | { teachingMode?: TeachingMode }
+    | { teachingMode?: unknown }
     | undefined;
-  const playbookRawConfig = (playbooks?.[0] as { config?: { teachingMode?: TeachingMode } } | undefined)?.config;
-  return playbookRawConfig?.teachingMode || pbConfig?.teachingMode;
+  const playbookRawConfig = (playbooks?.[0] as { config?: { teachingMode?: unknown } } | undefined)?.config;
+  const raw = playbookRawConfig?.teachingMode ?? pbConfig?.teachingMode;
+  return isTeachingMode(raw) ? raw : undefined;
 }
 
 registerTransform("computePreamble", async (
@@ -126,8 +137,33 @@ registerTransform("computePreamble", async (
       const { isFirstCall, isFirstCallInDomain } = context.sharedState;
       const isFirstCallAny = isFirstCall || !!isFirstCallInDomain;
       if (isFirstCallAny && firstCallMode === "baseline_assessment") {
-        const specCriticalRulesBaseline = (context.specConfig as { criticalRules?: { baselineAssessment?: string } } | undefined)?.criticalRules;
-        const baselineRule = specCriticalRulesBaseline?.baselineAssessment ?? BASELINE_ASSESSMENT_RULE;
+        // #1956 (Boaz/Eldar gap analysis Unit 1.3) — when the locked
+        // module's settings declare `silentMode: true`, use the silent
+        // variant of the baseline rule. Preserves diagnostic-only
+        // behaviour but drops the test-announcement framing. Spec
+        // config still wins on the silent variant via the
+        // `baselineAssessmentSilent` override path. Reads orthogonally
+        // to firstCallMode: firstCallMode controls structure;
+        // silentMode controls announcement wording.
+        const lockedModule = context.sharedState.lockedModule;
+        let silentMode = false;
+        if (lockedModule) {
+          const playbookConfig = (playbooks?.[0] as { config?: PlaybookConfig })?.config;
+          const authoredModules: AuthoredModule[] = playbookConfig?.modules ?? [];
+          const matched = authoredModules.find(
+            (m) => m.id === lockedModule.id || m.id === lockedModule.slug,
+          );
+          silentMode = matched?.settings?.silentMode === true;
+        }
+        const specCriticalRulesBaseline = (context.specConfig as {
+          criticalRules?: {
+            baselineAssessment?: string;
+            baselineAssessmentSilent?: string;
+          };
+        } | undefined)?.criticalRules;
+        const baselineRule = silentMode
+          ? (specCriticalRulesBaseline?.baselineAssessmentSilent ?? BASELINE_ASSESSMENT_RULE_SILENT)
+          : (specCriticalRulesBaseline?.baselineAssessment ?? BASELINE_ASSESSMENT_RULE);
         return [...pedagogyRules, baselineRule];
       }
 
@@ -136,14 +172,22 @@ registerTransform("computePreamble", async (
       // `criticalRules.returningCallerByMode[mode]`); falls through to the
       // code-side default; falls through again to `recall` if the playbook
       // has no teachingMode set at all (pre-#604 behaviour).
+      //
+      // Defensive: `readPlaybookTeachingMode` guards the read against bad
+      // DB values, but we also defend the consumer — `RETURNING_CALLER_BY_MODE`
+      // is keyed by the TeachingMode union and an out-of-union key would
+      // return undefined, propagating into `criticalRules[3]` and breaking
+      // `composedPrompt.create` (observed 2026-06-18 on IELTS Speaking
+      // Practice). Both layers prevent the crash; either alone is enough,
+      // both together survive future regressions in either direction.
       const teachingMode = readPlaybookTeachingMode(context);
       const specCriticalRules = (context.specConfig as { criticalRules?: { returningCallerByMode?: Partial<Record<TeachingMode, string>> } } | undefined)?.criticalRules;
       const specOverride = teachingMode
         ? specCriticalRules?.returningCallerByMode?.[teachingMode]
         : undefined;
-      const codeDefault = teachingMode
-        ? RETURNING_CALLER_BY_MODE[teachingMode]
-        : RETURNING_CALLER_BY_MODE.recall;
+      const codeDefault =
+        (teachingMode ? RETURNING_CALLER_BY_MODE[teachingMode] : undefined) ??
+        RETURNING_CALLER_BY_MODE.recall;
       const returningCallerRule = specOverride ?? codeDefault;
 
       if (hasCurriculum) {

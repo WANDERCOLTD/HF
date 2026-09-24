@@ -1,8 +1,21 @@
 name: Deploy
 
+# 2026-06-18: this workflow is a NON-FUNCTIONAL STUB from the original
+# skeleton — `STAGING_DATABASE_URL` is a placeholder secret name (real
+# one is `DATABASE_URL_STAGING`), the deploy step is commented-out
+# pseudo-code, and the smoke test points at `staging.yourapp.com`.
+# Every push to `main` triggered this and failed in CI noise.
+#
+# REAL fast-fix path to DEV today: `gh workflow run deploy-staging-quick.yml`
+# (~5-7 min, runner-only image, GHA cache). See docs/RELEASE-PROCESS.md §2.
+#
+# Disabled push-trigger; kept workflow_dispatch so the placeholder code
+# survives without firing on every commit. Repair tracked separately —
+# until then the lean workflow is the canonical fast path.
+
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]   # disabled — was failing on every push (see banner above)
   workflow_dispatch:
     inputs:
       environment:

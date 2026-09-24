@@ -9,13 +9,28 @@ interface LearningParam {
   latest: number;
 }
 
-interface LearningData {
-  profile: string;
-  profileLabel: string;
-  competencyLevel: string | null;
-  parameters: LearningParam[];
-  checkpoints: { key: string; status: string; score: number | null }[];
-}
+// Discriminated union mirroring `/api/callers/[id]/learning-trajectory`
+// (`kind: "skills"` | `kind: "module-mastery"`). This card consumes only
+// the `skills` shape; the `module-mastery` shape is rendered by
+// `LearningTrajectoryCard` on the caller-detail page. Without the
+// discriminator, accessing `data.parameters.length` on a module-mastery
+// response crashed with "undefined is not an object" after END CALL on
+// an IELTS-class course.
+type LearningData =
+  | {
+      kind: 'skills';
+      profile: string;
+      profileLabel: string;
+      competencyLevel: string | null;
+      parameters: LearningParam[];
+      checkpoints: { key: string; status: string; score: number | null }[];
+    }
+  | {
+      kind: 'module-mastery';
+      playbookId: string;
+      playbookName: string;
+      modules: unknown[];
+    };
 
 const BAND_LABELS: Record<string, string> = {
   mastery: 'Mastery',
@@ -58,7 +73,7 @@ export function PostCallProgressCard({ callerId }: { callerId: string }): JSX.El
     return () => { cancelled = true; };
   }, [callerId]);
 
-  if (loading || !data || data.parameters.length === 0) return null;
+  if (loading || !data || data.kind !== 'skills' || data.parameters.length === 0) return null;
 
   const avgScore = data.parameters.reduce((s, p) => s + p.latest, 0) / data.parameters.length;
 

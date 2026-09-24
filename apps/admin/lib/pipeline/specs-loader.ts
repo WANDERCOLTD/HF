@@ -10,6 +10,22 @@ import type { PipelineLogger } from "./logger";
 import type { AIConfigExtended, PlaybookConfig } from "@/lib/types/json-fields";
 
 /**
+ * Slug-prefix of the LLM-judged IELTS scoring spec family. The
+ * per-Playbook kill-switch (`config.aiMeasurement.disableLlmIeltsScoring`,
+ * story #2158) is scoped to this family by design — operator intent is
+ * "disable LLM-judged IELTS scoring," not "disable every opted-in
+ * scoring spec."
+ *
+ * Hoisted to a module-level constant in #2183 so the slug literal lives
+ * in exactly one place. The downstream course-agnostic refactor will
+ * replace this slug-prefix check with an opt-in spec-config flag
+ * (`cfg.disableViaPlaybookConfigKey`) — at that point this constant
+ * retires; until then it carries a per-site escape comment to the
+ * `hf-pipeline/no-course-specific-measure-query` rule.
+ */
+const LLM_IELTS_MEASURE_SLUG_PREFIX = "IELTS-MEASURE-";
+
+/**
  * Get transcript limit for a call point from AIConfig, with fallback to defaults.
  */
 export async function getTranscriptLimit(callPoint: string): Promise<number> {
@@ -293,6 +309,175 @@ export async function filterByTeachingProfile(
       return true;
     })
     .map((s) => s.id);
+}
+
+/**
+ * Filter specs by BehaviorTarget parameter presence on the playbook.
+ *
+ * **Why this gate exists** (#2137, S2 of epic #2135):
+ *
+ * Some MEASURE specs only fire when the playbook has explicit operator
+ * intent to score the spec's parameters — captured as `BehaviorTarget`
+ * rows scoped to `PLAYBOOK`. Per the operator's revised gating signal
+ * (#2137 live-state correction 2026-06-21):
+ *
+ * > Detect by parameter presence: the spec fires if the playbook has
+ * > any of the spec's declared parameters in its `BehaviorTarget` rows.
+ *
+ * This tracks actual scoring intent rather than declarative metadata
+ * (e.g. `Subject.teachingProfile`) that may drift. Opted in per-spec
+ * via `config.requiresBehaviorTargetParams: true` — generic across
+ * future course-specific scoring specs (CEFR / TOEFL / Spanish DELE).
+ *
+ * Specs without the opt-in flag run unconditionally (preserves the
+ * existing `filterByTeachingProfile` semantics for the system-wide
+ * specs like PERS-001).
+ *
+ * Filter logic:
+ * - If a spec's config lacks `requiresBehaviorTargetParams: true` → pass through.
+ * - If `playbookId` is null → drop (no playbook-scope BehaviorTargets to check).
+ * - Else collect the spec's `parameters[].id` from its `triggers[].actions[].parameterId`
+ *   (the seeded shape from `seed-from-specs.ts`); if ANY are present on the
+ *   playbook's BehaviorTarget rows, the spec runs. Otherwise, drop.
+ *
+ * **Per-course kill-switch override** (story #2158, epic #2135 follow-on):
+ *
+ * After the BehaviorTarget-presence check passes, the per-Playbook
+ * override `config.aiMeasurement.disableLlmIeltsScoring` is consulted.
+ * When true, IELTS-MEASURE-* specs are dropped for that course even
+ * though their canonical opt-in gate would otherwise admit them. This
+ * replaces the retired `HF_IELTS_LLM_MEASURE_V1` env flag with a
+ * course-level cascade-aware knob (#2158). The kill-switch is narrowly
+ * scoped to IELTS-MEASURE-* specs by design — operator intent is
+ * disabling "LLM-judged IELTS scoring," not all opted-in scoring specs.
+ */
+export async function filterByBehaviorTargetParams(
+  specIds: string[],
+  playbookId: string | null,
+  log: PipelineLogger,
+): Promise<string[]> {
+  if (specIds.length === 0) return specIds;
+
+  // Load configs + parameters (via triggers/actions) for the candidate specs.
+  const specs = await prisma.analysisSpec.findMany({
+    where: { id: { in: specIds } },
+    select: {
+      id: true,
+      slug: true,
+      config: true,
+      triggers: {
+        select: {
+          actions: {
+            select: { parameterId: true },
+          },
+        },
+      },
+    },
+  });
+
+  // Identify which specs opted in to this gate.
+  const optedIn = specs.filter((spec) => {
+    const cfg = spec.config as Record<string, unknown> | null;
+    return cfg?.requiresBehaviorTargetParams === true;
+  });
+
+  if (optedIn.length === 0) {
+    // Nothing opted in; pass through unchanged.
+    return specIds;
+  }
+
+  if (!playbookId) {
+    // Opted-in specs require a playbook to check; without one we cannot
+    // satisfy the gate. Drop them all and pass non-opted-in through.
+    const droppedSlugs = optedIn.map((s) => s.slug);
+    log.info(
+      `[behavior-target-gate] Dropping ${optedIn.length} opted-in spec(s) — no playbookId in scope: ${droppedSlugs.join(", ")}`,
+    );
+    const droppedIds = new Set(optedIn.map((s) => s.id));
+    return specIds.filter((id) => !droppedIds.has(id));
+  }
+
+  // Story #2158 — read the per-Playbook IELTS LLM scoring kill-switch.
+  // Loaded alongside the BehaviorTarget rows below so we don't double the
+  // round-trip count. When true → IELTS-MEASURE-* specs are dropped even
+  // when their declared params are on the playbook.
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { config: true },
+  });
+  const playbookConfig = playbook?.config as Record<string, unknown> | null;
+  const aiMeasurementCfg = playbookConfig?.aiMeasurement as
+    | { disableLlmIeltsScoring?: boolean }
+    | null
+    | undefined;
+  const disableLlmIeltsScoring = aiMeasurementCfg?.disableLlmIeltsScoring === true;
+
+  // Load the playbook's PLAYBOOK-scope BehaviorTarget parameterIds in one shot.
+  const playbookTargets = await prisma.behaviorTarget.findMany({
+    where: { scope: "PLAYBOOK", playbookId },
+    select: { parameterId: true },
+  });
+  const playbookParamSet = new Set(playbookTargets.map((t) => t.parameterId));
+
+  // For each opted-in spec, check whether any declared parameter is in the playbook set.
+  const passingIds = new Set<string>();
+  for (const spec of specs) {
+    const cfg = spec.config as Record<string, unknown> | null;
+    const requiresGate = cfg?.requiresBehaviorTargetParams === true;
+    if (!requiresGate) {
+      passingIds.add(spec.id);
+      continue;
+    }
+
+    // Collect spec's declared parameter ids from triggers/actions.
+    const declaredParamIds = new Set<string>();
+    for (const trigger of spec.triggers) {
+      for (const action of trigger.actions) {
+        if (action.parameterId) declaredParamIds.add(action.parameterId);
+      }
+    }
+
+    const matchedParam = Array.from(declaredParamIds).find((p) => playbookParamSet.has(p));
+    if (matchedParam) {
+      // Story #2158 — per-course kill-switch override. Narrow to specs
+      // whose slug matches the LLM-IELTS-scoring family: the operator's
+      // intent is "disable LLM-judged IELTS scoring for this course," not
+      // "disable every opted-in scoring spec." Future course-specific
+      // specs (CEFR / TOEFL) get their own override field — at that
+      // point, replace the slug-prefix check with a spec-config opt-in
+      // (e.g. `cfg.disableViaPlaybookConfigKey: "aiMeasurement.X"`) so
+      // the kill-switch becomes fully course-agnostic; see #2183.
+      //
+      // The prefix lives in the module-level constant
+      // `LLM_IELTS_MEASURE_SLUG_PREFIX` (#2183) — that hoisting takes the
+      // call-site out of the `hf-pipeline/no-course-specific-measure-query`
+      // surface (the rule fires on string-literal arguments, not on
+      // identifiers); future course-specific prefixes lift the same way.
+      if (disableLlmIeltsScoring && spec.slug.startsWith(LLM_IELTS_MEASURE_SLUG_PREFIX)) {
+        log.info(
+          `[behavior-target-gate] Spec "${spec.slug}" matched playbook BehaviorTarget "${matchedParam}" but per-course override config.aiMeasurement.disableLlmIeltsScoring=true — dropping.`,
+        );
+        continue;
+      }
+      log.info(
+        `[behavior-target-gate] Spec "${spec.slug}" opted in and matched playbook BehaviorTarget "${matchedParam}" — running.`,
+      );
+      passingIds.add(spec.id);
+    } else {
+      log.info(
+        `[behavior-target-gate] Spec "${spec.slug}" opted in but no declared parameter is a BehaviorTarget on playbook ${playbookId} — dropping.`,
+      );
+    }
+  }
+
+  // Preserve specs not loaded by this helper (defensive — shouldn't happen).
+  for (const id of specIds) {
+    if (!specs.find((s) => s.id === id)) {
+      passingIds.add(id);
+    }
+  }
+
+  return Array.from(passingIds);
 }
 
 /**

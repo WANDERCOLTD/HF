@@ -1,5 +1,8 @@
 /**
  * @api GET /api/callers/[callerId]/memories
+ * @tieredVisibility — strips confidence + evidence excerpt + decayFactor
+ *                     at the redacted tier. STUDENT sees memory key/value
+ *                     only (#1922, epic #1915).
  *
  * Memory data for the Snapshot v3 tab — Wave A1 of the legacy-tab
  * retirement plan (Profile tab folding into Snapshot).
@@ -24,6 +27,8 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { visibilityTierForRole } from "@/lib/rbac/visibility";
+import { redactMemoriesForTier } from "@/lib/rbac/policies/memories";
 import {
   studentAllowedToReadCaller,
   callerScopeMismatchResponse,
@@ -63,7 +68,7 @@ const MAX_MEMORIES = 200;
 export async function GET(
   _req: Request,
   context: { params: Promise<{ callerId: string }> },
-): Promise<NextResponse<MemoriesResponse | { ok: false; error: string }>> {
+) {
   const auth = await requireAuth("VIEWER");
   if (isAuthError(auth)) return auth.error;
 
@@ -71,6 +76,8 @@ export async function GET(
   if (!studentAllowedToReadCaller(auth.session, callerId)) {
     return callerScopeMismatchResponse();
   }
+
+  const viewerTier = visibilityTierForRole(auth.session.user.role);
 
   const caller = await prisma.caller.findUnique({
     where: { id: callerId },
@@ -142,5 +149,6 @@ export async function GET(
     decayFactor: m.decayFactor,
   }));
 
-  return NextResponse.json({ ok: true, callerId, memories, summary });
+  const response: MemoriesResponse = { ok: true, callerId, memories, summary };
+  return NextResponse.json(redactMemoriesForTier(response, viewerTier));
 }

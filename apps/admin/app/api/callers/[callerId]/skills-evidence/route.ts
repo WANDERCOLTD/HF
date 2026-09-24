@@ -1,5 +1,9 @@
 /**
  * @api GET /api/callers/[callerId]/skills-evidence
+ * @tieredVisibility — strips reasoning + analysisSpecName + evidenceQuality +
+ *                     scoredBy + confidence at the redacted tier. Wave C5
+ *                     ESLint rule `hf-rbac/require-tiered-redactor` enforces
+ *                     the redactor wiring below. See #1922 (epic #1915).
  *
  * Per-learner sibling to `/api/courses/[courseId]/skills-evidence` (PR #1576).
  * Returns the most recent N `BehaviorMeasurement.evidence` excerpts per
@@ -23,6 +27,8 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { visibilityTierForRole } from "@/lib/rbac/visibility";
+import { redactSkillsEvidenceForTier } from "@/lib/rbac/policies/skills-evidence";
 import { studentAllowedToReadCaller, callerScopeMismatchResponse } from "@/lib/learner-scope";
 import { resolveAllSkillsForPlaybook } from "@/lib/curriculum/resolve-skill";
 import {
@@ -116,6 +122,8 @@ export async function GET(
     return callerScopeMismatchResponse();
   }
 
+  const viewerTier = visibilityTierForRole(auth.session.user.role);
+
   const url = new URL(request.url);
   const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
   const limit = Number.isFinite(limitParam) && limitParam > 0
@@ -144,19 +152,20 @@ export async function GET(
       rows: [],
       empty: true,
     };
-    return NextResponse.json(response);
+    return NextResponse.json(redactSkillsEvidenceForTier(response, viewerTier));
   }
 
   const playbookId = enrolment.playbookId;
   const skills = await resolveAllSkillsForPlaybook(playbookId);
   if (skills.length === 0) {
-    return NextResponse.json({
+    const empty: CallerSkillEvidenceResponse = {
       callerId,
       playbookId,
       limit,
       rows: [],
       empty: true,
-    } satisfies CallerSkillEvidenceResponse);
+    };
+    return NextResponse.json(redactSkillsEvidenceForTier(empty, viewerTier));
   }
 
   const parameters = await prisma.parameter.findMany({
@@ -258,13 +267,14 @@ export async function GET(
     }),
   );
 
-  return NextResponse.json({
+  const response: CallerSkillEvidenceResponse = {
     callerId,
     playbookId,
     limit,
     rows,
     empty: false,
-  } satisfies CallerSkillEvidenceResponse);
+  };
+  return NextResponse.json(redactSkillsEvidenceForTier(response, viewerTier));
 }
 
 /**

@@ -177,6 +177,93 @@ describe("JourneyArrayEditor — moduleScheduledCues", () => {
   });
 });
 
+describe("JourneyArrayEditor — moduleScaffoldPool (A2b of #2225)", () => {
+  const scaffoldPoolContract: JourneySettingContract = {
+    id: "moduleScaffoldPool",
+    group: "G8",
+    educatorLabel: "Stall scaffold pool",
+    storagePath: { path: "config.modules[].settings.scaffoldPool", arrayKey: "id" },
+    control: "array-editor",
+    cascadeSources: [],
+    composeImpact: {
+      sections: [],
+      kinds: ["stop-timing"],
+      requiresReprompt: false,
+    },
+    previewLocators: [],
+  };
+
+  it("renders string-array rows (NOT the 'No row schema registered' fallback)", () => {
+    render(
+      <JourneyArrayEditor
+        contract={scaffoldPoolContract}
+        value={["Take your time…", "When you're ready, carry on…"]}
+        onSave={vi.fn(() => Promise.resolve())}
+      />,
+    );
+    // Editable list visible — not the fallback alert that the A2 audit caught.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByTestId("hf-jf-row-moduleScaffoldPool-0")).toBeInTheDocument();
+    expect(screen.getByTestId("hf-jf-row-moduleScaffoldPool-1")).toBeInTheDocument();
+    expect(
+      (screen.getByTestId("hf-jf-field-moduleScaffoldPool-0-value") as HTMLTextAreaElement).value,
+    ).toBe("Take your time…");
+    expect(
+      (screen.getByTestId("hf-jf-field-moduleScaffoldPool-1-value") as HTMLTextAreaElement).value,
+    ).toBe("When you're ready, carry on…");
+  });
+
+  it("Add row appends an empty string row", () => {
+    render(
+      <JourneyArrayEditor
+        contract={scaffoldPoolContract}
+        value={[]}
+        onSave={vi.fn(() => Promise.resolve())}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("hf-jf-array-add-moduleScaffoldPool"));
+    expect(screen.getByTestId("hf-jf-row-moduleScaffoldPool-0")).toBeInTheDocument();
+    expect(
+      (screen.getByTestId("hf-jf-field-moduleScaffoldPool-0-value") as HTMLTextAreaElement).value,
+    ).toBe("");
+  });
+
+  it("Editing a row commits the new string[] on blur", async () => {
+    const onSave = vi.fn(() => Promise.resolve());
+    render(
+      <JourneyArrayEditor
+        contract={scaffoldPoolContract}
+        value={["Take your time…"]}
+        onSave={onSave}
+      />,
+    );
+    const input = screen.getByTestId("hf-jf-field-moduleScaffoldPool-0-value");
+    fireEvent.change(input, { target: { value: "Whenever you're ready" } });
+    await act(async () => {
+      fireEvent.blur(input);
+      await Promise.resolve();
+    });
+    expect(onSave).toHaveBeenCalledWith(["Whenever you're ready"]);
+  });
+
+  it("Remove row drops the entry from the saved string[]", async () => {
+    const onSave = vi.fn(() => Promise.resolve());
+    render(
+      <JourneyArrayEditor
+        contract={scaffoldPoolContract}
+        value={["A", "B"]}
+        onSave={onSave}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("hf-jf-row-remove-moduleScaffoldPool-0"));
+      vi.advanceTimersByTime(700);
+      await Promise.resolve();
+    });
+    expect(onSave).toHaveBeenCalledWith(["B"]);
+  });
+});
+
 describe("JourneyArrayEditor — unknown contract.id", () => {
   it("renders an error panel for contracts without a row schema", () => {
     const unknownContract: JourneySettingContract = {

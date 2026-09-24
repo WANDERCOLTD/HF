@@ -38,6 +38,9 @@ const mockPrisma = prisma as any;
 // Add missing mock methods
 mockPrisma.caller.findMany = vi.fn().mockResolvedValue([]);
 mockPrisma.auditLog = { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) };
+// #1917 — row-level Call expiry purge added to the cleanup route
+mockPrisma.call = mockPrisma.call ?? {};
+mockPrisma.call.deleteMany = vi.fn().mockResolvedValue({ count: 0 });
 
 import { POST } from "@/app/api/admin/retention/cleanup/route";
 
@@ -48,6 +51,7 @@ describe("POST /api/admin/retention/cleanup", () => {
     mockConfig.retention.auditLogDays = 365;
     mockPrisma.caller.findMany.mockResolvedValue([]);
     mockPrisma.auditLog.deleteMany.mockResolvedValue({ count: 0 });
+    mockPrisma.call.deleteMany.mockResolvedValue({ count: 0 });
   });
 
   it("returns skipped when both retention periods are 0", async () => {

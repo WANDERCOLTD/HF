@@ -177,6 +177,13 @@ export async function PUT(
         retrievalCadenceOverride?: number | null;
         memoryDecayScale?: number | null;
       } | null;
+      // Story #2158 — per-course IELTS LLM scoring kill-switch.
+      // Partial-merge inside `aiMeasurement`. `null` for either the
+      // namespace or the field clears that key (falls back to
+      // auto-detect = ON for IELTS-shaped courses).
+      aiMeasurement?: {
+        disableLlmIeltsScoring?: boolean | null;
+      } | null;
     };
 
     try {
@@ -316,6 +323,34 @@ export async function PUT(
                 delete pbConfig.tolerances;
               } else {
                 pbConfig.tolerances = next;
+              }
+            }
+          }
+
+          // Story #2158 — per-course IELTS LLM scoring kill-switch.
+          // Partial-merge: only touches `aiMeasurement.disableLlmIeltsScoring`;
+          // sibling fields (when added later) are untouched. `null` for
+          // the field clears just that key; `null` for the namespace
+          // clears `aiMeasurement` entirely.
+          if (body.aiMeasurement !== undefined) {
+            const incomingAi = body.aiMeasurement;
+            if (incomingAi === null) {
+              delete pbConfig.aiMeasurement;
+            } else {
+              const currentAi = pbConfig.aiMeasurement ?? {};
+              const nextAi = { ...currentAi };
+              if ("disableLlmIeltsScoring" in incomingAi) {
+                const v = incomingAi.disableLlmIeltsScoring;
+                if (v === null || v === undefined) {
+                  delete nextAi.disableLlmIeltsScoring;
+                } else {
+                  nextAi.disableLlmIeltsScoring = v;
+                }
+              }
+              if (Object.keys(nextAi).length === 0) {
+                delete pbConfig.aiMeasurement;
+              } else {
+                pbConfig.aiMeasurement = nextAi;
               }
             }
           }

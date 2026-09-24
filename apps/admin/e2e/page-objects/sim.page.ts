@@ -51,8 +51,17 @@ export class SimPage extends BasePage {
     this.toast = page.locator('.wa-toast');
   }
 
-  /** Wait for the AI greeting message to appear */
+  /** Wait for the AI greeting message to appear.
+   *  Post-redesign the Sim picker no longer auto-greets — the operator
+   *  must click "Start chat session" to enter the chat surface, then
+   *  the AI emits the greeting bubble. */
   async waitForGreeting(timeout = 30_000): Promise<void> {
+    // Click "Start chat session" if the picker is rendered (no-op once
+    // the chat surface is mounted).
+    const startBtn = this.page.getByRole('button', { name: /Start chat session/i });
+    if (await startBtn.isVisible().catch(() => false)) {
+      await startBtn.click();
+    }
     // Wait for at least one assistant bubble with content
     await this.page.waitForFunction(
       () => {

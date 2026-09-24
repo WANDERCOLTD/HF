@@ -54,7 +54,10 @@ function row(overrides: Partial<AssertionCreateData> = {}): AssertionCreateData 
 beforeEach(() => {
   vi.clearAllMocks();
   mockContentSourceCreate.mockResolvedValue({ id: "src-1" });
-  mockSubjectSourceCreate.mockResolvedValue({});
+  // #2132 — subjectSource.create now requests `select: { id: true }` so
+  // the helper can pass subjectSourceId on every ContentAssertion write
+  // (closes ENTITIES.md §6 I1). Mock must return a row with an id.
+  mockSubjectSourceCreate.mockResolvedValue({ id: "ss-1" });
   mockContentAssertionCreate.mockResolvedValue({});
   mockUpsertPlaybookSource.mockResolvedValue({});
 });
@@ -90,15 +93,18 @@ describe("createPedagogyAssertionsFromCourseRef — canonical write shape (#1545
       assertionRows: [row()],
     });
 
+    // #2132 — `select: { id: true }` added so the helper can pass
+    // subjectSourceId on each ContentAssertion write (I1 invariant).
     expect(mockSubjectSourceCreate).toHaveBeenCalledWith({
       data: { subjectId: "sub-1", sourceId: "src-1" },
+      select: { id: true },
     });
     expect(mockUpsertPlaybookSource).toHaveBeenCalledWith("pb-1", "src-1", {
       tags: ["course-reference"],
     });
   });
 
-  it("writes ContentAssertion rows with linkConfidence=1.0 + depth=0 (NOT confidence, NOT isActive)", async () => {
+  it("writes ContentAssertion rows with linkConfidence=1.0 + depth=0 + subjectSourceId (NOT confidence, NOT isActive)", async () => {
     await createPedagogyAssertionsFromCourseRef({
       courseName: "Course",
       playbookId: "pb-1",
@@ -110,6 +116,10 @@ describe("createPedagogyAssertionsFromCourseRef — canonical write shape (#1545
     expect(mockContentAssertionCreate).toHaveBeenCalledTimes(2);
     const args0 = mockContentAssertionCreate.mock.calls[0][0];
     expect(args0.data.sourceId).toBe("src-1");
+    // #2132 — every ContentAssertion write MUST set subjectSourceId so
+    // SectionDataLoader's strict-FK filter scopes correctly (ENTITIES.md
+    // §6 I1). Without this, assertions leak cross-course in shared Subjects.
+    expect(args0.data.subjectSourceId).toBe("ss-1");
     expect(args0.data.linkConfidence).toBe(1.0);
     expect(args0.data.depth).toBe(0);
     expect(args0.data.assertion).toBe("First fact");

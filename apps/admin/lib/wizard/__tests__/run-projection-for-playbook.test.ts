@@ -195,9 +195,11 @@ describe("runProjectionForPlaybook", () => {
     const [projection, opts] = mockApplyProjection.mock.calls[0];
     expect(opts).toEqual({ playbookId: PLAYBOOK_ID, sourceContentId: "src-ielts" });
     // The orchestrator's projection should be derived from IELTS — assert
-    // it carries the canonical 4 skill parameters.
+    // it carries the canonical 4 skill parameters. Post-#2304 the wizard's
+    // skillNameToParameterName routes IELTS display names through the
+    // suffixed canonical id (per #2138).
     expect(projection.parameters.map((p: { name: string }) => p.name)).toContain(
-      "skill_fluency_and_coherence",
+      "skill_fluency_and_coherence_fc",
     );
   });
 

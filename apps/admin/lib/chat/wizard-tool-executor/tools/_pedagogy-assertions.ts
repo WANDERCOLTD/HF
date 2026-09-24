@@ -14,10 +14,15 @@
  * `app/api/courses/[courseId]/course-reference/route.ts:145-177` so the
  * two pedagogy-write surfaces stay in lockstep.
  *
+ * #2132 (2026-06-20) — closed the `subjectSourceId` I1 gap on this
+ * surface. Every `ContentAssertion.create` now passes the SubjectSource
+ * id captured from `prisma.subjectSource.create` above, so
+ * SectionDataLoader's strict-FK filter on `curriculumAssertions` does
+ * not leak rows cross-course inside the shared Subject (ENTITIES.md §6
+ * I1). Sibling gaps on `app/api/content-sources/route.ts` and the
+ * course-pack ingest path are still open — separate concern.
+ *
  * Out of scope for #1545:
- *   - `subjectSourceId` is NOT set here. Same pre-existing gap as
- *     `app/api/content-sources/route.ts` and the course-pack ingest
- *     path; tracked separately, not introduced by this fix.
  *   - Backfill of historical wizard-created courses that never received
  *     pedagogy assertions — a separate ops concern (see PR body for
  *     the live count probe).
@@ -89,8 +94,9 @@ export async function createPedagogyAssertionsFromCourseRef(
     select: { id: true },
   });
 
-  await prisma.subjectSource.create({
+  const subjectSource = await prisma.subjectSource.create({
     data: { subjectId, sourceId: refSource.id },
+    select: { id: true },
   });
 
   await upsertPlaybookSource(playbookId, refSource.id, {
@@ -102,6 +108,12 @@ export async function createPedagogyAssertionsFromCourseRef(
       data: {
         ...row,
         sourceId: refSource.id,
+        // #2132 — ENTITIES.md §6 I1: every ContentAssertion write MUST
+        // pass subjectSourceId so SectionDataLoader's strict-FK filter
+        // on `curriculumAssertions` scopes correctly. Pre-#2132 this
+        // field was null and assertions leaked cross-course inside the
+        // shared Subject.
+        subjectSourceId: subjectSource.id,
         // Course-reference assertions are teacher-authored — bias the
         // LO-link confidence to 1.0 so the linker treats them as
         // high-confidence anchors (per `reconcile-lo-linkage.ts`

@@ -65,10 +65,29 @@ const APPLIES_TO_ALL: readonly string[] = [
   "intakeSpecId",
   "intakeKnowledgeCheck",
   "intakeAboutYou",
+  "intakeAboutYouQuestion",
   "intakeGoals",
+  "intakeGoalsQuestion",
   "intakeAiIntroCall",
   "intakeKnowledgeCheckMode",
   "intakeSkipIfReturning",
+  "onboardingClosingLine",
+  // PR #2266 S1 — 4 G1 + 4 G6 FOH onboarding copy knobs.
+  "goalsPreamble",
+  "aboutYouIntro",
+  "preTestIntro",
+  "preTestClosing",
+  "postTestIntro",
+  "postTestClosing",
+  "journeyExitIntro",
+  "journeyExitClosing",
+  // PR #2266 S2 — 6 G1 HTML onboarding wizard knobs.
+  "studentOnboardingStep1Body",
+  "studentOnboardingGoalsHintWithItems",
+  "studentOnboardingGoalsHintEmpty",
+  "studentOnboardingHowItWorksIntro",
+  "studentOnboardingReadyBody",
+  "studentOnboardingReadyCta",
 
   // ── B_call1_opening (9 of 10 — firstCallModuleVisibility is structured-only)
   "firstCallMode",
@@ -103,6 +122,11 @@ const APPLIES_TO_ALL: readonly string[] = [
   "maxMasteryTier",
   "useFreshMastery",
   "scoringMode",
+  // #2176 S1 — CourseAssessmentPlan editor lens (operator decision 3:
+  // applies to every course shape — assessable moments are valid for
+  // continuous + structured + exam alike).
+  "assessmentPlan",
+  "aiMeasurementDisableLlmIeltsScoring",
   "progressNarrativeEnabled",
   "progressNarrativeCadence",
   "progressNarrativeThreshold",
@@ -145,6 +169,9 @@ const APPLIES_TO_ALL: readonly string[] = [
   // firstCallModuleVisibility is structured-only — NOT in this list.
   "completionMode",
   // strictPrerequisites is structured-only — NOT in this list.
+  // Story #2105 — lessonPlanMode applies to every shape (continuous /
+  // structured / exam) since the field IS what discriminates the first two.
+  "lessonPlanMode",
   "loMasteryThreshold",
   "interleaveReviewMinDays",
   "callCountPolicy",
@@ -156,6 +183,14 @@ const APPLIES_TO_ALL: readonly string[] = [
   // ── G8 — module-scoped IELTS settings are ALL deliberately tagged
   //   (`appliesTo: ["structured", "exam"]` or `["exam"]`) so none of
   //   them belong on this allow-list. Their absence is intentional.
+  //
+  // S3 (this PR) — `moduleLearnerShellOverride` is the lone G8 entry
+  // that applies to EVERY course shape: shell selection happens at the
+  // runtime layer and is course-agnostic per epic #2163 locked decision
+  // 8. Sits here instead of declaring `appliesTo: ["continuous",
+  // "structured", "exam"]` per the rule preamble's "When in doubt,
+  // prefer APPLIES_TO_ALL".
+  "moduleLearnerShellOverride",
 
   // ── N_voice (Settings tab voice subset — 11 entries; all global)
   "voiceProvider",

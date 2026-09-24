@@ -15,6 +15,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import { config } from "@/lib/config";
 import { CURRICULUM_REQUIRED_FIELDS } from "@/lib/curriculum/constants";
 import { resolveMasteryThreshold } from "@/lib/tolerance/resolve-tolerance";
 import type { SpecConfig } from "@/lib/types/json-fields";
@@ -217,7 +218,7 @@ async function extractCurriculumMetadata(spec: any): Promise<CurriculumMetadata>
   }
 
   // Load contract to get required fields
-  const contract = await ContractRegistry.getContract('CURRICULUM_PROGRESS_V1');
+  const contract = await ContractRegistry.getContract(config.specs.curriculumProgressV1);
   const contractMetadata = contract?.metadata?.curriculum || {};
 
   // Validate all required fields are present

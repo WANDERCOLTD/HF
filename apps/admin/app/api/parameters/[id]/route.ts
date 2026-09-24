@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 /**
  * @api GET /api/parameters/:id
@@ -72,6 +73,12 @@ export async function GET(
  * @auth session
  * @tags parameters
  * @description Update a parameter's fields (React-Admin compatible). parameterId is immutable.
+ *   #1947 — auth tier raised from OPERATOR to SUPERADMIN. The body accepts
+ *   `definition`, `interpretationLow`, and `interpretationHigh` — HF-canonical
+ *   pedagogical IP (per epic #1946 "Foundation = Spec, Storage = DB"). Tenant
+ *   OPERATORs tune VALUES via the BehaviorTarget cascade; they do NOT mutate
+ *   parameter SEMANTICS. Pre-#1947, an OPERATOR could overwrite the canonical
+ *   spec's interpretation text.
  * @pathParam id string - Parameter UUID
  * @body name string - Display name
  * @body domainGroup string - Domain group
@@ -79,10 +86,11 @@ export async function GET(
  * @body scaleType string - Scale type
  * @body directionality string - Directionality
  * @body computedBy string - Computed by
- * @body definition string - Parameter definition
- * @body interpretationLow string - Low-score interpretation
- * @body interpretationHigh string - High-score interpretation
+ * @body definition string - Parameter definition (HF-canonical)
+ * @body interpretationLow string - Low-score interpretation (HF-canonical)
+ * @body interpretationHigh string - High-score interpretation (HF-canonical)
  * @response 200 Parameter
+ * @response 403 { error: "..." } when caller is below SUPERADMIN
  * @response 500 { error: "..." }
  */
 export async function PUT(
@@ -90,17 +98,28 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireAuth("OPERATOR");
+    // #1947 — SUPERADMIN required for canonical-spec writes. OPERATOR tier
+    // still reads via GET; cohort tuning happens via BehaviorTarget cascade,
+    // not by mutating the parameter row itself.
+    const authResult = await requireAuth("SUPERADMIN");
     if (isAuthError(authResult)) return authResult.error;
 
     const { id } = await params;
     const body = await request.json();
 
+    // #2031 follow-on — operator-supplied domainGroup MUST pass through
+    // the canonical resolver. Off-canonical input falls back to
+    // `behavior-core` (the catch-all canonical default per Group A in
+    // docs/decisions/2026-06-19-parameter-domain-group-mapping.md);
+    // schema requires this column non-null.
+    const canonicalDomainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: body.domainGroup }) ??
+      "behavior-core";
     const parameter = await prisma.parameter.update({
       where: { id },
       data: {
         name: body.name || null,
-        domainGroup: body.domainGroup || null,
+        domainGroup: canonicalDomainGroup,
         sectionId: body.sectionId || null,
         scaleType: body.scaleType || null,
         directionality: body.directionality || null,
@@ -139,9 +158,14 @@ export async function PUT(
  * @scope parameters:write
  * @auth session
  * @tags parameters
- * @description Delete a parameter permanently (React-Admin compatible)
+ * @description Delete a parameter permanently (React-Admin compatible).
+ *   #1947 — auth tier raised from OPERATOR to SUPERADMIN. Deleting a
+ *   canonical-spec parameter is a destructive IP action — only HF can.
+ *   Tenant operators who want to retire a parameter should request
+ *   deprecation via the canonical spec process.
  * @pathParam id string - Parameter UUID
  * @response 200 Parameter (the deleted record)
+ * @response 403 { error: "..." } when caller is below SUPERADMIN
  * @response 500 { error: "..." }
  */
 export async function DELETE(
@@ -149,7 +173,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireAuth("OPERATOR");
+    // #1947 — SUPERADMIN required. Canonical spec deletions are an HF
+    // action, not a tenant action.
+    const authResult = await requireAuth("SUPERADMIN");
     if (isAuthError(authResult)) return authResult.error;
 
     const { id } = await params;

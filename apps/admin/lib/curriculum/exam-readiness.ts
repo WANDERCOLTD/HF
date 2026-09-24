@@ -14,6 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import { config } from "@/lib/config";
 import { getCurriculumProgress, getActiveCurricula } from "./track-progress";
 
 // ============================================================================
@@ -33,7 +34,7 @@ export interface ExamReadinessResult {
   bestScore: number | null;
 }
 
-const CONTRACT_ID = "EXAM_READINESS_V1";
+const CONTRACT_ID = config.specs.examReadinessV1;
 const SCOPE = "EXAM_READINESS";
 
 // ============================================================================

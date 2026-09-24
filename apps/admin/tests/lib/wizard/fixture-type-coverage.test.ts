@@ -63,19 +63,49 @@ const FIXTURE_KEY_EXEMPT: Record<string, string> = {
     "module-scoped incomplete-attempt duration gate (sec). Type addition deferred to follow-on; sibling of minSpeakingSec.",
   scoringCriteria:
     "per-module whitelist of scoring criteria (e.g. [FC, LR, GRA, Pron]). Type addition deferred — pairs with Theme 6 segmentKey work.",
-  scoreReadoutMode:
-    "per-module score readout policy (on-screen / end-of-module-on-screen / aloud). Type addition deferred — paired with Mock Results screen.",
-  topicPool:
-    "module-scoped topic pool source reference (Part 1 / Part 3 question banks). Type addition deferred — pairs with cueCardPool semantics rework.",
+  // #2162 (this PR): scoreReadoutMode joined AuthoredModuleSettings with the
+  // typed ScoreReadoutMode union. Wizard parser now emits it through. Consumer
+  // wiring (Results screen + end-of-module readout) is the follow-on PR.
+  // Exempt entry removed; bump ratchet 4 → 3.
 };
 
 /** `AuthoredModuleSettings` type members deliberately not exercised by any
- *  fixture file. Empty at land time — every member is exercised by v2.3. */
-const TYPE_MEMBER_EXEMPT: Record<string, string> = {};
+ *  fixture file. */
+const TYPE_MEMBER_EXEMPT: Record<string, string> = {
+  pinnedCardPhaseScope:
+    "UX-C polish — optional phase-scope for pinned-card visibility. Consumer wired in PinnedCardSlot; fixture exercise deferred until per-course module catalogue picks defaults.",
+  // S7 (PR #2260) — per-StallType scaffold map landed as a new typed
+  // field on AuthoredModuleSettings paired with the
+  // `moduleScaffoldsByStallType` G8 contract. No course-ref fixture
+  // exercises it yet (the IELTS v2.3 fixture still uses the flat
+  // scaffoldPool). Add a fixture example when the runtime stall-detector
+  // consumer ships so the wizard projection carries the typed pool
+  // through.
+  scaffoldsByStallType:
+    "S7 follow-on — typed stall-pool fixture example lands with the runtime detector PR",
+  // S3 (PR #2260) — per-module LearnerShellCapabilities DISABLE-only
+  // override landed as a new typed field on AuthoredModuleSettings
+  // paired with the `moduleLearnerShellOverride` G8 contract. No
+  // course-ref fixture exercises it because operators set the patch
+  // via the Inspector when they need it (defaults cover every
+  // published course today).
+  learnerShell:
+    "S3 follow-on — operator-set per-module DISABLE-only patch; no canonical fixture exercises it because defaults cover every published course",
+};
 
 /** Pin current state; new additions fail CI until consciously bumped. */
-const EXPECTED_FIXTURE_KEY_EXEMPT_COUNT = 5;
-const EXPECTED_TYPE_MEMBER_EXEMPT_COUNT = 0;
+// #1932 (epic #1931 S0): dropped from 5 → 4 — `topicPool` joined
+// `AuthoredModuleSettings` with a full type + registry + consumer
+// + resolver wiring; it is no longer exempt.
+// #2162: dropped from 4 → 3 — `scoreReadoutMode` joined
+// `AuthoredModuleSettings` with the typed `ScoreReadoutMode` union.
+const EXPECTED_FIXTURE_KEY_EXEMPT_COUNT = 3;
+// UX-C polish: bumped 0 → 1 — `pinnedCardPhaseScope` added to type;
+// fixture exercise deferred.
+// S7 + S3 (PR #2260): bumped 1 → 3 — `scaffoldsByStallType` +
+// `learnerShell` added to type without a matching fixture exercise.
+// Reasons documented above.
+const EXPECTED_TYPE_MEMBER_EXEMPT_COUNT = 3;
 
 // ────────────────────────────────────────────────────────────────────
 // Parsers

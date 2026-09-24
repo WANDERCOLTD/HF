@@ -30,9 +30,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { PreviewLens } from "@/app/x/courses/[courseId]/_components/PreviewLens";
 import { JourneyInspectorPanel } from "@/components/journey-tab/JourneyInspectorPanel";
+import { PreviewLocatorHint } from "@/components/journey-tab/PreviewLocatorHint";
 import { CrossTabHintCard } from "@/components/shared/CrossTabHintCard";
 import { JourneySettingMutatorProvider } from "@/components/shared/preview-renderers/_journey-setting-context";
 import { DesignerShell } from "@/components/shared/designer-shell/DesignerShell";
+import { isBucketCrossCutting } from "@/lib/journey/bucket-relations";
 import type { CourseDetailTabId } from "@/lib/journey/buckets-by-tab";
 import type { JourneyMenuBucketId } from "@/lib/journey/setting-contracts";
 import { useCrossTabHint } from "@/lib/journey/use-cross-tab-hint";
@@ -121,12 +123,24 @@ export function CourseTeachingTab({
             onSelect={handleLhSelect}
           />
         }
+        canvasClassName={
+          isBucketCrossCutting(selectedId)
+            ? "hf-designer-canvas-dim"
+            : undefined
+        }
         canvas={
-          <PreviewLens
-            courseId={courseId}
-            onSelectSection={handlePreviewSelect}
-            suppressSidetray
-          />
+          <>
+            <PreviewLocatorHint
+              selectedBucketId={selectedId}
+              pickStripSection={null}
+              onSelectBucket={handleLhSelect}
+            />
+            <PreviewLens
+              courseId={courseId}
+              onSelectSection={handlePreviewSelect}
+              suppressSidetray
+            />
+          </>
         }
         inspector={
           crossTabHint ? (
@@ -136,7 +150,16 @@ export function CourseTeachingTab({
               onJump={jumpToOwningTab}
             />
           ) : (
-            <JourneyInspectorPanel selectedBucketId={selectedId} />
+            /* #2243 — Teaching tab is a tuning surface, not a per-module
+             * authoring surface (per project_modules_tab_tuner_not_authoring
+             * memory). Module-scoped contracts use array-keyed storagePaths
+             * that need a `selectedModuleId` arraySelector; Teaching tab
+             * can't supply one. Drop the module-scope subset; operators
+             * edit per-module settings in the Modules tab. */
+            <JourneyInspectorPanel
+              selectedBucketId={selectedId}
+              excludeModuleScope
+            />
           )
         }
       />

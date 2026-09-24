@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import { config } from "@/lib/config";
 
 /**
  * @api GET /api/admin/access-matrix
@@ -16,7 +17,7 @@ export async function GET() {
   const authResult = await requireAuth("ADMIN");
   if (isAuthError(authResult)) return authResult.error;
 
-  const contract = await ContractRegistry.getContract("ENTITY_ACCESS_V1");
+  const contract = await ContractRegistry.getContract(config.specs.entityAccessV1);
 
   if (!contract) {
     return NextResponse.json(

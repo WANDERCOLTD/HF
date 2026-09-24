@@ -16,16 +16,26 @@ import noVapiToolDefinitionsConst from "./eslint-rules/hf-voice/no-vapi-tool-def
 import noUndeclaredFieldRequire from "./eslint-rules/no-undeclared-field-require.mjs";
 import noModuleReadWithoutCourseStyleGuard from "./eslint-rules/no-module-read-without-course-style-guard.mjs";
 import noBareCallCreate from "./eslint-rules/no-bare-call-create.mjs";
+import noPiiInApplogMetadata from "./eslint-rules/no-pii-in-applog-metadata.mjs";
+import noBareCallerDelete from "./eslint-rules/no-bare-caller-delete.mjs";
 import noBareCallScoreWrite from "./eslint-rules/no-bare-call-score-write.mjs";
 import noOpsImportFromApi from "./eslint-rules/no-ops-import-from-api.mjs";
 import noSecretsInClient from "./eslint-rules/no-secrets-in-client.mjs";
 import noHardcodedSpecSlug from "./eslint-rules/no-hardcoded-spec-slug.mjs";
 import noBareStrategyKey from "./eslint-rules/no-bare-strategy-key.mjs";
+import noBareParameterId from "./eslint-rules/no-bare-parameter-id.mjs";
+import noBareParameterWrite from "./eslint-rules/no-bare-parameter-write.mjs";
+import noBareBehaviorTargetWrite from "./eslint-rules/no-bare-behavior-target-write.mjs";
 import noBucketlessJourneySetting from "./eslint-rules/no-bucketless-journey-setting.mjs";
 import noUnscopedCallerIdRoute from "./eslint-rules/no-unscoped-caller-id-route.mjs";
 import requireHtmlSafetyComment from "./eslint-rules/require-html-safety-comment.mjs";
 import requireTieredRedactor from "./eslint-rules/require-tiered-redactor.mjs";
 import requireAiScopeInCascadeZone from "./eslint-rules/require-ai-scope-in-cascade-zone.mjs";
+import noCustomerWriteToCanonicalInterpretation from "./eslint-rules/no-customer-write-to-canonical-interpretation.mjs";
+import noUntypedEnumWriteInWizard from "./eslint-rules/no-untyped-enum-write-in-wizard.mjs";
+import noHardcodedVoiceId from "./eslint-rules/no-hardcoded-voice-id.mjs";
+import noCourseSpecificMeasureQuery from "./eslint-rules/no-course-specific-measure-query.mjs";
+import noBareSpecIdentifier from "./eslint-rules/no-bare-spec-identifier.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -96,6 +106,12 @@ const eslintConfig = defineConfig([
       "hf-spec": {
         rules: {
           "no-direct-config-write": noDirectSpecConfigWrite,
+          // Epic #1984 — block customer-driven writes to spec-readonly
+          // Parameter fields (definition / interpretationHigh /
+          // interpretationLow). These are HF-canonical IP — only
+          // seeds, the registry generator, and migrations may write them.
+          "no-customer-write-to-canonical-interpretation":
+            noCustomerWriteToCanonicalInterpretation,
         },
       },
       // #854 / Story #855 — block AI tool executors from requesting
@@ -153,6 +169,11 @@ const eslintConfig = defineConfig([
         rules: {
           "no-vapi-column-ref": noVapiColumnRef,
           "no-vapi-tool-definitions-const": noVapiToolDefinitionsConst,
+          // #2184 — block bare provider-catalogue voice-ID literals
+          // (Deepgram Aura, Cartesia Sonic, …) in lib/ + app/ runtime
+          // code. Catalogue lives in `config.voice.defaults.<provider>.voiceId`.
+          // See `.claude/rules/no-hardcoded-voice-id.md`.
+          "no-hardcoded-voice-id": noHardcodedVoiceId,
         },
       },
       // #1078 — V6 wizard Phase 1 spike. Catches `has('typo')` against
@@ -162,6 +183,19 @@ const eslintConfig = defineConfig([
       "hf-wizard-v6": {
         rules: {
           "no-undeclared-field-require": noUndeclaredFieldRequire,
+        },
+      },
+      // #1995 — block `as string` casts on enum-bearing wizard config
+      // fields inside lib/chat/wizard-tool-executor/** and
+      // admin-tools.ts / admin-tool-handlers.ts. Forces the chat-tool
+      // merge paths to route through the runtime type guards in
+      // lib/content-trust/resolve-config.ts. Born of the live IELTS
+      // Speaking Practice incident on hf_sandbox 2026-06-18 where
+      // `teachingMode = "directive"` (interactionPattern value) reached
+      // the DB via a bare `as string` cast.
+      "hf-wizard": {
+        rules: {
+          "no-untyped-enum-write-in-wizard": noUntypedEnumWriteInWizard,
         },
       },
       // #1252 / #1259 — default-deny module reads. Any
@@ -178,6 +212,12 @@ const eslintConfig = defineConfig([
         rules: {
           "no-module-read-without-course-style-guard":
             noModuleReadWithoutCourseStyleGuard,
+          // #2183 — block course-specific literals (e.g. "IELTS-MEASURE-")
+          // in spec-dispatch Prisma filters + String-method calls inside
+          // app/api/calls/, lib/pipeline/, lib/measurement/. Forces
+          // course-agnostic dispatch by outputType / specRole / opt-in
+          // config flag per CHAIN-CONTRACTS.md.
+          "no-course-specific-measure-query": noCourseSpecificMeasureQuery,
         },
       },
       // #1333 + #1342 + #1344 — block bare `prisma.call.create` AND
@@ -191,6 +231,18 @@ const eslintConfig = defineConfig([
       // Defends the chain-contract pre-condition for Link 3
       // (CURRICULUM → CALL compose) and the Session-boundary invariants
       // in Link 3b.
+      "hf-privacy": {
+        rules: {
+          // #1926 — block literal PII-keyed objects in AppLog metadata
+          // writes. See `.claude/rules/data-retention.md` and
+          // CHAIN-CONTRACTS.md §6a I-PR3.
+          "no-pii-in-applog-metadata": noPiiInApplogMetadata,
+          // Block hand-rolled Caller delete chains — they drift from the
+          // schema and break GDPR erasure. See
+          // `.claude/rules/caller-delete-coverage.md` and §6a I-PR6.
+          "no-bare-caller-delete": noBareCallerDelete,
+        },
+      },
       "hf-call": {
         rules: {
           "no-bare-call-create": noBareCallCreate,
@@ -227,6 +279,13 @@ const eslintConfig = defineConfig([
       "hf-config": {
         rules: {
           "no-hardcoded-spec-slug": noHardcodedSpecSlug,
+          // #2182 — block bare spec-identifier literals (contract ids like
+          // SKILL_MEASURE_V1, MEASURE sentinel ids like PROSODY-SCORE-V1)
+          // outside the allow-list. Sibling to no-hardcoded-spec-slug:
+          // that catches the XXX-NNN AnalysisSpec slug shape; this catches
+          // the ContractRegistry.getContract(literal) argument shape AND
+          // the const-map shape ([A-Z_-]+_(V<n>|SPEC|ID)).
+          "no-bare-spec-identifier": noBareSpecIdentifier,
         },
       },
       // #1599 — Block bare string literals assigned to `progressStrategy`;
@@ -236,6 +295,20 @@ const eslintConfig = defineConfig([
       "hf-goals": {
         rules: {
           "no-bare-strategy-key": noBareStrategyKey,
+        },
+      },
+      // #1950 — block bare string literals referencing legacy parameter IDs
+      // renamed by S2 of epic #1946 to the BEH-* canonical convention.
+      // The alias resolver (#1949) handles READ-side fallback; this rule
+      // catches WRITE-side / literal-comparison drift so legacy ids don't
+      // re-enter via new code. Allow-list (in the rule): the registry seed,
+      // resolver, prisma seeds + migrations, scripts/generate-registry,
+      // docs/, and tests/.
+      "hf-registry": {
+        rules: {
+          "no-bare-parameter-id": noBareParameterId,
+          "no-bare-parameter-write": noBareParameterWrite,
+          "no-bare-behavior-target-write": noBareBehaviorTargetWrite,
         },
       },
       // #1738 Slice C3 — every JOURNEY_SETTINGS entry must carry a
@@ -274,6 +347,15 @@ const eslintConfig = defineConfig([
       "hf-playbook/no-direct-config-write": "error",
       "hf-domain/no-direct-onboarding-write": "error",
       "hf-spec/no-direct-config-write": "error",
+      // Epic #1984 — error severity from day 1. The boundary is
+      // declarative; the one pre-existing customer-driven write to a
+      // spec field (lib/wizard/apply-projection.ts:163 setting
+      // `definition` on Parameter.create) is repaired in the same PR
+      // by dropping the field — the canonical seed assigns it.
+      // Allow-list (in the rule): seeds, prisma migrations, the
+      // registry generator, and test files.
+      // See .claude/rules/spec-readonly-boundary.md.
+      "hf-spec/no-customer-write-to-canonical-interpretation": "error",
       "hf-recompose/no-ai-fanout-all": "error",
       "hf-ai-tools/no-forbidden-fields": "error",
       // Lands as `warn` so commits 4-6 land cleanly. Promoted to `error`
@@ -298,6 +380,12 @@ const eslintConfig = defineConfig([
       "hf-voice/no-vapi-column-ref": "error",
       "hf-voice/no-vapi-tool-definitions-const": "error",
       "hf-wizard-v6/no-undeclared-field-require": "error",
+      // #1995 — error severity from day 1. The pre-existing `as string`
+      // casts inside `_new-config-merge.ts` / `_reuse-config-merge.ts`
+      // are repaired in the same PR by routing through the runtime
+      // type guards (`isTeachingMode` / `isInteractionPattern` / …).
+      // See `.claude/rules/wizard-enum-coverage.md`.
+      "hf-wizard/no-untyped-enum-write-in-wizard": "error",
       // #1252 / #1259 — lands as `warn` initially to avoid blocking
       // pre-existing call-sites discovered during epic landing.
       // Promoted to `error` once full sweep complete + audit counter
@@ -310,6 +398,16 @@ const eslintConfig = defineConfig([
       // inline Call insert when needed) or add to the allow-list with a
       // documented bypass justification.
       "hf-call/no-bare-call-create": "error",
+
+      // #1926 (epic #1915 §6a I-PR3) — error severity from day 1. Allow-list
+      // covers lib/logger.ts (the canonical writer), lib/metering/meter-call.ts,
+      // tests/**, scripts/**, prisma/fixtures/**. Per-call-site escape via
+      // `// @piiRedacted` comment on the preceding line. Audit-confirmed
+      // sensitive keys: email, phone, transcript, name, value, promptPreview,
+      // responsePreview. See `.claude/rules/data-retention.md`.
+      "hf-privacy/no-pii-in-applog-metadata": "error",
+      "hf-privacy/no-bare-caller-delete": "error",
+
       // #1539 — error severity from day 1. Allow-list covers every
       // pre-existing legitimate write site (the chokepoint helper itself,
       // the drain script, the demo-reset / seed-transcripts admin
@@ -325,6 +423,35 @@ const eslintConfig = defineConfig([
       // `StrategyKey` enum fails CI. Allow-list (in the rule itself):
       // `lib/goals/strategies/registry.ts` (the alias map) + test files.
       "hf-goals/no-bare-strategy-key": "error",
+
+      // #1950 — error severity from day 1. The migration + registry
+      // rename + alias entries land in the same PR so no pre-existing
+      // offences in non-allow-listed paths remain. Allow-list (in the
+      // rule): `lib/registry/`, `prisma/seed`, `prisma/migrations/`,
+      // `scripts/generate-registry`, `docs/`, `docs-archive/`, and
+      // test files. Per-site escape: route external ids through
+      // `resolveParameterId` from `lib/registry/resolve.ts`.
+      "hf-registry/no-bare-parameter-id": "error",
+
+      // #2031 S1 — error severity from day 1. Allow-list covers every
+      // pre-existing legitimate write site (the 7 canonical admin routes
+      // enumerated in the epic + sibling admin seed routes + the wizard
+      // band-thresholds writer + seed scripts + tests). Any new write site
+      // must either route through `resolveCanonicalDomainGroup` (when
+      // writing `domainGroup`) or add to the allow-list with documented
+      // rationale. Closes the runtime-vs-CI gap exposed by #2029 + #2030.
+      "hf-registry/no-bare-parameter-write": "error",
+
+      // #2031 S2 — error severity from day 1. Allow-list covers the
+      // canonical writers (`writeBehaviorTarget`, the new
+      // `updateSystemBehaviorTargetForAdapt` for the ADAPT op,
+      // playbook compile-targets / new-version routes), the implicit
+      // helpers (`apply-projection`, `update-targets`, `agent-tuning`),
+      // and destructive-OK admin seed/reset routes (x/seed-*,
+      // x/create-domains). Closes the ops:880 ADAPT back-door surfaced
+      // by Track D of the #2031 audit — bare `prisma.behaviorTarget.
+      // updateMany` skipped clamp + whitelist + cascade-cache drop.
+      "hf-registry/no-bare-behavior-target-write": "error",
 
       // #1738 Slice C3 — error severity from day 1. No pre-existing
       // offences (registry-completeness vitest verified all 52 entries
@@ -387,6 +514,38 @@ const eslintConfig = defineConfig([
       // routed through 4 new config.specs.* getters (aggComprehension/Discussion/
       // Coaching/goalProgress). See docs/kb/guard-registry.md#guard-no-hardcoded-spec-slug.
       "hf-config/no-hardcoded-spec-slug": "error",
+
+      // #2184 — block bare provider-catalogue voice-ID literals in lib/ + app/
+      // runtime code. Lands at `warn` (single repaired site at land time —
+      // `lib/chat/admin-tool-handlers.ts:2861` → `config.voice.defaults.deepgram.voiceId`).
+      // Promotion to `error` in a follow-on PR once the codebase is verified clean.
+      // Sibling pattern: `lib/voice/default-provider.ts::DEFAULT_VOICE_PROVIDER_SLUG`
+      // (provider slug) — this rule extends to voice IDs WITHIN a catalogue.
+      // See `.claude/rules/no-hardcoded-voice-id.md`.
+      "hf-voice/no-hardcoded-voice-id": "warn",
+
+      // #2183 — error severity from day 1. The one remaining incumbent
+      // (`lib/pipeline/specs-loader.ts:431` per-Playbook kill-switch
+      // override scoped to IELTS-MEASURE-*) is refactored in the same PR
+      // by lifting the prefix to a named helper `coursePrefixForKillSwitch`
+      // and adding a per-site escape comment with #2158 rationale. Any
+      // new spec-dispatch site that hardcodes `IELTS-` / `CEFR-` / `TOEFL-`
+      // / `CIO_` etc. in a Prisma filter (`startsWith` / `endsWith` /
+      // `contains`) or String method (`.startsWith` / `.endsWith` /
+      // `.includes`) inside `app/api/calls/`, `lib/pipeline/`, or
+      // `lib/measurement/` fails CI. Per-site escape via
+      // `// hf-pipeline-disable-next-line no-course-specific-measure-query: <reason>`.
+      // See `.claude/rules/no-course-specific-measure-query.md`.
+      "hf-pipeline/no-course-specific-measure-query": "error",
+
+      // #2182 — error from day 1. Allow-list (in the rule): lib/config.ts,
+      // lib/registry/, prisma/seed*, prisma/migrations/, scripts/generate-registry,
+      // docs/, docs-archive/, eslint-rules/, tests/. The 3 incumbent offenders
+      // (`lib/pipeline/aggregate-runner.ts:184`, `lib/goals/track-progress.ts:132`,
+      // `lib/measurement/write-call-score.ts:174`) are repaired in the same PR
+      // (#2182) — clean sweep. Sibling to hf-config/no-hardcoded-spec-slug.
+      // See `.claude/rules/no-bare-spec-identifier.md`.
+      "hf-config/no-bare-spec-identifier": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
@@ -460,21 +619,27 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unsafe-function-type": "warn",
       "@typescript-eslint/no-require-imports": "warn",
       "@typescript-eslint/no-empty-object-type": "warn",
-      // react-hooks ratchet (#865 closeout):
-      // - 4 rules at "error" (rules-of-hooks, static-components, purity,
-      //   preserve-manual-memoization) — zero current violations after #876 + #894;
-      //   future regressions block CI.
-      // - Remaining rules stay "warn" — non-zero counts accepted as ratchet-locked
-      //   forward-compat debt; `.ratchet.json` (lint_warnings) only allows the count
-      //   to decrease over time. See #865 closeout for rationale.
+      // react-hooks ratchet (#865 closeout, partial demote 2026-06-19 per
+      // `.claude/rules/react-hooks-compiler-rules-warn.md`):
+      // - `rules-of-hooks` stays at "error" — classic React-Hooks rule, stable.
+      // - `purity` re-promoted to "error" 2026-06-19 after #2017 cleared the 6
+      //   incumbent violations.
+      // - `static-components` (12) + `preserve-manual-memoization` (34) remain
+      //   at "warn" — pay-down deferred per the rule file. The ratchet
+      //   (lint_warnings) freezes the count so regressions can't grow.
+      // History: PR #2016 demoted all 3 from "error" after 8/8 consecutive PRs
+      // (#1998-#2008) merged with this gate red. The original "zero current
+      // violations after #876 + #894" claim had drifted; 52 errors accumulated
+      // under the radar because lint exit 1 masked the ratchet step that
+      // followed.
       "react-hooks/exhaustive-deps": "warn",
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/refs": "warn",
       "react-hooks/immutability": "warn",
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/static-components": "error",
+      "react-hooks/static-components": "warn",
       "react-hooks/purity": "error",
-      "react-hooks/preserve-manual-memoization": "error",
+      "react-hooks/preserve-manual-memoization": "warn",
       "prefer-const": "warn",
       "@next/next/no-img-element": "warn",
       "@next/next/no-html-link-for-pages": "warn",

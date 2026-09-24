@@ -71,6 +71,23 @@ export interface OffboardingOutput {
    * active for this session.
    */
   moduleClosingLine: string | null;
+  /**
+   * #2054 (epic #2049 sub-epic E) — certificate-mention directive,
+   * emitted when `Playbook.config.offboardingCertificate === true`.
+   * The renderer (renderPromptSummary.ts) pushes this as an extra
+   * offboarding guidance line so the model mentions the upcoming
+   * completion certificate when wrapping up. `null` when the toggle
+   * is off (default).
+   */
+  certificateMention: string | null;
+  /**
+   * #2054 (epic #2049 sub-epic E) — true when this session was
+   * triggered as the offboarding session because `callNumber >=
+   * config.offboarding.triggerAfterCalls`. Distinct from
+   * `isFinalSession` (which is also true when modules / scheduler /
+   * sessionCount are exhausted). Surfaced for observability + tests.
+   */
+  triggeredByCallCount: boolean;
 }
 
 const DEFAULTS = {
@@ -132,8 +149,30 @@ registerTransform("computeOffboarding", async (
   const callNumber: number = (sharedState as { callNumber?: number }).callNumber ?? 1;
   const isFinalSession = !!sharedState.isFinalSession;
 
+  // #2054 — read offboarding-flow config (triggerAfterCalls + certificate)
+  // from the operator's playbook. `offboarding.triggerAfterCalls` adds a
+  // call-count gate that fires the offboarding flow even when the modules
+  // / scheduler haven't decided isFinalSession yet — the operator wanted
+  // the closing flow to start after N calls regardless.
+  const offboardingCfg = config.offboarding;
+  const triggerAfterCalls =
+    typeof offboardingCfg?.triggerAfterCalls === "number" && offboardingCfg.triggerAfterCalls > 0
+      ? offboardingCfg.triggerAfterCalls
+      : null;
+  const triggeredByCallCount =
+    triggerAfterCalls !== null && callNumber >= triggerAfterCalls;
+  // `certificateOn` reads `Playbook.config.offboardingCertificate` —
+  // a top-level boolean; when true, the transform emits a
+  // `certificateMention` directive that the renderer pushes into the
+  // offboarding section of the prompt.
+  const certificateOn = (config as { offboardingCertificate?: boolean }).offboardingCertificate === true;
+
   // Cadence gate.
-  if (cadence === "final_only" && !isFinalSession) return null;
+  // `final_only` fires when the modules/scheduler/budget say isFinalSession,
+  // OR when the operator-set `triggerAfterCalls` threshold is hit. The
+  // latter lets educators force the offboarding section on a fixed call
+  // index (G6 contract `offboardingTriggerAfterCalls`).
+  if (cadence === "final_only" && !isFinalSession && !triggeredByCallCount) return null;
   if (cadence === "every_session_with_data" && callNumber <= 1) return null;
 
   const includeModuleMastery = settings.includeModuleMastery ?? DEFAULTS.includeModuleMastery;
@@ -233,8 +272,20 @@ registerTransform("computeOffboarding", async (
   // null above and the closing line never renders.
   const moduleClosingLine = resolveModuleClosingLine(config, sharedState);
 
+  // #2054 — certificate-mention directive. When the operator turns on
+  // `Playbook.config.offboardingCertificate`, append a guidance line so
+  // the model brings up the upcoming completion certificate during the
+  // wrap-up. Kept generic — the operator sets the flag; the prompt
+  // mentions it; downstream certificate-issuance is out of scope here.
+  const certificateMention = certificateOn
+    ? "Mention that a completion certificate will be issued — invite the learner to anticipate it as a tangible record of what they've achieved."
+    : null;
+
   if (!hasAnyData) {
     const guidance = [...baseGuidance];
+    if (certificateMention) {
+      guidance.push("", certificateMention);
+    }
     if (moduleClosingLine) {
       guidance.push(
         "",
@@ -247,6 +298,8 @@ registerTransform("computeOffboarding", async (
       guidance,
       progressSummary: null,
       moduleClosingLine,
+      certificateMention,
+      triggeredByCallCount,
     };
   }
 
@@ -271,6 +324,9 @@ registerTransform("computeOffboarding", async (
   );
 
   const guidance = [...baseGuidance, ...dataLines];
+  if (certificateMention) {
+    guidance.push("", certificateMention);
+  }
   if (moduleClosingLine) {
     guidance.push(
       "",
@@ -284,6 +340,8 @@ registerTransform("computeOffboarding", async (
     guidance,
     progressSummary,
     moduleClosingLine,
+    certificateMention,
+    triggeredByCallCount,
   };
 });
 

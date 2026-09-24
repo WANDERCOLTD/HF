@@ -279,6 +279,83 @@ export async function GET(
     });
   }
 
+  // ── SP5-B extension — engine-scored CallerTarget entries ────────────────
+  // The BehaviorTarget cascade above only surfaces OPERATOR overrides
+  // (CALLER-scope BehaviorTarget rows explicitly set by the ADAPT stage
+  // or the operator). It misses the engine-derived reads written by
+  // SKILL-AGG-001 into CallerTarget.currentScore — which IS the header-doc
+  // promise ("`CallerTarget` overrides vs PLAYBOOK default", route.ts:14 +
+  // AdaptationsTab.tsx:29). Pre-fix a learner with 8 scored CallScores +
+  // fresh CallerTarget rows STILL rendered "PLAYBOOK × default 50%" for
+  // every row because the operator hadn't tuned a CALLER-scope BT.
+  //
+  // Fix: append CallerTarget rows (callsUsed > 0, currentScore non-null)
+  // as CALLER-scope entries. `overrideValue = currentScore` — the engine's
+  // current read of the learner. `defaultValue` remains the cascade target
+  // the engine is aiming toward (playbook > system > 0.5), so the "Default
+  // vs Now" bars read as "target vs current score" — which is the mental
+  // model an operator expects on this tab.
+  //
+  // Skip parameters already surfaced as CALLER-scope above so an
+  // operator-set target (BehaviorTarget CALLER-scope) takes precedence
+  // over the auto-derived score. Sort at the end for stable ordering.
+  const surfacedCallerScope = new Set(
+    whatWasAdapted
+      .filter((o) => o.sourceScope === "CALLER")
+      .map((o) => o.parameterId),
+  );
+  const scoredCallerTargets =
+    (await prisma.callerTarget.findMany({
+      where: {
+        callerId,
+        callsUsed: { gt: 0 },
+        currentScore: { not: null },
+      },
+      select: {
+        parameterId: true,
+        currentScore: true,
+        callsUsed: true,
+        confidence: true,
+        updatedAt: true,
+      },
+    })) ?? [];
+  const newScoreParams = scoredCallerTargets
+    .filter((ct) => !surfacedCallerScope.has(ct.parameterId))
+    .map((ct) => ct.parameterId);
+  if (newScoreParams.length > 0) {
+    const cascadeByParam = new Map(
+      effectiveTargets.map((e) => [e.parameterId, e]),
+    );
+    const scoredParamRows = await prisma.parameter.findMany({
+      where: { parameterId: { in: newScoreParams } },
+      select: { parameterId: true, name: true },
+    });
+    const scoredNameByParam = new Map(
+      scoredParamRows.map((p) => [p.parameterId, p.name]),
+    );
+    for (const ct of scoredCallerTargets) {
+      if (surfacedCallerScope.has(ct.parameterId)) continue;
+      if (ct.currentScore === null) continue; // defence-in-depth vs Prisma type
+      const cascade = cascadeByParam.get(ct.parameterId);
+      const defaultValue =
+        cascade?.playbookValue ?? cascade?.systemValue ?? 0.5;
+      whatWasAdapted.push({
+        parameterId: ct.parameterId,
+        parameterName:
+          scoredNameByParam.get(ct.parameterId) ?? ct.parameterId,
+        defaultValue,
+        overrideValue: ct.currentScore,
+        sourceScope: "CALLER",
+        confidence: ct.confidence,
+        callsApplied: ct.callsUsed,
+        updatedAt: ct.updatedAt.toISOString(),
+      });
+    }
+    whatWasAdapted.sort((a, b) =>
+      a.parameterId.localeCompare(b.parameterId),
+    );
+  }
+
   // ── SP5-C "Why" ─────────────────────────────────────────────────────────
   // Walk the most recent N calls with RewardScore.targetUpdatesApplied
   // populated; each update row produces one AdaptationReason entry.

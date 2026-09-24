@@ -115,6 +115,33 @@ export const config = {
       }
       return "dev-internal-fallback";
     },
+    /**
+     * GCP KMS key resource path for column-level envelope encryption.
+     * Format: `projects/<proj>/locations/<loc>/keyRings/<ring>/cryptoKeys/<key>`.
+     *
+     * REQUIRED in production (validated at boot below). In dev / test, when
+     * empty, the `kmsBypass` flag below flips on and `lib/crypto/envelope.ts`
+     * uses a sentinel passthrough mode — no real cipher applied, encrypt /
+     * decrypt are identity. The build-time guard fails the prod build if
+     * this is unset, so the bypass branch cannot ship.
+     *
+     * @see docs/decisions/2026-06-13-kms-envelope-encryption-prereq.md
+     * @see lib/crypto/envelope.ts
+     */
+    get kmsKekName(): string {
+      return process.env.KMS_KEK_NAME ?? "";
+    },
+    /**
+     * True when `kmsKekName` is unset AND we are not in production.
+     * `lib/crypto/envelope.ts` reads this to decide whether to short-circuit
+     * to the dev passthrough.
+     */
+    get kmsBypass(): boolean {
+      return (
+        !process.env.KMS_KEK_NAME &&
+        process.env.NEXT_PUBLIC_APP_ENV !== "PROD"
+      );
+    },
     /** CORS allowed origins (comma-separated). Empty = no cross-origin allowed. */
     get corsAllowedOrigins(): string[] {
       const origins = process.env.CORS_ALLOWED_ORIGINS;
@@ -423,6 +450,56 @@ export const config = {
     },
 
     /**
+     * Behavior-aggregation spec (default: BEH-AGG-001)
+     * Single AGGREGATE spec with 9 domain-grouped sections (companion,
+     * personality, supervision, engagement, curriculum, learning,
+     * reinforcement, onboarding, core-style). Born of #1967 M2 closing
+     * the link-8 cascade-feedback loop for 70 measured BEH-* params.
+     * Read by `quickstart.ts` _learning_guidance via scope filter (not
+     * by per-key hardcoding) — surfaces rolled-up behavior_profile:*
+     * signals into the composed prompt.
+     * Can be overridden via BEH_AGG_SPEC_SLUG env var.
+     */
+    get aggBehavior(): string {
+      return optional("BEH_AGG_SPEC_SLUG", "BEH-AGG-001");
+    },
+
+    /**
+     * Cognitive Activation MEASURE spec (default: CA-001-cognitive-activation)
+     * Source of the CallScore rows that BEH-AGG-001 rolls up into the
+     * `behavior_profile:engagement:cognitive_activation` /
+     * `:conversational_dominance` / `:tone_assertiveness` namespaces. Read by the
+     * sub-epic #2086 engagement-targets manifest (lib/pipeline/engagement-targets-manifest.ts).
+     * Can be overridden via CA_001_SPEC_SLUG env var.
+     */
+    get cognitiveActivation(): string {
+      return optional("CA_001_SPEC_SLUG", "CA-001-cognitive-activation");
+    },
+
+    /**
+     * Engagement Adaptation spec (default: ADAPT-ENG-001-engagement-adaptation)
+     * The ADAPT spec that adapt-runner consumes for the 13 engagement+onboarding
+     * targets wired by sub-epic #2086 (S4 of #2078). Also self-measures its own
+     * fidelity (BEH-CALL-FREQUENCY-ADAPTATION etc.) — see the engagement section
+     * of BEH-AGG-001 for the roll-up keys.
+     * Can be overridden via ADAPT_ENG_SPEC_SLUG env var.
+     */
+    get adaptEng(): string {
+      return optional("ADAPT_ENG_SPEC_SLUG", "ADAPT-ENG-001-engagement-adaptation");
+    },
+
+    /**
+     * Caller Onboarding MEASURE spec (default: INIT-001-caller-onboarding)
+     * Source of the one-shot onboarding-quality scores rolled up by BEH-AGG-001's
+     * onboarding section. Read by the sub-epic #2086 engagement-targets manifest
+     * for the 3 onboarding-quality parameter bindings.
+     * Can be overridden via INIT_001_SPEC_SLUG env var.
+     */
+    get callerOnboarding(): string {
+      return optional("INIT_001_SPEC_SLUG", "INIT-001-caller-onboarding");
+    },
+
+    /**
      * Default Archetype Spec (default: TUT-001)
      * The base archetype used when scaffolding new domain overlays.
      * Can be overridden via DEFAULT_ARCHETYPE_SLUG env var.
@@ -696,6 +773,88 @@ export const config = {
     get sessionTypes(): string {
       return optional("SESSION_TYPES_CONTRACT_SLUG", "SESSION_TYPES_V1");
     },
+
+    /**
+     * SKILL_MEASURE_V1 DataContract identifier (default: SKILL_MEASURE_V1).
+     * Carries tuned `emaHalfLifeDays`, `minCallsToFull`, `thresholds`, and
+     * `tierBands` used by the SKILL_AGG aggregation pipeline + per-LO
+     * tier-mapping resolution. Read at runtime by
+     * `lib/pipeline/aggregate-runner.ts` and `lib/goals/track-progress.ts`.
+     * Adopted #2182 — bare `ContractRegistry.getContract("SKILL_MEASURE_V1")`
+     * literals are blocked by `hf-config/no-bare-spec-identifier`. Override
+     * via SKILL_MEASURE_V1_CONTRACT_ID env var.
+     */
+    get skillMeasureV1(): string {
+      return optional("SKILL_MEASURE_V1_CONTRACT_ID", "SKILL_MEASURE_V1");
+    },
+
+    /**
+     * PROSODY-SCORE-V1 measurement-sentinel AnalysisSpec id
+     * (default: PROSODY-SCORE-V1). The seeded sentinel row that the
+     * PROSODY adapter writes against when no IELTS/PROSODY analysis
+     * spec is linked to the parameter. Read by
+     * `lib/measurement/write-call-score.ts::MEASUREMENT_SENTINEL_SPEC_IDS`.
+     * Adopted #2182 — bare `"PROSODY-SCORE-V1"` literals are blocked
+     * by `hf-config/no-bare-spec-identifier`. Override via
+     * PROSODY_SCORE_V1_SPEC_ID env var.
+     */
+    get prosodyScoreV1(): string {
+      return optional("PROSODY_SCORE_V1_SPEC_ID", "PROSODY-SCORE-V1");
+    },
+
+    /**
+     * MOCK-MEASURE-V1 measurement-sentinel AnalysisSpec id
+     * (default: MOCK-MEASURE-V1). The seeded sentinel row used by the
+     * `engine === "mock"` pipeline branch. Read by
+     * `lib/measurement/write-call-score.ts::MEASUREMENT_SENTINEL_SPEC_IDS`.
+     * Adopted #2182. Override via MOCK_MEASURE_V1_SPEC_ID env var.
+     */
+    get mockMeasureV1(): string {
+      return optional("MOCK_MEASURE_V1_SPEC_ID", "MOCK-MEASURE-V1");
+    },
+
+    /**
+     * ADAPT-DELTA-V1 measurement-sentinel AnalysisSpec id
+     * (default: ADAPT-DELTA-V1). The seeded sentinel row that ADAPT
+     * delta scores (`<parameterId>-DELTA` rows derived from
+     * current - previous) attribute against when no parent spec
+     * attribution exists. Read by
+     * `lib/measurement/write-call-score.ts::MEASUREMENT_SENTINEL_SPEC_IDS`.
+     * Adopted #2182. Override via ADAPT_DELTA_V1_SPEC_ID env var.
+     */
+    get adaptDeltaV1(): string {
+      return optional("ADAPT_DELTA_V1_SPEC_ID", "ADAPT-DELTA-V1");
+    },
+
+    /**
+     * ENTITY_ACCESS_V1 DataContract identifier (default: ENTITY_ACCESS_V1).
+     * Carries the entity-access policy matrix consumed by
+     * `lib/access-control.ts::checkEntityAccess` and the admin access-
+     * matrix routes. Adopted #2182. Override via
+     * ENTITY_ACCESS_V1_CONTRACT_ID env var.
+     */
+    get entityAccessV1(): string {
+      return optional("ENTITY_ACCESS_V1_CONTRACT_ID", "ENTITY_ACCESS_V1");
+    },
+
+    /**
+     * EXAM_READINESS_V1 DataContract identifier (default: EXAM_READINESS_V1).
+     * Read by `lib/curriculum/exam-readiness.ts`. Adopted #2182. Override
+     * via EXAM_READINESS_V1_CONTRACT_ID env var.
+     */
+    get examReadinessV1(): string {
+      return optional("EXAM_READINESS_V1_CONTRACT_ID", "EXAM_READINESS_V1");
+    },
+
+    /**
+     * CURRICULUM_PROGRESS_V1 DataContract identifier
+     * (default: CURRICULUM_PROGRESS_V1). Read by
+     * `lib/prompt/compose-content-section.ts`. Adopted #2182.
+     * Override via CURRICULUM_PROGRESS_V1_CONTRACT_ID env var.
+     */
+    get curriculumProgressV1(): string {
+      return optional("CURRICULUM_PROGRESS_V1_CONTRACT_ID", "CURRICULUM_PROGRESS_V1");
+    },
   },
 
   // ---------------------------------------------------------------------------
@@ -820,6 +979,26 @@ export const config = {
     /** OpenAI Whisper model for speech-to-text */
     get whisperModel(): string {
       return optional("VOICE_WHISPER_MODEL", "whisper-1");
+    },
+    /**
+     * Provider-catalogue voice-ID defaults (#2184).
+     *
+     * Used as the last-resort fallback when neither `Playbook.config.voice.voiceId`
+     * nor `VoiceProvider.config.voiceId` is set. Each entry is keyed by the
+     * provider's catalogue (Deepgram Aura, future Cartesia Sonic, …) so a
+     * catalogue-side rename surfaces as a config decision rather than a silent
+     * synthesis break.
+     *
+     * Companion rule: `eslint-rules/no-hardcoded-voice-id.mjs` blocks bare
+     * voice-ID literals outside `lib/voice/**` + this file. The provider regex
+     * registry inside the rule mirrors the providers covered here.
+     */
+    defaults: {
+      deepgram: {
+        get voiceId(): string {
+          return optional("VOICE_DEFAULT_DEEPGRAM_VOICE_ID", "aura-asteria-en");
+        },
+      },
     },
   },
 
@@ -1039,6 +1218,22 @@ export function validateConfig(): void {
   // Check internal API secret in production
   if (config.app.isProduction && !process.env.INTERNAL_API_SECRET) {
     errors.push("INTERNAL_API_SECRET is required in production (generate with: openssl rand -hex 32)");
+  }
+
+  // #1977 — KMS substrate prod-safety guard. If we ship to prod without
+  // KMS_KEK_NAME, the envelope-encryption bypass mode would silently
+  // store plaintext in the ciphertext column. Fail-closed at boot.
+  if (
+    process.env.NEXT_PUBLIC_APP_ENV === "PROD" &&
+    !process.env.KMS_KEK_NAME
+  ) {
+    errors.push(
+      "KMS_KEK_NAME is required when NEXT_PUBLIC_APP_ENV=PROD. " +
+        "Without it, lib/crypto/envelope.ts falls back to a passthrough mode " +
+        "that stores plaintext in the *_ciphertext column. " +
+        "Provision a GCP KMS keyring per docs/decisions/2026-06-13-kms-envelope-encryption-prereq.md " +
+        "and set this env var to the resource path."
+    );
   }
 
   // Warn if no AI keys

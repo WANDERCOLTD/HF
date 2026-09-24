@@ -240,46 +240,59 @@ describe("ModuleInspectorPanel — P3d appliesTo filter (#1850)", () => {
     ] as any,
   } as PlaybookConfig;
 
-  /** The 3 exam-only G8 entries the brief calls out. */
-  const EXAM_ONLY_IDS = [
-    "moduleCueCardPool",
-    "moduleScheduledCues",
-    "moduleFirstTimeOrientationLine",
-  ] as const;
-
-  /** All 8 G8 entries — used to assert show-don't-hide. */
-  const ALL_G8_IDS = [
+  // #2205 (U4 of #2185) — the Inspector now dispatches per
+  // AuthoredModuleMode. P3d's "show-don't-hide every G8 entry" promise
+  // narrows to "show every G8 entry RELEVANT to this mode's variant":
+  // a tutor-mode module never needed exam-only knobs like
+  // moduleScheduledCues / moduleSilentMode. The exam-shape-relevance
+  // gate still fires WITHIN the variant's contract set — the cue-card
+  // pool is in the tutor variant (some tutor-shaped courses use one)
+  // but renders out-of-shape on a non-exam course because the
+  // contract's `appliesTo` is `["exam"]`.
+  //
+  // The tutor variant's contracts that have `appliesTo: ["exam"]` are
+  // the cue-card pool + first-time orientation line. Both render
+  // out-of-shape on a non-exam course; the rest are active.
+  const TUTOR_VARIANT_RENDERED_IDS = [
     "moduleQuestionTarget",
     "moduleMinSpeakingSec",
     "moduleCueCardPool",
+    "moduleTopicPool",
     "moduleClosingLine",
     "moduleFirstTimeOrientationLine",
-    "moduleScheduledCues",
     "moduleScaffoldPool",
-    "moduleProfileFieldsToCapture",
   ] as const;
 
-  it("on a non-exam structured course, the 3 exam-only G8 entries render as out-of-shape", () => {
+  /** Tutor-variant G8 entries that carry `appliesTo: ["exam"]` and so
+   *  render out-of-shape on a non-exam course. */
+  const TUTOR_EXAM_ONLY_IDS = [
+    "moduleCueCardPool",
+    "moduleFirstTimeOrientationLine",
+  ] as const;
+
+  it("on a non-exam structured course (tutor mode), the exam-only G8 entries in the tutor variant render as out-of-shape", () => {
     render(
       <ModuleInspectorPanel
         courseId="course-1"
         selectedModuleId="m1"
         selectedModuleLabel="Module 1"
+        selectedModuleMode="tutor"
         settings={null}
         playbookConfig={STRUCTURED_NON_EXAM}
       />,
     );
 
-    for (const id of EXAM_ONLY_IDS) {
+    for (const id of TUTOR_EXAM_ONLY_IDS) {
       const row = screen.getByTestId(`hf-module-inspector-row-${id}`);
       expect(row.getAttribute("data-relevance-state")).toBe("out-of-shape");
       // RelevanceWrapper emits a wrapper with data-state="out-of-shape"
       expect(row.querySelector('[data-state="out-of-shape"]')).toBeTruthy();
     }
 
-    // The other 5 entries render active (no overlay)
-    const activeIds = ALL_G8_IDS.filter(
-      (id) => !EXAM_ONLY_IDS.includes(id as (typeof EXAM_ONLY_IDS)[number]),
+    // The other tutor-variant entries render active (no overlay)
+    const activeIds = TUTOR_VARIANT_RENDERED_IDS.filter(
+      (id) =>
+        !TUTOR_EXAM_ONLY_IDS.includes(id as (typeof TUTOR_EXAM_ONLY_IDS)[number]),
     );
     for (const id of activeIds) {
       const row = screen.getByTestId(`hf-module-inspector-row-${id}`);
@@ -287,37 +300,43 @@ describe("ModuleInspectorPanel — P3d appliesTo filter (#1850)", () => {
     }
   });
 
-  it("on an exam course, all 8 G8 entries render as editable (active)", () => {
+  it("on an exam course (tutor mode), every tutor-variant G8 entry renders as editable (active)", () => {
     render(
       <ModuleInspectorPanel
         courseId="course-1"
         selectedModuleId="p1"
         selectedModuleLabel="Part 1"
+        selectedModuleMode="tutor"
         settings={null}
         playbookConfig={EXAM}
       />,
     );
 
-    for (const id of ALL_G8_IDS) {
+    for (const id of TUTOR_VARIANT_RENDERED_IDS) {
       const row = screen.getByTestId(`hf-module-inspector-row-${id}`);
       expect(row.getAttribute("data-relevance-state")).toBe("active");
       expect(row.querySelector('[data-state="out-of-shape"]')).toBeNull();
     }
   });
 
-  it("show-don't-hide: every G8 entry is in the DOM regardless of course shape", () => {
-    // Render on a non-exam course where 3 are out-of-shape.
+  it("show-don't-hide WITHIN the variant: every tutor-variant G8 entry is in the DOM regardless of course shape", () => {
+    // Render on a non-exam course where 2 are out-of-shape.
     render(
       <ModuleInspectorPanel
         courseId="course-1"
         selectedModuleId="m1"
         selectedModuleLabel="Module 1"
+        selectedModuleMode="tutor"
         settings={null}
         playbookConfig={STRUCTURED_NON_EXAM}
       />,
     );
-    // All 8 rows are present — the out-of-shape ones are wrapped, not hidden.
-    for (const id of ALL_G8_IDS) {
+    // All tutor-variant rows are present — the out-of-shape ones are
+    // wrapped, not hidden. Per-mode variants legitimately omit knobs
+    // outside their scope (exam-only knobs like moduleSilentMode are
+    // surfaced by the examiner / mock-exam variants, not the tutor
+    // variant — that's the whole point of #2205).
+    for (const id of TUTOR_VARIANT_RENDERED_IDS) {
       expect(
         screen.getByTestId(`hf-module-inspector-row-${id}`),
       ).toBeInTheDocument();

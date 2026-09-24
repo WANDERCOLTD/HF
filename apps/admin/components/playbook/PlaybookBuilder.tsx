@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useIsOperatorOrAbove } from "@/hooks/useIsOperatorOrAbove";
@@ -275,6 +275,11 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
   const [loadingSpecId, setLoadingSpecId] = useState<string | null>(null);
   const [expandedTriggers, setExpandedTriggers] = useState<Set<string>>(new Set());
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
+
+  // Monotonic counter for client-side temp IDs assigned to newly-added palette
+  // items. Replaces `Date.now()` (impure during render per react-hooks/purity).
+  // Refs are React's escape hatch from purity. (#2017)
+  const tempItemIdCounter = useRef(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1300,7 +1305,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
       }
 
       newItem = {
-        id: `temp-${Date.now()}`,
+        id: `temp-${++tempItemIdCounter.current}`,
         itemType: "SPEC",
         specId: id,
         promptTemplateId: null,
@@ -1320,7 +1325,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
       }
 
       newItem = {
-        id: `temp-${Date.now()}`,
+        id: `temp-${++tempItemIdCounter.current}`,
         itemType: "PROMPT_TEMPLATE",
         specId: null,
         promptTemplateId: id,

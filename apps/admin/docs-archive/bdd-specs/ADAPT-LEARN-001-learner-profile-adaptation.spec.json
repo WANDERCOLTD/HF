@@ -428,6 +428,384 @@
           }
         ]
       }
+    },
+    {
+      "id": "adapt_to_vark_modality",
+      "name": "Adapt to VARK Modality",
+      "description": "Wire VARK-modality + multimodal adaptation parameters based on the learner-profile learningStyle key. Each branch matches the established visual/reading/auditory/kinesthetic values; the adapt-runner writes CallerTarget rows per action.",
+      "section": "modality_adaptation",
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "learningStyle",
+              "value": "visual"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-DIAGRAM-LANGUAGE",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Visual learners benefit from diagram / spatial language"
+              },
+              {
+                "targetParameter": "BEH-IMAGERY-DENSITY",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Visual learners benefit from vivid mental imagery"
+              },
+              {
+                "targetParameter": "BEH-MODALITY-CONSISTENCY",
+                "adjustment": "set",
+                "value": 0.8,
+                "rationale": "Visual learners benefit from consistent visual modality"
+              },
+              {
+                "targetParameter": "BEH-MODALITY-VARIETY",
+                "adjustment": "set",
+                "value": 0.4,
+                "rationale": "Visual learners prefer focused single-modality teaching"
+              },
+              {
+                "targetParameter": "VARK-PROFILE",
+                "adjustment": "set",
+                "value": 0.25,
+                "rationale": "Visual learner profile (VARK low quartile = visual-dominant)"
+              },
+              {
+                "targetParameter": "BEH-MULTIMODAL-ADAPTATION",
+                "adjustment": "set",
+                "value": 0.3,
+                "rationale": "Visual learners benefit from less multimodal switching"
+              },
+              {
+                "targetParameter": "BEH-READING-WRITING-ADAPTATION",
+                "adjustment": "set",
+                "value": 0.3,
+                "rationale": "Visual learners are less reading/writing oriented"
+              },
+              {
+                "targetParameter": "BEH-APPROACH-SWITCHING",
+                "adjustment": "set",
+                "value": 0.3,
+                "rationale": "Visual learners benefit from stable single approach"
+              },
+              {
+                "targetParameter": "BEH-ABSTRACT-OK",
+                "adjustment": "set",
+                "value": 0.3,
+                "rationale": "Visual learners prefer concrete over abstract"
+              },
+              {
+                "targetParameter": "BEH-AGGREGATE-PROFILE",
+                "adjustment": "set",
+                "value": 0.7,
+                "rationale": "Visual learners benefit from aggregated profile signals"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "learningStyle",
+              "value": "reading"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-READING-WRITING-ADAPTATION",
+                "adjustment": "set",
+                "value": 0.9,
+                "rationale": "Reading learners benefit from reading/writing modality"
+              },
+              {
+                "targetParameter": "VARK-PROFILE",
+                "adjustment": "set",
+                "value": 0.75,
+                "rationale": "Reading/Writing learner profile (VARK high quartile)"
+              },
+              {
+                "targetParameter": "BEH-VERBAL-ELABORATION",
+                "adjustment": "set",
+                "value": 0.8,
+                "rationale": "Reading learners benefit from elaborated explanations"
+              },
+              {
+                "targetParameter": "BEH-MULTIMODAL-ADAPTATION",
+                "adjustment": "set",
+                "value": 0.5,
+                "rationale": "Reading learners are neutral on multimodal switching"
+              },
+              {
+                "targetParameter": "BEH-ABSTRACT-OK",
+                "adjustment": "set",
+                "value": 0.75,
+                "rationale": "Reading learners are comfortable with abstraction"
+              },
+              {
+                "targetParameter": "BEH-APPROACH-SWITCHING",
+                "adjustment": "set",
+                "value": 0.5,
+                "rationale": "Reading learners tolerate moderate approach switching"
+              },
+              {
+                "targetParameter": "BEH-MODALITY-CONSISTENCY",
+                "adjustment": "set",
+                "value": 0.6,
+                "rationale": "Reading learners benefit from moderately consistent modality"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "learningStyle",
+              "value": "kinesthetic"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-PRACTICE-EXERCISES",
+                "adjustment": "set",
+                "value": 0.9,
+                "rationale": "Kinesthetic learners benefit from hands-on practice exercises"
+              },
+              {
+                "targetParameter": "VARK-PROFILE",
+                "adjustment": "set",
+                "value": 0.5,
+                "rationale": "Kinesthetic learner profile (VARK mid quartile)"
+              },
+              {
+                "targetParameter": "BEH-MODALITY-VARIETY",
+                "adjustment": "set",
+                "value": 0.8,
+                "rationale": "Kinesthetic learners benefit from varied modality"
+              },
+              {
+                "targetParameter": "BEH-MULTIMODAL-ADAPTATION",
+                "adjustment": "set",
+                "value": 0.75,
+                "rationale": "Kinesthetic learners benefit from multimodal switching"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "learningStyle",
+              "value": "auditory"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-VERBAL-ELABORATION",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Auditory learners benefit from verbal elaboration"
+              },
+              {
+                "targetParameter": "VARK-PROFILE",
+                "adjustment": "set",
+                "value": 0.4,
+                "rationale": "Auditory learner profile (VARK lower-mid quartile)"
+              },
+              {
+                "targetParameter": "BEH-READING-WRITING-ADAPTATION",
+                "adjustment": "set",
+                "value": 0.3,
+                "rationale": "Auditory learners are less reading/writing oriented"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "adapt_to_interaction_extensions",
+      "name": "Adapt to Interaction Extensions",
+      "description": "Phase B extension wiring interaction-shape parameters (engagement prompts, response length, adapt-to-feedback / question signals) into ADAPT-LEARN-001. Branches cover interactionStyle / feedbackStyle / questionFrequency learner profile keys.",
+      "section": "interaction_adaptation",
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "interactionStyle",
+              "value": "conversational"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ENGAGEMENT-PROMPTS",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Conversational learners welcome engagement prompts"
+              },
+              {
+                "targetParameter": "BEH-ENGAGEMENT-WITH-EXAMPLES",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Conversational learners benefit from example-driven engagement"
+              },
+              {
+                "targetParameter": "BEH-APPROACH-SWITCHING",
+                "adjustment": "set",
+                "value": 0.6,
+                "rationale": "Conversational learners tolerate approach switching"
+              },
+              {
+                "targetParameter": "BEH-RESPONSE-LENGTH-PREFERENCE",
+                "adjustment": "set",
+                "value": 0.65,
+                "rationale": "Conversational learners prefer moderately longer responses"
+              },
+              {
+                "targetParameter": "BEH-ADAPT-TO-INTERACTION-STYLE",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Conversational interaction style sets adapt-to-interaction-style signal"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "interactionStyle",
+              "value": "direct"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ENGAGEMENT-PROMPTS",
+                "adjustment": "set",
+                "value": 0.2,
+                "rationale": "Direct learners do not want engagement prompts"
+              },
+              {
+                "targetParameter": "BEH-RESPONSE-LENGTH-PREFERENCE",
+                "adjustment": "set",
+                "value": 0.3,
+                "rationale": "Direct learners prefer short, focused responses"
+              },
+              {
+                "targetParameter": "BEH-APPROACH-SWITCHING",
+                "adjustment": "set",
+                "value": 0.2,
+                "rationale": "Direct learners prefer a stable single approach"
+              },
+              {
+                "targetParameter": "BEH-ADAPT-TO-INTERACTION-STYLE",
+                "adjustment": "set",
+                "value": 0.4,
+                "rationale": "Direct interaction style sets adapt-to-interaction-style signal"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "interactionStyle",
+              "value": "guided"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ENGAGEMENT-PROMPTS",
+                "adjustment": "set",
+                "value": 0.6,
+                "rationale": "Guided learners benefit from moderate engagement prompts"
+              },
+              {
+                "targetParameter": "BEH-ENGAGEMENT-WITH-EXAMPLES",
+                "adjustment": "set",
+                "value": 0.7,
+                "rationale": "Guided learners benefit from worked examples in engagement"
+              },
+              {
+                "targetParameter": "BEH-RESPONSE-LENGTH-PREFERENCE",
+                "adjustment": "set",
+                "value": 0.6,
+                "rationale": "Guided learners prefer moderate response length"
+              },
+              {
+                "targetParameter": "BEH-ADAPT-TO-INTERACTION-STYLE",
+                "adjustment": "set",
+                "value": 0.7,
+                "rationale": "Guided interaction style sets adapt-to-interaction-style signal"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "feedbackStyle",
+              "value": "detailed"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ADAPT-TO-FEEDBACK-STYLE",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Detailed-feedback learners benefit from rich adapt-to-feedback signal"
+              },
+              {
+                "targetParameter": "BEH-RESPONSE-LENGTH-PREFERENCE",
+                "adjustment": "set",
+                "value": 0.8,
+                "rationale": "Detailed-feedback learners prefer longer responses"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "feedbackStyle",
+              "value": "summarized"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ADAPT-TO-FEEDBACK-STYLE",
+                "adjustment": "set",
+                "value": 0.35,
+                "rationale": "Summary-feedback learners prefer condensed adapt-to-feedback signal"
+              },
+              {
+                "targetParameter": "BEH-RESPONSE-LENGTH-PREFERENCE",
+                "adjustment": "set",
+                "value": 0.3,
+                "rationale": "Summary-feedback learners prefer short responses"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "questionFrequency",
+              "value": "frequent"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ADAPT-TO-QUESTION-FREQUENCY",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Frequent-questioners benefit from high adapt-to-question signal"
+              },
+              {
+                "targetParameter": "BEH-QUESTION-ASKING-RATE",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Frequent-questioners benefit from matched higher tutor question rate"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "questionFrequency",
+              "value": "rare"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-ADAPT-TO-QUESTION-FREQUENCY",
+                "adjustment": "set",
+                "value": 0.25,
+                "rationale": "Rare-questioners benefit from low adapt-to-question signal"
+              },
+              {
+                "targetParameter": "BEH-QUESTION-ASKING-RATE",
+                "adjustment": "set",
+                "value": 0.3,
+                "rationale": "Rare-questioners benefit from matched lower tutor question rate"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "config": {

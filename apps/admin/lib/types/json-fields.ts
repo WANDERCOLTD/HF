@@ -212,8 +212,14 @@ export const DEFAULT_NPS_CONFIG: NpsConfig = {
  * (Split implemented in #222; field accepted here so resolver is forward-compatible.)
  */
 export interface IntakeConfig {
-  goals: { enabled: boolean };
-  aboutYou: { enabled: boolean };
+  /** Goals question. `question` overrides the hardcoded default; absent
+   *  → fall through to the canonical "What would you most like to get
+   *  out of this course?". @bucket A_intake */
+  goals: { enabled: boolean; question?: string };
+  /** About-you confidence prompt. `question` overrides the hardcoded
+   *  default; absent → "On a scale of 1–5, how confident do you feel
+   *  about this topic?". @bucket A_intake */
+  aboutYou: { enabled: boolean; question?: string };
   knowledgeCheck: {
     enabled: boolean;
     deliveryMode?: "mcq" | "socratic";
@@ -409,13 +415,45 @@ export interface PlaybookConfig {
    * (Phase 2, follow-on).
    */
   aiOverrides?: AIOverridesMap;
+  /**
+   * Story #2158 (epic #2135 follow-on) — per-course AI measurement
+   * overrides. Today carries a single kill-switch:
+   *
+   *   - `disableLlmIeltsScoring` (default false): when true, the
+   *     IELTS-MEASURE-001 AnalysisSpec is filtered OUT for this course
+   *     even when `filterByBehaviorTargetParams` would otherwise run it
+   *     (i.e. operator has IELTS skill BehaviorTargets on the playbook).
+   *     Use to disable LLM-judged IELTS scoring on a course-by-course
+   *     basis without re-engineering the BehaviorTargets.
+   *
+   * Read by `lib/pipeline/specs-loader.ts::filterByBehaviorTargetParams`
+   * after the BehaviorTarget-presence check passes. Surfaced in the
+   * Course Skills tab → Rubric Calibration lens → "AI Measurement
+   * Method" card and a page-header pill on IELTS-shaped courses.
+   * Protected by the `JourneySettingContract`
+   * `aiMeasurementDisableLlmIeltsScoring` (G4 / I_scoring bucket).
+   *
+   * @bucket Course parameter — operator-tunable on the Skills tab.
+   */
+  aiMeasurement?: {
+    /**
+     * When true, the IELTS LLM-judged MEASURE spec (IELTS-MEASURE-001)
+     * is filtered OUT for this course. Default false.
+     */
+    disableLlmIeltsScoring?: boolean;
+  };
   onboardingFlowPhases?: OnboardingFlowPhases;
   physicalMaterials?: string;
   audience?: string;
   constraints?: string[]; // teacher-level "NEVER do this" pedagogical anti-patterns
   // Identity axes (stored by course-setup wizard)
-  interactionPattern?: string; // HOW: "socratic" | "directive" | "advisory" | "coaching" | ...
-  teachingMode?: string; // WHAT: "recall" | "comprehension" | "practice" | "syllabus"
+  // #1995 — narrow to the union types instead of `string` so a future
+  // `as string` cast at a chat-tool write site fails at compile time.
+  // The runtime guards in `lib/content-trust/resolve-config.ts` defend
+  // the DB-read side (where the JSON column may still carry a stale
+  // wrong-union value seeded before #1995 landed).
+  interactionPattern?: import("@/lib/content-trust/resolve-config").InteractionPattern;
+  teachingMode?: import("@/lib/content-trust/resolve-config").TeachingMode;
   subjectDiscipline?: string; // e.g. "GCSE Biology", "A-Level Economics"
   // Plan intents (used by lesson plan regeneration fallback)
   suggestedSessionCount?: number; // Educator's initial suggestion — may differ from generated plan
@@ -427,8 +465,134 @@ export interface PlaybookConfig {
   lessonPlanModel?: string; // "direct_instruction" | "socratic" | etc.
   // Course goals — educator's stated learning outcomes (distinct from module LOs)
   courseLearningOutcomes?: string[];
-  // Course-scoped welcome (overrides Domain.onboardingWelcome)
+  // Course-scoped welcome (overrides Domain.onboardingWelcome).
+  // Used in TWO surfaces: (a) the AI tutor's spoken opening line on Call 1,
+  // (b) the FOH onboarding text greeting shown before Call 1 starts
+  // (`apps/admin/hooks/useJourneyChat.ts::loadOnboardingPhase`).
   welcomeMessage?: string;
+  /**
+   * Closing CTA shown to the learner at the end of the FOH onboarding
+   * sequence — read by `useJourneyChat.ts::loadOnboardingPhase` and
+   * appears just above the "Continue ▶" button. Pre-#TBD this was a
+   * hardcoded literal ("We'll adapt as we go. Let's get started!");
+   * lifted into the cascade so operators can tune per-course.
+   *
+   * @bucket Course parameter — educator-tunable on the Sign-up & pre-call
+   * profile lens (G1 / A_intake bucket).
+   */
+  onboardingClosingLine?: string;
+  /**
+   * Preamble shown above the goals bullet list in the FOH onboarding
+   * sequence — read by `useJourneyChat.ts::loadOnboardingPhase`. Default
+   * literal: "Here's what we'll work on:".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  goalsPreamble?: string;
+  /**
+   * Intro line for the "About you" personality survey — read by both
+   * `useJourneyChat.ts::buildPersonalitySteps` and `WelcomeSurveyFlow.tsx`.
+   * Supports `{subject}` and `{teacherName}` tokens. Default literal:
+   * "Hey! I'm your AI study partner for {subject}. ...".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  aboutYouIntro?: string;
+  /**
+   * Intro line for the pre-test knowledge check — read by both
+   * `useJourneyChat.ts::buildPreTestSteps` and `WelcomeSurveyFlow.tsx`.
+   * Supports `{subject}` and `{questionCount}` tokens.
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  preTestIntro?: string;
+  /**
+   * Closing line after the pre-test — read by both `useJourneyChat.ts`
+   * and `WelcomeSurveyFlow.tsx`. Default literal:
+   * "Brilliant! I've got everything I need. Let's start your first
+   * practice session — you're going to do great.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  preTestClosing?: string;
+  /**
+   * Intro line for the post-test knowledge check — read by
+   * `useJourneyChat.ts::buildPostTestSteps`. Supports `{subject}` and
+   * `{questionCount}` tokens.
+   *
+   * @bucket Course parameter — Wrap-up & offboarding (G6 / F_offboarding).
+   */
+  postTestIntro?: string;
+  /**
+   * Closing line after the post-test — read by `useJourneyChat.ts`.
+   * Default literal: "Brilliant! Let's wrap up with some quick feedback.".
+   *
+   * @bucket Course parameter — Wrap-up & offboarding (G6 / F_offboarding).
+   */
+  postTestClosing?: string;
+  /**
+   * Intro line for the journey-exit feedback survey — read by
+   * `useJourneyChat.ts::buildPostSteps`. Default literal:
+   * "You've finished all your sessions — amazing work! Before you go,
+   * I'd love to hear how it went.".
+   *
+   * @bucket Course parameter — Wrap-up & offboarding (G6 / F_offboarding).
+   */
+  journeyExitIntro?: string;
+  /**
+   * Final thank-you line at the end of the journey — read by
+   * `useJourneyChat.ts::buildPostSteps`. Last learner-facing touchpoint.
+   * Default literal: "Thanks so much for your feedback! You've been
+   * brilliant. Good luck with everything!".
+   *
+   * @bucket Course parameter — Wrap-up & offboarding (G6 / F_offboarding).
+   */
+  journeyExitClosing?: string;
+  /**
+   * #2266 S2 — HTML onboarding wizard step 1 body. Read by
+   * `components/student/StudentOnboarding.tsx`. Default literal:
+   * "You're about to start a personalised learning journey. Let's get
+   * you set up in just a few steps.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingStep1Body?: string;
+  /**
+   * #2266 S2 — Goals-step hint shown when the course already has goals
+   * staged for the learner. Default: "These goals have been set for
+   * your learning journey. You can confirm or adjust them.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingGoalsHintWithItems?: string;
+  /**
+   * #2266 S2 — Goals-step hint shown when the course has no pre-staged
+   * goals. Default: "What would you like to learn or achieve? Add a goal below.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingGoalsHintEmpty?: string;
+  /**
+   * #2266 S2 — How-it-works intro on onboarding step 3. Default:
+   * "You'll have voice conversations with an AI tutor that adapts to you.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingHowItWorksIntro?: string;
+  /**
+   * #2266 S2 — "You're All Set!" step 4 body. Default: "Start your
+   * first conversation and your AI tutor will take it from there.".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingReadyBody?: string;
+  /**
+   * #2266 S2 — Step 4 CTA button label. Default: "Start Your First
+   * Conversation".
+   *
+   * @bucket Course parameter — Sign-up & pre-call profile (G1 / A_intake).
+   */
+  studentOnboardingReadyCta?: string;
   /**
    * #1403 — First-call course intro spoken AFTER the welcomeMessage +
    * acknowledgement gate. Supports `{courseName}` token.
@@ -449,6 +613,18 @@ export interface PlaybookConfig {
   offboarding?: OffboardingConfig;
   /** Student welcome flow configuration — controls which phases show before first session */
   welcome?: WelcomeConfig;
+  /**
+   * #2050 — When true, learners who completed the intake on a prior enrolment
+   * (any playbook) are bypassed: the WelcomeSurveyFlow short-circuits and
+   * the learner lands on `/x/student` rather than re-answering PERSONALITY
+   * + PRE_SURVEY questions. Detected via CallerAttribute(scope='PERSONALITY' | 'PRE_SURVEY')
+   * submitted_at OR scope='INTAKE_CHAT' attrs (the intake projection from
+   * EnrollmentIntake — `intake.*` keys). Default false — preserves the
+   * existing every-enrollment intake behaviour.
+   *
+   * @bucket Course parameter — educator-tunable on the Intake lens (G1).
+   */
+  skipIntakeIfReturning?: boolean;
   /** NPS / satisfaction feedback configuration */
   nps?: NpsConfig;
   /**
@@ -468,6 +644,26 @@ export interface PlaybookConfig {
     preTest?: { enabled: boolean; questionCount: number };
     postTest?: { enabled: boolean };
   };
+  /**
+   * #2176 S1 — per-course assessable upfront → midpoint → end plan.
+   *
+   * Declarative; the runtime sampling engine at
+   * `lib/assessment/sample-questions.ts` reads this to materialise
+   * assessment moments. The Coverage gate at
+   * `tests/lib/assessment/course-assessment-plan-coverage.test.ts`
+   * cross-checks each declared `AssessmentMoment` against the
+   * `Playbook.config.modules[]` list, the `firstCallMode` flag, and
+   * the AnalysisSpec corpus.
+   *
+   * Operator framing: a course either declares a plan OR sets
+   * `noAssessmentPlan: true` to opt out explicitly. Leaving the field
+   * absent is a Coverage `gap` — the ratchet surfaces it for the
+   * operator to decide.
+   *
+   * @bucket Course parameter — operator-tunable on the Assessment lens
+   * (S7 follow-on; field shipped declaratively first per epic #2176).
+   */
+  assessmentPlan?: CourseAssessmentPlan;
   /**
    * Whether the AI may share course materials (PDFs, reference docs) with
    * students during sessions. Default: true (preserves existing reading-
@@ -609,6 +805,71 @@ export interface PlaybookConfig {
    */
   firstCallMode?: "onboarding" | "teach_immediately" | "baseline_assessment";
   /**
+   * #2052 sub-epic C — scoring consumer fields wired from the producer-only
+   * registry into runtime. These fields are read by
+   * `lib/prompt/composition/scoring-config.ts::resolveScoringConfig` (a
+   * single chokepoint used by `transforms/modules.ts` for LO mastery,
+   * `transforms/instructions.ts` for progress-signal directives, and
+   * `lib/ops/compute-reward.ts` for REWARD strategy selection).
+   *
+   * Each setting is OPTIONAL — when absent, the consumer falls back to its
+   * previous behaviour (tier preset / hardcoded thresholds / default strategy).
+   *
+   * Producer-only debt closed: see `lib/journey/producer-only-registry.ts`
+   * (these 5 ids are no longer listed) + sub-epic C of epic #2049.
+   *
+   * @bucket Course parameter — operator-tunable via the Inspector.
+   * @see lib/prompt/composition/scoring-config.ts
+   * @see docs/CHAIN-CONTRACTS.md §3 (REWARD invariant — rewardStrategy is
+   *      on the boundary between AGGREGATE outputs and REWARD reads)
+   */
+  /**
+   * Mastery score required to mark a Learning Objective as passed. When set,
+   * overrides the per-tier-preset default in `lib/prompt/composition/modules`
+   * loMastery cut so the LLM treats LOs at-or-above this number as passed.
+   * Range [0,1]. When unset the existing tierPresetId-derived cut applies
+   * (byte-identical previous behaviour).
+   */
+  loMasteryThreshold?: number;
+  /**
+   * Mastery the learner must reach before a post-test / assessment stop
+   * fires. Read by the instructions transform to gate
+   * `assessment_readiness_directive` against the learner's aggregated
+   * `behavior_profile:learning:*` rollup (or per-LO mastery when the
+   * rollup is unavailable). Range [0,1]. Unset = no gating directive
+   * (byte-identical previous behaviour — stop fires per existing rules).
+   */
+  assessmentReadinessThreshold?: number;
+  /**
+   * Progress-signal water marks. The instructions transform emits a
+   * `progress_signal_directive` when the learner's aggregated engagement
+   * mastery falls outside the band [lowWater, highWater]. Below lowWater
+   * → "emphasise encouragement"; above highWater → "emphasise stretch".
+   * Either side may be unset to disable that half of the band.
+   *
+   * Read from `behavior_profile:engagement:*` CallerAttributes produced
+   * by BEH-AGG-001 (PR 75906d9d / commit a8234bf3 in lattice). When
+   * the rollup is absent the consumer uses the average of per-LO
+   * mastery as a fallback signal.
+   */
+  progressSignals?: {
+    lowWater?: number;
+    highWater?: number;
+  };
+  /**
+   * Which reward signal the adaptive loop optimises for. Read by
+   * `lib/ops/compute-reward.ts` to choose between three modes:
+   *   - `"learner_mastery"` — weight behaviour-target diffs by mastery
+   *     improvement (uses `behavior_profile:learning:*` aggregates when
+   *     available; falls back to standard behavior+outcome blend).
+   *   - `"educator_drift"` — weight behaviour-target diffs only; ignore
+   *     outcome signals (operator's tuning is the truth).
+   *   - `"blended"` — current default (behaviorWeight * behavior +
+   *     outcomeWeight * outcome).
+   * Unset = `"blended"` (byte-identical previous behaviour).
+   */
+  rewardStrategy?: "learner_mastery" | "educator_drift" | "blended";
+  /**
    * #598 Slice 1 — Course-level tolerance overrides for the mastery / spacing /
    * decay cascade (ADR 2026-05-22-tolerance-placement.md).
    *
@@ -733,6 +994,43 @@ export interface PlaybookConfig {
     dailyCap?: number;
   };
   /**
+   * #2055 (sub-epic F of #2049) — Call 1 framing variant of the recap.
+   *
+   * Distinct from `priorCallRecap` (Call 2+ history). When true on Call 1,
+   * the quickstart transform emits a brief `opening_recap` field that
+   * surfaces the learner's intake answers (goal / concern / confidence)
+   * at the top of the prompt so the AI tutor opens with continuity rather
+   * than a cold ask.
+   *
+   * Default false (absent → no recap section emitted). Calls 2+ ignore
+   * this flag — `priorCallFeedback` handles continuity then.
+   *
+   * @bucket Course parameter. Educator-tunable on the Journey lens.
+   * @see lib/prompt/composition/transforms/quickstart.ts (opening_recap field)
+   */
+  openingRecapEnabled?: boolean;
+  /**
+   * #2055 (sub-epic F of #2049) — cost gate for the AI-synthesised recap.
+   *
+   * When `false`, the loader short-circuits to the templated path WITHOUT
+   * the AI call (saves the per-call billing). When `true` or undefined,
+   * the existing gate sequence runs — env kill switch, `priorCallRecap`
+   * config, allowlist, daily cap, depth dispatch, cache, synthesize.
+   *
+   * Distinct from `priorCallRecap.enabled`: that flag is the FEATURE
+   * toggle (do we have a synthesised recap at all?); this one is the
+   * COST toggle (when the feature is on, do we actually pay for AI?).
+   * Operators flip this off when budget tightens without losing the
+   * templated fallback path.
+   *
+   * Default: undefined → behaves as if true (preserves existing gate
+   * sequence). Explicit false → short-circuit.
+   *
+   * @bucket Course parameter. Educator-tunable on the Journey lens.
+   * @see lib/prompt/composition/loaders/priorCallFeedback.ts::maybeSynthesizeRecap
+   */
+  recapSynthesisEnabled?: boolean;
+  /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
    * unmet prerequisites vs. show a soft-warning override modal. Default false
    * (soft warning), per IELTS learner-picks ethos. Set true for assessment
@@ -742,6 +1040,93 @@ export interface PlaybookConfig {
    * Read at picker time by `lib/curriculum/recommend-module.ts` (E2 Slice 2.5).
    */
   strictPrerequisites?: boolean;
+  /**
+   * #2051 (epic #2049 sub-epic B) — Baseline assessment depth picker. Only
+   * read when `firstCallMode === "baseline_assessment"` and the call is the
+   * learner's first session. Drives a per-depth directive appended after the
+   * `BASELINE_ASSESSMENT_RULE` critical rule:
+   *   - `"light"` — 3 diagnostic questions, ~3 minutes
+   *   - `"standard"` (default when absent) — 5 diagnostic questions, ~5 min
+   *   - `"deep"` — 8 diagnostic questions + 2 confidence follow-up probes,
+   *     ~8 minutes
+   * When the field is ABSENT and the playbook is in baseline mode, the
+   * runtime falls back to `"standard"` (preserves the 5-question pre-existing
+   * implicit shape). When `firstCallMode !== "baseline_assessment"`, the
+   * field is ignored — no directive emits.
+   *
+   * @bucket 1 — Course-level only. No cascade; not applicable to per-learner
+   * overrides (depth choice is operator pedagogy).
+   *
+   * @see lib/prompt/composition/transforms/instructions.ts ::
+   *      `resolveBaselineAssessmentDepth`
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 1
+   */
+  baselineAssessmentDepth?: "light" | "standard" | "deep";
+  /**
+   * #2051 (epic #2049 sub-epic B) — Call 1 module allow-list. When present
+   * and non-empty, the scheduler's module candidate pool is filtered to
+   * ONLY modules whose `id` or `slug` appears in this array on the
+   * learner's first call. Modules outside the array are INELIGIBLE on
+   * Call 1 (exclusive, not priority).
+   *
+   * Safety fallback: when every listed module is already mastered by the
+   * learner, the filter is bypassed (full pool restored) and a
+   * `[modules] firstCallCurriculumFocus: all listed modules already mastered`
+   * log line fires — prevents Call 1 from stalling on a brand-new learner
+   * who somehow completed every gated module out-of-band.
+   *
+   * When `lockedModule` is set (learner picked via the Module Picker), the
+   * filter is BYPASSED — the learner's explicit choice wins.
+   *
+   * Absent or empty array → no filtering (existing behaviour). Does NOT
+   * affect `completedModules`, `tpProgress`, or `loMasteryMap` — only the
+   * scheduler's candidate pool input is narrowed.
+   *
+   * @bucket 1 — Course-level only. No cascade.
+   *
+   * @see lib/prompt/composition/transforms/modules.ts (filter applied just
+   *      before `selectNextExchange`)
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 2
+   */
+  firstCallCurriculumFocus?: string[];
+  /**
+   * #2051 (epic #2049 sub-epic B) — Module sequencing policy. Tunes how the
+   * scheduler resolves the next module to teach within a structured course
+   * (`lessonPlanMode === "structured"`).
+   *
+   * - `"strict"` — module candidate pool is filtered to exclude any module
+   *   whose `prerequisites` array contains a module slug NOT in
+   *   `completedModules`. Hard gate at the scheduler pool layer; the AI
+   *   cannot skip a prerequisite. Safety fallback: if all modules end up
+   *   filtered (misconfigured course), the full pool is restored and a
+   *   warning logs.
+   * - `"interleaved"` — every 4th call (callNumber where
+   *   `(callNumber - 1) % 4 === 3`) is forced to `mode: "review"` so the
+   *   scheduler picks a mastered module for review. Aligns with the
+   *   existing `interleaveReviewMinDays` review-freshness threshold (which
+   *   is unaffected — it controls staleness, not cadence).
+   * - `"learner_led"` (default-equivalent) — no scheduler change.
+   *   Byte-identical to field absent. Safe low-friction default.
+   *
+   * `appliesTo: ["structured"]` on the contract — continuous courses
+   * short-circuit with a console.warn + no-op (defensive; Inspector gate
+   * prevents in practice).
+   *
+   * `strictPrerequisites` (sibling field) gates the UI picker. The two
+   * are COMPLEMENTARY: `moduleSequencePolicy: "strict"` controls the
+   * scheduler pool; `strictPrerequisites: true` hard-locks the picker
+   * UI. An educator may set both.
+   *
+   * `lockedModule` (learner-picked) ALWAYS bypasses this filter — the
+   * learner's explicit choice wins.
+   *
+   * @bucket 1 — Course-level only. No cascade.
+   *
+   * @see lib/prompt/composition/transforms/modules.ts (filter applied just
+   *      before `selectNextExchange`)
+   * @see docs/groomed/2051-call1-shape-consumers.md §Contract 3
+   */
+  moduleSequencePolicy?: "strict" | "interleaved" | "learner_led";
   /**
    * #492 E3 Slice 3.3 — minimum freshness threshold (in days) for the
    * interleave-review nudge. A mastered module qualifies for review when its
@@ -806,6 +1191,45 @@ export interface PlaybookConfig {
    * @see app/api/courses/[courseId]/demo-script/route.ts
    */
   demoScript?: DemoScript;
+  /**
+   * #2056 (G of #2049) — runtime gate flags previously producer-only.
+   *
+   * `agentTunerNlpEnabled` — when true, the operator-facing AgentTuner UI
+   * (NLP behaviour-pill editor) is mounted on the Course Detail surface.
+   * Default treats `undefined` as `false` — the panel is opt-in per course.
+   * Read by `lib/journey/runtime-gates.ts::isAgentTunerNlpEnabled` and the
+   * `<AgentTunerNlpGate>` wrapper. Operator-only writeGate enforced by the
+   * `journey-setting` PATCH route.
+   *
+   * @bucket Course parameter — operator-only toggle on the Inspector.
+   */
+  agentTunerNlpEnabled?: boolean;
+  /**
+   * #2056 (G of #2049) — call-counter policy selector.
+   *
+   * - `"hard_cap"`: when the per-day session count reaches `maxCallsPerDay`,
+   *   `createSession` REFUSES with a `CallRateLimitError`.
+   * - `"soft_cap"`: when the per-day session count reaches `maxCallsPerDay`,
+   *   `createSession` LOGS a warning to AppLog (`call.rate_limit.soft_cap_hit`)
+   *   and allows the session.
+   * - `"unlimited"`: cap is not consulted; `maxCallsPerDay` is ignored.
+   *
+   * Default treats `undefined` as `"unlimited"` so existing playbooks behave
+   * exactly as they did pre-#2056. Read by
+   * `lib/journey/runtime-gates.ts::resolveCallCountPolicy`.
+   */
+  callCountPolicy?: "hard_cap" | "soft_cap" | "unlimited";
+  /**
+   * #2056 (G of #2049) — per-day session-count cap.
+   *
+   * Consumed by `createSession` together with `callCountPolicy`. When unset
+   * (or 0 / negative) the cap is treated as absent regardless of policy.
+   * On hit:
+   *   - `hard_cap` → throws `CallRateLimitError`; route emits
+   *     `call.rate_limit.over_cap` AppLog + 429 response.
+   *   - `soft_cap` → logs `call.rate_limit.soft_cap_hit` and proceeds.
+   */
+  maxCallsPerDay?: number;
   [key: string]: any;
 }
 
@@ -892,7 +1316,7 @@ export interface LegacyCurriculumModuleJSON {
 // as JSON on Playbook.config.modules. Issue #236.
 // ---------------------------------------------------------------------------
 
-export type AuthoredModuleMode = "examiner" | "tutor" | "mixed";
+export type AuthoredModuleMode = "examiner" | "tutor" | "mixed" | "quiz" | "mock-exam";
 export type AuthoredModuleFrequency = "once" | "repeatable" | "cooldown";
 export type ModuleSource = "authored" | "derived";
 export type PickerLayout = "tiles" | "rail";
@@ -988,6 +1412,28 @@ export interface AuthoredModule {
   masteryThreshold?: number;
 
   /**
+   * #2104 (epic #2102 S2) — per-module override of the course-level
+   * `PlaybookConfig.strictPrerequisites` flag.
+   *
+   * Resolution at picker time:
+   *   `mod.prerequisiteStrict ?? PlaybookConfig.strictPrerequisites ?? false`
+   *
+   * Use case: IELTS Speaking Practice keeps the course-level flag at
+   * `false` (soft-warn for Parts 1/2/3 — free-pick ethos) while
+   * setting `prerequisiteStrict: true` on the Mock Exam module to
+   * hard-lock it until the practice prereqs are mastered. Without
+   * this per-module knob the course-level flag forces all-or-nothing.
+   *
+   * Read by `LearnerModulePicker.tsx` (`lockedModuleIds` useMemo +
+   * `handlePick`). The Soft-Warn / Hard-Lock modal pair is unchanged
+   * — the override just selects which one fires for this module.
+   *
+   * Absent (default) → falls back to course-level flag = zero
+   * regression for every existing course-ref.
+   */
+  prerequisiteStrict?: boolean;
+
+  /**
    * #1701 (epic #1700 Theme 1) — module-scoped settings layer (G8).
    *
    * All keys optional. Each maps to a G8 entry in
@@ -1032,8 +1478,15 @@ export interface AuthoredModuleSettings {
    * when unset.
    */
   minSpeakingSec?: number;
-  /** Pool for Part 2 monologue. Session-start picks one → `Session.metadata.pinnedCard`. */
-  cueCardPool?: Array<{ topic: string; bullets: string[] }>;
+  /**
+   * Pool for Part 2 monologue. Session-start picks one → `Session.metadata.pinnedCard`.
+   *
+   * `type` (#2162 CueCardType — S6 of #2185) is optional + backward-compatible.
+   * Drives Part 2 prep-phase prompt scaffold: "personal" (anchor on
+   * lived experience) vs "abstract" (anchor on conceptual framing).
+   * Internal-only label; learner sees the cue card text, not the type tag.
+   */
+  cueCardPool?: Array<{ topic: string; bullets: string[]; type?: CueCardType }>;
   /** Verbatim closing line (e.g. Assessment's "That gives me a good picture…"). */
   closingLine?: string;
   /** One-shot per-module orientation, gated by `orientationShown` on `CallerModuleProgress`. */
@@ -1055,11 +1508,166 @@ export interface AuthoredModuleSettings {
    */
   scaffoldPool?: string[];
   /**
+   * #1932 (epic #1931 Template Authority) — module-scoped pool of topic
+   * frames + questions, used by student-led practice modules (IELTS
+   * Part 1 "Familiar Topics", IELTS Part 3 "Abstract Discussion", any
+   * conversational drill where the tutor picks a topic and asks
+   * pre-authored questions on it).
+   *
+   * Parallel to `cueCardPool` (Part 2 monologue) but the unit-of-content
+   * is QUESTIONS not BULLETS — the tutor asks the questions one at a
+   * time rather than treating the bullets as a single cue-card framing.
+   *
+   * Source-of-truth lives in a separate `## Frame N — Topic` (Part 1)
+   * or `## Theme: X / ### Set N — Title` (Part 3) markdown file
+   * referenced from the course-ref doc via
+   * `topicPool: source:<id>` and resolved by
+   * `lib/wizard/resolve-module-source-refs.ts` at projection time.
+   *
+   * Read by `lib/prompt/composition/transforms/instructions.ts::
+   * resolveModuleTopicPool` — picks one topic deterministically by
+   * `sharedState.callNumber % pool.length` and emits a directive
+   * naming the topic + listing the questions. Gated by
+   * `HF_FLAG_IELTS_MODULE_SETTINGS` during the migration window per
+   * epic #1700 decision 5.
+   */
+  topicPool?: Array<{ topic: string; questions: string[] }>;
+  /**
    * #1704 Theme 10 — declared conversational profile fields the AI should
    * capture during the session. EXTRACT (`extract-profile-fields.ts`) walks
    * this list, validates, and writes `CallerAttribute` rows under `profile:*`.
    */
   profileFieldsToCapture?: ProfileFieldToCapture[];
+  /**
+   * #1955 / epic #2145 S4 — G8 toggle gating the Part-3 focus-area pin.
+   * When true (default ON for Part-3-shaped modules) and the
+   * session-focus-policy runner (IELTS-P3-FOCUS-001) has written a
+   * `CallerAttribute(key=session_focus:next_{moduleSlug})` row for the
+   * learner, the composer emits a `[SESSION FOCUS]` directive AND
+   * `select-pinned-card.ts::selectTopicFocusCard` writes
+   * `Session.metadata.pinnedCard = {kind: "topicFocus", focusArea}` so
+   * the learner sees a banner naming the technique they're working on.
+   * When false, neither side fires.
+   *
+   * Has no effect on non-Part-3 modules — the consumer transform
+   * (`transforms/session-focus.ts`) is course-agnostic but only fires
+   * when a row for the locked module exists, and the
+   * `IELTS-P3-FOCUS-001.spec.json` writer's `moduleScope.slugPattern`
+   * restricts that to Part-3-shaped modules.
+   */
+  pinFocusArea?: boolean;
+  /**
+   * #1956 (Boaz/Eldar gap analysis Unit 1.3) — when true on an
+   * exam / assessment module, the BASELINE_ASSESSMENT critical-rule
+   * preamble is replaced by a silent variant that preserves the
+   * diagnostic-only behavioural envelope (no teaching / no review /
+   * no remediation / no corrections) but drops the test-announcement
+   * framing and explicitly tells the tutor not to signal phase
+   * breaks. Session runs as a natural conversation. Default false
+   * (opt-in per module). Module-scoped — does NOT affect non-locked
+   * sessions or non-exam modules.
+   *
+   * Reads in `lib/prompt/composition/transforms/preamble.ts::
+   * computePreamble` when `firstCallMode === "baseline_assessment"`
+   * AND the locked module's settings declare `silentMode: true`.
+   * The Playbook-level `firstCallMode` and this module-level
+   * `silentMode` are deliberately orthogonal: `firstCallMode`
+   * controls structure (diagnostic-only flow); `silentMode`
+   * controls announcement wording.
+   *
+   * @bucket exam
+   */
+  silentMode?: boolean;
+  /**
+   * #1954 (Boaz/Eldar gap analysis Unit 1.1) — when true on an
+   * exam / assessment module, the AGGREGATE stage emits a personalised
+   * `SessionLessonPlan` to `Session.metadata.lessonPlan` after the
+   * four-criteria completion gate (#1953) fires "complete". The plan
+   * identifies the weakest IELTS criterion in this session and
+   * recommends a next module focus. Default: educators opt in per
+   * module; the IELTS baseline fixture sets this to `true`.
+   *
+   * Reads in `app/api/calls/[callId]/pipeline/route.ts::
+   * stageExecutors.AGGREGATE` inside the same try-block that runs the
+   * four-criteria gate. Fire-and-forget — failures log but never
+   * block the AGGREGATE stage.
+   *
+   * @bucket exam
+   */
+  generateLessonPlan?: boolean;
+  /**
+   * #2162 — per-module score readout policy. Drives when and how scores
+   * reach the learner at the end of a module session. Per IELTS course-ref
+   * v2.3 + HF-IELTS-Pre-Voice-Testing-Checklist Unit 5.
+   *
+   * Closes the v2.3-fixture exempt entry on `fixture-type-coverage` — the
+   * key existed in the YAML but had no TypeScript type, so the wizard
+   * parser silently dropped it. Typing it ends the silent-drop class for
+   * this key.
+   *
+   * Consumer wiring follows in a follow-on PR (Results screen +
+   * end-of-module readout). For now this types the data shape so the
+   * wizard parser carries it through into `Playbook.config.modules[i].settings`.
+   *
+   * @bucket exam
+   */
+  scoreReadoutMode?: ScoreReadoutMode;
+  /**
+   * UX-C / Finding 10 — phases during which the pinned card should remain
+   * visible. When set (e.g. `["prep", "monologue"]`) the pin auto-hides
+   * during phases NOT in the list (e.g. `discussion`). When unset (default)
+   * the pin stays visible for the entire session up to `phaseEnded`.
+   *
+   * Phase strings are course-agnostic (IELTS Mock examples:
+   * `"p1"`, `"p2_prep"`, `"p2_monologue"`, `"p3"`). Read by
+   * `components/sim/PinnedCardSlot.tsx` against the current phase
+   * supplied by the SimChat host. Producer-only at land time; the
+   * IELTS catalogue picks a sensible default per module shape.
+   *
+   * @bucket teaching
+   */
+  pinnedCardPhaseScope?: string[];
+  /**
+   * S7 — per-StallType scaffold map.
+   *
+   * Sibling to {@link AuthoredModuleSettings.scaffoldPool} (which is a
+   * flat `string[]`). The map shape carries per-`StallType` lines so the
+   * client-side stall detector can pick a scaffold appropriate to the
+   * detected stall shape (`opinion-gap` learner gets "What do you mean
+   * by…" style scaffolds; `vocabulary-search` learner gets "Take your
+   * time finding the word…" style scaffolds).
+   *
+   * Operator-facing today via the Module Inspector (HowCardTutor on
+   * Part 3-style modules). Runtime consumer wiring (detector pool
+   * selection branched on detected `StallType`) is the follow-on PR —
+   * for now the existing flat `scaffoldPool` keeps acting as the
+   * fallback so live behaviour does not change when the new field is
+   * empty.
+   *
+   * Stored at `Playbook.config.modules[].settings.scaffoldsByStallType`
+   * — partial map so authors may set only the StallTypes they care
+   * about for the module.
+   */
+  scaffoldsByStallType?: Partial<Record<StallType, string[]>>;
+  /**
+   * S3 — per-module LearnerShellCapabilities override.
+   *
+   * Per epic #2163 locked decision 8: overrides may ONLY DISABLE a
+   * capability defaulted ON; they may NOT ENABLE an affordance defaulted
+   * OFF. The Inspector enforces this rule client-side by only
+   * surfacing toggles whose default value is `true`. Server-side
+   * enforcement is a follow-on PR — the operator surface is added now
+   * so authors can DISABLE defaults today, the runtime apply will pick
+   * up the override once the resolver merge lands.
+   *
+   * Stored at `Playbook.config.modules[].settings.learnerShell`. Partial
+   * shape — every field is optional; only fields the operator wants to
+   * override appear in the JSON.
+   *
+   * See {@link LearnerShellCapabilities} for the full default map and
+   * {@link SHELL_DEFAULTS} for the per-shell-kind canonical defaults.
+   */
+  learnerShell?: Partial<LearnerShellCapabilities>;
 }
 
 export interface ModuleDefaults {
@@ -1113,6 +1721,586 @@ export interface PinnedCardContent {
 }
 
 /**
+ * #2145 Phase A — first instance of the SessionFocus 4th-layer substrate.
+ *
+ * SessionFocus is a generic, per-course typed-union pattern that names the
+ * LEARNER-FACING label set for a session's adaptive emphasis. The session
+ * selection policy (a `session-focus-policy` AnalysisSpec) reads internal
+ * weakness signals (CallerTarget.currentScore on Skill parameters, LO
+ * mastery rollups, etc.) and writes ONE of these values to
+ * `CallerAttribute(key = "session_focus:next_{moduleSlug}")`.
+ *
+ * **Architectural notes:**
+ * - **Per-course union pattern**: every course that wants this surface
+ *   declares its own typed union — e.g. `Part3TechniqueFocus` (IELTS
+ *   Speaking Part 3), `CioCtoEmphasis` (TBD), `Ks2RevisionTechnique` (TBD).
+ *   Branded types are optional; literal unions are sufficient for v1.
+ * - **Values are LEARNER-FACING**: every value in the union is a string
+ *   the learner can read on a "Today's focus" pin AND the tutor can
+ *   reference verbatim in the prompt. Criterion names (e.g. "Lexical
+ *   Resource"), parameter slugs (e.g. `skill_lexical_resource_lr`), and
+ *   internal scoring axes are NEVER members of these unions — they live
+ *   in INTERNAL_LABEL_REGISTRY (apps/admin/tests/lib/sim-chat/learner-ui-leak-coverage.test.ts)
+ *   and are blocked from learner-UI dirs by that Coverage gate. The
+ *   sibling `LEARNER_SAFE_REGISTRY` in the same test file whitelists
+ *   these values so the leak gate doesn't trip on them.
+ * - **BDD-anchored**: the 4 Part 3 technique values come from the IELTS
+ *   BDD spec (`HF IELTS — BDD Stories US-P3-01` +
+ *   `HF-IELTS-Pre-Voice-Testing-Checklist.md` Unit 4) — they are not
+ *   pedagogy invented in code.
+ *
+ * Replaces the criterion-label shape PR #2134 / #1955 shipped. See epic
+ * #2145 (Generic SessionFocus substrate) for the full architecture and
+ * #2135 for the upstream MEASURE-spec chain that populates the input
+ * scores.
+ */
+export type Part3TechniqueFocus =
+  | "giving reasons"
+  | "structuring an argument"
+  | "handling a challenge"
+  | "expanding an answer";
+
+// ════════════════════════════════════════════════════════════════════
+// CourseAssessmentPlan — 4th-layer primitive
+// (epic #2176)
+//
+// Operator framing: "an assessment is extremely similar to cross-
+// curriculum N questions". Assessment IS a typed sampling pattern over
+// typed teaching content, NOT a separate SessionKind.
+//
+// Today's fragmentation: 4 enums (`SessionKindString.ASSESSMENT` —
+// type-only ghost / `JourneyStopKind.assessment` — intake-time stop /
+// `FirstCallMode.baseline_assessment` — first-call flag /
+// `AuthoredModuleMode = "examiner" | "quiz" | "mock-exam"` — per-
+// module behaviour) each do a different thing. None cross-check each
+// other. This primitive composes them: at PR time the Coverage gate
+// at `tests/lib/assessment/course-assessment-plan-coverage.test.ts`
+// asserts each declared `AssessmentMoment` resolves to a real module
+// with the right mode, real content sources, and a runnable scoring
+// spec.
+//
+// Sibling 4th-layer primitives:
+//   - `SessionFocus` / `Part3TechniqueFocus` (above) — per-session
+//     emphasis label
+//   - `LearnerShell` / `LearnerShellKind` (#2163, PR #2173) — per-
+//     session capability frame
+//   - `CourseAssessmentPlan` (this primitive) — per-course assessable
+//     upfront → midpoint → end plan
+//
+// See epic #2176 for the full architecture, locked decisions, and
+// slice plan. S1 (this PR) ships the types + Playbook config field.
+// S2 ships the sampling engine. S3 ships the Coverage gate. S4
+// resolves the SessionKind ghost decision. S5-S6 author per-course
+// plans. S7 wires the rule file + lattice inventory.
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * `LearnerShellKind` + `LEARNER_SHELL_KIND_VALUES` are declared as
+ * the canonical PR #2173 substrate below (search for "epic #2163
+ * S1 substrate"). The #2176 S1 primitives below this comment
+ * reference both — they resolve to the canonical declarations via
+ * normal TypeScript symbol lookup since both live in this same
+ * module.
+ */
+
+/**
+ * #2176 S1 — the FIVE assessable moments a course may declare.
+ *
+ * Each value names a typed sampling pattern over the curriculum's
+ * teaching content:
+ *
+ * - `"upfront-baseline"` — diagnostic at first contact. Cross-LO
+ *   sampling, lighter scoring. IELTS Baseline Assessment module is the
+ *   canonical instance.
+ * - `"midpoint-check"` — periodic per-Unit checks during the course.
+ *   Per-unit scope. Used by CIO/CTO Pop Quiz (every Unit fires this).
+ * - `"end-mock"` — terminal full-length simulation. Cross-Part sampling
+ *   under examiner conditions. IELTS Mock Exam is the canonical
+ *   instance.
+ * - `"popquiz"` — short sampling burst (e.g. 5 MCQs) that can fire
+ *   mid-module or at module-end. CIO/CTO Pop Quiz variant.
+ * - `"rubric-board-chair"` — rubric-driven board-chair frame for the
+ *   CIO/CTO Exam Assessment variant (per #2009 + #2015 follow-on).
+ *
+ * The value is **course-agnostic**. A course declares which moments
+ * apply via `Playbook.config.assessmentPlan` (see `CourseAssessmentPlan`
+ * below). Per-course extensions follow the same per-course typed-union
+ * pattern PR #2173 established for `LearnerShellKind`.
+ *
+ * Locked decision 1 (epic #2176): new primitive lives here in
+ * `lib/types/json-fields.ts` alongside the other 4th-layer primitives.
+ */
+export type AssessmentKind =
+  | "upfront-baseline"
+  | "midpoint-check"
+  | "end-mock"
+  | "popquiz"
+  | "rubric-board-chair";
+
+/**
+ * Sibling const array for runtime enumeration of `AssessmentKind`.
+ * Mirrors `AUTHORED_MODULE_MODE_VALUES` + `LEARNER_SHELL_KIND_VALUES`.
+ * The Coverage gate at
+ * `tests/lib/assessment/course-assessment-plan-coverage.test.ts` walks
+ * this array; new union values land in the matrix automatically.
+ */
+export const ASSESSMENT_KIND_VALUES = [
+  "upfront-baseline",
+  "midpoint-check",
+  "end-mock",
+  "popquiz",
+  "rubric-board-chair",
+] as const satisfies readonly AssessmentKind[];
+
+/**
+ * #2176 S1 — Sampling scope across the curriculum.
+ *
+ * - `"per-unit"` — sample questions only from a single module (per-
+ *   Unit Pop Quiz instance).
+ * - `"cross-curriculum"` — sample across all modules in the
+ *   curriculum (Mock Exam, Baseline diagnostic).
+ * - `"weakest-skill-anchored"` — sample with preference for
+ *   questions tagged with the caller's weakest skill (read from
+ *   `CallerTarget.currentScore`).
+ * - `"weakest-lo-anchored"` — sample with preference for the
+ *   caller's weakest LO (read from `CallerAttribute(key =
+ *   "lo_mastery:*")`).
+ */
+export type AssessmentSamplingScope =
+  | "per-unit"
+  | "cross-curriculum"
+  | "weakest-skill-anchored"
+  | "weakest-lo-anchored";
+
+/**
+ * Sibling const array for runtime enumeration of
+ * `AssessmentSamplingScope`. Consumed by the AssessmentPlanEditor UI
+ * (#2176 S1 build slice 5) and any sibling Coverage gate that needs
+ * to walk every scope value.
+ */
+export const ASSESSMENT_SAMPLING_SCOPE_VALUES = [
+  "per-unit",
+  "cross-curriculum",
+  "weakest-skill-anchored",
+  "weakest-lo-anchored",
+] as const satisfies readonly AssessmentSamplingScope[];
+
+/**
+ * #2176 S1 — Which content surface the sampler reads.
+ *
+ * - `"mcq"` — `ContentQuestion` rows (MCQ pool, per #2167 + #2009)
+ * - `"cue-card"` — cue-card pool per `lib/wizard/resolve-module-source-refs.ts`
+ * - `"topic-prompt"` — topic-pool per same
+ * - `"scenario-probe"` — scenario-probe pool (CIO/CTO board-chair
+ *   variant, per #2009 + #2015)
+ */
+export type AssessmentContentKind =
+  | "mcq"
+  | "cue-card"
+  | "topic-prompt"
+  | "scenario-probe";
+
+/**
+ * Sibling const array for runtime enumeration of
+ * `AssessmentContentKind`. Consumed by the AssessmentMomentEditor UI
+ * (#2176 S1 build slice 4) and the sampling engine.
+ */
+export const ASSESSMENT_CONTENT_KIND_VALUES = [
+  "mcq",
+  "cue-card",
+  "topic-prompt",
+  "scenario-probe",
+] as const satisfies readonly AssessmentContentKind[];
+
+/**
+ * #2176 S1 — declarative sampling policy applied at assessment time.
+ *
+ * Carries WHAT to sample (`scope` + `contentKind`), HOW MANY items
+ * (`count.{min, target, max}`), and OPTIONAL stratification rules
+ * (e.g. "≥1 question per IELTS criterion"). Read by the sampling
+ * engine at `lib/assessment/sample-questions.ts` (S2).
+ *
+ * Locked decision 2 (epic #2176): policy is data, not code. A new
+ * sampling scope (e.g. "weakest-lo-anchored") is added to the union
+ * here AND a branch in the engine consumes it. Course-specific
+ * preferences live in `Playbook.config.assessmentPlan`, never in
+ * imperative per-course code.
+ */
+export interface AssessmentSamplingPolicy {
+  /** Sampling scope across the curriculum. See `AssessmentSamplingScope`. */
+  scope: AssessmentSamplingScope;
+
+  /**
+   * Count band: engine MUST return between `min` and `max` items
+   * inclusive, targeting `target`. When the pool can't satisfy `min`,
+   * the engine returns `{ok: false, reason: "empty-pool"}` and the
+   * caller (session creator) decides whether to block or substitute
+   * with a smaller sample. Operator-visible AppLog subject fires on
+   * empty-pool — never silent null (per `.claude/rules/verify-before-fix.md`).
+   */
+  count: { min: number; target: number; max: number };
+
+  /** Which content surface the sampler reads. See `AssessmentContentKind`. */
+  contentKind: AssessmentContentKind;
+
+  /**
+   * Optional stratification rules ensuring sampling distribution.
+   * - `perCriterion` — minimum N items per scoring criterion (e.g.
+   *   IELTS Mock declares `perCriterion: 1` so every criterion gets
+   *   at least one observation).
+   * - `perLO` — minimum N items per learning outcome.
+   * - `minSkillCoverage` — fractional skill-axis coverage (0-1).
+   *
+   * Absent stratification = pure random sampling within the scope's
+   * pool.
+   */
+  stratification?: { perCriterion?: number; perLO?: number; minSkillCoverage?: number };
+}
+
+/**
+ * #2176 S1 — a single assessable moment in a course.
+ *
+ * Composes the four primitives:
+ * - `kind` — WHICH assessment shape (upfront / midpoint / end / etc.)
+ * - `moduleSlug` — WHICH module hosts the assessment (the wizard's
+ *   `Playbook.config.modules[].slug` value). The Coverage gate cross-
+ *   checks this slug exists in the playbook's modules list AND its
+ *   `AuthoredModuleMode` matches the assessment kind.
+ * - `samplingPolicy` — HOW the questions are selected (above).
+ * - `shellKind` — WHICH learner shell wraps the session at runtime.
+ *   The Coverage gate cross-checks this is a valid `LearnerShellKind`
+ *   value. Typical mapping:
+ *     - upfront-baseline / end-mock → `"exam"`
+ *     - popquiz / midpoint-check → `"mcq-rounds"`
+ *     - rubric-board-chair → `"exam"` (decision deferred per #2009)
+ * - `scoringSpec` — slug of the `AnalysisSpec` that grades the
+ *   session post-MEASURE. Coverage gate verifies the spec exists in
+ *   the corpus at `docs-archive/bdd-specs/*.spec.json`.
+ *
+ * Locked decision 3 (epic #2176): one row per moment; courses with
+ * multiple midpoints declare them as `midpoints: AssessmentMoment[]`.
+ */
+export interface AssessmentMoment {
+  kind: AssessmentKind;
+  /** Slug of the module that delivers this moment. Must exist in `Playbook.config.modules[]`. */
+  moduleSlug: string;
+  /** Declarative sampling policy (above). */
+  samplingPolicy: AssessmentSamplingPolicy;
+  /** Learner shell frame the session runs inside (see PR #2173). */
+  shellKind: LearnerShellKind;
+  /** Slug of the AnalysisSpec that scores the session (must exist in spec corpus). */
+  scoringSpec: string;
+}
+
+/**
+ * #2176 S1 — the per-course assessment plan.
+ *
+ * Lives at `Playbook.config.assessmentPlan` (JSON column extension —
+ * no migration; declarative). Locked decision 4 (epic #2176): plan is
+ * declarative, no imperative code per course.
+ *
+ * **Shape:**
+ * - `upfront` — optional single moment fired at first-call (often a
+ *   "Baseline Assessment" module). The Coverage gate cross-checks
+ *   `FirstCallMode === "baseline_assessment"` ↔ `upfront.kind ===
+ *   "upfront-baseline"` consistency.
+ * - `midpoints` — ordered list of mid-course assessable moments.
+ *   Empty / absent = no formal midpoint checks (continuous courses,
+ *   coaching-led variants).
+ * - `end` — optional terminal moment (Mock Exam / Exam Assessment).
+ * - `noAssessmentPlan: true` — explicit operator declaration that
+ *   this course has NO formal assessment plan by design (e.g. CIO/CTO
+ *   Revision Aid, Big Five — coaching-led, no scoring axis). Coverage
+ *   gate classifies this as `exempt-no-plan` rather than `gap`,
+ *   forcing the operator to make the per-course decision once instead
+ *   of leaving the plan field undefined.
+ *
+ * When both `noAssessmentPlan: true` AND any moment are present, the
+ * runtime + Coverage gate prefer the moments and surface a warning
+ * (`assessment.plan.contradiction` AppLog subject) — the explicit
+ * exemption is treated as stale.
+ */
+export interface CourseAssessmentPlan {
+  /** Optional first-call diagnostic moment. */
+  upfront?: AssessmentMoment;
+  /** Optional ordered list of mid-course assessable moments. */
+  midpoints?: AssessmentMoment[];
+  /** Optional terminal moment (Mock Exam / Exam Assessment). */
+  end?: AssessmentMoment;
+  /**
+   * Explicit operator declaration: this course has NO formal
+   * assessment plan by design. Coverage gate accepts as `exempt-no-
+   * plan` (no `gap`). Do not combine with declared moments — see
+   * interface JSDoc.
+   */
+  noAssessmentPlan?: true;
+}
+
+/**
+ * #2163 Slice 1 — declare LearnerShell as a typed Lattice primitive.
+ *
+ * **What a shell is.** A `LearnerShell` is the capability FRAME a learner
+ * experiences during a session. Today's only concrete shell is
+ * `ExamModeShell` (Mock exam dark stripped UI with dual waveform instead
+ * of chat feed); the implicit chat-feed default is the other one in
+ * production. Both encode their rules — what to render, what to block,
+ * what mode pill to show — as procedural JSX. This union types the
+ * primitive so a shell becomes a DECLARATIVE capability map instead.
+ *
+ * **5th-layer companion to SessionFocus** (`Part3TechniqueFocus` above).
+ * Both are session-scoped course-agnostic projections of internal state
+ * into learner-facing structure. SessionFocus carries the emphasis
+ * LABEL ("giving reasons"); LearnerShell carries the capability FRAME
+ * (allowModuleSwitch / showTimer / chatFeedVisibility / colourTheme /
+ * dismissOnEnd / etc.). They compose: a Mock exam session can have
+ * `LearnerShell = "exam"` (frame) + `SessionFocus = "expanding an answer"`
+ * (emphasis), and the learner sees both.
+ *
+ * **Internal-only.** The shell kind name (`"exam"` / `"chat-feed"` etc.)
+ * is INTERNAL to the engine. The learner never sees the kind string in
+ * their UI — they see the capability EFFECTS (timer visible / mode pill
+ * copy / colour theme). Protected by extension to PR #2144's
+ * `learner-ui-leak-coverage.test.ts` registry (S1, this slice).
+ *
+ * **Declarative selection (S2, separate PR).** A pure
+ * `resolveLearnerShell(session, module) → { shellKind, capabilities }`
+ * picks the shell from session+module context. No
+ * `if (module.mode === "X")` branches scattered across UI files.
+ *
+ * **Initial values** (epic #2163 locked decision 1):
+ * - `chat-feed` — default for tutor / mixed modes. Free-flow chat,
+ *   visible scrollback, module-switch allowed, no timer.
+ * - `exam` — examiner / mock-exam modes. Dual waveform replaces chat,
+ *   module-switch blocked, timer hidden-internal (server enforces),
+ *   dark theme, dismiss to results-screen.
+ * - `mcq-rounds` — quiz mode. Cue card replaces chat feed, rounds
+ *   counter replaces fill-bar, module-switch blocked mid-round.
+ * - `results-readout` — post-exam Mock Results screen. Brand-theme,
+ *   no chat, no timer, dismiss to next-module.
+ * - `intake-wizard` — pre-call onboarding wizard. Full chat,
+ *   module-switch blocked (intake is its own flow), no timer.
+ *
+ * **Per-course extensions** (epic #2163 locked decision 1, follow-on)
+ * use the same per-course typed-union pattern that #2145 established
+ * for SessionFocus.
+ *
+ * See epic #2163 for the full architecture, locked decisions, and S2-S7
+ * slice plan. See `LearnerShellCapabilities` below for the capability
+ * frame each shell kind populates via `SHELL_DEFAULTS`.
+ */
+export type LearnerShellKind =
+  | "chat-feed"
+  | "exam"
+  | "mcq-rounds"
+  | "results-readout"
+  | "intake-wizard";
+
+/**
+ * Sibling const array for runtime enumeration of `LearnerShellKind`.
+ * Mirrors the `AUTHORED_MODULE_MODE_VALUES` pattern used by
+ * `tests/lib/sim-chat/mode-ui-coverage.test.ts`. Use this when you need
+ * to iterate every shell kind (e.g. Coverage tests, exhaustiveness
+ * checks, admin badge rendering). The paired vitest at
+ * `tests/lib/types/learner-shell-types.test.ts` asserts this array
+ * matches the union source-of-truth.
+ */
+export const LEARNER_SHELL_KIND_VALUES = [
+  "chat-feed",
+  "exam",
+  "mcq-rounds",
+  "results-readout",
+  "intake-wizard",
+] as const satisfies readonly LearnerShellKind[];
+
+/**
+ * #2163 Slice 1 — capability frame consumed by a learner shell.
+ *
+ * Every field declares ONE affordance the shell turns on / off / tunes.
+ * Shell components consume the capability map at render time instead of
+ * branching on the shell kind directly:
+ *
+ * ```tsx
+ * // GOOD — declarative
+ * {capabilities.showTimer === "visible" ? <Timer /> : null}
+ *
+ * // BAD — procedural, shell-kind-bound
+ * {shellKind === "exam" ? null : <Timer />}
+ * ```
+ *
+ * The declarative path is what makes the Coverage gate (S2) tractable:
+ * Coverage walks each capability field and asserts at least one shell
+ * consumer reads it. Procedural shell-kind branches defeat that walk.
+ *
+ * **Capability defaults are HF-canonical** (epic #2163 locked decision
+ * 8). Per-course customisation lives in `PlaybookConfig.learnerShell`
+ * (S5/S7) and is `disabled`-only — a course can disable a default
+ * capability but cannot enable an arbitrary new one. Prevents drift
+ * across courses.
+ */
+export interface LearnerShellCapabilities {
+  /**
+   * Whether the learner can switch to a different module mid-session.
+   * `false` for exam / mcq-rounds (in-flight assessment must finish
+   * before module switch is allowed) / results-readout / intake-wizard
+   * (intake is its own flow). `true` for the default chat-feed shell.
+   */
+  allowModuleSwitch: boolean;
+  /**
+   * Timer affordance.
+   * - `"visible"` — render an on-screen countdown / elapsed clock
+   *   (no current shell uses this; reserved for future timed-but-
+   *   visible scenarios e.g. lesson-pace pacing).
+   * - `"hidden-internal"` — server enforces a time bound but the
+   *   learner sees no clock (Mock exam, MCQ rounds — pacing is the
+   *   examiner's job, not the learner's stress).
+   * - `"none"` — no time bound applies.
+   */
+  showTimer: "visible" | "hidden-internal" | "none";
+  /**
+   * Progress affordance.
+   * - `"fill-bar"` — continuous progress bar (chat-feed default —
+   *   reflects module mastery / coverage).
+   * - `"monologue-bar"` — Part 2 monologue countdown bar style
+   *   (used by exam shells when the examiner is in monologue phase).
+   * - `"mcq-counter"` — "Round 3 of 8" style counter for MCQ rounds.
+   * - `"none"` — no progress affordance (intake-wizard / results-
+   *   readout).
+   */
+  showProgressBar: "fill-bar" | "monologue-bar" | "mcq-counter" | "none";
+  /**
+   * Chat scrollback visibility.
+   * - `"full"` — full chat feed with scrollback (chat-feed default,
+   *   intake-wizard).
+   * - `"cue-card-only"` — pinned cue card with no scrollback
+   *   (mcq-rounds — the cue card IS the question; chat history is
+   *   distracting).
+   * - `"none"` — chat feed hidden entirely (exam / results-readout
+   *   — dual waveform / results panel replaces it).
+   */
+  chatFeedVisibility: "full" | "cue-card-only" | "none";
+  /**
+   * Whether a "back to home" affordance is available mid-session.
+   * `false` for exam / mcq-rounds / results-readout — these have
+   * structured exits (dismiss to results-screen / next-module).
+   * `true` for chat-feed / intake-wizard — these are interruptable.
+   */
+  allowBackToHome: boolean;
+  /**
+   * Visual identity theme.
+   * - `"default"` — standard HF light theme (chat-feed / mcq-rounds
+   *   / intake-wizard).
+   * - `"dark"` — exam shell stripped dark UI (per `ExamModeShell`
+   *   today).
+   * - `"neutral"` — toned-down neutral palette (reserved).
+   * - `"brand"` — course-brand accent palette (results-readout —
+   *   the post-exam celebration screen).
+   */
+  colourTheme: "default" | "dark" | "neutral" | "brand";
+  /**
+   * Resource key for the mode pill label + icon. `null` when the shell
+   * doesn't render a mode pill (intake-wizard, results-readout). The
+   * key is resolved by the pill-renderer (`AuthoredModulesPanel` /
+   * `LearnerModulePicker`) against the existing mode-pill resource
+   * map. Authored shells declare their canonical pill key here so
+   * pill copy + colour stay in one source.
+   */
+  modePillKey: string | null;
+  /**
+   * Where the learner lands when the session ends.
+   * - `"home"` — back to module picker / FOH home (chat-feed,
+   *   mcq-rounds, intake-wizard).
+   * - `"results-screen"` — Mock results panel (exam shell).
+   * - `"next-module"` — auto-advance to the next module in the
+   *   curriculum (results-readout — operator continues the flow).
+   */
+  dismissOnEnd: "home" | "results-screen" | "next-module";
+  /**
+   * Stall-chip visual nudge behaviour (#1955-style).
+   * - `"subtle-fade"` — fade in a small "still listening…" chip when
+   *   the learner stalls (chat-feed default).
+   * - `"none"` — no stall affordance (exam — the examiner sets the
+   *   pace; mcq-rounds — the question itself drives; results-readout
+   *   — no learner input; intake-wizard — wizard own stall UX).
+   */
+  stallChipBehaviour: "subtle-fade" | "none";
+}
+
+/**
+ * HF-canonical default capability map per `LearnerShellKind` (epic
+ * #2163 locked decision 8 — capabilities not customer-tunable for v1).
+ *
+ * Each entry is a complete `LearnerShellCapabilities` — no field is
+ * optional, no shell falls back to "default behaviour" implicitly.
+ * The paired vitest at
+ * `tests/lib/types/learner-shell-types.test.ts` enforces Cartesian
+ * completeness: every shell kind has every capability field defined.
+ *
+ * Source of truth for the per-shell rows: epic #2163 §"Default
+ * capability map per shell" + `ExamModeShell.tsx` for the exam-shell
+ * row.
+ */
+export const SHELL_DEFAULTS: Record<
+  LearnerShellKind,
+  LearnerShellCapabilities
+> = {
+  "chat-feed": {
+    allowModuleSwitch: true,
+    showTimer: "none",
+    showProgressBar: "fill-bar",
+    chatFeedVisibility: "full",
+    allowBackToHome: true,
+    colourTheme: "default",
+    modePillKey: "tutor",
+    dismissOnEnd: "home",
+    stallChipBehaviour: "subtle-fade",
+  },
+  exam: {
+    allowModuleSwitch: false,
+    showTimer: "hidden-internal",
+    showProgressBar: "monologue-bar",
+    chatFeedVisibility: "none",
+    allowBackToHome: false,
+    colourTheme: "dark",
+    modePillKey: "mock-exam",
+    dismissOnEnd: "results-screen",
+    stallChipBehaviour: "none",
+  },
+  "mcq-rounds": {
+    allowModuleSwitch: false,
+    showTimer: "hidden-internal",
+    showProgressBar: "mcq-counter",
+    chatFeedVisibility: "cue-card-only",
+    allowBackToHome: false,
+    colourTheme: "default",
+    modePillKey: "quiz",
+    dismissOnEnd: "home",
+    stallChipBehaviour: "none",
+  },
+  "results-readout": {
+    allowModuleSwitch: false,
+    showTimer: "none",
+    showProgressBar: "none",
+    chatFeedVisibility: "none",
+    allowBackToHome: false,
+    colourTheme: "brand",
+    modePillKey: null,
+    dismissOnEnd: "next-module",
+    stallChipBehaviour: "none",
+  },
+  "intake-wizard": {
+    allowModuleSwitch: false,
+    showTimer: "none",
+    showProgressBar: "none",
+    chatFeedVisibility: "full",
+    allowBackToHome: true,
+    colourTheme: "default",
+    modePillKey: null,
+    dismissOnEnd: "home",
+    stallChipBehaviour: "none",
+  },
+};
+
+/**
  * Human-readable label for a CallScore.segmentKey value. Course-agnostic —
  * IELTS uses ("p1", "Part 1") / ("p2", "Part 2") / ("p3", "Part 3");
  * other courses define their own (Theme 6, story #1702).
@@ -1161,4 +2349,134 @@ export interface SessionMetadata {
    * `startSec` ordering.
    */
   phaseBoundaries?: PhaseBoundary[];
+  /**
+   * #1954 (Boaz/Eldar gap analysis Unit 1.1) — personalised next-step
+   * plan emitted post-AGGREGATE when this session's locked module
+   * declared `generateLessonPlan: true` AND the four IELTS criteria
+   * scored non-zero (the #1953 completion gate fired "complete").
+   * Read by the Results screen "Your next steps" panel. Optional —
+   * absent when the gate didn't fire OR the toggle was off.
+   */
+  lessonPlan?: SessionLessonPlan;
 }
+
+/**
+ * #1954 — minimal next-step plan shape. Deterministic from per-criterion
+ * IELTS CallScore rows: identifies the WEAKEST criterion (lowest score)
+ * and emits a one-line focus rationale + recommended next module slug.
+ * Not AI-generated. Cheap, stable, fire-and-forget at AGGREGATE end.
+ */
+export interface SessionLessonPlan {
+  /** Canonical IELTS criterion id — one of `skill_fluency_and_coherence_fc`,
+   *  `skill_lexical_resource_lr`, `skill_grammatical_range_and_accuracy_gra`,
+   *  `skill_pronunciation_p`. The weakest of the four scored on this session. */
+  focusCriterion: string;
+  /** Human-readable label for the focus criterion (educator + learner facing). */
+  focusLabel: string;
+  /** The numeric score (0..1) the focus criterion achieved on this session. */
+  focusScore: number;
+  /** One-line rationale rendered under the panel headline. */
+  reason: string;
+  /** Slug of the next module the rollup recommends (when computable). */
+  nextRecommendedModuleSlug?: string;
+  /** UTC ISO timestamp the plan was emitted. */
+  emittedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// #2162 — BDD-defined typed unions (CueCardType / StallType / ScoreReadoutMode).
+//
+// Three learner-experienced enums declared by the IELTS BDD spec + course-ref
+// v2.3 that previously existed only as freeform strings or YAML keys without
+// TypeScript typing. Each is a 4th-layer Lattice primitive — sibling to
+// `Part3TechniqueFocus` (#2145 Phase A), `LearnerShellKind` (#2163 S1),
+// `AssessmentKind` (#2176 S1). Big-matrix audit (PR #2144 conversation,
+// 2026-06-21) catalogued these as the remaining gap; this section closes it.
+//
+// Each union carries a `*_VALUES` const tuple so runtime callers can
+// enumerate canonical values (mirrors AUTHORED_MODULE_MODE_VALUES and
+// LEARNER_SHELL_KIND_VALUES patterns consumed by Coverage gates).
+// ---------------------------------------------------------------------------
+
+/**
+ * #2162 — cue card type.
+ *
+ * Drives the Part 2 (and Mock Part 2) prep-phase topic prompt. The cue card
+ * either anchors on a personal topic ("Describe a person who has influenced
+ * you...") or an abstract topic ("Describe an invention that changed the
+ * world..."). Per BDD US-P2-01 (HF IELTS — BDD Stories) + IELTS course-ref
+ * v2.3 Source 5 (cue card pool).
+ *
+ * Learner-visible: the cue card text itself is learner-facing; the type
+ * label ("personal" / "abstract") is internal — used by the prep-phase
+ * transform to vary the prompt scaffold, not surfaced to the learner.
+ */
+export type CueCardType = "personal" | "abstract";
+
+/** Canonical enumeration. Sibling to AUTHORED_MODULE_MODE_VALUES. */
+export const CUE_CARD_TYPE_VALUES = ["personal", "abstract"] as const;
+
+/**
+ * #2162 — stall type.
+ *
+ * Drives the Part 3 scaffold trigger — which scaffold pool entry the tutor
+ * picks when the learner stalls. Per BDD US-P3-02b (HF IELTS — BDD Stories)
+ * + IELTS course-ref v2.3 Source 7 (Part 3 stall scaffolds discussion,
+ * scaffold-tag taxonomy).
+ *
+ * Each value names a distinct stall SHAPE the tutor recognises:
+ * - `i-dont-know` — explicit "I don't know" without a follow-on attempt
+ * - `opinion-gap` — learner has no opinion on the asked topic
+ * - `abstraction-freeze` — learner stalls on the abstract framing
+ * - `vocabulary-search` — learner searching for a word, partial speech
+ * - `blank-out` — long silence with no signal
+ *
+ * Internal-only label per Lattice learner-UI leak Coverage; the tutor's
+ * prompt is what reaches the learner, never the tag name.
+ */
+export type StallType =
+  | "i-dont-know"
+  | "opinion-gap"
+  | "abstraction-freeze"
+  | "vocabulary-search"
+  | "blank-out";
+
+/** Canonical enumeration. Sibling to AUTHORED_MODULE_MODE_VALUES. */
+export const STALL_TYPE_VALUES = [
+  "i-dont-know",
+  "opinion-gap",
+  "abstraction-freeze",
+  "vocabulary-search",
+  "blank-out",
+] as const;
+
+/**
+ * #2162 — score readout mode.
+ *
+ * Drives when and how per-criterion / overall scores reach the learner at
+ * the end of a module session. Per IELTS course-ref v2.3 (per-module
+ * `scoreReadoutMode` field on Baseline / Part 2 / Part 3 / Mock modules)
+ * + HF-IELTS-Pre-Voice-Testing-Checklist.md Unit 5 (Mock Results screen).
+ *
+ * - `on-screen` — bands shown in the on-screen Results panel but NOT
+ *   stated aloud by the tutor (e.g. Baseline — warmer-than-Mock close)
+ * - `end-of-module-on-screen` — bands shown only at the end-of-module
+ *   readout, not during the session (Part 2 / Part 3 default)
+ * - `aloud-with-indicative-qualifier` — tutor states bands aloud with
+ *   an "indicative" qualifier (Mock Exam — the only mode that says
+ *   bands aloud)
+ *
+ * Learner-visible: yes. The READOUT MODE is internal but the consequence
+ * (whether bands are spoken vs displayed) is learner-experienced.
+ */
+export type ScoreReadoutMode =
+  | "on-screen"
+  | "end-of-module-on-screen"
+  | "aloud-with-indicative-qualifier";
+
+/** Canonical enumeration. Sibling to AUTHORED_MODULE_MODE_VALUES. */
+export const SCORE_READOUT_MODE_VALUES = [
+  "on-screen",
+  "end-of-module-on-screen",
+  "aloud-with-indicative-qualifier",
+] as const;

@@ -32,6 +32,11 @@ import { runProsodyStage } from "@/lib/pipeline/prosody-runner";
 import { applyProsodyContractToAggregate } from "@/lib/pipeline/prosody-consumer";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
+import {
+  runSessionFocusPolicy,
+  isSessionFocusPolicyConfig,
+  type SessionFocusPolicyConfig,
+} from "@/lib/pipeline/runners/session-focus-policy";
 import { extractFailureAdaptation } from "@/lib/pipeline/extract-failure-adaptation";
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
 import { shouldSkipForEvidenceFirst, shouldSkipForZeroEvidence } from "@/lib/pipeline/evidence-gate";
@@ -46,6 +51,9 @@ import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
 import { config as appConfig } from "@/lib/config";
 import { updateCurriculumProgress, getCurriculumProgress, completeModule } from "@/lib/curriculum/track-progress";
+import { validateIeltsCompletion } from "@/lib/curriculum/validate-ielts-completion";
+import { markModuleIncomplete } from "@/lib/curriculum/mark-module-incomplete";
+import { buildPostAssessmentPlan } from "@/lib/lesson-plan/build-post-assessment-plan";
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
@@ -69,7 +77,7 @@ import { mapToMemoryCategory } from "@/lib/pipeline/memory";
 import { loadGuardrails, type GuardrailsConfig } from "@/lib/pipeline/guardrails";
 import { shouldRunCallerAnalysis } from "@/lib/pipeline/event-gate";
 import { getCourseStyle, type CourseStyle } from "@/lib/pipeline/course-style";
-import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile } from "@/lib/pipeline/specs-loader";
+import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile, filterByBehaviorTargetParams } from "@/lib/pipeline/specs-loader";
 import { writeCallScore, MEASUREMENT_SENTINEL_SPEC_IDS } from "@/lib/measurement/write-call-score";
 import { withTextNamespace } from "@/lib/pipeline/segment-key-namespace";
 import { normalizeScoreAgentEvidence } from "@/lib/pipeline/normalize-score-agent-evidence";
@@ -885,8 +893,22 @@ async function runBatchedCallerAnalysis(
   const callerProfile = await resolveCallerTeachingProfile(callerId, log);
   const allMeasureIds = combinedSpecs.filter(s => s.outputType === "MEASURE").map(s => s.id);
   const allLearnIds = combinedSpecs.filter(s => s.outputType === "LEARN").map(s => s.id);
-  const measureSpecIds = await filterByTeachingProfile(allMeasureIds, callerProfile, log);
+  let measureSpecIds = await filterByTeachingProfile(allMeasureIds, callerProfile, log);
   const learnSpecIds = await filterByTeachingProfile(allLearnIds, callerProfile, log);
+
+  // #2137 (epic #2135 S2) — apply the BehaviorTarget-presence gate AFTER
+  // the teaching-profile filter. Specs that opt in via
+  // `config.requiresBehaviorTargetParams: true` (e.g. IELTS-MEASURE-001)
+  // are dropped when the playbook has none of the spec's declared
+  // parameters on its BehaviorTarget rows. Generic — applies to any
+  // future course-specific scoring spec (CEFR / TOEFL / Spanish DELE).
+  //
+  // Story #2158 (epic #2135 follow-on) — the env-flag gate that used to
+  // sit here (`!ieltsLlmMeasureV1Enabled() && drop IELTS-MEASURE-*`) was
+  // retired. The kill-switch now lives inside `filterByBehaviorTargetParams`
+  // as the per-Playbook override `config.aiMeasurement.disableLlmIeltsScoring`
+  // — see `.claude/rules/cascade-reuse.md` for the cascade-aware pattern.
+  measureSpecIds = await filterByBehaviorTargetParams(measureSpecIds, playbookId, log);
 
   // Load full MEASURE specs with triggers/actions
   const measureSpecs = measureSpecIds.length > 0
@@ -1172,7 +1194,50 @@ async function runBatchedCallerAnalysis(
       let shadowEvidenceUnknown = 0;
       if (parsed.scores) {
         for (const [parameterId, scoreData] of Object.entries(parsed.scores as Record<string, any>)) {
-          const score = Math.max(0, Math.min(1, scoreData.score ?? scoreData.s ?? 0.5));
+          // #2137 (epic #2135 S2) — honour the IELTS-MEASURE-001
+          // dual-confidence shape: `pronunciation` returns either a
+          // bare number OR `{ value: number|null, confidence: 'low' |
+          // 'medium' | 'high' }`. Unwrap to a flat number + capture
+          // the confidence tier marker for downstream (#2138 prosody-
+          // raw augmentation reader). Other criteria use a bare
+          // number|null.
+          let rawScoreValue: number | null | undefined;
+          let pronunciationConfidenceTier: string | null = null;
+          if (
+            scoreData !== null &&
+            typeof scoreData === "object" &&
+            "value" in scoreData
+          ) {
+            // Dual-confidence shape (Pronunciation).
+            rawScoreValue = (scoreData as { value: number | null }).value;
+            const tier = (scoreData as { confidence?: unknown }).confidence;
+            if (typeof tier === "string" && ["low", "medium", "high"].includes(tier)) {
+              pronunciationConfidenceTier = tier;
+            }
+          } else {
+            // Bare number|null shape (FC / LR / GRA / legacy).
+            rawScoreValue = scoreData?.score ?? scoreData?.s ?? null;
+          }
+
+          // **OPERATOR RULE (epic #2135 verbatim):**
+          // NEVER land hardcoded or AI-guessed score defaults to "fill"
+          // empty CallerTarget rows. When the LLM explicitly returns
+          // null (insufficient evidence), do NOT write a row. The empty
+          // band is honest; a 0.5 fallback corrupts the EMA aggregator.
+          //
+          // Back-compat: when the LLM omits the score field entirely
+          // (legacy non-IELTS spec response), preserve the existing
+          // 0.5 fallback so non-IELTS specs are unaffected.
+          if (rawScoreValue === null) {
+            log.info("Honest null score — skipping write (operator rule: no hardcoded defaults)", {
+              callId: call.id,
+              callerId,
+              parameterId,
+            });
+            continue;
+          }
+
+          const score = Math.max(0, Math.min(1, rawScoreValue ?? 0.5));
           const confidence = Math.max(0, Math.min(1, scoreData.confidence ?? scoreData.c ?? 0.7));
           const reasoning: string | undefined = scoreData.reasoning ?? scoreData.r ?? undefined;
           // G5 / #1155 — server-side fallback when LLM omits `he`/`eq`. The
@@ -1251,6 +1316,16 @@ async function runBatchedCallerAnalysis(
           // backstop — it should never fire because paramMap omits
           // parameters without a spec.
           const sourceSpec = paramMap.get(parameterId);
+          // #2137 (epic #2135 S2) — for IELTS Pronunciation, prefix the
+          // confidence tier into the evidence array so the prosody-raw
+          // augmentation reader (#2138 / S3) can recognise transcript-
+          // mode scores and raise to 'high' when vendor signal lands.
+          // No schema change required for v1; future hardening may add
+          // a dedicated `confidenceTier` column.
+          const evidenceArray =
+            pronunciationConfidenceTier !== null
+              ? [`confidence:${pronunciationConfidenceTier}`, "AI batched analysis"]
+              : ["AI batched analysis"];
           await writeCallScore({
             callId: call.id,
             callerId,
@@ -1261,7 +1336,7 @@ async function runBatchedCallerAnalysis(
             score,
             confidence,
             reasoning,
-            evidence: ["AI batched analysis"],
+            evidence: evidenceArray,
             scoredBy: `${engine}_batched_v2`,
             hasLearnerEvidence,
             evidenceQuality,
@@ -1476,16 +1551,24 @@ async function runBatchedAgentAnalysis(
     log.info("Short transcript - capping confidence", { wordCount, cap: confidenceCap });
   }
 
-  // Get DOMAIN MEASURE specs from caller's domain playbook (or fallback)
-  // Need playbookId first to filter system specs
+  // Get DOMAIN MEASURE + MEASURE_AGENT specs from caller's domain playbook
+  // (or fallback). Need playbookId first to filter system specs.
+  //
+  // #2084 S6 — extended to load BOTH `MEASURE` (caller-behaviour scoring,
+  // e.g. CA-001) AND `MEASURE_AGENT` (agent-quality supervision, e.g.
+  // STYLE-001 + SUPV-001). The SCORE_AGENT stage IS the canonical home for
+  // MEASURE_AGENT outputType per PIPELINE.md §1 + §1.1 — the stage name
+  // doesn't match the enum (see §1.1 landmine). Pre-#2084 the executor
+  // only loaded `MEASURE`, leaving the 11 SUPV-001 supervision-quality
+  // parameters producer-only despite their spec being seeded.
   const { specs: playbookSpecs, playbookId, fallback } = await getPlaybookSpecs(
     callerId,
-    ["MEASURE"],
+    ["MEASURE", "MEASURE_AGENT"],
     log
   );
 
-  // Get SYSTEM MEASURE specs filtered by playbook toggle settings
-  const systemSpecs = await getSystemSpecs(["MEASURE"], playbookId, log);
+  // Get SYSTEM MEASURE + MEASURE_AGENT specs filtered by playbook toggle settings
+  const systemSpecs = await getSystemSpecs(["MEASURE", "MEASURE_AGENT"], playbookId, log);
 
   // Combine SYSTEM + DOMAIN specs (deduplicate by ID)
   const allSpecIds = new Set<string>();
@@ -1867,6 +1950,118 @@ async function computeReward(
       scoredAt: new Date(),
     },
   });
+
+  // #2084 S6 — REW-001 per-parameter CallScore mirror.
+  //
+  // REW-001 declares 4 reward-component parameters (`BEH-ENGAGEMENT-REWARD`,
+  // `BEH-LEARNING-REWARD`, `BEH-RAPPORT-REWARD`, `BEH-GOAL-PROGRESS-REWARD`)
+  // plus `BEH-COMPOSITE-REWARD` (the weighted blend). Pre-#2084 every reward
+  // computation wrote ONLY a single `RewardScore` row holding `overallScore +
+  // parameterDiffs[]` — the 4 component parameters had NO runtime consumer,
+  // showing up as producer-only in parameter-coverage.test.ts.
+  //
+  // Per the design brief at PR #2088 (Fork 2 → A "lighter shape"), we mirror
+  // the computed reward components onto `CallScore` rows keyed by the
+  // canonical BEH-* parameter ids that already exist in the
+  // `behavior-parameters.registry.json` registry. The chokepoint
+  // `writeCallScore` requires a real `AnalysisSpec.id`; we resolve the
+  // active SYSTEM-scope REW-001 spec at runtime.
+  //
+  // Component derivation (pragmatic — improve in a follow-on PR):
+  //   - engagement_reward      → behaviorScore  (alignment-with-targets proxy)
+  //   - learning_reward        → behaviorScore  (we don't yet decompose
+  //                                              memory-extraction count here;
+  //                                              the LEARN-stage memories are
+  //                                              the proper basis. Until then
+  //                                              behaviorScore is the honest
+  //                                              proxy — REW-001 spec text
+  //                                              ties this to information
+  //                                              density which behaviorScore
+  //                                              correlates with).
+  //   - rapport_reward         → behaviorScore  (personality-style alignment
+  //                                              proxy; ditto.)
+  //   - goal_progress_reward   → goalProgressScore ?? 0
+  //
+  // BEH-COMPOSITE-REWARD is intentionally NOT mirrored here — it's already
+  // "covered" via the categorisation route at
+  // app/api/playbooks/[playbookId]/parameters/route.ts:339. The CallScore
+  // overallScore field on RewardScore IS the composite. Writing it as a
+  // CallScore too would create competing readers.
+  //
+  // BEH-ERROR-ELABORATION (also in the `reinforcement` domain group) is
+  // explicitly excluded from S6 — it's a learning-style directive, not a
+  // reward parameter. Picked up by S2 (#2087).
+  //
+  // Sibling-writer survey (per lattice-survey.md):
+  // - `CallScore` is written by: SCORE_AGENT runner (EXTRACT/MEASURE writes),
+  //   PROSODY consumer (`lib/pipeline/prosody-consumer.ts`), ADAPT delta
+  //   deriver. All route through `writeCallScore`. No collision — our writes
+  //   use distinct parameterIds (BEH-*-REWARD) not used by any other writer.
+  // - The chokepoint's idempotence key is `(callId, parameterId, moduleId)`;
+  //   re-running REWARD overwrites the row in place. moduleId is NULL here
+  //   because reward components are call-scoped not module-scoped.
+  try {
+    const rewSpec = await prisma.analysisSpec.findFirst({
+      where: { outputType: "REWARD", scope: "SYSTEM", isActive: true },
+      select: { id: true },
+    });
+    if (!rewSpec) {
+      log.warn(
+        "REW-001 mirror skipped: no active SYSTEM REWARD spec found — " +
+          "per-parameter CallScore rows not written (BEH-*-REWARD producer-only)",
+      );
+    } else {
+      const rewardComponents: Array<{
+        parameterId: string;
+        score: number;
+        sourceField: string;
+      }> = [
+        { parameterId: "BEH-ENGAGEMENT-REWARD", score: behaviorScore, sourceField: "behaviorScore" },
+        { parameterId: "BEH-LEARNING-REWARD", score: behaviorScore, sourceField: "behaviorScore" },
+        { parameterId: "BEH-RAPPORT-REWARD", score: behaviorScore, sourceField: "behaviorScore" },
+        {
+          parameterId: "BEH-GOAL-PROGRESS-REWARD",
+          score: goalProgressScore ?? 0,
+          sourceField: "goalProgressScore",
+        },
+      ];
+
+      for (const component of rewardComponents) {
+        const clamped = Math.max(0, Math.min(1, component.score));
+        await writeCallScore({
+          callId,
+          callerId: call.callerId,
+          parameterId: component.parameterId,
+          analysisSpecId: rewSpec.id,
+          moduleId: null,
+          score: clamped,
+          confidence: 0.7,
+          evidence: [
+            `REW-001 component mirror — ${component.sourceField}=${component.score.toFixed(3)} → clamped=${clamped.toFixed(3)}`,
+          ],
+          reasoning:
+            `Reward component derived during pipeline REWARD stage. ` +
+            `overallScore=${overallScore.toFixed(3)}, behaviorScore=${behaviorScore.toFixed(3)}, ` +
+            `goalProgressScore=${goalProgressScore?.toFixed(3) ?? "null"}. ` +
+            `See app/api/calls/[callId]/pipeline/route.ts::computeReward (#2084 S6).`,
+          scoredBy: "reward_components_v1",
+        });
+      }
+
+      log.info("REW-001 per-component CallScore mirror written", {
+        callId,
+        rewSpecId: rewSpec.id,
+        componentsCount: rewardComponents.length,
+      });
+    }
+  } catch (mirrorErr) {
+    // Non-fatal — log + continue. The RewardScore row above is the
+    // canonical reward store; the per-component mirror is closing the
+    // parameter-coverage loop. A failure here doesn't break ADAPT/UPDATE.
+    log.warn(
+      `REW-001 per-component CallScore mirror failed (non-fatal): ${mirrorErr instanceof Error ? mirrorErr.message : String(mirrorErr)}`,
+    );
+  }
 
   log.info(`Reward computed`, {
     overallScore,
@@ -2550,6 +2745,101 @@ async function computeAdapt(
 // =====================================================
 // ADAPT & SUPERVISE SPEC RUNNERS
 // =====================================================
+
+/**
+ * Run CALLER_ATTRIBUTE_NEXT specs (#2154, sibling of #2145 Phase A).
+ *
+ * Generic dispatch for the SessionFocus 4th-layer substrate. Loads every
+ * active AnalysisSpec with `outputType: "CALLER_ATTRIBUTE_NEXT"`, validates
+ * its `config` against the SessionFocusPolicyConfig shape (defence-in-depth),
+ * and routes to `lib/pipeline/runners/session-focus-policy.ts::runSessionFocusPolicy`.
+ *
+ * Honest empty-state contract: the runner writes nothing when no scored
+ * inputs exist OR when the locked module doesn't match the spec's scope
+ * gate. Each skip is surfaced via the result `status` for the operator-
+ * facing pipeline log.
+ *
+ * Non-blocking: failures are logged + collected; they never abort ADAPT.
+ *
+ * @see lib/pipeline/runners/session-focus-policy.ts — the runner
+ * @see docs/PIPELINE.md §2 / §4 / §6 — outputType taxonomy
+ */
+async function runSessionFocusPolicySpecs(
+  call: {
+    id: string;
+    curriculumModuleId?: string | null;
+    requestedModuleId?: string | null;
+  },
+  callerId: string,
+  log: PipelineLogger,
+): Promise<{ wrote: number; skipped: number; failed: number }> {
+  const specs = await getSpecsByOutputType("CALLER_ATTRIBUTE_NEXT", log);
+  if (specs.length === 0) {
+    return { wrote: 0, skipped: 0, failed: 0 };
+  }
+
+  // Load the locked module (slug) — same resolution shape used by other
+  // module-aware stages. `curriculumModuleId` is canonical; fallback to
+  // `requestedModuleId` for sim / harness paths that don't bind one yet.
+  let lockedModule: { slug?: string | null; id?: string | null } | null = null;
+  if (call.curriculumModuleId) {
+    const bound = await prisma.curriculumModule.findUnique({
+      where: { id: call.curriculumModuleId },
+      select: { slug: true, id: true },
+    });
+    if (bound) lockedModule = { slug: bound.slug, id: bound.id };
+  } else if (call.requestedModuleId) {
+    lockedModule = { slug: call.requestedModuleId, id: call.requestedModuleId };
+  }
+
+  // Load full spec rows for their `config` payload.
+  const fullSpecs = await prisma.analysisSpec.findMany({
+    where: { id: { in: specs.map((s) => s.id) } },
+    select: { id: true, slug: true, config: true },
+  });
+
+  let wrote = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const spec of fullSpecs) {
+    try {
+      if (!isSessionFocusPolicyConfig(spec.config)) {
+        log.warn(
+          `CALLER_ATTRIBUTE_NEXT spec ${spec.slug} has malformed config — skipped`,
+        );
+        failed++;
+        continue;
+      }
+      const result = await runSessionFocusPolicy({
+        callerId,
+        specSlug: spec.slug,
+        config: spec.config as SessionFocusPolicyConfig,
+        lockedModule,
+      });
+      if (result.status === "wrote") {
+        wrote++;
+        log.info(`CALLER_ATTRIBUTE_NEXT ${spec.slug}: wrote`, {
+          writeKey: result.writeKey,
+          label: result.writtenLabel,
+          weakestParameterId: result.weakestParameterId,
+        });
+      } else {
+        skipped++;
+        log.info(`CALLER_ATTRIBUTE_NEXT ${spec.slug}: ${result.status}`, {
+          moduleSlug: result.moduleSlug,
+        });
+      }
+    } catch (err: any) {
+      failed++;
+      log.error(`CALLER_ATTRIBUTE_NEXT ${spec.slug} threw (non-blocking)`, {
+        error: err?.message ?? String(err),
+      });
+    }
+  }
+
+  return { wrote, skipped, failed };
+}
 
 /**
  * Build prompt for ADAPT specs to compute personalized targets
@@ -3580,6 +3870,63 @@ const stageExecutors: Record<string, StageExecutor> = {
         ctx.callerId,
       );
       ctx.log.info("Prosody aggregate applied", prosodyResult);
+
+      // #1953 — Four-criteria IELTS completion gate. Fires ONLY when
+      // prosody wrote IELTS scores (mode === "ielts") AND the call is
+      // bound to a curriculumModule. Runs HERE (early in AGGREGATE,
+      // before the mastery writer at track-progress.ts:665) so a
+      // waived row can't be clobbered back to NOT_STARTED on the next
+      // pipeline run. courseStyle threading is required by guard
+      // #1252 — markModuleIncomplete short-circuits on continuous
+      // courses and emits the `module.incomplete.skipped_continuous`
+      // AppLog. See Boaz/Eldar gap-analysis response (2026-06-18) §2.
+      if (
+        prosodyResult.applied &&
+        prosodyResult.mode === "ielts" &&
+        ctx.call.curriculumModuleId
+      ) {
+        const completion = await validateIeltsCompletion(ctx.callId);
+        if (!completion.complete) {
+          ctx.log.info("IELTS completion gate: incomplete", {
+            callId: ctx.callId,
+            moduleId: ctx.call.curriculumModuleId,
+            missing: completion.missing,
+            reason: "ielts_criteria",
+          });
+          await markModuleIncomplete(prisma, {
+            callerId: ctx.callerId,
+            moduleId: ctx.call.curriculumModuleId,
+            courseStyle: ctx.courseStyle,
+            playbookId: ctx.call.playbookId,
+          });
+        } else {
+          ctx.log.info("IELTS completion gate: complete", {
+            callId: ctx.callId,
+            moduleId: ctx.call.curriculumModuleId,
+          });
+          // #1954 (Boaz/Eldar gap analysis Unit 1.1) — Post-Assessment
+          // lesson-plan trigger. Fire-and-forget the plan generator
+          // ONLY when the four-criteria completion gate fires
+          // "complete". The helper itself gates on the locked
+          // module's `generateLessonPlan` toggle (default off; IELTS
+          // baseline fixture sets it true) so this call is cheap and
+          // safe across all non-IELTS playbooks. The .catch wrapper
+          // guarantees AGGREGATE completion even if plan generation
+          // throws unexpectedly — defence in depth on top of the
+          // helper's own try/catch.
+          buildPostAssessmentPlan({
+            callId: ctx.callId,
+            callerId: ctx.callerId,
+            sessionId: ctx.call.sessionId ?? null,
+            playbookId: ctx.call.playbookId ?? null,
+            curriculumModuleId: ctx.call.curriculumModuleId ?? null,
+          }).catch((err: unknown) => {
+            ctx.log.warn(
+              `Post-Assessment lesson plan failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+        }
+      }
     } catch (prosodyErr) {
       // Non-fatal — log and continue. Prosody is a nice-to-have signal;
       // the other AGGREGATE work must complete regardless.
@@ -3927,6 +4274,35 @@ const stageExecutors: Record<string, StageExecutor> = {
       });
     }
 
+    // 9. CALLER_ATTRIBUTE_NEXT specs (#2154 / epic #2145 SessionFocus 4th-
+    //    layer substrate). Generic dispatch — loads every active spec with
+    //    outputType=CALLER_ATTRIBUTE_NEXT and routes to the session-focus-
+    //    policy runner. Writes ONE CallerAttribute(scope=specSlug,
+    //    key="session_focus:next_{moduleSlug}") per spec that finds a
+    //    weakest-Skill match within its inputSkills + module-scope gate.
+    //    Honest empty-state: writes nothing when no scored CallerTarget
+    //    rows exist; the compose-time transform at
+    //    `lib/prompt/composition/transforms/session-focus.ts` returns null
+    //    and the [SESSION FOCUS] block is omitted. Non-blocking — failures
+    //    are logged + counted but never abort ADAPT.
+    let sessionFocusWrote = 0;
+    let sessionFocusSkipped = 0;
+    let sessionFocusFailed = 0;
+    try {
+      const sfp = await runSessionFocusPolicySpecs(ctx.call, ctx.callerId, ctx.log);
+      sessionFocusWrote = sfp.wrote;
+      sessionFocusSkipped = sfp.skipped;
+      sessionFocusFailed = sfp.failed;
+      if (sfp.wrote + sfp.skipped + sfp.failed > 0) {
+        ctx.log.info("CALLER_ATTRIBUTE_NEXT dispatch complete", sfp);
+      }
+    } catch (err: any) {
+      ctx.log.error(
+        "CALLER_ATTRIBUTE_NEXT dispatch threw (non-blocking)",
+        { error: err?.message ?? String(err) },
+      );
+    }
+
     ctx.log.info(`ADAPT parallel ops completed in ${Date.now() - startTime}ms`);
 
     // #1622 — emit per-stage write counts for the eight ADAPT sub-ops.
@@ -3946,6 +4322,7 @@ const stageExecutors: Record<string, StageExecutor> = {
         callerTarget: ruleBasedResult.targetsCreated + ruleBasedResult.targetsUpdated + rewardLoopUpdates,
         goal: goalExtractionResult.goalsCreated + goalExtractionResult.goalsUpdated + goalResult.updated,
         failureLog: failureSignal ? 1 : 0,
+        callerAttribute_session_focus: sessionFocusWrote,
       },
       durationMs: Date.now() - startTime,
     });
@@ -3970,6 +4347,13 @@ const stageExecutors: Record<string, StageExecutor> = {
       // separately.
       rewardLoopProcessed,
       rewardLoopUpdates,
+      // #2154 — CALLER_ATTRIBUTE_NEXT dispatch counters (SessionFocus
+      // 4th-layer substrate). `sessionFocusWrote` is the per-call count
+      // of `session_focus:next_{moduleSlug}` CallerAttribute rows
+      // written for the next call to read.
+      sessionFocusWrote,
+      sessionFocusSkipped,
+      sessionFocusFailed,
     };
   },
 

@@ -23,6 +23,7 @@ const mockPrisma = {
   callerModuleProgress: { findMany: vi.fn() },
   curriculumModule: { findMany: vi.fn() },
   playbook: { findUnique: vi.fn() },
+  session: { findFirst: vi.fn() },
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -59,6 +60,7 @@ function resetDefaults(): void {
   mockPrisma.callerModuleProgress.findMany.mockResolvedValue([]);
   mockPrisma.curriculumModule.findMany.mockResolvedValue([]);
   mockPrisma.callerAttribute.findFirst.mockResolvedValue(null);
+  mockPrisma.session.findFirst.mockResolvedValue(null);
 }
 
 describe("GET /api/student/progress — courseComplete (#493 Slice 5.4)", () => {

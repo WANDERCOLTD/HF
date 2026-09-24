@@ -61,6 +61,15 @@ const {
     },
     playbookSubject: {
       upsert: vi.fn(),
+      // #2132 — course-reference POST now looks up the primary subject to
+      // create a SubjectSource link before triggering extraction (closes
+      // I1 invariant). Tests default to "no primary subject linked" so
+      // the upload path skips the SubjectSource upsert; tests that care
+      // can override per-case.
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+    subjectSource: {
+      upsert: vi.fn().mockResolvedValue({ id: "ss-1" }),
     },
     $transaction: vi.fn(async (fn: unknown) => {
       // Two transaction shapes are exercised here:

@@ -56,6 +56,7 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-ai-forbidden-fields`](#guard-no-ai-forbidden-fields) | AI `input_schema.properties` declaring globally forbidden fields (`role`, `domainId`, `ownerId`) — privilege escalation / cross-tenant moves | — | **a** |
 | [`no-direct-playbook-config-write`](#guard-no-direct-playbook-config-write) | Direct writes to `Playbook.config`; must use `updatePlaybookConfig` | #826 | **a** |
 | [`no-direct-spec-config-write`](#guard-no-direct-spec-config-write) | Direct writes to compose-affecting `AnalysisSpec` fields outside `lib/analysis-spec/` | #829 | **a** |
+| [`no-customer-write-to-canonical-interpretation`](#guard-no-customer-write-to-canonical-interpretation) | Customer-driven writes to spec-readonly `Parameter` fields (`definition`, `interpretationHigh`, `interpretationLow`). They're HF-canonical IP — only seeds, the registry generator, scripts, /api/x/, and migrations may write them. Companion to S4 declarative boundary (#1979). | #1984 | **a** |
 | [`no-direct-domain-onboarding-write`](#guard-no-direct-domain-onboarding-write) | Direct writes to Domain `onboarding*`/`identitySpec` outside `lib/domain/update*` | #828 | **a** |
 | [`no-orphan-instruction-fallback`](#guard-no-orphan-instruction-fallback) | Generic-noun fallbacks for missing module/LO names in prompt transforms (mechanism: [CHAIN-CONTRACTS](../CHAIN-CONTRACTS.md) I-C4) | #1006/#1008 | **a** |
 | [`no-undeclared-field-require`](#guard-no-undeclared-field-require) | `has(...)` refs to field keys not declared in the enclosing spec `define` | #1078 | **a** |
@@ -70,12 +71,18 @@ The meta-ratchet (`check-guard-kb-links.ts`) holds this at 12/12.
 | [`no-bespoke-async-polling`](#guard-no-bespoke-async-polling) | Bespoke `setInterval`/`setTimeout` retry loops outside an allow-list; use `lib/async/wait-until-ready.ts` | G7 / 2026-06-11 | **meta** |
 | [`hf-security/no-secrets-in-client`](#guard-no-secrets-in-client) | Plaintext credentials / secret-shaped literals in `"use client"` files (they ship in the browser bundle) | HF-J / 2026-06-11 | **a** |
 | [`hf-config/no-hardcoded-spec-slug`](#guard-no-hardcoded-spec-slug) | Hardcoded spec-slug literals (`TUT-001`, `GOAL-001`, …) in `lib/`+`app/` runtime; use `config.specs.*`. **Active (error)** after HF-I sweep | HF-I / 2026-06-11 | **b** |
+| [`hf-pipeline/no-course-specific-measure-query`](#guard-no-course-specific-measure-query) | Course-name prefix literals (`IELTS-`, `TOEFL-`, `CEFR-`, `CIO_`, ...) in Prisma `startsWith` / `endsWith` / `contains` filters AND String-method dispatch (`.startsWith` / `.endsWith` / `.includes`) inside `app/api/calls/`, `lib/pipeline/`, `lib/measurement/`. Forces course-agnostic dispatch by `outputType` / `specRole` / `config` opt-in flag (CHAIN-CONTRACTS.md spec-driven dispatch). Complementary to `no-hardcoded-spec-slug` (which covers comparison literals; this rule covers filter / dispatch literals). | #2183 / 2026-06-20 | **b** |
 | [`hf-goals/no-bare-strategy-key`](#guard-no-bare-strategy-key) | Bare string literals assigned to `Goal.progressStrategy` outside the canonical `StrategyKey` enum; allow-list covers the strategies registry alias map + test files | #1599 | **a** |
 | [`hf-rbac/require-tiered-redactor`](#guard-require-tiered-redactor) | Routes tagged `@tieredVisibility` (JSDoc) must import + invoke `visibilityTierForRole(...)` and a `redact<Resource>ForTier(...)` from `lib/rbac/policies/*`; hardens the whitelist-default-safe property of the visibility-policy pattern | #1685 Wave C5 | **a** |
+| [`hf-privacy/no-pii-in-applog-metadata`](#guard-no-pii-in-applog-metadata) | Block literal PII-keyed objects (`email` / `phone` / `transcript` / `name` / `value` / `promptPreview` / `responsePreview`) being passed as `metadata` to `prisma.appLog.create` or `log(...)` / `logAI(...)` calls. Allow-list: `lib/logger.ts`, `lib/metering/meter-call.ts`, `tests/**`, `scripts/**`, `prisma/fixtures/**`. Per-site escape via `// @piiRedacted` comment. CHAIN-CONTRACTS.md §6a I-PR3. | #1926 | **a** |
 | [`hf-curriculum/no-bare-module-progress-update`](#guard-no-bare-module-progress-update) | Bare `prisma.callerModuleProgress.{update,upsert}` outside allow-list; must use `markModuleIncomplete` (incomplete-attempt writes — atomic increment + waiver) or `track-progress.ts` (mastery writes) | #1703 | **a** |
 | [`hf-journey/no-bucketless-journey-setting`](#guard-no-bucketless-journey-setting) | `JOURNEY_SETTINGS` entries without `menuGroupKey` so the Slice C bucket-grained LH menu can mount them; allow-list covers the voice sibling registry + test files | #1738 | **a** |
 | [`registry-schema-coverage`](#guard-registry-schema-coverage) | Schema-vs-registry coverage: every educator-facing `PlaybookConfig` field must be either covered by a `JourneySettingContract.storagePath` or in `REGISTRY_EXEMPT_PATHS` with reason. The 5th Lattice piece — catches the drift class that produced the Slice C ~20-entry shortfall (the "AI Intro Call" fingerprint). | post-Slice-C audit | **a** |
 | [`fixture-type-coverage`](#guard-fixture-type-coverage) | Bidirectional Coverage between `AuthoredModuleSettings` type members and `course-reference-ielts-v*.md` fixture YAML keys: a fixture key with no type member (or a type member with no fixture exercise) fails CI. Closes the drift class surfaced by the 2026-06-18 audit — 5 fixture keys silently dropped by the wizard parser. | #1910 | **a** |
+| [`arraykey-writer-coverage`](#guard-arraykey-writer-coverage) | Bidirectional Coverage between `JOURNEY_SETTINGS` / `VOICE_SETTINGS` contracts whose `storagePath` declares `arrayKey` and writer routes accepting `arraySelector` in their body Zod schema. 14 arrayKey contracts at land time (5 fixed-selector + 9 runtime-selector for G8 module-scoped settings). Pairs with #1888 P3c — closes the drift class where a route refactor dropping `arraySelector` would silently break every per-instance write. | #1912 | **b** |
+| [`courses-template-version-coverage`](#guard-courses-template-version-coverage) | Bidirectional Coverage between production course-ref filesystem (`docs/courses/**/*.course-ref.md` + `docs/external/**/Upload Docs/*.course-ref.md`) and the `hf-template-version: "X.Y"` YAML front-matter marker. A production course-ref without the marker fails CI — the wizard parser can't disambiguate the template revision the doc was authored against. Ratchet at 0 exempt at land time; 6 production course-refs all on v5.1. | #1991 | **a** |
+| [`hf-voice/no-hardcoded-voice-id`](#guard-no-hardcoded-voice-id) | Hardcoded provider-catalogue voice-ID literals (`aura-asteria-en`, `sonic-amelia-en-female`, …) in `lib/` + `app/` runtime code; read from `config.voice.defaults.<provider>.voiceId` instead. Extensible regex registry per provider catalogue. Lands at `warn` after single offender repaired (`lib/chat/admin-tool-handlers.ts:2861`); promotion to `error` in a follow-on PR. Allow-list: `lib/voice/**`, `lib/config.ts`, `prisma/`, `scripts/`, `tests/`, `app/api/voice-providers/**`. Sibling to `lib/voice/default-provider.ts::DEFAULT_VOICE_PROVIDER_SLUG` (provider slug). | #2184 | **b** |
+| [`hf-config/no-bare-spec-identifier`](#guard-no-bare-spec-identifier) | Bare string literals passed to `ContractRegistry.getContract(...)` OR carrying versioned contract-identifier shape (`[A-Z_-]+_V\d+`) in `lib/`+`app/` runtime; use `config.specs.*`. Sibling to `no-hardcoded-spec-slug` (slug shape) — this rule catches the IDENTIFIER argument shape AND the const-map shape. Clean sweep at land — 7 sites repaired across 6 files; 7 new `config.specs.*` accessors. | #2182 | **a** |
 
 ### Guard detail
 
@@ -117,6 +124,32 @@ bypasses both. **Survives hardening:** the choke-point pattern is architecture-i
 Compose-affecting `AnalysisSpec` fields may only be written via
 `lib/analysis-spec/update-analysis-spec-config.ts`. Same choke-point rationale as the
 Playbook rule above.
+
+<a id="guard-no-customer-write-to-canonical-interpretation"></a>
+**`no-customer-write-to-canonical-interpretation`** · class **(a) invariant** · born #1984 ·
+[rule source](../../apps/admin/eslint-rules/no-customer-write-to-canonical-interpretation.mjs)
+
+Customer-driven writes to `Parameter.{definition, interpretationHigh, interpretationLow}` are blocked.
+These three fields are spec-readonly — declared canonically in
+[`lib/cascade/spec-readonly-fields.ts::PARAMETER_SPEC_READONLY_FIELDS`](../../apps/admin/lib/cascade/spec-readonly-fields.ts)
+and emitted verbatim to the LLM via the `behavior_targets_semantics` composition block (#1951 S4).
+Customer-driven writes from wizard / operator-UI / sync paths would corrupt every other tenant's composed prompt.
+
+Allow-list: `/prisma/seed*`, `/prisma/migrations/`, `/scripts/`, `/app/api/x/`, `/app/api/lab/features/`,
+plus the two HF-internal admin routes (`app/api/parameters/[id]/route.ts` SUPERADMIN PUT,
+`app/api/admin/sync-parameters/route.ts` ADMIN sync). Tests + fixtures pass.
+
+Same-PR mitigation:
+- `lib/wizard/apply-projection.ts::upsertParameters` — `definition` dropped from the create payload
+- `app/api/parameters/route.ts` POST — `definition` / `interpretationLow` / `interpretationHigh` dropped from the create payload
+
+Coverage-pillar gate: `tests/lib/cascade/spec-readonly-fields-coverage.test.ts` pins symmetric set equality
+between the canonical TypeScript constant and the rule's hardcoded mirror. Adding a 4th spec-readonly field
+requires the same change in both places + bumping the sentinel — surfaced at PR time.
+
+Companion: discipline doc [`.claude/rules/spec-readonly-boundary.md`](../../.claude/rules/spec-readonly-boundary.md).
+**Survives hardening:** the declarative-source-of-truth pattern (TypeScript const ↔ rule mirror ↔ coverage gate)
+is architecture-independent. Any new HF-canonical Parameter field extends the same triple.
 
 <a id="guard-no-direct-domain-onboarding-write"></a>
 **`no-direct-domain-onboarding-write`** · class **(a) invariant** · born #828 ·
@@ -169,6 +202,22 @@ is dropped from the schema.
 `CallerModuleProgress` reads/writes must sit behind a `courseStyle === 'structured'` guard
 (default-deny). **Survives hardening: conditionally** — tied to the current `courseStyle`
 modelling; revisit if course styles are reworked.
+
+<a id="guard-no-pii-in-applog-metadata"></a>
+**`hf-privacy/no-pii-in-applog-metadata`** · class **(a) invariant** · born #1926 ·
+[rule source](../../apps/admin/eslint-rules/no-pii-in-applog-metadata.mjs)
+
+Blocks literal PII-keyed objects from being passed as `metadata` to `AppLog` writers.
+The audit (2026-06-18) found `AppLog.metadata` is a free JSON column that accepts
+arbitrary keys — without a structural gate, a future `prisma.appLog.create({...,
+metadata: { email, phone, transcript }})` would persist the PII unredacted.
+Forbidden literal keys: `email`, `phone`, `transcript`, `name`, `value`,
+`promptPreview`, `responsePreview`. Allow-list covers `lib/logger.ts` (the canonical
+writer — receives arbitrary data from callers but doesn't author literal keys),
+`lib/metering/meter-call.ts`, tests, scripts, and prisma fixtures. Per-site escape
+via `// @piiRedacted` comment on the preceding line. Detects both bare
+`prisma.appLog.create({...})` calls AND `log(...)` / `logAI(...)` call shapes.
+**Survives hardening:** privacy-by-design is platform-independent.
 
 <a id="guard-no-bare-call-create"></a>
 **`no-bare-call-create`** · class **(a) invariant** · born #1333/#1342 ·
@@ -308,6 +357,42 @@ pass. The one known offence (the build-stripped demo creds) carries a documented
 `eslint-disable` with rationale. Severity `error` from day 1. **Survives hardening:** "no
 secret in browser-shipped code" is an architecture-independent data-safety invariant.
 
+<a id="guard-no-course-specific-measure-query"></a>
+**`hf-pipeline/no-course-specific-measure-query`** · class **b** · born #2183 / 2026-06-20 · **status: active (error)** ·
+[rule source](../../apps/admin/eslint-rules/no-course-specific-measure-query.mjs) ·
+test → [`tests/eslint-rules/no-course-specific-measure-query.test.ts`](../../apps/admin/tests/eslint-rules/no-course-specific-measure-query.test.ts) ·
+rule doc → [`.claude/rules/no-course-specific-measure-query.md`](../../.claude/rules/no-course-specific-measure-query.md)
+
+The 2026-06-21 audit (epic #2176 S8 / story #2181 — NO HARDCODINGS) found
+course-name prefix literals embedded in spec-dispatch surfaces — the partner-blocker
+class where any non-IELTS course (TOEFL, CEFR, CIO/CTO Speaking, KS2-SATs) adopting
+MEASURE specs would silently route through code that only matched `"IELTS-"`. The
+rule fires on string literals of shape `^[A-Z]{3,}[-_]` when they appear as (a) the
+VALUE of a Prisma filter clause (`startsWith` / `endsWith` / `contains`) OR (b) an
+ARGUMENT to a String prototype method of the same name. Path-scoped to
+`app/api/calls/`, `app/api/pipeline/`, `app/api/score/`, `lib/pipeline/`,
+`lib/measurement/` — other surfaces (`lib/curriculum/` slug resolvers, `lib/voice/`
+provider-name handlers) are NOT spec-dispatch and legitimately handle product names
+as data. Allow-list: `lib/config.ts` (where env-overridable prefix constants live),
+`prisma/seed*.ts`, `prisma/migrations/**`, tests, scripts, `_archived/**`. Per-site
+escape via `// hf-pipeline-disable-next-line no-course-specific-measure-query: <reason>`
+on the preceding line. **Activation:** the original story-cited fingerprint at
+`pipeline/route.ts:915` was already course-agnosticised by #2155 / #2137 (replaced
+by `filterByBehaviorTargetParams` reading the opt-in `requiresBehaviorTargetParams: true`
+spec config flag — the reference course-agnostic dispatch pattern). The one
+remaining incumbent at `lib/pipeline/specs-loader.ts:431` (per-Playbook kill-switch
+override #2158) is repaired in the same PR by hoisting the prefix to a module-level
+constant `LLM_IELTS_MEASURE_SLUG_PREFIX`; the rule's CallExpression visitor matches
+Literal arguments only, so the identifier-reference call passes structurally.
+Complementary to `hf-config/no-hardcoded-spec-slug` (which covers comparison
+literals like `slug === "TUT-001"`); this rule covers the dispatch / filter
+literal surface. **Survives hardening as scaffold (b):** it protects today's
+spec-driven dispatch indirection (outputType / specRole / config opt-in); retire
+if the dispatch mechanism itself changes. **Future hardening:** replace the
+slug-prefix kill-switch check at `specs-loader.ts:431` with a spec-config opt-in
+(`cfg.disableViaPlaybookConfigKey: "aiMeasurement.X"`) so the kill-switch becomes
+fully course-agnostic without the module-level constant.
+
 <a id="guard-no-hardcoded-spec-slug"></a>
 **`hf-config/no-hardcoded-spec-slug`** · class **b** · born HF-I / 2026-06-11 · **status: active (error)** ·
 [rule source](../../apps/admin/eslint-rules/no-hardcoded-spec-slug.mjs) ·
@@ -331,6 +416,36 @@ rationale, and 13 runtime consumers across 7 files were routed through 4 new get
 (`aggComprehension` / `aggDiscussion` / `aggCoaching` / `goalProgress`). Rule severity
 promoted dormant → `error`. **Survives hardening as scaffold (b):** it protects today's
 `config.specs.*` indirection; retire if the slug-config mechanism changes.
+
+<a id="guard-no-bare-spec-identifier"></a>
+**`hf-config/no-bare-spec-identifier`** · class **a** · born #2182 / 2026-06-21 · **status: active (error)** ·
+[rule source](../../apps/admin/eslint-rules/no-bare-spec-identifier.mjs) ·
+test → [`tests/eslint-rules/no-bare-spec-identifier.test.ts`](../../apps/admin/tests/eslint-rules/no-bare-spec-identifier.test.ts) ·
+rule file → [`.claude/rules/no-bare-spec-identifier.md`](../../.claude/rules/no-bare-spec-identifier.md)
+
+Sibling to `no-hardcoded-spec-slug` — that catches the `XXX-NNN` AnalysisSpec **slug** shape;
+this catches the **identifier argument** shape AND the **const-map** shape that drives
+DataContract / measure-sentinel lookups (`SKILL_MEASURE_V1`, `PROSODY-SCORE-V1`,
+`ENTITY_ACCESS_V1`, etc.). Contract identifiers are env-overridable config; a literal
+silently stops resolving the moment the corresponding `*_CONTRACT_ID` / `*_SPEC_ID` env
+override flips. Two visitors fire: (1) string Literal argument to
+`ContractRegistry.getContract(...)` (catches the call-site form regardless of suffix); (2)
+Property / VariableDeclarator value matching `^[A-Z][A-Z0-9_-]*[_-]V\d+$` (catches the
+const-map form — e.g. `PROSODY: "PROSODY-SCORE-V1"`). Feature-flag prefix exclusions
+(`HF_FLAG_*`, `HF_IELTS_*`, `NEXT_PUBLIC_*`) prevent false positives on env-var conventions.
+Allow-list (in the rule): `lib/config.ts` (canonical home), `lib/registry/**`,
+`prisma/seed*`, `prisma/migrations/`, `prisma/fixtures/`, `scripts/`, `eslint-rules/**`,
+`docs/**`, `docs-archive/**`, `tests/**`. **Clean sweep at land:** 7 incumbent sites
+repaired across 6 files (`lib/pipeline/aggregate-runner.ts:184`, `lib/goals/track-progress.ts:132`,
+`lib/measurement/write-call-score.ts:174` per the original audit; plus
+`lib/access-control.ts:100`, two sites in `app/api/admin/access-control/entity-access/route.ts`,
+`app/api/admin/access-matrix/route.ts:19`, `lib/curriculum/exam-readiness.ts:36`,
+`lib/prompt/compose-content-section.ts:220` surfaced by the broader lint). 7 new accessors
+added to `config.specs.*` (`skillMeasureV1`, `prosodyScoreV1`, `mockMeasureV1`, `adaptDeltaV1`,
+`entityAccessV1`, `examReadinessV1`, `curriculumProgressV1`). **Survives hardening as class
+a:** the chokepoint pattern matches `no-bare-call-create` (#1333) / `no-bare-strategy-key`
+(#1599) / `no-bare-parameter-write` (#2031); the rule defends the Lattice Configuration-over-
+Code pillar at the contract-identifier surface.
 
 ## CI check scripts — `apps/admin/scripts/`
 
@@ -418,6 +533,11 @@ data-safety invariant.
 | <a id="guard-no-bucketless-journey-setting"></a>`eslint-rules/no-bucketless-journey-setting.mjs` (rule `hf-journey/no-bucketless-journey-setting`) | Every `JOURNEY_SETTINGS` entry in `lib/journey/setting-contracts.entries.ts` must carry `menuGroupKey: JourneyMenuBucketId` so the Slice C bucket-grained LH menu can mount it (#1721). Companion to `registry-completeness.test.ts` (test-time pin) and `docs/CONTRACTS-JOURNEY.md` §17 (the bucket model contract). Allow-list: `lib/settings/voice-setting-contracts.ts` + test files. Born #1738. | **a** |
 | <a id="guard-registry-schema-coverage"></a>`tests/lib/journey/registry-schema-coverage.test.ts` (rule [`.claude/rules/registry-schema-coverage.md`](../../.claude/rules/registry-schema-coverage.md)) | Schema-vs-registry coverage — the 5th Lattice piece. Every educator-facing field on `PlaybookConfig` (+ sub-interfaces `IntakeConfig`, `NpsConfig`, `OffboardingConfig`, etc.) MUST be either covered by a `JourneySettingContract.storagePath` or exempted in `REGISTRY_EXEMPT_PATHS` with one of four documented reason types (wizard-owned / internal / derived / ai-only). The "catch-up" exempt sub-block tracks the ~20-entry shortfall the BA failure produced; a sentinel test ratchets it DOWN as Lane 3 contract PRs land. Companion: ADR [`docs/decisions/2026-06-16-registry-schema-coverage.md`](../decisions/2026-06-16-registry-schema-coverage.md). Born post-Slice-C audit (#1738 follow-on). | **a** |
 | <a id="guard-fixture-type-coverage"></a>`tests/lib/wizard/fixture-type-coverage.test.ts` (rule [`.claude/rules/fixture-type-coverage.md`](../../.claude/rules/fixture-type-coverage.md)) | Bidirectional Coverage gate between `AuthoredModuleSettings` (in `lib/types/json-fields.ts`) and the settings-block YAML keys authored in every `course-reference-ielts-v*.md` fixture under `lib/wizard/__tests__/fixtures/`. Producer→consumer: every fixture key must be a typed member OR in `FIXTURE_KEY_EXEMPT` with reason. Consumer→producer: every type member must be exercised by at least one fixture OR in `TYPE_MEMBER_EXEMPT`. 5 fixture keys exempt at land time (`prepSilenceSec`, `incompleteThresholdSec`, `scoringCriteria`, `scoreReadoutMode`, `topicPool`) — type additions deferred to follow-on. Closes the drift class surfaced by the 2026-06-18 #1903/#1904 grooming audit. Parent epic: #1909. | **a** |
+| <a id="guard-arraykey-writer-coverage"></a>`tests/lib/journey/arraykey-writer-coverage.test.ts` (rule [`.claude/rules/arraykey-writer-coverage.md`](../../.claude/rules/arraykey-writer-coverage.md)) | Bidirectional Coverage gate between `JOURNEY_SETTINGS` / `VOICE_SETTINGS` contracts whose `storagePath` declares `arrayKey: "..."` and writer routes that accept `arraySelector` in their body Zod schema. Producer→consumer: every `arrayKey`-bearing contract is either `covered-fixed-selector` (contract carries `selectorValue` baked in) or `covered-runtime-selector` (registered writer route accepts `arraySelector` — today: `app/api/courses/[courseId]/journey-setting/route.ts` after #1888 P3c). Consumer→producer: routes that accept `arraySelector` MUST reference both `arrayKey` and `selectorValue` in their handler source — pinned via regex source check. 14 arrayKey contracts at land time (5 fixed-selector for JourneyStop dispatch + firstCallTargets; 9 runtime-selector for G8 module-scoped settings). Exempt budget 0 — every known contract is covered. Closes the drift class where a future contract declares `arrayKey` without a fixed selector but the route refactor drops `arraySelector`, silently breaking every per-instance write. Parent epic: #1909. | **b** |
+| <a id="guard-parameter-measurement-coverage"></a>`tests/lib/measurement/parameter-measurement-coverage.test.ts` (rule [`.claude/rules/parameter-measurement-coverage.md`](../../.claude/rules/parameter-measurement-coverage.md)) | Link 7 of the Lattice chain (call behaviour → measurement). Every active parameter in `behavior-parameters.registry.json` must declare `usage.measurement` as `{ specSlug }` or `{ specSlugs }`, and the substantive cross-check verifies the cited spec exists AND its `parameters` array references the param by canonical id or alias. Producer-only debt is explicit (`"deferred-#1967"`) and ratcheted. Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M1; 2026-06-18 incumbent 57 deferred. | **a** |
+| <a id="guard-parameter-loop-closure"></a>`tests/lib/measurement/parameter-loop-closure.test.ts` (rule [`.claude/rules/parameter-loop-closure.md`](../../.claude/rules/parameter-loop-closure.md)) | Link 8 of the Lattice chain (measurement → next-call cascade). For every parameter M1 classifies `measured`, some `AGGREGATE` / `ADAPT` / `REWARD` spec must cite it via `sourceParameter` / `sourceParameterPattern` / `sourceParameterId`, OR it must itself be an AGGREGATE spec's output id (loop self-closes). Defends against the silent-gain-zero class: `CallScore` written every call, no consumer ever reads it. Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M2; 2026-06-18 incumbent 67 open loops; M4 + spec-author follow-ons drive to 0. | **a** |
+| <a id="guard-courses-template-version-coverage"></a>`tests/lib/courses/courses-template-version-coverage.test.ts` (rule [`.claude/rules/courses-template-version-coverage.md`](../../.claude/rules/courses-template-version-coverage.md)) | Bidirectional Coverage gate between production course-ref filesystem and the `hf-template-version: "X.Y"` YAML front-matter marker. Walks `docs/courses/**/*.course-ref.md` (first-party HF courses) AND `docs/external/**/Upload Docs/{course-ref.md,*.course-ref.md}` (partner imports), classifying each as `compliant` / `exempt` / `gap`. 6 production course-refs all on v5.1 at land time; ratchet at 0 exempt — new course-ref MUST land with marker. Closes the gate gap surfaced by the 2026-06-18 audit: course-refs had been migrated to v5.1 (commit `31e58e17`) but no structural gate enforced the marker on future authoring. Parent epic: #1986. | **a** |
+| <a id="guard-lattice-chain-closure"></a>`tests/lib/lattice-chain-closure.test.ts` (rule [`.claude/rules/lattice-chain-closure.md`](../../.claude/rules/lattice-chain-closure.md)) | **6th Coverage-pillar member.** End-to-end chain walker — for each Lattice chain declared in `docs/lattice-chains.json`, asserts (1) every cited producer/consumer/runner file exists, (2) every link's `consumesKeySamples` literally appear in the consumer source, (3) adjacent-link `outputKeySamples` ↔ `consumesKeySamples` overlap (except scope/pattern-based consumers). Defends against the silent chain-death class story #2057 was filed for: every per-link gate passes but the chain dies semantically because adjacent links use mismatched keys (e.g. AGGREGATE writes `behavior_profile:engagement:abstract_concrete` but ADAPT reads `behavior_profile:engagement:abstractness`). 3 chains at land time (beh-aggregate-cascade as test fixture, skill-ema-cascade, coach-aggregate-cascade); 1 tolerated gap (`beh-aggregate-cascade:adapt-leg` — pre-existing AGG→ADAPT architectural gap, ratcheted). Parent epic: #1909. | **a** |
 
 ## Plan-guard agents — `.claude/agents/`
 
@@ -578,6 +698,32 @@ this guard prevents the next instance of the class.
 **Survives hardening:** the doc-drift pattern is methodology-independent
 (any project with operator-runbook docs benefits). The watched-paths map
 will evolve as the infra surface shifts; the rule + script pair stays.
+
+<a id="guard-no-hardcoded-voice-id"></a>
+**`hf-voice/no-hardcoded-voice-id`** · class **(b) scaffold** · born 2026-06-20 (#2184) ·
+[rule source](../../apps/admin/eslint-rules/no-hardcoded-voice-id.mjs) ·
+rule → [.claude/rules/no-hardcoded-voice-id.md](../../.claude/rules/no-hardcoded-voice-id.md)
+
+Blocks bare provider-catalogue voice-ID literals (`aura-asteria-en`,
+`sonic-amelia-en-female`, …) in `lib/` + `app/` runtime code. The
+canonical source is `config.voice.defaults.<provider>.voiceId` in
+`lib/config.ts`. Voice IDs are provider-catalogue-specific — if Deepgram
+retires `aura-asteria-en`, a bare literal silently breaks voice
+synthesis without surfacing a config-side decision.
+
+Extensible regex registry per provider catalogue:
+
+- Deepgram Aura: `aura-[a-z]+-[a-z]{2}` (e.g. `aura-asteria-en`)
+- Cartesia Sonic: `sonic-[a-z]+-[a-z]{2}-[a-z]+` (e.g. `sonic-amelia-en-female`)
+- ElevenLabs UUIDs: deferred (opaque shape — needs separate detection)
+
+Lands at `warn`. The one offender (`lib/chat/admin-tool-handlers.ts:2861`)
+is repaired in the same PR. Promotion to `error` in a follow-on PR once
+the codebase is verified clean by sweep.
+
+Sibling pattern: `lib/voice/default-provider.ts::DEFAULT_VOICE_PROVIDER_SLUG`
+covers PROVIDER selection ("vapi" / "deepgram"); this rule extends the
+principle one level deeper to voice IDs WITHIN a provider's catalogue.
 
 ## Drain guards (class c — terminal state, delete when zero)
 

@@ -48,6 +48,8 @@ export interface PipelineStageWriteCounts {
   callerTarget?: number;
   /** AGGREGATE, monotonic per-LO mastery ratchet (curriculum:{spec}:lo_mastery:{module}:{lo}) */
   callerAttribute_lo_mastery?: number;
+  /** ADAPT, per-session learner-facing emphasis label (session_focus:next_{moduleSlug}) — #2154 / epic #2145 */
+  callerAttribute_session_focus?: number;
   /** AGGREGATE, per-module rolled-up mastery (structured courses only) */
   callerModuleProgress?: number;
   /** REWARD, overall call quality */

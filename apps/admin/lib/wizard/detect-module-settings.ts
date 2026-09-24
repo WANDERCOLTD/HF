@@ -45,8 +45,10 @@
 
 import type {
   AuthoredModuleSettings,
+  ScoreReadoutMode,
   ValidationWarning,
 } from "@/lib/types/json-fields";
+import { SCORE_READOUT_MODE_VALUES } from "@/lib/types/json-fields";
 
 // ── Public types ─────────────────────────────────────────────────────
 
@@ -98,6 +100,14 @@ const KNOWN_FIELDS: ReadonlySet<keyof AuthoredModuleSettings> = new Set([
   "closingLine",
   "firstTimeOrientationLine",
   "scheduledCues",
+  // #2162 — typed in lib/types/json-fields.ts as ScoreReadoutMode.
+  "scoreReadoutMode",
+  // #1955 — Part-3 pin focus (boolean).
+  "pinFocusArea",
+  // #1956 — silent baseline-assessment variant (boolean).
+  "silentMode",
+  // #1954 — generate SessionLessonPlan on exam-module AGGREGATE (boolean).
+  "generateLessonPlan",
   // Below: present in schema but YAML uses source-reference strings in v2.3,
   // not the resolved shape. Parser skips them with a warning so the resolver
   // stage (not yet wired) can pick them up from the raw markdown if needed.
@@ -112,11 +122,14 @@ const NON_SCHEMA_FIELDS: ReadonlySet<string> = new Set([
   "prepSilenceSec",
   "incompleteThresholdSec",
   "scoringCriteria",
-  "scoreReadoutMode",
-  "topicPool",
   // Source-ref shapes (string instead of resolved structured value):
+  // `topicPool` joined this group after #1932 added it to the schema —
+  // its YAML form is a `source:<id>` string, the resolver substitutes
+  // the inlined `Array<{ topic, questions[] }>` in
+  // `lib/wizard/resolve-module-source-refs.ts`.
   "cueCardPool",
   "scaffoldPool",
+  "topicPool",
   "profileFieldsToCapture",
 ]);
 
@@ -630,6 +643,40 @@ export function detectModuleSettings(
             break;
           }
           out.scheduledCues = value;
+          break;
+        }
+        case "scoreReadoutMode": {
+          // #2162 — validate against the typed ScoreReadoutMode union.
+          if (
+            typeof value !== "string" ||
+            !(SCORE_READOUT_MODE_VALUES as readonly string[]).includes(value)
+          ) {
+            result.validationWarnings.push({
+              code: "MODULE_SETTINGS_TYPE_MISMATCH",
+              message: `Field "${rawKey}" in moduleId="${moduleId}" expects one of ${SCORE_READOUT_MODE_VALUES.join(" | ")}, got ${JSON.stringify(value)}.`,
+              severity: "warning",
+              path: `modules.${moduleId}.settings.${rawKey}`,
+            });
+            break;
+          }
+          out.scoreReadoutMode = value as ScoreReadoutMode;
+          break;
+        }
+        case "pinFocusArea":
+        case "silentMode":
+        case "generateLessonPlan": {
+          // Three booleans added on main (#1954 / #1955 / #1956). Same
+          // shape — validate, assign to the same key.
+          if (typeof value !== "boolean") {
+            result.validationWarnings.push({
+              code: "MODULE_SETTINGS_TYPE_MISMATCH",
+              message: `Field "${rawKey}" in moduleId="${moduleId}" expects boolean, got ${JSON.stringify(value)}.`,
+              severity: "warning",
+              path: `modules.${moduleId}.settings.${rawKey}`,
+            });
+            break;
+          }
+          (out as Record<string, unknown>)[rawKey] = value;
           break;
         }
         default: {

@@ -5,6 +5,11 @@ import { mergeConfig } from "../apply-projection";
 import { projectCourseReference } from "../project-course-reference";
 import type { CourseProjection } from "../project-course-reference";
 import type { GoalTemplate, PlaybookConfig } from "@/lib/types/json-fields";
+// #1950 — apply-projection's upsertParameters now calls resolveParameterId
+// which keeps a module-level alias cache. Without clearing in beforeEach
+// the second test sees the first test's empty map and skips the (now
+// fresh) findMany mock.
+import { clearAliasCache } from "@/lib/registry/resolve";
 
 const FIXTURES = join(__dirname, "fixtures");
 const IELTS_V22 = readFileSync(join(FIXTURES, "course-reference-ielts-v2.2.md"), "utf-8");
@@ -140,6 +145,12 @@ function buildMockPrisma() {
       // any of those keys. The no-op assertion only checks `create`/`delete`
       // didn't fire; `update` is not forbidden.
       update: vi.fn().mockResolvedValue({}),
+      // #1950 — upsertParameters now resolves the projected name via
+      // resolveParameterId from lib/registry/resolve.ts, which calls
+      // prisma.parameter.findMany to build the alias map. Empty result
+      // means every projected name is treated as "not found" → existing
+      // create path runs.
+      findMany: vi.fn().mockResolvedValue([]),
     },
     behaviorTarget: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -224,6 +235,9 @@ beforeEach(() => {
   mockTx = buildMockPrisma();
   // $transaction runs the callback synchronously with the same mock as tx.
   mockTx.$transaction.mockImplementation(async (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx));
+  // #1950 — clear the resolver's module-level alias cache so each test
+  // gets a fresh findMany call with the test's own mock.
+  clearAliasCache();
 });
 
 describe("applyProjection — orchestrator smoke", () => {

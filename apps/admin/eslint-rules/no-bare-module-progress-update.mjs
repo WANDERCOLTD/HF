@@ -20,6 +20,7 @@
  *
  *   - lib/curriculum/track-progress.ts          (canonical mastery writer)
  *   - lib/curriculum/mark-module-incomplete.ts  (this PR's helper)
+ *   - lib/curriculum/mark-orientation-shown.ts  (#1730 Story D — orientationShown latch)
  *   - app/api/calls/[callId]/pipeline/route.ts  (pipeline progress writes)
  *   - app/api/admin/demo-reset-scoped/route.ts  (admin reset — deleteMany not blocked)
  *   - app/api/admin/demo-reset-content/route.ts (same)
@@ -37,6 +38,7 @@
 const ALLOWED_PATH_SUFFIXES = [
   "lib/curriculum/track-progress.ts",
   "lib/curriculum/mark-module-incomplete.ts",
+  "lib/curriculum/mark-orientation-shown.ts",
   "app/api/calls/[callId]/pipeline/route.ts",
   "app/api/admin/demo-reset-scoped/route.ts",
   "app/api/admin/demo-reset-content/route.ts",

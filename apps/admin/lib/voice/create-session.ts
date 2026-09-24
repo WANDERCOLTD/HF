@@ -41,12 +41,40 @@ import {
   type SessionKindString,
 } from "@/lib/voice/session-rules";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
-import { selectPinnedCardForModule } from "@/lib/voice/select-pinned-card";
+import {
+  selectPinnedCardForModule,
+  selectTopicFocusCard,
+} from "@/lib/voice/select-pinned-card";
+import {
+  CallRateLimitError,
+  evaluateCallRateLimit,
+  getMaxCallsPerDay,
+  resolveCallCountPolicy,
+} from "@/lib/journey/runtime-gates";
+import { log } from "@/lib/logger";
 import type {
   PinnedCardContent,
   PlaybookConfig,
   SessionMetadata,
 } from "@/lib/types/json-fields";
+
+/** Session kinds whose limit-day count contributes to the per-day cap.
+ *  Excludes ENROLLMENT (pre-playbook intake) and ASSESSMENT (operator-
+ *  triggered tests) so they don't burn the learner's daily budget. */
+const RATE_LIMITED_KINDS: ReadonlySet<SessionKindString> = new Set<SessionKindString>([
+  "VOICE_CALL",
+  "SIM_CALL",
+  "TEXT_CHAT",
+]);
+
+/** Returns the Date at the start of the calling caller's today, UTC.
+ *  The cap is a calendar-day budget; the timezone is intentionally UTC
+ *  to match the rest of the DB / metering surface. */
+function startOfTodayUtc(now: Date = new Date()): Date {
+  const d = new Date(now);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
 
 export type SessionKind = SessionKindString;
 
@@ -140,13 +168,86 @@ export async function createSession(
   // so we can resolve the per-session pinned card pool. Side-effect-free
   // read; safe outside the transaction. Skipped when the IELTS module
   // settings flag is off (the same gate the prompt-side reader uses).
-  let pinnedCardConfig: PlaybookConfig | null = null;
-  if (isIeltsModuleSettingsEnabled() && playbookId && resolvedRequestedSlug) {
+  //
+  // #2056 — runtime gates (callCountPolicy + maxCallsPerDay) also live on
+  // the Playbook config. Load the row once, reuse for both.
+  // #1955 / #2145 S4 — Part-3-shape modules also need the
+  // `session_focus:next_{moduleSlug}` CallerAttribute row (written by the
+  // session-focus-policy AnalysisSpec runner at the end of the prior
+  // call's ADAPT stage) so `selectTopicFocusCard` can project it onto a
+  // `kind: "topicFocus"` pin. Honest empty state: when no row exists,
+  // the selector returns null and no focus pin shows.
+  let playbookConfig: PlaybookConfig | null = null;
+  let pinnedCardCallerAttributes: Array<{
+    key: string;
+    stringValue: string | null;
+  }> = [];
+  if (playbookId) {
     const playbook = await prisma.playbook.findUnique({
       where: { id: playbookId },
       select: { config: true },
     });
-    pinnedCardConfig = (playbook?.config ?? null) as PlaybookConfig | null;
+    playbookConfig = (playbook?.config ?? null) as PlaybookConfig | null;
+    if (isIeltsModuleSettingsEnabled() && resolvedRequestedSlug) {
+      pinnedCardCallerAttributes = await prisma.callerAttribute.findMany({
+        where: {
+          callerId: args.callerId,
+          key: { startsWith: "session_focus:next_" },
+        },
+        select: { key: true, stringValue: true },
+      });
+    }
+  }
+  const pinnedCardConfig: PlaybookConfig | null =
+    isIeltsModuleSettingsEnabled() && resolvedRequestedSlug ? playbookConfig : null;
+
+  // (3c) #2056 (sub-epic G of #2049) — per-day rate limit. Evaluated
+  // BEFORE the transaction so the counter increment never fires on a
+  // refused session. Skipped for ENROLLMENT / ASSESSMENT kinds (operator
+  // / pre-playbook contexts; see RATE_LIMITED_KINDS).
+  if (RATE_LIMITED_KINDS.has(args.kind)) {
+    const policy = resolveCallCountPolicy(playbookConfig);
+    const cap = getMaxCallsPerDay(playbookConfig);
+    if (policy !== "unlimited" && cap !== null) {
+      const usedToday = await prisma.session.count({
+        where: {
+          callerId: args.callerId,
+          kind: { in: Array.from(RATE_LIMITED_KINDS) },
+          startedAt: { gte: startOfTodayUtc() },
+        },
+      });
+      const verdict = evaluateCallRateLimit({
+        policy,
+        maxCallsPerDay: cap,
+        usedToday,
+      });
+      if (verdict.decision === "block-over-cap") {
+        log("api", "call.rate_limit.over_cap", {
+          callerId: args.callerId,
+          playbookId,
+          kind: args.kind,
+          cap: verdict.cap,
+          usedToday: verdict.usedToday,
+          policy: verdict.policy,
+        });
+        throw new CallRateLimitError({
+          callerId: args.callerId,
+          playbookId,
+          cap: verdict.cap,
+          usedToday: verdict.usedToday,
+        });
+      }
+      if (verdict.decision === "allow-soft-cap-hit") {
+        log("api", "call.rate_limit.soft_cap_hit", {
+          callerId: args.callerId,
+          playbookId,
+          kind: args.kind,
+          cap: verdict.cap,
+          usedToday: verdict.usedToday,
+          policy: verdict.policy,
+        });
+      }
+    }
   }
 
   // (4) usedPromptId — I-CT2 cascade. May be null on a brand-new caller.
@@ -237,6 +338,24 @@ export async function createSession(
         moduleSlug: resolvedRequestedSlug,
         sequenceNumber: learnerFacingNumber ?? assignedSeq,
       });
+      // #1955 — topicFocus sibling. Drift guard: if a cueCard was already
+      // selected (Part 2 module with a cueCardPool), do NOT overwrite —
+      // a single session is either a cue-card session or a focus-area
+      // session, never both. The selectTopicFocusCard helper independently
+      // gates on `isPart3ShapedSlug(moduleSlug)`, so collision would only
+      // happen if a Part 3 module also declared a non-empty cueCardPool —
+      // a config error worth surfacing.
+      if (!pinnedCard) {
+        pinnedCard = selectTopicFocusCard({
+          config: pinnedCardConfig,
+          moduleSlug: resolvedRequestedSlug,
+          callerAttributes: pinnedCardCallerAttributes,
+        });
+      } else if (pinnedCard.kind === "cueCard") {
+        // Defensive log — a cueCard win means the Part 2 selector matched.
+        // Don't even try the topicFocus path. This branch is the assertion
+        // step of the drift guard.
+      }
     }
     const metadata: SessionMetadata | null = pinnedCard ? { pinnedCard } : null;
 

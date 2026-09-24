@@ -7,6 +7,7 @@ import StudentOnboarding from "@/components/student/StudentOnboarding";
 import { useStudentCallerId } from "@/hooks/useStudentCallerId";
 import { useQualificationProgress } from "@/hooks/useQualificationProgress";
 import { QualificationCard } from "@/components/student/qualification/QualificationCard";
+import { resolveOffboardingBanner } from "@/lib/curriculum/offboarding-banner";
 
 interface TopicEntry {
   topic: string;
@@ -52,6 +53,13 @@ interface ProgressData {
   institutionName: string | null;
   institutionLogo: string | null;
   welcomeMessage: string | null;
+  // PR #2266 S2 — HTML onboarding wizard cascade copy.
+  studentOnboardingStep1Body?: string | null;
+  studentOnboardingGoalsHintWithItems?: string | null;
+  studentOnboardingGoalsHintEmpty?: string | null;
+  studentOnboardingHowItWorksIntro?: string | null;
+  studentOnboardingReadyBody?: string | null;
+  studentOnboardingReadyCta?: string | null;
   topTopics: TopicEntry[];
   topicCount: number;
   keyFactCount: number;
@@ -108,10 +116,21 @@ function StudentProgressContent() {
                   ? configData.offboarding?.triggerAfterCalls ?? 5
                   : 5;
                 if (d.totalCalls >= threshold && !surveyData?.submitted_at) {
-                  const defaultMsg = `You\u2019ve completed ${d.totalCalls} practice sessions! Tell us how it went \u2014 it takes 30 seconds.`;
-                  const bannerTpl = configData?.offboarding?.bannerMessage;
+                  // #2054 \u2014 banner copy routes through the canonical
+                  // resolver so the contract \u2192 consumer pairing is
+                  // structurally observable to the Lattice coverage
+                  // gate (`registry-consumer-coverage.test.ts`).
                   setSurveyBannerMsg(
-                    bannerTpl ? bannerTpl.replace(/\{n\}/g, String(d.totalCalls)) : defaultMsg,
+                    resolveOffboardingBanner({
+                      offboarding: configData?.ok
+                        ? {
+                            triggerAfterCalls: threshold,
+                            bannerMessage: configData.offboarding?.bannerMessage,
+                            phases: [],
+                          }
+                        : undefined,
+                      totalCalls: d.totalCalls,
+                    }) ?? "",
                   );
                   setShowSurveyBanner(true);
                 }
@@ -166,6 +185,13 @@ function StudentProgressContent() {
         institutionLogo={data.institutionLogo}
         welcomeMessage={data.welcomeMessage}
         domain={data.domain}
+        // PR #2266 S2 — cascade-resolved wizard copy from /api/student/progress.
+        studentOnboardingStep1Body={data.studentOnboardingStep1Body}
+        studentOnboardingGoalsHintWithItems={data.studentOnboardingGoalsHintWithItems}
+        studentOnboardingGoalsHintEmpty={data.studentOnboardingGoalsHintEmpty}
+        studentOnboardingHowItWorksIntro={data.studentOnboardingHowItWorksIntro}
+        studentOnboardingReadyBody={data.studentOnboardingReadyBody}
+        studentOnboardingReadyCta={data.studentOnboardingReadyCta}
         onComplete={() => setShowOnboarding(false)}
       />
     );

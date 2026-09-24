@@ -31,6 +31,7 @@ import {
   type SessionKindString,
 } from "@/lib/voice/session-rules";
 import { markModuleIncomplete } from "@/lib/curriculum/mark-module-incomplete";
+import { markOrientationShownIfApplicable } from "@/lib/curriculum/mark-orientation-shown";
 import { getCourseStyle } from "@/lib/pipeline/course-style";
 import { isIeltsModuleSettingsEnabled } from "@/lib/journey/module-settings-flag";
 import {
@@ -159,6 +160,24 @@ export async function endSession(
     kind,
     outcome: args.outcome,
     durationSeconds,
+  });
+
+  // #1730 Story D (epic #1700 Theme 1 G8 consumer D) — close the
+  // first-time orientation latch when the session completes successfully.
+  // Consumer side is `lib/prompt/composition/transforms/instructions.ts::
+  // resolveModuleOrientationLine`. Mirrors `evaluateIncompleteAttempt`
+  // shape — runs after the Session update commits; failures swallowed
+  // so the latch never rolls back durable Session state. Sibling-writer
+  // isolated: only writes `orientationShown` (and `status` on the
+  // create-branch sentinel); never touches mastery / incompleteAttempts /
+  // existing status.
+  await evaluateOrientationLatch({
+    callerId: updated.callerId,
+    playbookId: existing.playbookId,
+    curriculumModuleId: existing.curriculumModuleId,
+    playbookConfig: existing.playbook?.config as PlaybookConfig | null | undefined,
+    kind,
+    outcome: args.outcome,
   });
 
   // #1747 follow-on (epic #1700 Theme 7) — post-call talk-time
@@ -326,6 +345,65 @@ async function evaluateIncompleteAttempt(args: {
   } catch (err) {
     console.error(
       `[endSession] markModuleIncomplete failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/**
+ * #1730 Story D (epic #1700 Theme 1 G8 consumer D) — close the orientation
+ * latch on successful session end. Sibling to `evaluateIncompleteAttempt`.
+ *
+ * Conditions to close the latch:
+ *
+ *   1. Feature flag `HF_FLAG_IELTS_MODULE_SETTINGS` is enabled (epic
+ *      decision 5 — opt-in during the migration window). The helper
+ *      itself also checks this; the pre-check saves a DB read when off.
+ *   2. Session is gateable: `kind` ∈ {VOICE_CALL, SIM_CALL} AND
+ *      `curriculumModuleId` is set AND `playbookId` is set AND
+ *      `callerId` is set.
+ *   3. Outcome is `COMPLETED`. The orientation directive only matters
+ *      when the session actually ran to a successful end — GHOST/FAILED
+ *      may not have rendered or spoken the directive. Conservative:
+ *      keep the latch open for a future successful retry.
+ *   4. Course is structured (`getCourseStyle` — guard #1252 default-deny).
+ *      Helper enforces too; pre-check saves a DB read on continuous.
+ *
+ * Helper is fire-and-forget — any error is logged but doesn't roll back
+ * the Session update.
+ */
+async function evaluateOrientationLatch(args: {
+  callerId: string | null;
+  playbookId: string | null;
+  curriculumModuleId: string | null;
+  playbookConfig: PlaybookConfig | null | undefined;
+  kind: SessionKindString;
+  outcome: SessionOutcomeString;
+}): Promise<void> {
+  // Condition 1 — feature flag.
+  if (!isIeltsModuleSettingsEnabled()) return;
+
+  // Condition 2 — gateable session shape.
+  if (args.kind !== "VOICE_CALL" && args.kind !== "SIM_CALL") return;
+  if (!args.callerId || !args.playbookId || !args.curriculumModuleId) return;
+
+  // Condition 3 — only on successful completion.
+  if (args.outcome !== "COMPLETED") return;
+
+  // Condition 4 — structured-only (helper enforces too).
+  const courseStyle = getCourseStyle(args.playbookConfig);
+  if (courseStyle !== "structured") return;
+
+  try {
+    await markOrientationShownIfApplicable(prisma, {
+      callerId: args.callerId,
+      moduleId: args.curriculumModuleId,
+      courseStyle,
+      playbookId: args.playbookId,
+    });
+  } catch (err) {
+    console.error(
+      `[endSession] markOrientationShownIfApplicable failed for caller ${args.callerId.slice(0, 8)} module ${args.curriculumModuleId.slice(0, 8)}:`,
       err instanceof Error ? err.message : String(err),
     );
   }

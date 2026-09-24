@@ -18,6 +18,7 @@ import { enrollCaller } from "@/lib/enrollment";
 import { instantiatePlaybookGoals } from "@/lib/enrollment/instantiate-goals";
 import { instantiatePlaybookTargets } from "@/lib/enrollment/instantiate-targets";
 import { instantiatePlaybookModuleProgress } from "@/lib/enrollment/instantiate-module-progress";
+import { pinFirstModuleForCaller } from "@/lib/enrollment/pin-first-module";
 
 export interface CreateTestLearnerResult {
   callerId: string;
@@ -91,6 +92,16 @@ export async function createTestLearnerForPlaybook(
   await instantiatePlaybookModuleProgress(caller.id).catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`[create-test-learner] Module-progress instantiation failed for ${caller.id}: ${message}`);
+  });
+
+  // Pin `Caller.lastSelectedModuleId` to the playbook's first module so the
+  // default-module resolver doesn't race against the tied-timestamps
+  // `CallerModuleProgress` rows that `instantiatePlaybookModuleProgress`
+  // bulk-creates above. See `lib/enrollment/pin-first-module.ts` header for
+  // the full rationale (fix/module-binding-null-on-fresh-callers).
+  await pinFirstModuleForCaller(caller.id, playbookId).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[create-test-learner] First-module pin failed for ${caller.id}: ${message}`);
   });
 
   return { callerId: caller.id, callerName };

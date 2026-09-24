@@ -297,6 +297,17 @@ async function maybeSynthesizeRecap(
   // Gate 1 — kill switch (env var, strict string compare).
   if (process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED !== "true") return null;
 
+  // Gate 1a — #2055 (sub-epic F) cost gate. `recapSynthesisEnabled`
+  // is the operator-flippable COST toggle, distinct from
+  // `priorCallRecap.enabled` (the feature toggle in Gate 2).
+  // - `false` → explicit cost-shutoff. Short-circuit to templated path
+  //   WITHOUT the AI call (no allowlist query, no usage event, no
+  //   audit row — same behaviour as Gate 1 failing).
+  // - `true`  → proceed through the existing gate sequence.
+  // - undefined → preserve legacy behaviour (proceed). Operators who
+  //   never touched the flag get the previous gates as before.
+  if (opts.playbookConfig?.recapSynthesisEnabled === false) return null;
+
   // Gate 2 — playbook config opt-in.
   const recapCfg = opts.playbookConfig?.priorCallRecap;
   if (!recapCfg?.enabled) return null;

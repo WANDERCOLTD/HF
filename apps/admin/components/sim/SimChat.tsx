@@ -15,6 +15,17 @@ import { MediaLibraryPanel } from './MediaLibraryPanel';
 import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
 import { ExamModeShell } from './ExamModeShell';
+import { ChatFeedShell } from './ChatFeedShell';
+import { MCQRoundsShell, type MCQRoundsEmptyReason } from './MCQRoundsShell';
+import { useAssessmentMomentMCQs } from './use-assessment-moment-mcqs';
+import {
+  ResultsReadoutShell,
+  type ResultsReadoutPayload,
+} from './ResultsReadoutShell';
+import { ModuleSwitchLockBanner } from './ModuleSwitchLockBanner';
+import { PostCallCTA } from './PostCallCTA';
+import { resolveLearnerShell } from '@/lib/voice/resolve-learner-shell';
+import type { AuthoredModuleMode } from '@/lib/types/json-fields';
 import { useProviderCall } from './useProviderCall';
 import { labelForEndSource } from '@/lib/voice/end-source';
 import { useOutboundDial } from './useOutboundDial';
@@ -274,10 +285,21 @@ export function SimChat({
   // (CurriculumModule.coversModules.length > 0) mount the ExamModeShell
   // overlay during an active call. Sibling fetch to module-stall-pool
   // above; same lifecycle.
+  //
+  // #2206 (W1+W2+W3 of epic #2163) — also resolves the AuthoredModule.mode
+  // + sessionTerminal shape from /api/callers/[id]/exam-mode-check so the
+  // canonical `resolveLearnerShell(session, module)` dispatcher (PR #2199
+  // / story #2197) can pick between ChatFeedShell / ExamModeShell /
+  // MCQRoundsShell at mount time. `examMode` is retained for the existing
+  // overlay code path; the new state drives the dispatch.
   const [examMode, setExamMode] = useState(false);
+  const [authoredModuleMode, setAuthoredModuleMode] = useState<AuthoredModuleMode | null>(null);
+  const [authoredSessionTerminal, setAuthoredSessionTerminal] = useState(false);
   useEffect(() => {
     if (!requestedModuleId) {
       setExamMode(false);
+      setAuthoredModuleMode(null);
+      setAuthoredSessionTerminal(false);
       return;
     }
     const controller = new AbortController();
@@ -286,13 +308,16 @@ export function SimChat({
       { signal: controller.signal, credentials: 'same-origin' },
     )
       .then((r) => (r.ok ? r.json() : null))
-      .then((body: { ok?: boolean; examMode?: boolean } | null) => {
+      .then((body: { ok?: boolean; examMode?: boolean; mode?: AuthoredModuleMode | null; sessionTerminal?: boolean } | null) => {
         if (!body?.ok) return;
         setExamMode(Boolean(body.examMode));
+        setAuthoredModuleMode(body.mode ?? null);
+        setAuthoredSessionTerminal(Boolean(body.sessionTerminal));
       })
       .catch((err) => {
         if ((err as Error)?.name === 'AbortError') return;
-        // Best-effort — fallback is examMode=false (no shell mounted).
+        // Best-effort — fallback is examMode=false (no shell mounted) +
+        // null mode (resolver defaults to chat-feed).
       });
     return () => controller.abort();
   }, [callerId, requestedModuleId]);
@@ -1271,6 +1296,235 @@ export function SimChat({
   // bound module is Mock-style (resolved server-side via
   // /api/callers/[id]/exam-mode-check) AND the call is currently active.
   const showExamShell = examMode && callPhase === 'active';
+
+  // #2206 (W1+W2+W3 of epic #2163) — canonical shell dispatch.
+  //
+  // Selection is NOT done here — it lives in the pure function
+  // `resolveLearnerShell(session, module)` (PR #2199 / story #2197) so
+  // every shell-mount surface (admin sim, FOH, embedded views) reads the
+  // SAME declarative rule table. SimChat consumes the result and switches
+  // on `shellKind` to mount the appropriate shell. The selection IS the
+  // resolver's job — no per-mode `.mode === "X"` branching scattered
+  // across this component.
+  //
+  // Per `.claude/rules/learner-shell-selection.md`:
+  //   - This component DOES branch on the *returned* `shellKind`. That is
+  //     consumption, not selection.
+  //   - Per-course shell-mount drift is prevented because every code path
+  //     that needs a shell goes through `resolveLearnerShell`.
+  const learnerShellResult = useMemo(() => {
+    return resolveLearnerShell({
+      // Admin sim is the SIM_CALL kind. ENROLLMENT sessions ride above
+      // SimChat (via the intake-wizard flow, not SimChat). The resolver
+      // checks `kind === "ENROLLMENT"` first; passing SIM_CALL keeps the
+      // intake-wizard rule from firing here.
+      session: {
+        kind: 'SIM_CALL',
+        sessionTerminal: authoredSessionTerminal,
+      },
+      module: authoredModuleMode ? { mode: authoredModuleMode } : null,
+    });
+  }, [authoredModuleMode, authoredSessionTerminal]);
+  const { shellKind: resolvedShellKind, capabilities: resolvedCapabilities, matchedRuleId } = learnerShellResult;
+
+  // Defensive fallback path. When the resolver returns a kind we don't
+  // have a consumer for yet (currently only `intake-wizard` — epic
+  // #2163 S4-S7 / W7 of the same handoff), fall back to ChatFeedShell
+  // AND fire an operator-visible signal so the silent-degrade trap
+  // doesn't catch us (per `.claude/rules/data-presence-coverage.md`
+  // "NO SILENT FALLBACKS"). `results-readout` was wired by PR #2220
+  // (W6) and is no longer a fallback case; `ENROLLMENT` is structurally
+  // impossible here (SimChat is SIM_CALL).
+  useEffect(() => {
+    if (
+      resolvedShellKind !== 'chat-feed' &&
+      resolvedShellKind !== 'exam' &&
+      resolvedShellKind !== 'mcq-rounds' &&
+      resolvedShellKind !== 'results-readout'
+    ) {
+      console.warn('[learner_shell.fallback_unwired]', {
+        subject: 'learner_shell.fallback_unwired',
+        shellKind: resolvedShellKind,
+        matchedRuleId,
+        callerId,
+        moduleSlug: requestedModuleId ?? null,
+      });
+    }
+  }, [resolvedShellKind, matchedRuleId, callerId, requestedModuleId]);
+
+  // W4 of memory/handoff_lattice_all_settings_to_ui_2026_06_21.md
+  // (epic #2163 closeout) — MCQ data feed for the quiz-mode shell.
+  //
+  // Reads the caller's active Playbook → assessmentPlan → finds the
+  // AssessmentMoment whose moduleSlug matches the current module → calls
+  // the canonical sampling engine via the route. The hook returns an
+  // empty list + typed `reason` when no moment / empty pool / unsatisfied
+  // policy — the shell consumes this and renders the empty-state. NEVER
+  // fake MCQs (per `feedback_no_hardcoded_score_backfill.md`).
+  //
+  // Mount gate: only fetch when the resolver picked the mcq-rounds shell
+  // for this session AND we have a moduleSlug. Other shells never see
+  // this state.
+  const mcqFeedEnabled = resolvedShellKind === 'mcq-rounds';
+  const mcqFeed = useAssessmentMomentMCQs({
+    callerId,
+    moduleSlug: requestedModuleId ?? null,
+    enabled: mcqFeedEnabled,
+  });
+
+  // Per-round local state. Track the current 1-based round + the selected
+  // option label + the local feedback node for that round. Resets when
+  // the MCQ list changes (new fetch / new moment).
+  const [mcqRoundIndex, setMcqRoundIndex] = useState(1);
+  const [mcqSelectedOption, setMcqSelectedOption] = useState<string | null>(
+    null,
+  );
+  const [mcqFeedbackNode, setMcqFeedbackNode] = useState<React.ReactNode>(null);
+  const [mcqCompleted, setMcqCompleted] = useState(false);
+  useEffect(() => {
+    setMcqRoundIndex(1);
+    setMcqSelectedOption(null);
+    setMcqFeedbackNode(null);
+    setMcqCompleted(false);
+  }, [mcqFeed.mcqs]);
+
+  const handleMcqAnswer = useCallback(
+    (mcqId: string, optionLabel: string) => {
+      // Pin selection (disables the option buttons via the shell's
+      // disabled gate) and surface immediate-mode feedback. Per
+      // ai-to-db-guard.md, the real CallScore write goes through the
+      // canonical writer at `lib/measurement/write-call-score.ts` from
+      // the pipeline — until W4 wires that path, emit an AppLog beacon
+      // so the answer flow is observable end-to-end.
+      setMcqSelectedOption(optionLabel);
+
+      const subject = 'assessment.answer.submitted';
+      const beacon = {
+        subject,
+        callerId,
+        moduleSlug: requestedModuleId ?? null,
+        sessionId: callId ?? null,
+        mcqId,
+        optionLabel,
+        momentKind: mcqFeed.momentKind ?? null,
+      };
+      // Console-only beacon for now — the SUPERVISE pipeline owns the
+      // real score-write. Visible in dev via `/x/logs` once a server
+      // endpoint relays. AppLog server-side write is a follow-on PR
+      // (`POST /api/log/assessment-answer` keyed on sessionId).
+      console.info(`[${subject}]`, beacon);
+
+      if (mcqFeed.feedbackMode === 'immediate') {
+        setMcqFeedbackNode(
+          <span data-testid="hf-mcq-feedback-immediate">
+            Answer recorded. Moving on…
+          </span>,
+        );
+      }
+
+      // Advance to the next round after a short pause so the learner
+      // sees their selection + feedback.
+      const advance = () => {
+        if (mcqRoundIndex >= mcqFeed.mcqs.length) {
+          setMcqCompleted(true);
+          setMcqFeedbackNode(null);
+          return;
+        }
+        setMcqRoundIndex((prev) => prev + 1);
+        setMcqSelectedOption(null);
+        setMcqFeedbackNode(null);
+      };
+      window.setTimeout(advance, 700);
+    },
+    [
+      callerId,
+      requestedModuleId,
+      callId,
+      mcqFeed.momentKind,
+      mcqFeed.feedbackMode,
+      mcqFeed.mcqs.length,
+      mcqRoundIndex,
+    ],
+  );
+
+  // Resolve the shell's `emptyReason` prop based on the feed state.
+  // `loading` while the fetch is in flight; `error` on network fail;
+  // otherwise the engine's typed reason (no-moment / empty-pool / etc.).
+  const mcqEmptyReason: MCQRoundsEmptyReason | null = mcqFeedEnabled
+    ? mcqFeed.loading
+      ? 'loading'
+      : mcqFeed.error
+        ? 'error'
+        : mcqFeed.mcqs.length === 0
+          ? mcqFeed.reason ?? 'no-moment'
+          : null
+    : null;
+
+  // W6 of memory/handoff_lattice_all_settings_to_ui_2026_06_21.md
+  // (story #2185 U11) — ResultsReadoutShell overlay state. Per BDD
+  // US-Mock-05 this is the ONE sanctioned learner surface that displays
+  // per-criterion bands.
+  //
+  // Mount gate: Mock-style module (same `examMode` signal as the dark
+  // exam shell) AND the call has ended. The fetch is best-effort —
+  // null result yields the empty state (never fake bands per the
+  // operator-pinned "no hardcoded score backfill" rule).
+  const showResultsShell = examMode && callPhase === 'ended';
+  const [resultsResult, setResultsResult] = useState<ResultsReadoutPayload | null>(
+    null,
+  );
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  // UX-C / Finding 8 — when the learner clicks "Review transcript" we
+  // temporarily suppress the ResultsReadoutShell overlay so the
+  // underlying chat feed is visible again. The Results screen is the
+  // sanctioned per-criterion surface, but the learner needs a way back
+  // to the transcript without dismissing the score outright.
+  const [reviewingTranscript, setReviewingTranscript] = useState(false);
+  // Any new "ended" cycle (or new call) resets the review-transcript
+  // suppression so the score re-surfaces by default.
+  useEffect(() => {
+    if (callPhase !== 'ended') setReviewingTranscript(false);
+  }, [callPhase, callId]);
+  useEffect(() => {
+    if (!showResultsShell || !callId) {
+      setResultsResult(null);
+      setResultsError(null);
+      setResultsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setResultsLoading(true);
+    setResultsError(null);
+    fetch(
+      `/api/callers/${encodeURIComponent(callerId)}/mock-results?sessionId=${encodeURIComponent(
+        callId,
+      )}`,
+      { signal: controller.signal, credentials: 'same-origin' },
+    )
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(
+        (body: {
+          ok?: boolean;
+          result?: ResultsReadoutPayload | null;
+          error?: string;
+        } | null) => {
+          if (!body?.ok) {
+            setResultsError(body?.error ?? 'Could not load results.');
+            setResultsResult(null);
+            return;
+          }
+          setResultsResult(body.result ?? null);
+        },
+      )
+      .catch((err) => {
+        if ((err as Error)?.name === 'AbortError') return;
+        setResultsError('Could not load results.');
+        setResultsResult(null);
+      })
+      .finally(() => setResultsLoading(false));
+    return () => controller.abort();
+  }, [showResultsShell, callerId, callId]);
   const examSpeakerRole: 'examiner' | 'learner' | 'idle' =
     voiceMode.state === 'ai-speaking'
       ? 'examiner'
@@ -1350,6 +1604,16 @@ export function SimChat({
         onAdminPanel={isOperator ? () => { setShowAdminPanel(prev => !prev); setShowProgressPanel(false); } : undefined}
         adminPanelActive={showAdminPanel}
         liveBubblesMode={liveBubblesMode}
+      />
+
+      {/* UX-B B1 — module-switch lock banner. Capability-driven: reads
+          `allowModuleSwitch` + `modePillKey` from the resolved frame.
+          NO `.mode === "X"` branching here — every per-variant copy
+          difference is keyed off the typed capability map. Silent when
+          `allowModuleSwitch: true`. */}
+      <ModuleSwitchLockBanner
+        capabilities={resolvedCapabilities}
+        shellKind={resolvedShellKind}
       />
 
       {/* Messages */}
@@ -1844,6 +2108,7 @@ export function SimChat({
         <PinnedCardSlot
           callId={callId}
           phaseEnded={callPhase === 'ended' || callPhase === 'wrapping'}
+          showErrorFallback
         />
 
         {/* #1241 Slice 5 — 30s silence watchdog banner. Surfaces when no
@@ -1950,6 +2215,20 @@ export function SimChat({
               </button>
             )}
           </div>
+        )}
+
+        {/* UX-B B2 — exit/navigate CTA. Capability-driven: button text +
+            destination come from `capabilities.dismissOnEnd`. NULL when
+            `dismissOnEnd === "results-screen"` (ResultsReadoutShell owns
+            the post-call CTA in that case). Sits below "Up next" so the
+            iteration loop (same-module restart) stays the lead action;
+            this surfaces the exit / next-module path. */}
+        {callPhase === 'ended' && (
+          <PostCallCTA
+            capabilities={resolvedCapabilities}
+            callerId={callerId}
+            courseId={playbookId}
+          />
         )}
 
         {/* #1098 Slice C — Qualification readiness recap after the call settles.
@@ -2219,30 +2498,140 @@ export function SimChat({
     </>
   );
 
-  // #1745 closeout — wrap the standalone surface in the ExamModeShell
-  // overlay when active on a Mock-style module. The shell is a
-  // position-fixed full-screen layer that visually replaces the chat UI
-  // beneath; the underlying SimChat keeps running so transcript +
-  // pipeline + voiceMode lifecycle continue uninterrupted. Embedded
-  // mode skips the shell — operator views need the chat feed.
-  const examShell = showExamShell && !isEmbedded ? (
+  // #2206 (W1+W2+W3 of epic #2163) — shell dispatch on `resolvedShellKind`.
+  //
+  // Decision tree (resolver-driven, NOT branching on `.mode` here):
+  //   - resolvedShellKind === "exam"        → mount ExamModeShell overlay
+  //                                            (preserves #1745 behaviour
+  //                                            for examiner-terminal +
+  //                                            mock-exam-terminal modules)
+  //   - resolvedShellKind === "mcq-rounds"  → mount MCQRoundsShell wrapper
+  //                                            (closes quiz.learnerUI gap
+  //                                            #2159 at the SimChat host)
+  //   - resolvedShellKind === "chat-feed"   → wrap content in ChatFeedShell
+  //                                            (default — typed wrapper
+  //                                            around the chat feed)
+  //   - other (results-readout / intake-wizard / future)
+  //                                          → fall back to ChatFeedShell
+  //                                            + fire AppLog (see effect
+  //                                            above) — NO SILENT FALLBACKS.
+  //
+  // Embedded mode (operator-facing chat-feed inside the admin shell) skips
+  // shell variants intentionally — the operator needs the bare chat feed.
+  // The legacy `showExamShell` overlay only fires when a CALL is active;
+  // shell switching at the page level happens regardless of call phase.
+  const showExamShellOverlay = showExamShell && !isEmbedded;
+  const examShellOverlay = showExamShellOverlay ? (
     <ExamModeShell
       examinerLevel={examExaminerLevel}
       learnerLevel={voiceMode.waveformLevel}
       speakerRole={examSpeakerRole}
       banner="Mock exam — speak naturally"
+      capabilities={resolvedCapabilities}
     />
+  ) : null;
+
+  // W6 — ResultsReadoutShell mounts as a full-screen overlay once the
+  // Mock-style call has ended. Embedded mode (operator-side views)
+  // skips the overlay so the chat feed remains inspectable.
+  //
+  // UX-C / Finding 8 — onDismiss wires to `onBack` when the capability
+  // map's `allowBackToHome` is true. onReviewTranscript flips local
+  // state to temporarily suppress the overlay so the learner can see
+  // the chat history (a "Done" button re-renders the score via
+  // re-mount on next render).
+  const resultsShell = showResultsShell && !isEmbedded && !reviewingTranscript ? (
+    <ResultsReadoutShell
+      result={resultsResult}
+      loading={resultsLoading}
+      error={resultsError}
+      onDismiss={
+        resolvedCapabilities.allowBackToHome && onBack ? onBack : undefined
+      }
+      onReviewTranscript={() => setReviewingTranscript(true)}
+    />
+  ) : null;
+  // While reviewing transcript, surface a small "Show results" button
+  // overlay so the learner can return to the score. Rendered inside
+  // every shell branch alongside `resultsShell`.
+  const reviewTranscriptReturn = showResultsShell && !isEmbedded && reviewingTranscript ? (
+    <div
+      className="hf-results-review-return"
+      role="region"
+      aria-label="Return to results"
+      data-testid="hf-results-review-return"
+    >
+      <button
+        type="button"
+        className="hf-button-secondary"
+        data-testid="hf-results-review-return-btn"
+        onClick={() => setReviewingTranscript(false)}
+      >
+        Show results
+      </button>
+    </div>
   ) : null;
 
   if (isEmbedded) {
     return <div className="sim-embedded">{content}</div>;
   }
 
-  // Standalone: rendered inside sim layout (which provides the container)
-  return (
-    <>
-      {content}
-      {examShell}
-    </>
-  );
+  // Standalone: dispatch on the resolver's shellKind. The resolver IS the
+  // policy — when a new shell variant lands, extend SHELL_SELECTION_RULES
+  // in `lib/voice/resolve-learner-shell.ts`, not this switch.
+  //
+  // W6 (PR #2220): every branch also mounts `resultsShell` (the
+  // ResultsReadoutShell overlay) so post-Mock terminal state shows
+  // per-criterion bands per BDD US-Mock-05 regardless of the underlying
+  // shell wrapper.
+  switch (resolvedShellKind) {
+    case 'exam':
+      return (
+        <ChatFeedShell capabilities={resolvedCapabilities}>
+          {content}
+          {examShellOverlay}
+          {resultsShell}
+          {reviewTranscriptReturn}
+        </ChatFeedShell>
+      );
+    case 'mcq-rounds':
+      return (
+        <MCQRoundsShell
+          capabilities={resolvedCapabilities}
+          mcqs={mcqFeed.mcqs}
+          roundIndex={mcqRoundIndex}
+          roundTotal={mcqFeed.mcqs.length || undefined}
+          ended={mcqCompleted}
+          feedback={mcqFeedbackNode}
+          selectedOption={mcqSelectedOption}
+          onAnswer={handleMcqAnswer}
+          emptyReason={mcqEmptyReason}
+        >
+          {content}
+          {examShellOverlay}
+          {resultsShell}
+          {reviewTranscriptReturn}
+        </MCQRoundsShell>
+      );
+    case 'chat-feed':
+      return (
+        <ChatFeedShell capabilities={resolvedCapabilities}>
+          {content}
+          {examShellOverlay}
+          {resultsShell}
+          {reviewTranscriptReturn}
+        </ChatFeedShell>
+      );
+    default:
+      // Unwired kind (intake-wizard / future) — fall back to ChatFeedShell.
+      // AppLog fired by the effect above.
+      return (
+        <ChatFeedShell capabilities={resolvedCapabilities}>
+          {content}
+          {examShellOverlay}
+          {resultsShell}
+          {reviewTranscriptReturn}
+        </ChatFeedShell>
+      );
+  }
 }

@@ -20,12 +20,18 @@
  */
 
 import { PrismaClient, BehaviorTargetScope } from "@prisma/client";
-import type { SpecConfig, OutcomeSignal } from "@/lib/types/json-fields";
+import type { SpecConfig, OutcomeSignal, PlaybookConfig } from "@/lib/types/json-fields";
+import {
+  resolveScoringConfig,
+  readLearningProfileMastery,
+  readSupervisionProfileMastery,
+  type CallerAttributeLike,
+} from "@/lib/prompt/composition/scoring-config";
 
 const prisma = new PrismaClient();
 
 // Config loaded from REWARD spec (with defaults)
-interface RewardConfig {
+export interface RewardConfig {
   defaultTargetValue: number;
   tolerance: number;
   outcomeWeights: {
@@ -42,7 +48,7 @@ interface RewardConfig {
   negativeWords: string[];
 }
 
-const DEFAULT_REWARD_CONFIG: RewardConfig = {
+export const DEFAULT_REWARD_CONFIG: RewardConfig = {
   defaultTargetValue: 0.5,
   tolerance: 0.15,
   outcomeWeights: {
@@ -109,7 +115,7 @@ interface EffectiveTarget {
   source: string;
 }
 
-interface ParameterDiff {
+export interface ParameterDiff {
   parameterId: string;
   target: number;
   actual: number;
@@ -117,7 +123,7 @@ interface ParameterDiff {
   withinTolerance: boolean;
 }
 
-interface OutcomeSignals {
+export interface OutcomeSignals {
   resolved?: boolean;
   sentimentDelta?: number;
   duration?: number;
@@ -278,13 +284,27 @@ function estimateOutcomeSignals(
 }
 
 /**
- * Compute overall reward from diffs and outcome signals
+ * Compute overall reward from diffs and outcome signals.
+ *
+ * #2052 sub-epic C — when `strategy` is provided AND not `"blended"`, the
+ * weighting changes:
+ *
+ *   - `"learner_mastery"` — weight the behaviour score by the learner's
+ *     aggregated mastery rollup (`behavior_profile:learning:*` from
+ *     BEH-AGG-001). When the rollup is available, behavior weight scales
+ *     to (0.4 + 0.6 × masteryRollup) so high-mastery learners contribute
+ *     more behaviour signal to the overall score.
+ *   - `"educator_drift"` — outcome signals are dropped entirely; reward
+ *     is the pure behaviour alignment with operator targets.
+ *   - `"blended"` (or undefined) — the original behavior + outcome weighting.
  */
-function computeOverallReward(
+export function computeOverallReward(
   diffs: ParameterDiff[],
   outcomes: OutcomeSignals,
   targetConfidences: Map<string, number>,
-  config: RewardConfig
+  config: RewardConfig,
+  strategy: "learner_mastery" | "educator_drift" | "blended" | undefined,
+  learnerMasteryRollup: number | null,
 ): number {
   if (diffs.length === 0) return 0;
 
@@ -329,8 +349,22 @@ function computeOverallReward(
 
   const normalizedOutcome = outcomeFactors > 0 ? outcomeScore / outcomeFactors : 0;
 
-  // 3. Combined score: weighted average (from config)
-  const overallScore = behaviorScore * config.behaviorWeight + normalizedOutcome * config.outcomeWeight;
+  // 3. Combined score — strategy-dependent.
+  let overallScore: number;
+  if (strategy === "educator_drift") {
+    // Pure behaviour — operator targets are the truth.
+    overallScore = behaviorScore;
+  } else if (strategy === "learner_mastery" && learnerMasteryRollup !== null) {
+    // Scale behaviour weight by mastery: high-mastery learners contribute
+    // more behaviour signal. Range [0.4, 1.0] for behaviour weight.
+    const behW = 0.4 + 0.6 * learnerMasteryRollup;
+    const outW = 1 - behW;
+    overallScore = behaviorScore * behW + normalizedOutcome * outW;
+  } else {
+    // Default blended (and the safe fallback when learner_mastery is
+    // requested but no rollup is available yet).
+    overallScore = behaviorScore * config.behaviorWeight + normalizedOutcome * config.outcomeWeight;
+  }
 
   return Math.max(-1, Math.min(1, Math.round(overallScore * 100) / 100));
 }
@@ -456,8 +490,68 @@ export async function computeReward(
       // Estimate outcome signals (using config for markers)
       const outcomes = estimateOutcomeSignals(call.transcript, config);
 
-      // Compute overall reward (using config for weights)
-      const overallScore = computeOverallReward(diffs, outcomes, targetConfidences, config);
+      // #2052 sub-epic C — read the operator's rewardStrategy override
+      // from the Playbook attached to the call (when available). Falls
+      // back to "blended" (current behaviour) when:
+      //   - The call has no playbookId (legacy / harness rows)
+      //   - The Playbook config doesn't set rewardStrategy
+      //
+      // For "learner_mastery" we also read the aggregated
+      // `behavior_profile:learning:*` rollup from CallerAttribute rows
+      // produced by BEH-AGG-001.
+      let strategy: "learner_mastery" | "educator_drift" | "blended" | undefined;
+      let learnerMasteryRollup: number | null = null;
+      if (call.playbookId) {
+        const pb = await prisma.playbook.findUnique({
+          where: { id: call.playbookId },
+          select: { config: true },
+        });
+        const scoring = resolveScoringConfig((pb?.config ?? null) as PlaybookConfig | null);
+        strategy = scoring.rewardStrategy;
+        if (strategy === "learner_mastery" && call.callerId) {
+          const attrs = await prisma.callerAttribute.findMany({
+            where: {
+              callerId: call.callerId,
+              key: { startsWith: "behavior_profile:learning:" },
+            },
+            select: { key: true, numberValue: true },
+          });
+          learnerMasteryRollup = readLearningProfileMastery(
+            attrs as CallerAttributeLike[],
+          );
+          if (verbose) {
+            console.log(
+              `[reward] #2052 rewardStrategy=learner_mastery, learningRollup=${learnerMasteryRollup} (${attrs.length} aggregate rows)`,
+            );
+          }
+        } else if (strategy === "educator_drift" && verbose) {
+          // Supervision rollup is read so the diagnostic log carries a
+          // verifiable signal that the strategy switch took effect.
+          const supAttrs = await prisma.callerAttribute.findMany({
+            where: {
+              callerId: call.callerId ?? "__none__",
+              key: { startsWith: "behavior_profile:supervision:" },
+            },
+            select: { key: true, numberValue: true },
+          });
+          const supRollup = readSupervisionProfileMastery(
+            supAttrs as CallerAttributeLike[],
+          );
+          console.log(
+            `[reward] #2052 rewardStrategy=educator_drift (supervisionRollup=${supRollup} for diagnostics; outcome signals dropped from blend)`,
+          );
+        }
+      }
+
+      // Compute overall reward (using config for weights + strategy override)
+      const overallScore = computeOverallReward(
+        diffs,
+        outcomes,
+        targetConfidences,
+        config,
+        strategy,
+        learnerMasteryRollup,
+      );
 
       // Build JSON snapshots
       const effectiveTargetsJson: Record<string, any> = {};

@@ -1,3 +1,7 @@
+---
+hf-template-version: "5.1"
+---
+
 # Course Reference — IELTS Speaking Practice  
   
 **Built from:** HumanFirst Course Reference Template v5.1  
@@ -17,6 +21,7 @@
   
 - **courseStyle:** structured  
 - **examShape:** exam     <!-- enables exam-style settings: cueCardPool, scheduledCues, examMode -->  
+- **lessonPlanMode:** structured     <!-- 5 authored modules — admin Modules tab + CallerModuleProgress active. Operator-authoritative declaration so the wizard does not need to infer. -->  
   
 **Rationale.** IELTS Speaking is fundamentally an exam-prep course with a fixed five-module structure (Baseline, Part 1, Part 2, Part 3, Mock Exam), per-module session-terminal rules, scheduled cues (Part 2 prep + monologue countdown), and a cue-card pool whose semantics are exam-specific. Declaring `courseStyle: structured` keeps `CallerModuleProgress` writes active and the picker honouring the per-module catalogue. Declaring `examShape: exam` (a sub-shape of structured) enables the exam-only settings the projector needs to emit — `moduleCueCardPool`, `moduleScheduledCues`, and the examiner-mode silence rules during the Part 2 long turn.  
   
@@ -179,16 +184,19 @@ moduleId: baseline
 appliesTo: [exam, structured]
 settings:
   # Fixed-duration exam simulation, warmer framing than Mock.
+  silentMode: true              # #1956 (Boaz/Eldar Unit 1.3) — conversational, no test announcement
+  generateLessonPlan: true      # #1954 (Boaz/Eldar Unit 1.1) — emit next-step plan on completion
   minSpeakingSec: 1200          # 20-minute fixed session length
   questionTarget: { min: 0, target: 0 }   # examiner-driven; questions per Part are scripted, not a learner-target
   cueCardPool: source:cue-card-bank-baseline-v1   # Source 4 — Baseline Assessment topic pool (Part 2 sub-pool)
   closingLine: |
-    That's the end of your Baseline. I'll share your focus area on screen.
+    That gives me a good picture of where you are. Give me a moment, and we'll get you started.
   firstTimeOrientationLine: |
     This is a relaxed first call, not a test, so I can hear you speak English
     and give you an honest starting point. We'll do all three Parts at exam
     pace — Part 1, then a cue card with one minute to prepare, then a few
-    follow-up questions. About twenty minutes total.
+    follow-up questions. About twenty minutes total. If you're ever unsure
+    about anything — just ask me.
   scheduledCues: []             # Baseline uses the warmer framing — no aloud cue countdown
   scaffoldPool: source:stall-scaffolds-monologue   # examiner-mode silence rules; Part 2 long-turn nudges only
   profileFieldsToCapture: source:ielts-speaking-profile-fields   # Source 14 — per-key {prompt, type} metadata
@@ -268,9 +276,16 @@ settings:
     In Part 2 you'll speak for two minutes on a single cue card.
     You'll get one minute to prepare. Cover all the bullets and try to
     use a range of tenses — past, present, future — in one turn.
+  # MT #2277 — Part 2 carries 5 scheduledCues: PPF prep intro + warns +
+  # monologue boundary + re-speak offer + re-speak close. Cue-scheduler
+  # is voice-only per PR #2286; BDD-acceptable since real IELTS examiners
+  # speak prep instructions verbally.
   scheduledCues:
-    - { at: 45, text: "15 seconds left" }          # end of 1-min prep phase
-    - { at: 60, text: "Your two minutes start now" }   # monologue begin
+    - { at: 0, text: "You'll have one minute to prepare. Think of a specific memory or moment. Consider past, present, and future. Write three bullet points — one word or phrase per line.", phase: "p2_prep_start" }
+    - { at: 45, text: "Fifteen seconds left." }
+    - { at: 60, text: "Your time starts now — go ahead.", phase: "p2_monologue" }
+    - { at: 181, text: "Your structure was clear — let's try once more. Same topic. Start when you're ready.", phase: "p2_respeak" }
+    - { at: 241, text: "Good — that's your minute. Well done.", phase: "p2_respeak_close" }
   scaffoldPool: source:stall-scaffolds-monologue   # Source 6
   profileFieldsToCapture: []
   prepSilenceSec: 60            # examiner silence during prep
@@ -317,6 +332,7 @@ settings:
   incompleteThresholdSec: null  # student-led; no terminal threshold
   scoringCriteria: [LR, GRA]    # FC + Pron not scored from Part 3 alone (discontinuous sample)
   scoreReadoutMode: end-of-module-on-screen
+  pinFocusArea: true            # Part 3 only — #1955 focus directive + on-screen pin
 ```
   
 ### Module 5 — Mock Exam  
@@ -358,9 +374,13 @@ settings:
     card with one minute to prepare and two minutes to speak, then Part 3
     follow-up questions. About twenty minutes total. I'll share your
     indicative bands at the end.
+  # MT #2277 — Mock Part 2 segment carries prep-intro + warns ONLY; no
+  # re-speak loop per BDD U5 (Mock is exam-mode end-to-end; re-speak is
+  # a Part 2 practice affordance, not exam-mode behaviour).
   scheduledCues:
-    - { at: 45, text: "15 seconds left" }          # Part 2 prep phase end
-    - { at: 60, text: "Your two minutes start now" }   # Part 2 monologue begin
+    - { at: 0, text: "You'll have one minute to prepare. Think of a specific memory or moment. Consider past, present, and future. Write three bullet points — one word or phrase per line.", phase: "p2_prep_start" }
+    - { at: 45, text: "Fifteen seconds left." }
+    - { at: 60, text: "Your two minutes start now.", phase: "p2_monologue" }
   scaffoldPool: source:stall-scaffolds-monologue   # examiner mode throughout; Part 2 long-turn stalls only
   profileFieldsToCapture: []
   prepSilenceSec: 60            # Part 2 prep phase inside Mock
@@ -1054,6 +1074,10 @@ Content sources are the cue cards, Part 1 topic sets, Part 3 themes, and worked 
   
 A bank of Part 1 topics, each with 5 to 8 questions covering the four most common topic clusters (Home, Work or Study, Hobbies, Hometown) and a wider set of secondary topics (Food, Travel, Technology, Weather, Routines).  
   
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-question-bank-part1.md`  
+- *format:* topic-pool  
+- *moduleRef:* part1  
+- *settingRef:* moduleTopicPool  
 - *Outcomes served:* OUT-01, OUT-02, OUT-05, OUT-06, OUT-07.  
 - *Ordering:* student-led — the tutor offers a topic if asked, otherwise the student chooses.  
 - *Notes:* Every topic set is tagged for difficulty (basic / intermediate / advanced) and is reviewed against the topic packaging standards above.  
@@ -1074,6 +1098,10 @@ A bank of Part 2 cue cards in the standard IELTS structure (single-sentence topi
   
 A bank of Part 3 themes, each with 4 to 6 abstract follow-up questions across the seven Part 3 question types, designed to escalate from concrete to abstract within a drill.  
   
+- *location:* `docs/external/ielts/ielts-speaking/Upload Docs/ielts-speaking-question-bank-part3.md`  
+- *format:* theme-pool  
+- *moduleRef:* part3  
+- *settingRef:* moduleTopicPool  
 - *Outcomes served:* OUT-03, OUT-13, OUT-14, OUT-15, OUT-16, OUT-17, OUT-19, OUT-20, OUT-21.  
 - *Ordering:* the tutor's default is to follow a Part 2 cue card with a thematically connected Part 3 theme, mirroring real exam structure.  
 - *Notes:* Each theme is tagged with the question types it covers, so the tutor can select themes that drill specific question types the student is weak on.  

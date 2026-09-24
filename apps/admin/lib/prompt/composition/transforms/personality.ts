@@ -100,3 +100,154 @@ export function computePersonalityAdaptation(
     ? adaptations
     : ["No strong personality traits detected - use balanced approach"];
 }
+
+/**
+ * #2083 (epic #2078 S1) — Big Five → personality-adaptation directives.
+ *
+ * Wires the 5 producer-only `BEH-*-ADAPTATION` parameters into the compose
+ * read path. For each ADAPTATION param, look up the matching Big Five score
+ * from `CallerPersonalityProfile.parameterValues` (EMA 30d half-life) and
+ * emit a strong directive citing the parameter's
+ * `interpretationHigh` / `interpretationLow` text.
+ *
+ * The 5 wired parameters:
+ *   - BEH-OPENNESS-ADAPTATION         ← caller's BEH-B5-O
+ *   - BEH-CONSCIENTIOUSNESS-ADAPTATION ← caller's BEH-B5-C
+ *   - BEH-EXTRAVERSION-ADAPTATION     ← caller's BEH-B5-E
+ *   - BEH-AGREEABLENESS-ADAPTATION    ← caller's BEH-B5-A
+ *   - BEH-NEUROTICISM-ADAPTATION      ← caller's BEH-B5-N
+ *
+ * The Big Five cascade already aggregates per call into
+ * `CallerPersonalityProfile.parameterValues`. The 5 ADAPTATION rows describe
+ * HOW the tutor adapts when the caller is HIGH or LOW on the corresponding
+ * trait. This function closes the read side of that pairing.
+ *
+ * Per `parameter-coverage.md`: the explicit ID strings below are what the
+ * coverage regex matches against — do not collapse to a loop variable
+ * derived from `BIG_FIVE_ADAPTATIONS` keys (the regex won't see the IDs).
+ */
+
+interface BehaviorTargetLike {
+  parameterId?: string | null;
+  targetValue?: number | null;
+  parameter?: {
+    parameterId?: string | null;
+    interpretationHigh?: string | null;
+    interpretationLow?: string | null;
+    name?: string | null;
+  } | null;
+}
+
+const BIG_FIVE_ADAPTATIONS: ReadonlyArray<{
+  adaptationParamId:
+    | "BEH-OPENNESS-ADAPTATION"
+    | "BEH-CONSCIENTIOUSNESS-ADAPTATION"
+    | "BEH-EXTRAVERSION-ADAPTATION"
+    | "BEH-AGREEABLENESS-ADAPTATION"
+    | "BEH-NEUROTICISM-ADAPTATION";
+  bigFiveParamId: "BEH-B5-O" | "BEH-B5-C" | "BEH-B5-E" | "BEH-B5-A" | "BEH-B5-N";
+  // Friendly label for the directive prefix.
+  traitLabel: string;
+}> = [
+  { adaptationParamId: "BEH-OPENNESS-ADAPTATION",         bigFiveParamId: "BEH-B5-O", traitLabel: "openness" },
+  { adaptationParamId: "BEH-CONSCIENTIOUSNESS-ADAPTATION", bigFiveParamId: "BEH-B5-C", traitLabel: "conscientiousness" },
+  { adaptationParamId: "BEH-EXTRAVERSION-ADAPTATION",     bigFiveParamId: "BEH-B5-E", traitLabel: "extraversion" },
+  { adaptationParamId: "BEH-AGREEABLENESS-ADAPTATION",    bigFiveParamId: "BEH-B5-A", traitLabel: "agreeableness" },
+  { adaptationParamId: "BEH-NEUROTICISM-ADAPTATION",      bigFiveParamId: "BEH-B5-N", traitLabel: "neuroticism" },
+];
+
+/**
+ * Look up the caller's B5 trait score from the `personality` snapshot.
+ *
+ * Loader at `SectionDataLoader.ts::personality` flattens
+ * `CallerPersonalityProfile.parameterValues` (`{ "BEH-B5-O": 0.74, ... }`)
+ * spread onto the returned object. So `personality["BEH-B5-O"]` works
+ * directly when the key is present.
+ *
+ * Older callers may have only the legacy `openness` / `extraversion` /
+ * etc. fields populated (the `CallerPersonality` table, pre-rebuild).
+ * Fall back to those when the canonical ID isn't found.
+ */
+function readBigFive(
+  personality: PersonalityData,
+  bigFiveParamId: string,
+  legacyFieldName: string,
+): number | null {
+  // `personality` is the merged shape from `SectionDataLoader.ts::personality`
+  // — `CallerPersonalityProfile.parameterValues` (Record<string, number>)
+  // spread onto the legacy `CallerPersonality` columns. PersonalityData
+  // only types the legacy columns; the dynamic parameterValues keys are
+  // accessed via an unknown-cast.
+  const bag = personality as unknown as Record<string, unknown>;
+  const raw = bag[bigFiveParamId];
+  if (typeof raw === "number") return raw;
+  const legacy = bag[legacyFieldName];
+  return typeof legacy === "number" ? legacy : null;
+}
+
+/**
+ * Map the 5 ADAPTATION param IDs to their legacy `CallerPersonality` field
+ * name (used as a fallback when the canonical `BEH-B5-*` key isn't on the
+ * loaded personality snapshot).
+ */
+const LEGACY_FIELD_MAP: Record<string, string> = {
+  "BEH-B5-O": "openness",
+  "BEH-B5-C": "conscientiousness",
+  "BEH-B5-E": "extraversion",
+  "BEH-B5-A": "agreeableness",
+  "BEH-B5-N": "neuroticism",
+};
+
+export function computePersonalityAdaptationDirectives(
+  personality: PersonalityData | null,
+  mergedTargets: ReadonlyArray<BehaviorTargetLike>,
+  thresholds: { high: number; low: number },
+): string[] {
+  if (!personality) return [];
+
+  // Index merged BehaviorTargets by parameterId so we can pull the
+  // operator-tuned target value + the parameter's canonical
+  // interpretationHigh / interpretationLow rationale text.
+  const targetByParam = new Map<string, BehaviorTargetLike>();
+  for (const t of mergedTargets) {
+    const id = t.parameterId ?? t.parameter?.parameterId ?? null;
+    if (id) targetByParam.set(id, t);
+  }
+
+  const directives: string[] = [];
+
+  for (const map of BIG_FIVE_ADAPTATIONS) {
+    const b5Score = readBigFive(
+      personality,
+      map.bigFiveParamId,
+      LEGACY_FIELD_MAP[map.bigFiveParamId] ?? "",
+    );
+    if (b5Score === null) continue;
+
+    const target = targetByParam.get(map.adaptationParamId);
+    const interpretationHigh = target?.parameter?.interpretationHigh ?? null;
+    const interpretationLow = target?.parameter?.interpretationLow ?? null;
+
+    // Three-way classification against the same thresholds the rest of the
+    // composer uses. Only HIGH / LOW push a strong directive; MODERATE is
+    // intentionally silent to keep the personality_adaptation list concise
+    // (matches the legacy behaviour of `computePersonalityAdaptation`).
+    if (b5Score >= thresholds.high) {
+      const rationale = interpretationHigh
+        ? ` — ${interpretationHigh}`
+        : "";
+      directives.push(
+        `HIGH ${map.traitLabel} (${(b5Score * 100).toFixed(0)}%): adopt the high-${map.traitLabel} adaptation${rationale}.`,
+      );
+    } else if (b5Score <= thresholds.low) {
+      const rationale = interpretationLow
+        ? ` — ${interpretationLow}`
+        : "";
+      directives.push(
+        `LOW ${map.traitLabel} (${(b5Score * 100).toFixed(0)}%): adopt the low-${map.traitLabel} adaptation${rationale}.`,
+      );
+    }
+  }
+
+  return directives;
+}

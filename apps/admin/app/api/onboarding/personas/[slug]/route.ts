@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get system defaults for merging
-    const defaultTargetsParam = specConfig.parameters?.find((p: any) => p.id === "default_targets_quality");
+    const defaultTargetsParam = specConfig.parameters?.find((p: any) => p.id === "BEH-DEFAULT-TARGETS-QUALITY");
     const systemDefaultTargets = defaultTargetsParam?.config?.defaultTargets || specConfig.defaultTargets || {};
 
     // Get associated prompt slugs

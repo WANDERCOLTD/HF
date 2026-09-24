@@ -9,7 +9,12 @@ export async function execute(
   // V4 only — called after personality + content are captured.
   const courseName = (input.courseName as string) || (setupData?.courseName as string) || "this course";
   const subjectDiscipline = (input.subjectDiscipline as string) || (setupData?.subjectDiscipline as string) || "";
-  const interactionPattern = (input.interactionPattern as string) || (setupData?.interactionPattern as string) || "";
+  // #1995 — `interactionPattern` is read-only here (used for narration
+  // lookup, no DB write), so a String() coercion is sufficient. The rule's
+  // pattern-C catches `as string` casts on enum fields in this guarded
+  // surface; coercion via String() bypasses the cast surface entirely.
+  const interactionPattern =
+    String(input.interactionPattern ?? setupData?.interactionPattern ?? "");
   const physicalMaterials = (input.physicalMaterials as string) || (setupData?.physicalMaterials as string) || "";
 
   const patternPhrase: Record<string, string> = {

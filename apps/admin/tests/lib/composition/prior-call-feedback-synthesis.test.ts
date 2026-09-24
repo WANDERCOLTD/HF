@@ -185,6 +185,71 @@ describe("priorCallFeedback synthesis — enabled flag", () => {
   });
 });
 
+describe("priorCallFeedback synthesis — recapSynthesisEnabled cost gate (#2055)", () => {
+  it("recapSynthesisEnabled: false → short-circuits, no allowlist query, no AI call, no audit row", async () => {
+    process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED = "true";
+    const prisma = makePrismaStub({ allowlist: JSON.stringify([PLAYBOOK_ID]) });
+    const cfg: PlaybookConfig = {
+      ...withRecap({ enabled: true, depth: "standard" }),
+      recapSynthesisEnabled: false,
+    };
+    const result = await loadPriorCallFeedback(prisma, {
+      callerId: CALLER_ID,
+      moduleId: MODULE_ID,
+      currentCallId: CURRENT_CALL_ID,
+      now: NOW,
+      playbookId: PLAYBOOK_ID,
+      playbookConfig: cfg,
+    });
+    // Templated path wins.
+    expect(result.hasFeedback).toBe(true);
+    expect(result.summary).toBeTruthy();
+    expect(result.synthesizedRecap).toBeNull();
+    // No AI call fired.
+    expect(synthMock).not.toHaveBeenCalled();
+    // Cost-gate is BEFORE the allowlist query — assert allowlist DB
+    // call was never made (any spurious AI billing requires it).
+    expect(prisma.systemSetting.findUnique).not.toHaveBeenCalled();
+    // No audit rows written either.
+    expect(prisma.auditWrites).toHaveLength(0);
+  });
+
+  it("recapSynthesisEnabled: true → proceeds through existing gates (synth runs)", async () => {
+    process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED = "true";
+    const prisma = makePrismaStub({ allowlist: JSON.stringify([PLAYBOOK_ID]) });
+    const cfg: PlaybookConfig = {
+      ...withRecap({ enabled: true, depth: "standard" }),
+      recapSynthesisEnabled: true,
+    };
+    const result = await loadPriorCallFeedback(prisma, {
+      callerId: CALLER_ID,
+      moduleId: MODULE_ID,
+      currentCallId: CURRENT_CALL_ID,
+      now: NOW,
+      playbookId: PLAYBOOK_ID,
+      playbookConfig: cfg,
+    });
+    expect(synthMock).toHaveBeenCalledTimes(1);
+    expect(result.synthesizedRecap?.text).toContain("synth(standard)");
+  });
+
+  it("recapSynthesisEnabled: undefined → preserves legacy behaviour (proceeds)", async () => {
+    process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED = "true";
+    const prisma = makePrismaStub({ allowlist: JSON.stringify([PLAYBOOK_ID]) });
+    // No recapSynthesisEnabled key at all.
+    const result = await loadPriorCallFeedback(prisma, {
+      callerId: CALLER_ID,
+      moduleId: MODULE_ID,
+      currentCallId: CURRENT_CALL_ID,
+      now: NOW,
+      playbookId: PLAYBOOK_ID,
+      playbookConfig: withRecap({ enabled: true, depth: "standard" }),
+    });
+    expect(synthMock).toHaveBeenCalledTimes(1);
+    expect(result.synthesizedRecap).not.toBeNull();
+  });
+});
+
 describe("priorCallFeedback synthesis — depth dispatch", () => {
   beforeEach(() => {
     process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED = "true";

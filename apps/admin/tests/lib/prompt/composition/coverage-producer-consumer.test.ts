@@ -105,6 +105,12 @@ const PAIRS: Array<{
     since: "#1735",
   },
   {
+    key: "module_topic_pool",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.module_topic_pool",
+    since: "#1932",
+  },
+  {
     key: "priorCallFeedback",
     // Loader file — not a transform. Producer-side needle is the loader's
     // output field (`summary`) rather than the section key (which is
@@ -113,6 +119,73 @@ const PAIRS: Array<{
     producerNeedle: "summary",
     consumerNeedle: "llmPrompt.priorCallFeedback",
     since: "#1749",
+  },
+  {
+    key: "behavior_targets_semantics",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.behavior_targets_semantics",
+    since: "#1951",
+  },
+  // module_focus_area pair retired by epic #2145 S4 (#2150) — the
+  // bespoke Part-3-focus path (`transforms/part3-focus.ts` +
+  // `lib/curriculum/derive-focus-area.ts`) leaked internal IELTS
+  // criterion names (Fluency and Coherence, Lexical Resource, …) into
+  // the composed prompt + pin. Replaced by the generic `session_focus`
+  // pair below (Phase A), which writes only the projected
+  // learner-facing label set (Part3TechniqueFocus union).
+  {
+    key: "baseline_assessment_depth",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.baseline_assessment_depth",
+    since: "#2051",
+  },
+  {
+    // #2082 (S3 of epic #2078) — curriculum-adaptation transform that
+    // wires 22 producer-only parameters. Producer-side needle is the
+    // `directive: string` field on `CurriculumAdaptationDirective`;
+    // consumer-side needle is the renderer's body push.
+    key: "curriculumAdaptation",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/curriculum-adaptation.ts",
+    producerNeedle: "CurriculumAdaptationDirective",
+    consumerNeedle: "llmPrompt as any).curriculumAdaptation",
+    since: "#2082",
+  },
+  {
+    // #2085 (S5 of epic #2078) — companion-domain directives. The
+    // producer file emits `directive` as a field on each row of the
+    // `directives` array (not a top-level output key), so we use a
+    // custom needle pointing at the COMPANION_PARAMETER_IDS export
+    // which is uniquely present in the companion transform.
+    key: "companion_directives",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/companion.ts",
+    producerNeedle: "COMPANION_PARAMETER_IDS",
+    consumerNeedle: "llmPrompt.companionDirectives",
+    since: "#2085",
+  },
+  {
+    key: "module_quiz_directive",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.module_quiz_directive",
+    since: "#2011",
+  },
+  {
+    key: "module_mock_exam_directive",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/instructions.ts",
+    consumerNeedle: "llmPrompt.instructions?.module_mock_exam_directive",
+    since: "#2013"
+  },
+  {
+    // #2145 Phase A — Generic SessionFocus 4th-layer substrate.
+    // The transform reads `CallerAttribute(key = "session_focus:next_*")`
+    // (written by the session-focus-policy AnalysisSpec runner) and
+    // projects to a tutor directive + PinnedCardContent. Course-agnostic
+    // — the runner picks the learner-facing label, this transform only
+    // renders.
+    key: "session_focus",
+    producerFile: "apps/admin/lib/prompt/composition/transforms/session-focus.ts",
+    producerNeedle: "SessionFocusOutput",
+    consumerNeedle: "llmPrompt.instructions?.session_focus",
+    since: "#2145",
   },
 ];
 

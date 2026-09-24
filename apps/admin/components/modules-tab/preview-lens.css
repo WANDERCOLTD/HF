@@ -1,0 +1,206 @@
+/* Modules-tab PreviewLens — SIM-shell preview on RHS pane (#2206).
+ *
+ * Tokens only — no hardcoded hex per `.claude/rules/ui-design-system.md`.
+ * `hf-modules-preview-lens-*` and `hf-shell-preview-*` namespaces.
+ * The `hf-shell-preview-sandbox` container scopes shell styling so it
+ * never bleeds out into the canvas / inspector.
+ */
+
+.hf-modules-preview-lens {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.hf-modules-preview-lens-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hf-modules-preview-lens-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hf-modules-preview-lens-toolbar {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.hf-modules-preview-lens-collapsed,
+.hf-modules-preview-lens-empty {
+  padding: 12px 4px;
+  font-size: 13px;
+}
+
+/* Sandbox — the stripe + tinted background tells the operator "you are
+ * looking at a preview of what the learner sees, not the live UI". */
+.hf-shell-preview-sandbox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-secondary) 5%, var(--surface-secondary));
+  border: 1px dashed
+    color-mix(in srgb, var(--accent-secondary) 32%, var(--border-default));
+}
+
+.hf-shell-preview-kind-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-shell-preview-kind-label code {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+/* Cascade chip strip — one chip per capability override; falls back to
+ * the "all defaults" chip when nothing diverges. */
+.hf-shell-preview-cascade-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hf-shell-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+}
+
+.hf-shell-preview-chip-default {
+  color: var(--text-muted);
+}
+
+.hf-shell-preview-chip-override {
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--surface-primary));
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-default));
+  color: var(--accent-primary);
+}
+
+.hf-shell-preview-chip-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+
+.hf-shell-preview-chip-value {
+  font-weight: 500;
+}
+
+/* Stub shells — namespaced so the future real-shell mount can swap in
+ * without leaking these test affordances. Each stub variant gets a
+ * subtle background tint so the operator can scan them as different
+ * shapes at a glance. */
+.hf-shell-preview-stub {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-shell-preview-stub-chat .hf-shell-preview-stub-tutor-turn {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 12px 12px 12px 4px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--surface-primary));
+  border: 1px solid
+    color-mix(in srgb, var(--accent-primary) 24%, var(--border-default));
+  max-width: 85%;
+}
+
+.hf-shell-preview-stub-chat .hf-shell-preview-stub-learner-turn {
+  align-self: flex-end;
+  padding: 6px 10px;
+  border-radius: 12px 12px 4px 12px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  max-width: 85%;
+}
+
+.hf-shell-preview-stub-exam {
+  background: color-mix(in srgb, var(--text-primary) 5%, var(--surface-primary));
+}
+
+.hf-shell-preview-stub-cue-card {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+}
+
+.hf-shell-preview-stub-cue-card ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.hf-shell-preview-stub-waveform {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-primary));
+  font-family: monospace;
+  letter-spacing: 2px;
+  color: var(--accent-primary);
+}
+
+.hf-shell-preview-stub-mcq ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-shell-preview-stub-mcq ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: var(--text-muted);
+}
+
+.hf-shell-preview-stub-results h4,
+.hf-shell-preview-stub-intake h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.hf-shell-preview-stub-results ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+}

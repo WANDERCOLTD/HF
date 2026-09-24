@@ -17,6 +17,10 @@ const { mockPrisma } = vi.hoisted(() => ({
     parameter: { findMany: vi.fn() },
     goal: { findMany: vi.fn() },
     callerAttribute: { findMany: vi.fn() },
+    // #2140 (S5 of #2135) — prosody-chip detection reads recent calls +
+    // CallScore rows filtered by the PROSODY sentinel analysisSpecId.
+    call: { findMany: vi.fn() },
+    callScore: { findMany: vi.fn() },
   },
 }));
 
@@ -64,6 +68,10 @@ function happy() {
   mockPrisma.parameter.findMany.mockResolvedValue([]);
   mockPrisma.callerModuleProgress.findMany.mockResolvedValue([]);
   mockPrisma.callerAttribute.findMany.mockResolvedValue([]);
+  // #2140 — prosody-chip probe defaults: no recent calls, no prosody scores.
+  // Tests exercising the chip override these.
+  mockPrisma.call.findMany.mockResolvedValue([]);
+  mockPrisma.callScore.findMany.mockResolvedValue([]);
 }
 
 describe("GET /api/callers/[callerId]/attainment — goal trail (SP4-D)", () => {
@@ -313,5 +321,110 @@ describe("GET /api/callers/[callerId]/attainment — incompleteAttempts on modul
     const res = await GET(new Request("http://x"), PARAMS);
     const body = await res.json();
     expect(body.modules[0].incompleteAttempts).toBe(0);
+  });
+});
+
+// ── #2140 (S5 of #2135) — prosody-contribution flag on skill bands ─────────
+
+describe("GET /api/callers/[callerId]/attainment — prosodyContributed (S5/#2140)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sets prosodyContributed=true on bands whose param had a PROSODY-sentinel CallScore on a recent call", async () => {
+    const { resolveAllSkillsForPlaybook } = await import(
+      "@/lib/curriculum/resolve-skill"
+    );
+    (
+      resolveAllSkillsForPlaybook as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce([
+      {
+        skillRef: "FC",
+        parameterId: "skill_fluency_and_coherence_fc",
+        targetValue: 0.7,
+      },
+      {
+        skillRef: "LR",
+        parameterId: "skill_lexical_resource_lr",
+        targetValue: 0.7,
+      },
+    ]);
+    happy();
+    mockPrisma.parameter.findMany.mockResolvedValue([
+      {
+        parameterId: "skill_fluency_and_coherence_fc",
+        name: "Fluency & Coherence",
+      },
+      {
+        parameterId: "skill_lexical_resource_lr",
+        name: "Lexical Resource",
+      },
+    ]);
+    mockPrisma.goal.findMany.mockResolvedValue([]);
+    // Recent calls window — 2 calls visible.
+    mockPrisma.call.findMany.mockResolvedValue([
+      { id: "call-recent-1" },
+      { id: "call-recent-2" },
+    ]);
+    // Only the FC skill has a PROSODY-sentinel CallScore on a recent call;
+    // LR has no prosody contribution.
+    mockPrisma.callScore.findMany.mockResolvedValue([
+      { parameterId: "skill_fluency_and_coherence_fc" },
+    ]);
+
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+
+    const fc = body.skillBands.find(
+      (b: { skillRef: string }) => b.skillRef === "FC",
+    );
+    const lr = body.skillBands.find(
+      (b: { skillRef: string }) => b.skillRef === "LR",
+    );
+    expect(fc.prosodyContributed).toBe(true);
+    expect(lr.prosodyContributed).toBe(false);
+
+    // The detection query MUST filter by the PROSODY sentinel id — bare
+    // CallScore reads would falsely flag LLM-judged scores. Verify the
+    // exact analysisSpecId filter shape.
+    const callScoreCall = mockPrisma.callScore.findMany.mock.calls[0]?.[0];
+    expect(callScoreCall?.where?.analysisSpecId).toBe("PROSODY-SCORE-V1");
+    expect(callScoreCall?.where?.callId?.in).toEqual([
+      "call-recent-1",
+      "call-recent-2",
+    ]);
+  });
+
+  it("sets prosodyContributed=false on every band when the caller has zero recent calls", async () => {
+    const { resolveAllSkillsForPlaybook } = await import(
+      "@/lib/curriculum/resolve-skill"
+    );
+    (
+      resolveAllSkillsForPlaybook as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce([
+      {
+        skillRef: "FC",
+        parameterId: "skill_fluency_and_coherence_fc",
+        targetValue: 0.7,
+      },
+    ]);
+    happy();
+    mockPrisma.parameter.findMany.mockResolvedValue([
+      {
+        parameterId: "skill_fluency_and_coherence_fc",
+        name: "Fluency & Coherence",
+      },
+    ]);
+    mockPrisma.goal.findMany.mockResolvedValue([]);
+    mockPrisma.call.findMany.mockResolvedValue([]); // brand-new caller
+    // CallScore should not be queried — but defensive default returns [].
+
+    const { GET } = await loadRoute();
+    const res = await GET(new Request("http://x"), PARAMS);
+    const body = await res.json();
+    expect(body.skillBands[0].prosodyContributed).toBe(false);
+    // Defensive: when there are no recent calls the route may skip the
+    // CallScore query entirely. Don't assert on call count.
   });
 });

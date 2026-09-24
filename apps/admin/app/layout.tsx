@@ -26,6 +26,7 @@ import { StatusBar } from '@/components/shared/StatusBar';
 import { UserAvatar, computeInitials } from '@/components/shared/UserAvatar';
 import { UserContextMenu } from '@/components/shared/UserContextMenu';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useEmbeddedMode } from '@/hooks/useEmbeddedMode';
 import { useSession } from 'next-auth/react';
 import { Menu, PanelLeft } from 'lucide-react';
 import './globals.css';
@@ -102,6 +103,14 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
   // Embed mode - render without sidebar/chrome (for iframes)
   const isEmbed = searchParams.get('embed') === '1';
+
+  // MT-embedded mode (#2277) — IELTS market-test prospects visit
+  // `/x/sim/<callerId>?embedded=1` and see a clean simulator (no
+  // sidebar, no Cmd+K, no top-nav). Sticky via the `hf-embedded` cookie
+  // so subsequent navs in the same session stay embedded. Distinct
+  // from `?embed=1` (singular, iframe path) — the two are orthogonal
+  // and EITHER suppresses chrome.
+  const isMtEmbedded = useEmbeddedMode();
 
   // Auth pages (login, etc.) - render without sidebar
   const isAuthPage = pathname?.startsWith('/login');
@@ -225,8 +234,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
   const layoutHeight = '100dvh';
 
-  // Auth pages, embed mode, and sim pages render without sidebar/chrome
-  if (isAuthPage || isEmbed || isSimPage) {
+  // Auth pages, embed mode, sim pages, and MT-embedded mode render
+  // without sidebar/chrome. MT-embedded (#2277) covers any /x/** path
+  // the operator has opted into for a market-test demo.
+  if (isAuthPage || isEmbed || isSimPage || isMtEmbedded) {
     return <>{children}</>;
   }
 

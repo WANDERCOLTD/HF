@@ -88,10 +88,14 @@ const PostBodySchema = z.object({
  * @tags courses, content-trust
  * @description Upload a course-reference markdown document for a course. Creates
  *   a `ContentSource` with `documentType: "COURSE_REFERENCE"`, links it to the
- *   playbook via `PlaybookSource`, and bumps `Playbook.composeInputsUpdatedAt`
- *   so the Preview lens (#1268) sees the staleness signal. Assertion extraction
- *   is left to the existing re-extract flow — this route only persists the raw
- *   markdown and signals staleness.
+ *   playbook via `PlaybookSource`, links to the playbook's primary subject via
+ *   `SubjectSource` (so subjectSourceId-scoped extraction can run — #2132 closes
+ *   the I1 invariant gap), bumps `Playbook.composeInputsUpdatedAt` so the
+ *   Preview lens (#1268) sees the staleness signal, and fire-and-forgets a
+ *   background extraction job so the Content tab populates without an operator
+ *   click. Auto-trigger respects the extract route's cache gate — re-uploads
+ *   of identical content skip with `skipped: true` (no LLM cost). Manual
+ *   "Re-extract" still works as before (passes `replace: true`).
  *
  *   Idempotent on the same content hash: re-uploading the same markdown reuses
  *   the existing source and only re-links if necessary.
@@ -99,7 +103,7 @@ const PostBodySchema = z.object({
  * @pathParam courseId string - Playbook UUID
  * @bodyParam markdown string - Course-reference markdown body
  * @bodyParam name string (optional) - Display name (defaults to "Course Reference — <playbook.name>")
- * @response 200 { ok, contentSourceId, name, isNew }
+ * @response 200 { ok, contentSourceId, name, isNew, extraction: { jobId, skipped, reason } | null }
  * @response 400 { ok: false, error, issues? }
  * @response 404 { ok: false, error: "Course not found" }
  */
@@ -192,6 +196,37 @@ export async function POST(
       },
     });
 
+    // #2132 — link the ContentSource to the playbook's primary subject so the
+    // background extraction can pass subjectSourceId on every ContentAssertion
+    // write (closes ENTITIES.md §6 I1 — without this, assertions would land
+    // with subjectSourceId=null and leak cross-course through SectionDataLoader's
+    // strict-FK filter). Best-effort: if the playbook has no subject linked yet,
+    // skip the SubjectSource creation; extraction can still run but won't be
+    // subject-scoped until a subject is attached.
+    const playbookSubject = await prisma.playbookSubject.findFirst({
+      where: { playbookId: courseId },
+      select: { subjectId: true },
+    });
+    let subjectSourceId: string | undefined;
+    if (playbookSubject) {
+      const subjectSource = await prisma.subjectSource.upsert({
+        where: {
+          subjectId_sourceId: {
+            subjectId: playbookSubject.subjectId,
+            sourceId: contentSourceId,
+          },
+        },
+        update: {},
+        create: {
+          subjectId: playbookSubject.subjectId,
+          sourceId: contentSourceId,
+          tags: ["course-reference", "upload-route"],
+        },
+        select: { id: true },
+      });
+      subjectSourceId = subjectSource.id;
+    }
+
     // #1268 staleness gap — a fresh course-reference changes what AI teaches
     // (assertions, instructions, session_overrides) once re-extract runs.
     // Bump the playbook's staleness signal so Preview flips immediately,
@@ -199,11 +234,59 @@ export async function POST(
     // assertions on the next call. Best-effort.
     await bumpPlaybookComposeTimestamp(courseId);
 
+    // #2132 — auto-trigger background extraction so the Content tab populates
+    // without an operator click. Internal HTTP call to the extract route
+    // (rather than calling runBackgroundExtraction directly) preserves the
+    // cache gate, the 409 concurrent-extraction guard, the cap enforcement,
+    // and the LO-link reconciliation — all in one tested place. Auto-trigger
+    // does NOT pass replace=true; the cache gate skips already-extracted
+    // sources with zero LLM cost. See `flow-wizard-upload.md` for the chain.
+    let extraction:
+      | { jobId: string | null; skipped: boolean; reason?: string }
+      | null = null;
+    try {
+      const baseUrl = req.nextUrl.origin;
+      const cookie = req.headers.get("cookie") || "";
+      const extractRes = await fetch(
+        `${baseUrl}/api/content-sources/${contentSourceId}/extract`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", cookie },
+          body: JSON.stringify(
+            playbookSubject ? { subjectId: playbookSubject.subjectId } : {},
+          ),
+        },
+      );
+      const extractData = await extractRes.json().catch(() => null);
+      if (extractData?.ok) {
+        extraction = {
+          jobId: extractData.jobId ?? null,
+          skipped: extractData.skipped === true,
+          reason: extractData.skipped ? (extractData.reason as string) : undefined,
+        };
+      } else if (extractData?.error) {
+        console.warn(
+          `[course-reference] extract trigger returned error for ${contentSourceId}:`,
+          extractData.error,
+        );
+      }
+    } catch (extractErr) {
+      // Non-fatal: upload succeeded, extraction can be retried via the Re-extract
+      // button. Surface in logs only — the response still carries 200 because
+      // the source is saved + the staleness bump fired.
+      console.warn(
+        `[course-reference] extract trigger failed for ${contentSourceId}:`,
+        extractErr,
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       contentSourceId,
       name: displayName,
       isNew,
+      subjectSourceId: subjectSourceId ?? null,
+      extraction,
     });
   } catch (err) {
     console.error("[course-reference] POST error:", err);

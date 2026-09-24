@@ -1,10 +1,16 @@
 /**
- * Validate that the canonical IELTS seed fixture parses cleanly through the
- * projection pipeline (`projectCourseReference`).
+ * Validate that the canonical IELTS course-reference doc parses cleanly
+ * through the projection pipeline (`projectCourseReference`).
  *
- * The fixture at `tests/fixtures/course-reference-ielts-v2.2.md` drives
- * `prisma/seed-ielts-course.ts`. If this test fails, the seed will produce
- * a degenerate playbook — so failure here is a hard blocker, not advisory.
+ * The doc at `docs/external/ielts/ielts-speaking/Upload Docs/course-ref.md`
+ * drives both `prisma/seed-ielts-course.ts` AND the operator wizard upload
+ * path — that's the parity invariant PR #2125 establishes. If this test
+ * fails, the seed will produce a degenerate playbook AND the wizard upload
+ * of the same doc will too — so failure here is a hard blocker.
+ *
+ * The previous 227-line "Seed Edition" at
+ * `tests/fixtures/course-reference-ielts-v2.2.md` is kept on disk for
+ * history but no longer drives the seed.
  */
 
 import { describe, it, expect } from "vitest";
@@ -12,7 +18,19 @@ import * as fs from "fs";
 import * as path from "path";
 import { projectCourseReference } from "@/lib/wizard/project-course-reference";
 
-const FIXTURE_PATH = path.join(__dirname, "..", "fixtures", "course-reference-ielts-v2.2.md");
+const FIXTURE_PATH = path.join(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "..",
+  "docs",
+  "external",
+  "ielts",
+  "ielts-speaking",
+  "Upload Docs",
+  "course-ref.md",
+);
 
 describe("IELTS seed fixture", () => {
   const bodyText = fs.readFileSync(FIXTURE_PATH, "utf-8");
@@ -66,12 +84,12 @@ describe("IELTS seed fixture", () => {
     expect(projection.measureSpec?.triggers).toHaveLength(4);
   });
 
-  it("extracts 8 outcome statements (OUT-01..OUT-08)", () => {
+  it("extracts 27 outcome statements (OUT-01..OUT-27) from the canonical doc", () => {
     const outcomes = projection.configPatch.outcomes ?? {};
-    expect(Object.keys(outcomes)).toHaveLength(8);
-    expect(outcomes["OUT-01"]).toMatch(/extends part 1 answers/i);
-    expect(outcomes["OUT-04"]).toMatch(/sustains the part 2 long turn/i);
-    expect(outcomes["OUT-08"]).toMatch(/band 7 grammar/i);
+    expect(Object.keys(outcomes)).toHaveLength(27);
+    expect(outcomes["OUT-01"]).toMatch(/extends every answer/i);
+    expect(outcomes["OUT-04"]).toMatch(/one-topic discipline/i);
+    expect(outcomes["OUT-08"]).toMatch(/1-minute preparation/i);
   });
 
   it("emits ACHIEVE goals for every skill (4 total)", () => {
@@ -83,11 +101,11 @@ describe("IELTS seed fixture", () => {
     }
   });
 
-  it("emits LEARN goals for every outcome (8 total)", () => {
+  it("emits LEARN goals for every outcome (27 total)", () => {
     const learnGoals = projection.configPatch.goalTemplates.filter((g) => g.type === "LEARN");
-    expect(learnGoals).toHaveLength(8);
+    expect(learnGoals).toHaveLength(27);
     for (const g of learnGoals) {
-      expect(g.ref).toMatch(/^OUT-0\d$/);
+      expect(g.ref).toMatch(/^OUT-\d{2}$/);
     }
   });
 
@@ -102,11 +120,21 @@ describe("IELTS seed fixture", () => {
     ]);
   });
 
-  it("each module links to its primary outcomes", () => {
+  it("each module links to its primary outcomes — Part 2 row from the canonical Module Catalogue", () => {
     const part2 = projection.curriculumModules.find((m) => m.slug === "part2");
     expect(part2).toBeDefined();
     const refs = part2!.learningObjectives.map((lo) => lo.ref).sort();
-    expect(refs).toEqual(["OUT-04", "OUT-05", "OUT-07"]);
+    expect(refs).toEqual([
+      "OUT-04",
+      "OUT-08",
+      "OUT-09",
+      "OUT-10",
+      "OUT-11",
+      "OUT-12",
+      "OUT-18",
+      "OUT-22",
+      "OUT-23",
+    ]);
   });
 
   it("produces zero validation warnings — all skills have complete tier descriptors", () => {

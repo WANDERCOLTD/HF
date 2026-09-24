@@ -64,10 +64,13 @@ export interface DetectedAuthoredModules {
   detectedFrom: string[];
 }
 
-// ── Outcome statement extraction (#258) ──────────────────────────────
-// Matches a line like `**OUT-01: Extends every answer to ... .**`. Tolerates
-// trailing whitespace, optional trailing period, and outcome ID widths.
-const OUTCOME_STATEMENT_LINE = /^\s*\*\*\s*(OUT-\d+)\s*:\s*([^*]+?)\s*\*\*\s*$/;
+// ── Outcome statement extraction (#258, #2000) ───────────────────────
+// Matches `**OUT-01: Extends every answer to ... .**` and the multi-segment
+// `**OUT-01-02: ...**` form (CIO/CTO Course References use dotted sub-outcome
+// IDs to partition sub-outcomes under each primary). Tolerates trailing
+// whitespace, optional trailing period, and outcome ID widths.
+const OUTCOME_STATEMENT_LINE =
+  /^\s*\*\*\s*(OUT-\d+(?:-\d+)*)\s*:\s*([^*]+?)\s*\*\*\s*$/;
 
 export function extractOutcomeStatements(bodyText: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -84,8 +87,15 @@ export function extractOutcomeStatements(bodyText: string): Record<string, strin
 
 // ── Module ID validation ──────────────────────────────────────────────
 
-const MODULE_ID_PATTERN = /^[a-z][a-z0-9_]*$/;
-const MAX_MODULE_ID_LENGTH = 32;
+// Pattern: lowercase letter prefix, then lowercase/digits/underscores/hyphens.
+// Hyphens added to support unit-doc-derived IDs (CIO/CTO trio: filenames
+// like `standard-unit-04-it-operations-infrastructure`). Length cap bumped
+// from 32 → 80 for the same reason — unit doc filenames carry semantic
+// segments and run longer than the original 32-char IELTS budget. The
+// regex still excludes uppercase, spaces, and special chars that would
+// break JSON keys / URL slugs.
+const MODULE_ID_PATTERN = /^[a-z][a-z0-9_-]*$/;
+const MAX_MODULE_ID_LENGTH = 80;
 
 // ── Header declaration patterns ───────────────────────────────────────
 
@@ -131,6 +141,8 @@ function normaliseMode(raw: string): AuthoredModuleMode | null {
   if (t.startsWith("examiner")) return "examiner";
   if (t.startsWith("tutor")) return "tutor";
   if (t.startsWith("mixed")) return "mixed";
+  if (t.startsWith("quiz")) return "quiz";
+  if (t.startsWith("mock-exam") || t.startsWith("mock exam") || t.startsWith("mock_exam")) return "mock-exam";
   return null;
 }
 
@@ -150,9 +162,12 @@ function parseYesNo(raw: string): boolean | null {
 }
 
 /**
- * Pull OUT-XX tokens out of a free-form string. Also expands the catalogue's
- * short-form list "OUT-01, 02, 05" into ["OUT-01", "OUT-02", "OUT-05"] so the
- * machine-readable summary table can stay compact.
+ * Pull OUT-XX (and multi-segment OUT-XX-YY) tokens out of a free-form string.
+ * Also expands the catalogue's short-form list "OUT-01, 02, 05" into
+ * ["OUT-01", "OUT-02", "OUT-05"] so the machine-readable summary table can
+ * stay compact. The short-form expansion (bare numerics following a full
+ * match) is single-segment only — multi-segment authors must list each ID
+ * in full (#2000).
  */
 function parseOutcomesList(raw: string): string[] {
   const out: string[] = [];
@@ -163,9 +178,13 @@ function parseOutcomesList(raw: string): string[] {
   let prefixSeen = false;
   for (const tok of tokens) {
     const t = tok.trim();
-    const fullMatch = t.match(/OUT-(\d+)/i);
+    const fullMatch = t.match(/OUT-(\d+(?:-\d+)*)/i);
     if (fullMatch) {
-      out.push(`OUT-${fullMatch[1].padStart(2, "0")}`);
+      const padded = fullMatch[1]
+        .split("-")
+        .map((seg) => seg.padStart(2, "0"))
+        .join("-");
+      out.push(`OUT-${padded}`);
       prefixSeen = true;
       continue;
     }
@@ -310,7 +329,7 @@ function rowToModule(
   if (!MODULE_ID_PATTERN.test(rawId) || rawId.length > MAX_MODULE_ID_LENGTH) {
     warnings.push({
       code: "MODULE_ID_INVALID",
-      message: `Module ID "${rawId}" does not match required pattern /^[a-z][a-z0-9_]*$/ (max ${MAX_MODULE_ID_LENGTH} chars).`,
+      message: `Module ID "${rawId}" does not match required pattern /^[a-z][a-z0-9_-]*$/ (max ${MAX_MODULE_ID_LENGTH} chars).`,
       path: `modules.${rawId}.id`,
       severity: "error",
     });

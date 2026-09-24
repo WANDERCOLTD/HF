@@ -207,6 +207,25 @@ Format per link:
 | **Reinforced by** | #1768 (root regression — 5 consumer pushes silently dropped); 2026-06-17 restore PR (this row + restored consumers + restored module_orientation_line producer + ESLint rule + coverage vitest + Lattice rule update + sentinel comments on instructions.ts and offboarding.ts). |
 | **Why "Producer ↔ Consumer" not "Producer-only"** | The existing `lattice-survey.md` rule already names "producer-only Lattice entry" at the registry↔transform layer (G-group registry promises a section, transform doesn't read the key). This row covers the deeper layer: transform produces directive, renderer doesn't push. Same shape, one level down. The rule file groups both under one heading; this row carries the chain-contract enforcement record. |
 
+#### Link 3 sub-contract — Wizard Config Write Invariant (chat-tool merge → COMPOSE-stage reader)
+
+**Added 2026-06-20 (#1995). Live incident: hf_sandbox 2026-06-18 — the IELTS Speaking Practice playbook had `Playbook.config.teachingMode = "directive"`, a value from the `interactionPattern` union (not the `teachingMode` union — `recall | comprehension | practice | syllabus`). The bad value crashed every ComposedPrompt build for any new learner on the playbook (`criticalRules[3] = undefined` → Prisma rejected the array). 2 of 9 PUBLISHED playbooks affected. PR #1993 added read-side defensive fallback. This row codifies the WRITE-side reuse gap that #1995 closes: the wizard's whitelist validator at `lib/wizard/detect-course-config.ts:43-51` only fired on the file-upload extraction path; the chat-wizard's `create_course` / `update_setup` / `update_playbook_config` merge paths bypassed it.**
+
+| Field | Value |
+|---|---|
+| **Producer** | Three chat-tool merge sites: `apps/admin/lib/chat/wizard-tool-executor/tools/create_course/_new-config-merge.ts` (new-course branch), `apps/admin/lib/chat/wizard-tool-executor/tools/create_course/_reuse-config-merge.ts` (reuse-course branch), `apps/admin/lib/chat/admin-tool-handlers.ts::handleUpdatePlaybookConfig` (Cmd+K admin chat). Each takes the AI-supplied field values and merges into `Playbook.config` via `updatePlaybookConfig`. |
+| **Consumer** | Every COMPOSE-stage transform that reads `Playbook.config.{teachingMode, interactionPattern, audience, planEmphasis, lessonPlanModel, firstCallMode}` — `lib/prompt/composition/transforms/preamble.ts` (returning-caller-by-mode preamble — the load-bearing reader that crashed), `lib/prompt/composition/transforms/audience.ts`, `lib/content-trust/resolve-config.ts::INTENT_PATTERN_OVERRIDES` (extraction emphasis), and any future transform that branches on these unions. |
+| **I-WC1 Every enum-bearing field is validated at write** | Every chat-tool merge site MUST invoke the matching runtime type guard (`isTeachingMode`, `isInteractionPattern`, `isAudience`, `isPlanEmphasis`, `isLessonPlanModel`, `isFirstCallMode`, `isProgressionMode` from `lib/content-trust/resolve-config.ts`) before assignment. Invalid value → log + skip the field (do NOT crash); merge proceeds for valid fields. |
+| **I-WC2 Canonical SET is the single source of truth** | The canonical SETs live at `apps/admin/lib/wizard/enum-sets.ts` (born in #1995 by extraction from inline whitelists previously inlined at `lib/wizard/detect-course-config.ts:43-51`). The type guards in `resolve-config.ts` read those SETs. The AI tool schemas (`conversational-wizard-tools.ts::create_course`, `admin-tools.ts::update_playbook_config`) declare `enum: [...]` arrays drawn from the same canonical values. Drift between any layer fails the ratchet vitest. |
+| **I-WC3 Type narrowing is structural** | `Playbook.config.{teachingMode, interactionPattern}` are typed to their union types (not bare `string`) in `lib/types/json-fields.ts::PlaybookConfig` (#1995 narrowing). A future `as string` cast at any of the merge sites becomes a tsc error AND fails the ESLint chokepoint. |
+| **Enforcement** | Five layers: (1) **Source of truth** at `lib/wizard/enum-sets.ts` (canonical SETs). (2) **Runtime type guards** at `lib/content-trust/resolve-config.ts` (`is*` functions). (3) **AI tool schema** `enum: [...]` arrays at `conversational-wizard-tools.ts::create_course`. (4) **ESLint** `hf-wizard/no-untyped-enum-write-in-wizard` (error severity, day 1) blocks `as string` casts on enum-bearing fields inside `lib/chat/wizard-tool-executor/**` + `admin-tools.ts` + `admin-tool-handlers.ts`. (5) **Coverage ratchet** at `tests/lib/chat/wizard-enum-validation.test.ts` — walks every enum-bearing field and asserts SET exists, guard accepts canonical values, guard REJECTS wrong-union samples (specifically pins `isTeachingMode("directive") === false` — the live #1995 fingerprint), schema declares the enum. |
+| **Failure mode** | Pre-#1995: AI returns a wrong-union value (e.g. `teachingMode = "directive"` from the `interactionPattern` enum) → bare `as string` cast at the merge site → straight to DB → next ComposedPrompt build for that playbook indexes `RETURNING_CALLER_BY_MODE["directive"]`, returns `undefined`, lands in `criticalRules` array, Prisma rejects the array, every new learner on the playbook gets a 500. The four pre-existing layers (AI tool schema, AI tool prose, executor cast, type def) all failed independently. |
+| **Test** | `tests/lib/chat/wizard-enum-validation.test.ts` (born #1995) — walks every enum-bearing field, asserts: SET non-empty, guard accepts canonical values, guard rejects cross-union "wrong column" values + garbage, AI tool schema declares the `enum:` array. Plus `tests/eslint-rules/no-untyped-enum-write-in-wizard.test.ts` — RuleTester behavioural pin (8 invalid + 8 valid cases). |
+| **Memory doc** | `.claude/rules/wizard-enum-coverage.md` (born #1995) — author checklist + per-symptom debug table; this row. |
+| **Audit counter** | None today — the structural ratchet caps drift at zero. If a corresponding live drift is ever observed in production after this rule lands, file a counter `wizardConfigWrongUnionValueWriteCount` (target 0) in `apps/admin/scripts/audit-epic-100.ts`. |
+| **Reinforced by** | PR #1993 (read-side defensive fallback — the live incident response). PR #1995 (this PR — write-side reuse gap closure). The combined two-layer pattern matches the established read-side + write-side discipline already in use for other Lattice surfaces (cf. cascade-reuse + ai-callpoint-cascade). |
+| **Why "Wizard Config Write Invariant" not "Wizard Enum Coverage"** | This row codifies a CROSS-STAGE invariant (chat-tool producer ↔ COMPOSE-stage consumer); the `.claude/rules/wizard-enum-coverage.md` discipline doc codifies the AUTHOR-SIDE 7-layer checklist. Chain Contracts catalogue the contract; Rules tell the next author how to maintain it. |
+
 #### Link 3 sub-contract — COMPOSE → VOICE PROVIDER (transport adapter)
 
 **Added 2026-06-04 (#1016 / epic #1015 — AnyVoice). Formalises the seam between the provider-agnostic composed prompt and the vendor-specific voice transport. Today's only adapter is VAPI (`app/api/vapi/*`); the epic introduces a `VoiceProvider` interface so any second provider (RetellAI, Telnyx, Daily Bots, OpenAI Realtime, etc.) plugs in via `lib/voice/providers/<slug>/` with zero changes to the pipeline, composition, or prompt layers. Prompt portability is already proven (`scripts/sim-drive-call.ts` consumes the same `ComposedPrompt.llmPrompt` over a non-VAPI runtime); the gap is the four routes under `/api/vapi/*`, the hand-coded `VAPI_TOOL_DEFINITIONS` constant, the eight `Call.vapi*` columns, and the implicit `isVapiCall = !!externalId` coupling that this story's siblings (#1025 / #1019 / #1020 / #1017) collectively eliminate. Same anti-pattern class as #608 (silent provider-specific defaults leaking into a provider-neutral surface) and #1008 (provider-neutral compose layer producing provider-shaped artefacts).**
@@ -295,6 +314,20 @@ Format per link:
 | **Audit counter** | `dualLoMasteryKeysSameLO` (informational), `callerAttributeOldKeyFormCount` (target 0 after #614). |
 | **Reinforced by** | #614 + reader-tightening follow-on (post-drain). |
 
+#### Link 6.b — AGGREGATE → ADAPT (CALLER_ATTRIBUTE_NEXT, #2154 / epic #2145 SessionFocus 4th-layer substrate)
+
+| Field | Value |
+|---|---|
+| **Producer** | AGGREGATE writes `CallerTarget.currentScore` for `skill_*` parameters via SKILL-AGG-001 (`ema_to_caller_target` rule, #417). The SessionFocus runner reads these scores. |
+| **Consumer** | ADAPT sub-op 9 — `app/api/calls/[callId]/pipeline/route.ts::runSessionFocusPolicySpecs` loads every `AnalysisSpec(outputType="CALLER_ATTRIBUTE_NEXT")` and routes to `lib/pipeline/runners/session-focus-policy.ts::runSessionFocusPolicy`. The runner reads `CallerTarget.currentScore` for the spec's declared `inputSkills`, picks the weakest, maps via spec-declared `selectionRules` to a LEARNER-facing label, and writes ONE `CallerAttribute(scope=specSlug, key="session_focus:next_{moduleSlug}").stringValue = label`. |
+| **Data shape** | `SessionFocusPolicyConfig` — `{ category: "session-focus-policy", inputSkills: string[], selectionRules: Array<{whenWeakest, thenLabel}>, writeKey: string, moduleScope?: { slugPattern?: string } }`. Written value is the LEARNER-facing label from `selectionRules.thenLabel` (e.g. "giving reasons" / "expanding an answer"), NEVER an internal parameter id or criterion slug. The next-call compose-time transform at `lib/prompt/composition/transforms/session-focus.ts` reads the row and emits a `[SESSION FOCUS]` block + `PinnedCardContent.focusArea`. |
+| **DataContract slug** | None — uses `CallerAttribute` directly with `scope = AnalysisSpec.slug` for traceable provenance + multi-course coexistence. |
+| **Enforcement** | Dispatch gated by `outputType === "CALLER_ATTRIBUTE_NEXT"` (Prisma enum value added by #2154). Defence-in-depth `isSessionFocusPolicyConfig` type-guard on `spec.config` before invocation. **Honest empty-state contract** (per `feedback_no_hardcoded_score_backfill.md`): the runner writes NOTHING when no `inputSkills` parameter has a finite `currentScore` OR when the locked module's slug doesn't match the spec's `moduleScope.slugPattern` gate — the compose transform returns null and the `[SESSION FOCUS]` block is omitted. NO hardcoded default label. |
+| **Test** | `tests/lib/pipeline/runners/session-focus-policy.test.ts` (20 tests after #2154 dispatch addition); `tests/lib/prompt/composition/transforms/session-focus.test.ts` (11 tests); compose pairs registered in `tests/lib/prompt/composition/coverage-producer-consumer.test.ts`. |
+| **Memory doc** | `docs/PIPELINE.md` §7 sub-op 9; `lib/pipeline/runners/session-focus-policy.ts` JSDoc header. |
+| **Audit counter** | `sessionFocusWrote` / `sessionFocusSkipped` / `sessionFocusFailed` per-stage counters surface in the pipeline response payload + `pipeline.stage.write_counts:ADAPT` `callerAttribute_session_focus` write-count log. |
+| **Reinforced by** | PR #2153 (Phase A runner + transform), PR #2154 (CALLER_ATTRIBUTE_NEXT enum + dispatch). Phase B IELTS-P3-FOCUS-001 spec authoring is epic #2145 S4 — depends on #2137 wiring real `CallerTarget.currentScore` for the 4 IELTS skill parameters via IELTS-MEASURE-001. |
+
 #### Link 6.a — COMPOSE → COMPOSE (carry-forward, #918)
 
 | Field | Value |
@@ -308,6 +341,20 @@ Format per link:
 | **Memory doc** | `docs/PIPELINE.md` §4.2 COMPOSE; `lib/curriculum/working-set-selector.ts::WorkingSetInput` JSDoc. |
 | **Audit counter** | None added — `effectiveBoost > 0 && priorPlannedAssertionIds.length > 0` fires a structured `console.log` from `modules.ts` instead. Add a counter to `scripts/audit-epic-100.ts` only if the loop produces miscount evidence in production. |
 | **Reinforced by** | #918. Tolerance entry at `Playbook.config.tolerances.carryForwardBoost` follows the #598 Slice 1 ADR placement (`@bucket 1 — Course parameter`, no per-learner override). |
+
+#### Link 6.c — IELTS intake profile EXTRACT → memoryDeltas COMPOSE (epic #2277 Item #6, Path A)
+
+| Field | Value |
+|---|---|
+| **Producer** | `IELTS-INTAKE-001-ielts-intake-profile.spec.json` (outputType=LEARN, specRole=EXTRACT, specType=SYSTEM, domain=`ielts-intake-profile`). Consumed by `lib/ops/memory-extract.ts::extractWithSpec`, which reads `spec.config.llmConfig` (system prompt + temperature 0.1) + the compiled `promptTemplate` (with `{{transcript}}` substitution) and writes one `CallerMemory` row per extracted fact via `prisma.callerMemory.create` (the canonical writer). |
+| **Consumer** | `lib/prompt/composition/loaders/memoryDeltas.ts::loadMemoryDeltas` — auto-loaded by `SectionDataLoader.ts:1698` for every COMPOSE; surfaces added/updated CallerMemory rows from the most-recent prior call into the next call's composed prompt via the `memoryDeltas` transform. Consumer side is wired by PR #1644 (epic #1606 Group A.5) — no consumer changes needed in this PR (operator's "Path A"). |
+| **Data shape** | Four canonical `CallerMemory.key` values, each written ONLY when the learner explicitly states the fact in the transcript (strict grounding contract — no inference, no defaults, no placeholders): `ielts:target_band` (IELTS 0–9 in 0.5 increments, as string), `ielts:self_assessment_band` (same scale), `ielts:exam_date_iso` (ISO 8601 YYYY-MM-DD), `ielts:reason` (formatted `<category>: <free text>` where category ∈ {university, work, visa, residency, professional-registration}). All four facts are permanent — `expiresAt: null`, `decayFactor: 1.0` (LEARN runner defaults). |
+| **DataContract slug** | None — uses `CallerAttribute` siblings via direct `CallerMemory` writes; no formal contract registered. The structural contract IS the spec's `config.promptGuidance` (canonical key names + normalisation rules) + `acceptanceCriteria` (one AC per fact + one for the no-fabrication grounding contract). |
+| **Enforcement** | **Per-link enforcement** lives in the spec's prompt surface: `config.llmConfig.systemPrompt` declares the strict grounding contract; `config.promptGuidance` enumerates the four canonical keys, the normalisation rules, and the explicit OMIT-don't-fabricate rule for missing facts. Temperature 0.1 keeps extractions deterministic. `config.confidenceThreshold: 0.7` floor means low-evidence extractions are rejected by the runner. **Same chain-contract invariants as MEM-001** — the canonical CallerMemory writer (`extractWithSpec` → `prisma.callerMemory.create`) handles supersession, contradiction resolution, and the LEARN-stage invariant gates (I-AL1 / I-AL4) automatically. |
+| **Test** | `tests/lib/pipeline/extract-ielts-intake.test.ts` (19 cases — dispatch shape, system-prompt grounding contract, promptGuidance canonical keys + normalisation rules, parameters compiled-template `{{transcript}}` substitution, acceptance criteria + critical constraints). |
+| **Memory doc** | `apps/admin/docs-archive/bdd-specs/IELTS-INTAKE-001-ielts-intake-profile.spec.json` (the spec itself documents its semantics — story / context / AC / constraints / promptGuidance). Sibling memory ref at `.claude/rules/verify-before-fix.md` (operator rule against fabricated values). |
+| **Audit counter** | None added in this PR — leverages MEM-001's existing CallerMemory-write surface counters (I-AL1 fires when real-engine + transcript ≥ 200 chars produces zero CallerMemory rows, surfacing extraction silence). |
+| **Reinforced by** | Epic #2277 (IELTS market test readiness — Item #6). Operator brief explicitly chose Path A (DATA-only, LEARN→CallerMemory→memoryDeltas) over an earlier CallerAttribute(INTAKE_CHAT) path that failed a verify-first audit (no prompt-side consumer). Sibling spec: MEM-001 (the write-pattern this spec copies). Sibling chain-contract row: Link 6 (the producer-consumer pairing this row extends). |
 
 ---
 
@@ -395,6 +442,31 @@ A page that mounts without a resolved `playbookId` either renders a learner-read
 | **Memory doc** | This row; JSDoc at `lib/caller/resolve-active-playbook.ts`; `docs/TEST-BANK.md` entries D003 (unit) + D004 (integration). |
 | **Related** | #947 (the fix that exposed the gap) · #948 (this follow-up that pins the contract) · `docs/TEST-BANK.md` D003 + D004. |
 | **Reinforced by** | #948 — this PR. |
+
+---
+
+### Link L10 — Module-unlock prerequisites (`AuthoredModule.prerequisites`)
+
+**A STUDENT-tier learner must not enter a module whose declared prerequisites are unmet.** Prerequisites are authored on `Playbook.config.modules[i].prerequisites` (two shapes: bare-string legacy = "needs ≥ 1 COMPLETED attempt"; `{moduleId, minCompletions}` count-based). OPERATOR+ always bypasses (testers iterating on Mock must not be locked out — pinned by `isModuleUnlocked`'s role-bypass).
+
+⚠️ **CONSUMER DEFERRED** — server-side enforcement, ESLint chokepoint, and Coverage gate land in follow-on #2320. This row documents the producer-only debt explicitly + time-bounds it.
+
+| Field | Value |
+|---|---|
+| **Producer** | `prisma/seed-ielts-course.ts` (post-projection `updatePlaybookConfig` write of `Playbook.config.modules[i].prerequisites` per #2318); future authored playbooks via wizard projection (`lib/wizard/detect-authored-modules.ts:418-425` already parses the catalogue column when present). |
+| **Consumer (today, MT-essential)** | `apps/foh/app/page.tsx::computeUnlockState` — client-side render. Reads `prerequisites` + `completedCount` from the FOH SEAM (`apps/foh/app/api/student-progress/route.ts`) and renders 🔒 + tooltip on locked module cards. Pure-function parity with the canonical resolver, pinned by `apps/foh/__tests__/home.test.tsx`. |
+| **Consumer (deferred, #2320)** | `lib/curriculum/check-module-unlock.ts::isModuleUnlocked` wired into `app/api/callers/[callerId]/calls/route.ts` POST and `app/api/student/progress/route.ts` GET (batched per-module check). ESLint chokepoint requires `isModuleUnlocked` invocation alongside `createSession({kind: VOICE_CALL|SIM_CALL,...})` outside the bypass allow-list. Coverage gate vitest walks both directions (every prereq-declaring module has a consumer; every `createSession` site has a gate or `// hf-bypass-unlock: <reason>` comment). |
+| **Data shape** | `Array<string \| {moduleId: string; minCompletions: number}>` on each `AuthoredModule`. Mixed forms accepted within the same array. See `lib/types/json-fields.ts:1247` + `check-module-unlock.ts::normalisePrerequisite`. |
+| **DataContract slug** | None — the contract is the shape of the declared prereq + the resolver's behaviour, not the shape of a DB row. |
+| **Enforcement (today)** | Operator-supervised demo + pre-Mock-URL SQL verification (`docs/runbooks/RB-IELTS-MT-OPERATOR-PLAYBOOK.md`). URL-hack bypass risk is acknowledged + mitigated for the ~20–100 supervised MT prospect window. |
+| **Enforcement (deferred)** | Three layers per #2320: (1) `lib/curriculum/check-module-unlock.ts:208-220` resolver counts only `CallerModuleProgress.status === "COMPLETED"` rows (sub-slice 0 — fixes the `callCount` over-count semantic). (2) Server-side gate at `app/api/callers/[callerId]/calls/route.ts` returns 403 `{ok:false, reason, missingRequirements}` with AppLog `module.unlock.student_blocked` / `module.unlock.operator_bypass`. (3) `eslint-rules/no-bare-call-create.mjs` extended to require `isModuleUnlocked` invocation alongside `createSession`. |
+| **Test (today)** | `apps/foh/__tests__/home.test.tsx` (pure-function parity + DOM render of 🔒 + tooltip); `apps/admin/tests/lib/curriculum/ielts-module-prerequisites-data.test.ts` (source-walk pin of the IELTS prereq data shape per BDD Unit 5). |
+| **Test (deferred)** | Server enforcement vitest at `tests/api/callers-calls-unlock.test.ts`; resolver completion-count fix vitest at `tests/lib/curriculum/check-module-unlock.test.ts`; bidirectional Coverage gate at `tests/lib/curriculum/module-unlock-coverage.test.ts`. |
+| **Memory doc** | This row · `.claude/rules/module-unlock-gate.md` · `docs/runbooks/RB-IELTS-MT-OPERATOR-PLAYBOOK.md` (operator pre-Mock SQL check). |
+| **Audit counter (deferred)** | TBD — propose `studentSessionStartedWithUnmetPrereqs` (target 0) once #2320 wires the AppLog. |
+| **Producer-only debt** | Time-bounded by follow-on #2320. The MT-essential client-side check defends against accidental URL access by supervised prospects; non-supervised production usage REQUIRES the deferred consumer to ship before broader release. |
+| **Related** | #2318 (this row + the FOH render) · #2320 (deferred server enforcement + Lattice cluster) · #1746 (the resolver itself) · #1700 Theme 5 (the originating epic). |
+| **Reinforced by** | #2318 — this PR. |
 
 ---
 
@@ -488,6 +560,47 @@ This section documents the six producer→consumer contracts that the variant wo
 | **Memory doc** | `scripts/sim-drive-call.ts` header + this row. |
 | **Audit counter** | n/a (sim is a CI/dev surface). |
 | **Reinforced by** | #1034 (Task 9 — pre/post-snapshot CHAIN tests). |
+
+---
+
+## 3e. Measurement closure (#1967 M1 + M2)
+
+The runtime chain in §3 (Links 4 → 5 → 6) describes the structural
+adaptive-loop boundaries: pipeline writes `CallScore`, AGGREGATE
+rolls into mastery / `CallerTarget`, COMPOSE reads. Section 3e adds
+the **per-parameter** discipline: for every parameter the registry
+declares as `measured`, the loop must actually close — some spec
+must consume its `CallScore` and feed the cascade-readable state.
+
+The four classic loops can each run end-to-end while a specific
+parameter's gain is silently 0 (the LLM is graded on it, the score
+lands in `CallScore`, nothing reads it). Section 3e closes that gap
+parameter by parameter; the ratchet caps the producer-only debt.
+
+### Link M1 — REGISTRY → MEASURE (#1967 M1)
+
+| Field | Value |
+|---|---|
+| **Producer** | `behavior-parameters.registry.json` row with `usage.measurement: { specSlug }` (or `{ specSlugs }`). |
+| **Consumer** | Pipeline MEASURE runner (`runBatchedCallerAnalysis` + `buildParameterSpecMap`) — loads each spec, includes its `promptTemplate` in the batched prompt, calls `writeCallScore({ analysisSpecId })`. |
+| **Data shape** | The cited spec exists under `docs-archive/bdd-specs/<slug>.spec.json` AND its `parameters[].id` (or `.parameterId`) matches the registry param's canonical id OR one of its `aliases`. |
+| **Enforcement** | `tests/lib/measurement/parameter-measurement-coverage.test.ts` — substantive cross-check (citation ↔ spec file ↔ parameters array). Stale citations fail the test. `tests/lib/registry/parameter-usage-coverage.test.ts` pins the schema shape. |
+| **Ratchet** | `EXPECTED_GAP_COUNT = 57` (2026-06-18) — params still declaring `"deferred-#1967"`. M4 drives this to 0. |
+| **Memory doc** | [`.claude/rules/parameter-measurement-coverage.md`](../.claude/rules/parameter-measurement-coverage.md). |
+| **Reinforced by** | Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M1. |
+
+### Link M2 — MEASURE → AGGREGATE/ADAPT (per-parameter loop closure, #1967 M2)
+
+| Field | Value |
+|---|---|
+| **Producer** | Per-parameter `CallScore` row written by `writeCallScore({ parameterId, analysisSpecId, score })` after a MEASURE spec scores the transcript. |
+| **Consumer** | Some AGGREGATE / ADAPT / REWARD spec rule reads the param's CallScore via `sourceParameter` / `sourceParameterPattern` / `sourceParameterId` and writes the rolled-up result to `CallerTarget.currentScore` (EMA via `aggregate-runner.ts::accumulateSkillScores`), `CallerAttribute` (threshold mapping), or `CallerTarget.targetValue` (ADAPT via `adapt-runner.ts`). |
+| **Data shape** | For each measured param `P`, at least one of: (a) literal citation `sourceParameter: "P"` / `sourceParameterId: "P"` (matched against canonical id OR aliases); (b) suffix-glob `sourceParameterPattern: "<prefix>*"` whose prefix is a prefix of `P`'s id; (c) `P` is an AGGREGATE spec's output id (loop self-closes through the AGGREGATE write itself). |
+| **Enforcement** | `tests/lib/measurement/parameter-loop-closure.test.ts` — walks every `*.spec.json`, classifies each measured param `closed-direct` / `closed-pattern` / `closed-aggregator-output` / `gap`, ratchets the open-loop count. `_average` sentinel skipped (it's AGGREGATE-internal). |
+| **Ratchet** | `EXPECTED_GAP_COUNT = 67` (2026-06-18) — measured params with no consumer reading the score. Each new closure (extending an AGGREGATE / ADAPT spec's rules or authoring a new consumer spec) drops this by 1. |
+| **Memory doc** | [`.claude/rules/parameter-loop-closure.md`](../.claude/rules/parameter-loop-closure.md). |
+| **Defends against** | The silent-gain-zero class: registry says BEH-X is measured, MEASURE spec scores it, `CallScore` lands, no AGGREGATE / ADAPT touches the score, next compose reads only the educator-set BehaviorTarget baseline. The param tunes to the same value forever; the adaptive loop is structurally inert for that parameter. |
+| **Reinforced by** | Epic [#1967](https://github.com/WANDERCOLTD/HF/issues/1967) M2. Sibling M3 — `hf-measurement/no-direct-callscore-write` — guarantees the producer side (every CallScore goes through the chokepoint with a real `parameterId`). M4 (pedagogy + spec authoring) closes the remaining gaps. |
 
 ---
 
@@ -701,7 +814,7 @@ Scope discipline:
 - **Out of scope (deferred children of #1915):** preset-aware redaction (#1922/#1923), `PrivacyPolicyPreset` cascade (#1924/#1925), AppLog PII scrubbing (#1926), consent-version re-ack (#1927), admin UI (#1928). When those ship, this section grows.
 - **Out of scope (separate ADRs):** Caller PII encryption (`Caller.email`, `Caller.phone`) — deferred per 2026-06-13 ADR; HIPAA/COPPA/FERPA preset content (legal sign-off required).
 
-### Invariant inventory (8 invariants — I-PR1..I-PR8)
+### Invariant inventory (9 invariants — I-PR1..I-PR9)
 
 #### I-PR1 — Intake-v2 disclosure delivery is atomic with intake state
 
@@ -781,14 +894,14 @@ Scope discipline:
 | Field | Value |
 |---|---|
 | **Producer** | `DELETE /api/callers/[callerId]/route.ts` + `POST /api/admin/retention/cleanup` + any future erasure route. |
-| **Consumer** | 22 cascading tables under the `Caller` FK (transcripts, memories, scores, identities, ...). |
+| **Consumer** | Every FK to `Caller` whose `onDelete` is `Restrict` or unspecified — 11 of 23 relations as of 2026-09-23 (transcripts, memories, scores, identities, sessions, owned cohorts, ...). `Cascade`/`SetNull` relations are resolved by Postgres. |
 | **Data shape** | Erasure MUST call `lib/gdpr/delete-caller-data.ts::deleteCallerData(callerId)`. Hand-rolled `prisma.caller.delete` calls miss cascading tables and leave orphan rows. |
 | **Severity** | ERROR. Orphan rows after a DSR erasure violate GDPR Art 17. |
 | **Detection rule** | `scripts/check-fk-consistency.ts` already detects orphan rows. Add a privacy-specific scan: `SELECT COUNT(*) FROM "CallerMemory" m LEFT JOIN "Caller" c ON c.id = m."callerId" WHERE c.id IS NULL` and equivalents for the other 21 tables. |
-| **Test** | `tests/lib/gdpr/delete-caller-data.test.ts` (existing). |
+| **Test** | `tests/lib/gdpr/caller-delete-coverage.test.ts` (2026-09-23) — parses schema.prisma, enumerates every FK to `Caller`, pins each blocking one to a delete in the chokepoint. **Previously this row cited `tests/lib/gdpr/delete-caller-data.test.ts` as existing; that file was never written.** The tests that do reference `deleteCallerData` (`tests/lib/bulk-delete.test.ts`, `tests/api/retention-cleanup.test.ts`, `tests/api/callers-detail.test.ts`) mock it, which is why none caught the drift below. |
 | **Memory doc** | This row + `lib/gdpr/delete-caller-data.ts` JSDoc. |
 | **Audit counter** | `iPR6OrphanPIIRowsPostErasure` (target 0). |
-| **Enforcer** | `lib/gdpr/delete-caller-data.ts` — shipped. ESLint rule blocking `prisma.caller.delete` outside the helper is a Coverage-pillar follow-on. |
+| **Enforcer** | `lib/gdpr/delete-caller-data.ts` + `tests/lib/gdpr/caller-delete-coverage.test.ts` + `.claude/rules/caller-delete-coverage.md`. **Drift found 2026-09-23:** epic #1338's `Session.callerId` (Restrict) was never added to the chain, so erasure threw P2003 for 28% of hf_sandbox / 31% of hf_staging callers; `CohortGroup.ownerId` was a second gap a manual survey missed. Both closed. ESLint rule blocking `prisma.caller.delete` outside the helper remains a follow-on. |
 
 #### I-PR7 — Mixed-tier-payload routes admitting STUDENT MUST add `@tieredVisibility` tag
 
@@ -818,13 +931,29 @@ Scope discipline:
 | **Audit counter** | `iPR8LegacyCallerCount` (informational — tracks shrinking cohort). |
 | **Enforcer** | Convention rule. Enforced via documentation + the `ENFORCEMENT_DATE` constant referenced by S5a/S8a/S7. |
 
+#### I-PR9 — Encrypted columns route through `encryptColumn` / `decryptColumn`
+
+| Field | Value |
+|---|---|
+| **Producer** | Any code path that writes a column declared as encrypted (per ADR `docs/decisions/2026-06-13-pii-encryption-scope.md`). Today: `VoiceProvider.credentials` (#1978, pending). Future: `Call.transcript` + `CallMessage.content` (#1980), `Caller.{email,phone,name}` (#1976 F1, deferred). |
+| **Consumer** | Any read site that needs the plaintext value. The 4-column tuple (`_ciphertext` / `_iv` / `_wrappedDek` / `_kekVersion`) is the wire format; `lib/crypto/envelope.ts::decryptColumn` is the only legitimate consumer. |
+| **Data shape** | Writes use `encryptColumn(plaintext)` from `lib/crypto/envelope.ts` (shipped in #1977) and spread the returned 4-field tuple into the Prisma payload. Reads fetch the 4 columns + invoke `decryptColumn`. List views use `decryptColumnBatch` to amortise KMS round-trips. |
+| **Severity** | ERROR. Bare reads of `_legacy_plaintext` columns (during the migration window) or direct reads of `_ciphertext` bytes outside the helper bypass the cipher and break the audit-trail guarantee KMS provides. |
+| **Bypass-mode carve-out** | When `KMS_KEK_NAME` is unset AND `NEXT_PUBLIC_APP_ENV !== "PROD"` — i.e., dev / test — the helper falls through a sentinel passthrough (`kekVersion: 0`, plaintext bytes in `_ciphertext`). The `lib/config.ts` build-time guard **fails the prod build** if both conditions resolve to "bypass" in production, so this branch cannot ship. |
+| **Detection rule** | Per-column ESLint rules `hf-privacy/no-direct-<column>-read` land alongside each column-encryption story (#1978 for credentials, #1980 for transcripts). Allow-list = backfill scripts + cleanup PR. |
+| **Test** | `tests/lib/crypto/envelope.test.ts` (#1977) — 8 vitests covering round-trip, sentinel shape, batch order, decrypt-shape rejection. Per-column tests follow each adoption story. |
+| **Memory doc** | This row + `lib/crypto/envelope.ts` JSDoc + `.claude/rules/at-rest-encryption.md` (shipped by #1977). |
+| **Audit counter** | `iPR9LegacyPlaintextRead` (target 0) — counts ESLint rule firings + grep against `prisma.<Model>.findX({ select: { <col>_legacy_plaintext: true } })`. Wired per column. |
+| **Enforcer** | `lib/crypto/envelope.ts` (substrate, #1977). Per-column adoption: #1978 (credentials), #1980 (transcripts). |
+
 ### Where the runner lives — privacy
 
-There is no single runner for §6a yet. Each invariant has its own enforcer landing in the named child of #1915:
+There is no single runner for §6a yet. Each invariant has its own enforcer landing in the named child of #1915 or #1976:
 
 - I-PR1 / I-PR2 / I-PR3 / I-PR7 — runtime enforcers in the respective routes
 - I-PR4 — runtime enforcer deferred to a follow-on after retention purging proves stable
 - I-PR5 / I-PR6 / I-PR8 — convention enforcement today; promoted to runtime/Coverage-pillar gates when adoption sweep stories file
+- I-PR9 — `lib/crypto/envelope.ts` chokepoint + per-column ESLint rules (Privacy II epic #1976)
 
 When 3+ runtime emits land in `AppLog`, a privacy-counters runner sibling to `apps/admin/lib/pipeline/adaptive-loop-invariants.ts` becomes worth building. Not before.
 

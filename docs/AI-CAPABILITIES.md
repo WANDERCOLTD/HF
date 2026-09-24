@@ -4,7 +4,7 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-06-14T10:37:20.606Z
+> Last generated: 2026-06-23T11:19:49.291Z
 > Surfaces: 4
 > Total tools: 72 (66 live, 6 roadmap stubs)
 
@@ -92,7 +92,7 @@ Source: `apps/admin/lib/chat/conversational-wizard-tools.ts`
 | Tool | Min role | Required | Optional | Summary |
 |------|----------|----------|----------|---------|
 | `create_community` | (route-level) | `hubName`, `communityMode` | `hubDescription`, `hubPattern`, `communityKind`, `topics`, `welcomeMessage` | Create a community hub with infrastructure (COMMUNITY domain, identity spec, playbook, cohort group). |
-| `create_course` | (route-level) | `courseName`, `interactionPattern` | `domainId`, `groupId`, `subjectDiscipline`, `teachingMode`, `welcomeMessage`, `sessionCount`, `durationMins`, `planEmphasis`, `behaviorTargets`, `personalityPreset`, `lessonPlanModel`, `physicalMaterials`, `packSubjectIds`, `uploadSourceIds` | Create the course with full infrastructure (identity spec, playbook, system specs, onboarding) and a test caller. |
+| `create_course` | (route-level) | `courseName`, `interactionPattern` | `domainId`, `groupId`, `subjectDiscipline`, `teachingMode`, `welcomeMessage`, `sessionCount`, `durationMins`, `planEmphasis`, `audience`, `behaviorTargets`, `personalityPreset`, `lessonPlanModel`, `physicalMaterials`, `packSubjectIds`, `uploadSourceIds` | Create the course with full infrastructure (identity spec, playbook, system specs, onboarding) and a test caller. |
 | `create_institution` | (route-level) | `name` | `typeSlug`, `websiteUrl` | Create a new institution (and its domain). |
 | `mark_complete` | (route-level) | — | `playbookId`, `callerId` | Signal that setup is complete. |
 | `show_options` | (route-level) | `question`, `dataKey`, `mode`, `options` | `required`, `fieldPicker` | Show a structured option card for questions with predefined choices. |

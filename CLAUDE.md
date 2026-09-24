@@ -153,6 +153,8 @@ The survey: identify the surface → map every existing writer/reader (qmd + gre
 
 Skipping the survey is how the 2026-06-16 #1703 fingerprint happened — three contract risks introduced silently in a single helper because no one mapped sibling writers first. Every PR's `## Verified by` section MUST cite the survey result for code that touches the Lattice.
 
+**Pedagogy is data, not code.** Before serving a content / rubric / scoring / threshold / flow / copy requirement with a hardcode in `transforms/**`, `compose/**`, or `pipeline/**`, decide whether it belongs as DATA (a `PlaybookConfig` field / `JOURNEY_SETTINGS` entry / spec an existing loader reads) and declare the Data-path vs Engine-path choice in the PR's `## Verified by` section. See [`.claude/rules/data-first-entry.md`](./.claude/rules/data-first-entry.md) (auto-loads on those paths). This is the pre-entry sibling to the `registry-schema-coverage` / `registry-consumer-coverage` gates.
+
 ---
 
 ## ⚠️ MANDATORY: You CAN hit authenticated API routes via the VM

@@ -28,12 +28,15 @@ import { CourseJourneyTab } from '@/components/journey-tab/CourseJourneyTab';
 import { CourseTeachingTab } from '@/components/teaching-tab/CourseTeachingTab';
 import { CourseScoringTab } from '@/components/scoring-tab/CourseScoringTab';
 import { CourseModulesTab } from '@/components/modules-tab/CourseModulesTab';
+import { CourseContentTab } from './CourseContentTab';
 import { CourseLearnersTab } from './CourseLearnersTab';
 import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
 import { SurveyStopDetail } from '@/components/shared/SurveyStopDetail';
 import type { PlaybookConfig, SurveyStepConfig } from '@/lib/types/json-fields';
 import { isPreSurveyEnabled } from '@/lib/learner/survey-config';
+import { AgentTuner } from '@/components/shared/AgentTuner';
+import { AgentTunerNlpGate } from '@/components/shared/AgentTunerNlpGate';
 import { isFormStop } from '@/lib/lesson-plan/session-ui';
 import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
@@ -262,6 +265,14 @@ export default function CourseDetailPage() {
   // the state + callback prevents the dead-code lint warning.
 
   // #418 — which curriculum source is in effect (authored vs derived).
+  // Story #2158 — header pill for the per-course IELTS LLM scoring
+  // method. Hidden on non-IELTS-shaped courses. Loaded once from the
+  // skills-rubric-calibration endpoint (which already computes
+  // isIeltsShaped + the override).
+  const [aiMeasurement, setAiMeasurement] = useState<{
+    isIeltsShaped: boolean;
+    disableLlmIeltsScoring: boolean;
+  } | null>(null);
   // Loaded once from setup-status so the header chip and the curriculum
   // tab can resolve `activeMode` without a render flash. Null until first
   // fetch resolves.
@@ -358,6 +369,31 @@ export default function CourseDetailPage() {
     return () => { cancelled = true; };
   }, [courseId]);
 
+  // Story #2158 — fetch the AI Measurement state once for the header
+  // pill. Uses the existing skills-rubric-calibration endpoint which
+  // already computes `isIeltsShaped` + the override (`disableLlmIeltsScoring`).
+  // Errors are swallowed — the pill is a status indicator, not
+  // load-bearing, so a fetch fail simply hides it.
+  useEffect(() => {
+    if (!courseId) return;
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/skills-rubric-calibration`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.aiMeasurement) return;
+        setAiMeasurement({
+          isIeltsShaped: Boolean(data.aiMeasurement.isIeltsShaped),
+          disableLlmIeltsScoring: Boolean(
+            data.aiMeasurement.disableLlmIeltsScoring,
+          ),
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
   // ── Derived Data ─────────────────────────────────────
   const specGroups = useMemo(() => {
     if (!detail) return { persona: [], measure: [], adapt: [], guard: [], voice: [], compose: [] };
@@ -419,13 +455,17 @@ export default function CourseDetailPage() {
     { id: 'teaching', label: <TabWithHelp tabId="teaching">Teaching</TabWithHelp>, icon: <Sliders size={14} /> },
     { id: 'scoring', label: <TabWithHelp tabId="scoring">Scoring</TabWithHelp>, icon: <Calculator size={14} /> },
     { id: 'modules', label: <TabWithHelp tabId="modules">Modules</TabWithHelp>, icon: <Layers size={14} /> },
-    { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Content</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
+    // #2204 (U2 of #2185): Teaching Content tab — bi-pane browse of typed
+    // teaching content (MCQ Bank / Cue Cards / Topic Prompts / Scenario
+    // Probes / Reflection Prompts). Position AFTER Modules per the story.
+    { id: 'content', label: <TabWithHelp tabId="content">Teaching Content</TabWithHelp>, icon: <BookMarked size={14} /> },
+    { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Sources</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
     // P5 (#1850): Design tab retired — every lens now lives on Journey /
     // Teaching / Scoring / Voice / Modules tabs. Legacy deep links flow
     // through `LEGACY_TAB_REDIRECTS` → 'journey'.
     { id: 'curriculum', label: <TabWithHelp tabId="curriculum">Curriculum</TabWithHelp>, icon: <GraduationCap size={14} /> },
     { id: 'learners', label: <TabWithHelp tabId="learners">Learners</TabWithHelp>, icon: <Users2 size={14} /> },
-    { id: 'proof', label: <TabWithHelp tabId="proof">Proof Points</TabWithHelp>, icon: <BarChart3 size={14} /> },
+    { id: 'proof', label: <TabWithHelp tabId="proof">Proof</TabWithHelp>, icon: <BarChart3 size={14} /> },
     { id: 'goals', label: <TabWithHelp tabId="goals">Goals</TabWithHelp>, icon: <Target size={14} /> },
     // Sprint 2 SP2-B — Skills Framework Inspector beta tab. Renders the
     // structural rubric the educator authored (Framework Map lens default).
@@ -1279,6 +1319,15 @@ export default function CourseDetailPage() {
             courseId={detail.id}
             router={router}
           />
+          {/* Story #2158 — AI scoring pill. Hidden on non-IELTS-shaped
+              courses (the auto-detect is N/A there — the IELTS-MEASURE-*
+              spec is dropped before any kill-switch is consulted). */}
+          <AiScoringMethodPill
+            aiMeasurement={aiMeasurement}
+            onClick={() =>
+              router.push(`/x/courses/${detail.id}?tab=skills&lens=rubric`)
+            }
+          />
           <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
           {(detail as any).group && (
             <span className="hf-pill hf-pill-neutral">{(detail as any).group.name}</span>
@@ -1786,9 +1835,15 @@ export default function CourseDetailPage() {
               ? 'structured'
               : 'continuous'
           }
-          onTabSwitch={handleCrossTabSwitch}
           playbookConfig={detail?.config as Record<string, unknown> | null | undefined}
         />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* TEACHING CONTENT TAB — #2204 (U2 of #2185)     */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'content' && (
+        <CourseContentTab courseId={courseId!} />
       )}
 
       {/* ═══════════════════════════════════════════════ */}
@@ -1963,6 +2018,30 @@ export default function CourseDetailPage() {
 
               {/* #1273 — Voice extracted to its own tab. Find it at
                   /x/courses/<id>?tab=voice. */}
+
+              {/* #2056 — operator-only NLP behaviour tuner. Mount gated
+                  on `config.agentTunerNlpEnabled` (opt-in) so the panel
+                  only renders when the playbook explicitly turns it on
+                  via the Inspector. Reads via <AgentTunerNlpGate> which
+                  resolves the flag through `isAgentTunerNlpEnabled`. */}
+              <AgentTunerNlpGate playbookConfig={detail.config as PlaybookConfig | null | undefined}>
+                <SectionHeader title="Behavior tuner (NLP)" icon={Zap} collapsible defaultCollapsed persistKey={`${courseId}.agent-tuner-nlp`}>
+                  <div className="hf-card hf-mb-lg" data-testid="agent-tuner-nlp-mount">
+                    <p className="hf-text-xs hf-text-muted hf-mb-md">
+                      Describe the personality you want in natural language; the agent translates intent to behaviour pills.
+                    </p>
+                    <AgentTuner
+                      bare
+                      context={{
+                        subjectName: detail.name,
+                        domainName: detail.domain.name,
+                      }}
+                      onChange={() => { /* writes via tray; see #2056 */ }}
+                      label="Tune behavior"
+                    />
+                  </div>
+                </SectionHeader>
+              </AgentTunerNlpGate>
 
               <SectionHeader title="Metadata" icon={FileText} collapsible defaultCollapsed persistKey={`${courseId}.metadata`}>
                 <div className="hf-card">
@@ -2253,6 +2332,51 @@ function CurriculumSourcePill({
     <button
       type="button"
       className={`cd-progression-pill cd-progression-pill--${mode === "authored" ? "learner" : "ai"}`}
+      onClick={onClick}
+      title={title}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ── AI scoring pill (story #2158) ───────────────────────────────────
+//
+// Surfaces the resolved IELTS LLM scoring method next to the other
+// header pills. Two states:
+//
+//   - LLM-judged (default for IELTS-shaped courses): course has IELTS
+//     skill BehaviorTargets AND no per-course override; the
+//     IELTS-MEASURE-001 spec runs at SCORE_AGENT.
+//   - Default: course has the per-course
+//     `config.aiMeasurement.disableLlmIeltsScoring=true` override; spec
+//     is filtered out; only rubric-based scoring runs.
+//
+// Hidden on non-IELTS-shaped courses (the kill-switch is a no-op there).
+// Click navigates to Skills tab → Rubric Calibration lens where the
+// "AI Measurement Method" card lives. Rendering nothing during the
+// initial fetch (aiMeasurement === null) keeps the header stable.
+function AiScoringMethodPill({
+  aiMeasurement,
+  onClick,
+}: {
+  aiMeasurement: {
+    isIeltsShaped: boolean;
+    disableLlmIeltsScoring: boolean;
+  } | null;
+  onClick: () => void;
+}) {
+  if (aiMeasurement === null) return null;
+  if (!aiMeasurement.isIeltsShaped) return null;
+  const llmActive = !aiMeasurement.disableLlmIeltsScoring;
+  const label = llmActive ? "AI scoring: LLM-judged (IELTS)" : "AI scoring: Default";
+  const title = llmActive
+    ? "IELTS-MEASURE-001 LLM spec scores FC + LR + GRA + P from the transcript on each call. Click to manage."
+    : "LLM IELTS scoring disabled for this course — only rubric-based scoring runs. Click to manage.";
+  return (
+    <button
+      type="button"
+      className={`cd-progression-pill cd-progression-pill--${llmActive ? "learner" : "ai"}`}
       onClick={onClick}
       title={title}
     >

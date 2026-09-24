@@ -114,3 +114,192 @@ describe("selectPinnedCardForModule", () => {
     });
   });
 });
+
+// ───────────────────────────────────────────────────────────────────
+// #1955 / epic #2145 S4 — topicFocus sibling. Reads from CallerAttribute
+// rows written by the `session-focus-policy` AnalysisSpec runner
+// (IELTS-P3-FOCUS-001 today). The selector projects the runner's
+// learner-safe label onto a `kind: "topicFocus"` pin — never a
+// criterion label.
+// ───────────────────────────────────────────────────────────────────
+
+import { selectTopicFocusCard } from "@/lib/voice/select-pinned-card";
+
+function part3Config(opts: { pinFocusArea?: boolean } = {}): PlaybookConfig {
+  return {
+    modules: [
+      {
+        id: "part3",
+        settings: { pinFocusArea: opts.pinFocusArea },
+      },
+    ],
+  } as unknown as PlaybookConfig;
+}
+
+describe("selectTopicFocusCard", () => {
+  it("returns kind:'topicFocus' projecting the runner-written label", () => {
+    const card = selectTopicFocusCard({
+      config: part3Config(),
+      moduleSlug: "part3",
+      callerAttributes: [
+        {
+          key: "session_focus:next_part3",
+          stringValue: "structuring an argument",
+        },
+      ],
+    });
+    expect(card).toEqual({
+      kind: "topicFocus",
+      topic: "Today's focus",
+      focusArea: "structuring an argument",
+    });
+  });
+
+  it("ignores unrelated CallerAttribute rows", () => {
+    const card = selectTopicFocusCard({
+      config: part3Config(),
+      moduleSlug: "part3",
+      callerAttributes: [
+        { key: "session_focus:next_part1", stringValue: "expanding an answer" },
+        { key: "skill_fluency_and_coherence_fc", stringValue: "0.5" },
+      ],
+    });
+    expect(card).toBeNull();
+  });
+
+  it("returns null on a non-Part-3 module slug (drift guard)", () => {
+    const card = selectTopicFocusCard({
+      config: part3Config(),
+      moduleSlug: "part2",
+      callerAttributes: [
+        { key: "session_focus:next_part2", stringValue: "giving reasons" },
+      ],
+    });
+    expect(card).toBeNull();
+  });
+
+  it("returns null when pinFocusArea is explicitly false", () => {
+    const card = selectTopicFocusCard({
+      config: part3Config({ pinFocusArea: false }),
+      moduleSlug: "part3",
+      callerAttributes: [
+        { key: "session_focus:next_part3", stringValue: "giving reasons" },
+      ],
+    });
+    expect(card).toBeNull();
+  });
+
+  it("returns null when no CallerAttribute row exists (honest empty state)", () => {
+    const card = selectTopicFocusCard({
+      config: part3Config(),
+      moduleSlug: "part3",
+      callerAttributes: [],
+    });
+    expect(card).toBeNull();
+  });
+
+  it("returns null when the row's stringValue is empty / whitespace", () => {
+    expect(
+      selectTopicFocusCard({
+        config: part3Config(),
+        moduleSlug: "part3",
+        callerAttributes: [
+          { key: "session_focus:next_part3", stringValue: "" },
+        ],
+      }),
+    ).toBeNull();
+    expect(
+      selectTopicFocusCard({
+        config: part3Config(),
+        moduleSlug: "part3",
+        callerAttributes: [
+          { key: "session_focus:next_part3", stringValue: "   " },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("returns null on null config / null moduleSlug", () => {
+    expect(
+      selectTopicFocusCard({
+        config: null,
+        moduleSlug: "part3",
+        callerAttributes: [],
+      }),
+    ).toBeNull();
+    expect(
+      selectTopicFocusCard({
+        config: part3Config(),
+        moduleSlug: null,
+        callerAttributes: [],
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("pinned-card drift guard — kind discriminator", () => {
+  it("cue card pool on a Part 2 slug still yields kind:'cueCard' (and topicFocus is gated out)", () => {
+    // Same playbook config could theoretically declare BOTH on the same
+    // module (config error). Verify the discriminator: which selector
+    // fires depends on the slug. Part 2 slug → cueCard branch only.
+    const config: PlaybookConfig = {
+      modules: [
+        {
+          id: "part2",
+          settings: {
+            cueCardPool: [{ topic: "Trip", bullets: ["where", "who"] }],
+            pinFocusArea: true, // hypothetical drift — should NOT trigger topicFocus
+          },
+        },
+      ],
+    } as unknown as PlaybookConfig;
+    const cue = selectPinnedCardForModule({
+      config,
+      moduleSlug: "part2",
+      sequenceNumber: 1,
+    });
+    expect(cue?.kind).toBe("cueCard");
+    // topicFocus must refuse a Part 2 module by its own slug-shape gate
+    const focus = selectTopicFocusCard({
+      config,
+      moduleSlug: "part2",
+      callerAttributes: [
+        { key: "session_focus:next_part2", stringValue: "giving reasons" },
+      ],
+    });
+    expect(focus).toBeNull();
+  });
+
+  it("Part 3 slug yields topicFocus when a CallerAttribute row exists, cueCard branch refuses on missing pool", () => {
+    const config: PlaybookConfig = {
+      modules: [
+        {
+          id: "part3",
+          settings: {
+            // No cueCardPool — selectPinnedCardForModule must return null.
+            pinFocusArea: true,
+          },
+        },
+      ],
+    } as unknown as PlaybookConfig;
+    const cue = selectPinnedCardForModule({
+      config,
+      moduleSlug: "part3",
+      sequenceNumber: 1,
+    });
+    expect(cue).toBeNull();
+    const focus = selectTopicFocusCard({
+      config,
+      moduleSlug: "part3",
+      callerAttributes: [
+        { key: "session_focus:next_part3", stringValue: "handling a challenge" },
+      ],
+    });
+    expect(focus?.kind).toBe("topicFocus");
+    expect(focus).toMatchObject({
+      kind: "topicFocus",
+      topic: "Today's focus",
+      focusArea: "handling a challenge",
+    });
+  });
+});

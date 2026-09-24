@@ -1,5 +1,8 @@
 /**
  * @api GET /api/callers/[callerId]/lo-mastery
+ * @tieredVisibility — strips mastery (0-1) + tier + bandLabel +
+ *                     masteryThreshold at the redacted tier. STUDENT
+ *                     sees coarse status only (#1922, epic #1915).
  *
  * Per-LO mastery drill for one module. Lazy-fetched by the Attainment
  * tab's Module Mastery section when a learner clicks a module row, so we
@@ -36,6 +39,8 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { visibilityTierForRole } from "@/lib/rbac/visibility";
+import { redactLoMasteryForTier } from "@/lib/rbac/policies/lo-mastery";
 import {
   studentAllowedToReadCaller,
   callerScopeMismatchResponse,
@@ -109,6 +114,8 @@ export async function GET(
   if (!studentAllowedToReadCaller(auth.session, callerId)) {
     return callerScopeMismatchResponse();
   }
+
+  const viewerTier = visibilityTierForRole(auth.session.user.role);
 
   const caller = await prisma.caller.findUnique({
     where: { id: callerId },
@@ -275,7 +282,7 @@ export async function GET(
     };
   });
 
-  return NextResponse.json({
+  const response: LoMasteryResponse = {
     callerId,
     playbookId,
     moduleId: moduleRow.id,
@@ -284,5 +291,6 @@ export async function GET(
     useFreshMastery,
     scratchSourceCallId,
     learningObjectives,
-  } satisfies LoMasteryResponse);
+  };
+  return NextResponse.json(redactLoMasteryForTier(response, viewerTier));
 }

@@ -47,12 +47,35 @@ export function JourneyText({
       isDirty={f.isDirty}
       isActive={f.glow.isActive}
     >
-      <div className="hf-jf-control">
+      <div className="hf-jf-control hf-jf-control-with-save">
         {isLong ? (
           <textarea {...sharedProps} rows={3} />
         ) : (
           <input type="text" {...sharedProps} />
         )}
+        {/* Slice 9 grey-out epic — explicit Save button next to text
+            fields. Auto-save on blur still works, but operators were
+            clicking "Refresh preview" expecting it to commit the text
+            value — leaving the change unsaved and the preview rendering
+            the cascaded fallback. The button makes the save path
+            discoverable. */}
+        <button
+          type="button"
+          className="hf-btn hf-btn-primary hf-jf-save-btn"
+          disabled={!f.isDirty || f.isSaving}
+          aria-label={`Save ${contract.educatorLabel}`}
+          onMouseDown={(e) => {
+            // mousedown so the input's onBlur (which also triggers
+            // commit) doesn't race the click — both routes call
+            // commit() and the duplicate is idempotent via the
+            // objectEqual check inside useCascadeEditField.
+            e.preventDefault();
+            void f.commit();
+          }}
+          data-testid={`hf-jf-save-${contract.id}`}
+        >
+          {f.isSaving ? "Saving…" : "Save"}
+        </button>
       </div>
     </_FieldShell>
   );

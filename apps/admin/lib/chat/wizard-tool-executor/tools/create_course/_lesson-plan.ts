@@ -51,7 +51,8 @@ export async function generateLessonPlanAndReturn(
   const { prisma } = await import("@/lib/prisma");
 
   // 10. Backfill teachMethod on assertions extracted before teachingMode was set
-  const resolvedTeachingModeNew = (input.teachingMode as string) || (setupData?.teachingMode as string);
+  // #1995 — drop `as string` casts; truthy-check is sufficient as a gate.
+  const resolvedTeachingModeNew = input.teachingMode ?? setupData?.teachingMode;
   if (resolvedTeachingModeNew) {
     const { backfillTeachMethods } = await import("@/lib/content-trust/backfill-teach-methods");
     backfillTeachMethods(playbookId).catch((err) =>

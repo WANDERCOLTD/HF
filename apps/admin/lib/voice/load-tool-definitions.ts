@@ -47,8 +47,13 @@ export async function loadToolDefinitions(
 ): Promise<ProviderToolDefinition[]> {
   const slug = config.specs.voiceTools;
   try {
+    // seed-from-specs.ts:608 stores slugs as `spec-${id.toLowerCase()}`.
+    // Use the deterministic shape directly — a contains-match would also
+    // hit sibling specs whose slug contains "tools-001" (e.g.
+    // spec-prompt-cref-tools-001).
+    const storedSlug = `spec-${slug.toLowerCase()}`;
     const spec = await prisma.analysisSpec.findFirst({
-      where: { slug, isActive: true },
+      where: { slug: storedSlug, isActive: true },
       select: { config: true },
     });
     if (!spec) {

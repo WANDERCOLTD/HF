@@ -62,6 +62,33 @@ const CONTINUOUS_PHRASES = [
   "call-by-call adaptive",
 ];
 
+/**
+ * Explicit structured-mode patterns the operator can declare in the
+ * course-ref to override the (short-cadence → continuous) inference.
+ * Symmetric to `CONTINUOUS_PHRASES`. A course-ref doc that declares
+ * `**lessonPlanMode:** structured` (or sibling markdown variants)
+ * matches one of these patterns; the wizard then writes
+ * `Playbook.config.lessonPlanMode = "structured"` so the admin Modules
+ * tab + `CallerModuleProgress` writes stay active for authored-modules
+ * courses. Prevents the IELTS-on-staging fingerprint where 5 authored
+ * modules shipped with `lessonPlanMode` unset → admin UI hid them.
+ *
+ * Regexes (not bare substrings) because markdown emits `**key:**` so a
+ * substring check on `"lessonplanmode: structured"` misses the
+ * common `**lessonPlanMode:** structured` shape. Each regex is
+ * case-insensitive and tolerant of `**` decoration + extra whitespace.
+ */
+const STRUCTURED_PATTERNS: RegExp[] = [
+  // `lessonPlanMode: structured` with any amount of `*` / `_` / whitespace
+  // separating the key from the value (covers `**lessonPlanMode:** structured`,
+  // `lessonPlanMode:structured`, `_lesson plan mode_: structured`, etc.)
+  /lesson\s*plan\s*mode\s*[:=]\s*[*_\s]*structured\b/i,
+  /\bstructured\s+lesson\s+plan\b/i,
+  /\bpre-planned\s+sessions?\b/i,
+  /\bmodules?\s+authored\b/i,
+  /\bauthored\s+modules?\b/i,
+];
+
 const PRESET_PATTERNS: Array<{ preset: PedagogicalPreset; patterns: RegExp[] }> = [
   {
     preset: "balanced",
@@ -125,12 +152,29 @@ export function detectPedagogy(bodyText: string): DetectedPedagogy {
     }
   }
 
-  // ── Continuous mode intent: phrase match (case-insensitive)
-  for (const phrase of CONTINUOUS_PHRASES) {
-    if (lower.includes(phrase)) {
-      result.lessonPlanMode = "continuous";
-      result.detectedFrom.push(`continuous: "${phrase}"`);
+  // ── Explicit structured-mode intent (highest precedence) — pattern match.
+  // Operators can pin the mode by declaring `**lessonPlanMode:** structured`
+  // (or any sibling phrase) in the course-ref doc. Checked first so the
+  // short-cadence→continuous inference below cannot fire when the
+  // operator has explicitly declared structured intent.
+  for (const pattern of STRUCTURED_PATTERNS) {
+    const match = pattern.exec(bodyText);
+    if (match) {
+      result.lessonPlanMode = "structured";
+      result.detectedFrom.push(`structured: "${match[0]}"`);
       break;
+    }
+  }
+
+  // ── Continuous mode intent: phrase match (case-insensitive). Skipped
+  // when structured was already declared above.
+  if (result.lessonPlanMode === null) {
+    for (const phrase of CONTINUOUS_PHRASES) {
+      if (lower.includes(phrase)) {
+        result.lessonPlanMode = "continuous";
+        result.detectedFrom.push(`continuous: "${phrase}"`);
+        break;
+      }
     }
   }
 

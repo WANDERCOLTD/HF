@@ -1,0 +1,399 @@
+/* #2198 — capability-driven LearnerShell components (ChatFeedShell +
+ * MCQRoundsShell). Per .claude/rules/ui-design-system.md — CSS variables
+ * drive theme; no inline styles for static properties; color-mix() for
+ * opacity.
+ */
+
+/* ChatFeedShell — render-thin wrapper that adds capability data
+ * attributes around the host's chat surface. No layout opinions; the
+ * inner SimChat owns its own layout. */
+.hf-chat-feed-shell {
+  display: contents;
+}
+
+/* MCQRoundsShell — full-screen overlay similar in shape to ExamModeShell
+ * but light-themed by default. */
+.hf-mcq-rounds-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 32px;
+  background: var(--mcq-shell-bg, var(--surface-primary));
+  color: var(--mcq-shell-text, var(--text-primary));
+}
+
+.hf-mcq-rounds-shell[data-colour-theme="default"] {
+  --mcq-shell-bg: var(--surface-primary);
+  --mcq-shell-text: var(--text-primary);
+}
+
+.hf-mcq-rounds-shell[data-colour-theme="dark"] {
+  --mcq-shell-bg: #0b0f1a;
+  --mcq-shell-text: #e8ecf3;
+}
+
+.hf-mcq-rounds-shell[data-colour-theme="neutral"] {
+  --mcq-shell-bg: var(--surface-secondary);
+  --mcq-shell-text: var(--text-primary);
+}
+
+.hf-mcq-rounds-shell[data-colour-theme="brand"] {
+  --mcq-shell-bg: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-primary));
+  --mcq-shell-text: var(--text-primary);
+}
+
+.hf-mcq-counter {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--mcq-shell-text) 75%, transparent);
+}
+
+.hf-mcq-cue-card {
+  width: 100%;
+  max-width: 720px;
+  padding: 32px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hf-mcq-question {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.hf-mcq-options {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-mcq-options li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hf-mcq-option-btn {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.hf-mcq-option-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-secondary));
+  border-color: var(--accent-primary);
+}
+
+.hf-mcq-options li[data-selected="true"] .hf-mcq-option-btn {
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-secondary));
+  border-color: var(--accent-primary);
+}
+
+.hf-mcq-option-btn:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.hf-mcq-option-label {
+  font-weight: 700;
+  color: var(--accent-primary);
+  min-width: 24px;
+}
+
+.hf-mcq-option-text {
+  color: var(--text-primary);
+}
+
+.hf-mcq-empty {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  border: 1px dashed var(--border-default);
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.hf-mcq-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hf-mcq-empty-detail {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.hf-mcq-feedback {
+  width: 100%;
+  max-width: 720px;
+  padding: 16px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.hf-mcq-close-screen {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mcq-shell-text);
+  text-align: center;
+}
+
+.hf-mcq-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ResultsReadoutShell (W6 of memory/handoff_lattice_all_settings_to_ui_2026_06_21.md,
+ * #2185 U11) — post-exam Mock Results screen. The ONE sanctioned
+ * learner-facing surface that displays per-criterion bands (per BDD
+ * US-Mock-05 + .claude/rules/learner-ui-leak-coverage.md exemptions).
+ * Brand-themed celebration palette per SHELL_DEFAULTS["results-readout"]
+ * (colourTheme === "brand"). Full-screen overlay (chatFeedVisibility ===
+ * "none"). No timer, no progress bar, no mode pill — the result IS the
+ * screen. */
+.hf-results-readout-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  padding: 48px 24px;
+  overflow-y: auto;
+  background: var(--results-shell-bg, var(--surface-primary));
+  color: var(--results-shell-text, var(--text-primary));
+}
+
+.hf-results-readout-shell[data-colour-theme="default"] {
+  --results-shell-bg: var(--surface-primary);
+  --results-shell-text: var(--text-primary);
+}
+
+.hf-results-readout-shell[data-colour-theme="dark"] {
+  --results-shell-bg: #0b0f1a;
+  --results-shell-text: #e8ecf3;
+}
+
+.hf-results-readout-shell[data-colour-theme="neutral"] {
+  --results-shell-bg: var(--surface-secondary);
+  --results-shell-text: var(--text-primary);
+}
+
+.hf-results-readout-shell[data-colour-theme="brand"] {
+  --results-shell-bg: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-primary));
+  --results-shell-text: var(--text-primary);
+}
+
+.hf-results-readout-overall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 48px;
+  border-radius: 20px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+}
+
+.hf-results-readout-overall-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--results-shell-text) 60%, transparent);
+}
+
+.hf-results-readout-overall-score {
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-primary);
+}
+
+.hf-results-readout-tier {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--results-shell-text);
+}
+
+.hf-results-readout-criteria {
+  width: 100%;
+  max-width: 720px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hf-results-readout-criteria li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+}
+
+.hf-results-readout-criterion-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--results-shell-text) 70%, transparent);
+}
+
+.hf-results-readout-criterion-score {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-results-readout-narrative {
+  width: 100%;
+  max-width: 720px;
+  padding: 20px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  color: var(--results-shell-text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.hf-results-readout-loading,
+.hf-results-readout-error,
+.hf-results-readout-empty {
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  border-radius: 12px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  text-align: center;
+  color: var(--results-shell-text);
+}
+
+.hf-results-readout-error {
+  border-color: color-mix(in srgb, var(--accent-error, #c44) 40%, var(--border-default));
+}
+
+.hf-results-readout-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* IntakeWizardShell — full-frame container for the ENROLLMENT learner
+ * surface. Light theme by default per SHELL_DEFAULTS["intake-wizard"]
+ * (colourTheme === "default"). The shell wraps wizard content authored
+ * by the host page; it does not impose layout opinions on the children
+ * beyond the outer frame, banner, and dismiss affordance. */
+.hf-intake-wizard-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  min-height: 100%;
+  padding: 24px;
+  background: var(--intake-shell-bg, var(--surface-primary));
+  color: var(--intake-shell-text, var(--text-primary));
+}
+
+.hf-intake-wizard-shell[data-colour-theme="default"] {
+  --intake-shell-bg: var(--surface-primary);
+  --intake-shell-text: var(--text-primary);
+}
+
+.hf-intake-wizard-shell[data-colour-theme="dark"] {
+  --intake-shell-bg: #0b0f1a;
+  --intake-shell-text: #e8ecf3;
+}
+
+.hf-intake-wizard-shell[data-colour-theme="neutral"] {
+  --intake-shell-bg: var(--surface-secondary);
+  --intake-shell-text: var(--text-primary);
+}
+
+.hf-intake-wizard-shell[data-colour-theme="brand"] {
+  --intake-shell-bg: color-mix(in srgb, var(--accent-primary) 10%, var(--surface-primary));
+  --intake-shell-text: var(--text-primary);
+}
+
+.hf-intake-shell-banner {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--intake-shell-text);
+}
+
+.hf-intake-shell-dismiss {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.hf-intake-shell-dismiss:hover {
+  background: var(--surface-secondary);
+}
+
+.hf-intake-shell-dismiss:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.hf-intake-shell-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 auto;
+}

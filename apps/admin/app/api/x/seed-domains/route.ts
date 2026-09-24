@@ -5,6 +5,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { seedCompanionDomain } from "../../../../prisma/_archived/seed-companion";
 import { seedFromSpecs } from "../../../../prisma/seed-from-specs";
 import { PARAMS } from "@/lib/registry";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 /**
  * @api POST /api/x/seed-domains
@@ -313,13 +314,29 @@ async function ensureBehaviorParameters(prisma: PrismaClient): Promise<number> {
     });
 
     if (!existing) {
+      // #2031 follow-on — route every Parameter.domainGroup write
+      // through the canonical resolver. The hardcoded values in this
+      // file's seed table (`empathy`, `communication`, `engagement`,
+      // `adaptation`) are mostly off-canonical (only `engagement` is
+      // in the v1.0 12-tuple); the resolver rejects off-canonical
+      // values and the fallback `"behavior-core"` is the catch-all
+      // canonical default per Group A `style → behavior-core` in
+      // docs/decisions/2026-06-19-parameter-domain-group-mapping.md.
+      // Author MUST update the hardcoded `domainGroup` fields in
+      // `essentialBehaviorParams` to canonical values to retain the
+      // original pedagogical intent (e.g. `empathy` →
+      // `behavior-core`, `communication` → `behavior-core`,
+      // `adaptation` → `learning-adaptation`).
+      const canonicalDomainGroup =
+        resolveCanonicalDomainGroup({ domainGroup: param.domainGroup }) ??
+        "behavior-core";
       await prisma.parameter.create({
         data: {
           parameterId: param.parameterId,
           name: param.name,
           definition: param.definition,
           sectionId: param.sectionId,
-          domainGroup: param.domainGroup,
+          domainGroup: canonicalDomainGroup,
           interpretationHigh: param.interpretationHigh,
           interpretationLow: param.interpretationLow,
           scaleType: "0-1",

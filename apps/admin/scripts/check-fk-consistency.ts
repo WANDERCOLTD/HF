@@ -485,6 +485,317 @@ async function runChecks(): Promise<CheckResult[]> {
     })),
   });
 
+  // Query 12 — #1917 (epic #1915 §6a I-PR3) — Calls without
+  // `regulatoryExpiresAt` stamped, older than the configured grace
+  // window. WARN-only — pre-#1917 rows are EXPECTED to be NULL
+  // (intentional NULL backfill, see migration body). After #1917 ships
+  // and an env preset becomes active, new rows should ALL be stamped;
+  // surfacing the count keeps the rollout state observable.
+  //
+  // Grace window: 7 days. Adjust upward if a wider rollout window is
+  // declared by the operator (set via env or admin UI when #1928
+  // ships).
+  const REGULATORY_EXPIRY_GRACE_DAYS = 7;
+  const callsWithoutRegulatoryExpiry = await prisma.$queryRaw<
+    Array<{ id: string; callerId: string | null; createdAt: Date }>
+  >`
+    SELECT "id", "callerId", "createdAt"
+    FROM "Call"
+    WHERE "regulatoryExpiresAt" IS NULL
+      AND "createdAt" < NOW() - (${REGULATORY_EXPIRY_GRACE_DAYS} || ' days')::interval
+    ORDER BY "createdAt" DESC
+    LIMIT 200
+  `;
+  results.push({
+    name: "call-without-regulatory-expiry",
+    description:
+      "#1917 (#1915 I-PR3) — Call rows older than the grace window with NULL regulatoryExpiresAt. Pre-migration rows are EXPECTED NULL (intentional NULL backfill). New rows after #1917 ships should be stamped unless `RETENTION_CALLER_DATA_DAYS` is 0 AND no preset is wired (#1925, pending). WARN-only: count plateauing post-rollout = healthy; growing = enforcer regression.",
+    rows: callsWithoutRegulatoryExpiry.map((r) => ({
+      id: r.id,
+      detail: {
+        callerId: r.callerId,
+        createdAt: r.createdAt.toISOString(),
+      },
+    })),
+    warnOnly: true,
+  });
+
+  // Query 13 — #2040 (S7 of epic #2031) — Parameter.domainGroup off-canonical
+  // rows. Live-DB parity check against the canonical 12-tuple at
+  // `lib/registry/canonical-domain-group.ts`. WARN-only until S3b (#2039)
+  // clears the incumbent debt; flip to error severity (drop `warnOnly`)
+  // once the audit count reaches 0 on hosted DBs and the S3c CHECK
+  // constraint lands.
+  //
+  // Incumbent counts at S7-author time (PR #2036 audit, 2026-06-19):
+  //   - hf_sandbox: 96 off-canonical rows across 19 distinct values
+  //   - hf_staging: 145 off-canonical rows across 28 distinct values
+  //
+  // CI runs this against an ephemeral Postgres seeded from canonical
+  // JSON (seed-from-specs.ts), so this query returns 0 rows in CI by
+  // construction. The check's load-bearing run is via `npm run check:fk`
+  // against the hosted DBs (DATABASE_URL_SANDBOX / DATABASE_URL_STAGING)
+  // — see PR #2036's body for the canonical SQL probe pattern. Operators
+  // verify S3b's mapping migration cleared the drift by re-running this
+  // check post-deploy.
+  //
+  // Structural pin: `tests/lib/registry/parameter-domain-group-db-parity.test.ts`
+  // asserts Query 13 exists with this exact shape — so a future refactor
+  // can't silently delete it.
+  const offCanonicalDomainGroup = await prisma.$queryRaw<
+    Array<{ domainGroup: string; n: bigint }>
+  >`
+    SELECT "domainGroup", COUNT(*)::bigint AS n
+    FROM "Parameter"
+    WHERE "domainGroup" NOT IN (
+      'behavior-core', 'learning-adaptation', 'curriculum-adaptation',
+      'personality-adaptation', 'supervision', 'companion', 'engagement',
+      'reinforcement', 'onboarding', 'voice-delivery', 'learner-model',
+      'affect-motivation'
+    )
+    GROUP BY "domainGroup"
+    ORDER BY n DESC
+  `;
+  results.push({
+    name: "parameter-domain-group-off-canonical",
+    description:
+      "#2040 (#2031 S7) — Parameter.domainGroup rows not matching the canonical 12-tuple at lib/registry/canonical-domain-group.ts. WARN-only until S3b (#2039) clears the incumbent debt; CI's ephemeral DB returns 0 by construction, the load-bearing run is against hosted DBs via `npm run check:fk` with DATABASE_URL pointed at sandbox/staging. See PR #2036 audit + ADR docs/decisions/2026-06-19-parameter-domain-group-mapping.md (#2044).",
+    rows: offCanonicalDomainGroup.map((r) => ({
+      id: r.domainGroup,
+      detail: { rowCount: Number(r.n) },
+    })),
+    warnOnly: true,
+  });
+
+  // Query 14 — #2166 (BIG LATTICE MISS #2) — soft source-refs in
+  // `Playbook.config.modules[]` that don't resolve to any `ContentSource`
+  // row. Same shape as Query 11 (AnalysisSpec.config.parameters[].id soft
+  // FK), different surface.
+  //
+  // Two ref shapes are walked per module entry:
+  //   1. `contentSourceRef` (top-level on `AuthoredModule`) — free-form
+  //      label like "Source 4 — Baseline topic pool"; matched against
+  //      `ContentSource.name` OR `ContentSource.slug`.
+  //   2. `settings.cueCardPool` / `settings.topicPool` / `settings.scaffoldPool`
+  //      (per `lib/wizard/resolve-module-source-refs.ts::RESOLVABLE_FIELDS`)
+  //      — only when stored as a `source:<slug>` string (unresolved state;
+  //      the resolved state inlines the array). Strip the `source:` prefix
+  //      then match against `ContentSource.slug`.
+  //
+  // Live evidence (2026-06-21 hf_sandbox): 5/5 IELTS Speaking Practice
+  // modules carry `contentSourceRef: "Source N — …"` but Sources 1-5 don't
+  // exist in `ContentSource`. At runtime `selectPinnedCardForModule`
+  // silently returns null and the shell renders without a cue card — no
+  // AppLog subject, no operator-visible signal. Partner-blocker for Mock
+  // + Part 2 + Baseline practice flows.
+  //
+  // WARN-only initially while the IELTS Sources 1-5 backfill story is in
+  // flight (sibling story per epic #2166 S6). Promote to error severity
+  // once the incumbent debt is cleared.
+  //
+  // CI's ephemeral DB has no Playbook seed → returns 0 rows by
+  // construction. Load-bearing run is via `npm run check:fk` against
+  // hosted DBs (DATABASE_URL_SANDBOX / DATABASE_URL_STAGING).
+  type DanglingSourceRefRow = {
+    playbook_id: string;
+    playbook_name: string;
+    module_slug: string;
+    unresolved_module_ref: string | null;
+    unresolved_cue_card_ref: string | null;
+    unresolved_topic_pool_ref: string | null;
+    unresolved_scaffold_ref: string | null;
+  };
+  let danglingSourceRefs: DanglingSourceRefRow[] = [];
+  try {
+    danglingSourceRefs = await prisma.$queryRaw<DanglingSourceRefRow[]>`
+      WITH module_refs AS (
+        SELECT
+          p.id AS playbook_id,
+          p.name AS playbook_name,
+          am->>'id' AS module_slug,
+          am->>'contentSourceRef' AS module_content_ref,
+          am->'settings'->>'cueCardPool' AS cue_card_pool_ref,
+          am->'settings'->>'topicPool' AS topic_pool_ref,
+          am->'settings'->>'scaffoldPool' AS scaffold_pool_ref
+        FROM "Playbook" p,
+             jsonb_array_elements(p.config->'modules') am
+        WHERE p."publishedAt" IS NOT NULL
+          AND jsonb_typeof(p.config->'modules') = 'array'
+      )
+      SELECT
+        playbook_id,
+        playbook_name,
+        module_slug,
+        CASE
+          WHEN module_content_ref IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM "ContentSource" cs
+              WHERE cs.name = mr.module_content_ref
+                 OR cs.slug = mr.module_content_ref
+            )
+          THEN module_content_ref
+          ELSE NULL
+        END AS unresolved_module_ref,
+        CASE
+          WHEN cue_card_pool_ref LIKE 'source:%'
+            AND NOT EXISTS (
+              SELECT 1 FROM "ContentSource" cs
+              WHERE cs.slug = SUBSTRING(mr.cue_card_pool_ref FROM 8)
+            )
+          THEN cue_card_pool_ref
+          ELSE NULL
+        END AS unresolved_cue_card_ref,
+        CASE
+          WHEN topic_pool_ref LIKE 'source:%'
+            AND NOT EXISTS (
+              SELECT 1 FROM "ContentSource" cs
+              WHERE cs.slug = SUBSTRING(mr.topic_pool_ref FROM 8)
+            )
+          THEN topic_pool_ref
+          ELSE NULL
+        END AS unresolved_topic_pool_ref,
+        CASE
+          WHEN scaffold_pool_ref LIKE 'source:%'
+            AND NOT EXISTS (
+              SELECT 1 FROM "ContentSource" cs
+              WHERE cs.slug = SUBSTRING(mr.scaffold_pool_ref FROM 8)
+            )
+          THEN scaffold_pool_ref
+          ELSE NULL
+        END AS unresolved_scaffold_ref
+      FROM module_refs mr
+      WHERE
+        (module_content_ref IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM "ContentSource" cs
+          WHERE cs.name = mr.module_content_ref OR cs.slug = mr.module_content_ref
+        ))
+        OR (cue_card_pool_ref LIKE 'source:%' AND NOT EXISTS (
+          SELECT 1 FROM "ContentSource" cs
+          WHERE cs.slug = SUBSTRING(mr.cue_card_pool_ref FROM 8)
+        ))
+        OR (topic_pool_ref LIKE 'source:%' AND NOT EXISTS (
+          SELECT 1 FROM "ContentSource" cs
+          WHERE cs.slug = SUBSTRING(mr.topic_pool_ref FROM 8)
+        ))
+        OR (scaffold_pool_ref LIKE 'source:%' AND NOT EXISTS (
+          SELECT 1 FROM "ContentSource" cs
+          WHERE cs.slug = SUBSTRING(mr.scaffold_pool_ref FROM 8)
+        ))
+      ORDER BY playbook_name, module_slug;
+    `;
+  } catch (err) {
+    // JSON path query syntax differs across Postgres versions / SQLite
+    // dev DBs. Same defensive shape as Query 11 — tolerate failure with
+    // a warn so unrelated CI doesn't block.
+    console.warn(
+      `[fk-check] Playbook.config module source-ref scan errored: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  results.push({
+    name: "playbook-module-dangling-source-ref",
+    description:
+      "#2166 (BIG LATTICE MISS #2) — Playbook.config.modules[] carries a soft source-ref (contentSourceRef / settings.cueCardPool / settings.topicPool / settings.scaffoldPool) that doesn't resolve to a ContentSource row. JSON column has no DB FK constraint. Runtime resolvers (selectPinnedCardForModule, resolveModuleSourceRefs) silently return null on miss — no operator-visible signal until a learner gets an empty shell. WARN-only until the IELTS Sources 1-5 backfill (sibling story) clears the incumbent debt; promote to error severity then.",
+    rows: danglingSourceRefs.map((r) => ({
+      id: `${r.playbook_name}/${r.module_slug}`,
+      detail: {
+        playbookId: r.playbook_id,
+        moduleSlug: r.module_slug,
+        unresolvedModuleRef: r.unresolved_module_ref ?? undefined,
+        unresolvedCueCardRef: r.unresolved_cue_card_ref ?? undefined,
+        unresolvedTopicPoolRef: r.unresolved_topic_pool_ref ?? undefined,
+        unresolvedScaffoldRef: r.unresolved_scaffold_ref ?? undefined,
+      },
+    })),
+    warnOnly: true,
+  });
+
+  // Query 15 — #2305 — stale `CallerTarget.currentScore` for IELTS skill
+  // parameters where ZERO `CallScore` rows back the score for the same
+  // (callerId, parameterId).
+  //
+  // Per epic #2135's rule "NEVER land hardcoded or AI-guessed score
+  // defaults": every non-null `currentScore` MUST be derivable from at
+  // least one CallScore row written through the canonical
+  // `aggregate-runner.ts::accumulateSkillScores` path. Pre-#2138
+  // `lib/pipeline/prosody-consumer.ts` wrote `currentScore` directly under
+  // IELTS skill IDs without writing a paired CallScore — that path is
+  // retired but the stale rows remain. Same failure mode as Query 11
+  // (`AnalysisSpec.config.parameters[].id` dangling-FK) but on the
+  // measurement-output surface instead of the spec-config surface.
+  //
+  // Live evidence (2026-06-23 hf_sandbox): 39 of 149 IELTS skill
+  // CallerTarget rows carry non-null `currentScore` with zero matching
+  // CallScore rows — fabricated signal that corrupts EMA going forward
+  // until drained via `scripts/drain-stale-ielts-skill-callertargets.ts`.
+  //
+  // WARN-only initially while the drain is in flight. Promote to error
+  // severity once the incumbent debt is cleared on every hosted DB.
+  //
+  // CI's ephemeral DB has no CallerTarget seed → returns 0 by
+  // construction. Load-bearing run is via `npm run check:fk` against
+  // hosted DBs (DATABASE_URL_SANDBOX / DATABASE_URL_STAGING).
+  type StaleIeltsCallerTargetRow = {
+    caller_target_id: string;
+    caller_id: string;
+    caller_name: string | null;
+    parameter_id: string;
+    current_score: number | null;
+    last_scored_at: Date | null;
+  };
+  let staleIeltsCallerTargets: StaleIeltsCallerTargetRow[] = [];
+  try {
+    staleIeltsCallerTargets = await prisma.$queryRaw<StaleIeltsCallerTargetRow[]>`
+      SELECT
+        ct."id" AS caller_target_id,
+        ct."callerId" AS caller_id,
+        c."name" AS caller_name,
+        ct."parameterId" AS parameter_id,
+        ct."currentScore" AS current_score,
+        ct."lastScoredAt" AS last_scored_at
+      FROM "CallerTarget" ct
+      JOIN "Caller" c ON c."id" = ct."callerId"
+      WHERE ct."parameterId" IN (
+        'skill_fluency_and_coherence_fc',
+        'skill_lexical_resource_lr',
+        'skill_grammatical_range_and_accuracy_gra',
+        'skill_pronunciation_p'
+      )
+        AND ct."currentScore" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "CallScore" cs
+          WHERE cs."callerId" = ct."callerId"
+            AND cs."parameterId" = ct."parameterId"
+        )
+      ORDER BY ct."callerId", ct."parameterId";
+    `;
+  } catch (err) {
+    // Same defensive shape as Query 11 / Query 14 — tolerate failure with
+    // a warn so unrelated CI doesn't block.
+    console.warn(
+      `[fk-check] CallerTarget non-null without CallScore scan errored: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  results.push({
+    name: "callertarget-non-null-without-callscore",
+    description:
+      "#2305 — CallerTarget.currentScore is non-null for an IELTS skill parameterId but ZERO CallScore rows back the (callerId, parameterId). Pre-#2138 prosody-consumer wrote currentScore directly under IELTS skill IDs without a paired CallScore — that path was retired but the stale rows remain. Drain via `scripts/drain-stale-ielts-skill-callertargets.ts --apply`. WARN-only until the incumbent debt is cleared on every hosted DB; promote to error severity then.",
+    rows: staleIeltsCallerTargets.map((r) => ({
+      id: r.caller_target_id,
+      detail: {
+        callerId: r.caller_id,
+        callerName: r.caller_name ?? undefined,
+        parameterId: r.parameter_id,
+        currentScore: r.current_score ?? undefined,
+        lastScoredAt: r.last_scored_at?.toISOString() ?? undefined,
+      },
+    })),
+    warnOnly: true,
+  });
+
   return results;
 }
 

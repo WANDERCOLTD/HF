@@ -45,11 +45,11 @@ async function main() {
     // Build parameterValues from OCEAN fields
     const parameterValues: Record<string, number> = {};
 
-    if (obs.openness !== null) parameterValues["B5-O"] = obs.openness;
-    if (obs.conscientiousness !== null) parameterValues["B5-C"] = obs.conscientiousness;
-    if (obs.extraversion !== null) parameterValues["B5-E"] = obs.extraversion;
-    if (obs.agreeableness !== null) parameterValues["B5-A"] = obs.agreeableness;
-    if (obs.neuroticism !== null) parameterValues["B5-N"] = obs.neuroticism;
+    if (obs.openness !== null) parameterValues["BEH-B5-O"] = obs.openness;
+    if (obs.conscientiousness !== null) parameterValues["BEH-B5-C"] = obs.conscientiousness;
+    if (obs.extraversion !== null) parameterValues["BEH-B5-E"] = obs.extraversion;
+    if (obs.agreeableness !== null) parameterValues["BEH-B5-A"] = obs.agreeableness;
+    if (obs.neuroticism !== null) parameterValues["BEH-B5-N"] = obs.neuroticism;
 
     // Check if already migrated
     const existing = obs.parameterValues as Record<string, number> | null;

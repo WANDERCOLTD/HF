@@ -59,7 +59,7 @@ export async function loadPersonaWelcomeTemplate(persona: string): Promise<strin
   const styleTemplates = (specConfig as unknown as { styleWelcomeTemplates?: Record<string, string> }).styleWelcomeTemplates;
   if (styleTemplates?.[resolvedKey]) return styleTemplates[resolvedKey];
 
-  const welcomeParam = specConfig.parameters?.find?.((p: { id: string }) => p.id === "welcome_quality");
+  const welcomeParam = specConfig.parameters?.find?.((p: { id: string }) => p.id === "BEH-WELCOME-QUALITY");
   const templates = (welcomeParam as { config?: { welcomeTemplates?: Record<string, string> } } | undefined)?.config?.welcomeTemplates;
   if (templates?.[resolvedKey]) return templates[resolvedKey];
 

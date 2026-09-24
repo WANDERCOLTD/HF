@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { randomUUID } from "crypto";
+import { resolveCanonicalDomainGroup } from "@/lib/registry/canonical-domain-group";
 
 export const runtime = "nodejs";
 
@@ -210,6 +211,17 @@ export async function POST(req: Request) {
 
   // Remove tags from scalar create payload
   const { tags: _tags, ...scalar } = body || {};
+
+  // #2031 follow-on — route operator-supplied domainGroup through the
+  // canonical resolver. Off-canonical input falls back to
+  // `behavior-core` (catch-all canonical default per Group A in
+  // docs/decisions/2026-06-19-parameter-domain-group-mapping.md);
+  // schema requires non-null.
+  if (scalar.domainGroup !== undefined && scalar.domainGroup !== null) {
+    scalar.domainGroup =
+      resolveCanonicalDomainGroup({ domainGroup: scalar.domainGroup }) ??
+      "behavior-core";
+  }
 
   const created = await prisma.$transaction(async (tx) => {
     const p = await tx.parameter.create({

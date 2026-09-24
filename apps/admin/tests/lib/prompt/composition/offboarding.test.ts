@@ -59,6 +59,12 @@ function makeSharedState(overrides: Partial<SharedComputedState> = {}): SharedCo
 interface MakeCtxOpts {
   shared?: Partial<SharedComputedState>;
   config?: PlaybookConfig["offboardingSummary"];
+  /** #2054 — extra `Playbook.config.*` fields needed by the new
+   *  offboarding consumers (triggerAfterCalls, bannerMessage,
+   *  offboardingCertificate). Merged onto the synthesised PlaybookConfig
+   *  so legacy tests that only set `config` (offboardingSummary) keep
+   *  working unchanged. */
+  playbookConfigExtra?: Partial<PlaybookConfig>;
   goals?: Array<{
     id: string;
     type: string;
@@ -85,7 +91,10 @@ interface MakeCtxOpts {
 }
 
 function makeContext(opts: MakeCtxOpts = {}): AssembledContext {
-  const playbookConfig: PlaybookConfig = opts.config ? { offboardingSummary: opts.config } : {};
+  const playbookConfig: PlaybookConfig = {
+    ...(opts.config ? { offboardingSummary: opts.config } : {}),
+    ...(opts.playbookConfigExtra ?? {}),
+  };
   return {
     sharedState: makeSharedState(opts.shared),
     sections: {},
@@ -640,6 +649,139 @@ describe("offboarding transform — moduleClosingLine override (#1734)", () => {
       // Original GENERIC_FINAL_GUIDANCE lines still present — override is additive.
       expect(result.guidance.some((l) => l.includes("Summarise their learning journey"))).toBe(true);
     });
+  });
+});
+
+// ─── #2054 — sub-epic E offboarding consumer wirings ────────────────────────
+//
+// Pins the three contract → consumer pairings introduced for issue #2054
+// (epic #2049 sub-epic E):
+//   - offboardingTriggerAfterCalls → stop-trigger gate inside the transform
+//   - offboardingCertificate       → certificate-mention directive
+//   - offboardingBannerMessage     → resolver-helper used by the student page
+//
+
+describe("offboarding transform — #2054 offboardingTriggerAfterCalls", () => {
+  it("fires the offboarding section on a non-final session when callNumber >= triggerAfterCalls", async () => {
+    const ctx = makeContext({
+      shared: { isFinalSession: false, callNumber: 5 },
+      playbookConfigExtra: {
+        offboarding: { triggerAfterCalls: 5, phases: [] },
+      },
+    });
+    const result = (await transform(null, ctx, STUB_SECTION)) as {
+      triggeredByCallCount: boolean;
+      isFinalSession: boolean;
+    } | null;
+    expect(result).not.toBeNull();
+    expect(result!.triggeredByCallCount).toBe(true);
+    expect(result!.isFinalSession).toBe(false);
+  });
+
+  it("does NOT fire on a non-final session when callNumber < triggerAfterCalls", async () => {
+    const ctx = makeContext({
+      shared: { isFinalSession: false, callNumber: 3 },
+      playbookConfigExtra: {
+        offboarding: { triggerAfterCalls: 5, phases: [] },
+      },
+    });
+    const result = await transform(null, ctx, STUB_SECTION);
+    expect(result).toBeNull();
+  });
+
+  it("keeps firing on isFinalSession=true regardless of triggerAfterCalls", async () => {
+    const ctx = makeContext({
+      shared: { isFinalSession: true, callNumber: 1 },
+      playbookConfigExtra: {
+        offboarding: { triggerAfterCalls: 99, phases: [] },
+      },
+    });
+    const result = (await transform(null, ctx, STUB_SECTION)) as {
+      triggeredByCallCount: boolean;
+      isFinalSession: boolean;
+    } | null;
+    expect(result).not.toBeNull();
+    expect(result!.isFinalSession).toBe(true);
+    expect(result!.triggeredByCallCount).toBe(false);
+  });
+
+  it("ignores triggerAfterCalls when missing or zero", async () => {
+    const ctxNoCfg = makeContext({
+      shared: { isFinalSession: false, callNumber: 99 },
+    });
+    expect(await transform(null, ctxNoCfg, STUB_SECTION)).toBeNull();
+  });
+});
+
+describe("offboarding transform — #2054 offboardingCertificate", () => {
+  it("emits a certificate-mention guidance line when offboardingCertificate=true and the gate fires", async () => {
+    const ctx = makeContext({
+      shared: { isFinalSession: true },
+      playbookConfigExtra: { offboardingCertificate: true } as Partial<PlaybookConfig>,
+    });
+    const result = (await transform(null, ctx, STUB_SECTION)) as {
+      certificateMention: string | null;
+      guidance: string[];
+    } | null;
+    expect(result).not.toBeNull();
+    expect(result!.certificateMention).not.toBeNull();
+    expect(result!.certificateMention).toMatch(/certificate/i);
+    expect(result!.guidance.join("\n")).toMatch(/certificate/i);
+  });
+
+  it("does NOT emit a certificate-mention when offboardingCertificate is unset/false", async () => {
+    const ctx = makeContext({ shared: { isFinalSession: true } });
+    const result = (await transform(null, ctx, STUB_SECTION)) as {
+      certificateMention: string | null;
+      guidance: string[];
+    } | null;
+    expect(result).not.toBeNull();
+    expect(result!.certificateMention).toBeNull();
+    expect(result!.guidance.join("\n")).not.toMatch(/certificate/i);
+  });
+});
+
+describe("#2054 offboardingBannerMessage — resolveOffboardingBanner helper", () => {
+  it("substitutes {n} with the supplied totalCalls value", async () => {
+    const { resolveOffboardingBanner } = await import(
+      "@/lib/curriculum/offboarding-banner"
+    );
+    const banner = resolveOffboardingBanner({
+      offboarding: {
+        triggerAfterCalls: 5,
+        bannerMessage: "Wrap-up after {n} sessions — share your reflection.",
+        phases: [],
+      },
+      totalCalls: 7,
+    });
+    expect(banner).toBe("Wrap-up after 7 sessions — share your reflection.");
+  });
+
+  it("falls back to a sensible default when bannerMessage is empty", async () => {
+    const { resolveOffboardingBanner } = await import(
+      "@/lib/curriculum/offboarding-banner"
+    );
+    const banner = resolveOffboardingBanner({
+      offboarding: { triggerAfterCalls: 5, phases: [] },
+      totalCalls: 4,
+    });
+    expect(banner).not.toBeNull();
+    expect(banner).toMatch(/4/);
+  });
+
+  it("substitutes every occurrence of {n}", async () => {
+    const { resolveOffboardingBanner } = await import(
+      "@/lib/curriculum/offboarding-banner"
+    );
+    const banner = resolveOffboardingBanner({
+      offboarding: {
+        triggerAfterCalls: 5,
+        bannerMessage: "{n} sessions in. {n} feedback chances left.",
+        phases: [],
+      },
+      totalCalls: 6,
+    });
+    expect(banner).toBe("6 sessions in. 6 feedback chances left.");
   });
 });
 
