@@ -216,7 +216,7 @@
     "jsdom": "^27.4.0",
     "knip": "^6.13.1",
     "postcss": "^8.5.6",
-    "promptfoo": "^0.120.19",
+    "promptfoo": "^0.123.1",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
     "typescript": "^5",
