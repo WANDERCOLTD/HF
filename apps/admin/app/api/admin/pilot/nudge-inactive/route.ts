@@ -7,7 +7,8 @@
  * (VOICE_CALL / SIM_CALL) ended between 48h and 168h ago, unless they
  * were already nudged in the last 7 days.
  *
- * Auth: x-internal-secret header must match config.security.internalApiSecret.
+ * Auth: `x-internal-secret` matching config.security.internalApiSecret, OR an
+ * ADMIN session. Dual-path so the route-auth coverage gate is satisfied.
  *
  * Dedup: CallerAttribute key = "pilot:last_nudge_at", scope = "GLOBAL".
  * Written after every successful email send.
@@ -37,6 +38,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
+import { requireAuth, isAuthError } from "@/lib/permissions";
 
 interface RequestBody {
   dryRun?: boolean;
@@ -48,9 +50,19 @@ interface RequestBody {
 const NUDGE_ATTR_KEY = "pilot:last_nudge_at";
 
 export async function POST(req: Request) {
+  // Dual-path auth, matching the other internal-secret routes
+  // (`calls/[callId]/pipeline`, `poll-stale-calls`, `cron/cleanup-usage-events`).
+  // Cloud Scheduler presents `x-internal-secret`; an operator hitting it by
+  // hand falls through to a session check. The `requireAuth` branch is what
+  // `tests/lib/route-auth-coverage.test.ts` requires of every non-public route
+  // — a secret-only route silently opts out of that gate.
   const secretHeader = req.headers.get("x-internal-secret");
-  if (!secretHeader || secretHeader !== config.security.internalApiSecret) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const isInternalCall =
+    !!secretHeader && secretHeader === config.security.internalApiSecret;
+
+  if (!isInternalCall) {
+    const authResult = await requireAuth("ADMIN");
+    if (isAuthError(authResult)) return authResult.error;
   }
 
   const body: RequestBody = await parseBody(req);
