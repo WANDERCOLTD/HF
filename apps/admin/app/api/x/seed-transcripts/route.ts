@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { deleteCallersData } from "@/lib/gdpr/delete-caller-data";
 import { config } from "@/lib/config";
 
 /**
@@ -30,25 +31,18 @@ export async function POST(request: Request) {
       try {
         console.log("🗑️  REPLACE mode: Deleting all existing Callers and Calls...");
 
-        // Delete in correct order due to foreign key constraints
-        // First: tables that reference Call
-        await prisma.personalityObservation.deleteMany({});
-        await prisma.callScore.deleteMany({});
-        await prisma.callTarget.deleteMany({});
-        await prisma.composedPrompt.deleteMany({});
-        // Then: Call itself
-        await prisma.call.deleteMany({});
-        // Then: tables that reference Caller
-        await prisma.callerTarget.deleteMany({});
-        await prisma.behaviorTarget.deleteMany({ where: { scope: "CALLER" } });
-        await prisma.callerMemorySummary.deleteMany({});
-        await prisma.callerMemory.deleteMany({});
-        await prisma.callerPersonality.deleteMany({});
-        await prisma.callerPersonalityProfile.deleteMany({});
-        await prisma.callerIdentity.deleteMany({});
-        await prisma.callerAttribute.deleteMany({});
-        // Finally: Caller itself
-        await prisma.caller.deleteMany({});
+        // CALLER-scope BehaviorTargets that are NOT pinned to a caller
+        // identity: the chokepoint removes identity-scoped rows, these have
+        // no identity to hang off.
+        await prisma.behaviorTarget.deleteMany({
+          where: { scope: "CALLER", callerIdentityId: null },
+        });
+
+        const allCallers = await prisma.caller.findMany({ select: { id: true } });
+        await deleteCallersData(
+          allCallers.map((c) => c.id),
+          prisma,
+        );
 
         console.log("   ✓ All Callers and Calls deleted");
       } finally {

@@ -117,12 +117,30 @@ describe("computeBackfillPlan — IELTS v2.3 against a clean Playbook", () => {
     const part2 = plan.nextConfig.modules!.find((m) => m.id === "part2")!;
     expect(part2.settings).toBeDefined();
     expect(part2.settings!.minSpeakingSec).toBe(120);
+    // Source of truth is the fixture itself — `course-reference-ielts-v2.3.md`
+    // Module 3, which declares five cues (MT #2277: PPF prep intro + warn +
+    // monologue boundary + re-speak offer + re-speak close; cue-scheduler is
+    // voice-only per PR #2286). The `phase` values are load-bearing: the
+    // Session.metadata.phaseBoundaries write surface reads them to locate the
+    // prep -> monologue -> re-speak transitions (#1762 Story C).
+    //
+    // This assertion previously pinned the older two-cue shape and drifted
+    // when the fixture grew. If it fails again, diff it against the fixture
+    // before changing it — the fixture is authored, this is projected.
     expect(part2.settings!.scheduledCues).toEqual([
-      { at: 45, text: "15 seconds left" },
-      // #1762 Story C — 60s cue carries phase:"p2_monologue" so the
-      // Session.metadata.phaseBoundaries write surface knows the
-      // prep→monologue boundary lives here.
-      { at: 60, text: "Your two minutes start now", phase: "p2_monologue" },
+      {
+        at: 0,
+        text: "You'll have one minute to prepare. Think of a specific memory or moment. Consider past, present, and future. Write three bullet points — one word or phrase per line.",
+        phase: "p2_prep_start",
+      },
+      { at: 45, text: "Fifteen seconds left." },
+      { at: 60, text: "Your time starts now — go ahead.", phase: "p2_monologue" },
+      {
+        at: 181,
+        text: "Your structure was clear — let's try once more. Same topic. Start when you're ready.",
+        phase: "p2_respeak",
+      },
+      { at: 241, text: "Good — that's your minute. Well done.", phase: "p2_respeak_close" },
     ]);
   });
 

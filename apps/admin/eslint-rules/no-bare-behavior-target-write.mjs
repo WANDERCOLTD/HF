@@ -74,6 +74,14 @@ const ALLOWED_PATH_SUFFIXES = [
   // the canonical write helpers model individual knob writes with cache
   // invalidation, not bulk FK detachment on parent deletion.
   "lib/gdpr/delete-playbook-data.ts",
+  // GDPR ERASURE — caller deletion removes CALLER-scope BehaviorTargets
+  // pinned to the caller's CallerIdentity rows. `BehaviorTarget.callerIdentityId`
+  // is a Restrict FK into CallerIdentity, so the identity delete throws
+  // without this. Same shape as the delete-playbook-data.ts sibling above:
+  // bulk FK clearance on parent deletion, not an individual knob write.
+  // The canonical helpers model value writes with clamping and cache
+  // invalidation; none of them delete.
+  "lib/gdpr/delete-caller-data.ts",
 ];
 
 const ALLOWED_PATH_CONTAINS = [

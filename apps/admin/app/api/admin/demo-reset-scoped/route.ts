@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { deleteCallersData } from "@/lib/gdpr/delete-caller-data";
 
 /**
  * @api POST /api/admin/demo-reset-scoped
@@ -67,24 +68,7 @@ export async function POST() {
       await prisma.callerCohortMembership.deleteMany({ where: { callerId: { in: demoCallerIds } } });
       await prisma.callerPlaybook.deleteMany({ where: { callerId: { in: demoCallerIds } } });
       await prisma.callerAttribute.deleteMany({ where: { callerId: { in: demoCallerIds } } });
-      await prisma.callerIdentity.deleteMany({ where: { callerId: { in: demoCallerIds } } });
-      // Calls and their children
-      const demoCalls = await prisma.call.findMany({
-        where: { callerId: { in: demoCallerIds } },
-        select: { id: true },
-      });
-      const demoCallIds = demoCalls.map((c) => c.id);
-      if (demoCallIds.length > 0) {
-        await prisma.callMessage.deleteMany({ where: { callId: { in: demoCallIds } } });
-        await prisma.callScore.deleteMany({ where: { callId: { in: demoCallIds } } });
-        await prisma.callAction.deleteMany({ where: { callId: { in: demoCallIds } } });
-        await prisma.callTarget.deleteMany({ where: { callId: { in: demoCallIds } } });
-        await prisma.rewardScore.deleteMany({ where: { callId: { in: demoCallIds } } });
-        await prisma.behaviorMeasurement.deleteMany({ where: { callId: { in: demoCallIds } } });
-        await prisma.conversationArtifact.deleteMany({ where: { callId: { in: demoCallIds } } });
-        await prisma.call.deleteMany({ where: { id: { in: demoCallIds } } });
-      }
-      await prisma.caller.deleteMany({ where: { id: { in: demoCallerIds } } });
+      await deleteCallersData(demoCallerIds);
     }
 
     // ── Delete demo playbooks (keep Year 5 Maths — the only golden one) ──
