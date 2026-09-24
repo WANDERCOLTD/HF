@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { deleteCallersData } from "@/lib/gdpr/delete-caller-data";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 
 /**
@@ -451,11 +452,53 @@ export async function POST(req: Request) {
         });
       }
 
-      // === 4. DELETE SOURCE CALLERS ===
-      // Cascade delete will clean up any remaining references
-      await tx.caller.deleteMany({
-        where: { id: { in: sourceCallerIds } },
+      // === 3b. RE-PARENT SESSIONS ===
+      // `Session.callerId` is onDelete: Restrict, so the source callers cannot
+      // be deleted while their sessions exist. Sessions are real learner
+      // history and the Calls above have already moved to the target, so move
+      // the sessions too rather than dropping them.
+      //
+      // `@@unique([callerId, kind, sequenceNumber])` means the source numbers
+      // would collide with the target's, so each session is assigned a fresh
+      // sequence from the target's counter — the same atomic upsert
+      // `createSession` uses.
+      //
+      // `learnerFacingNumber` is deliberately NOT renumbered (#2334). It
+      // drives the COMPOSE header "(call #N)", so after a merge a learner may
+      // hear a duplicate or out-of-order number. Considered and accepted:
+      //   - it is display-only; nothing keys off it
+      //   - the route already takes this stance for call sequencing (see the
+      //     re-chaining note above — consumers read createdAt-ordered)
+      //   - renumbering means re-walking the target's whole session history
+      //     inside a merge transaction that is already long
+      //   - merges are a rare admin operation, usually on duplicate records
+      //     where one side has little history
+      // Revisit if merges start landing on callers with substantial history;
+      // the fix is a second pass over the target's sessions in startedAt
+      // order, rewriting the learner-facing counter.
+      const sourceSessions = await tx.session.findMany({
+        where: { callerId: { in: sourceCallerIds } },
+        orderBy: { startedAt: "asc" },
+        select: { id: true, kind: true },
       });
+
+      for (const s of sourceSessions) {
+        const counter = await tx.callerSequenceCounter.upsert({
+          where: { callerId_kind: { callerId: targetCallerId, kind: s.kind } },
+          create: { callerId: targetCallerId, kind: s.kind, nextSeq: 2 },
+          update: { nextSeq: { increment: 1 } },
+          select: { nextSeq: true },
+        });
+        await tx.session.update({
+          where: { id: s.id },
+          data: { callerId: targetCallerId, sequenceNumber: counter.nextSeq - 1 },
+        });
+      }
+
+      // === 4. DELETE SOURCE CALLERS ===
+      // Everything worth keeping has been re-parented above; the chokepoint
+      // clears whatever is left plus every FK that would block the delete.
+      await deleteCallersData(sourceCallerIds, tx);
 
       return counts;
     });

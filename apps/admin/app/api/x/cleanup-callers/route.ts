@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { deleteCallerData } from "@/lib/gdpr/delete-caller-data";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 
 /**
@@ -32,16 +33,7 @@ export async function POST() {
 
     for (const caller of orphaned) {
       try {
-        // Delete related records that don't cascade
-        await prisma.callerMemory.deleteMany({ where: { callerId: caller.id } });
-        await prisma.callerAttribute.deleteMany({ where: { callerId: caller.id } });
-        await prisma.callerTarget.deleteMany({ where: { callerId: caller.id } });
-        await prisma.callerPersonality.deleteMany({ where: { callerId: caller.id } });
-        await prisma.callerPersonalityProfile.deleteMany({ where: { callerId: caller.id } });
-        await prisma.personalityObservation.deleteMany({ where: { callerId: caller.id } });
-
-        // Delete the caller
-        await prisma.caller.delete({ where: { id: caller.id } });
+        await deleteCallerData(caller.id);
         deleted++;
       } catch (e: any) {
         // If deletion fails (e.g., other FK constraints), skip it

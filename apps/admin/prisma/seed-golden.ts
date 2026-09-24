@@ -19,6 +19,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { deleteCallersData } from "../lib/gdpr/delete-caller-data";
 
 const TAG = "golden-";
 
@@ -56,18 +57,7 @@ export async function main(externalPrisma?: PrismaClient, opts?: { skipCleanup?:
     const callerIds = existingCallers.map((c) => c.id);
 
     if (callerIds.length > 0) {
-      await prisma.callerModuleProgress.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.composedPrompt.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.goal.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerMemory.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerMemorySummary.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerPersonalityProfile.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callScore.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.onboardingSession.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.call.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerPlaybook.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.callerCohortMembership.deleteMany({ where: { callerId: { in: callerIds } } });
-      await prisma.caller.deleteMany({ where: { id: { in: callerIds } } });
+      await deleteCallersData(callerIds, prisma);
       console.log(`    Cleaned up ${callerIds.length} previous golden callers`);
     }
   }

@@ -894,14 +894,14 @@ Scope discipline:
 | Field | Value |
 |---|---|
 | **Producer** | `DELETE /api/callers/[callerId]/route.ts` + `POST /api/admin/retention/cleanup` + any future erasure route. |
-| **Consumer** | 22 cascading tables under the `Caller` FK (transcripts, memories, scores, identities, ...). |
+| **Consumer** | Every FK to `Caller` whose `onDelete` is `Restrict` or unspecified — 11 of 23 relations as of 2026-09-23 (transcripts, memories, scores, identities, sessions, owned cohorts, ...). `Cascade`/`SetNull` relations are resolved by Postgres. |
 | **Data shape** | Erasure MUST call `lib/gdpr/delete-caller-data.ts::deleteCallerData(callerId)`. Hand-rolled `prisma.caller.delete` calls miss cascading tables and leave orphan rows. |
 | **Severity** | ERROR. Orphan rows after a DSR erasure violate GDPR Art 17. |
 | **Detection rule** | `scripts/check-fk-consistency.ts` already detects orphan rows. Add a privacy-specific scan: `SELECT COUNT(*) FROM "CallerMemory" m LEFT JOIN "Caller" c ON c.id = m."callerId" WHERE c.id IS NULL` and equivalents for the other 21 tables. |
-| **Test** | `tests/lib/gdpr/delete-caller-data.test.ts` (existing). |
+| **Test** | `tests/lib/gdpr/caller-delete-coverage.test.ts` (2026-09-23) — parses schema.prisma, enumerates every FK to `Caller`, pins each blocking one to a delete in the chokepoint. **Previously this row cited `tests/lib/gdpr/delete-caller-data.test.ts` as existing; that file was never written.** The tests that do reference `deleteCallerData` (`tests/lib/bulk-delete.test.ts`, `tests/api/retention-cleanup.test.ts`, `tests/api/callers-detail.test.ts`) mock it, which is why none caught the drift below. |
 | **Memory doc** | This row + `lib/gdpr/delete-caller-data.ts` JSDoc. |
 | **Audit counter** | `iPR6OrphanPIIRowsPostErasure` (target 0). |
-| **Enforcer** | `lib/gdpr/delete-caller-data.ts` — shipped. ESLint rule blocking `prisma.caller.delete` outside the helper is a Coverage-pillar follow-on. |
+| **Enforcer** | `lib/gdpr/delete-caller-data.ts` + `tests/lib/gdpr/caller-delete-coverage.test.ts` + `.claude/rules/caller-delete-coverage.md`. **Drift found 2026-09-23:** epic #1338's `Session.callerId` (Restrict) was never added to the chain, so erasure threw P2003 for 28% of hf_sandbox / 31% of hf_staging callers; `CohortGroup.ownerId` was a second gap a manual survey missed. Both closed. ESLint rule blocking `prisma.caller.delete` outside the helper remains a follow-on. |
 
 #### I-PR7 — Mixed-tier-payload routes admitting STUDENT MUST add `@tieredVisibility` tag
 
