@@ -254,6 +254,7 @@ Three structural patterns, in order of preference:
 | `route-auth-zod-coverage.md` | `tests/api/route-auth-zod-coverage.test.ts` (#1854) | ✅ PROTECTED |
 | `tier-visibility-coverage.md` | `tests/api/tier-visibility-coverage.test.ts` (#1855) | ✅ PROTECTED |
 | `caller-delete-coverage.md` | `tests/lib/gdpr/caller-delete-coverage.test.ts` (2026-09-23) — 8 vitests enumerate every Restrict FK to `Caller` and pin it to a delete in the erasure chokepoint | ✅ PROTECTED |
+| `exhaustive-claim-scope.md` | `scripts/gh-pr-create.sh::verify_no_unscoped_exhaustive_claims` (2026-09-24) + `tests/scripts/gh-pr-create-exhaustive-claim.test.ts` — PR-boundary gate requiring completeness/supersession claims to state the surfaces swept | ✅ PROTECTED |
 | `scalar-list-default-coverage.md` | `tests/lib/schema/scalar-list-default-coverage.test.ts` (#2332, 2026-09-24) — 8 vitests pin every Prisma scalar list to a declared `@default` | ✅ PROTECTED |
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
 | `parameter-measurement-coverage.md` | `tests/lib/measurement/parameter-measurement-coverage.test.ts` (#1967 M1) | ✅ PROTECTED |
