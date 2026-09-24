@@ -194,6 +194,90 @@ EOF
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# Exhaustiveness / supersession claims — 2026-09-24.
+#
+# Sibling to verify_no_unverified_negatives above. That gate catches claims
+# that something does NOT exist. This one catches the different shape that
+# slipped past it three times in one session: claims of COMPLETENESS over a
+# set, and claims that one change SUPERSEDES another.
+#
+#   "the only failing check is the unrelated audit backlog"  → it wasn't
+#   "superseded by #2323, safe to drop"                      → it wasn't
+#   "the remaining 121 have no importer or executor"         → six did
+#
+# None matched the negative-claim regex. All three were wrong. The shared
+# failure was not the check — it was describing a partial check as complete.
+#
+# So the satisfying marker here is not a file:line (which only proves ONE
+# thing was looked at). It is the SCOPE of the sweep, or an independent
+# reviewer, or an honest demotion.
+#
+# Deliberately NOT matched: "zero hits" / "zero references". That is
+# describing a search RESULT, which is evidence for a negative claim and is
+# already governed by the sibling gate above. Matching it here fired on
+# `no callers [verified — grep returned zero hits]`, a correctly-probed
+# negative. Completeness claims are about a SET, not about a grep's output.
+# ---------------------------------------------------------------------------
+verify_no_unscoped_exhaustive_claims() {
+  local body="$1"
+  local EXH='(the *(only|sole) *(failing|failure|remaining|issue|one)|supersed(e|es|ed|ing)|fully *(covered|superseded|replaced|verified)|no *(other|remaining|further) *(refs?|references?|callers?|importers?|consumers?|sites?)|nothing *(else *)?(references|imports|calls)|remaining *[0-9]+ *(have|has|are) *no|exhaustive|every *[a-z]* *(was|were) *(checked|verified|swept|searched))'
+  # Scope markers. A file:line alone does NOT satisfy this gate — pointing at
+  # one file is exactly the partial check the gate exists to catch.
+  local MARK='(\[(scope:|swept:|reviewed-by:|unverified|skip-claim-check)|surfaces? *(searched|checked)|independently (verified|re-derived|reviewed))'
+
+  local hits
+  hits=$(printf '%s\n' "$body" | grep -niE "$EXH" 2>/dev/null | cut -d: -f1 || true)
+  [ -z "$hits" ] && return 0
+
+  local total
+  total=$(printf '%s\n' "$body" | wc -l | tr -d ' ')
+
+  local offenders="" ln start stop window line
+  for ln in $hits; do
+    start=$((ln - 2)); [ "$start" -lt 1 ] && start=1
+    stop=$((ln + 2)); [ "$stop" -gt "$total" ] && stop="$total"
+    window=$(printf '%s\n' "$body" | sed -n "${start},${stop}p")
+    if ! printf '%s' "$window" | grep -qiE "$MARK"; then
+      line=$(printf '%s\n' "$body" | sed -n "${ln}p")
+      offenders="${offenders}  Line ${ln}: ${line}"$'\n'
+    fi
+  done
+
+  if [ -n "$offenders" ]; then
+    cat >&2 <<EOF
+[gh-pr-create] ✖ PR body claims completeness or supersession without stating scope.
+
+Why: 2026-09-24 — three PRs in one session each carried a claim of this
+shape, and all three were wrong:
+  "the only failing check is unrelated"   -> it was caused by the PR
+  "superseded by #2323, safe to drop"     -> 2 of 4 call sites still exposed
+  "the remaining 121 have no importer"    -> six executor refs existed
+
+Each had been checked. None had been checked exhaustively. The defect was
+not the verification — it was describing a partial sweep as a complete one.
+Independent review caught all three; CI caught none.
+
+Rule: .claude/rules/exhaustive-claim-scope.md
+
+Offending line(s):
+${offenders}
+A file:line citation does NOT satisfy this gate — pointing at one file is
+the partial check. Do ONE of:
+  (a) State the SCOPE: [scope: lib/ app/ scripts/ .github/workflows/ Dockerfile]
+      — name the surfaces you searched, so a reader can spot the one you didn't
+  (b) [reviewed-by: <reviewer>] if someone independently re-derived it
+  (c) [unverified] to admit the sweep was partial
+  (d) Narrow the wording so it no longer claims completeness
+      ("in lib/ and app/" instead of "nowhere")
+
+Bypass for trivial / docs-only PRs: --no-agent-claim-check
+EOF
+    return 3
+  fi
+  return 0
+}
+
 # Run the agent-claim check FIRST (it scans the whole body, not just the
 # Verified-by section). If the verify-section gate also fires below, the
 # operator sees both errors in one pass.
@@ -202,10 +286,13 @@ if [ "$NO_AGENT_CLAIM_CHECK" -eq 1 ]; then
 elif [ -n "$BODY" ]; then
   verify_no_unverified_negatives "$BODY"
   agent_rc=$?
-  if [ "$agent_rc" -eq 3 ]; then
+  verify_no_unscoped_exhaustive_claims "$BODY"
+  exh_rc=$?
+  if [ "$agent_rc" -eq 3 ] || [ "$exh_rc" -eq 3 ]; then
     exit 1
   fi
   echo "[gh-pr-create] ✔ agent-report verification gate passed." >&2
+  echo "[gh-pr-create] ✔ exhaustive-claim scope gate passed." >&2
 fi
 
 if [ "$NO_VERIFY" -eq 1 ]; then

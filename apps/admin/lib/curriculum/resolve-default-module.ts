@@ -53,6 +53,20 @@ export async function resolveDefaultModuleForCaller(
     where: {
       callerId,
       module: { curriculumId },
+      // Only rows with a real call attempt. `instantiatePlaybookModuleProgress`
+      // bulk-creates every module NOT_STARTED with a tied `updatedAt`, so
+      // without this a brand-new caller matches Step 1 and the `moduleId`
+      // tie-breaker below picks whichever cuid sorts first — deterministic,
+      // but arbitrary with respect to `sortOrder`. That can be Mock.
+      //
+      // Excluding untouched rows makes Step 1 return nothing for a fresh
+      // caller, so resolution falls through to Step 2 (`sortOrder: asc`) —
+      // the documented canonical entry point. #2323's `pinFirstModule` fixes
+      // this at enrolment for `create-test-learner` and `join/[token]`, but
+      // `app/api/callers` (admin create) and `test-harness/clone-demo-caller`
+      // also call `instantiatePlaybookModuleProgress` without it and still
+      // reach here.
+      lastCallId: { not: null },
     },
     select: {
       module: { select: { id: true, slug: true } },
