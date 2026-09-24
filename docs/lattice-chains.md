@@ -206,6 +206,7 @@ Three structural patterns, in order of preference:
 | Prisma schema change → migration file | `prisma/schema.prisma` diff | `prisma/migrations/**/migration.sql` | ✅ PROTECTED | `scripts/check-schema-has-migration.sh` (CI) | — | Shell script blocks schema changes without migration |
 | Migration → seed compatibility | migration SQL | `prisma/seed*.ts` | ❌ GAP | — | MED | No CI test runs seed post-migration. Manual verification only. |
 | Prisma model → typed Prisma client | `prisma/schema.prisma` | `node_modules/@prisma/client` | ✅ PROTECTED | `prisma generate` (CI) | — | Auto-generated types; mismatch = TS error |
+| Scalar-list field → declared `@default` | `prisma/schema.prisma` scalar lists (`String[]`, …) | Postgres column default | ✅ PROTECTED | `tests/lib/schema/scalar-list-default-coverage.test.ts` (#2332) + `.claude/rules/scalar-list-default-coverage.md` | — | A scalar list with no `@default` is a column whose DB default Prisma DROPS at the next migrate diff. That is how `CurriculumModule.coversModules` ended up NOT NULL with no default on hf_sandbox AND hf_staging, failing every omitting writer with P2011. Audit found 23 more (all nullable, so quieter). All 29 scalar lists now declare a default; gate at 0. |
 
 ### Curriculum / progress
 
@@ -253,6 +254,7 @@ Three structural patterns, in order of preference:
 | `route-auth-zod-coverage.md` | `tests/api/route-auth-zod-coverage.test.ts` (#1854) | ✅ PROTECTED |
 | `tier-visibility-coverage.md` | `tests/api/tier-visibility-coverage.test.ts` (#1855) | ✅ PROTECTED |
 | `caller-delete-coverage.md` | `tests/lib/gdpr/caller-delete-coverage.test.ts` (2026-09-23) — 8 vitests enumerate every Restrict FK to `Caller` and pin it to a delete in the erasure chokepoint | ✅ PROTECTED |
+| `scalar-list-default-coverage.md` | `tests/lib/schema/scalar-list-default-coverage.test.ts` (#2332, 2026-09-24) — 8 vitests pin every Prisma scalar list to a declared `@default` | ✅ PROTECTED |
 | `parameter-coverage.md` | `tests/lib/measurement/parameter-coverage.test.ts` (#1856) | ✅ PROTECTED |
 | `parameter-measurement-coverage.md` | `tests/lib/measurement/parameter-measurement-coverage.test.ts` (#1967 M1) | ✅ PROTECTED |
 | `parameter-loop-closure.md` | `tests/lib/measurement/parameter-loop-closure.test.ts` (#1967 M2) | ✅ PROTECTED |
