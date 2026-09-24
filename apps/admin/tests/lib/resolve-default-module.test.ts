@@ -108,6 +108,44 @@ describe("resolveDefaultModuleForCaller", () => {
     });
   });
 
+  it("Step 1 excludes CallerModuleProgress rows with no call attempt (#2338)", async () => {
+    // The `moduleId` tie-breaker below makes Step 1 DETERMINISTIC, not
+    // CORRECT — `moduleId` is an opaque cuid with no relationship to
+    // `sortOrder`, so whichever id sorts first wins, and that can be Mock.
+    //
+    // `instantiatePlaybookModuleProgress` bulk-creates every module
+    // NOT_STARTED with a tied `updatedAt`, so a brand-new caller would match
+    // Step 1 and take that arbitrary pick. Filtering to rows that have a real
+    // call attempt makes Step 1 miss for a fresh caller, so resolution falls
+    // through to Step 2 (`sortOrder: asc`) — the canonical entry point.
+    //
+    // #2323's `pinFirstModule` pre-empts this at enrolment, but only for
+    // `create-test-learner` and `join/[token]`. `app/api/callers` (admin
+    // create) and `test-harness/clone-demo-caller` also call
+    // `instantiatePlaybookModuleProgress` and still reach here.
+    mockResolveCurriculumIdForPlaybook.mockResolvedValueOnce("curr1");
+    mockFindFirstCMP.mockResolvedValueOnce(null);
+    mockFindFirstCM.mockResolvedValueOnce({ id: "mod-baseline", slug: "baseline" });
+
+    const { resolveDefaultModuleForCaller } = await import(
+      "@/lib/curriculum/resolve-default-module"
+    );
+    const r = await resolveDefaultModuleForCaller("c1", "pb1");
+
+    // The filter is present on the Step 1 query.
+    expect(mockFindFirstCMP).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ lastCallId: { not: null } }),
+      }),
+    );
+    // And a fresh caller therefore lands on the sortOrder-first module.
+    expect(r).toEqual({
+      moduleSlug: "baseline",
+      curriculumModuleId: "mod-baseline",
+      source: "playbook_first_module",
+    });
+  });
+
   it("Step 1 query includes a deterministic moduleId tie-breaker after updatedAt", async () => {
     // fix/module-binding-null-on-fresh-callers — `instantiatePlaybookModuleProgress`
     // bulk-creates every CallerModuleProgress row via `createMany` so all
