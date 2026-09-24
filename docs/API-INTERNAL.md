@@ -16467,13 +16467,14 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 546 |
+| Route files found | 547 |
 | Files with annotations | 532 |
-| Files missing annotations | 14 |
-| Coverage | 97.4% |
+| Files missing annotations | 15 |
+| Coverage | 97.3% |
 
 ### Files missing `@api` annotations
 
+- `app/api/admin/pilot/nudge-inactive/route.ts`
 - `app/api/callers/[callerId]/last-selected-module/route.ts`
 - `app/api/callers/[callerId]/module-stall-pool/route.ts`
 - `app/api/courses/[courseId]/journey-setting/route.ts`

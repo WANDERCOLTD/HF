@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import Home, { computeUnlockState } from "@/app/page";
+import Home, { computeUnlockState } from "@/app/learn/page";
 import type {
   FohModuleCard,
   FohStudentProgressResponse,
