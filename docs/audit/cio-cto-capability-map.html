@@ -1,0 +1,520 @@
+<title>CIO/CTO Capability Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground:        #F2F3F2;
+    --surface:       #FBFBFA;
+    --surface-sunk:  #E9EBEA;
+    --ink:           #1A1F1E;
+    --ink-soft:      #4A5250;
+    --ink-faint:     #7C8582;
+    --rule:          #D6DAD8;
+    --rule-soft:     #E4E7E6;
+    --accent:        #1F7A72;
+    --accent-ink:    #FFFFFF;
+    --accent-wash:   #E2EFED;
+    --ok:            #467F52;
+    --warn:          #9A6B1B;
+    --stop:          #A8453A;
+    --ok-wash:       #E4EEE5;
+    --warn-wash:     #F3EADA;
+    --stop-wash:     #F3E3E1;
+    --shadow:        0 1px 2px rgba(26,31,30,.06), 0 4px 14px rgba(26,31,30,.05);
+
+    --f-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --f-body:    'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --f-mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:       #101413;
+      --surface:      #171C1B;
+      --surface-sunk: #0B0F0E;
+      --ink:          #E8EDEB;
+      --ink-soft:     #A3ADAA;
+      --ink-faint:    #717B78;
+      --rule:         #2A3231;
+      --rule-soft:    #212827;
+      --accent:       #4FB3A8;
+      --accent-ink:   #08110F;
+      --accent-wash:  #16302D;
+      --ok:           #7FBE8B;
+      --warn:         #D6A54E;
+      --stop:         #E08076;
+      --ok-wash:      #18281B;
+      --warn-wash:    #2C2415;
+      --stop-wash:    #2E1B18;
+      --shadow:       0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:       #101413;
+    --surface:      #171C1B;
+    --surface-sunk: #0B0F0E;
+    --ink:          #E8EDEB;
+    --ink-soft:     #A3ADAA;
+    --ink-faint:    #717B78;
+    --rule:         #2A3231;
+    --rule-soft:    #212827;
+    --accent:       #4FB3A8;
+    --accent-ink:   #08110F;
+    --accent-wash:  #16302D;
+    --ok:           #7FBE8B;
+    --warn:         #D6A54E;
+    --stop:         #E08076;
+    --ok-wash:      #18281B;
+    --warn-wash:    #2C2415;
+    --stop-wash:    #2E1B18;
+    --shadow:       0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 40px 24px 96px; }
+
+  /* ---------- masthead ---------- */
+  .mast { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; justify-content: space-between;
+          padding-bottom: 20px; border-bottom: 2px solid var(--ink); }
+  .mast h1 { font-family: var(--f-display); font-weight: 700; font-size: 34px; letter-spacing: -.02em;
+             margin: 0; text-wrap: balance; }
+  .mast .sub { color: var(--ink-soft); margin: 6px 0 0; max-width: 58ch; }
+  .stamp { font-family: var(--f-mono); font-size: 11px; color: var(--ink-faint); text-align: right;
+           line-height: 1.7; white-space: nowrap; }
+  .stamp b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- tally ---------- */
+  .tally { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
+           margin-top: 26px; background: var(--rule); border: 1px solid var(--rule); border-radius: 5px;
+           overflow: hidden; }
+  .tally div { background: var(--surface); padding: 14px 16px; }
+  .tally .n { font-family: var(--f-display); font-weight: 700; font-size: 27px; line-height: 1;
+              letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .tally .k { font-family: var(--f-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+              color: var(--ink-faint); margin-top: 8px; }
+  .tally .have .n { color: var(--ok); }
+  .tally .part .n { color: var(--warn); }
+  .tally .gap  .n { color: var(--stop); }
+  .tally .des  .n { color: var(--accent); }
+  .tally .data .n { color: var(--accent); }
+  .tally .study .n { color: var(--warn); }
+
+  /* ---------- legend ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+  .legend .lead { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .07em;
+                  text-transform: uppercase; color: var(--ink-faint); margin-right: 2px; }
+
+  /* ---------- section heads ---------- */
+  .shead { font-family: var(--f-display); font-weight: 600; font-size: 12px; letter-spacing: .12em;
+           text-transform: uppercase; color: var(--ink-faint); margin: 46px 0 6px;
+           display: flex; align-items: center; gap: 12px; }
+  .shead::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  .slede { color: var(--ink-soft); font-size: 13.5px; margin: 0 0 14px; max-width: 76ch; }
+  .slede b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- view tables ---------- */
+  .tbl-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule);
+                border-radius: 5px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  thead th { font-family: var(--f-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+             color: var(--ink-faint); font-weight: 500; text-align: left; padding: 10px 16px;
+             background: var(--surface-sunk); border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  tbody td { padding: 11px 16px; border-top: 1px solid var(--rule-soft); vertical-align: top; }
+  tbody tr:first-child td { border-top: 0; }
+  td.facet { font-size: 14px; font-weight: 500; width: 31%; }
+  td.facet code { font-family: var(--f-mono); font-size: 11.5px; background: var(--surface-sunk);
+                  padding: 1px 5px; border-radius: 3px; }
+  td.state { width: 108px; white-space: nowrap; }
+  td.note { color: var(--ink-soft); font-size: 13px; }
+  td.note code { font-family: var(--f-mono); font-size: 11.5px; background: var(--surface-sunk);
+                 padding: 1px 5px; border-radius: 3px; }
+
+  /* ---------- pills ---------- */
+  .pill { font-family: var(--f-display); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+          font-weight: 700; padding: 3px 8px; border-radius: 3px; display: inline-block; }
+  .p-ok     { background: var(--ok-wash);     color: var(--ok); }
+  .p-warn   { background: var(--warn-wash);   color: var(--warn); }
+  .p-stop   { background: var(--stop-wash);   color: var(--stop); }
+  .p-accent { background: var(--accent-wash); color: var(--accent); }
+
+  /* ---------- pull note ---------- */
+  .pull { display: flex; gap: 14px; align-items: flex-start; margin: 14px 0 0; padding: 14px 18px;
+          background: var(--stop-wash); border-left: 3px solid var(--stop); border-radius: 0 4px 4px 0; }
+  .pull .glyph { font-family: var(--f-display); font-weight: 700; font-size: 12px; letter-spacing: .09em;
+                 color: var(--stop); white-space: nowrap; padding-top: 2px; }
+  .pull p { margin: 0; font-size: 13.5px; max-width: 74ch; }
+  .pull code { font-family: var(--f-mono); font-size: 11.5px; padding: 1px 4px; border-radius: 3px;
+               background: rgba(0,0,0,.05); }
+
+  .keep { background: var(--accent-wash); border-left-color: var(--accent); }
+  .keep .glyph { color: var(--accent); }
+
+  /* ---------- work tables ---------- */
+  td.item { font-size: 14px; font-weight: 500; width: 25%; }
+  td.item span { display: block; font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .04em;
+                 color: var(--ink-faint); font-weight: 400; margin-top: 3px; text-transform: uppercase; }
+  td.how { color: var(--ink-soft); font-size: 13px; }
+  td.how code { font-family: var(--f-mono); font-size: 11.5px; background: var(--surface-sunk);
+                padding: 1px 5px; border-radius: 3px; }
+  td.kind { width: 96px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-faint);
+            white-space: nowrap; }
+  .kd { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .04em; padding: 2px 7px;
+        border-radius: 3px; display: inline-block; }
+  .kd-data { background: var(--accent-wash); color: var(--accent); font-weight: 500; }
+  .kd-code { background: var(--surface-sunk); color: var(--ink-soft); }
+  .kd-study { background: var(--warn-wash); color: var(--warn); }
+  td.size { width: 62px; white-space: nowrap; }
+  .sz { font-family: var(--f-display); font-weight: 700; font-size: 11px; letter-spacing: .06em;
+        padding: 3px 9px; border-radius: 3px; display: inline-block; }
+  .sz-s  { background: var(--ok-wash);     color: var(--ok); }
+  .sz-m  { background: var(--accent-wash); color: var(--accent); }
+  .sz-l  { background: var(--warn-wash);   color: var(--warn); }
+  .sz-xl { background: var(--stop-wash);   color: var(--stop); }
+  .sizekey { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 16px;
+             font-family: var(--f-mono); font-size: 11px; color: var(--ink-faint); }
+  .sizekey b { font-family: var(--f-display); font-size: 10px; letter-spacing: .06em; color: var(--ink-soft); }
+
+  /* ---------- closing ---------- */
+  .foot { margin-top: 56px; padding-top: 20px; border-top: 2px solid var(--ink); font-size: 13px;
+          color: var(--ink-soft); max-width: 76ch; }
+  .foot h4 { font-family: var(--f-display); font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+             color: var(--ink); margin: 0 0 8px; }
+  .foot p { margin: 0 0 10px; }
+  .foot code { font-family: var(--f-mono); font-size: 11.5px; background: var(--surface-sunk);
+               padding: 1px 5px; border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    .mast h1 { font-size: 27px; }
+    .stamp { text-align: left; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <h1>CIO/CTO Capability Map</h1>
+      <p class="sub">The same system read from four seats. What each one gets, what each one is missing, and which of the gaps are deliberate.</p>
+    </div>
+    <div class="stamp">
+      course <b>The CIO/CTO Standard V6.0</b><br>
+      vehicles <b>Revision Aid · Pop Quiz · Exam</b><br>
+      scope <b>5 Units · 26 objectives · 10 skills</b><br>
+      as of <b>2026-09-25</b>
+    </div>
+  </header>
+
+  <div class="tally">
+    <div class="have"><div class="n">33</div><div class="k">Have</div></div>
+    <div class="part"><div class="n">6</div><div class="k">Partial</div></div>
+    <div class="data"><div class="n">2</div><div class="k">Data only</div></div>
+    <div class="study"><div class="n">4</div><div class="k">Study</div></div>
+    <div class="gap"><div class="n">12</div><div class="k">Gap</div></div>
+    <div class="des"><div class="n">4</div><div class="k">By design</div></div>
+  </div>
+
+  <div class="legend">
+    <span class="lead">Reading the states</span>
+    <span class="pill p-ok">Have</span>
+    <span class="pill p-warn">Partial</span>
+    <span class="pill p-accent">Data only</span>
+    <span class="pill p-warn">Study</span>
+    <span class="pill p-stop">Gap</span>
+    <span class="pill p-accent">By design</span>
+  </div>
+
+  <!-- EDUCATOR -->
+  <div class="shead">View 1 · Educator</div>
+  <p class="slede">The author of the course reference. <b>Owns the entire instructional model</b>, not only the content — persona, probe policy, pacing, recovery behaviour, disclosure rules and routing are all authored prose. The gaps are all in the same place: the educator cannot express anything about <i>time</i> or verify that what they wrote is what happens.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Facet</th><th>State</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="facet">Skills and maturity tiers</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Ten cross-cutting skills, four behavioural descriptors each, Foundation to Distinction</td></tr>
+      <tr><td class="facet">Regulated objective wording</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">SIAS V6.0 quoted verbatim; a guard rule blocks engine writes to criterion text</td></tr>
+      <tr><td class="facet">Performance statements</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">The authored “the learner can…” layer, kept structurally distinct from the regulated text</td></tr>
+      <tr><td class="facet">Case studies</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">One per Unit, used as a persistent shared frame rather than re-narrated material</td></tr>
+      <tr><td class="facet">Scenario twists</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">New constraints on a familiar case — the Exam Assessment’s assessment surface</td></tr>
+      <tr><td class="facet">Probe-and-teach policy</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">One probe for depth, teach exactly one rung above, re-ask a sibling scenario</td></tr>
+      <tr><td class="facet">Silence tolerance</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">3–5 seconds after a question, specified in the document: “do not fill silence with the answer”</td></tr>
+      <tr><td class="facet">Learner archetypes</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Five, each with its own tier, opening Unit and persona calibration per vehicle</td></tr>
+      <tr><td class="facet">Recovery scripts</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Ten edge cases, including the learner disputing the regulated framing</td></tr>
+      <tr><td class="facet">Disclosure schedule</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">What is introduced and what is withheld, per session number</td></tr>
+      <tr><td class="facet">Module mode and cadence</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Mode, duration, scoring cadence, repeatability, declared per module</td></tr>
+      <tr><td class="facet">Whether learners see numbers</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Answered no, with the reason recorded: they would encourage the wrong optimisation</td></tr>
+      <tr><td class="facet">Routing between vehicles</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Pop Quiz to Revision Aid to Exam Assessment, authored into each close</td></tr>
+      <tr><td class="facet">Mastery threshold</td><td class="state"><span class="pill p-accent">Data only</span></td><td class="note"><code>loMasteryThreshold</code> is a live cascade knob. This course has not set it, so the 0.7 default applies silently</td></tr>
+      <tr><td class="facet">The advance rule</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">“Two consecutive landings above prior tier” is authored; the engine advances on an EMA instead</td></tr>
+      <tr><td class="facet">Decay policy</td><td class="state"><span class="pill p-warn">Partial</span></td><td class="note">Skill half-life <i>is</i> settable per course (<code>skillScoringEmaHalfLifeDays</code>). Per-objective mastery has no decay path at all</td></tr>
+      <tr><td class="facet">Fidelity checking</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">Nothing verifies the tutor taught one rung, probed once, or held the silence</td></tr>
+      <tr><td class="facet">Opt-out of profiling</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">No consent surface for the educator or the sponsoring employer</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- LEARNER -->
+  <div class="shead">View 2 · Learner</div>
+  <p class="slede">A working IT leader, 10 to 40 minutes a session. Three of the four things they never see are <b>withheld on purpose</b> and the reasoning is recorded — that is a mastery-orientation stance, not an omission. The real gaps are about error: nothing tells them what specifically was wrong, and nothing carries it forward.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Facet</th><th>State</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="facet">Open scenario before teaching</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">The generation effect, named as such in the course reference</td></tr>
+      <tr><td class="facet">Teaching one rung above</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Never the full ladder — only the level immediately above where the answer landed</td></tr>
+      <tr><td class="facet">A second attempt in-session</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Sibling scenario after the teach. Revision Aid only; the Exam is one shot by design</td></tr>
+      <tr><td class="facet">A scaffold when blank</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">“What’s the closest analogous situation you’ve handled?” before any content is supplied</td></tr>
+      <tr><td class="facet">Quiz feedback</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Two sentences — right or wrong, then the principle — then straight on to the next</td></tr>
+      <tr><td class="facet">Randomised answer order</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Deterministic per-learner shuffle; the source bank stores the correct answer first every time</td></tr>
+      <tr><td class="facet">A forward pointer, not a recap</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Two objectives you grew on, one to come back to next time</td></tr>
+      <tr><td class="facet">Escalation when strong</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">A Distinction answer to an easy probe moves the session up within two turns</td></tr>
+      <tr><td class="facet">Structured exam feedback</td><td class="state"><span class="pill p-warn">Partial</span></td><td class="note">Delivered in conversation at the close, then lost — nothing stores it</td></tr>
+      <tr><td class="facet">An honest readiness answer</td><td class="state"><span class="pill p-accent">Data only</span></td><td class="note">The resolver is built and wired. It stays silent because no course has set the threshold it compares against</td></tr>
+      <tr><td class="facet">Your numeric scores</td><td class="state"><span class="pill p-accent">By design</span></td><td class="note">Withheld. “I don’t show numbers — they’d encourage the wrong kind of optimisation”</td></tr>
+      <tr><td class="facet">Skill and criterion names</td><td class="state"><span class="pill p-accent">By design</span></td><td class="note">Internal labels are gated out of every learner-facing surface</td></tr>
+      <tr><td class="facet">Comparison with other learners</td><td class="state"><span class="pill p-accent">By design</span></td><td class="note">Explicitly excluded from exit feedback; no norm-referencing exists anywhere</td></tr>
+      <tr><td class="facet">Mid-session score requests</td><td class="state"><span class="pill p-accent">By design</span></td><td class="note">Refused in the Exam: “You’ll get the breakdown at the close. Keep going”</td></tr>
+      <tr><td class="facet">What you specifically got wrong</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">No misconception model. The system records how well, never what was misunderstood</td></tr>
+      <tr><td class="facet">Finding your own error</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">Self-explanation prompts are not implemented anywhere in the product</td></tr>
+      <tr><td class="facet">Feedback that follows you</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">The two Revision Aid pointers you are given have nowhere to be stored</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ASSESSOR -->
+  <div class="shead">View 3 · Assessor and institution</div>
+  <p class="slede">A tutor, an assessor, or a sponsoring employer. The <b>descriptive evidence is sound</b> and defensible as formative practice. Everything that would let someone act on it against the regulated bar — agreement, moderation, standard setting — is absent, and one thing is present that should not be.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Facet</th><th>State</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="facet">Per-objective maturity position</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Where this learner sits on each of the Unit’s objectives</td></tr>
+      <tr><td class="facet">Per-skill trajectory</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Exponential moving average, 21-day half-life (set by this course; engine default 14), minimum three pieces of evidence</td></tr>
+      <tr><td class="facet">Evidence trail per score</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Every score names its session, criterion, confidence and the spec that produced it</td></tr>
+      <tr><td class="facet">Quiz accuracy by objective</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">The routing signal: which objective was weakest across the set</td></tr>
+      <tr><td class="facet">Honest missing data</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Thin evidence returns null rather than a default — fabricated scores are banned by rule</td></tr>
+      <tr><td class="facet">Cohort criterion profile</td><td class="state"><span class="pill p-warn">Partial</span></td><td class="note">The data is real; no inference drawn from it has been validated</td></tr>
+      <tr><td class="facet">Readiness recommendation</td><td class="state"><span class="pill p-accent">Data only</span></td><td class="note"><code>buildAssessmentReadinessDirective</code> returns ready / not_ready / unknown once the threshold is set</td></tr>
+      <tr><td class="facet">Per-dimension exam breakdown</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">Three dimensions per objective are specified in the design. No such axis exists in the data</td></tr>
+      <tr><td class="facet">Agreement with a SIAS examiner</td><td class="state"><span class="pill p-warn">Study</span></td><td class="note">Nothing to build. Needs candidates carrying both an HF tier and a real examiner outcome</td></tr>
+      <tr><td class="facet">Second-marker moderation</td><td class="state"><span class="pill p-warn">Study</span></td><td class="note">One assessor, thirty transcripts, then a standing monthly sample</td></tr>
+      <tr><td class="facet">Standard setting</td><td class="state"><span class="pill p-warn">Study</span></td><td class="note">A modified-Angoff panel with SIAS. No engineering substitutes for it</td></tr>
+      <tr><td class="facet">Fairness audit</td><td class="state"><span class="pill p-warn">Study</span></td><td class="note">One query and a statistics pass once there is volume. Should be standing, not one-off</td></tr>
+      <tr><td class="facet">Personality and wellbeing profiles</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">Personality, modality and cognitive-activation run unconditionally and ungated — no validated construct, no purpose limit, no consent. The two wellbeing specs are domain-scoped and probably not attached here. Should be off</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ENGINE -->
+  <div class="shead">View 4 · Engine</div>
+  <p class="slede">What the platform underneath computes and stores. The measurement plumbing is solid. The two things worth knowing: the adaptive machinery is <b>built and bypassed</b>, and the data model <b>cannot represent the course’s headline feature</b>.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Facet</th><th>State</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="facet">Per-criterion scoring</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">LLM transcript judgement against the educator’s authored tier descriptors</td></tr>
+      <tr><td class="facet">Null on thin evidence</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Enforced product-wide: “fake scores corrupt the EMA”</td></tr>
+      <tr><td class="facet">Recency-weighted aggregation</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">21-day half-life (course-set), 10-score window, ramped so one strong session cannot carry a module</td></tr>
+      <tr><td class="facet">Prerequisite unlock gates</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Count-based, with an operator bypass so testers are not locked out</td></tr>
+      <tr><td class="facet">Deterministic MCQ shuffle</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Fisher–Yates, seeded per learner, wired into prompt assembly</td></tr>
+      <tr><td class="facet">Weakest-objective-first open</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">Mastery scan at session open, recency of engagement as tie-break</td></tr>
+      <tr><td class="facet">Criterion text protected</td><td class="state"><span class="pill p-ok">Have</span></td><td class="note">A guard rule stops any customer-driven path rewriting a parameter’s definition</td></tr>
+      <tr><td class="facet">Adaptation reaching the prompt</td><td class="state"><span class="pill p-warn">Partial</span></td><td class="note">136 adaptation writes currently have no reader — they compute, persist, and stop</td></tr>
+      <tr><td class="facet">Adaptive scheduler</td><td class="state"><span class="pill p-warn">Partial</span></td><td class="note">ZPD, spacing, interleaving and cognitive-load weights exist but are bypassed whenever a learner picks a Unit — which is the default here</td></tr>
+      <tr><td class="facet">Per-objective dimension axis</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">No such structure in the schema. The Exam’s promised breakdown has nowhere to live</td></tr>
+      <tr><td class="facet">Misconception representation</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">Scores carry a level, never an error type</td></tr>
+      <tr><td class="facet">Teaching-fidelity supervision</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">A supervision stage exists in the pipeline; it does not audit the authored teaching model</td></tr>
+      <tr><td class="facet">Mastery semantics</td><td class="state"><span class="pill p-stop">Gap</span></td><td class="note">Two abandoned attempts try to write <code>MASTERED</code>, but that is a presentational value the API derives from <code>COMPLETED</code> — written into the column directly no reader recognises it, so it maps to <code>NOT_STARTED</code> and the unlock gate ignores it. A dead write, not an inflated one. The column is free-text, so the fix needs no migration</td></tr>
+    </tbody>
+  </table>
+
+  </div>
+
+  <div class="pull keep">
+    <div class="glyph">WHAT HOLDS</div>
+    <div>
+      <p>The educator owns the instructional model end to end, and the engine cannot overwrite the regulated text. Hand these three documents to a human tutor and you would get a recognisable version of the same session — which is the real test of whether pedagogy lives in configuration rather than code, and it passes.</p>
+    </div>
+  </div>
+
+  <div class="pull">
+    <div class="glyph">WHAT DOESN'T</div>
+    <div>
+      <p>The Exam Assessment promises the learner a per-objective, per-dimension breakdown and calls it “the most concrete feedback a Practitioner-tier learner will get.” It is produced in conversation and never stored. The learner is told to bring two pointers back to Revision Aid, and Revision Aid has no way to read them.</p>
+    </div>
+  </div>
+
+  <div class="pull keep">
+    <div class="glyph">ALREADY WAITING</div>
+    <div>
+      <p>Checked before sizing, and it changed four of these. <code>CallerAttribute</code> is a free-text key / scope / JSON store with confidence and provenance on every row — the same place <code>lo_mastery:{unit}:{lo}</code> already lives — so a per-dimension or per-error axis is a <b>key convention, not a migration</b>. <code>CallerModuleProgress.status</code> is a plain string whose comment lists the values in use, so <code>WAIVED</code> needs no schema change. And three of the knobs described as engine constants — <code>loMasteryThreshold</code>, <code>assessmentReadinessThreshold</code>, <code>skillScoringEmaHalfLifeDays</code> — are live cascade settings with working resolvers. <b>Readiness in particular is built</b>: <code>buildAssessmentReadinessDirective</code> returns ready / not_ready / unknown and is wired into compose. It returns null only because no course has set the number.</p>
+    </div>
+  </div>
+
+  <!-- PARTIALS -->
+  <div class="shead">Closing the partials · 7 rows, 6 pieces of work</div>
+  <p class="slede">Things that exist but don’t yet hold up. <b>Two need no deploy at all</b> — a value set on the course config. One is a decision rather than a build, and one is blocked behind the dimension axis in the next table.</p>
+  <div class="sizekey">
+    <span><b>S</b> ≤ 1 day</span>
+    <span><b>M</b> 2–5 days</span>
+    <span><b>L</b> 1–3 weeks</span>
+    <span><b>XL</b> external party · calendar-bound</span>
+    <span><b>DATA</b> config or authored content — no deploy</span>
+  </div>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Item</th><th>How we’d close it</th><th>Kind</th><th>Size</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="item">Mastery threshold uncalibrated<span>Educator</span></td>
+        <td class="how"><b>Already settable.</b> <code>loMasteryThreshold</code> is a live cascade knob with a resolver — this course simply hasn’t set it, so the 0.7 engine default applies silently. Setting it is a config change. <i>Calibrating</i> it is the real work: ~50 learners carrying both a mastery figure and an exam outcome, then fit the cut to maximise agreement.</td>
+        <td class="kind"><span class="kd kd-data">Data</span> → study</td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+      <tr>
+        <td class="item">Exam feedback not stored<span>Learner</span></td>
+        <td class="how">Sequenced behind the dimension axis, which turns out to need no migration (see the next table). Once the key convention exists: persist the close’s tiers as attribute rows and read them back in the next Revision Aid opener.</td>
+        <td class="kind">Spec + code</td>
+        <td class="size"><span class="sz sz-m">M</span></td>
+      </tr>
+      <tr>
+        <td class="item">Readiness verdict<span>Learner · Assessor</span></td>
+        <td class="how"><b>This one is built.</b> <code>buildAssessmentReadinessDirective</code> already returns ready / not_ready / unknown against the <code>assessmentReadinessThreshold</code> cascade knob, and it is wired into compose. Set the number and it fires. The caveat: it compares an <i>average</i> of objective mastery, so it says ready or not without naming which objectives block — per-objective blockers would be the code follow-on.</td>
+        <td class="kind"><span class="kd kd-data">Data</span></td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+      <tr>
+        <td class="item">Cohort profile unvalidated<span>Assessor</span></td>
+        <td class="how">Not a build. One cohort, comparing criterion weakness against end-of-course outcomes. Until that runs, relabel cohort views as descriptive and strip any predictive framing from the UI — that part is an afternoon.</td>
+        <td class="kind"><span class="kd kd-study">Study</span></td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+      <tr>
+        <td class="item">136 adaptation writes with no reader<span>Engine</span></td>
+        <td class="how">Triage before building. Expect most to be redundant with transforms that already run, and perhaps twenty worth wiring. One PR per parameter family, ratchet drops as each lands. The Coverage gate already enumerates them, so the worklist writes itself.</td>
+        <td class="kind">Code</td>
+        <td class="size"><span class="sz sz-l">L</span></td>
+      </tr>
+      <tr>
+        <td class="item">Scheduler bypassed<span>Engine</span></td>
+        <td class="how">A decision, not a build. Either accept it — the single-Unit rule is deliberate and a global scheduler would fight it — and stop describing the course as adaptively sequenced; or run the scheduler <i>inside</i> the locked Unit to order objectives, which is a change to the bypass condition and little else.</td>
+        <td class="kind">Decision</td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- GAPS -->
+  <div class="shead">Closing the gaps · 17 rows, 12 pieces of work</div>
+  <p class="slede">Several rows collapse into one build: the dimension axis closes three, misconception modelling closes two, fidelity checking closes two. <b>Five of the twelve are studies or config, not engineering</b> — and three of the studies need SIAS at the table, so they are calendar-bound however much engineering time exists. The two biggest builds both came down a size once we checked the store they would write to.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Item</th><th>How we’d do it</th><th>Kind</th><th>Size</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="item">Per-objective dimension axis<span>Closes 3 rows</span></td>
+        <td class="how"><b>The highest-value build here</b> — it is the course’s headline promise, and it is smaller than it looked. No migration: dimensions ride <code>CallerAttribute</code> as a key convention, the way <code>lo_mastery:{unit}:{lo}</code> already does. Author the three dimensions per objective in the course reference, extend the parser, have the exam scoring spec emit per-dimension tiers, render the close from them.</td>
+        <td class="kind">Spec + code</td>
+        <td class="size"><span class="sz sz-m">M</span></td>
+      </tr>
+      <tr>
+        <td class="item">Teaching-fidelity audit<span>Closes 2 rows</span></td>
+        <td class="how"><b>Best value per day of anything on this page.</b> A SUPERVISE spec reading the transcript against the authored model: was there one probe before teaching, was exactly one rung taught, did the sibling re-ask happen, was the silence held. The authored rules are specific enough to check mechanically. Not pure data — SUPERVISE runners are per-spec TypeScript, so this is a spec plus a runner file alongside <code>leak-scan.ts</code>, which is the pattern to copy.</td>
+        <td class="kind">Spec + code</td>
+        <td class="size"><span class="sz sz-m">M</span></td>
+      </tr>
+      <tr>
+        <td class="item">Misconception model<span>Closes 2 rows</span></td>
+        <td class="how">Mostly authoring. The tier descriptors are already specific enough to derive error types from — “names risk areas” versus “quantifies likelihood and impact” is a diagnosable difference. Author an error taxonomy per skill, have the scoring spec emit the type alongside the tier, write it to the same attribute store, surface it in the close and the next opener. No migration here either.</td>
+        <td class="kind"><span class="kd kd-data">Data</span> + spec</td>
+        <td class="size"><span class="sz sz-m">M</span></td>
+      </tr>
+      <tr>
+        <td class="item">Waiver writes an unread status<span>Engine</span></td>
+        <td class="how"><b>Smallest fix, largest semantic payoff.</b> The waiver currently writes <code>MASTERED</code>, which no reader recognises, so it does nothing at all. <code>CallerModuleProgress.status</code> is a plain string whose own comment lists the values in use, so <code>WAIVED</code> is a new value, not a schema change. Add it, and teach the picker to treat it as done so nobody is trapped while reporting and readiness treat it as no evidence, which is what it is.</td>
+        <td class="kind">Code</td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+      <tr>
+        <td class="item">Advance-rule reconciliation<span>Educator</span></td>
+        <td class="how">Implement “two consecutive landings above prior tier” as the objective-level advance, or retire it from the document. Either is fine; the current state — a documented rule the system silently ignores in favour of a different one — is not.</td>
+        <td class="kind">Code</td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+      <tr>
+        <td class="item">Self-explanation prompts<span>Learner</span></td>
+        <td class="how">Authorable today with no engine change. Add an error-detection move to the teaching rules — “you said X; what’s missing from that?” — as a scaffolding technique alongside the existing ones. Costs an afternoon of authoring and needs a fidelity check to confirm it fires.</td>
+        <td class="kind"><span class="kd kd-data">Data</span></td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+      <tr>
+        <td class="item">Profiling: switch off<span>Closes 2 rows</span></td>
+        <td class="how">The five companion-domain specs were written for a different product and never scoped out. Disabling them for professional courses is a configuration change measured in hours, and it is the recommendation.</td>
+        <td class="kind"><span class="kd kd-data">Data</span></td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+      <tr>
+        <td class="item">Profiling: make it legitimate<span>Only if kept</span></td>
+        <td class="how">If any signal survives, each needs a named validated construct, a stated purpose, an educator consent surface, a retention limit, learner notice, and a contractual bar on employer access. That is a programme, not a ticket — which is itself the argument for the row above.</td>
+        <td class="kind">Policy + code</td>
+        <td class="size"><span class="sz sz-xl">XL</span></td>
+      </tr>
+      <tr>
+        <td class="item">Per-objective decay<span>Educator</span></td>
+        <td class="how">Half the job is already done: <code>skillScoringEmaHalfLifeDays</code> is a live per-course knob, so <i>skill</i> decay is a value away. What is hardcoded is the per-objective store, which is a monotonic maximum with no decay path at all. Give it a half-life the educator sets, defaulting to none so nothing existing shifts.</td>
+        <td class="kind"><span class="kd kd-data">Data</span> + code</td>
+        <td class="size"><span class="sz sz-m">M</span></td>
+      </tr>
+      <tr>
+        <td class="item">Fairness audit<span>Assessor</span></td>
+        <td class="how">Tier distributions by first language, accent, sector and age. One query and a statistics pass once there is volume. Should be standing rather than one-off — quarterly, charted, with a threshold that triggers review.</td>
+        <td class="kind"><span class="kd kd-study">Study</span></td>
+        <td class="size"><span class="sz sz-s">S</span></td>
+      </tr>
+      <tr>
+        <td class="item">Assessor agreement + moderation<span>Assessor</span></td>
+        <td class="how">One experienced assessor blind-tiers thirty transcripts; compute agreement. Then stand up a sample review — 5% of sessions re-tiered monthly, drift charted against model version. The loop is small to build; it needs a human assessor’s time booked.</td>
+        <td class="kind"><span class="kd kd-study">Study</span> + code</td>
+        <td class="size"><span class="sz sz-m">M</span></td>
+      </tr>
+      <tr>
+        <td class="item">Standard setting<span>Assessor</span></td>
+        <td class="how">A modified-Angoff panel over the tier descriptors, establishing where Practitioner sits relative to the qualification’s pass standard. Needs SIAS in the room. Nothing to build, and nothing else on this page substitutes for it.</td>
+        <td class="kind"><span class="kd kd-study">Study</span></td>
+        <td class="size"><span class="sz sz-xl">XL</span></td>
+      </tr>
+      <tr>
+        <td class="item">Examiner agreement study<span>Assessor</span></td>
+        <td class="how">Thirty to fifty candidates carrying both an HF tier and a real SIAS outcome. No engineering at all — it needs a partner agreement and a cohort that has actually sat the examination. Start the conversation early; the data takes a cycle to exist.</td>
+        <td class="kind"><span class="kd kd-study">Study</span></td>
+        <td class="size"><span class="sz sz-xl">XL</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="pull keep">
+    <div class="glyph">IF YOU DID FOUR</div>
+    <div>
+      <p><b>Fidelity audit</b> (M), <b>the <code>WAIVED</code> status</b> (S), <b>advance-rule reconciliation</b> (S) and <b>switching profiling off</b> (S) come to roughly a fortnight between them. They close six rows, remove the two findings hardest to defend in an interview, and none of them waits on anyone outside the team.</p>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <h4>Where the two cheapest tests sit</h4>
+    <p><b>Fidelity audit.</b> Fifty transcripts, checked against the authored model: was one rung taught, was there one probe, was the silence held, did the sibling re-ask happen. No external party needed, and it tests the thing the product actually claims.</p>
+    <p><b>Assessor agreement.</b> One experienced SIAS assessor, thirty transcripts, blind tiering against the same rubric. Moves concurrent validity from absent to measured.</p>
+    <p>Together they cover both halves of the question an education expert will ask: does the teaching happen, and is the measurement real.</p>
+  </footer>
+
+</div>
